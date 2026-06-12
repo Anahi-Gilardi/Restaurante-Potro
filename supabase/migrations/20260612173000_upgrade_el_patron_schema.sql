@@ -5,8 +5,8 @@
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Drop old restrictive CHECK constraints that blocked real menu categories such as
--- Entradas, Pastas, Carnes, Pescados, Criollas, Postres, Bebidas and Bodega.
+-- Drop old restrictive CHECK/FK constraints that blocked real menu categories and
+-- can also block converting legacy numeric product ids to stable text ids.
 DO $$
 DECLARE
   constraint_row RECORD;
@@ -14,7 +14,7 @@ BEGIN
   FOR constraint_row IN
     SELECT conrelid::regclass AS table_name, conname AS constraint_name
     FROM pg_constraint
-    WHERE contype = 'c'
+    WHERE contype IN ('c', 'f')
       AND conrelid::regclass::text IN (
         'productos_menu',
         'pedido_detalle',
@@ -33,6 +33,14 @@ END $$;
 -- such as prod_ojo_bife and prod_vin_trumpeter, so normalize FK columns to TEXT.
 ALTER TABLE IF EXISTS productos_menu
   ALTER COLUMN id_producto TYPE TEXT USING id_producto::TEXT;
+
+ALTER TABLE IF EXISTS productos_menu
+  ALTER COLUMN activo TYPE BOOLEAN USING (
+    CASE
+      WHEN activo::TEXT IN ('true', 't', '1', 'yes', 'on') THEN true
+      ELSE false
+    END
+  );
 
 ALTER TABLE IF EXISTS recetas_escandallo
   ALTER COLUMN id_producto TYPE TEXT USING id_producto::TEXT;
