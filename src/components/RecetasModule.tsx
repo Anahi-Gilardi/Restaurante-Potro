@@ -1,0 +1,241 @@
+import React, { useState } from 'react';
+import { ChefHat, Hammer, Tag, AlertTriangle, Plus, Scale } from 'lucide-react';
+import { RecetaEscandallo, ProductoMenu, Insumo } from '../types';
+
+interface RecetasModuleProps {
+  recetas: RecetaEscandallo[];
+  productosMenu: ProductoMenu[];
+  insumos: Insumo[];
+  addLog: (tipo: any, mensaje: string) => void;
+}
+
+export default function RecetasModule({
+  recetas,
+  productosMenu,
+  insumos,
+  addLog
+}: RecetasModuleProps) {
+  const [activeTabRecipe, setActiveTabRecipe] = useState<string>(productosMenu[0]?.id_producto || '');
+
+  // Add ingredient state
+  const [selectedInsumoId, setSelectedInsumoId] = useState('');
+  const [cantidadUsar, setCantidadUsar] = useState('');
+  const [localRecetas, setLocalRecetas] = useState<RecetaEscandallo[]>(recetas);
+
+  const selectedProduct = productosMenu.find(p => p.id_producto === activeTabRecipe);
+  const currentRecipeItems = localRecetas.filter(r => r.id_producto === activeTabRecipe);
+
+  // Cost calculation based on fake or actual estimates
+  const calculatedCost = currentRecipeItems.reduce((acc, recipe) => {
+    const matchedInsumo = insumos.find(i => i.id_insumo === recipe.id_insumo);
+    if (!matchedInsumo) return acc;
+    // Let's estimate cost per unit/g/ml (e.g., $10 per g for meat, $1.5 per ml, etc.)
+    let unitCostVal = 5; // average cost factor
+    if (matchedInsumo.id_insumo.includes('bife')) unitCostVal = 18;
+    if (matchedInsumo.id_insumo.includes('entrana')) unitCostVal = 24;
+    if (matchedInsumo.id_insumo.includes('vin_rutini')) unitCostVal = 12000;
+    if (matchedInsumo.id_insumo.includes('vin_malbec')) unitCostVal = 2500;
+    if (matchedInsumo.id_insumo.includes('papa')) unitCostVal = 1.2;
+    if (matchedInsumo.id_insumo.includes('queso')) unitCostVal = 8;
+    
+    // cost = quantity * unit factor
+    const recipeCost = recipe.cantidad_a_descontar * (unitCostVal / 100); 
+    return acc + recipeCost;
+  }, 0);
+
+  const handleAddIngredient = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedInsumoId || !cantidadUsar || !activeTabRecipe) return;
+
+    const matchedIn = insumos.find(i => i.id_insumo === selectedInsumoId);
+    if (!matchedIn) return;
+
+    const newRec: RecetaEscandallo = {
+      id_receta: `rec_new_${Date.now()}`,
+      id_producto: activeTabRecipe,
+      id_insumo: selectedInsumoId,
+      cantidad_a_descontar: parseFloat(cantidadUsar)
+    };
+
+    setLocalRecetas(prev => [...prev, newRec]);
+    addLog('sistema', `ESCANDALLO: Agregado insumo ${matchedIn.nombre} (${cantidadUsar} ${matchedIn.unidad_medida}) a la receta de ${selectedProduct?.nombre}`);
+    setCantidadUsar('');
+    setSelectedInsumoId('');
+  };
+
+  const handleRemoveRecipeItem = (id: string) => {
+    const targetItem = localRecetas.find(r => r.id_receta === id);
+    if (!targetItem) return;
+    const matchedIn = insumos.find(i => i.id_insumo === targetItem.id_insumo);
+    setLocalRecetas(prev => prev.filter(r => r.id_receta !== id));
+    addLog('sistema', `ESCANDALLO: Removido insumo ${matchedIn ? matchedIn.nombre : targetItem.id_insumo} de la receta de ${selectedProduct?.nombre}`);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* Left col: list of dish recipes selection */}
+        <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs space-y-3">
+          <h3 className="text-xs font-black text-stone-500 uppercase tracking-wider">Recetarios Habilitados</h3>
+          <div className="space-y-1.5 max-h-[360px] overflow-y-auto pr-1">
+            {productosMenu.filter(p => p.categoria === 'cocina').map(p => {
+              const isSelected = activeTabRecipe === p.id_producto;
+              const count = localRecetas.filter(r => r.id_producto === p.id_producto).length;
+
+              return (
+                <button
+                  key={p.id_producto}
+                  onClick={() => setActiveTabRecipe(p.id_producto)}
+                  className={`w-full p-3 rounded-xl border text-left transition-all flex items-center justify-between cursor-pointer ${
+                    isSelected
+                      ? 'bg-[#624A3E] text-white border-[#5d3a2e] shadow-sm'
+                      : 'bg-stone-50 hover:bg-[#F5F1E9]/50 text-stone-700 border-stone-200'
+                  }`}
+                >
+                  <div className="min-w-0 flex items-center gap-2.5">
+                    <img 
+                      src={p.imagen} 
+                      alt={p.nombre} 
+                      referrerPolicy="no-referrer"
+                      className="w-8 h-8 rounded-lg object-cover shrink-0 border border-stone-200/50"
+                    />
+                    <div className="truncate">
+                      <span className="text-[9px] font-bold block uppercase opacity-75">Producto base</span>
+                      <strong className="text-xs font-extrabold truncate block">{p.nombre}</strong>
+                    </div>
+                  </div>
+                  <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full font-mono ${isSelected ? 'bg-white/20 text-white' : 'bg-stone-250 text-stone-550'}`}>
+                    {count} ing
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Right 2 cols: active recipe breakdown with escandallo controls */}
+        {selectedProduct ? (
+          <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-xs lg:col-span-2 space-y-4">
+            
+            {/* Header info */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-stone-100">
+              <div className="flex items-center gap-3">
+                <img 
+                  src={selectedProduct.imagen} 
+                  alt={selectedProduct.nombre} 
+                  referrerPolicy="no-referrer"
+                  className="w-12 h-12 rounded-xl object-cover shrink-0 border border-stone-200"
+                />
+                <div>
+                  <h4 className="text-sm font-black text-stone-900 tracking-tight leading-none">{selectedProduct.nombre}</h4>
+                  <span className="text-[10px] text-stone-400 block mt-1">Precio sugerido de venta en mesa: <strong>${selectedProduct.precio_venta.toLocaleString('es-AR')}</strong></span>
+                </div>
+              </div>
+
+              {/* Cost of Goods Sold (COGS) metric */}
+              <div className="bg-stone-50 p-2.5 rounded-xl border border-stone-200 text-right">
+                <span className="text-[9px] text-stone-500 font-bold block uppercase leading-none">Costo Materia Prima</span>
+                <strong className="text-sm font-black text-stone-900 font-mono tracking-tight">${calculatedCost.toFixed(2)}</strong>
+                <span className="text-[8px] text-[#22C55E] block font-extrabold">% Margen: {(((selectedProduct.precio_venta - calculatedCost) / selectedProduct.precio_venta) * 100).toFixed(1)}%</span>
+              </div>
+            </div>
+
+            {/* List of escandallos ingredients */}
+            <div className="space-y-2">
+              <h5 className="text-[10px] font-black text-stone-500 uppercase tracking-wider">Ingredientes Asociados</h5>
+              {currentRecipeItems.length === 0 ? (
+                <div className="p-6 text-center bg-stone-50 rounded-2xl border border-dashed border-stone-200 space-y-1">
+                  <ChefHat className="w-8 h-8 text-stone-300 mx-auto" />
+                  <p className="text-xs font-bold text-stone-600">No hay escandallos asociados</p>
+                  <p className="text-[10px] text-stone-400">Agregue mermas de stock por ingredientes abajo.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-2">
+                  {currentRecipeItems.map(rec => {
+                    const matchedInsumo = insumos.find(i => i.id_insumo === rec.id_insumo);
+                    if (!matchedInsumo) return null;
+
+                    return (
+                      <div key={rec.id_receta} className="p-3 bg-stone-50/50 border border-stone-150 rounded-xl flex items-center justify-between text-xs hover:bg-[#F5F1E9]/30 transition-colors">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 bg-[#624A3E]/10 rounded-lg flex items-center justify-center text-[#624A3E]">
+                            <Scale className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <span className="font-extrabold text-stone-800 block">{matchedInsumo.nombre}</span>
+                            <span className="text-[10px] text-stone-400 uppercase font-mono">ID Insumo: {rec.id_insumo}</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-4">
+                          <div className="text-right">
+                            <span className="text-xs font-black text-stone-900 font-mono">{rec.cantidad_a_descontar} {matchedInsumo.unidad_medida}</span>
+                            <span className="text-[9px] text-stone-400 block font-bold leading-none">de descuento</span>
+                          </div>
+                          <button 
+                            onClick={() => handleRemoveRecipeItem(rec.id_receta)}
+                            className="p-1 px-2 rounded-lg bg-rose-50 text-rose-500 hover:bg-rose-100 transition-colors cursor-pointer text-[10px] font-bold"
+                          >
+                            Eliminar
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Quick add form */}
+            <form onSubmit={handleAddIngredient} className="bg-[#F5F1E9]/30 p-4 rounded-xl border border-stone-200/60 space-y-3 pt-3">
+              <span className="text-[10px] font-black text-stone-500 uppercase tracking-wider block">Asociar Materia Prima / Escandallo</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[9px] font-black text-stone-500 uppercase block mb-1">Insumo Base</label>
+                  <select
+                    value={selectedInsumoId}
+                    onChange={e => setSelectedInsumoId(e.target.value)}
+                    className="w-full text-xs p-2 rounded-lg border border-stone-250 bg-white focus:outline-none focus:ring-1 focus:ring-[#624A3E] cursor-pointer"
+                    required
+                  >
+                    <option value="">-- Seleccionar --</option>
+                    {insumos.map(ins => (
+                      <option key={ins.id_insumo} value={ins.id_insumo}>{ins.nombre} ({ins.unidad_medida})</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[9px] font-black text-stone-500 uppercase block mb-1">Cantidad a Descontar</label>
+                  <input 
+                    type="number"
+                    step="0.01"
+                    placeholder="Ej: 150"
+                    value={cantidadUsar}
+                    onChange={e => setCantidadUsar(e.target.value)}
+                    className="w-full text-xs p-2 rounded-lg border border-stone-250 bg-white focus:outline-none focus:ring-1 focus:ring-[#624A3E]"
+                    required
+                  />
+                </div>
+              </div>
+
+              <button 
+                type="submit"
+                className="w-full py-2 bg-[#624A3E] hover:bg-[#503C32] text-white text-[11px] font-extrabold rounded-lg transition-all cursor-pointer"
+              >
+                Vincular Insumo a la Receta
+              </button>
+            </form>
+
+          </div>
+        ) : (
+          <div className="bg-white p-6 rounded-2xl border border-stone-200 lg:col-span-2 text-center py-12">
+            No se seleccionó platillo base.
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+}

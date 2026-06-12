@@ -19,7 +19,11 @@ import {
   Sliders,
   ShieldCheck,
   Smartphone,
-  Eye
+  Eye,
+  Scale,
+  Truck,
+  Tag,
+  Calendar
 } from 'lucide-react';
 
 import { Mesa, Insumo, ProductoMenu, RecetaEscandallo, Pedido, Merma, EventoLog } from './types';
@@ -36,20 +40,89 @@ import MozoTerminal from './components/MozoTerminal';
 import KitchenMonitor from './components/KitchenMonitor';
 import InventoryModule from './components/InventoryModule';
 import BusinessIntelligence from './components/BusinessIntelligence';
-import SimulationControls from './components/SimulationControls';
 import CajaModule from './components/CajaModule';
 import SistemaModule from './components/SistemaModule';
 import PythonStreamlitLogin from './components/PythonStreamlitLogin';
+import PanelDashboard from './components/PanelDashboard';
+import UsuariosModule from './components/UsuariosModule';
+import MenuModule from './components/MenuModule';
+import RecetasModule from './components/RecetasModule';
+import MesasModule from './components/MesasModule';
+import ProveedoresModule from './components/ProveedoresModule';
+import PromocionesModule from './components/PromocionesModule';
+import ReservasModule from './components/ReservasModule';
+import FacturacionModule from './components/FacturacionModule';
+import BackupsModule from './components/BackupsModule';
+import { 
+  getSupabaseClient,
+  dbFetchMesas,
+  dbFetchInsumos,
+  dbFetchProductosMenu,
+  dbFetchRecetas,
+  dbSavePedidoComplex,
+  dbUpsertMesas,
+  dbUpsertInsumos
+} from './supabase';
 
 export default function App() {
   // --- Global Synced States ---
   const [isStreamlitLoggedIn, setIsStreamlitLoggedIn] = useState<boolean>(false);
   const [mesas, setMesas] = useState<Mesa[]>(INITIAL_MESAS);
   const [insumos, setInsumos] = useState<Insumo[]>(INITIAL_INSUMOS);
-  const [productosMenu] = useState<ProductoMenu[]>(INITIAL_PRODUCTOS_MENU);
-  const [recetas] = useState<RecetaEscandallo[]>(INITIAL_RECETAS_ESCANDALLO);
+  const [productosMenu, setProductosMenu] = useState<ProductoMenu[]>(INITIAL_PRODUCTOS_MENU);
+  const [recetas, setRecetas] = useState<RecetaEscandallo[]>(INITIAL_RECETAS_ESCANDALLO);
   const [pedidos, setPedidos] = useState<Pedido[]>(INITIAL_PEDIDOS);
   const [mermas, setMermas] = useState<Merma[]>([]);
+
+  // Auto-sync effect on mount
+  useEffect(() => {
+    const autoLoadSupabase = async () => {
+      const client = getSupabaseClient();
+      if (!client) return;
+      try {
+        const dbMesas = await dbFetchMesas();
+        const dbInsumos = await dbFetchInsumos();
+        const dbProducts = await dbFetchProductosMenu();
+        const dbRecipes = await dbFetchRecetas();
+
+        if (dbMesas && dbMesas.length > 0) {
+          setMesas(dbMesas.map(m => ({
+            id_mesa: m.id_mesa,
+            numero_mesa: m.numero_mesa,
+            estado: m.estado || 'libre',
+            comensales: m.comensales || undefined
+          })));
+        }
+        if (dbInsumos && dbInsumos.length > 0) {
+          setInsumos(dbInsumos);
+        }
+        if (dbProducts && dbProducts.length > 0) {
+          setProductosMenu(dbProducts);
+        }
+        if (dbRecipes && dbRecipes.length > 0) {
+          setRecetas(dbRecipes);
+        }
+        addLog('sistema', 'SUPABASE: Auto-sincronización exitosa en el arranque de la aplicación.');
+      } catch (err) {
+        console.warn('Supabase: Falló auto-sync en el arranque. Usando datos SQLite locales.', err);
+      }
+    };
+    autoLoadSupabase();
+  }, []);
+
+  // Sync completion callback handed to settings
+  const handleSupabaseSync = (newData: {
+    mesas?: Mesa[];
+    insumos?: Insumo[];
+    productosMenu?: ProductoMenu[];
+    recetas?: RecetaEscandallo[];
+  }) => {
+    if (newData.mesas) setMesas(newData.mesas);
+    if (newData.insumos) setInsumos(newData.insumos);
+    if (newData.productosMenu) setProductosMenu(newData.productosMenu);
+    if (newData.recetas) setRecetas(newData.recetas);
+  };
+
   
   // Custom interactive log tracker for BI & audit
   const [logs, setLogs] = useState<EventoLog[]>([
@@ -75,7 +148,9 @@ export default function App() {
 
   // Terminal active configs & simulation states
   const [activeMozo, setActiveMozo] = useState<string>('Enzo');
-  const [activeView, setActiveView] = useState<'mozo' | 'cocina' | 'inventario' | 'bi' | 'caja' | 'sistema'>('mozo');
+  const [activeView, setActiveView] = useState<
+    'panel' | 'mozo' | 'cocina' | 'caja' | 'reportes' | 'usuarios' | 'menu' | 'recetas' | 'mesas' | 'inventario' | 'proveedores' | 'promociones' | 'reservas' | 'facturacion' | 'sistema' | 'backups'
+  >('panel');
 
   // Simulation Clock state (operational minutes passed)
   const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
@@ -109,9 +184,14 @@ export default function App() {
     setPedidos(prev => [newPedido, ...prev]);
 
     // Update mesa occupied
-    setMesas(prev => prev.map(m => m.id_mesa === newPedidoData.id_mesa ? { ...m, estado: 'ocupada', comensales: newPedidoData.comensales || 2 } : m));
+    const updatedMesas = mesas.map(m => m.id_mesa === newPedidoData.id_mesa ? { ...m, estado: 'ocupada' as const, comensales: newPedidoData.comensales || 2 } : m);
+    setMesas(updatedMesas);
 
     addLog('pedido_creado', `Mesa ${newPedidoData.numero_mesa} generó pedido #${newId} por ${newPedido.mozo}. Items: ${newPedidoData.items.map(i => `${i.nombre} (x${i.cantidad})`).join(', ')}`);
+
+    // Sync state mutations to Supabase in background
+    dbSavePedidoComplex(newPedido);
+    dbUpsertMesas(updatedMesas);
   };
 
   const handleMozoChange = (mozo: string) => {
@@ -121,12 +201,15 @@ export default function App() {
 
   // --- Handlers for Kitchen View (KDS) ---
   const handleCambiarEstadoPedido = (idPedido: number, nuevoEstado: Pedido['estado_comanda']) => {
+    let updatedPedido: Pedido | null = null;
+    
     setPedidos(prev => prev.map(p => {
       if (p.id_pedido === idPedido) {
         const updated = { ...p, estado_comanda: nuevoEstado };
         if (nuevoEstado === 'listo') {
           updated.segundos_en_listo = 0; // reset cooling timer
         }
+        updatedPedido = updated;
         return updated;
       }
       return p;
@@ -136,9 +219,20 @@ export default function App() {
     const mStr = pObj ? ` para ${pObj.numero_mesa}` : '';
     addLog('comanda_estado', `COMANDA #${idPedido}${mStr}: Estado cambiado a ${nuevoEstado.toUpperCase()}`);
 
+    // Dynamic write-through
+    setTimeout(() => {
+      if (updatedPedido) {
+        dbSavePedidoComplex(updatedPedido);
+      } else if (pObj) {
+        dbSavePedidoComplex({ ...pObj, estado_comanda: nuevoEstado });
+      }
+    }, 50);
+
     // If order was delivered/paid via waiters, liberate the table
     if (nuevoEstado === 'entregado_cobrado' && pObj) {
-      setMesas(prev => prev.map(m => m.id_mesa === pObj.id_mesa ? { ...m, estado: 'libre', comensales: undefined } : m));
+      const updatedMesas = mesas.map(m => m.id_mesa === pObj.id_mesa ? { ...m, estado: 'libre' as const, comensales: undefined } : m);
+      setMesas(updatedMesas);
+      dbUpsertMesas(updatedMesas);
     }
   };
 
@@ -148,12 +242,12 @@ export default function App() {
 
     let itemsDescontados: string[] = [];
     let alarmasBajoStock: string[] = [];
+    let updatedInsumos: Insumo[] = [];
 
     setInsumos(prevInsumos => {
       const copy = prevInsumos.map(ins => ({ ...ins }));
 
       targetPedido.items.forEach(pItem => {
-        // Multiplier is the quantity of plates requested
         const qtyPlates = pItem.cantidad;
         const matchingRecetas = recetas.filter(r => r.id_producto === pItem.id_producto);
 
@@ -174,6 +268,7 @@ export default function App() {
         });
       });
 
+      updatedInsumos = copy;
       return copy;
     });
 
@@ -184,6 +279,13 @@ export default function App() {
     alarmasBajoStock.forEach(nom => {
       addLog('alerta_stock', `CONTROL REPOSICIÓN: El insumo '${nom}' ha caído por debajo del stock de seguridad estipulado.`);
     });
+
+    // Write through stocks to Supabase
+    setTimeout(() => {
+      if (updatedInsumos.length > 0) {
+        dbUpsertInsumos(updatedInsumos);
+      }
+    }, 50);
 
     handleCambiarEstadoPedido(idPedido, 'en_cocina');
   };
@@ -197,9 +299,14 @@ export default function App() {
     setPedidos(prev => prev.map(p => p.id_pedido === idPedido ? { ...p, estado_comanda: 'entregado_cobrado' } : p));
 
     // Clear mesa state
-    setMesas(prev => prev.map(m => m.id_mesa === target.id_mesa ? { ...m, estado: 'libre', comensales: undefined } : m));
+    const updatedMesas = mesas.map(m => m.id_mesa === target.id_mesa ? { ...m, estado: 'libre' as const, comensales: undefined } : m);
+    setMesas(updatedMesas);
 
     addLog('sistema', `CAJA: Facturación completa cobrada correctamente de la mesa ${target.numero_mesa} por Pedido #${idPedido}`);
+
+    // Supabase pushes
+    dbSavePedidoComplex({ ...target, estado_comanda: 'entregado_cobrado' });
+    dbUpsertMesas(updatedMesas);
   };
 
   // --- Handlers for Inventory View ---
@@ -220,33 +327,45 @@ export default function App() {
     setMermas(prev => [newMerma, ...prev]);
 
     // Subtract from active stock
-    setInsumos(prev => prev.map(i => i.id_insumo === idInsumo ? {
+    const updatedInsumos = insumos.map(i => i.id_insumo === idInsumo ? {
       ...i,
       stock_actual: Math.max(0, parseFloat((i.stock_actual - cantidad).toFixed(2)))
-    } : i));
+    } : i);
+    setInsumos(updatedInsumos);
 
     addLog('merma_registrada', `REGISTRO MERMA: ${cantidad} ${insObj.unidad_medida} de '${insObj.nombre}' registrado por motivo: ${motivo.toUpperCase()}`);
+
+    // Sync inventory reduction
+    dbUpsertInsumos(updatedInsumos);
   };
 
   const handleRestockInsumo = (idInsumo: string, cantidad: number) => {
-    setInsumos(prev => prev.map(i => i.id_insumo === idInsumo ? {
+    const updatedInsumos = insumos.map(i => i.id_insumo === idInsumo ? {
       ...i,
       stock_actual: parseFloat((i.stock_actual + cantidad).toFixed(2))
-    } : i));
+    } : i);
+    setInsumos(updatedInsumos);
 
     const item = insumos.find(i => i.id_insumo === idInsumo);
     addLog('sistema', `REPOSICIÓN: Incremetado stock de '${item ? item.nombre : idInsumo}' en +${cantidad}`);
+
+    // Sync inventory write
+    dbUpsertInsumos(updatedInsumos);
   };
 
   const handleRestockTodo = () => {
-    setInsumos(prev => prev.map(i => {
+    const updatedInsumos = insumos.map(i => {
       const restockAmt = i.unidad_medida === 'unidades' ? 10 : 3000;
       return {
         ...i,
         stock_actual: i.stock_actual + restockAmt
       };
-    }));
+    });
+    setInsumos(updatedInsumos);
     addLog('sistema', `REPOSICIÓN GENERAL: Abastecimiento global automático de todos los insumos y materias primas.`);
+
+    // Sync bulk inventory
+    dbUpsertInsumos(updatedInsumos);
   };
 
   // --- Handlers for Simulation Controls ---
@@ -456,125 +575,43 @@ export default function App() {
         {/* Multi-role Navigation Panels */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           <div className="space-y-1">
-            <span className="text-[10px] font-black text-stone-500 tracking-wider uppercase pl-2">Módulos del Sistema</span>
+            <span className="text-[10px] font-black text-stone-500 tracking-wider uppercase pl-2 mb-2 block">Módulos del Sistema</span>
             
-            <nav className="space-y-1" id="sidebar-navigation">
-              <button
-                id="tab-mozo"
-                onClick={() => setActiveView('mozo')}
-                className={`w-full py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${
-                  activeView === 'mozo'
-                    ? 'bg-[#624A3E] text-white shadow-md shadow-[#624A3E]/30 font-extrabold border border-amber-900/10'
-                    : 'text-stone-400 hover:text-stone-100 hover:bg-stone-800/60'
-                }`}
-              >
-                <span className="flex items-center gap-2.5">
-                  <Smartphone className="w-4 h-4 shrink-0 font-medium" />
-                  Terminal Mozo
-                </span>
-                <span className={`text-[10px] font-bold font-mono px-1.5 py-0.5 rounded-full ${
-                  activeView === 'mozo' ? 'bg-white/20 text-white' : 'bg-stone-800 text-stone-300'
-                }`}>
-                  {occupiedTablesCount}/{mesas.length} Mesas
-                </span>
-              </button>
-
-              <button
-                id="tab-cocina"
-                onClick={() => setActiveView('cocina')}
-                className={`w-full py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${
-                  activeView === 'cocina'
-                    ? 'bg-[#624A3E] text-white shadow-md shadow-[#624A3E]/30 font-extrabold border border-amber-900/10'
-                    : 'text-stone-400 hover:text-stone-100 hover:bg-stone-800/60'
-                }`}
-              >
-                <span className="flex items-center gap-2.5">
-                  <ChefHat className="w-4 h-4 shrink-0" />
-                  Cocina KDS
-                </span>
-                {activeOrdersCount > 0 && (
-                  <span className={`text-[10px] font-bold font-mono px-2 py-0.5 rounded-full animate-pulse-slow ${
-                    activeView === 'cocina' ? 'bg-white text-[#624A3E]' : 'bg-amber-500/20 text-amber-400'
-                  }`}>
-                    {activeOrdersCount} Activos
-                  </span>
-                )}
-              </button>
-
-              <button
-                id="tab-caja"
-                onClick={() => setActiveView('caja')}
-                className={`w-full py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${
-                  activeView === 'caja'
-                    ? 'bg-[#624A3E] text-white shadow-md shadow-[#624A3E]/30 font-extrabold border border-amber-900/10'
-                    : 'text-stone-400 hover:text-stone-100 hover:bg-stone-800/60'
-                }`}
-              >
-                <span className="flex items-center gap-2.5">
-                  <Receipt className="w-4 h-4 shrink-0" />
-                  Caja & Cobros
-                </span>
-                {readyToCollectCount > 0 && (
-                  <span className={`text-[10px] font-bold font-mono px-2 py-0.5 rounded-full ${
-                    activeView === 'caja' ? 'bg-white text-[#624A3E]' : 'bg-emerald-500/20 text-emerald-400'
-                  }`}>
-                    {readyToCollectCount} Listo
-                  </span>
-                )}
-              </button>
-
-              <button
-                id="tab-inventario"
-                onClick={() => setActiveView('inventario')}
-                className={`w-full py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${
-                  activeView === 'inventario'
-                    ? 'bg-[#624A3E] text-white shadow-md shadow-[#624A3E]/30 font-extrabold border border-amber-900/10'
-                    : 'text-stone-400 hover:text-stone-100 hover:bg-stone-800/60'
-                }`}
-              >
-                <span className="flex items-center gap-2.5">
-                  <Database className="w-4 h-4 shrink-0" />
-                  Insumos & Receta
-                </span>
-                {lowStockCount > 0 && (
-                  <span className={`text-[10px] font-bold font-mono px-2 py-0.5 rounded-full ${
-                    activeView === 'inventario' ? 'bg-white text-[#624A3E] font-medium' : 'bg-red-500/20 text-red-400 font-extrabold'
-                  }`}>
-                    {lowStockCount} Bajo
-                  </span>
-                )}
-              </button>
-
-              <button
-                id="tab-bi"
-                onClick={() => setActiveView('bi')}
-                className={`w-full py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${
-                  activeView === 'bi'
-                    ? 'bg-[#624A3E] text-white shadow-md shadow-[#624A3E]/30 font-extrabold border border-amber-900/10'
-                    : 'text-stone-400 hover:text-stone-100 hover:bg-stone-800/60'
-                }`}
-              >
-                <span className="flex items-center gap-2.5">
-                  <TrendingUp className="w-4 h-4 shrink-0" />
-                  BI Reportes
-                </span>
-                <span className="text-[10px] font-mono text-stone-500 pl-1">{logs.length} logs</span>
-              </button>
-
-              <button
-                id="tab-sistema"
-                onClick={() => setActiveView('sistema')}
-                className={`w-full py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${
-                  activeView === 'sistema'
-                    ? 'bg-[#624A3E] text-white shadow-md shadow-[#624A3E]/30 font-extrabold border border-amber-900/10'
-                    : 'text-stone-400 hover:text-stone-100 hover:bg-stone-800/60'
-                }`}
-              >
-                <span className="flex items-center gap-2.5">
-                  <Terminal className="w-4 h-4 shrink-0" />
-                  Config Sistema
-                </span>
-              </button>
+            <nav className="space-y-2" id="sidebar-navigation">
+              {[
+                { id: 'panel', label: 'Panel' },
+                { id: 'mozo', label: 'Mozo' },
+                { id: 'cocina', label: 'Cocina' },
+                { id: 'caja', label: 'Caja' },
+                { id: 'reportes', label: 'Reportes' },
+                { id: 'usuarios', label: 'Usuarios' },
+                { id: 'menu', label: 'Menu' },
+                { id: 'recetas', label: 'Recetas' },
+                { id: 'mesas', label: 'Mesas' },
+                { id: 'inventario', label: 'Inventario' },
+                { id: 'proveedores', label: 'Proveedores' },
+                { id: 'promociones', label: 'Promociones' },
+                { id: 'reservas', label: 'Reservas' },
+                { id: 'facturacion', label: 'Facturación' },
+                { id: 'sistema', label: 'Sistema' },
+                { id: 'backups', label: 'Backups' }
+              ].map(item => {
+                const isActive = activeView === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    id={`tab-${item.id}`}
+                    onClick={() => setActiveView(item.id as any)}
+                    className={`w-full py-3.5 text-center text-xs font-black rounded-lg tracking-wider border block transition-all cursor-pointer ${
+                      isActive
+                        ? 'bg-[#4D3227] text-white border-stone-800/10 font-bold shadow-md shadow-black/20'
+                        : 'bg-[#181816]/75 hover:bg-[#25231F] text-stone-300 hover:text-white border-stone-850/60'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                );
+              })}
             </nav>
           </div>
         </div>
@@ -595,21 +632,41 @@ export default function App() {
         {/* TOP STATUS BAR ACCENTS */}
         <div className="bg-[#F5F1E9] border-b border-stone-200/80 px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
           <div>
-            <h1 className="text-xl font-extrabold text-slate-900 capitalize tracking-tight flex items-center gap-2">
+            <h1 className="text-xl font-extrabold text-[#624A3E] capitalize tracking-tight flex items-center gap-2">
+              {activeView === 'panel' && <>📊 Panel de Control y Resumen de Turno</>}
               {activeView === 'mozo' && <>📱 Terminal Interactiva de Mozos</>}
               {activeView === 'cocina' && <>🍳 Monitor de Cocina (KDS)</>}
-              {activeView === 'caja' && <>💵 Control de Caja, Descuentos y Cierre</>}
-              {activeView === 'inventario' && <>📦 Gestión de Insumos & Escandallos de Recetas</>}
-              {activeView === 'bi' && <>📊 Analíticas Comerciales & Registro de Logs</>}
+              {activeView === 'caja' && <>💵 Control de Caja y Cierres</>}
+              {activeView === 'reportes' && <>📈 Analíticas de Desempeño & BI</>}
+              {activeView === 'usuarios' && <>👥 Personal y Usuarios de Turno</>}
+              {activeView === 'menu' && <>📖 Menú y Carta Gastronómica</>}
+              {activeView === 'recetas' && <>⚖️ Control de Escandallos y Recetas</>}
+              {activeView === 'mesas' && <>🪑 Distribución de Mesas en Salón</>}
+              {activeView === 'inventario' && <>📦 Gestión de Insumos & Recetas</>}
+              {activeView === 'proveedores' && <>🚚 Proveedores e Integraciones</>}
+              {activeView === 'promociones' && <>🏷️ Campañas de Promociones</>}
+              {activeView === 'reservas' && <>📅 Agenda de Reservas de Hoy</>}
+              {activeView === 'facturacion' && <>🧾 Archivo Tributario de Facturas</>}
               {activeView === 'sistema' && <>💻 Consola de Configuración General</>}
+              {activeView === 'backups' && <>🗄️ Copias de Seguridad (Backup)</>}
             </h1>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-stone-500 mt-0.5">
+              {activeView === 'panel' && 'Métricas macro, alertas críticas y bitácora operativa en tiempo real.'}
               {activeView === 'mozo' && 'Gestión táctil de ocupación de salón, comensales y envío asíncrono de comandas a cocina.'}
               {activeView === 'cocina' && 'Recepción en tiempo real, alertas de preparación con temporizador y descuento automático por receta.'}
               {activeView === 'caja' && 'Facturación completa, control de medios de pago, registros fiscales e historial impreso.'}
+              {activeView === 'reportes' && 'Visualizadores gráficos para toma de decisiones, facturación acumulada e historial.'}
+              {activeView === 'usuarios' && 'Roles, perfiles del personal y trazabilidad en el salón.'}
+              {activeView === 'menu' && 'Configuración de oferta comercial, precios públicos y estatus en carta.'}
+              {activeView === 'recetas' && 'Asociación de ingredientes crudos y cálculo automático de rendimiento y márgenes.'}
+              {activeView === 'mesas' && 'Visualización interactiva, asignación de mesas y control de capacidad.'}
               {activeView === 'inventario' && 'Análisis pormenorizado de stock actual, recetas, mermas cargadas y reposiciones.'}
-              {activeView === 'bi' && 'Visualizadores gráficos para toma de decisiones, facturación acumulada e historial.'}
+              {activeView === 'proveedores' && 'Contactos comerciales, plazos de entrega y reabastecimiento programado.'}
+              {activeView === 'promociones' && 'Incentivos de ventas, descuentos happy hour y combos especiales.'}
+              {activeView === 'reservas' && 'Planificación de visitas, comensales reservados y asignación de mesas.'}
+              {activeView === 'facturacion' && 'Historial de facturas comprobantes de venta, control de IVA y notas de crédito.'}
               {activeView === 'sistema' && 'Estatus de base de datos Postgres/Supabase, variables de entorno y copias de seguridad.'}
+              {activeView === 'backups' && 'Respaldo íntegro de la base de datos, descargas JSON y restauración de checkpoints.'}
             </p>
           </div>
 
@@ -624,17 +681,20 @@ export default function App() {
         {/* MAIN SCROLLABLE CONTENT */}
         <div className="flex-1 p-6 space-y-6 overflow-y-auto max-w-7xl w-full mx-auto">
           
-          {/* SIMULATION BAR CONTROLLER */}
-          <SimulationControls
-            minutosGlobal={minutosGlobal}
-            autoTimerRunning={autoTimerRunning}
-            onAdvanceTime={handleAdvanceTime}
-            onToggleAutoTimer={handleToggleAutoTimer}
-            onInjectDeliveryOrder={handleInjectDeliveryOrder}
-            onResetAllData={handleResetAllData}
-          />
-
           {/* ACTIVE TAB RENDER TRIAGE */}
+          {activeView === 'panel' && (
+            <div className="animate-fadeIn">
+              <PanelDashboard
+                mesas={mesas}
+                pedidos={pedidos}
+                insumos={insumos}
+                logs={logs}
+                getSimulatedTimeStr={getSimulatedTimeStr}
+                onNavigate={(view: any) => setActiveView(view)}
+              />
+            </div>
+          )}
+
           {activeView === 'mozo' && (
             <div className="animate-fadeIn">
               <MozoTerminal
@@ -675,6 +735,55 @@ export default function App() {
             </div>
           )}
 
+          {activeView === 'reportes' && (
+            <div className="animate-fadeIn">
+              <BusinessIntelligence
+                productosMenu={productosMenu}
+                logs={logs}
+              />
+            </div>
+          )}
+
+          {activeView === 'usuarios' && (
+            <div className="animate-fadeIn">
+              <UsuariosModule
+                logs={logs}
+                addLog={addLog}
+              />
+            </div>
+          )}
+
+          {activeView === 'menu' && (
+            <div className="animate-fadeIn">
+              <MenuModule
+                productosMenu={productosMenu}
+                setProductosMenu={setProductosMenu}
+                addLog={addLog}
+              />
+            </div>
+          )}
+
+          {activeView === 'recetas' && (
+            <div className="animate-fadeIn">
+              <RecetasModule
+                recetas={recetas}
+                productosMenu={productosMenu}
+                insumos={insumos}
+                addLog={addLog}
+              />
+            </div>
+          )}
+
+          {activeView === 'mesas' && (
+            <div className="animate-fadeIn">
+              <MesasModule
+                mesas={mesas}
+                onSubmitPedido={handleCrearPedido}
+                addLog={addLog}
+              />
+            </div>
+          )}
+
           {activeView === 'inventario' && (
             <div className="animate-fadeIn">
               <InventoryModule
@@ -690,11 +799,37 @@ export default function App() {
             </div>
           )}
 
-          {activeView === 'bi' && (
+          {activeView === 'proveedores' && (
             <div className="animate-fadeIn">
-              <BusinessIntelligence
-                productosMenu={productosMenu}
-                logs={logs}
+              <ProveedoresModule
+                onRestockTodo={handleRestockTodo}
+                addLog={addLog}
+              />
+            </div>
+          )}
+
+          {activeView === 'promociones' && (
+            <div className="animate-fadeIn">
+              <PromocionesModule
+                addLog={addLog}
+              />
+            </div>
+          )}
+
+          {activeView === 'reservas' && (
+            <div className="animate-fadeIn">
+              <ReservasModule
+                mesas={mesas}
+                addLog={addLog}
+              />
+            </div>
+          )}
+
+          {activeView === 'facturacion' && (
+            <div className="animate-fadeIn">
+              <FacturacionModule
+                pedidos={pedidos}
+                addLog={addLog}
               />
             </div>
           )}
@@ -707,6 +842,16 @@ export default function App() {
                 recetas={recetas}
                 pedidos={pedidos}
                 mesas={mesas}
+                addLog={addLog}
+                onSyncComplete={handleSupabaseSync}
+              />
+            </div>
+          )}
+
+          {activeView === 'backups' && (
+            <div className="animate-fadeIn">
+              <BackupsModule
+                onResetAllData={handleResetAllData}
                 addLog={addLog}
               />
             </div>

@@ -77,7 +77,41 @@ export default function MozoTerminal({
     if (id === 'prod_ensalada_cesar') return 'entradas';
     if (id === 'prod_tarta') return 'criollas';
     if (id.startsWith('prod_vino') || id === 'prod_agua' || id === 'prod_gaseosa') return 'bebidas';
+    
+    // Dynamic mapping from database/Supabase types
+    if (p.categoria === 'bebidas') return 'bebidas';
+    if (p.categoria === 'postres') return 'postres';
+    
+    // Kitchen categorization by content name key matching
+    const nombre = (p.nombre || '').toLowerCase();
+    if (nombre.includes('pasta') || nombre.includes('ñoqui') || nombre.includes('ravioli') || nombre.includes('tallarines') || nombre.includes('fideos') || nombre.includes('salsa')) {
+      return 'pastas';
+    }
+    if (nombre.includes('empanada') || nombre.includes('tarta') || nombre.includes('provoleta') || nombre.includes('criollo') || nombre.includes('pan')) {
+      return 'criollas';
+    }
+    if (nombre.includes('ensalada') || nombre.includes('entrada') || nombre.includes('sopa') || nombre.includes('bocadillo')) {
+      return 'entradas';
+    }
+    
+    // Default to 'carnes' if it is a kitchen/cocina item
+    if (p.categoria === 'cocina') return 'carnes';
+    
     return 'postres';
+  };
+
+  // Helper: check if product image exists, otherwise return a descriptive beautiful fallback
+  const getProductImageFallback = (p: ProductoMenu): string => {
+    if (p.imagen && p.imagen.trim() !== '' && p.imagen.trim().toUpperCase() !== 'NULO') {
+      return p.imagen;
+    }
+    if (p.categoria === 'bebidas') {
+      return 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&q=80';
+    }
+    if (p.categoria === 'postres') {
+      return 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&q=80';
+    }
+    return 'https://images.unsplash.com/photo-1544025162-d76694265947?w=400&q=80';
   };
 
   // Filter products by category and search
@@ -143,6 +177,12 @@ export default function MozoTerminal({
   const getSimulatedStockRemaining = (prod: ProductoMenu) => {
     // Find recipes associated to this product
     const productRecipes = recetas.filter(r => r.id_producto === prod.id_producto);
+    if (productRecipes.length === 0) {
+      // If there are no formulas/recipes, the item doesn't require deducting any raw material.
+      // Thus, it has a default high simulated stock (e.g. 99 units) instead of being locked with 0.
+      return 99;
+    }
+    
     let maxPlatesSimulated = 999;
 
     productRecipes.forEach(rec => {
@@ -486,7 +526,7 @@ export default function MozoTerminal({
                 {/* Product Image */}
                 <div className="h-28 w-full bg-stone-50 relative overflow-hidden">
                   <img
-                    src={p.imagen}
+                    src={getProductImageFallback(p)}
                     alt={p.nombre}
                     referrerPolicy="no-referrer"
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"

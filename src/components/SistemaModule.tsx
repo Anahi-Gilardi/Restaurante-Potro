@@ -16,6 +16,7 @@ import {
   Compass
 } from 'lucide-react';
 import { ProductoMenu, Insumo, RecetaEscandallo, Pedido, Mesa } from '../types';
+import SupabaseManager from './SupabaseManager';
 
 interface SistemaModuleProps {
   insumos: Insumo[];
@@ -24,6 +25,13 @@ interface SistemaModuleProps {
   pedidos: Pedido[];
   mesas: Mesa[];
   addLog: (tipo: 'pedido_creado' | 'descuento_stock' | 'alerta_stock' | 'comanda_estado' | 'sistema', mensaje: string) => void;
+  onSyncComplete?: (data: {
+    mesas?: any[];
+    insumos?: any[];
+    productosMenu?: any[];
+    recetas?: any[];
+    usuarios?: any[];
+  }) => void;
 }
 
 export default function SistemaModule({
@@ -32,7 +40,8 @@ export default function SistemaModule({
   recetas,
   pedidos,
   mesas,
-  addLog
+  addLog,
+  onSyncComplete
 }: SistemaModuleProps) {
   // Test latencies
   const [dbPingStatus, setDbPingStatus] = useState<'idle' | 'testing' | 'ready'>('idle');
@@ -118,6 +127,16 @@ export default function SistemaModule({
       {/* COLUMN LEFT: Live Diagnostics, DB engine & backup buttons (Col Span 7) */}
       <div className="lg:col-span-7 space-y-6">
         
+        {/* Supabase Realtime Database Link Manager */}
+        <SupabaseManager
+          addLog={addLog}
+          currentMesas={mesas}
+          currentInsumos={insumos}
+          currentProductosMenu={productosMenu}
+          currentRecetas={recetas}
+          onSyncComplete={onSyncComplete}
+        />
+
         {/* Connection & DB Engine Settings */}
         <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm space-y-4">
           <div className="flex justify-between items-start">
