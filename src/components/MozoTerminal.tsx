@@ -30,6 +30,7 @@ interface MozoTerminalProps {
   pedidos: Pedido[];
   onFacturarMesa: (idPedido: number) => void;
   addLog: (tipo: 'pedido_creado' | 'descuento_stock' | 'alerta_stock' | 'comanda_estado' | 'sistema', mensaje: string) => void;
+  permitirVentaSinStock?: boolean;
 }
 
 export default function MozoTerminal({
@@ -42,13 +43,14 @@ export default function MozoTerminal({
   onCrearPedido,
   pedidos,
   onFacturarMesa,
-  addLog
+  addLog,
+  permitirVentaSinStock = false
 }: MozoTerminalProps) {
   // Waiter selections
   const [selectedMesaId, setSelectedMesaId] = useState<number | null>(null);
   const [comensales, setComensales] = useState<number>(2);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategoria, setSelectedCategoria] = useState<'todo' | 'entradas' | 'pastas' | 'carnes' | 'criollas' | 'bebidas' | 'postres'>('todo');
+  const [selectedCategoria, setSelectedCategoria] = useState<string>('todo');
   
   // Current order cart
   const [cart, setCart] = useState<{ [id_producto: string]: number }>({});
@@ -69,55 +71,10 @@ export default function MozoTerminal({
     return pedidos.find(p => p.id_mesa === selectedMesaId && p.estado_comanda !== 'entregado_cobrado') || null;
   }, [selectedMesaId, pedidos]);
 
-  // Premium category mapping
-  const getPremiumCategoryOfProduct = (p: ProductoMenu): string => {
-    const id = p.id_producto;
-    if (id === 'prod_bife' || id === 'prod_entrana' || id === 'prod_hamburguesa') return 'carnes';
-    if (id === 'prod_pasta') return 'pastas';
-    if (id === 'prod_ensalada_cesar') return 'entradas';
-    if (id === 'prod_tarta') return 'criollas';
-    if (id.startsWith('prod_vino') || id === 'prod_agua' || id === 'prod_gaseosa') return 'bebidas';
-    
-    // Dynamic mapping from database/Supabase types
-    if (p.categoria === 'bebidas') return 'bebidas';
-    if (p.categoria === 'postres') return 'postres';
-    
-    // Kitchen categorization by content name key matching
-    const nombre = (p.nombre || '').toLowerCase();
-    if (nombre.includes('pasta') || nombre.includes('ñoqui') || nombre.includes('ravioli') || nombre.includes('tallarines') || nombre.includes('fideos') || nombre.includes('salsa')) {
-      return 'pastas';
-    }
-    if (nombre.includes('empanada') || nombre.includes('tarta') || nombre.includes('provoleta') || nombre.includes('criollo') || nombre.includes('pan')) {
-      return 'criollas';
-    }
-    if (nombre.includes('ensalada') || nombre.includes('entrada') || nombre.includes('sopa') || nombre.includes('bocadillo')) {
-      return 'entradas';
-    }
-    
-    // Default to 'carnes' if it is a kitchen/cocina item
-    if (p.categoria === 'cocina') return 'carnes';
-    
-    return 'postres';
-  };
-
-  // Helper: check if product image exists, otherwise return a descriptive beautiful fallback
-  const getProductImageFallback = (p: ProductoMenu): string => {
-    if (p.imagen && p.imagen.trim() !== '' && p.imagen.trim().toUpperCase() !== 'NULO') {
-      return p.imagen;
-    }
-    if (p.categoria === 'bebidas') {
-      return 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&q=80';
-    }
-    if (p.categoria === 'postres') {
-      return 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&q=80';
-    }
-    return 'https://images.unsplash.com/photo-1544025162-d76694265947?w=400&q=80';
-  };
-
   // Filter products by category and search
   const filteredProducts = useMemo(() => {
     return productosMenu.filter(p => {
-      const matchCat = selectedCategoria === 'todo' || getPremiumCategoryOfProduct(p) === selectedCategoria;
+      const matchCat = selectedCategoria === 'todo' || p.categoria === selectedCategoria;
       const matchSearch = p.nombre.toLowerCase().includes(searchQuery.toLowerCase());
       return p.activo && matchCat && matchSearch;
     });
@@ -154,11 +111,19 @@ export default function MozoTerminal({
       if (!insumo) continue;
 
       if (insumo.stock_actual < reqAmount) {
-        return { 
-          allowed: false, 
-          isCritical: true, 
-          warning: `¡BLOQUEDADO! Sin material suficiente de: "${insumo.nombre}". Se requiere ${reqAmount}${insumo.unidad_medida} y el stock actual es de ${insumo.stock_actual}${insumo.unidad_medida}.` 
-        };
+        if (permitirVentaSinStock) {
+          return { 
+            allowed: true, 
+            isCritical: false, 
+            warning: `[FORZADO] Stock insuficiente de: "${insumo.nombre}" (Faltante: ${(reqAmount - insumo.stock_actual).toFixed(2)}${insumo.unidad_medida}).` 
+          };
+        } else {
+          return { 
+            allowed: false, 
+            isCritical: true, 
+            warning: `¡BLOQUEDADO! Sin material suficiente de: "${insumo.nombre}". Se requiere ${reqAmount}${insumo.unidad_medida} y el stock actual es de ${insumo.stock_actual}${insumo.unidad_medida}.` 
+          };
+        }
       }
 
       if (insumo.stock_actual - reqAmount <= insumo.stock_minimo) {
@@ -177,12 +142,6 @@ export default function MozoTerminal({
   const getSimulatedStockRemaining = (prod: ProductoMenu) => {
     // Find recipes associated to this product
     const productRecipes = recetas.filter(r => r.id_producto === prod.id_producto);
-    if (productRecipes.length === 0) {
-      // If there are no formulas/recipes, the item doesn't require deducting any raw material.
-      // Thus, it has a default high simulated stock (e.g. 99 units) instead of being locked with 0.
-      return 99;
-    }
-    
     let maxPlatesSimulated = 999;
 
     productRecipes.forEach(rec => {
@@ -480,16 +439,18 @@ export default function MozoTerminal({
           <div className="flex gap-1.5 w-full overflow-x-auto py-1 scrollbar-thin scroll-smooth border-t border-stone-100 pt-3">
             {[
               { id: 'todo', label: 'Todos 🍽️' },
-              { id: 'entradas', label: 'Entradas 🥗' },
-              { id: 'pastas', label: 'Pastas 🍝' },
-              { id: 'carnes', label: 'Carnes 🥩' },
-              { id: 'criollas', label: 'Criollas 🥧' },
-              { id: 'bebidas', label: 'Bebidas 🍷' },
-              { id: 'postres', label: 'Postres 🍰' }
+              { id: 'Entradas', label: 'Entradas 🥗' },
+              { id: 'Pastas', label: 'Pastas 🍝' },
+              { id: 'Carnes', label: 'Carnes 🥩' },
+              { id: 'Pescados', label: 'Pescados 🐟' },
+              { id: 'Comidas Criollas', label: 'Criollas 🥧' },
+              { id: 'Postres', label: 'Postres 🍰' },
+              { id: 'Bebidas', label: 'Bebidas 🥤' },
+              { id: 'Bodega', label: 'Bodega 🍷' }
             ].map(cat => (
               <button
                 key={cat.id}
-                onClick={() => setSelectedCategoria(cat.id as any)}
+                onClick={() => setSelectedCategoria(cat.id)}
                 className={`py-1.5 px-3 text-xs font-extrabold rounded-lg whitespace-nowrap transition-all duration-150 cursor-pointer active:scale-95 flex items-center gap-1 shrink-0 ${
                   selectedCategoria === cat.id 
                     ? 'bg-[#624A3E] text-white shadow-sm ring-1 ring-amber-900/10' 
@@ -526,7 +487,7 @@ export default function MozoTerminal({
                 {/* Product Image */}
                 <div className="h-28 w-full bg-stone-50 relative overflow-hidden">
                   <img
-                    src={getProductImageFallback(p)}
+                    src={p.imagen}
                     alt={p.nombre}
                     referrerPolicy="no-referrer"
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"

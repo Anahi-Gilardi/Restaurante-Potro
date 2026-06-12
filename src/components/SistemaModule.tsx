@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { ProductoMenu, Insumo, RecetaEscandallo, Pedido, Mesa } from '../types';
 import SupabaseManager from './SupabaseManager';
+import ElPatronLogo from './ElPatronLogo';
 
 interface SistemaModuleProps {
   insumos: Insumo[];
@@ -46,7 +47,7 @@ export default function SistemaModule({
   // Test latencies
   const [dbPingStatus, setDbPingStatus] = useState<'idle' | 'testing' | 'ready'>('idle');
   const [dbPingMs, setDbPingMs] = useState<number>(0);
-  const [activeDbEngine, setActiveDbEngine] = useState<'SQLite Local (.db)' | 'PostgreSQL / Supabase (Cloud)'>('SQLite Local (.db)');
+  const [activeDbEngine, setActiveDbEngine] = useState<'SQLite Local (.db)' | 'PostgreSQL / Supabase (Cloud)'>('PostgreSQL / Supabase (Cloud)');
 
   // Selected checklist verification states
   const [deployChecklist, setDeployChecklist] = useState<{ [id: string]: boolean }>({
@@ -122,75 +123,94 @@ export default function SistemaModule({
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6" id="sistema-module-container">
+    <div className="space-y-6 w-full animate-fadeIn" id="sistema-module-container">
       
-      {/* COLUMN LEFT: Live Diagnostics, DB engine & backup buttons (Col Span 7) */}
-      <div className="lg:col-span-7 space-y-6">
+      {/* Institutional Brand Header */}
+      <div className="bg-white rounded-2xl p-6 border border-stone-200/80 shadow-sm flex flex-col md:flex-row items-center gap-5 justify-between">
+        <div className="flex items-center gap-4 text-left">
+          <div className="w-14 h-14 bg-[#FAF4EE] rounded-2xl flex items-center justify-center p-1 border border-stone-200 shadow-sm shrink-0 overflow-hidden">
+            <ElPatronLogo className="w-12 h-12 object-contain rounded" variant="badge" color="#4A2D1B" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-[#4A2D1B] tracking-tight">Marca Institucional & Control del Sistema</h2>
+            <p className="text-xs text-stone-500 mt-0.5">El Patrón Restaurante • Sistema Operativo Sincronizado</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 bg-[#22C55E]/10 px-4 py-1.5 rounded-full border border-[#22C55E]/20">
+          <span className="w-2 h-2 rounded-full bg-[#22C55E] animate-pulse" />
+          <span className="text-[10px] uppercase font-bold text-[#22C55E] tracking-wider font-sans">Enlace Institucional Activo</span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        {/* Supabase Realtime Database Link Manager */}
-        <SupabaseManager
-          addLog={addLog}
-          currentMesas={mesas}
-          currentInsumos={insumos}
-          currentProductosMenu={productosMenu}
-          currentRecetas={recetas}
-          onSyncComplete={onSyncComplete}
-        />
-
-        {/* Connection & DB Engine Settings */}
-        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm space-y-4">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400 font-sans">Infraestructura y Persistencia</p>
-              <h3 className="font-extrabold text-[#624A3E] font-sans tracking-tight">Motor de Base de Datos Vinculado</h3>
+        {/* COLUMN LEFT: Live Diagnostics, DB engine & backup buttons (Col Span 7) */}
+        <div className="lg:col-span-7 space-y-6">
+          
+          {/* Supabase Realtime Database Link Manager */}
+          <SupabaseManager
+            addLog={addLog}
+            currentMesas={mesas}
+            currentInsumos={insumos}
+            currentProductosMenu={productosMenu}
+            currentRecetas={recetas}
+            onSyncComplete={onSyncComplete}
+          />
+  
+          {/* Connection & DB Engine Settings */}
+          <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm space-y-4">
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400 font-sans">Infraestructura y Persistencia</p>
+                <h3 className="font-extrabold text-[#4A2D1B] font-sans tracking-tight">Motor de Base de Datos Vinculado</h3>
+              </div>
+              
+              <span className="bg-[#4A2D1B]/10 border border-[#4A2D1B]/20 text-[#4A2D1B] text-[10px] font-extrabold px-2.5 py-1 rounded-lg font-mono">
+                Estabilidad 100%
+              </span>
             </div>
-            
-            <span className="bg-[#624A3E]/10 border border-[#624A3E]/20 text-[#624A3E] text-[10px] font-extrabold px-2.5 py-1 rounded-lg">
-              Estabilidad 100%
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              onClick={() => {
-                setActiveDbEngine('SQLite Local (.db)');
-                setDbPingStatus('idle');
-              }}
-              className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
-                activeDbEngine === 'SQLite Local (.db)'
-                  ? 'border-[#624A3E] bg-[#624A3E]/5 ring-1 ring-[#624A3E]/10'
-                  : 'border-slate-100 bg-slate-50/50 hover:bg-slate-50'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <Database className="w-4 h-4 text-[#624A3E]" />
-                <span className="text-xs font-extrabold text-slate-800">SQLite Local</span>
-              </div>
-              <p className="text-[10px] text-slate-400 mt-1">
-                Almacenamiento local en archivo plano `data/restaurante.db`. Ideal para operaciones offline.
-              </p>
-            </button>
-
-            <button
-              onClick={() => {
-                setActiveDbEngine('PostgreSQL / Supabase (Cloud)');
-                setDbPingStatus('idle');
-              }}
-              className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
-                activeDbEngine === 'PostgreSQL / Supabase (Cloud)'
-                  ? 'border-[#624A3E] bg-[#624A3E]/5 ring-1 ring-[#624A3E]/10'
-                  : 'border-slate-100 bg-slate-50/50 hover:bg-slate-50'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <Server className="w-4 h-4 text-amber-600" />
-                <span className="text-xs font-extrabold text-slate-800">Supabase PG Link</span>
-              </div>
-              <p className="text-[10px] text-slate-400 mt-1">
-                Base PostgreSQL en la nube Supabase. Operación simultánea remota escalable de producción.
-              </p>
-            </button>
-          </div>
+  
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => {
+                  setActiveDbEngine('SQLite Local (.db)');
+                  setDbPingStatus('idle');
+                }}
+                className={`p-4 rounded-xl border text-left cursor-pointer transition-all ${
+                  activeDbEngine === 'SQLite Local (.db)'
+                    ? 'border-[#4A2D1B] bg-[#4A2D1B]/5 ring-1 ring-[#4A2D1B]/10'
+                    : 'border-slate-100 bg-slate-50/50 hover:bg-slate-50'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Database className="w-4 h-4 text-[#4A2D1B]" />
+                  <span className="text-xs font-extrabold text-slate-800">SQLite Local</span>
+                </div>
+                <p className="text-[10px] text-slate-450 mt-1 font-medium leading-normal">
+                  Almacenamiento local en archivo plano `data/restaurante.db`. Ideal para operaciones offline.
+                </p>
+              </button>
+  
+              <button
+                onClick={() => {
+                  setActiveDbEngine('PostgreSQL / Supabase (Cloud)');
+                  setDbPingStatus('idle');
+                }}
+                className={`p-4 rounded-xl border text-left cursor-pointer transition-all ${
+                  activeDbEngine === 'PostgreSQL / Supabase (Cloud)'
+                    ? 'border-[#4A2D1B] bg-[#4A2D1B]/5 ring-1 ring-[#4A2D1B]/10'
+                    : 'border-slate-100 bg-slate-50/50 hover:bg-slate-50'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Server className="w-4 h-4 text-[#6B4A35]" />
+                  <span className="text-xs font-extrabold text-slate-800">Supabase PG Link</span>
+                </div>
+                <p className="text-[10px] text-slate-450 mt-1 font-medium leading-normal">
+                  Base PostgreSQL en la nube Supabase. Operación simultánea remota escalable de producción.
+                </p>
+              </button>
+            </div>
 
           {/* Test Performance block */}
           <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
@@ -521,8 +541,79 @@ export default function SistemaModule({
           </div>
         </div>
 
+        {/* Logo Identity Manager */}
+        <div className="bg-white rounded-2xl p-5 border border-stone-200/80 shadow-sm space-y-3 mt-6 animate-fadeIn">
+          <div className="flex items-center gap-2 border-b border-stone-100 pb-2.5">
+            <Compass className="w-4.5 h-4.5 text-[#4A2D1B]" />
+            <div className="text-left">
+              <h4 className="font-bold text-[#4A2D1B] text-xs font-sans tracking-tight">
+                Identidad de Marca & Logotipo
+              </h4>
+              <p className="text-[10px] text-stone-500 font-medium">
+                Carga el isotipo o logotipo oficial de El Patrón para todo el sistema.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-stone-200 hover:border-[#4A2D1B]/40 rounded-xl bg-[#FFFDF8]/60 transition-all space-y-3 relative group">
+            <div className="w-16 h-16 rounded-full bg-[#FAF4EE] flex items-center justify-center p-1 shadow-sm border border-stone-100 relative overflow-hidden">
+              <ElPatronLogo className="w-14 h-14 object-contain rounded-full" variant="badge" color="#4A2D1B" />
+            </div>
+
+            <div className="text-center space-y-1">
+              <span className="text-[10px] font-bold text-stone-850 block">Subir Logotipo Real El Patrón</span>
+              <p className="text-[9px] text-stone-500 max-w-[210px] leading-normal mx-auto font-medium">
+                Puedes seleccionar el archivo de imagen de caballo que prefieras. La pestaña y los banners se actualizarán de forma dinámica.
+              </p>
+            </div>
+
+            <div className="flex gap-2 w-full pt-1">
+              <label className="flex-1 py-1.5 px-2 bg-[#4A2D1B] hover:bg-[#6B4A35] text-white rounded-lg text-[10px] font-extrabold text-center cursor-pointer transition-colors shadow-sm block">
+                Cargar Imagen
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = (event) => {
+                        const dataUrl = event.target?.result as string;
+                        if (dataUrl) {
+                          try {
+                            localStorage.setItem('el_patron_custom_logo', dataUrl);
+                            window.dispatchEvent(new Event('el_patron_logo_changed'));
+                            addLog('sistema', `MARCA: Logotipo cargado correctamente en memoria local activa.`);
+                          } catch (error) {
+                            alert("La imagen es muy grande. Por favor, selecciona una optimizada (menor a 1.5MB) para un rendimiento veloz.");
+                          }
+                        }
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                />
+              </label>
+
+              <button
+                type="button"
+                onClick={() => {
+                  localStorage.removeItem('el_patron_custom_logo');
+                  window.dispatchEvent(new Event('el_patron_logo_changed'));
+                  addLog('sistema', `MARCA: Logotipo restablecido al isotipo de vector por defecto.`);
+                }}
+                className="px-3 py-1.5 border border-stone-200 hover:border-red-200 text-stone-550 hover:text-rose-600 rounded-lg text-[10px] font-extrabold bg-white hover:bg-stone-50 transition-all cursor-pointer shadow-xs"
+              >
+                Restaurar
+              </button>
+            </div>
+          </div>
+        </div>
+
       </div>
 
     </div>
-  );
+  </div>
+);
 }

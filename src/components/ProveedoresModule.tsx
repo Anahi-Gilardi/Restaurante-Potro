@@ -1,15 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Truck, Phone, Plus, Tag, Layers, CheckCircle } from 'lucide-react';
-
-interface Proveedor {
-  id_proveedor: string;
-  nombre: string;
-  contacto: string;
-  telefono: string;
-  categoria: 'carnes' | 'verduras' | 'bebidas' | 'viveres' | 'descartables';
-  correo: string;
-  tiempo_entrega_dias: number;
-}
+import { proveedoresService, Proveedor } from '../services/proveedoresService';
 
 interface ProveedoresModuleProps {
   onRestockTodo: () => void;
@@ -20,13 +11,28 @@ export default function ProveedoresModule({
   onRestockTodo,
   addLog
 }: ProveedoresModuleProps) {
-  const [proveedores, setProveedores] = useState<Proveedor[]>([
-    { id_proveedor: 'prov_1', nombre: 'Frigorífico Central Sur S.A.', contacto: 'Federico Balestra', telefono: '+54 11 4488-2993', categoria: 'carnes', correo: 'pedidos@frigorificosursas.com', tiempo_entrega_dias: 1 },
-    { id_proveedor: 'prov_2', nombre: 'Distribuidora Agrícola Verde Fresco', contacto: 'Laura Benítez', telefono: '+54 9 11 3998-2831', categoria: 'verduras', correo: 'ventas@verdefrescodist.com', tiempo_entrega_dias: 1 },
-    { id_proveedor: 'prov_3', nombre: 'Bebidas Unidas S.R.L. Bodegas', contacto: 'Esteban Rutini', telefono: '+54 11 5003-8822', categoria: 'bebidas', correo: 'erutini@bebidasunidas.com', tiempo_entrega_dias: 2 },
-    { id_proveedor: 'prov_4', nombre: 'Almacén Mayorista El Trébol', contacto: 'Jorge Alvarenga', telefono: '+54 11 4055-1212', categoria: 'viveres', correo: 'j.alvarenga@trebolsecos.com.ar', tiempo_entrega_dias: 3 },
-    { id_proveedor: 'prov_5', nombre: 'Envases & Descartables Oeste', contacto: 'Damián Sabor', telefono: '+54 9 11 6554-1010', categoria: 'descartables', correo: 'dsabor@envasesoeste.com', tiempo_entrega_dias: 2 },
-  ]);
+  const [proveedores, setProveedores] = useState<Proveedor[]>([]);
+
+  useEffect(() => {
+    proveedoresService.list().then(data => {
+      if (data && data.length > 0) {
+        setProveedores(data);
+      } else {
+        // Default seeding
+        const defaults: Proveedor[] = [
+          { id_proveedor: 'prov_1', nombre: 'Frigorífico Central Sur S.A.', contacto: 'Federico Balestra', telefono: '+54 11 4488-2993', categoria: 'carnes', correo: 'pedidos@frigorificosursas.com', tiempo_entrega_dias: 1 },
+          { id_proveedor: 'prov_2', nombre: 'Distribuidora Agrícola Verde Fresco', contacto: 'Laura Benítez', telefono: '+54 9 11 3998-2831', categoria: 'verduras', correo: 'ventas@verdefrescodist.com', tiempo_entrega_dias: 1 },
+          { id_proveedor: 'prov_3', nombre: 'Bebidas Unidas S.R.L. Bodegas', contacto: 'Esteban Rutini', telefono: '+54 11 5003-8822', categoria: 'bebidas', correo: 'erutini@bebidasunidas.com', tiempo_entrega_dias: 2 },
+          { id_proveedor: 'prov_4', nombre: 'Almacén Mayorista El Trébol', contacto: 'Jorge Alvarenga', telefono: '+54 11 4055-1212', categoria: 'viveres', correo: 'j.alvarenga@trebolsecos.com.ar', tiempo_entrega_dias: 3 },
+          { id_proveedor: 'prov_5', nombre: 'Envases & Descartables Oeste', contacto: 'Damián Sabor', telefono: '+54 9 11 6554-1010', categoria: 'descartables', correo: 'dsabor@envasesoeste.com', tiempo_entrega_dias: 2 },
+        ];
+        setProveedores(defaults);
+      }
+    }).catch(() => {
+      // Fallback
+    });
+  }, []);
+
 
   const [nombre, setNombre] = useState('');
   const [contacto, setContacto] = useState('');
@@ -52,6 +58,7 @@ export default function ProveedoresModule({
     };
 
     setProveedores(prev => [...prev, newProv]);
+    proveedoresService.create(newProv).catch(err => console.error(err));
     addLog('sistema', `PROVEEDORES: Incorporado nuevo proveedor de materia prima '${nombre}' para categoría: ${categoria.toUpperCase()}`);
     setNombre('');
     setContacto('');

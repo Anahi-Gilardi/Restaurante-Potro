@@ -1,6 +1,8 @@
 {
-  "name": "Restaurante Pro",
-  "description": "Sistema integral de gestión de comandas, monitor KDS de cocina, control de stock por receta, bodega de vinos, caja de cobros y analíticas comerciales en tiempo real.",
+  "name": "Remix: Sistema Gestor Gastronómico",
+  "description": "Sistema integral de gestión de comandas, KDS de cocina, control de stock por receta, bodega de vinos y analíticas comerciales en tiempo real.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

@@ -1,17 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Calendar, Phone, Plus, Check, Clock, User, Trash } from 'lucide-react';
 import { Mesa } from '../types';
-
-interface Reserva {
-  id_reserva: string;
-  nombre_cliente: string;
-  telefono: string;
-  pax: number;
-  id_mesa?: number;
-  nombre_mesa: string;
-  hora: string;
-  estado: 'confirmada' | 'sentada' | 'cancelada';
-}
+import { reservasService, Reserva } from '../services/reservasService';
 
 interface ReservasModuleProps {
   mesas: Mesa[];
@@ -19,12 +9,24 @@ interface ReservasModuleProps {
 }
 
 export default function ReservasModule({ mesas, addLog }: ReservasModuleProps) {
-  const [reservas, setReservas] = useState<Reserva[]>([
-    { id_reserva: 'r_1', nombre_cliente: 'Gisela Scaglia', telefono: '+54 11 9382-3844', pax: 4, nombre_mesa: 'VIP-1', hora: '21:00 hs', estado: 'confirmada' },
-    { id_reserva: 'r_2', nombre_cliente: 'Mariano Closs', telefono: '+54 9 11 3881-2993', pax: 2, nombre_mesa: 'Mesa 1', hora: '21:30 hs', estado: 'sentada' },
-    { id_reserva: 'r_3', nombre_cliente: 'Romina Pereyra', telefono: '+54 11 6005-2810', pax: 3, nombre_mesa: 'Mesa 5', hora: '22:00 hs', estado: 'confirmada' },
-    { id_reserva: 'r_4', nombre_cliente: 'Juan Román Riquelme', telefono: '+54 9 11 5010-1010', pax: 6, nombre_mesa: 'Terraza-3', hora: '22:30 hs', estado: 'confirmada' },
-  ]);
+  const [reservas, setReservas] = useState<Reserva[]>([]);
+
+  useEffect(() => {
+    reservasService.list().then(data => {
+      if (data && data.length > 0) {
+        setReservas(data);
+      } else {
+        const defaults: Reserva[] = [
+          { id_reserva: 'r_1', nombre_cliente: 'Gisela Scaglia', telefono: '+54 11 9382-3844', pax: 4, nombre_mesa: 'VIP-1', hora: '21:00 hs', estado: 'confirmada' },
+          { id_reserva: 'r_2', nombre_cliente: 'Mariano Closs', telefono: '+54 9 11 3881-2993', pax: 2, nombre_mesa: 'Mesa 1', hora: '21:30 hs', estado: 'confirmada' },
+          { id_reserva: 'r_3', nombre_cliente: 'Romina Pereyra', telefono: '+54 11 6005-2810', pax: 3, nombre_mesa: 'Mesa 5', hora: '22:00 hs', estado: 'confirmada' },
+          { id_reserva: 'r_4', nombre_cliente: 'Juan Román Riquelme', telefono: '+54 9 11 5010-1010', pax: 6, nombre_mesa: 'Terraza-3', hora: '22:30 hs', estado: 'confirmada' },
+        ];
+        setReservas(defaults);
+      }
+    }).catch(() => {});
+  }, []);
+
 
   const [nombre, setNombre] = useState('');
   const [telefono, setTelefono] = useState('');
@@ -47,6 +49,7 @@ export default function ReservasModule({ mesas, addLog }: ReservasModuleProps) {
     };
 
     setReservas(prev => [...prev, newRes]);
+    reservasService.create(newRes).catch(err => console.error(err));
     addLog('sistema', `RESERVAS: Registrada nueva reserva para '${nombre}' para ${pax} personas hoy a las ${hora}hs en mesa ${nombreMesa}`);
     setNombre('');
     setTelefono('');
@@ -55,6 +58,7 @@ export default function ReservasModule({ mesas, addLog }: ReservasModuleProps) {
   const handleChangeEstado = (id: string, nuevoEstado: Reserva['estado']) => {
     setReservas(prev => prev.map(r => {
       if (r.id_reserva === id) {
+        reservasService.update(id, { estado: nuevoEstado }).catch(err => console.error(err));
         addLog('sistema', `RESERVAS: Reserva de '${r.nombre_cliente}' cambió de estado a ${nuevoEstado.toUpperCase()}`);
         return { ...r, estado: nuevoEstado };
       }
@@ -66,6 +70,7 @@ export default function ReservasModule({ mesas, addLog }: ReservasModuleProps) {
     const target = reservas.find(r => r.id_reserva === id);
     if (!target) return;
     setReservas(prev => prev.filter(r => r.id_reserva !== id));
+    reservasService.remove(id).catch(err => console.error(err));
     addLog('sistema', `RESERVAS: Anulada la reserva de '${target.nombre_cliente}' de las ${target.hora}`);
   };
 

@@ -1,27 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Tag, Calendar, Plus, ToggleLeft, ToggleRight, Sparkles } from 'lucide-react';
-
-interface Promocion {
-  id_promo: string;
-  nombre: string;
-  descuento_porcentaje: number;
-  tipo: 'happy_hour' | 'combo' | 'descuento_directo';
-  días_vigentes: string;
-  activo: boolean;
-  descripcion: string;
-}
+import { promocionesService, Promocion } from '../services/promocionesService';
 
 interface PromocionesModuleProps {
   addLog: (tipo: any, mensaje: string) => void;
 }
 
 export default function PromocionesModule({ addLog }: PromocionesModuleProps) {
-  const [promos, setPromos] = useState<Promocion[]>([
-    { id_promo: 'p_1', nombre: 'Happy Hour 2x1 Tragos & Cervezas', descuento_porcentaje: 50, tipo: 'happy_hour', días_vigentes: 'Lun a Vie - 18 a 21hs', activo: true, descripcion: 'Aplica a vinos seleccionados y bebidas de línea comercial' },
-    { id_promo: 'p_2', nombre: 'Combo Ejecutivo El Patrón', descuento_porcentaje: 20, tipo: 'combo', días_vigentes: 'Lun a Sab - Almuerzo', activo: true, descripcion: 'Bife de chorizo completo + bebida sin alcohol con descuento integrado' },
-    { id_promo: 'p_3', nombre: '15% Off Pago Efectivo / Arqueo', descuento_porcentaje: 15, tipo: 'descuento_directo', días_vigentes: 'Todos los días - Completo', activo: true, descripcion: 'Descuento directo que aplica el cajero al cobrar en mostrador' },
-    { id_promo: 'p_4', nombre: '25% Especial Cumpleañeros', descuento_porcentaje: 25, tipo: 'descuento_directo', días_vigentes: 'Todos los días', activo: false, descripcion: 'Presentando documentación al mesero encargado' },
-  ]);
+  const [promos, setPromos] = useState<Promocion[]>([]);
+
+  useEffect(() => {
+    promocionesService.list().then(data => {
+      if (data && data.length > 0) {
+        setPromos(data);
+      } else {
+        const defaults: Promocion[] = [
+          { id_promo: 'p_1', nombre: 'Happy Hour 2x1 Tragos & Cervezas', descuento_porcentaje: 50, tipo: 'happy_hour', dias_vigentes: 'Lun a Vie - 18 a 21hs', activo: true, descripcion: 'Aplica a vinos seleccionados y bebidas de línea comercial' },
+          { id_promo: 'p_2', nombre: 'Combo Ejecutivo El Patrón', descuento_porcentaje: 20, tipo: 'combo', dias_vigentes: 'Lun a Sab - Almuerzo', activo: true, descripcion: 'Bife de chorizo completo + bebida sin alcohol con descuento integrado' },
+          { id_promo: 'p_3', nombre: '15% Off Pago Efectivo / Arqueo', descuento_porcentaje: 15, tipo: 'descuento_directo', dias_vigentes: 'Todos los días - Completo', activo: true, descripcion: 'Descuento directo que aplica el cajero al cobrar en mostrador' },
+          { id_promo: 'p_4', nombre: '25% Especial Cumpleañeros', descuento_porcentaje: 25, tipo: 'descuento_directo', dias_vigentes: 'Todos los días', activo: false, descripcion: 'Presentando documentación al mesero encargado' },
+        ];
+        setPromos(defaults);
+      }
+    }).catch(() => {});
+  }, []);
+
 
   const [nombre, setNombre] = useState('');
   const [descuento, setDescuento] = useState('');
@@ -38,12 +41,13 @@ export default function PromocionesModule({ addLog }: PromocionesModuleProps) {
       nombre,
       descuento_porcentaje: parseInt(descuento),
       tipo,
-      días_vigentes: vigencia || 'Todos los días',
+      dias_vigentes: vigencia || 'Todos los días',
       activo: true,
       descripcion: desc || 'Precios promocionales y combos especiales'
     };
 
     setPromos(prev => [newPr, ...prev]);
+    promocionesService.create(newPr).catch(err => console.error(err));
     addLog('sistema', `SISTEMA: Habilitada nueva campaña promocional comercial '${nombre}' con descuento del ${descuento}%`);
     setNombre('');
     setDescuento('');
@@ -55,6 +59,7 @@ export default function PromocionesModule({ addLog }: PromocionesModuleProps) {
     setPromos(prev => prev.map(p => {
       if (p.id_promo === id) {
         const nextState = !p.activo;
+        promocionesService.update(id, { activo: nextState }).catch(err => console.error(err));
         addLog('sistema', `SISTEMA: Campaña '${p.nombre}' cambiada a: ${nextState ? 'ACTIVA' : 'INACTIVA'}`);
         return { ...p, activo: nextState };
       }
@@ -170,7 +175,7 @@ export default function PromocionesModule({ addLog }: PromocionesModuleProps) {
                 <div className="flex justify-between items-center mt-6 pt-3 border-t border-stone-200/50">
                   <span className="text-[9px] text-stone-500 font-bold flex items-center gap-1 font-mono">
                     <Calendar className="w-3.5 h-3.5 text-stone-400" />
-                    Vigencia: {p.días_vigentes}
+                    Vigencia: {p.dias_vigentes}
                   </span>
                   
                   <button 

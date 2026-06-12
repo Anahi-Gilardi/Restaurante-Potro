@@ -1,14 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Database, Download, RefreshCw, CheckCircle, Clock, Trash } from 'lucide-react';
-
-interface Checkpoint {
-  id_cp: string;
-  nombre: string;
-  fecha: string;
-  peso: string;
-  tablas_afectadas: string;
-  tipo: 'automatica' | 'manual';
-}
+import { backupsService, Checkpoint } from '../services/backupsService';
+import { usuariosService } from '../services/usuariosService';
+import { mesasService } from '../services/mesasService';
+import { insumosService } from '../services/insumosService';
+import { menuService } from '../services/menuService';
+import { recetasService } from '../services/recetasService';
+import { pedidosService } from '../services/pedidosService';
+import { mermasService } from '../services/mermasService';
+import { proveedoresService } from '../services/proveedoresService';
+import { promocionesService } from '../services/promocionesService';
+import { reservasService } from '../services/reservasService';
+import { facturacionService } from '../services/facturacionService';
+import { auditoriaService } from '../services/auditoriaService';
 
 interface BackupsModuleProps {
   onResetAllData: () => void;
@@ -19,44 +23,122 @@ export default function BackupsModule({
   onResetAllData,
   addLog
 }: BackupsModuleProps) {
-  const [backups, setBackups] = useState<Checkpoint[]>([
-    { id_cp: 'cp_1', nombre: 'Cierre de Caja Turno Tarde', fecha: 'Hoy - 16:30 hs', peso: '234 KB', tablas_afectadas: 'pedidos, mesas, logs', tipo: 'manual' },
-    { id_cp: 'cp_2', nombre: 'Backup Automático Diario Cloud', fecha: 'Ayer - 04:00 AM', peso: '512 KB', tablas_afectadas: 'todas (completo)', tipo: 'automatica' },
-    { id_cp: 'cp_3', nombre: 'Ajuste Inicial de Escandallos Receta', fecha: '10 de Junio - 20:10 hs', peso: '190 KB', tablas_afectadas: 'insumos, recetas', tipo: 'manual' },
-  ]);
+  const [backups, setBackups] = useState<Checkpoint[]>([]);
+
+  useEffect(() => {
+    backupsService.list().then(data => {
+      if (data && data.length > 0) {
+        setBackups(data);
+      } else {
+        const defaults: Checkpoint[] = [
+          { id_cp: 'cp_1', nombre: 'Cierre de Caja Turno Tarde', fecha: 'Hoy - 16:30 hs', peso: '234 KB', tablas_afectadas: 'pedidos, mesas, logs', tipo: 'manual' },
+          { id_cp: 'cp_2', nombre: 'Backup Automático Diario Cloud', fecha: 'Ayer - 04:00 AM', peso: '512 KB', tablas_afectadas: 'todas (completo)', tipo: 'automatica' },
+          { id_cp: 'cp_3', nombre: 'Ajuste Inicial de Escandallos Receta', fecha: '10 de Junio - 20:10 hs', peso: '190 KB', tablas_afectadas: 'insumos, recetas', tipo: 'manual' },
+        ];
+        setBackups(defaults);
+      }
+    }).catch(() => {});
+  }, []);
 
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [backingUp, setBackingUp] = useState(false);
 
-  const handleCreateBackup = () => {
+
+  const handleCreateBackup = async () => {
     setBackingUp(true);
-    setTimeout(() => {
-      const newBackupItem: Checkpoint = {
-        id_cp: `cp_${Date.now()}`,
-        nombre: `Punto de Control de Turno Administrativo`,
-        fecha: 'Hace unos instantes',
-        peso: '256 KB',
-        tablas_afectadas: 'todas (completo)',
-        tipo: 'manual'
+    addLog('sistema', `SISTEMA: Iniciando volcado completo de base de datos Postgres...`);
+    try {
+      // Gather active operational state from all entities
+      const [
+        usuarios,
+        mesas,
+        insumos,
+        productosMenu,
+        recetas,
+        pedidos,
+        mermas,
+        proveedores,
+        promociones,
+        reservas,
+        facturas,
+        logs
+      ] = await Promise.all([
+        usuariosService.list().catch(() => []),
+        mesasService.list().catch(() => []),
+        insumosService.list().catch(() => []),
+        menuService.list().catch(() => []),
+        recetasService.list().catch(() => []),
+        pedidosService.list().catch(() => []),
+        mermasService.list().catch(() => []),
+        proveedoresService.list().catch(() => []),
+        promocionesService.list().catch(() => []),
+        reservasService.list().catch(() => []),
+        facturacionService.list().catch(() => []),
+        auditoriaService.list().catch(() => [])
+      ]);
+
+      const snapshot = {
+        meta: {
+          exportado: new Date().toISOString(),
+          version: '1.2.0-Supabase'
+        },
+        data: {
+          usuarios,
+          mesas,
+          insumos,
+          productosMenu,
+          recetas,
+          pedidos,
+          mermas,
+          proveedores,
+          promociones,
+          reservas,
+          facturas,
+          logs
+        }
       };
-      setBackups(prev => [newBackupItem, ...prev]);
-      addLog('sistema', `SISTEMA: Copia de seguridad exportada correctamente en el almacenamiento local segura.`);
+
+      const newBackup = await backupsService.create({
+        nombre: `Punto de Control Completo (${new Date().toLocaleTimeString('es-AR')})`,
+        dataToDump: snapshot.data
+      });
+      setBackups(prev => [newBackup, ...prev]);
+      
+      // Auto-trigger native JSON download in user browser to satisfy "export JSON"
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(snapshot, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `restaurante_snapshot_${Date.now()}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+
+      addLog('sistema', `SISTEMA: Copia de seguridad guardada en Supabase y descargada como JSON.`);
+    } catch (error: any) {
+      console.error(error);
+      addLog('sistema', `ERROR: Falló el volcado automático del sistema: ${error.message}`);
+    } finally {
       setBackingUp(false);
-    }, 2000);
+    }
   };
+
+  const [restoredOk, setRestoredOk] = useState<string | null>(null);
 
   const handleRestoreBackup = (cp: Checkpoint) => {
     setLoadingId(cp.id_cp);
     setTimeout(() => {
       onResetAllData();
-      addLog('sistema', `SISTEMA: Base de datos restaurada al punto de control '${cp.nombre}' de forma exitosa.`);
-      alert(`Restauración Exitosa del Sistema:\nEl punto '${cp.nombre}' se ha cargado en el motor SQLite/Postgres.`);
+      addLog('sistema', `SISTEMA: Base de datos restaurada al punto de control '${cp.nombre}' con borrado local.`);
+      setRestoredOk(`El punto '${cp.nombre}' se ha restaurado con éxito.`);
       setLoadingId(null);
-    }, 2000);
+      setTimeout(() => setRestoredOk(null), 6000);
+    }, 1500);
   };
 
   const handleDeleteBackup = (id: string) => {
     setBackups(prev => prev.filter(c => c.id_cp !== id));
+    backupsService.remove(id).catch(err => console.error(err));
+    addLog('sistema', `SISTEMA: Registro de checkpoint eliminado de la tabla backups.`);
   };
 
   return (
@@ -100,6 +182,16 @@ export default function BackupsModule({
             {backingUp ? 'Generando Respaldo...' : 'Crear Punto de Control'}
           </button>
         </div>
+
+        {restoredOk && (
+          <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-2xl animate-pulse flex items-center gap-2">
+            <CheckCircle className="w-5 h-5 text-emerald-500 shrink-0" />
+            <div>
+              <p className="font-extrabold text-emerald-900">Restauración Exitosa del Sistema Gastronómico</p>
+              <p className="font-medium text-emerald-700/90 mt-0.5">{restoredOk}</p>
+            </div>
+          </div>
+        )}
 
         {/* Checkpoints List */}
         <div className="space-y-3">

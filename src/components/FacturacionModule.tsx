@@ -1,18 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Receipt, Search, Printer, DollarSign, Download, Percent } from 'lucide-react';
 import { Pedido } from '../types';
-
-interface Factura {
-  id_factura: string;
-  nro_ticket: string;
-  cliente: string;
-  cuit: string;
-  total: number;
-  iva_veintiuno: number;
-  medio_pago: 'efectivo' | 'debito' | 'tarjeta' | 'mp_qr';
-  fecha: string;
-  estado: 'emitido' | 'nota_credito';
-}
+import { facturacionService, Factura } from '../services/facturacionService';
 
 interface FacturacionModuleProps {
   pedidos: Pedido[];
@@ -23,12 +12,24 @@ export default function FacturacionModule({
   pedidos,
   addLog
 }: FacturacionModuleProps) {
-  const [facturas, setFacturas] = useState<Factura[]>([
-    { id_factura: 'f_101', nro_ticket: 'T-0001-00008321', cliente: 'Consumidor Final', cuit: '99-99999999-9', total: 18500.00, iva_veintiuno: 3210.33, medio_pago: 'efectivo', fecha: '21:05 hs', estado: 'emitido' },
-    { id_factura: 'f_102', nro_ticket: 'T-0001-00008322', cliente: 'Agustín Colombo', cuit: '20-38449102-1', total: 43200.00, iva_veintiuno: 7497.52, medio_pago: 'tarjeta', fecha: '21:14 hs', estado: 'emitido' },
-    { id_factura: 'f_103', nro_ticket: 'T-0001-00008323', cliente: 'Siderar S.A.', cuit: '30-50000732-5', total: 125000.00, iva_veintiuno: 21694.21, medio_pago: 'debito', fecha: '21:40 hs', estado: 'emitido' },
-    { id_factura: 'f_104', nro_ticket: 'T-0001-00008324', cliente: 'Camila Galván', cuit: '27-40112833-2', total: 15400.00, iva_veintiuno: 2672.72, medio_pago: 'mp_qr', fecha: '21:55 hs', estado: 'emitido' },
-  ]);
+  const [facturas, setFacturas] = useState<Factura[]>([]);
+
+  useEffect(() => {
+    facturacionService.list().then(data => {
+      if (data && data.length > 0) {
+        setFacturas(data);
+      } else {
+        const defaults: Factura[] = [
+          { id_factura: 'f_101', nro_ticket: 'T-0001-00008321', cliente: 'Consumidor Final', cuit: '99-99999999-9', total: 18500.00, iva_veintiuno: 3210.33, medio_pago: 'efectivo', fecha: '21:05 hs', estado: 'emitido' },
+          { id_factura: 'f_102', nro_ticket: 'T-0001-00008322', cliente: 'Agustín Colombo', cuit: '20-38449102-1', total: 43200.00, iva_veintiuno: 7497.52, medio_pago: 'tarjeta', fecha: '21:14 hs', estado: 'emitido' },
+          { id_factura: 'f_103', nro_ticket: 'T-0001-00008323', cliente: 'Siderar S.A.', cuit: '30-50000732-5', total: 125000.00, iva_veintiuno: 21694.21, medio_pago: 'debito', fecha: '21:40 hs', estado: 'emitido' },
+          { id_factura: 'f_104', nro_ticket: 'T-0001-00008324', cliente: 'Camila Galván', cuit: '27-40112833-2', total: 15400.00, iva_veintiuno: 2672.72, medio_pago: 'mp_qr', fecha: '21:55 hs', estado: 'emitido' },
+        ];
+        setFacturas(defaults);
+      }
+    }).catch(() => {});
+  }, []);
+
 
   const [search, setSearch] = useState('');
   const [ticketActivo, setTicketActivo] = useState<Factura | null>(null);

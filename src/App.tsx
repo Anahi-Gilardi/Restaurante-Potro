@@ -18,6 +18,7 @@ import {
   Layout,
   Sliders,
   ShieldCheck,
+  ShieldAlert,
   Smartphone,
   Eye,
   Scale,
@@ -36,6 +37,7 @@ import {
 } from './data/initialData';
 
 // Subcomponents matching the design
+import HomeMenuModule from './components/HomeMenuModule';
 import MozoTerminal from './components/MozoTerminal';
 import KitchenMonitor from './components/KitchenMonitor';
 import InventoryModule from './components/InventoryModule';
@@ -43,6 +45,7 @@ import BusinessIntelligence from './components/BusinessIntelligence';
 import CajaModule from './components/CajaModule';
 import SistemaModule from './components/SistemaModule';
 import PythonStreamlitLogin from './components/PythonStreamlitLogin';
+import ElPatronLogo from './components/ElPatronLogo';
 import PanelDashboard from './components/PanelDashboard';
 import UsuariosModule from './components/UsuariosModule';
 import MenuModule from './components/MenuModule';
@@ -61,12 +64,15 @@ import {
   dbFetchRecetas,
   dbSavePedidoComplex,
   dbUpsertMesas,
-  dbUpsertInsumos
+  dbUpsertInsumos,
+  dbFetchMermas,
+  dbRecordMovement
 } from './supabase';
 
 export default function App() {
   // --- Global Synced States ---
   const [isStreamlitLoggedIn, setIsStreamlitLoggedIn] = useState<boolean>(false);
+  const [permitirVentaSinStock, setPermitirVentaSinStock] = useState<boolean>(false);
   const [mesas, setMesas] = useState<Mesa[]>(INITIAL_MESAS);
   const [insumos, setInsumos] = useState<Insumo[]>(INITIAL_INSUMOS);
   const [productosMenu, setProductosMenu] = useState<ProductoMenu[]>(INITIAL_PRODUCTOS_MENU);
@@ -84,6 +90,7 @@ export default function App() {
         const dbInsumos = await dbFetchInsumos();
         const dbProducts = await dbFetchProductosMenu();
         const dbRecipes = await dbFetchRecetas();
+        const dbMermas = await dbFetchMermas();
 
         if (dbMesas && dbMesas.length > 0) {
           setMesas(dbMesas.map(m => ({
@@ -102,6 +109,9 @@ export default function App() {
         if (dbRecipes && dbRecipes.length > 0) {
           setRecetas(dbRecipes);
         }
+        if (dbMermas && dbMermas.length > 0) {
+          setMermas(dbMermas);
+        }
         addLog('sistema', 'SUPABASE: Auto-sincronización exitosa en el arranque de la aplicación.');
       } catch (err) {
         console.warn('Supabase: Falló auto-sync en el arranque. Usando datos SQLite locales.', err);
@@ -116,11 +126,13 @@ export default function App() {
     insumos?: Insumo[];
     productosMenu?: ProductoMenu[];
     recetas?: RecetaEscandallo[];
+    mermas?: Merma[];
   }) => {
     if (newData.mesas) setMesas(newData.mesas);
     if (newData.insumos) setInsumos(newData.insumos);
     if (newData.productosMenu) setProductosMenu(newData.productosMenu);
     if (newData.recetas) setRecetas(newData.recetas);
+    if (newData.mermas) setMermas(newData.mermas);
   };
 
   
@@ -149,8 +161,8 @@ export default function App() {
   // Terminal active configs & simulation states
   const [activeMozo, setActiveMozo] = useState<string>('Enzo');
   const [activeView, setActiveView] = useState<
-    'panel' | 'mozo' | 'cocina' | 'caja' | 'reportes' | 'usuarios' | 'menu' | 'recetas' | 'mesas' | 'inventario' | 'proveedores' | 'promociones' | 'reservas' | 'facturacion' | 'sistema' | 'backups'
-  >('panel');
+    'home' | 'panel' | 'mozo' | 'cocina' | 'caja' | 'reportes' | 'usuarios' | 'menu' | 'recetas' | 'mesas' | 'inventario' | 'proveedores' | 'promociones' | 'reservas' | 'facturacion' | 'sistema' | 'backups'
+  >('home');
 
   // Simulation Clock state (operational minutes passed)
   const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
@@ -202,7 +214,185 @@ export default function App() {
   // --- Handlers for Kitchen View (KDS) ---
   const handleCambiarEstadoPedido = (idPedido: number, nuevoEstado: Pedido['estado_comanda']) => {
     let updatedPedido: Pedido | null = null;
-    
+    let stockDeductionBlocked = false;
+    let errorMsg = '';
+
+    const pObj = pedidos.find(p => p.id_pedido === idPedido);
+
+    // If changing to 'en_cocina' (production), run escandallo and subtract stock if not discounted yet
+    if (nuevoEstado === 'en_cocina' && pObj) {
+      // 1. Validate empty orders or orders without products
+      if (!pObj.items || pObj.items.length === 0) {
+        alert("Error: No se puede enviar a cocina un pedido vacío (sin productos).");
+        addLog('sistema', `RECHAZADO: Intento de enviar a cocina el pedido vacío #${idPedido}`);
+        return;
+      }
+
+      // 2. Prevent double stock deduction
+      if (pObj.stock_descontado) {
+        console.log(`[Escandallo] El pedido #${idPedido} ya tiene stock descontado.`);
+      } else {
+        let canDeduct = true;
+        let itemsDescontados: string[] = [];
+        let alarmasBajoStock: string[] = [];
+
+        // Validate insufficient stock BEFORE proceeding if ALLOW VENTA WITHOUT STOCK is false
+        if (!permitirVentaSinStock) {
+          for (const item of pObj.items) {
+            const qtyPlates = item.cantidad;
+            const matchingRecetas = recetas.filter(r => r.id_producto === item.id_producto);
+
+            if (matchingRecetas.length === 0) {
+              // Warn about missing recipe, but do not break the order
+              addLog('sistema', `ADVERTENCIA RECETA: El producto '${item.nombre}' no tiene receta asociada.`);
+              continue;
+            }
+
+            for (const rec of matchingRecetas) {
+              const insumo = insumos.find(i => i.id_insumo === rec.id_insumo);
+              if (!insumo) {
+                addLog('sistema', `ADVERTENCIA RECETA: No existe el insumo con ID '${rec.id_insumo}' solicitado por receta.`);
+                continue;
+              }
+              const requiredAmt = rec.cantidad_a_descontar * qtyPlates;
+              if (insumo.stock_actual < requiredAmt) {
+                canDeduct = false;
+                errorMsg = `Insumo crítico agotado para '${insumo.nombre}' (Disponible: ${insumo.stock_actual}${insumo.unidad_medida}, Requerido: ${requiredAmt}${insumo.unidad_medida}).`;
+                break;
+              }
+            }
+            if (!canDeduct) break;
+          }
+        }
+
+        if (!canDeduct) {
+          stockDeductionBlocked = true;
+          alert(`No es posible iniciar cocción: ${errorMsg}`);
+          addLog('alerta_stock', `RECHAZADO FUEGO: Pedido #${idPedido} bloqueado por falta de stock. ${errorMsg}`);
+          return; // STOP!
+        }
+
+        // Apply deduction to ingredients
+        let updatedInsumos: Insumo[] = [];
+        setInsumos(prevInsumos => {
+          const copy = prevInsumos.map(ins => ({ ...ins }));
+
+          pObj.items.forEach(item => {
+            const qtyPlates = item.cantidad;
+            const matchingRecetas = recetas.filter(r => r.id_producto === item.id_producto);
+
+            matchingRecetas.forEach(rec => {
+              const insIdx = copy.findIndex(ins => ins.id_insumo === rec.id_insumo);
+              if (insIdx !== -1) {
+                const currentIns = copy[insIdx];
+                const discountAmt = parseFloat((rec.cantidad_a_descontar * qtyPlates).toFixed(2));
+                const stockAnterior = currentIns.stock_actual;
+                const updatedStock = parseFloat((Math.max(permitirVentaSinStock ? -999999 : 0, stockAnterior - discountAmt)).toFixed(2));
+
+                copy[insIdx].stock_actual = updatedStock;
+                itemsDescontados.push(`${currentIns.nombre} (-${discountAmt} ${currentIns.unidad_medida})`);
+
+                if (updatedStock <= currentIns.stock_minimo) {
+                  alarmasBajoStock.push(`${currentIns.nombre} (Stock actual: ${updatedStock}${currentIns.unidad_medida})`);
+                }
+
+                // Record inventory movement securely
+                dbRecordMovement({
+                  id_insumo: currentIns.id_insumo,
+                  tipo_movimiento: 'salida_comanda',
+                  cantidad: discountAmt,
+                  stock_anterior: stockAnterior,
+                  stock_nuevo: updatedStock
+                }).catch(console.error);
+              } else {
+                addLog('sistema', `ADVERTENCIA: No existe insumo '${rec.id_insumo}' solicitado por la receta.`);
+              }
+            });
+          });
+
+          updatedInsumos = copy;
+          return copy;
+        });
+
+        // Mutate local temporary model flags
+        pObj.stock_descontado = true;
+        pObj.fecha_descuento_stock = new Date();
+
+        if (itemsDescontados.length > 0) {
+          addLog('descuento_stock', `ESCANDALLO: Pedido #${idPedido} cambió a EN_COCINA. Descuento automático de: ${itemsDescontados.join(', ')}`);
+        }
+
+        alarmasBajoStock.forEach(alertStr => {
+          addLog('alerta_stock', `CRÍTICO REPOSICIÓN: El insumo '${alertStr}' cayó por debajo del stock mínimo estipulado.`);
+        });
+
+        // Write through stocks to database
+        setTimeout(() => {
+          if (updatedInsumos.length > 0) {
+            dbUpsertInsumos(updatedInsumos);
+          }
+        }, 50);
+      }
+    }
+
+    // If order is canceled, let's reverse stock deduction if it has already been discounted
+    if (nuevoEstado === 'cancelado' && pObj) {
+      if (pObj.stock_descontado) {
+        let itemsReversados: string[] = [];
+        let updatedInsumos: Insumo[] = [];
+
+        setInsumos(prevInsumos => {
+          const copy = prevInsumos.map(ins => ({ ...ins }));
+
+          pObj.items.forEach(pItem => {
+            const qtyPlates = pItem.cantidad;
+            const matchingRecetas = recetas.filter(r => r.id_producto === pItem.id_producto);
+
+            matchingRecetas.forEach(rec => {
+              const insIdx = copy.findIndex(ins => ins.id_insumo === rec.id_insumo);
+              if (insIdx !== -1) {
+                const currentIns = copy[insIdx];
+                const restoreAmt = parseFloat((rec.cantidad_a_descontar * qtyPlates).toFixed(2));
+                const stockAnterior = currentIns.stock_actual;
+                const updatedStock = parseFloat((stockAnterior + restoreAmt).toFixed(2));
+
+                copy[insIdx].stock_actual = updatedStock;
+                itemsReversados.push(`${currentIns.nombre} (+${restoreAmt} ${currentIns.unidad_medida})`);
+
+                // Record reversal inventory movement
+                dbRecordMovement({
+                  id_insumo: currentIns.id_insumo,
+                  tipo_movimiento: 'entrada',
+                  cantidad: restoreAmt,
+                  stock_anterior: stockAnterior,
+                  stock_nuevo: updatedStock
+                }).catch(console.error);
+              }
+            });
+          });
+
+          updatedInsumos = copy;
+          return copy;
+        });
+
+        pObj.stock_descontado = false;
+        pObj.fecha_descuento_stock = undefined;
+
+        if (itemsReversados.length > 0) {
+          addLog('descuento_stock', `REVERSO ESCANDALLO: Pedido #${idPedido} CANCELADO. Reintegro automático de: ${itemsReversados.join(', ')}`);
+        }
+
+        setTimeout(() => {
+          if (updatedInsumos.length > 0) {
+            dbUpsertInsumos(updatedInsumos);
+          }
+        }, 50);
+      } else {
+        addLog('sistema', `CANCELACIÓN: Pedido #${idPedido} cancelado sin descuento de stock previo.`);
+      }
+    }
+
+    // Proceed to standard states update
     setPedidos(prev => prev.map(p => {
       if (p.id_pedido === idPedido) {
         const updated = { ...p, estado_comanda: nuevoEstado };
@@ -215,7 +405,6 @@ export default function App() {
       return p;
     }));
 
-    const pObj = pedidos.find(p => p.id_pedido === idPedido);
     const mStr = pObj ? ` para ${pObj.numero_mesa}` : '';
     addLog('comanda_estado', `COMANDA #${idPedido}${mStr}: Estado cambiado a ${nuevoEstado.toUpperCase()}`);
 
@@ -228,8 +417,8 @@ export default function App() {
       }
     }, 50);
 
-    // If order was delivered/paid via waiters, liberate the table
-    if (nuevoEstado === 'entregado_cobrado' && pObj) {
+    // If order was delivered/paid or canceled, liberate the table
+    if ((nuevoEstado === 'entregado_cobrado' || nuevoEstado === 'cancelado') && pObj) {
       const updatedMesas = mesas.map(m => m.id_mesa === pObj.id_mesa ? { ...m, estado: 'libre' as const, comensales: undefined } : m);
       setMesas(updatedMesas);
       dbUpsertMesas(updatedMesas);
@@ -237,57 +426,8 @@ export default function App() {
   };
 
   const handleProducirPedidoConEscandallo = (idPedido: number) => {
-    const targetPedido = pedidos.find(p => p.id_pedido === idPedido);
-    if (!targetPedido) return;
-
-    let itemsDescontados: string[] = [];
-    let alarmasBajoStock: string[] = [];
-    let updatedInsumos: Insumo[] = [];
-
-    setInsumos(prevInsumos => {
-      const copy = prevInsumos.map(ins => ({ ...ins }));
-
-      targetPedido.items.forEach(pItem => {
-        const qtyPlates = pItem.cantidad;
-        const matchingRecetas = recetas.filter(r => r.id_producto === pItem.id_producto);
-
-        matchingRecetas.forEach(rec => {
-          const insIdx = copy.findIndex(ins => ins.id_insumo === rec.id_insumo);
-          if (insIdx !== -1) {
-            const currentIns = copy[insIdx];
-            const discountAmt = rec.cantidad_a_descontar * qtyPlates;
-            const updatedStock = Math.max(0, currentIns.stock_actual - discountAmt);
-            
-            copy[insIdx].stock_actual = parseFloat(updatedStock.toFixed(2));
-            itemsDescontados.push(`${currentIns.nombre} (-${discountAmt.toFixed(1)} ${currentIns.unidad_medida})`);
-
-            if (updatedStock < currentIns.stock_minimo) {
-              alarmasBajoStock.push(currentIns.nombre);
-            }
-          }
-        });
-      });
-
-      updatedInsumos = copy;
-      return copy;
-    });
-
-    if (itemsDescontados.length > 0) {
-      addLog('descuento_stock', `ESCANDALLO: Pedido #${idPedido} pasó a cocción. Descuento automático de: ${itemsDescontados.join(', ')}`);
-    }
-
-    alarmasBajoStock.forEach(nom => {
-      addLog('alerta_stock', `CONTROL REPOSICIÓN: El insumo '${nom}' ha caído por debajo del stock de seguridad estipulado.`);
-    });
-
-    // Write through stocks to Supabase
-    setTimeout(() => {
-      if (updatedInsumos.length > 0) {
-        dbUpsertInsumos(updatedInsumos);
-      }
-    }, 50);
-
-    handleCambiarEstadoPedido(idPedido, 'en_cocina');
+    // When marking as finished, transition to 'listo'
+    handleCambiarEstadoPedido(idPedido, 'listo');
   };
 
   // --- Handlers for Cashier View (Caja & Cierre) ---
@@ -493,20 +633,18 @@ export default function App() {
       <aside className="w-full lg:w-80 bg-[#1E1E1E] text-[#E2E8F0] flex flex-col border-b lg:border-b-0 lg:border-r border-stone-850 shrink-0 z-40" id="sidebar-left-panel">
         
         {/* Brand Header */}
-        <div className="p-5 border-b border-stone-800 flex items-center justify-between bg-black/10">
+        <div className="p-5 border-b border-stone-800 flex items-center justify-between bg-black/20">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#624A3E] text-white flex items-center justify-center font-black text-xl tracking-tighter shadow-md shadow-[#624A3E]/30 border border-amber-900/20">
-              P
+            <div className="w-12 h-12 bg-[#FAF4EE] rounded-xl flex items-center justify-center shadow-md border border-stone-850 p-0.5 overflow-hidden shrink-0">
+              <ElPatronLogo className="w-11 h-11 object-contain rounded-lg" variant="icon" color="#4A2D1B" />
             </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="font-extrabold text-sm text-white tracking-tight">EL PATRÓN</span>
-              </div>
-              <p className="text-[10px] text-stone-400 font-semibold leading-none mt-0.5">Gestión Gastronómica Pro</p>
+            <div className="min-w-0">
+              <span className="font-sans font-extrabold text-base text-white tracking-tight block">El Patrón</span>
+              <span className="text-[9px] uppercase font-bold text-[#FAF4EE]/70 tracking-wider block mt-0.5 leading-none">Gestión Gastronómica Pro</span>
             </div>
           </div>
-          <span className="bg-[#624A3E]/20 text-amber-200 text-[8px] border border-[#624A3E]/40 px-1.5 py-0.5 rounded font-bold font-mono">
-            PYTHON v3.11
+          <span className="bg-[#4A2D1B]/35 text-amber-200 text-[8px] border border-stone-800 px-1.5 py-1 rounded font-bold font-mono shrink-0">
+            v1.2.0
           </span>
         </div>
 
@@ -550,6 +688,34 @@ export default function App() {
           </div>
         </div>
 
+        {/* Business Rule: Venta sin stock */}
+        <div className="p-4 bg-stone-950/30 border-b border-stone-800 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] uppercase font-bold text-stone-400 tracking-wider flex items-center gap-1.5 font-mono">
+              <ShieldAlert className="w-3.5 h-3.5 text-[#F97316]" />
+              Fórmula sin Stock
+            </span>
+            <span className="text-[10px] text-stone-500 font-bold font-mono">RESTRICCIÓN</span>
+          </div>
+          <label className="flex items-center justify-between bg-[#151515] border border-stone-800 p-2.5 rounded-xl cursor-pointer hover:bg-[#252525] transition-all select-none">
+            <div className="min-w-0 pr-2">
+              <span className="text-[9px] text-stone-500 font-bold block leading-none">VENTA PARMITIDA</span>
+              <span className="text-xs font-semibold text-white tracking-tight truncate block mt-0.5">
+                {permitirVentaSinStock ? 'Forzar Ventas Habilitada' : 'Bloquear sin ingred.'}
+              </span>
+            </div>
+            <input
+              type="checkbox"
+              checked={permitirVentaSinStock}
+              onChange={(e) => {
+                setPermitirVentaSinStock(e.target.checked);
+                addLog('sistema', `REGLA DE NEGOCIO: Venta forzada sin stock ${e.target.checked ? 'HABILITADA (se admiten negativos)' : 'DESHABILITADA (bloqueo automático)'}`);
+              }}
+              className="rounded border-stone-700 text-[#624A3E] focus:ring-[#624A3E] w-4 h-4 bg-stone-800 cursor-pointer"
+            />
+          </label>
+        </div>
+
         {/* Interactive Personnel login manager */}
         <div className="p-4 border-b border-stone-800 bg-stone-950/20">
           <div className="flex items-center gap-3 bg-stone-900/90 border border-stone-800 p-3 rounded-xl">
@@ -579,14 +745,15 @@ export default function App() {
             
             <nav className="space-y-2" id="sidebar-navigation">
               {[
-                { id: 'panel', label: 'Panel' },
-                { id: 'mozo', label: 'Mozo' },
-                { id: 'cocina', label: 'Cocina' },
+                { id: 'home', label: 'Menú Principal 🍽️' },
+                { id: 'panel', label: 'Panel General' },
+                { id: 'mozo', label: 'Mozo / Salón' },
+                { id: 'cocina', label: 'Cocina KDS' },
                 { id: 'caja', label: 'Caja' },
-                { id: 'reportes', label: 'Reportes' },
+                { id: 'reportes', label: 'Reportes / BI' },
                 { id: 'usuarios', label: 'Usuarios' },
-                { id: 'menu', label: 'Menu' },
-                { id: 'recetas', label: 'Recetas' },
+                { id: 'menu', label: 'Menú' },
+                { id: 'recetas', label: 'Recetas / Escandallos' },
                 { id: 'mesas', label: 'Mesas' },
                 { id: 'inventario', label: 'Inventario' },
                 { id: 'proveedores', label: 'Proveedores' },
@@ -633,6 +800,7 @@ export default function App() {
         <div className="bg-[#F5F1E9] border-b border-stone-200/80 px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
           <div>
             <h1 className="text-xl font-extrabold text-[#624A3E] capitalize tracking-tight flex items-center gap-2">
+              {activeView === 'home' && <>🍽️ Menú Principal & Centro Operativo</>}
               {activeView === 'panel' && <>📊 Panel de Control y Resumen de Turno</>}
               {activeView === 'mozo' && <>📱 Terminal Interactiva de Mozos</>}
               {activeView === 'cocina' && <>🍳 Monitor de Cocina (KDS)</>}
@@ -651,6 +819,7 @@ export default function App() {
               {activeView === 'backups' && <>🗄️ Copias de Seguridad (Backup)</>}
             </h1>
             <p className="text-xs text-stone-500 mt-0.5">
+              {activeView === 'home' && 'Bienvenido a El Patrón Pro. Ingrese rápidamente a cualquier sección o terminal.'}
               {activeView === 'panel' && 'Métricas macro, alertas críticas y bitácora operativa en tiempo real.'}
               {activeView === 'mozo' && 'Gestión táctil de ocupación de salón, comensales y envío asíncrono de comandas a cocina.'}
               {activeView === 'cocina' && 'Recepción en tiempo real, alertas de preparación con temporizador y descuento automático por receta.'}
@@ -682,6 +851,24 @@ export default function App() {
         <div className="flex-1 p-6 space-y-6 overflow-y-auto max-w-7xl w-full mx-auto">
           
           {/* ACTIVE TAB RENDER TRIAGE */}
+          {activeView === 'home' && (
+            <div className="animate-fadeIn">
+              <HomeMenuModule
+                mesas={mesas}
+                pedidos={pedidos}
+                insumos={insumos}
+                productosMenu={productosMenu}
+                activeMozo={activeMozo}
+                onMozoChange={handleMozoChange}
+                onNavigate={(view: any) => setActiveView(view)}
+                getSimulatedTimeStr={getSimulatedTimeStr}
+                autoTimerRunning={autoTimerRunning}
+                onToggleAutoTimer={handleToggleAutoTimer}
+                onAdvanceTime={handleAdvanceTime}
+              />
+            </div>
+          )}
+
           {activeView === 'panel' && (
             <div className="animate-fadeIn">
               <PanelDashboard
@@ -708,6 +895,7 @@ export default function App() {
                 pedidos={pedidos}
                 onFacturarMesa={handleFacturarMesa}
                 addLog={addLog}
+                permitirVentaSinStock={permitirVentaSinStock}
               />
             </div>
           )}
@@ -757,7 +945,6 @@ export default function App() {
             <div className="animate-fadeIn">
               <MenuModule
                 productosMenu={productosMenu}
-                setProductosMenu={setProductosMenu}
                 addLog={addLog}
               />
             </div>

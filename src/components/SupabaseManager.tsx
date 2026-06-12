@@ -33,7 +33,9 @@ import {
   dbUpsertRecetas,
   dbUpsertPromociones,
   dbUpsertProveedores,
-  dbUpsertReservas
+  dbUpsertReservas,
+  dbFetchMermas,
+  dbUpsertMermas
 } from '../supabase';
 import { 
   INITIAL_USUARIOS, 
@@ -50,6 +52,7 @@ interface SupabaseManagerProps {
     productosMenu?: any[];
     recetas?: any[];
     usuarios?: any[];
+    mermas?: any[];
   }) => void;
   // Current states to seed/push if needed
   currentMesas: any[];
@@ -70,8 +73,6 @@ export default function SupabaseManager({
   const [copiedKey, setCopiedKey] = useState(false);
   const [url, setUrl] = useState('');
   const [anonKey, setAnonKey] = useState('');
-  const [showSqlSetupGuide, setShowSqlSetupGuide] = useState(false);
-  const [copiedSql, setCopiedSql] = useState(false);
   
   // Statuses
   const [connectionStatus, setConnectionStatus] = useState<'not_configured' | 'testing' | 'connected' | 'error'>('not_configured');
@@ -79,14 +80,38 @@ export default function SupabaseManager({
   const [isPushing, setIsPushing] = useState(false);
   const [isPulling, setIsPulling] = useState(false);
 
-  // Table diagnostics
-  const [tableStats, setTableStats] = useState<{ [table: string]: number | string }>({
-    'usuarios': '...',
-    'mesetas': '...',
-    'depósitos': '...',
-    'productos_menu': '...',
-    'recetas_escandallo': '...'
-  });
+  // Dynamic PostgreSQL scan states
+  const [scannedTables, setScannedTables] = useState<any[]>([]);
+  const [isScanning, setIsScanning] = useState(false);
+  
+  // Interactive inspection grid states
+  const [selectedTableForInspect, setSelectedTableForInspect] = useState<string | null>(null);
+  const [inspectRows, setInspectRows] = useState<any[]>([]);
+  const [inspectColumns, setInspectColumns] = useState<string[]>([]);
+  const [isInspecting, setIsInspecting] = useState(false);
+  const [inspectError, setInspectError] = useState('');
+  const [inspectFilter, setInspectFilter] = useState('');
+  const [pageSize, setPageSize] = useState(5);
+  const [pageIndex, setPageIndex] = useState(0);
+
+  const candidateTables = [
+    { name: 'usuarios', desc: 'Credenciales, roles y perfiles de operarios/as.', key: 'id_usuario' },
+    { name: 'mesetas', desc: 'Configuración y estado actual de mesas físicas en salón.', key: 'id_mesa' },
+    { name: 'mesas', desc: 'Nomenclatura alternativa para mesas físicas.', key: 'id_mesa' },
+    { name: 'depósitos', desc: 'Historial y stock actual de insumos y materias primas.', key: 'id_insumo' },
+    { name: 'insumos', desc: 'Nomenclatura alternativa para depósitos/insumos.', key: 'id_insumo' },
+    { name: 'productos_menú', desc: 'Platos, tragos y artículos activos del catálogo de venta.', key: 'id_producto' },
+    { name: 'productos', desc: 'Nomenclatura alternativa para productos.', key: 'id_producto' },
+    { name: 'recetas_escandallo', desc: 'Asociación e ingredientes de platos con descuento para cocina.', key: 'id_receta' },
+    { name: 'promociones', desc: 'Campañas de descuento Happy Hour o combos especiales.', key: 'id_promo' },
+    { name: 'proveedores', desc: 'Directorio de suministro y plazos de entrega estimados.', key: 'id_proveedor' },
+    { name: 'reservas', desc: 'Planillas de reservas, clientes y asignación de mesas.', key: 'id_reserva' },
+    { name: 'mermas', desc: 'Mermas registradas por roturas o pérdidas de bodega.', key: 'id_merma' },
+    { name: 'facturas', desc: 'Archivo fiscal e historial de facturación AFIP.', key: 'id_factura' },
+    { name: 'pedidos_cabecera', desc: 'Cabecera de comandas vivas o terminadas del turno.', key: 'id_pedido' },
+    { name: 'pedido_detalle', desc: 'Detalles de platillos asociados por cada comanda.', key: 'id_detalle' },
+    { name: 'auditoria_eventos', desc: 'Trazabilidad y logs de auditoría técnica del software.', key: 'id' }
+  ];
 
   useEffect(() => {
     // Initial load
@@ -100,6 +125,72 @@ export default function SupabaseManager({
       testConnection(config.url, config.key);
     }
   }, []);
+
+  const scanDatabaseTables = async (client: any) => {
+    setIsScanning(true);
+    const results: any[] = [];
+    
+    for (const cand of candidateTables) {
+      try {
+        const { data, count, error } = await client
+          .from(cand.name)
+          .select('*', { count: 'exact', head: true });
+        
+        if (error) {
+          if (error.code === 'PGRST116' || error.message?.includes('not find') || error.code === '42P01') {
+            results.push({ ...cand, status: 'missing', count: 'Sin Crear' });
+          } else {
+            results.push({ ...cand, status: 'forbidden', count: 'Restringida (RLS)', errorMsg: error.message });
+          }
+        } else {
+          results.push({ ...cand, status: 'detected', count: count !== null ? count : (data?.length ?? 0) });
+        }
+      } catch (err: any) {
+        results.push({ ...cand, status: 'missing', count: 'Sin Crear' });
+      }
+    }
+    setScannedTables(results);
+    setIsScanning(false);
+  };
+
+  const inspectTable = async (tableName: string) => {
+    setSelectedTableForInspect(tableName);
+    setIsInspecting(true);
+    setInspectError('');
+    setInspectRows([]);
+    setInspectColumns([]);
+    setPageIndex(0);
+
+    const client = getSupabaseClient();
+    if (!client) {
+      setInspectError('Cliente Supabase no inicializado de forma correcta.');
+      setIsInspecting(false);
+      return;
+    }
+
+    try {
+      const { data, error } = await client
+        .from(tableName)
+        .select('*')
+        .limit(100);
+      
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        setInspectRows(data);
+        const columns = Object.keys(data[0]);
+        setInspectColumns(columns);
+      } else {
+        setInspectRows([]);
+        setInspectColumns([]);
+      }
+    } catch (err: any) {
+      console.error(err);
+      setInspectError(err.message || 'Error al recuperar registros de Supabase.');
+    } finally {
+      setIsInspecting(false);
+    }
+  };
 
   const testConnection = async (testUrl: string, testKey: string) => {
     if (!testUrl || !testKey) {
@@ -125,65 +216,16 @@ export default function SupabaseManager({
       // Test reading tables
       const { data: userTest, error: userError } = await client.from('usuarios').select('count', { count: 'exact', head: true });
       
-      let mesasCount: any = 'Error';
-      try {
-        const resMesas = await client.from('mesetas').select('count', { count: 'exact', head: true });
-        if (!resMesas.error) mesasCount = resMesas.count ?? 0;
-      } catch { }
-
-      let depositosCount: any = 'Error';
-      try {
-        const resDep = await client.from('depósitos').select('count', { count: 'exact', head: true });
-        if (!resDep.error) depositosCount = resDep.count ?? 0;
-      } catch { }
-
-      let prodCount: any = 'Error';
-      try {
-        let resProd = await client.from('productos_menu').select('count', { count: 'exact', head: true });
-        if (resProd.error) {
-          resProd = await client.from('productos_menú').select('count', { count: 'exact', head: true });
-        }
-        if (!resProd.error) prodCount = resProd.count ?? 0;
-      } catch { }
-
-      let recCount: any = 'Error';
-      try {
-        const resRec = await client.from('recetas_escandallo').select('count', { count: 'exact', head: true });
-        if (!resRec.error) recCount = resRec.count ?? 0;
-      } catch { }
-
-      let isTableMissing = false;
-      if (userError) {
-        const isMissingRelation = 
-          userError.code === '42P01' || 
-          (userError.message && (
-            userError.message.toLowerCase().includes('relation') || 
-            userError.message.toLowerCase().includes('does not exist')
-          ));
-        
-        if (isMissingRelation) {
-          isTableMissing = true;
-        } else {
-          throw userError;
-        }
+      if (userError && userError.code !== '42P01' && userError.code !== 'PGRST116') {
+        throw userError;
       }
 
       setConnectionStatus('connected');
-      if (isTableMissing) {
-        setConnectionMessage('¡Conexión establecida con éxito! Su base de datos Supabase está totalmente accesible, pero se encuentra vacía y sin tablas. Use el "Soporte SQL" a continuación para crear las tablas en su portal de Supabase en 1 paso.');
-        addLog('sistema', 'SUPABASE: Enlace exitoso. Se detectó base de datos vacía sin relaciones creadas.');
-      } else {
-        setConnectionMessage('¡Conexión establecida con éxito a Supabase PostgreSQL!');
-        addLog('sistema', 'SUPABASE: Conexión establecida con la nube de Supabase. Sincronización activa.');
-      }
+      setConnectionMessage('¡Conexión establecida con éxito a Supabase PostgreSQL!');
+      addLog('sistema', 'SUPABASE: Conexión establecida con la nube de Supabase. Sincronización activa.');
 
-      setTableStats({
-        'usuarios': isTableMissing ? 0 : (userTest?.length ?? 0),
-        'mesetas': mesasCount === 'Error' ? 0 : mesasCount,
-        'depósitos': depositosCount === 'Error' ? 0 : depositosCount,
-        'productos_menu': prodCount === 'Error' ? 0 : prodCount,
-        'recetas_escandallo': recCount === 'Error' ? 0 : recCount
-      });
+      // Perform a full relational scan
+      await scanDatabaseTables(client);
 
     } catch (err: any) {
       console.error(err);
@@ -210,14 +252,8 @@ export default function SupabaseManager({
     setConnectionStatus('not_configured');
     setConnectionMessage('Configuración removida. Volviendo a SQLite Local offline.');
     addLog('sistema', 'SUPABASE: Desconectado. Retornando a persistencia interna offline.');
-    
-    setTableStats({
-      'usuarios': '...',
-      'mesetas': '...',
-      'depósitos': '...',
-      'productos_menu': '...',
-      'recetas_escandallo': '...'
-    });
+    setScannedTables([]);
+    setSelectedTableForInspect(null);
   };
 
   // Push seed data helper (from local UI state or files into Supabase!)
@@ -282,6 +318,7 @@ export default function SupabaseManager({
       const dbInsumos = await dbFetchInsumos();
       const dbProducts = await dbFetchProductosMenu();
       const dbRecipes = await dbFetchRecetas();
+      const dbMermas = await dbFetchMermas();
 
       // Assemble update object
       const syncedPayload: any = {};
@@ -311,6 +348,10 @@ export default function SupabaseManager({
       }
       if (dbRecipes && dbRecipes.length > 0) {
         syncedPayload.recetas = dbRecipes;
+        pulledCount++;
+      }
+      if (dbMermas && dbMermas.length > 0) {
+        syncedPayload.mermas = dbMermas;
         pulledCount++;
       }
 
@@ -430,308 +471,223 @@ export default function SupabaseManager({
         </div>
       )}
 
-      {/* SQL Setup Helper button and collapsible panel */}
-      <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100 flex flex-col gap-2.5">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <Unlock className="w-4 h-4 text-[#624A3E]" />
-            <div>
-              <span className="text-[11px] font-black uppercase text-slate-700 block text-left">Soporte SQL - Crear Tablas en Supabase</span>
-              <span className="text-[10px] text-slate-400 block text-left">Copie el script integral para inicializar su portal en un clic.</span>
-            </div>
-          </div>
-          <button
-            onClick={() => setShowSqlSetupGuide(!showSqlSetupGuide)}
-            className="px-2.5 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-[10px] font-extrabold rounded-lg cursor-pointer transition-all shadow-xs"
-          >
-            {showSqlSetupGuide ? 'Ocultar Código' : 'Ver Código SQL'}
-          </button>
-        </div>
-
-        {showSqlSetupGuide && (
-          <div className="space-y-2.5 animate-fadeIn">
-            <p className="text-[10px] text-slate-500 leading-relaxed text-left">
-              Ejecute este script en el <strong>"SQL Editor"</strong> de su consola de Supabase para crear automáticamente todas las tablas relacionales y habilitar el acceso completo de subida/bajada sin restricciones de seguridad (RLS):
-            </p>
-            <div className="bg-slate-900 text-slate-100 p-3 rounded-xl relative font-mono text-[9px] overflow-hidden group shadow-inner">
-              <pre className="overflow-x-auto whitespace-pre max-h-56 leading-relaxed text-left pr-20">
-{`-- 1. CREACIÓN DE TODAS LAS TABLAS DE RESTAURANTE
-CREATE TABLE IF NOT EXISTS public.productos_menu (
-  id_producto text PRIMARY KEY,
-  nombre text NOT NULL,
-  precio_venta numeric NOT NULL,
-  categoria text NOT NULL,
-  activo boolean DEFAULT true,
-  imagen text
-);
-
-CREATE TABLE IF NOT EXISTS public.usuarios (
-  id_usuario bigint PRIMARY KEY,
-  nombre text NOT NULL,
-  apellido text,
-  rol text NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS public.mesetas (
-  id_mesa bigint PRIMARY KEY,
-  numero_mesa text NOT NULL,
-  estado text NOT NULL,
-  comensales bigint
-);
-
-CREATE TABLE IF NOT EXISTS public.depósitos (
-  id_insumo text PRIMARY KEY,
-  nombre text NOT NULL,
-  stock_actual numeric NOT NULL,
-  stock_minimo numeric,
-  unidad_medida text NOT NULL,
-  categoria text NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS public.recetas_escandallo (
-  id_receta text PRIMARY KEY,
-  id_producto text,
-  id_insumo text,
-  cantidad_a_descontar numeric NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS public.promociones (
-  id_promocion text PRIMARY KEY,
-  codigo text NOT NULL,
-  descripcion text,
-  tipo_descuento text NOT NULL,
-  valor numeric NOT NULL,
-  activa boolean DEFAULT true,
-  id_producto_regalo text,
-  cantidad_compra bigint
-);
-
-CREATE TABLE IF NOT EXISTS public.proveedores (
-  id_proveedor text PRIMARY KEY,
-  nombre text NOT NULL,
-  rubro text NOT NULL,
-  contacto text,
-  telefono text,
-  email text,
-  historial_compras text
-);
-
-CREATE TABLE IF NOT EXISTS public.reservas (
-  id_reserva text PRIMARY KEY,
-  cliente text NOT NULL,
-  comensales bigint NOT NULL,
-  fecha_hora timestamp with time zone NOT NULL,
-  mesa_sugerida text,
-  estado text DEFAULT 'confirmada',
-  contacto text,
-  observaciones text
-);
-
-CREATE TABLE IF NOT EXISTS public.auditoria_eventos (
-  id text PRIMARY KEY,
-  tipo text NOT NULL,
-  mensaje text NOT NULL,
-  fecha timestamp with time zone DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS public.pedidos_cabecera (
-  id_pedido text PRIMARY KEY,
-  id_mesa bigint,
-  numero_mesa text NOT NULL,
-  mozo text NOT NULL,
-  estado_comanda text NOT NULL,
-  observaciones text,
-  fecha_hora timestamp with time zone NOT NULL,
-  minutos_transcurridos bigint DEFAULT 0,
-  origen text NOT NULL,
-  tiempo_despacho_minutos numeric,
-  segundos_en_listo bigint,
-  items text
-);
-
-CREATE TABLE IF NOT EXISTS public.pedido_detalle (
-  id_detalle text PRIMARY KEY,
-  id_pedido text NOT NULL,
-  id_producto text NOT NULL,
-  nombre text NOT NULL,
-  cantidad bigint NOT NULL,
-  categoria text NOT NULL
-);
-
--- 2. DESACTIVACIÓN DE RLS PARA PERMITIR LECTURA/ESCRITURA DIRECTA
-ALTER TABLE public.productos_menu DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.usuarios DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.mesetas DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.depósitos DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.recetas_escandallo DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.promociones DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.proveedores DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.reservas DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.auditoria_eventos DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.pedidos_cabecera DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.pedido_detalle DISABLE ROW LEVEL SECURITY;`}
-              </pre>
-              <button
-                onClick={() => {
-                  const sqlCode = `-- 1. CREACIÓN DE TODAS LAS TABLAS DE RESTAURANTE
-CREATE TABLE IF NOT EXISTS public.productos_menu (
-  id_producto text PRIMARY KEY,
-  nombre text NOT NULL,
-  precio_venta numeric NOT NULL,
-  categoria text NOT NULL,
-  activo boolean DEFAULT true,
-  imagen text
-);
-
-CREATE TABLE IF NOT EXISTS public.usuarios (
-  id_usuario bigint PRIMARY KEY,
-  nombre text NOT NULL,
-  apellido text,
-  rol text NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS public.mesetas (
-  id_mesa bigint PRIMARY KEY,
-  numero_mesa text NOT NULL,
-  estado text NOT NULL,
-  comensales bigint
-);
-
-CREATE TABLE IF NOT EXISTS public.depósitos (
-  id_insumo text PRIMARY KEY,
-  nombre text NOT NULL,
-  stock_actual numeric NOT NULL,
-  stock_minimo numeric,
-  unidad_medida text NOT NULL,
-  categoria text NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS public.recetas_escandallo (
-  id_receta text PRIMARY KEY,
-  id_producto text,
-  id_insumo text,
-  cantidad_a_descontar numeric NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS public.promociones (
-  id_promocion text PRIMARY KEY,
-  codigo text NOT NULL,
-  descripcion text,
-  tipo_descuento text NOT NULL,
-  valor numeric NOT NULL,
-  activa boolean DEFAULT true,
-  id_producto_regalo text,
-  cantidad_compra bigint
-);
-
-CREATE TABLE IF NOT EXISTS public.proveedores (
-  id_proveedor text PRIMARY KEY,
-  nombre text NOT NULL,
-  rubro text NOT NULL,
-  contacto text,
-  telefono text,
-  email text,
-  historial_compras text
-);
-
-CREATE TABLE IF NOT EXISTS public.reservas (
-  id_reserva text PRIMARY KEY,
-  cliente text NOT NULL,
-  comensales bigint NOT NULL,
-  fecha_hora timestamp with time zone NOT NULL,
-  mesa_sugerida text,
-  estado text DEFAULT 'confirmada',
-  contacto text,
-  observaciones text
-);
-
-CREATE TABLE IF NOT EXISTS public.auditoria_eventos (
-  id text PRIMARY KEY,
-  tipo text NOT NULL,
-  mensaje text NOT NULL,
-  fecha timestamp with time zone DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS public.pedidos_cabecera (
-  id_pedido text PRIMARY KEY,
-  id_mesa bigint,
-  numero_mesa text NOT NULL,
-  mozo text NOT NULL,
-  estado_comanda text NOT NULL,
-  observaciones text,
-  fecha_hora timestamp with time zone NOT NULL,
-  minutos_transcurridos bigint DEFAULT 0,
-  origen text NOT NULL,
-  tiempo_despacho_minutos numeric,
-  segundos_en_listo bigint,
-  items text
-);
-
-CREATE TABLE IF NOT EXISTS public.pedido_detalle (
-  id_detalle text PRIMARY KEY,
-  id_pedido text NOT NULL,
-  id_producto text NOT NULL,
-  nombre text NOT NULL,
-  cantidad bigint NOT NULL,
-  categoria text NOT NULL
-);
-
--- 2. DESACTIVACIÓN DE RLS PARA PERMITIR LECTURA/ESCRITURA DIRECTA
-ALTER TABLE public.productos_menu DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.usuarios DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.mesetas DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.depósitos DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.recetas_escandallo DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.promociones DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.proveedores DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.reservas DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.auditoria_eventos DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.pedidos_cabecera DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.pedido_detalle DISABLE ROW LEVEL SECURITY;`;
-                  navigator.clipboard.writeText(sqlCode);
-                  setCopiedSql(true);
-                  setTimeout(() => setCopiedSql(false), 2000);
-                  addLog('sistema', 'SUPABASE: Copiado script SQL completo de estructuración de tablas.');
-                }}
-                className="absolute top-2 right-2 px-2.5 py-1 bg-white/10 hover:bg-white/20 text-white rounded text-[10px] font-extrabold flex items-center gap-1 cursor-pointer transition-all"
-              >
-                {copiedSql ? (
-                  <>
-                    <CheckCircle className="w-3 h-3 text-emerald-400 font-sans" />
-                    ¡Copiado!
-                  </>
-                ) : (
-                  'Copiar Código'
-                )}
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
       {/* Database stats and bi-directional synchronizer dashboard */}
       {connectionStatus === 'connected' && (
-        <div className="space-y-4 mt-2 border-t border-slate-100 pt-3 animate-fadeIn">
-          {/* Table list rows count */}
-          <div className="space-y-1.5">
-            <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">Estado de Tablas Detectadas</span>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-              {[
-                { label: 'usuarios', count: tableStats.usuarios },
-                { label: 'mesetas', count: tableStats.mesetas },
-                { label: 'depósitos (insumos)', count: tableStats.depósitos },
-                { label: 'productos_menu', count: tableStats.productos_menu },
-                { label: 'recetas_escandallo', count: tableStats.recetas_escandallo }
-              ].map((table, idx) => (
-                <div key={idx} className="bg-slate-50 border border-slate-100 p-2 rounded-lg text-center">
-                  <span className="text-[9px] uppercase font-bold text-slate-400 block truncate" title={table.label}>{table.label}</span>
-                  <span className="text-xs font-extrabold text-slate-700 font-mono">
-                    {table.count !== 'Error' ? `${table.count} filas` : '⚠️ N/A'}
-                  </span>
+        <div className="space-y-6 mt-4 border-t border-slate-100 pt-4 animate-fadeIn">
+          
+          {/* Table List Scanner Grid */}
+          <div className="space-y-2">
+            <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+              <div>
+                <span className="text-[10px] uppercase font-extrabold tracking-wider text-slate-400 block font-mono">Inventario de Objetos PostgreSQL</span>
+                <p className="text-[11px] text-[#624A3E] font-bold">16 Tablas candidatas monitoreadas en tiempo real</p>
+              </div>
+              <button
+                onClick={() => {
+                  const client = getSupabaseClient();
+                  if (client) scanDatabaseTables(client);
+                }}
+                disabled={isScanning}
+                className="py-1 px-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-colors"
+              >
+                <RefreshCw className={`w-3 h-3 ${isScanning ? 'animate-spin' : ''}`} />
+                Re-escanear
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2.5 max-h-[220px] overflow-y-auto scrollbar-thin pr-1">
+              {scannedTables.length > 0 ? (
+                scannedTables.map((table, idx) => {
+                  const isSelected = selectedTableForInspect === table.name;
+                  const isDetected = table.status === 'detected';
+                  const isForbidden = table.status === 'forbidden';
+                  
+                  return (
+                    <div 
+                      key={idx} 
+                      className={`p-3 rounded-xl border transition-all flex flex-col justify-between ${
+                        isSelected 
+                          ? 'border-[#624A3E] bg-[#624A3E]/5 ring-1 ring-[#624A3E]/10' 
+                          : isDetected 
+                          ? 'border-slate-150 bg-white hover:bg-slate-50/50' 
+                          : 'border-slate-100 bg-slate-50/30 opacity-70'
+                      }`}
+                    >
+                      <div className="space-y-1">
+                        <div className="flex justify-between items-start gap-1">
+                          <span className="text-xs font-black text-slate-800 font-mono truncate" title={table.name}>
+                            {table.name}
+                          </span>
+                          <span className={`text-[8px] font-black uppercase px-1.5 py-0.2 rounded shrink-0 ${
+                            isDetected 
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' 
+                              : isForbidden 
+                              ? 'bg-amber-50 text-amber-700 border border-amber-100' 
+                              : 'bg-slate-100 text-slate-400 border border-slate-200'
+                          }`}>
+                            {isDetected ? `${table.count} filas` : isForbidden ? 'RLS Guard' : 'No Creada'}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-slate-400 leading-tight">
+                          {table.desc}
+                        </p>
+                      </div>
+
+                      {isDetected && (
+                        <div className="mt-3 flex gap-1 pt-2 border-t border-slate-100">
+                          <button
+                            onClick={() => inspectTable(table.name)}
+                            className="flex-1 py-1 text-[10px] font-extrabold text-[#624A3E] bg-[#624A3E]/10 hover:bg-[#624A3E]/20 rounded-lg cursor-pointer text-center"
+                          >
+                            {isSelected && !isInspecting ? 'Examinando' : 'Examinar Filas'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="col-span-full text-center py-6 text-xs text-slate-400 font-medium">
+                  {isScanning ? 'Mapeando estructura de tablas relacionales...' : 'Haga click en Conectar para listar las tablas.'}
                 </div>
-              ))}
+              )}
             </div>
           </div>
+
+          {/* Interactive Row Viewer (Database Inspector DataGrid) */}
+          {selectedTableForInspect && (
+            <div className="bg-slate-900 text-slate-100 rounded-xl p-4 border border-slate-800 space-y-3 animate-fadeIn">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-2.5 border-b border-slate-800 gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[10px] font-black px-2 py-0.5 rounded font-mono">
+                    TABLA: {selectedTableForInspect.toUpperCase()}
+                  </span>
+                  <p className="text-[11px] text-slate-400">Inspección directa de registros en caliente</p>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <input 
+                    type="text"
+                    value={inspectFilter}
+                    onChange={(e) => {
+                      setInspectFilter(e.target.value);
+                      setPageIndex(0);
+                    }}
+                    placeholder="Filtrar localmente..."
+                    className="bg-slate-950 border border-slate-800 text-[11px] text-slate-200 px-2 py-1 rounded placeholder-slate-500 w-36 focus:outline-none focus:ring-1 focus:ring-[#624A3E]"
+                  />
+                  <button
+                    onClick={() => inspectTable(selectedTableForInspect)}
+                    className="p-1 bg-slate-800 hover:bg-slate-700 rounded text-slate-300"
+                    title="Actualizar datos"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => setSelectedTableForInspect(null)}
+                    className="text-slate-400 hover:text-white font-extrabold text-xs px-1.5"
+                  >
+                    ✖
+                  </button>
+                </div>
+              </div>
+
+              {isInspecting ? (
+                <div className="py-8 text-center text-xs text-slate-400 animate-pulse font-mono">
+                  Consultando `SELECT * FROM {selectedTableForInspect}`...
+                </div>
+              ) : inspectError ? (
+                <div className="p-3 bg-red-950/40 border border-red-900/40 rounded-lg text-xs text-red-300">
+                  ⚠️ Error al consultar: {inspectError}
+                </div>
+              ) : inspectRows.length === 0 ? (
+                <div className="py-6 text-center text-xs text-slate-500 font-mono">
+                  Tabla vacía. No hay filas registradas en `{selectedTableForInspect}`.
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {/* Rows count summary */}
+                  {(() => {
+                    const filtered = inspectRows.filter(row => 
+                      JSON.stringify(row).toLowerCase().includes(inspectFilter.toLowerCase())
+                    );
+                    const totalPages = Math.ceil(filtered.length / pageSize);
+                    const displayed = filtered.slice(pageIndex * pageSize, (pageIndex + 1) * pageSize);
+                    
+                    return (
+                      <>
+                        {/* Table layout overflow holder */}
+                        <div className="overflow-x-auto w-full border border-slate-800 rounded bg-slate-950/80 max-h-56 scrollbar-thin">
+                          <table className="w-full text-left font-mono text-[10px] border-collapse">
+                            <thead>
+                              <tr className="bg-slate-900/60 text-slate-400 border-b border-slate-850">
+                                {inspectColumns.map((col, idx) => (
+                                  <th key={idx} className="py-2 px-3 font-semibold whitespace-nowrap border-r border-slate-850">
+                                    {col}
+                                  </th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {displayed.map((row, rIdx) => (
+                                <tr key={rIdx} className="border-b border-slate-850 hover:bg-slate-900/45 text-slate-300">
+                                  {inspectColumns.map((col, cIdx) => {
+                                    const val = row[col];
+                                    let strVal = '';
+                                    if (val === null || val === undefined) {
+                                      strVal = 'null';
+                                    } else if (typeof val === 'object') {
+                                      strVal = JSON.stringify(val);
+                                    } else {
+                                      strVal = String(val);
+                                    }
+                                    return (
+                                      <td key={cIdx} className="py-1.5 px-3 border-r border-slate-850 max-w-xs truncate" title={strVal}>
+                                        {strVal === 'null' ? (
+                                          <span className="text-slate-600 italic">null</span>
+                                        ) : (
+                                          strVal
+                                        )}
+                                      </td>
+                                    );
+                                  })}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {/* Pagination state bar */}
+                        <div className="flex justify-between items-center text-[10px] text-slate-400">
+                          <span>
+                            Mostrando {pageIndex * pageSize + 1}-{Math.min((pageIndex + 1) * pageSize, filtered.length)} de {filtered.length} filas coincidentes (de {inspectRows.length} examinadas)
+                          </span>
+                          
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              onClick={() => setPageIndex(p => Math.max(0, p - 1))}
+                              disabled={pageIndex === 0}
+                              className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded disabled:opacity-40"
+                            >
+                              Anterior
+                            </button>
+                            <span className="text-slate-300 font-bold">Pág {pageIndex + 1} de {totalPages || 1}</span>
+                            <button
+                              onClick={() => setPageIndex(p => Math.min(totalPages - 1, p + 1))}
+                              disabled={pageIndex >= totalPages - 1}
+                              className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded disabled:opacity-40"
+                            >
+                              Siguiente
+                            </button>
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Sync operations actions bar */}
           <div className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 flex flex-col md:flex-row justify-between items-center gap-3">
@@ -741,7 +697,7 @@ ALTER TABLE public.pedido_detalle DISABLE ROW LEVEL SECURITY;`;
                 Panel de Sincronización Bidireccional
               </span>
               <p className="text-[11px] text-slate-500">
-                Llene su base de datos vacía o descargue los datos existentes en calidos flujos.
+                Llene su base de datos vacía o descargue los datos de producción en calidos flujos bidireccionales.
               </p>
             </div>
 

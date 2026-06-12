@@ -1,1 +1,9 @@
+@import url('https://fonts.googleapis.com/css2?family=Alex+Brush&family=Cinzel:wght@400;700&family=Inter:wght@400;500;600;700;900&family=Playfair+Display:ital,wght@1,600&display=swap');
 @import "tailwindcss";
+
+@theme {
+  --font-serif-vintage: 'Playfair Display', Georgia, serif;
+  --font-cursive-signature: 'Alex Brush', cursive;
+  --font-display-serif: 'Cinzel', serif;
+}
+

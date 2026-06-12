@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Users, Shield, Plus, Check, Trash } from 'lucide-react';
 import { Usuario } from '../types';
+import { usuariosService } from '../services/usuariosService';
 
 interface UsuariosModuleProps {
   logs: any[];
@@ -8,12 +9,30 @@ interface UsuariosModuleProps {
 }
 
 export default function UsuariosModule({ logs, addLog }: UsuariosModuleProps) {
-  const [usuarios, setUsuarios] = useState<Usuario[]>([
-    { id_usuario: 1, nombre: 'Enzo', apellido: 'Fernández', rol: 'mozo' },
-    { id_usuario: 2, nombre: 'Micaela', apellido: 'Gómez', rol: 'mozo' },
-    { id_usuario: 3, nombre: 'Damián', apellido: 'Martínez', rol: 'cocina' },
-    { id_usuario: 4, nombre: 'Sofía', apellido: 'Alegre', rol: 'administrador' },
-  ]);
+  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+
+  useEffect(() => {
+    usuariosService.list().then(data => {
+      if (data && data.length > 0) {
+        setUsuarios(data);
+      } else {
+        // Fallback default seed if db empty
+        setUsuarios([
+          { id_usuario: 1, nombre: 'Enzo', apellido: 'Fernández', rol: 'mozo' },
+          { id_usuario: 2, nombre: 'Micaela', apellido: 'Gómez', rol: 'mozo' },
+          { id_usuario: 3, nombre: 'Damián', apellido: 'Martínez', rol: 'cocina' },
+          { id_usuario: 4, nombre: 'Sofía', apellido: 'Alegre', rol: 'administrador' },
+        ]);
+      }
+    }).catch(() => {
+      setUsuarios([
+        { id_usuario: 1, nombre: 'Enzo', apellido: 'Fernández', rol: 'mozo' },
+        { id_usuario: 2, nombre: 'Micaela', apellido: 'Gómez', rol: 'mozo' },
+        { id_usuario: 3, nombre: 'Damián', apellido: 'Martínez', rol: 'cocina' },
+        { id_usuario: 4, nombre: 'Sofía', apellido: 'Alegre', rol: 'administrador' },
+      ]);
+    });
+  }, []);
 
   const [nombre, setNombre] = useState('');
   const [apellido, setApellido] = useState('');
@@ -24,13 +43,14 @@ export default function UsuariosModule({ logs, addLog }: UsuariosModuleProps) {
     if (!nombre || !apellido) return;
 
     const newUs: Usuario = {
-      id_usuario: Date.now(),
+      id_usuario: Math.floor(100 + Math.random() * 900),
       nombre,
       apellido,
       rol,
     };
 
     setUsuarios(prev => [...prev, newUs]);
+    usuariosService.create(newUs).catch(err => console.error(err));
     addLog('sistema', `USUARIOS: Registrado nuevo usuario '${nombre} ${apellido}' con rol: ${rol.toUpperCase()}`);
     setNombre('');
     setApellido('');
@@ -40,6 +60,7 @@ export default function UsuariosModule({ logs, addLog }: UsuariosModuleProps) {
     const target = usuarios.find(u => u.id_usuario === id);
     if (!target) return;
     setUsuarios(prev => prev.filter(u => u.id_usuario !== id));
+    usuariosService.remove(id).catch(err => console.error(err));
     addLog('sistema', `USUARIOS: Removido usuario '${target.nombre} ${target.apellido}' del sistema`);
   };
 

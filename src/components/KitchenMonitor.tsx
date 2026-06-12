@@ -214,10 +214,21 @@ export default function KitchenMonitor({
                       {/* Transfer controls */}
                       <button
                         onClick={() => onCambiarEstadoPedido(p.id_pedido, 'en_cocina')}
-                        className="w-full mt-2 py-2 px-3 bg-[#624A3E] hover:bg-[#503C32] active:scale-95 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all shadow-md shadow-[#624A3E]/10 cursor-pointer border border-amber-955/20"
+                        className="w-full mt-2 py-2 px-3 bg-[#624A3E] hover:bg-[#503C32] active:scale-95 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all shadow-md shadow-[#624A3E]/10 cursor-pointer border border-amber-955/20 animate-pulse"
                       >
                         <Flame className="w-3.5 h-3.5 text-[#F97316]" />
                         Iniciar Fuego (Marchar) 🔥
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          if (window.confirm("¿Está seguro de que desea cancelar esta comanda pendiente?")) {
+                            onCambiarEstadoPedido(p.id_pedido, 'cancelado');
+                          }
+                        }}
+                        className="w-full mt-2 py-1.5 px-3 bg-red-50 hover:bg-red-100 text-red-700 hover:text-red-800 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer border border-red-200 shadow-sm"
+                      >
+                        Cancelar Comanda ❌
                       </button>
                     </div>
                   </div>
@@ -300,10 +311,21 @@ export default function KitchenMonitor({
                       {/* Transfer controls: triggers Escandallo process! */}
                       <button
                         onClick={() => onProducirPedidoConEscandallo(p.id_pedido)}
-                        className="w-full mt-2 py-2 px-3 bg-[#F97316] hover:bg-[#EA580C] active:scale-95 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all shadow-md shadow-[#F97316]/10 cursor-pointer border border-amber-955/20"
+                        className="w-full mt-2 py-2.5 px-3 bg-[#F97316] hover:bg-[#EA580C] active:scale-95 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all shadow-md shadow-[#F97316]/10 cursor-pointer border border-[#F97316]/20"
                       >
                         <ChevronRight className="w-4 h-4" />
-                        ¡Terminado! (Descontar Insumos)
+                        ¡Terminado! (Listo para Servir) 🍽️
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          if (window.confirm("¿Está seguro de cancelar esta comanda en preparación? Se repondrá la materia prima en stock de forma automática.")) {
+                            onCambiarEstadoPedido(p.id_pedido, 'cancelado');
+                          }
+                        }}
+                        className="w-full mt-2 py-1.5 px-3 bg-red-50 hover:bg-red-100 text-red-700 hover:text-red-800 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer border border-red-200 shadow-sm"
+                      >
+                        Cancelar y Reversar Insumos ❌
                       </button>
                     </div>
                   </div>
