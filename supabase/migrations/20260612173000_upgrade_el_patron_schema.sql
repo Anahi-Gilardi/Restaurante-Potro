@@ -284,13 +284,12 @@ BEGIN
     'cierres_caja','movimientos_inventario','backups'
   ]
   LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON %I', 'permitir_todo_demo_' || table_name, table_name);
+    EXECUTE format('DROP POLICY IF EXISTS %I ON %I', 'Permitir todo a usuarios autenticados para ' || table_name, table_name);
     EXECUTE format(
       'CREATE POLICY %I ON %I FOR ALL TO public USING (true) WITH CHECK (true)',
       'permitir_todo_demo_' || table_name,
       table_name
     );
-  EXCEPTION
-    WHEN duplicate_object THEN
-      NULL;
   END LOOP;
 END $$;

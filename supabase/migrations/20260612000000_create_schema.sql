@@ -187,22 +187,39 @@ ALTER TABLE backups ENABLE ROW LEVEL SECURITY;
 
 -- Políticas de Seguridad RLS básicas de demostración/acceso abierto
 -- Permite todas las operaciones para pruebas locales/de desarrollo (pueden ser restringidas para producción real)
+DROP POLICY IF EXISTS "Permitir todo a usuarios autenticados para usuarios" ON usuarios;
 CREATE POLICY "Permitir todo a usuarios autenticados para usuarios" ON usuarios FOR ALL TO public USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Permitir todo a usuarios autenticados para mesas" ON mesas;
 CREATE POLICY "Permitir todo a usuarios autenticados para mesas" ON mesas FOR ALL TO public USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Permitir todo a usuarios autenticados para insumos" ON insumos;
 CREATE POLICY "Permitir todo a usuarios autenticados para insumos" ON insumos FOR ALL TO public USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Permitir todo a usuarios autenticados para productos_menu" ON productos_menu;
 CREATE POLICY "Permitir todo a usuarios autenticados para productos_menu" ON productos_menu FOR ALL TO public USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Permitir todo a usuarios autenticados para recetas_escandallo" ON recetas_escandallo;
 CREATE POLICY "Permitir todo a usuarios autenticados para recetas_escandallo" ON recetas_escandallo FOR ALL TO public USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Permitir todo a usuarios autenticados para pedidos_cabecera" ON pedidos_cabecera;
 CREATE POLICY "Permitir todo a usuarios autenticados para pedidos_cabecera" ON pedidos_cabecera FOR ALL TO public USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Permitir todo a usuarios autenticados para pedido_detalle" ON pedido_detalle;
 CREATE POLICY "Permitir todo a usuarios autenticados para pedido_detalle" ON pedido_detalle FOR ALL TO public USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Permitir todo a usuarios autenticados para mermas" ON mermas;
 CREATE POLICY "Permitir todo a usuarios autenticados para mermas" ON mermas FOR ALL TO public USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Permitir todo a usuarios autenticados para auditoria_eventos" ON auditoria_eventos;
 CREATE POLICY "Permitir todo a usuarios autenticados para auditoria_eventos" ON auditoria_eventos FOR ALL TO public USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Permitir todo a usuarios autenticados para proveedores" ON proveedores;
 CREATE POLICY "Permitir todo a usuarios autenticados para proveedores" ON proveedores FOR ALL TO public USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Permitir todo a usuarios autenticados para promociones" ON promociones;
 CREATE POLICY "Permitir todo a usuarios autenticados para promociones" ON promociones FOR ALL TO public USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Permitir todo a usuarios autenticados para reservas" ON reservas;
 CREATE POLICY "Permitir todo a usuarios autenticados para reservas" ON reservas FOR ALL TO public USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Permitir todo a usuarios autenticados para facturas" ON facturas;
 CREATE POLICY "Permitir todo a usuarios autenticados para facturas" ON facturas FOR ALL TO public USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Permitir todo a usuarios autenticados para pagos" ON pagos;
 CREATE POLICY "Permitir todo a usuarios autenticados para pagos" ON pagos FOR ALL TO public USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Permitir todo a usuarios autenticados para cierres_caja" ON cierres_caja;
 CREATE POLICY "Permitir todo a usuarios autenticados para cierres_caja" ON cierres_caja FOR ALL TO public USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Permitir todo a usuarios autenticados para movimientos_inventario" ON movimientos_inventario;
 CREATE POLICY "Permitir todo a usuarios autenticados para movimientos_inventario" ON movimientos_inventario FOR ALL TO public USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Permitir todo a usuarios autenticados para backups" ON backups;
 CREATE POLICY "Permitir todo a usuarios autenticados para backups" ON backups FOR ALL TO public USING (true) WITH CHECK (true);
 
 -- ÍNDICES para mejorar rendimiento relacional
