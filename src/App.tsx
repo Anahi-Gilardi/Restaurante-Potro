@@ -181,7 +181,7 @@ export default function App() {
 
 
   // --- Handlers for Waiter View (Terminal Mozo) ---
-  const handleCrearPedido = (newPedidoData: Omit<Pedido, 'id_pedido' | 'fecha_hora' | 'minutos_transcurridos' | 'origen'> & { origen?: 'Mozo'; comensales?: number }) => {
+  const handleCrearPedido = useCallback((newPedidoData: Omit<Pedido, 'id_pedido' | 'fecha_hora' | 'minutos_transcurridos' | 'origen'> & { origen?: 'Mozo'; comensales?: number }) => {
     const newId = Math.floor(1000 + Math.random() * 9000);
     const newPedido: Pedido = {
       ...newPedidoData,
@@ -250,7 +250,7 @@ export default function App() {
         dbUpsertInsumos(updatedInsumos);
       }
     }, 50);
-  };
+  }, [recetas, addLog, mesas, setMesas, setInsumos, setPedidos]);
 
   const handleMozoChange = (mozo: string) => {
     setActiveMozo(mozo);
@@ -258,7 +258,7 @@ export default function App() {
   };
 
   // --- Handlers for Kitchen View (KDS) ---
-  const handleCambiarEstadoPedido = (idPedido: number, nuevoEstado: Pedido['estado_comanda']) => {
+  const handleCambiarEstadoPedido = useCallback((idPedido: number, nuevoEstado: Pedido['estado_comanda']) => {
     let updatedPedido: Pedido | null = null;
     let errorMsg = '';
 
