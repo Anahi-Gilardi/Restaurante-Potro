@@ -41,15 +41,21 @@ export interface Insumo {
 }
 
 export interface ProductoMenu {
-    id_producto: string;
-    nombre: string;
-    precio_venta: number;
-    categoria: 'cocina' | 'bebidas' | 'postres';
-    activo: boolean;
-    imagen: string;
-    /** Subcategoría para el filtro de carta (entradas, pastas, carnes, etc.) */
+  id_producto: string;
+  nombre: string;
+  precio_venta: number;
+  categoria: 'cocina' | 'bebidas' | 'postres';
+  activo: boolean;
+  imagen: string;
+  /** Subcategoría para el filtro de carta (entradas, pastas, carnes, etc.) */
   subcategoria?: string;
-    descripcion?: string;
+  descripcion?: string;
+  /** Tipo simplificado: plato | bebida | vino | postre */
+  tipo?: string;
+  /** true si requiere preparación en cocina */
+  requiere_cocina?: boolean;
+  /** Tiempo estimado de preparación en minutos */
+  tiempo_preparacion_estimado?: number;
 }
 
 export interface RecetaEscandallo {
@@ -209,13 +215,18 @@ export interface PagoDb {
 // ---------------------------------------------------------------------------
 
 export interface Proveedor {
-    id_proveedor: string;
-    nombre: string;
-    contacto: string;
-    telefono: string;
-    email?: string;
-    categoria?: string;
-    activo?: boolean;
+  id_proveedor: string;
+  nombre: string;
+  contacto: string;
+  telefono: string;
+  /** Email principal de contacto */
+  email?: string;
+  /** Alias de email usado en el módulo de proveedores */
+  correo?: string;
+  categoria?: string;
+  activo?: boolean;
+  /** Plazo habitual de entrega en días hábiles */
+  tiempo_entrega_dias?: number;
 }
 
 export interface Promocion {
