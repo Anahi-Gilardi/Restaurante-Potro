@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useToast, ToastContainer } from './ToastContainer';
 import { Sofa, MapPin, Grid, Layers, HelpCircle, Plus, Check } from 'lucide-react';
 import { Mesa } from '../types';
 
@@ -12,6 +13,7 @@ export default function MesasModule({ mesas, addLog }: MesasModuleProps) {
   const [localMesas, setLocalMesas] = useState<Mesa[]>(mesas);
   const [numeroMesa, setNumeroMesa] = useState('');
   const [sector, setSector] = useState<'salon' | 'terraza' | 'vip'>('salon');
+  const { toast, toasts, removeToast } = useToast();
 
   const handleCreateMesa = (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,7 +27,7 @@ export default function MesasModule({ mesas, addLog }: MesasModuleProps) {
 
     // check if it exists
     if (localMesas.some(m => m.numero_mesa.toLowerCase() === formattedName.toLowerCase())) {
-      alert('La mesa ya existe.');
+      toast.error('La mesa ya existe.');
       return;
     }
 
@@ -169,6 +171,7 @@ export default function MesasModule({ mesas, addLog }: MesasModuleProps) {
         </div>
 
       </div>
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
     </div>
   );
 }
