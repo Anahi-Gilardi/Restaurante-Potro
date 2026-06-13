@@ -25,22 +25,13 @@ export default function RecetasModule({
   const selectedProduct = productosMenu.find(p => p.id_producto === activeTabRecipe);
   const currentRecipeItems = localRecetas.filter(r => r.id_producto === activeTabRecipe);
 
-  // Cost calculation based on fake or actual estimates
+    // Costo calculado usando costo_unitario real del Insumo
+  // Usa ?? 0 como fallback si el campo no esta definido
   const calculatedCost = currentRecipeItems.reduce((acc, recipe) => {
     const matchedInsumo = insumos.find(i => i.id_insumo === recipe.id_insumo);
     if (!matchedInsumo) return acc;
-    // Let's estimate cost per unit/g/ml (e.g., $10 per g for meat, $1.5 per ml, etc.)
-    let unitCostVal = 5; // average cost factor
-    if (matchedInsumo.id_insumo.includes('bife')) unitCostVal = 18;
-    if (matchedInsumo.id_insumo.includes('entrana')) unitCostVal = 24;
-    if (matchedInsumo.id_insumo.includes('vin_rutini')) unitCostVal = 12000;
-    if (matchedInsumo.id_insumo.includes('vin_malbec')) unitCostVal = 2500;
-    if (matchedInsumo.id_insumo.includes('papa')) unitCostVal = 1.2;
-    if (matchedInsumo.id_insumo.includes('queso')) unitCostVal = 8;
-    
-    // cost = quantity * unit factor
-    const recipeCost = recipe.cantidad_a_descontar * (unitCostVal / 100); 
-    return acc + recipeCost;
+    const unitCost = matchedInsumo.costo_unitario ?? 0;
+    return acc + recipe.cantidad_a_descontar * unitCost;
   }, 0);
 
   const handleAddIngredient = (e: React.FormEvent) => {
