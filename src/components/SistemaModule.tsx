@@ -264,7 +264,7 @@ export default function SistemaModule({
               <div>
                 <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block font-sans">Productos Activos Sin Receta</span>
                 <p className="text-[11px] text-slate-500 leading-snug mt-1 font-sans">
-                  Productos configurados como comercialmente activos pero que no poseen insumos asignados. No decrementarán stock en KDS.
+                  Productos configurados como comercialmente activos pero que no poseen insumos asignados. No decrementarán stock en Cocina.
                 </p>
               </div>
 

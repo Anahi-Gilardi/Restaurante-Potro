@@ -926,7 +926,7 @@ export default function InventoryModule({
                   Libro Diario de Control de Stock
                 </h3>
                 <p className="text-xs text-slate-400 font-sans">
-                  Registro cronológico de movimientos de bodega (Egresos KDS comanda, desajustes y mermas directas).
+                  Registro cronológico de movimientos de bodega (egresos de Cocina por comanda, desajustes y mermas directas).
                 </p>
               </div>
 

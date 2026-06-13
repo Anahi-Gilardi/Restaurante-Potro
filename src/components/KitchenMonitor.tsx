@@ -5,13 +5,9 @@ import {
   CheckCircle, 
   ChevronRight, 
   ChefHat, 
-  Wine, 
   Grid, 
-  HelpCircle, 
   Snowflake, 
-  AlertOctagon,
-  Utensils,
-  Maximize2
+  Utensils
 } from 'lucide-react';
 import { Pedido, PedidoItem } from '../types';
 
@@ -22,16 +18,31 @@ interface KitchenMonitorProps {
   minutosGlobal: number; // reference clock
 }
 
+const isBarItem = (item: PedidoItem) => {
+  const categoria = item.categoria.toLowerCase();
+  const nombre = item.nombre.toLowerCase();
+  return (
+    categoria.includes('bebida') ||
+    categoria.includes('bodega') ||
+    categoria.includes('vino') ||
+    nombre.includes('vino') ||
+    nombre.includes('gaseosa') ||
+    nombre.includes('agua') ||
+    nombre.includes('cerveza')
+  );
+};
+
+const isKitchenItem = (item: PedidoItem) => !isBarItem(item);
+
 export default function KitchenMonitor({
   pedidos,
   onCambiarEstadoPedido,
   onProducirPedidoConEscandallo,
   minutosGlobal
 }: KitchenMonitorProps) {
-  
   // Filter active orders inside the kitchen workflow
   const activeKitchenOrders = useMemo(() => {
-    return pedidos.filter(p => p.estado_comanda !== 'entregado_cobrado');
+    return pedidos.filter(p => p.estado_comanda !== 'entregado_cobrado' && p.estado_comanda !== 'cancelado');
   }, [pedidos]);
 
   // Aggregate Batch Production (Modo Batch)
@@ -42,7 +53,7 @@ export default function KitchenMonitor({
       // Only sum items from 'pendiente' or 'en_cocina' stages (what is still to be made or currently on fire)
       if (p.estado_comanda === 'pendiente' || p.estado_comanda === 'en_cocina') {
         p.items.forEach(item => {
-          if (item.categoria === 'cocina') { // focus on food items for cooking batch
+          if (isKitchenItem(item)) {
             if (!totals[item.nombre]) {
               totals[item.nombre] = { cantidad: 0, categoria: item.categoria };
             }
@@ -197,7 +208,7 @@ export default function KitchenMonitor({
                               <span className="font-extrabold text-stone-900 text-sm leading-snug">{it.nombre}</span>
                             </span>
                             <span className="text-[8px] uppercase tracking-wider font-extrabold font-mono text-stone-400 bg-stone-100 px-2 py-0.5 rounded-md self-center">
-                              {it.categoria === 'bebidas' ? 'Bar' : 'Fuego'}
+                              {isBarItem(it) ? 'Bar' : 'Fuego'}
                             </span>
                           </div>
                         ))}
@@ -294,7 +305,7 @@ export default function KitchenMonitor({
                               <span className="font-extrabold text-stone-900 text-sm leading-snug">{it.nombre}</span>
                             </span>
                             <span className="text-[8px] uppercase tracking-wider font-extrabold font-mono text-stone-400 bg-stone-100 px-2 py-0.5 rounded-md self-center">
-                              {it.categoria === 'bebidas' ? 'Baria' : 'Cocina'}
+                              {isBarItem(it) ? 'Bar' : 'Cocina'}
                             </span>
                           </div>
                         ))}
@@ -433,7 +444,7 @@ export default function KitchenMonitor({
                           Entregar a Mesa (Servido) 🍽️
                         </span>
                         <span className="text-[9px] font-medium opacity-90 block">
-                          [Acción: Archivar de KDS y transferir a cuenta]
+                          [Acción: Archivar de Cocina y transferir a cuenta]
                         </span>
                       </button>
                     </div>

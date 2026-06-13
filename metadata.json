@@ -1,6 +1,6 @@
 {
   "name": "Remix: Sistema Gestor Gastronómico",
-  "description": "Sistema integral de gestión de comandas, KDS de cocina, control de stock por receta, bodega de vinos y analíticas comerciales en tiempo real.",
+  "description": "Sistema integral de gestión de comandas, cocina, control de stock por receta, bodega de vinos y analíticas comerciales en tiempo real.",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

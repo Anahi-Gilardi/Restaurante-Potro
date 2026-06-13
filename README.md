@@ -1,6 +1,6 @@
 # El Patrón - Sistema Gestor Gastronómico
 
-Aplicación web para administrar la operación diaria de un restaurante: menú principal, mesas, comandas, cocina/KDS, caja, inventario, recetas por escandallo, proveedores, promociones, reservas, facturación, tickets PDF, backups y sincronización opcional con Supabase.
+Aplicación web para administrar la operación diaria de un restaurante: menú principal, mesas, comandas, cocina, caja, inventario, recetas por escandallo, proveedores, promociones, reservas, facturación, tickets PDF, backups y sincronización opcional con Supabase.
 
 ## Stack
 
@@ -74,7 +74,7 @@ npm run clean
 
 - Menú principal operativo
 - Mozo / Salón
-- Cocina KDS
+- Cocina
 - Caja y cierres
 - Facturación y PDF
 - Menú y carta

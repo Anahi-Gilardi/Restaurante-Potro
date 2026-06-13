@@ -108,7 +108,7 @@ export default function HomeMenuModule({
     },
     {
       id: 'cocina',
-      title: 'Cocina KDS',
+      title: 'Cocina',
       description: 'Monitor de preparación de platos en tiempo real y descuento automático de insumos.',
       icon: ChefHat,
       color: 'from-orange-500/10 to-orange-600/5 hover:border-orange-400',
@@ -292,7 +292,7 @@ export default function HomeMenuModule({
             >
               <option value="Enzo">Enzo (Mozo Salón)</option>
               <option value="Micaela">Micaela (Mozo Salón)</option>
-              <option value="Damián">Damián (Cocinero KDS)</option>
+              <option value="Damián">Damián (Cocinero)</option>
               <option value="Sofía">Sofía (Administrador / Caja)</option>
             </select>
           </div>

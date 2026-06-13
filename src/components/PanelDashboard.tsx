@@ -154,7 +154,7 @@ export default function PanelDashboard({
                                                           )}
                                               {readyOrders === 0 && (
                           <span className="text-[10px] text-amber-600 font-semibold animate-pulse">
-                                            KDS Monitor activo
+                                            Cocina activa
                           </span>
                                                           )}
                                             </div>
@@ -197,7 +197,7 @@ export default function PanelDashboard({
                                 <div className="grid grid-cols-1 gap-2.5">
                                   {[
           { view: 'mozo', icon: <Smartphone className="w-4 h-4" />, label: 'Terminal Mozo', desc: 'Tomar pedidos y mesas' },
-          { view: 'cocina', icon: <ChefHat className="w-4 h-4" />, label: 'Monitor Cocina', desc: 'KDS y semáforo de comandas' },
+          { view: 'cocina', icon: <ChefHat className="w-4 h-4" />, label: 'Cocina', desc: 'Cocina y semáforo de comandas' },
           { view: 'caja', icon: <Receipt className="w-4 h-4" />, label: 'Módulo Caja', desc: 'Cobros y cierre de turno' },
           { view: 'inventario', icon: <Package className="w-4 h-4" />, label: 'Inventario', desc: 'Stock y mermas' },
                       ].map(({ view, icon, label, desc }) => (
@@ -229,7 +229,7 @@ export default function PanelDashboard({
                                                             onClick={() => onNavigate('cocina')}
                                                             className="text-[10px] text-[#624A3E] font-bold hover:underline"
                                                           >
-                                                          Ver KDS →
+                                                          Ver Cocina →
                                             </button>
                                 </div>
                                 <div className="space-y-2 max-h-64 overflow-y-auto">

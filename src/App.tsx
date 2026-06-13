@@ -276,7 +276,7 @@ export default function App() {
     addLog('sistema', `SESIÓN: Acceso de personal actualizado por mozo: ${mozo}`);
   };
 
-  // --- Handlers for Kitchen View (KDS) ---
+  // --- Handlers for Kitchen View ---
   const handleCambiarEstadoPedido = (idPedido: number, nuevoEstado: Pedido['estado_comanda']) => {
     let updatedPedido: Pedido | null = null;
     let errorMsg = '';
@@ -780,7 +780,7 @@ export default function App() {
               >
                 <option value="Enzo" className="bg-stone-950 text-stone-200">Enzo (Mozo Salón)</option>
                 <option value="Micaela" className="bg-stone-950 text-stone-200">Micaela (Mozo Salón)</option>
-                <option value="Damián" className="bg-stone-950 text-stone-200">Damián (Cocinero KDS)</option>
+                <option value="Damián" className="bg-stone-950 text-stone-200">Damián (Cocinero)</option>
                 <option value="Sofía" className="bg-stone-950 text-stone-200">Sofía (Administrador / Caja)</option>
               </select>
             </div>
@@ -797,7 +797,7 @@ export default function App() {
                 { id: 'home', label: 'Menú Principal 🍽️' },
                 { id: 'panel', label: 'Panel General' },
                 { id: 'mozo', label: 'Mozo / Salón' },
-                { id: 'cocina', label: 'Cocina KDS' },
+                { id: 'cocina', label: 'Cocina' },
                 { id: 'caja', label: 'Caja' },
                 { id: 'reportes', label: 'Reportes / BI' },
                 { id: 'usuarios', label: 'Usuarios' },
@@ -852,7 +852,7 @@ export default function App() {
               {activeView === 'home' && <>🍽️ Menú Principal & Centro Operativo</>}
               {activeView === 'panel' && <>📊 Panel de Control y Resumen de Turno</>}
               {activeView === 'mozo' && <>📱 Terminal Interactiva de Mozos</>}
-              {activeView === 'cocina' && <>🍳 Monitor de Cocina (KDS)</>}
+              {activeView === 'cocina' && <>🍳 Cocina</>}
               {activeView === 'caja' && <>💵 Control de Caja y Cierres</>}
               {activeView === 'reportes' && <>📈 Analíticas de Desempeño & BI</>}
               {activeView === 'usuarios' && <>👥 Personal y Usuarios de Turno</>}

@@ -104,7 +104,7 @@ export default function UsuariosModule({ logs, addLog }: UsuariosModuleProps) {
                 className="w-full text-xs p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none focus:ring-1 focus:ring-[#624A3E] cursor-pointer font-bold text-stone-700"
               >
                 <option value="mozo">Mozo de Salón</option>
-                <option value="cocina">Chef / Cocinero KDS</option>
+                <option value="cocina">Chef / Cocinero</option>
                 <option value="administrador">Administrador / Cajero</option>
               </select>
             </div>
@@ -135,7 +135,7 @@ export default function UsuariosModule({ logs, addLog }: UsuariosModuleProps) {
                 badgeColor = 'bg-blue-50 text-blue-800 border-blue-100';
               } else if (u.rol === 'cocina') {
                 badgeColor = 'bg-orange-50 text-orange-850 border-orange-100';
-                desc = 'Control y despacho de comandas en KDS';
+                desc = 'Control y despacho de comandas en Cocina';
               } else if (u.rol === 'administrador') {
                 badgeColor = 'bg-emerald-50 text-emerald-800 border-emerald-100';
                 desc = 'Facturación, Arqueo de Caja y Escandallos';

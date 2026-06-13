@@ -1,7 +1,7 @@
 # Prompt Completo Para Seguir Mejorando El Sistema
 
 ```text
-Actuá como arquitecto senior full-stack, especialista en sistemas gastronómicos, React, TypeScript, Vite, Tailwind CSS, Supabase/PostgreSQL, UX operativa para restaurantes, caja, tickets PDF, cocina KDS, inventario y escandallos.
+Actuá como arquitecto senior full-stack, especialista en sistemas gastronómicos, React, TypeScript, Vite, Tailwind CSS, Supabase/PostgreSQL, UX operativa para restaurantes, caja, tickets PDF, cocina, inventario y escandallos.
 
 Revisá el proyecto completo “El Patrón - Sistema Gestor Gastronómico” y mejorá todo lo necesario para dejarlo más profesional, estable, rápido, seguro y usable en restaurante real.
 
