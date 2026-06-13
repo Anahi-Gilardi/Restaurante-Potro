@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { 
   TrendingUp, 
   Smartphone, 
@@ -53,13 +53,25 @@ export default function HomeMenuModule({
   onAdvanceTime
 }: HomeMenuModuleProps) {
   
-  // Real-time metrics calculations
-  const totalSales = pedidos
-    .filter(p => p.estado_comanda === 'entregado_cobrado')
-    .reduce((acc, p) => {
-      const itemsSum = p.items.reduce((sum, item) => sum + (item.cantidad * 12500), 0);
-      return acc + (itemsSum || 14500); 
-    }, 0);
+  // Mapa O(1) de precio_venta por id_producto
+  const precioMap = useMemo(() => {
+    const m = new Map<string, number>();
+    productosMenu.forEach(p => m.set(p.id_producto, p.precio_venta));
+    return m;
+  }, [productosMenu]);
+
+  // Facturación real desde pedidos cobrados
+  const totalSales = useMemo(() => {
+    return pedidos
+      .filter(p => p.estado_comanda === 'entregado_cobrado')
+      .reduce((acc, p) => {
+        const subtotal = p.items.reduce((s, item) => {
+          const precio = item.precio_unitario ?? precioMap.get(item.id_producto) ?? 0;
+          return s + precio * item.cantidad;
+        }, 0);
+        return acc + subtotal;
+      }, 0);
+  }, [pedidos, precioMap]);
 
   const occupiedTables = mesas.filter(m => m.estado === 'ocupada').length;
   const pendingCooking = pedidos.filter(p => p.estado_comanda === 'pendiente' || p.estado_comanda === 'en_cocina').length;
