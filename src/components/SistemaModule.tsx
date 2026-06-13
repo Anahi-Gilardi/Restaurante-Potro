@@ -33,6 +33,8 @@ interface SistemaModuleProps {
     productosMenu?: any[];
     recetas?: any[];
     usuarios?: any[];
+    pedidos?: any[];
+    mermas?: any[];
   }) => void;
 }
 

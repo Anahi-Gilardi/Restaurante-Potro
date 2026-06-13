@@ -18,6 +18,7 @@ import {
   getSupabaseConfig, 
   getSupabaseClient, 
   resetSupabaseInstance, 
+  dbFetchPedidos,
   dbFetchUsuarios, 
   dbFetchMesas, 
   dbFetchInsumos, 
@@ -37,6 +38,7 @@ import {
   dbFetchMermas,
   dbUpsertMermas
 } from '../supabase';
+import { normalizeSupabaseUrl } from '../lib/supabaseClient';
 import { 
   INITIAL_USUARIOS, 
   INITIAL_MESAS, 
@@ -53,6 +55,7 @@ interface SupabaseManagerProps {
     productosMenu?: any[];
     recetas?: any[];
     usuarios?: any[];
+    pedidos?: any[];
     mermas?: any[];
   }) => void;
   // Current states to seed/push if needed
@@ -100,20 +103,22 @@ export default function SupabaseManager({
 
   const candidateTables = [
     { name: 'usuarios', desc: 'Credenciales, roles y perfiles de operarios/as.', key: 'id_usuario' },
-    { name: 'mesas', desc: 'Configuración y estado actual de mesas físicas en salón.', key: 'id_mesa' },
-    { name: 'depósitos', desc: 'Historial y stock actual de insumos y materias primas.', key: 'id_insumo' },
-    { name: 'insumos', desc: 'Nomenclatura alternativa para depósitos/insumos.', key: 'id_insumo' },
-    { name: 'productos_menú', desc: 'Platos, tragos y artículos activos del catálogo de venta.', key: 'id_producto' },
-    { name: 'productos', desc: 'Nomenclatura alternativa para productos.', key: 'id_producto' },
-    { name: 'recetas_escandallo', desc: 'Asociación e ingredientes de platos con descuento para cocina.', key: 'id_receta' },
-    { name: 'promociones', desc: 'Campañas de descuento Happy Hour o combos especiales.', key: 'id_promo' },
+    { name: 'mesas', desc: 'Configuracion y estado actual de mesas fisicas en salon.', key: 'id_mesa' },
+    { name: 'insumos', desc: 'Stock actual de insumos y materias primas.', key: 'id_insumo' },
+    { name: 'productos_menu', desc: 'Platos, tragos y articulos activos del catalogo de venta.', key: 'id_producto' },
+    { name: 'recetas_escandallo', desc: 'Ingredientes y descuentos automaticos por escandallo.', key: 'id_receta' },
+    { name: 'mermas', desc: 'Mermas registradas por roturas o perdidas de bodega.', key: 'id_merma' },
+    { name: 'movimientos_inventario', desc: 'Movimientos de entrada, salida y ajustes de stock.', key: 'id_movimiento' },
     { name: 'proveedores', desc: 'Directorio de suministro y plazos de entrega estimados.', key: 'id_proveedor' },
-    { name: 'reservas', desc: 'Planillas de reservas, clientes y asignación de mesas.', key: 'id_reserva' },
-    { name: 'mermas', desc: 'Mermas registradas por roturas o pérdidas de bodega.', key: 'id_merma' },
-    { name: 'facturas', desc: 'Archivo fiscal e historial de facturación AFIP.', key: 'id_factura' },
+    { name: 'promociones', desc: 'Campanas de descuento, happy hour o combos especiales.', key: 'id_promo' },
+    { name: 'reservas', desc: 'Planillas de reservas, clientes y asignacion de mesas.', key: 'id_reserva' },
+    { name: 'facturas', desc: 'Archivo fiscal e historial de facturacion.', key: 'id_factura' },
+    { name: 'pagos', desc: 'Pagos asociados a facturas.', key: 'id_pago' },
+    { name: 'cierres_caja', desc: 'Aperturas y cierres de turno de caja.', key: 'id_cierre' },
+    { name: 'auditoria_eventos', desc: 'Trazabilidad y logs de auditoria tecnica.', key: 'id' },
+    { name: 'backups', desc: 'Respaldos generados por el sistema.', key: 'id_backup' },
     { name: 'pedidos_cabecera', desc: 'Cabecera de comandas vivas o terminadas del turno.', key: 'id_pedido' },
-    { name: 'pedido_detalle', desc: 'Detalles de platillos asociados por cada comanda.', key: 'id_detalle' },
-    { name: 'auditoria_eventos', desc: 'Trazabilidad y logs de auditoría técnica del software.', key: 'id' }
+    { name: 'pedido_detalle', desc: 'Detalles de productos asociados a cada comanda.', key: 'id_detalle' }
   ];
 
   useEffect(() => {
@@ -196,7 +201,10 @@ export default function SupabaseManager({
   };
 
   const testConnection = async (testUrl: string, testKey: string) => {
-    if (!testUrl || !testKey) {
+    const normalizedUrl = normalizeSupabaseUrl(testUrl);
+    const normalizedKey = testKey.trim();
+
+    if (!normalizedUrl || !normalizedKey) {
       setConnectionStatus('not_configured');
       setConnectionMessage('Faltan ingresar las credenciales de Supabase.');
       return;
@@ -206,9 +214,11 @@ export default function SupabaseManager({
     setConnectionMessage('Estableciendo enlace de prueba...');
 
     try {
-      // Temporarily store in local storage to initialize correct client instance
-      localStorage.setItem('SUPABASE_URL', testUrl);
-      localStorage.setItem('SUPABASE_ANON_KEY', testKey);
+      // Temporarily store in local storage to initialize correct client instance.
+      localStorage.setItem('SUPABASE_URL', normalizedUrl);
+      localStorage.setItem('SUPABASE_ANON_KEY', normalizedKey);
+      setUrl(normalizedUrl);
+      setAnonKey(normalizedKey);
       resetSupabaseInstance();
 
       const client = getSupabaseClient();
@@ -227,19 +237,13 @@ export default function SupabaseManager({
 
       let depositosCount: any = 'Error';
       try {
-        let resDep = await client.from('depósitos').select('count', { count: 'exact', head: true });
-        if (resDep.error) {
-          resDep = await client.from('insumos').select('count', { count: 'exact', head: true });
-        }
+        const resDep = await client.from('insumos').select('count', { count: 'exact', head: true });
         if (!resDep.error) depositosCount = resDep.count ?? 0;
       } catch { }
 
       let prodCount: any = 'Error';
       try {
-        let resProd = await client.from('productos_menu').select('count', { count: 'exact', head: true });
-        if (resProd.error) {
-          resProd = await client.from('productos_menú').select('count', { count: 'exact', head: true });
-        }
+        const resProd = await client.from('productos_menu').select('count', { count: 'exact', head: true });
         if (!resProd.error) prodCount = resProd.count ?? 0;
       } catch { }
 
@@ -363,6 +367,7 @@ export default function SupabaseManager({
       const dbInsumos = await dbFetchInsumos();
       const dbProducts = await dbFetchProductosMenu();
       const dbRecipes = await dbFetchRecetas();
+      const dbPedidos = await dbFetchPedidos();
       const dbMermas = await dbFetchMermas();
 
       // Assemble update object
@@ -393,6 +398,10 @@ export default function SupabaseManager({
       }
       if (dbRecipes && dbRecipes.length > 0) {
         syncedPayload.recetas = dbRecipes;
+        pulledCount++;
+      }
+      if (dbPedidos && dbPedidos.length > 0) {
+        syncedPayload.pedidos = dbPedidos;
         pulledCount++;
       }
       if (dbMermas && dbMermas.length > 0) {
@@ -566,7 +575,7 @@ CREATE TABLE IF NOT EXISTS public.mesas (
   comensales bigint
 );
 
-CREATE TABLE IF NOT EXISTS public.depósitos (
+CREATE TABLE IF NOT EXISTS public.insumos (
   id_insumo text PRIMARY KEY,
   nombre text NOT NULL,
   stock_actual numeric NOT NULL,
@@ -622,7 +631,7 @@ CREATE TABLE IF NOT EXISTS public.auditoria_eventos (
 );
 
 CREATE TABLE IF NOT EXISTS public.pedidos_cabecera (
-  id_pedido text PRIMARY KEY,
+  id_pedido bigint PRIMARY KEY,
   id_mesa bigint,
   numero_mesa text NOT NULL,
   mozo text NOT NULL,
@@ -638,7 +647,7 @@ CREATE TABLE IF NOT EXISTS public.pedidos_cabecera (
 
 CREATE TABLE IF NOT EXISTS public.pedido_detalle (
   id_detalle text PRIMARY KEY,
-  id_pedido text NOT NULL,
+  id_pedido bigint NOT NULL,
   id_producto text NOT NULL,
   nombre text NOT NULL,
   cantidad bigint NOT NULL,
@@ -649,7 +658,7 @@ CREATE TABLE IF NOT EXISTS public.pedido_detalle (
 ALTER TABLE public.productos_menu DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.usuarios DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.mesas DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.depósitos DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.insumos DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.insumos DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.recetas_escandallo DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.promociones DISABLE ROW LEVEL SECURITY;
@@ -685,7 +694,7 @@ CREATE TABLE IF NOT EXISTS public.mesas (
   comensales bigint
 );
 
-CREATE TABLE IF NOT EXISTS public.depósitos (
+CREATE TABLE IF NOT EXISTS public.insumos (
   id_insumo text PRIMARY KEY,
   nombre text NOT NULL,
   stock_actual numeric NOT NULL,
@@ -750,7 +759,7 @@ CREATE TABLE IF NOT EXISTS public.auditoria_eventos (
 );
 
 CREATE TABLE IF NOT EXISTS public.pedidos_cabecera (
-  id_pedido text PRIMARY KEY,
+  id_pedido bigint PRIMARY KEY,
   id_mesa bigint,
   numero_mesa text NOT NULL,
   mozo text NOT NULL,
@@ -766,7 +775,7 @@ CREATE TABLE IF NOT EXISTS public.pedidos_cabecera (
 
 CREATE TABLE IF NOT EXISTS public.pedido_detalle (
   id_detalle text PRIMARY KEY,
-  id_pedido text NOT NULL,
+  id_pedido bigint NOT NULL,
   id_producto text NOT NULL,
   nombre text NOT NULL,
   cantidad bigint NOT NULL,
@@ -777,7 +786,7 @@ CREATE TABLE IF NOT EXISTS public.pedido_detalle (
 ALTER TABLE public.productos_menu DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.usuarios DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.mesas DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.depósitos DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.insumos DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.recetas_escandallo DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.promociones DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.proveedores DISABLE ROW LEVEL SECURITY;
