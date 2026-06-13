@@ -18,6 +18,7 @@ import {
 import { ProductoMenu, Insumo, RecetaEscandallo, Pedido, Mesa } from '../types';
 import SupabaseManager from './SupabaseManager';
 import ElPatronLogo from './ElPatronLogo';
+import { useToast, ToastContainer } from './ToastContainer';
 
 interface SistemaModuleProps {
   insumos: Insumo[];
@@ -44,6 +45,7 @@ export default function SistemaModule({
   addLog,
   onSyncComplete
 }: SistemaModuleProps) {
+  const { toast, toasts, removeToast } = useToast();
   // Test latencies
   const [dbPingStatus, setDbPingStatus] = useState<'idle' | 'testing' | 'ready'>('idle');
   const [dbPingMs, setDbPingMs] = useState<number>(0);
@@ -87,7 +89,7 @@ export default function SistemaModule({
   // CSV Serialization helper
   const triggerCsvDownload = (tableName: string, dataArray: any[]) => {
     if (dataArray.length === 0) {
-      alert("No hay registros en la tabla para exportar.");
+      toast.error("No hay registros en la tabla para exportar.");
       return;
     }
 
@@ -586,7 +588,7 @@ export default function SistemaModule({
                             window.dispatchEvent(new Event('el_patron_logo_changed'));
                             addLog('sistema', `MARCA: Logotipo cargado correctamente en memoria local activa.`);
                           } catch (error) {
-                            alert("La imagen es muy grande. Por favor, selecciona una optimizada (menor a 1.5MB) para un rendimiento veloz.");
+                            toast.error("La imagen es muy grande. Por favor selecciona una menor a 1.5MB.");
                           }
                         }
                       };
