@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useToast } from './ToastContainer';
 import { 
   Database, 
   Trash2, 
@@ -43,7 +44,8 @@ export default function InventoryModule({
   onRestockTodo,
   addLog
 }: InventoryModuleProps) {
-  
+  const { toast, toasts, dismissToast } = useToast();
+
   // Local toggles
   const [activeSubTab, setActiveSubTab] = useState<'deposito' | 'escandallo' | 'compras' | 'movimientos'>('deposito');
   const [filterCategory, setFilterCategory] = useState<'todo' | 'bodega' | 'frescos' | 'secos'>('todo');
@@ -101,7 +103,7 @@ export default function InventoryModule({
   const submitMermaForm = (e: React.FormEvent) => {
     e.preventDefault();
     if (!mermaInsumoId || mermaCantidad <= 0) {
-      alert("Por favor complete todos los datos requeridos.");
+      toast.warning("Complete todos los campos requeridos");
       return;
     }
 
@@ -109,7 +111,7 @@ export default function InventoryModule({
     if (!insSelected) return;
 
     if (insSelected.stock_actual < mermaCantidad) {
-      alert(`No puede registrar merma mayor al stock disponible (${insSelected.stock_actual}${insSelected.unidad_medida})`);
+      toast.error(`Stock insuficiente: solo hay ${insSelected.stock_actual}${insSelected.unidad_medida} disponibles`);
       return;
     }
 
@@ -126,14 +128,14 @@ export default function InventoryModule({
     // Reset form
     setMermaCantidad(0);
     setMermaInsumoId('');
-    alert("Merma asentada exitosamente.");
+    toast.success("Merma registrada correctamente");
   };
 
   // Process manual adjustments (plus/minus)
   const submitAjusteForm = (e: React.FormEvent) => {
     e.preventDefault();
     if (!ajusteInsumoId || ajusteCantidad <= 0) {
-      alert("Por favor complete los datos de ajuste.");
+      toast.warning("Complete los datos del ajuste de stock");
       return;
     }
 
@@ -141,7 +143,7 @@ export default function InventoryModule({
     if (!insSelected) return;
 
     if (ajusteOperacion === 'restar' && insSelected.stock_actual < ajusteCantidad) {
-      alert("No puede sustraer más que las existencias actuales.");
+      toast.error("No puede restar más que el stock disponible");
       return;
     }
 
@@ -163,14 +165,14 @@ export default function InventoryModule({
 
     setAjusteCantidad(0);
     setAjusteInsumoId('');
-    alert("Ajuste manual procesado correctamente.");
+    toast.success("Ajuste de stock aplicado correctamente");
   };
 
   // Submit Simulated Purchase Order to supplier
   const handleIngresarCompraProveedor = (e: React.FormEvent) => {
     e.preventDefault();
     if (!compraInsumoId || compraCantidad <= 0) {
-      alert("Configure el insumo y cantidad de la compra.");
+      toast.warning("Seleccione el insumo y cantidad para la compra");
       return;
     }
 
@@ -207,7 +209,7 @@ export default function InventoryModule({
 
     // Reset Form
     setCompraCantidad(10);
-    alert(`ÓRDEN DE COMPRA ENVIADA Y RECIBIDA\n\nProveedor: ${selectedProveedor}\nSe acreditó el stock físico. Costo estimado devengado: $${calculatedCost.toLocaleString('es-AR')}`);
+    toast.success(`Orden de compra enviada a ${selectedProveedor}. Stock acreditado.`);
   };
 
   // Recipe specs for the selected dish
@@ -271,7 +273,7 @@ export default function InventoryModule({
     document.body.removeChild(link);
 
     addLog('sistema', 'DIAGNOSTICO: Exportado reporte fiscal del historial de stock en CSV.');
-    alert("Reporte CSV de auditoría descargado exitosamente.");
+    toast.success("Reporte CSV descargado correctamente");
   };
 
   return (
@@ -984,5 +986,6 @@ export default function InventoryModule({
       </div>
 
     </div>
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
   );
 }
