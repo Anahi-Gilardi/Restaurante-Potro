@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Shield, Plus, Check, Trash } from 'lucide-react';
-import { Usuario } from '../types';
+import { Usuario, EventoLog } from '../types';
 import { usuariosService } from '../services/usuariosService';
 
 interface UsuariosModuleProps {
-  logs: any[];
-  addLog: (tipo: any, mensaje: string) => void;
+  logs: EventoLog[];
+  addLog: (tipo: EventoLog['tipo'], mensaje: string) => void;
 }
 
 export default function UsuariosModule({ logs, addLog }: UsuariosModuleProps) {
