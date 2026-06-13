@@ -5,26 +5,10 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
-  UtensilsCrossed,
-  ChefHat,
-  Database,
-  TrendingUp,
-  Receipt,
-  Terminal,
   User,
   Clock,
-  Sparkles,
   RefreshCw,
-  Layout,
-  Sliders,
-  ShieldCheck,
-  ShieldAlert,
-  Smartphone,
-  Eye,
-  Scale,
-  Truck,
-  Tag,
-  Calendar
+  ShieldAlert
 } from 'lucide-react';
 
 import { Mesa, Insumo, ProductoMenu, RecetaEscandallo, Pedido, Merma, EventoLog } from './types';
@@ -267,7 +251,6 @@ export default function App() {
   // --- Handlers for Kitchen View (KDS) ---
   const handleCambiarEstadoPedido = (idPedido: number, nuevoEstado: Pedido['estado_comanda']) => {
     let updatedPedido: Pedido | null = null;
-    let stockDeductionBlocked = false;
     let errorMsg = '';
 
     const pObj = pedidos.find(p => p.id_pedido === idPedido);
@@ -319,7 +302,6 @@ export default function App() {
         }
 
         if (!canDeduct) {
-          stockDeductionBlocked = true;
           alert(`No es posible iniciar cocción: ${errorMsg}`);
           addLog('alerta_stock', `RECHAZADO FUEGO: Pedido #${idPedido} bloqueado por falta de stock. ${errorMsg}`);
           return; // STOP!
@@ -589,83 +571,6 @@ export default function App() {
     addLog('sistema', `RELOJ: Simulación en tiempo real ${!autoTimerRunning ? 'INICIADA' : 'DETENIDA'}`);
   };
 
-  const handleInjectDeliveryOrder = (source: 'Rappi' | 'PedidosYa') => {
-    const productsOptions = productosMenu.filter(p => p.activo);
-    const itemMeal = productsOptions[Math.floor(Math.random() * Math.min(5, productsOptions.length))];
-    const itemDrink = productsOptions[Math.min(productsOptions.length - 1, 6 + Math.floor(Math.random() * 3))];
-
-    const newId = Math.floor(2000 + Math.random() * 8000);
-    const newPedido: Pedido = {
-      id_pedido: newId,
-      id_mesa: 101, // delivery virtual code
-      numero_mesa: `DELIVERY ${source === 'Rappi' ? 'RP' : 'PY'}`,
-      mozo: `Integración API (${source})`,
-      estado_comanda: 'pendiente',
-      items: [
-        { id_producto: itemMeal.id_producto, nombre: itemMeal.nombre, cantidad: 1, categoria: itemMeal.categoria },
-        { id_producto: itemDrink.id_producto, nombre: itemDrink.nombre, cantidad: 2, categoria: itemDrink.categoria }
-      ],
-      fecha_hora: new Date(),
-      minutos_transcurridos: 0,
-      origen: source,
-      observaciones: 'Despachar con cubiertos ecológicos. Cliente premium.'
-    };
-
-    setPedidos(prev => [newPedido, ...prev]);
-    addLog('pedido_creado', `INTEGRACIÓN: Pedido online #${newId} detectado y cargado desde el puente webhook de ${source}`);
-
-    // --- DESCUENTO INMEDIATO DE INSUMOS PARA DELIVERY ---
-    let itemsDescontados: string[] = [];
-    let alarmasBajoStock: string[] = [];
-    let updatedInsumos: Insumo[] = [];
-
-    setInsumos(prevInsumos => {
-      const copy = prevInsumos.map(ins => ({ ...ins }));
-
-      newPedido.items.forEach(pItem => {
-        const qtyPlates = pItem.cantidad;
-        const matchingRecetas = recetas.filter(r => r.id_producto === pItem.id_producto);
-
-        matchingRecetas.forEach(rec => {
-          const insIdx = copy.findIndex(ins => ins.id_insumo === rec.id_insumo);
-          if (insIdx !== -1) {
-            const currentIns = copy[insIdx];
-            const discountAmt = rec.cantidad_a_descontar * qtyPlates;
-            const updatedStock = Math.max(0, currentIns.stock_actual - discountAmt);
-            
-            copy[insIdx].stock_actual = parseFloat(updatedStock.toFixed(2));
-            itemsDescontados.push(`${currentIns.nombre} (-${discountAmt.toFixed(1)} ${currentIns.unidad_medida})`);
-
-            if (updatedStock < currentIns.stock_minimo) {
-              alarmasBajoStock.push(currentIns.nombre);
-            }
-          }
-        });
-      });
-
-      updatedInsumos = copy;
-      return copy;
-    });
-
-    if (itemsDescontados.length > 0) {
-      addLog('descuento_stock', `ESCANDALLO (DELIVERY): Pedido #${newId} dedujo ingredientes del almacén: ${itemsDescontados.join(', ')}`);
-    }
-
-    alarmasBajoStock.forEach(nom => {
-      addLog('alerta_stock', `CONTROL REPOSICIÓN: El insumo '${nom}' ha caído por debajo del stock de seguridad.`);
-    });
-
-    // Save complex order with background write-through
-    dbSavePedidoComplex(newPedido);
-
-    // Sync inventory to Supabase
-    setTimeout(() => {
-      if (updatedInsumos.length > 0) {
-        dbUpsertInsumos(updatedInsumos);
-      }
-    }, 50);
-  };
-
   const handleResetAllData = () => {
     setMesas(INITIAL_MESAS);
     setInsumos(INITIAL_INSUMOS);
@@ -719,12 +624,6 @@ export default function App() {
     const currentMins = totalMinutes % 60;
     return `${currentHour.toString().padStart(2, '0')}:${currentMins.toString().padStart(2, '0')} hs`;
   };
-
-  // Live sidebar metrics calculation
-  const occupiedTablesCount = mesas.filter(m => m.estado === 'ocupada').length;
-  const activeOrdersCount = pedidos.filter(p => p.estado_comanda === 'pendiente' || p.estado_comanda === 'en_cocina').length;
-  const readyToCollectCount = pedidos.filter(p => p.estado_comanda === 'listo').length;
-  const lowStockCount = insumos.filter(i => i.stock_actual <= i.stock_minimo).length;
 
   if (!isStreamlitLoggedIn) {
     return <PythonStreamlitLogin onLoginSuccess={() => setIsStreamlitLoggedIn(true)} />;
