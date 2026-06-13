@@ -639,6 +639,7 @@ export default function App() {
   }
 
   return (
+    <>
     <div className="min-h-screen bg-[#F5F1E9] flex flex-col lg:flex-row font-sans text-slate-800 antialiased selection:bg-[#624A3E] selection:text-white">
       
       {/* LEFT SIDE PANEL (PERSISTENT SIDEBAR) */}
@@ -1110,6 +1111,7 @@ export default function App() {
       </main>
 
     </div>
+    <ToastContainer toasts={toasts} removeToast={removeToast} />
+    </>
   );
 }
-      <ToastContainer toasts={toasts} removeToast={removeToast} />
