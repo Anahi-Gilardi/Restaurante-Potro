@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { UtensilsCrossed, Plus, Search, Edit2, Check, RefreshCw } from 'lucide-react';
-import { ProductoMenu } from '../types';
+import { ProductoMenu, EventoLog } from '../types';
 import { menuService } from '../services/menuService';
 
 interface MenuModuleProps {
   productosMenu: ProductoMenu[];
-  addLog: (tipo: any, mensaje: string) => void;
+  addLog: (tipo: EventoLog['tipo'], mensaje: string) => void;
 }
 
 export default function MenuModule({ productosMenu, addLog }: MenuModuleProps) {
