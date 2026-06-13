@@ -1,6 +1,14 @@
 import { getActiveSupabaseClient } from '../lib/supabaseClient';
 import { Proveedor } from '../types';
 
+const toDbProveedor = (prov: Partial<Proveedor>) => ({
+  ...(prov.id_proveedor !== undefined ? { id_proveedor: prov.id_proveedor } : {}),
+  ...(prov.nombre !== undefined ? { nombre: prov.nombre } : {}),
+  ...(prov.contacto !== undefined ? { contacto: prov.contacto } : {}),
+  ...(prov.telefono !== undefined ? { telefono: prov.telefono } : {}),
+  ...(prov.categoria !== undefined ? { categoria: prov.categoria } : {})
+});
+
 export const proveedoresService = {
   async list(): Promise<Proveedor[]> {
     const supabase = getActiveSupabaseClient();
@@ -22,32 +30,41 @@ export const proveedoresService = {
 
   async create(prov: Proveedor): Promise<Proveedor> {
     const supabase = getActiveSupabaseClient();
-    const { data, error } = await supabase.from('proveedores').insert([prov]).select().single();
+    const { data, error } = await supabase.from('proveedores').insert([toDbProveedor(prov)]).select().single();
     if (error) {
       console.error('Error creating proveedor:', error);
       throw error;
     }
-    return data;
+    return {
+      ...prov,
+      ...data
+    };
   },
 
   async update(id: string, prov: Partial<Proveedor>): Promise<Proveedor> {
     const supabase = getActiveSupabaseClient();
-    const { data, error } = await supabase.from('proveedores').update(prov).eq('id_proveedor', id).select().single();
+    const { data, error } = await supabase.from('proveedores').update(toDbProveedor(prov)).eq('id_proveedor', id).select().single();
     if (error) {
       console.error('Error updating proveedor:', error);
       throw error;
     }
-    return data;
+    return {
+      ...prov,
+      ...data
+    } as Proveedor;
   },
 
   async upsert(provs: Proveedor[]): Promise<Proveedor[]> {
     const supabase = getActiveSupabaseClient();
-    const { data, error } = await supabase.from('proveedores').upsert(provs).select();
+    const { data, error } = await supabase.from('proveedores').upsert(provs.map(toDbProveedor)).select();
     if (error) {
       console.error('Error upserting proveedores:', error);
       throw error;
     }
-    return data || [];
+    return (data || []).map((dbProv, idx) => ({
+      ...provs[idx],
+      ...dbProv
+    }));
   },
 
   async remove(id: string): Promise<boolean> {

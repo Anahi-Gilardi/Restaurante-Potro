@@ -31,29 +31,31 @@ export default function MenuModule({ productosMenu, addLog }: MenuModuleProps) {
 
   const handleCreateItem = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nombre || !precio) return;
+    const parsedPrice = parseFloat(precio);
+    if (!nombre.trim() || !Number.isFinite(parsedPrice) || parsedPrice <= 0) return;
 
-    const fallbackImg = (categoria === 'bebidas' || categoria === 'Bodega')
+    const normalizedCategoria = categoria.toLowerCase();
+    const fallbackImg = (normalizedCategoria === 'bebidas' || normalizedCategoria === 'bodega')
       ? 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&q=80'
-      : categoria === 'Postres'
+      : normalizedCategoria === 'postres'
         ? 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&q=80'
         : 'https://images.unsplash.com/photo-1544025162-d76694265947?w=400&q=80';
 
-    const tipo = categoria === 'bebidas' 
-      ? 'bebida' 
-      : categoria === 'Bodega' 
-        ? 'vino' 
-        : categoria === 'Postres' 
-          ? 'postre' 
+    const tipo = normalizedCategoria === 'bebidas'
+      ? 'bebida'
+      : normalizedCategoria === 'bodega'
+        ? 'vino'
+        : normalizedCategoria === 'postres'
+          ? 'postre'
           : 'plato';
 
-    const requiere_cocina = !(categoria === 'bebidas' || categoria === 'Bodega');
+    const requiere_cocina = !(normalizedCategoria === 'bebidas' || normalizedCategoria === 'bodega');
 
     const newItem: ProductoMenu = {
       id_producto: `prod_custom_${Date.now()}`,
       nombre,
       descripcion: descripcion || `${nombre} elaborado con ingredientes selectos.`,
-      precio_venta: parseFloat(precio),
+      precio_venta: parsedPrice,
       categoria,
       activo: true,
       imagen: imagenUrl || fallbackImg,
@@ -88,11 +90,14 @@ export default function MenuModule({ productosMenu, addLog }: MenuModuleProps) {
   };
 
   const handleSavePrecio = (id: string) => {
+    const parsedPrice = parseFloat(editPrecio);
+    if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) return;
+
     setItems(prev => prev.map(item => {
       if (item.id_producto === id) {
-        menuService.update(id, { precio_venta: parseFloat(editPrecio) }).catch(err => console.error(err));
-        addLog('sistema', `MENÚ: Actualizado precio de venta de '${item.nombre}' de $${item.precio_venta} a $${editPrecio}`);
-        return { ...item, precio_venta: parseFloat(editPrecio) };
+        menuService.update(id, { precio_venta: parsedPrice }).catch(err => console.error(err));
+        addLog('sistema', `MENÚ: Actualizado precio de venta de '${item.nombre}' de $${item.precio_venta} a $${parsedPrice}`);
+        return { ...item, precio_venta: parsedPrice };
       }
       return item;
     }));

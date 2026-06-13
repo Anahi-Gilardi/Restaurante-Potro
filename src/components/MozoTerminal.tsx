@@ -197,7 +197,7 @@ export default function MozoTerminal({
     const requirements = calculateCartInsumoRequirements(cart);
     for (const [insumoId, reqAmount] of Object.entries(requirements)) {
       const insumo = insumos.find(i => i.id_insumo === insumoId);
-      if (insumo && insumo.stock_actual < reqAmount) {
+      if (insumo && insumo.stock_actual < reqAmount && !permitirVentaSinStock) {
         toast.error(`No es posible procesar la orden. Se agotó un insumo clave: ${insumo.nombre}`);
         return;
       }

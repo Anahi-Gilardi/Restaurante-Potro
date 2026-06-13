@@ -43,7 +43,7 @@ export default function UsuariosModule({ logs, addLog }: UsuariosModuleProps) {
     if (!nombre || !apellido) return;
 
     const newUs: Usuario = {
-      id_usuario: Math.floor(100 + Math.random() * 900),
+      id_usuario: Math.max(0, ...usuarios.map(u => u.id_usuario)) + 1,
       nombre,
       apellido,
       rol,

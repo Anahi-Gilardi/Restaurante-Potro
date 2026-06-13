@@ -53,6 +53,7 @@ import {
   dbUpsertMesas,
   dbUpsertInsumos,
   dbFetchMermas,
+  dbUpsertMermas,
   dbRecordMovement
 } from './supabase';
 
@@ -189,13 +190,58 @@ export default function App() {
 
   // --- Handlers for Waiter View (Terminal Mozo) ---
   const handleCrearPedido = useCallback((newPedidoData: Omit<Pedido, 'id_pedido' | 'fecha_hora' | 'minutos_transcurridos' | 'origen'> & { origen?: 'Mozo'; comensales?: number }) => {
-    const newId = Math.floor(1000 + Math.random() * 9000);
+    const newId = Math.max(1000, ...pedidos.map(p => p.id_pedido)) + 1;
+    let itemsDescontados: string[] = [];
+    let alarmasBajoStock: string[] = [];
+    const stockMovements: Array<{
+      id_insumo: string;
+      tipo_movimiento: 'salida_comanda';
+      cantidad: number;
+      stock_anterior: number;
+      stock_nuevo: number;
+    }> = [];
+
+    const updatedInsumos = insumos.map(ins => ({ ...ins }));
+
+    newPedidoData.items.forEach(pItem => {
+      const qtyPlates = pItem.cantidad;
+      const matchingRecetas = recetas.filter(r => r.id_producto === pItem.id_producto);
+
+      matchingRecetas.forEach(rec => {
+        const insIdx = updatedInsumos.findIndex(ins => ins.id_insumo === rec.id_insumo);
+        if (insIdx === -1) return;
+
+        const currentIns = updatedInsumos[insIdx];
+        const discountAmt = parseFloat((rec.cantidad_a_descontar * qtyPlates).toFixed(2));
+        const stockAnterior = currentIns.stock_actual;
+        const updatedStock = parseFloat((Math.max(permitirVentaSinStock ? -999999 : 0, stockAnterior - discountAmt)).toFixed(2));
+
+        updatedInsumos[insIdx].stock_actual = updatedStock;
+        itemsDescontados.push(`${currentIns.nombre} (-${discountAmt} ${currentIns.unidad_medida})`);
+
+        stockMovements.push({
+          id_insumo: currentIns.id_insumo,
+          tipo_movimiento: 'salida_comanda',
+          cantidad: discountAmt,
+          stock_anterior: stockAnterior,
+          stock_nuevo: updatedStock
+        });
+
+        if (updatedStock <= currentIns.stock_minimo) {
+          alarmasBajoStock.push(`${currentIns.nombre} (Stock actual: ${updatedStock}${currentIns.unidad_medida})`);
+        }
+      });
+    });
+
+    const stockDescontado = itemsDescontados.length > 0;
     const newPedido: Pedido = {
       ...newPedidoData,
       id_pedido: newId,
       fecha_hora: new Date(),
       minutos_transcurridos: 0,
-      origen: newPedidoData.origen || 'Mozo'
+      origen: newPedidoData.origen || 'Mozo',
+      stock_descontado: stockDescontado,
+      fecha_descuento_stock: stockDescontado ? new Date() : undefined
     };
 
     setPedidos(prev => [newPedido, ...prev]);
@@ -206,40 +252,8 @@ export default function App() {
 
     addLog('pedido_creado', `Mesa ${newPedidoData.numero_mesa} generó pedido #${newId} por ${newPedido.mozo}. Items: ${newPedidoData.items.map(i => `${i.nombre} (x${i.cantidad})`).join(', ')}`);
 
-    // --- DESCUENTO INMEDIATO DE INSUMOS (AUTO-ESCANDALLO) ---
-    let itemsDescontados: string[] = [];
-    let alarmasBajoStock: string[] = [];
-    let updatedInsumos: Insumo[] = [];
-
-    setInsumos(prevInsumos => {
-      const copy = prevInsumos.map(ins => ({ ...ins }));
-
-      newPedido.items.forEach(pItem => {
-        const qtyPlates = pItem.cantidad;
-        const matchingRecetas = recetas.filter(r => r.id_producto === pItem.id_producto);
-
-        matchingRecetas.forEach(rec => {
-          const insIdx = copy.findIndex(ins => ins.id_insumo === rec.id_insumo);
-          if (insIdx !== -1) {
-            const currentIns = copy[insIdx];
-            const discountAmt = rec.cantidad_a_descontar * qtyPlates;
-            const updatedStock = Math.max(0, currentIns.stock_actual - discountAmt);
-            
-            copy[insIdx].stock_actual = parseFloat(updatedStock.toFixed(2));
-            itemsDescontados.push(`${currentIns.nombre} (-${discountAmt.toFixed(1)} ${currentIns.unidad_medida})`);
-
-            if (updatedStock < currentIns.stock_minimo) {
-              alarmasBajoStock.push(currentIns.nombre);
-            }
-          }
-        });
-      });
-
-      updatedInsumos = copy;
-      return copy;
-    });
-
     if (itemsDescontados.length > 0) {
+      setInsumos(updatedInsumos);
       addLog('descuento_stock', `ESCANDALLO (AL MANDAR COMANDA): Pedido #${newId} enviado a cocina. Insumos descontados: ${itemsDescontados.join(', ')}`);
     }
 
@@ -251,13 +265,11 @@ export default function App() {
     dbSavePedidoComplex(newPedido);
     dbUpsertMesas(updatedMesas);
 
-    // Sync stocks to Supabase
-    setTimeout(() => {
-      if (updatedInsumos.length > 0) {
-        dbUpsertInsumos(updatedInsumos);
-      }
-    }, 50);
-  }, [recetas, addLog, mesas, setMesas, setInsumos, setPedidos]);
+    if (stockDescontado) {
+      stockMovements.forEach(movement => dbRecordMovement(movement).catch(console.error));
+      dbUpsertInsumos(updatedInsumos);
+    }
+  }, [pedidos, insumos, recetas, addLog, mesas, permitirVentaSinStock, setMesas, setInsumos, setPedidos]);
 
   const handleMozoChange = (mozo: string) => {
     setActiveMozo(mozo);
@@ -528,20 +540,37 @@ export default function App() {
 
     // Sync inventory reduction
     dbUpsertInsumos(updatedInsumos);
+    dbUpsertMermas([newMerma, ...mermas]);
+    dbRecordMovement({
+      id_insumo: idInsumo,
+      tipo_movimiento: 'salida_merma',
+      cantidad,
+      stock_anterior: insObj.stock_actual,
+      stock_nuevo: Math.max(0, parseFloat((insObj.stock_actual - cantidad).toFixed(2)))
+    }).catch(console.error);
   };
 
   const handleRestockInsumo = useCallback((idInsumo: string, cantidad: number) => {
+    const item = insumos.find(i => i.id_insumo === idInsumo);
     const updatedInsumos = insumos.map(i => i.id_insumo === idInsumo ? {
       ...i,
       stock_actual: parseFloat((i.stock_actual + cantidad).toFixed(2))
     } : i);
     setInsumos(updatedInsumos);
 
-    const item = insumos.find(i => i.id_insumo === idInsumo);
     addLog('sistema', `REPOSICIÓN: Incremetado stock de '${item ? item.nombre : idInsumo}' en +${cantidad}`);
 
     // Sync inventory write
     dbUpsertInsumos(updatedInsumos);
+    if (item) {
+      dbRecordMovement({
+        id_insumo: idInsumo,
+        tipo_movimiento: 'entrada',
+        cantidad,
+        stock_anterior: item.stock_actual,
+        stock_nuevo: parseFloat((item.stock_actual + cantidad).toFixed(2))
+      }).catch(console.error);
+    }
   }, [insumos, addLog]);
 
   const handleRestockTodo = () => {

@@ -37,6 +37,7 @@ export default function ReservasModule({ mesas, addLog }: ReservasModuleProps) {
   const handleCreateReserva = (e: React.FormEvent) => {
     e.preventDefault();
     if (!nombre || !telefono) return;
+    const selectedMesa = mesas.find(m => m.numero_mesa === nombreMesa);
 
     const newRes: Reserva = {
       id_reserva: `r_${Date.now()}`,
@@ -44,6 +45,7 @@ export default function ReservasModule({ mesas, addLog }: ReservasModuleProps) {
       telefono,
       pax: parseInt(pax) || 2,
       nombre_mesa: nombreMesa,
+      id_mesa: selectedMesa?.id_mesa,
       hora: `${hora} hs`,
       estado: 'confirmada'
     };
