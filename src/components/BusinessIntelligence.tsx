@@ -15,18 +15,102 @@ import {
   Info,
   ChevronDown
 } from 'lucide-react';
-import { ProductoMenu, EventoLog } from '../types';
+import { ProductoMenu, EventoLog, Pedido } from '../types';
 
 interface BusinessIntelligenceProps {
   productosMenu: ProductoMenu[];
   logs: EventoLog[];
+  /** Pedidos del turno para calcular métricas reales */
+  pedidos: Pedido[];
+  /** Mapa O(1) de id_producto → precio_venta */
+  precioMap: Map<string, number>;
 }
 
-export default function BusinessIntelligence({ productosMenu, logs }: BusinessIntelligenceProps) {
+export default function BusinessIntelligence({ productosMenu, logs, pedidos, precioMap }: BusinessIntelligenceProps) {
   const [logFilter, setLogFilter] = useState<'todo' | 'pedidos' | 'stock' | 'alertas'>('todo');
   const [logSearch, setLogSearch] = useState('');
 
-  // BCG mapping matrix theoretical positions for high-fidelity rendering
+  // ── Métricas calculadas desde datos reales ────────────────────────────────
+
+  const pedidosCobrados = useMemo(
+    () => pedidos.filter(p => p.estado_comanda === 'entregado_cobrado'),
+    [pedidos]
+  );
+
+  /** Tiempo promedio de despacho real (en minutos) */
+  const tiempoPromedioReal = useMemo(() => {
+    const conTiempo = pedidosCobrados.filter(
+      p => typeof p.tiempo_despacho_minutos === 'number' && p.tiempo_despacho_minutos > 0
+    );
+    if (conTiempo.length === 0) return null;
+    const avg = conTiempo.reduce((s, p) => s + (p.tiempo_despacho_minutos ?? 0), 0) / conTiempo.length;
+    return avg.toFixed(1);
+  }, [pedidosCobrados]);
+
+  /** % de pedidos despachados dentro del semáforo verde (≤10 min) */
+  const efectividadReal = useMemo(() => {
+    if (pedidosCobrados.length === 0) return null;
+    const enTiempo = pedidosCobrados.filter(
+      p => (p.tiempo_despacho_minutos ?? 99) <= 10
+    ).length;
+    return ((enTiempo / pedidosCobrados.length) * 100).toFixed(1);
+  }, [pedidosCobrados]);
+
+  /** Ranking de platos más vendidos (top 5) con sus ingresos reales */
+  const rankingPlatos = useMemo(() => {
+    const totales = new Map<string, { nombre: string; cantidad: number; ingresos: number }>();
+    pedidosCobrados.forEach(p => {
+      p.items.forEach(item => {
+        const precio = item.precio_unitario ?? precioMap.get(item.id_producto) ?? 0;
+        const prev = totales.get(item.id_producto) ?? { nombre: item.nombre, cantidad: 0, ingresos: 0 };
+        totales.set(item.id_producto, {
+          nombre: item.nombre,
+          cantidad: prev.cantidad + item.cantidad,
+          ingresos: prev.ingresos + precio * item.cantidad,
+        });
+      });
+    });
+    return [...totales.values()]
+      .sort((a, b) => b.ingresos - a.ingresos)
+      .slice(0, 5);
+  }, [pedidosCobrados, precioMap]);
+
+  /** Tiempos de espera reales por nombre de producto */
+  const waitTimesReal = useMemo(() => {
+    const byProduct = new Map<string, { nombre: string; totalMin: number; count: number; idealMin: number }>();
+    pedidosCobrados
+      .filter(p => typeof p.tiempo_despacho_minutos === 'number' && p.tiempo_despacho_minutos > 0)
+      .forEach(p => {
+        p.items.forEach(item => {
+          if (item.categoria !== 'cocina') return; // solo platos de cocina
+          const prev = byProduct.get(item.nombre) ?? {
+            nombre: item.nombre, totalMin: 0, count: 0, idealMin: 12
+          };
+          byProduct.set(item.nombre, {
+            ...prev,
+            totalMin: prev.totalMin + (p.tiempo_despacho_minutos ?? 0),
+            count: prev.count + 1,
+          });
+        });
+      });
+    return [...byProduct.values()]
+      .map(d => ({ plato: d.nombre, minutos: parseFloat((d.totalMin / d.count).toFixed(1)), ideal: d.idealMin }))
+      .sort((a, b) => b.minutos - a.minutos)
+      .slice(0, 5);
+  }, [pedidosCobrados]);
+
+  // Fallback a datos estáticos si no hay pedidos cobrados aún
+  const tiempoPromedio = tiempoPromedioReal ?? '—';
+  const efectividad = efectividadReal ?? '—';
+  const waitTimesData = waitTimesReal.length > 0 ? waitTimesReal : [
+    { plato: 'Bife de Chorizo', minutos: 15.4, ideal: 14.0 },
+    { plato: 'Pastas Caseras', minutos: 9.8, ideal: 11.0 },
+    { plato: 'Entraña Arriera', minutos: 17.1, ideal: 15.0 },
+    { plato: 'Hamburguesa Gourmet', minutos: 11.2, ideal: 10.0 },
+    { plato: 'Tarta Rústica', minutos: 8.5, ideal: 9.0 },
+  ];
+
+    // BCG mapping matrix theoretical positions for high-fidelity rendering
   // Stars (High sales, high profit), Cash Cows (High sales, low profit), Question Marks (Low sales, high profit), Dogs (Low sales, low profit)
   const bcgData = useMemo(() => {
     return [
@@ -70,7 +154,7 @@ export default function BusinessIntelligence({ productosMenu, logs }: BusinessIn
         <div className="bg-white border border-stone-200/80 border-l-4 border-l-[#624A3E]/90 rounded-2xl p-4 shadow-sm flex items-center justify-between">
           <div>
             <span className="text-[10px] uppercase font-bold text-stone-500 font-sans tracking-wider block">Tiempo Promedio</span>
-            <h4 className="text-xl font-black text-stone-900 font-mono mt-1">12.4 min</h4>
+            <h4 className="text-xl font-black text-stone-900 font-mono mt-1">{tiempoPromedio} min</h4>
             <p className="text-[9px] text-[#22C55E] mt-1.5 flex items-center gap-0.5 font-sans font-bold">
               <span>↓ 1.2 min vs semana anterior</span>
             </p>
@@ -83,7 +167,7 @@ export default function BusinessIntelligence({ productosMenu, logs }: BusinessIn
         <div className="bg-white border border-stone-200/80 border-l-4 border-l-[#22C55E] rounded-2xl p-4 shadow-sm flex items-center justify-between">
           <div>
             <span className="text-[10px] uppercase font-bold text-stone-500 font-sans tracking-wider block">Efectividad Mesa</span>
-            <h4 className="text-xl font-black text-stone-900 font-mono mt-1">97.8%</h4>
+            <h4 className="text-xl font-black text-stone-900 font-mono mt-1">{efectividad}{efectividadReal ? '%' : ''}</h4>
             <p className="text-[9px] text-stone-500 mt-1.5 font-sans leading-tight">
               Despachos antes de semáforo rojo
             </p>
@@ -126,7 +210,48 @@ export default function BusinessIntelligence({ productosMenu, logs }: BusinessIn
       {/* CORE BI GRAPHS GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
-        {/* BCG MATRIX REPORT */}
+        {/* TOP PLATOS POR INGRESOS */}
+        {rankingPlatos.length > 0 && (
+          <div className='bg-white rounded-2xl p-5 border border-stone-200 shadow-sm'>
+            <div className='flex items-center gap-2 mb-4 pb-3 border-b border-slate-50'>
+              <div className='p-1.5 bg-slate-900 text-white rounded-lg'>
+                <TrendingUp className='w-4 h-4' />
+              </div>
+              <div>
+                <h3 className='font-extrabold text-sm text-slate-800 tracking-tight'>
+                  Top Platos por Ingresos — Turno Actual
+                </h3>
+                <p className='text-[11px] text-slate-400'>Calculado desde pedidos cobrados en tiempo real</p>
+              </div>
+            </div>
+            <div className='space-y-2'>
+              {rankingPlatos.map((item, idx) => {
+                const maxIngreso = rankingPlatos[0]?.ingresos ?? 1;
+                const pct = Math.round((item.ingresos / maxIngreso) * 100);
+                const barColor = idx === 0 ? '#624A3E' : idx === 1 ? '#F59E0B' : '#22C55E';
+                return (
+                  <div key={item.nombre} className='flex items-center gap-3'>
+                    <span className='text-[10px] font-black text-stone-400 w-4'>{idx + 1}</span>
+                    <div className='flex-1 min-w-0'>
+                      <div className='flex items-center justify-between mb-0.5'>
+                        <span className='text-[11px] font-bold text-stone-800 truncate'>{item.nombre}</span>
+                        <span className='text-[10px] font-mono text-stone-500 ml-2 flex-shrink-0'>
+                          {item.cantidad} uds · ${item.ingresos.toLocaleString('es-AR')}
+                        </span>
+                      </div>
+                      <div className='w-full bg-stone-100 h-1.5 rounded-full overflow-hidden'>
+                        <div className='h-1.5 rounded-full transition-all duration-500'
+                          style={{ width: pct + '%', backgroundColor: barColor }} />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+                {/* BCG MATRIX REPORT */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-4">
           <div className="flex justify-between items-start pb-2 border-b border-slate-50">
             <div>
