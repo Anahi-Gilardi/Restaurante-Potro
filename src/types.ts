@@ -244,11 +244,21 @@ export interface Reserva {
     id_reserva: string;
     nombre_cliente: string;
     telefono: string;
-    fecha: string;
     hora: string;
-    comensales: number;
+    /** Número de personas */
+    pax: number;
+    /** Nombre de la mesa asignada */
+    nombre_mesa: string;
+    /** Estado de la reserva */
+    estado: 'confirmada' | 'sentada' | 'cancelada' | 'pendiente' | 'completada';
+    /** ID de la mesa (FK numérica, opcional) */
+    id_mesa?: number;
+    /** Fecha en formato ISO YYYY-MM-DD (opcional) */
+    fecha?: string;
+    /** Número de comensales (alias de pax) */
+    comensales?: number;
+    /** Mesa asignada (alias de nombre_mesa) */
     mesa_asignada?: string;
-    estado: 'confirmada' | 'pendiente' | 'cancelada' | 'completada';
     observaciones?: string;
 }
 
