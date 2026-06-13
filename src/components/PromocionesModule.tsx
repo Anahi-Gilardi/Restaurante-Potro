@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Tag, Calendar, Plus, ToggleLeft, ToggleRight, Sparkles } from 'lucide-react';
 import { promocionesService, Promocion } from '../services/promocionesService';
+import { EventoLog } from '../types';
 
 interface PromocionesModuleProps {
-  addLog: (tipo: any, mensaje: string) => void;
+  addLog: (tipo: EventoLog['tipo'], mensaje: string) => void;
 }
 
 export default function PromocionesModule({ addLog }: PromocionesModuleProps) {
