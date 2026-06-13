@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { ChefHat, Hammer, Tag, AlertTriangle, Plus, Scale } from 'lucide-react';
-import { RecetaEscandallo, ProductoMenu, Insumo } from '../types';
+import { RecetaEscandallo, ProductoMenu, Insumo, EventoLog } from '../types';
 
 interface RecetasModuleProps {
   recetas: RecetaEscandallo[];
   productosMenu: ProductoMenu[];
   insumos: Insumo[];
-  addLog: (tipo: any, mensaje: string) => void;
+  addLog: (tipo: EventoLog['tipo'], mensaje: string) => void;
 }
 
 export default function RecetasModule({
