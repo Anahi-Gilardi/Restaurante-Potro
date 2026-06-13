@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   UtensilsCrossed,
   ChefHat,
@@ -43,6 +43,7 @@ import KitchenMonitor from './components/KitchenMonitor';
 import InventoryModule from './components/InventoryModule';
 import BusinessIntelligence from './components/BusinessIntelligence';
 import CajaModule from './components/CajaModule';
+import ErrorBoundary from './components/ErrorBoundary';
 import SistemaModule from './components/SistemaModule';
 import PythonStreamlitLogin from './components/PythonStreamlitLogin';
 import ElPatronLogo from './components/ElPatronLogo';
@@ -80,63 +81,7 @@ export default function App() {
   const [pedidos, setPedidos] = useState<Pedido[]>(INITIAL_PEDIDOS);
   const [mermas, setMermas] = useState<Merma[]>([]);
 
-  // Auto-sync effect on mount
-  useEffect(() => {
-    const autoLoadSupabase = async () => {
-      const client = getSupabaseClient();
-      if (!client) return;
-      try {
-        const dbMesas = await dbFetchMesas();
-        const dbInsumos = await dbFetchInsumos();
-        const dbProducts = await dbFetchProductosMenu();
-        const dbRecipes = await dbFetchRecetas();
-        const dbMermas = await dbFetchMermas();
-
-        if (dbMesas && dbMesas.length > 0) {
-          setMesas(dbMesas.map(m => ({
-            id_mesa: m.id_mesa,
-            numero_mesa: m.numero_mesa,
-            estado: m.estado || 'libre',
-            comensales: m.comensales || undefined
-          })));
-        }
-        if (dbInsumos && dbInsumos.length > 0) {
-          setInsumos(dbInsumos);
-        }
-        if (dbProducts && dbProducts.length > 0) {
-          setProductosMenu(dbProducts);
-        }
-        if (dbRecipes && dbRecipes.length > 0) {
-          setRecetas(dbRecipes);
-        }
-        if (dbMermas && dbMermas.length > 0) {
-          setMermas(dbMermas);
-        }
-        addLog('sistema', 'SUPABASE: Auto-sincronización exitosa en el arranque de la aplicación.');
-      } catch (err) {
-        console.warn('Supabase: Falló auto-sync en el arranque. Usando datos SQLite locales.', err);
-      }
-    };
-    autoLoadSupabase();
-  }, []);
-
-  // Sync completion callback handed to settings
-  const handleSupabaseSync = (newData: {
-    mesas?: Mesa[];
-    insumos?: Insumo[];
-    productosMenu?: ProductoMenu[];
-    recetas?: RecetaEscandallo[];
-    mermas?: Merma[];
-  }) => {
-    if (newData.mesas) setMesas(newData.mesas);
-    if (newData.insumos) setInsumos(newData.insumos);
-    if (newData.productosMenu) setProductosMenu(newData.productosMenu);
-    if (newData.recetas) setRecetas(newData.recetas);
-    if (newData.mermas) setMermas(newData.mermas);
-  };
-
-  
-  // Custom interactive log tracker for BI & audit
+  // Helper log registrar
   const [logs, setLogs] = useState<EventoLog[]>([
     {
       id: 'init_log_1',
@@ -157,6 +102,79 @@ export default function App() {
       timestamp: new Date(Date.now() - 33 * 60 * 1000)
     }
   ]);
+  const addLog = useCallback(
+    (
+      tipo: 'pedido_creado' | 'descuento_stock' | 'alerta_stock' | 'comanda_estado' | 'merma_registrada' | 'sistema', 
+      mensaje: string
+    ) => {
+      const newLogItem: EventoLog = {
+        id: `log_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+        tipo,
+        mensaje,
+        timestamp: new Date()
+      };
+      setLogs(prev => [newLogItem, ...prev]);
+    },
+    []
+  );
+
+  // Auto-sync effect on mount
+  useEffect(() => {
+    const autoLoadSupabase = async () => {
+      const client = getSupabaseClient();
+      if (!client) return;
+      try {
+        const dbMesas = await dbFetchMesas();
+        const dbInsumos = await dbFetchInsumos();
+        const dbProducts = await dbFetchProductosMenu();
+        const dbRecipes = await dbFetchRecetas();
+        const dbMermas = await dbFetchMermas();
+
+        if ((dbMesas ?? []).length > 0) {
+          setMesas((dbMesas ?? []).map(m => ({
+            id_mesa: m.id_mesa,
+            numero_mesa: m.numero_mesa,
+            estado: m.estado || 'libre',
+            comensales: m.comensales || undefined
+          })));
+        }
+        if ((dbInsumos ?? []).length > 0) {
+          setInsumos(dbInsumos ?? []);
+        }
+        if ((dbProducts ?? []).length > 0) {
+          setProductosMenu(dbProducts ?? []);
+        }
+        if ((dbRecipes ?? []).length > 0) {
+          setRecetas(dbRecipes ?? []);
+        }
+        if ((dbMermas ?? []).length > 0) {
+          setMermas(dbMermas ?? []);
+        }
+        addLog('sistema', 'SUPABASE: Auto-sincronización exitosa en el arranque de la aplicación.');
+      } catch (err) {
+        console.warn('Supabase: Falló auto-sync en el arranque. Usando datos SQLite locales.', err);
+      }
+    };
+    autoLoadSupabase();
+  }, [addLog]);
+
+  // Sync completion callback handed to settings
+  const handleSupabaseSync = (newData: {
+    mesas?: Mesa[];
+    insumos?: Insumo[];
+    productosMenu?: ProductoMenu[];
+    recetas?: RecetaEscandallo[];
+    mermas?: Merma[];
+  }) => {
+    if (newData.mesas) setMesas(newData.mesas);
+    if (newData.insumos) setInsumos(newData.insumos);
+    if (newData.productosMenu) setProductosMenu(newData.productosMenu);
+    if (newData.recetas) setRecetas(newData.recetas);
+    if (newData.mermas) setMermas(newData.mermas);
+  };
+
+  
+  // Custom interactive log tracker for BI & audit
 
   // Terminal active configs & simulation states
   const [activeMozo, setActiveMozo] = useState<string>('Enzo');
@@ -168,19 +186,6 @@ export default function App() {
   const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
   const [autoTimerRunning, setAutoTimerRunning] = useState<boolean>(false);
 
-  // Helper log registrar
-  const addLog = (
-    tipo: 'pedido_creado' | 'descuento_stock' | 'alerta_stock' | 'comanda_estado' | 'merma_registrada' | 'sistema', 
-    mensaje: string
-  ) => {
-    const newLogItem: EventoLog = {
-      id: `log_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
-      tipo,
-      mensaje,
-      timestamp: new Date()
-    };
-    setLogs(prev => [newLogItem, ...prev]);
-  };
 
   // --- Handlers for Waiter View (Terminal Mozo) ---
   const handleCrearPedido = (newPedidoData: Omit<Pedido, 'id_pedido' | 'fecha_hora' | 'minutos_transcurridos' | 'origen'> & { origen?: 'Mozo'; comensales?: number }) => {
@@ -201,9 +206,57 @@ export default function App() {
 
     addLog('pedido_creado', `Mesa ${newPedidoData.numero_mesa} generó pedido #${newId} por ${newPedido.mozo}. Items: ${newPedidoData.items.map(i => `${i.nombre} (x${i.cantidad})`).join(', ')}`);
 
+    // --- DESCUENTO INMEDIATO DE INSUMOS (AUTO-ESCANDALLO) ---
+    let itemsDescontados: string[] = [];
+    let alarmasBajoStock: string[] = [];
+    let updatedInsumos: Insumo[] = [];
+
+    setInsumos(prevInsumos => {
+      const copy = prevInsumos.map(ins => ({ ...ins }));
+
+      newPedido.items.forEach(pItem => {
+        const qtyPlates = pItem.cantidad;
+        const matchingRecetas = recetas.filter(r => r.id_producto === pItem.id_producto);
+
+        matchingRecetas.forEach(rec => {
+          const insIdx = copy.findIndex(ins => ins.id_insumo === rec.id_insumo);
+          if (insIdx !== -1) {
+            const currentIns = copy[insIdx];
+            const discountAmt = rec.cantidad_a_descontar * qtyPlates;
+            const updatedStock = Math.max(0, currentIns.stock_actual - discountAmt);
+            
+            copy[insIdx].stock_actual = parseFloat(updatedStock.toFixed(2));
+            itemsDescontados.push(`${currentIns.nombre} (-${discountAmt.toFixed(1)} ${currentIns.unidad_medida})`);
+
+            if (updatedStock < currentIns.stock_minimo) {
+              alarmasBajoStock.push(currentIns.nombre);
+            }
+          }
+        });
+      });
+
+      updatedInsumos = copy;
+      return copy;
+    });
+
+    if (itemsDescontados.length > 0) {
+      addLog('descuento_stock', `ESCANDALLO (AL MANDAR COMANDA): Pedido #${newId} enviado a cocina. Insumos descontados: ${itemsDescontados.join(', ')}`);
+    }
+
+    alarmasBajoStock.forEach(nom => {
+      addLog('alerta_stock', `CONTROL REPOSICIÓN: El insumo '${nom}' ha caído por debajo del stock de seguridad.`);
+    });
+
     // Sync state mutations to Supabase in background
     dbSavePedidoComplex(newPedido);
     dbUpsertMesas(updatedMesas);
+
+    // Sync stocks to Supabase
+    setTimeout(() => {
+      if (updatedInsumos.length > 0) {
+        dbUpsertInsumos(updatedInsumos);
+      }
+    }, 50);
   };
 
   const handleMozoChange = (mozo: string) => {
@@ -560,6 +613,57 @@ export default function App() {
 
     setPedidos(prev => [newPedido, ...prev]);
     addLog('pedido_creado', `INTEGRACIÓN: Pedido online #${newId} detectado y cargado desde el puente webhook de ${source}`);
+
+    // --- DESCUENTO INMEDIATO DE INSUMOS PARA DELIVERY ---
+    let itemsDescontados: string[] = [];
+    let alarmasBajoStock: string[] = [];
+    let updatedInsumos: Insumo[] = [];
+
+    setInsumos(prevInsumos => {
+      const copy = prevInsumos.map(ins => ({ ...ins }));
+
+      newPedido.items.forEach(pItem => {
+        const qtyPlates = pItem.cantidad;
+        const matchingRecetas = recetas.filter(r => r.id_producto === pItem.id_producto);
+
+        matchingRecetas.forEach(rec => {
+          const insIdx = copy.findIndex(ins => ins.id_insumo === rec.id_insumo);
+          if (insIdx !== -1) {
+            const currentIns = copy[insIdx];
+            const discountAmt = rec.cantidad_a_descontar * qtyPlates;
+            const updatedStock = Math.max(0, currentIns.stock_actual - discountAmt);
+            
+            copy[insIdx].stock_actual = parseFloat(updatedStock.toFixed(2));
+            itemsDescontados.push(`${currentIns.nombre} (-${discountAmt.toFixed(1)} ${currentIns.unidad_medida})`);
+
+            if (updatedStock < currentIns.stock_minimo) {
+              alarmasBajoStock.push(currentIns.nombre);
+            }
+          }
+        });
+      });
+
+      updatedInsumos = copy;
+      return copy;
+    });
+
+    if (itemsDescontados.length > 0) {
+      addLog('descuento_stock', `ESCANDALLO (DELIVERY): Pedido #${newId} dedujo ingredientes del almacén: ${itemsDescontados.join(', ')}`);
+    }
+
+    alarmasBajoStock.forEach(nom => {
+      addLog('alerta_stock', `CONTROL REPOSICIÓN: El insumo '${nom}' ha caído por debajo del stock de seguridad.`);
+    });
+
+    // Save complex order with background write-through
+    dbSavePedidoComplex(newPedido);
+
+    // Sync inventory to Supabase
+    setTimeout(() => {
+      if (updatedInsumos.length > 0) {
+        dbUpsertInsumos(updatedInsumos);
+      }
+    }, 50);
   };
 
   const handleResetAllData = () => {
@@ -852,7 +956,8 @@ export default function App() {
           
           {/* ACTIVE TAB RENDER TRIAGE */}
           {activeView === 'home' && (
-            <div className="animate-fadeIn">
+            <ErrorBoundary moduleName={'home'}>
+            <div key={activeView} className="animate-fadeIn">
               <HomeMenuModule
                 mesas={mesas}
                 pedidos={pedidos}
@@ -867,10 +972,12 @@ export default function App() {
                 onAdvanceTime={handleAdvanceTime}
               />
             </div>
+              </ErrorBoundary>
           )}
 
           {activeView === 'panel' && (
-            <div className="animate-fadeIn">
+            <ErrorBoundary moduleName={'panel'}>
+            <div key={activeView} className="animate-fadeIn">
               <PanelDashboard
                 mesas={mesas}
                 pedidos={pedidos}
@@ -880,10 +987,12 @@ export default function App() {
                 onNavigate={(view: any) => setActiveView(view)}
               />
             </div>
+              </ErrorBoundary>
           )}
 
           {activeView === 'mozo' && (
-            <div className="animate-fadeIn">
+            <ErrorBoundary moduleName={'mozo'}>
+            <div key={activeView} className="animate-fadeIn">
               <MozoTerminal
                 mesas={mesas}
                 insumos={insumos}
@@ -898,10 +1007,12 @@ export default function App() {
                 permitirVentaSinStock={permitirVentaSinStock}
               />
             </div>
+              </ErrorBoundary>
           )}
 
           {activeView === 'cocina' && (
-            <div className="animate-fadeIn">
+            <ErrorBoundary moduleName={'cocina'}>
+            <div key={activeView} className="animate-fadeIn">
               <KitchenMonitor
                 pedidos={pedidos}
                 onCambiarEstadoPedido={handleCambiarEstadoPedido}
@@ -909,10 +1020,12 @@ export default function App() {
                 minutosGlobal={minutosGlobal}
               />
             </div>
+              </ErrorBoundary>
           )}
 
           {activeView === 'caja' && (
-            <div className="animate-fadeIn">
+            <ErrorBoundary moduleName={'caja'}>
+            <div key={activeView} className="animate-fadeIn">
               <CajaModule
                 pedidos={pedidos}
                 productosMenu={productosMenu}
@@ -921,37 +1034,45 @@ export default function App() {
                 addLog={addLog}
               />
             </div>
+              </ErrorBoundary>
           )}
 
           {activeView === 'reportes' && (
-            <div className="animate-fadeIn">
+            <ErrorBoundary moduleName={'reportes'}>
+            <div key={activeView} className="animate-fadeIn">
               <BusinessIntelligence
                 productosMenu={productosMenu}
                 logs={logs}
               />
             </div>
+              </ErrorBoundary>
           )}
 
           {activeView === 'usuarios' && (
-            <div className="animate-fadeIn">
+            <ErrorBoundary moduleName={'usuarios'}>
+            <div key={activeView} className="animate-fadeIn">
               <UsuariosModule
                 logs={logs}
                 addLog={addLog}
               />
             </div>
+              </ErrorBoundary>
           )}
 
           {activeView === 'menu' && (
-            <div className="animate-fadeIn">
+            <ErrorBoundary moduleName={'menu'}>
+            <div key={activeView} className="animate-fadeIn">
               <MenuModule
                 productosMenu={productosMenu}
                 addLog={addLog}
               />
             </div>
+              </ErrorBoundary>
           )}
 
           {activeView === 'recetas' && (
-            <div className="animate-fadeIn">
+            <ErrorBoundary moduleName={'recetas'}>
+            <div key={activeView} className="animate-fadeIn">
               <RecetasModule
                 recetas={recetas}
                 productosMenu={productosMenu}
@@ -959,20 +1080,24 @@ export default function App() {
                 addLog={addLog}
               />
             </div>
+              </ErrorBoundary>
           )}
 
           {activeView === 'mesas' && (
-            <div className="animate-fadeIn">
+            <ErrorBoundary moduleName={'mesas'}>
+            <div key={activeView} className="animate-fadeIn">
               <MesasModule
                 mesas={mesas}
                 onSubmitPedido={handleCrearPedido}
                 addLog={addLog}
               />
             </div>
+              </ErrorBoundary>
           )}
 
           {activeView === 'inventario' && (
-            <div className="animate-fadeIn">
+            <ErrorBoundary moduleName={'inventario'}>
+            <div key={activeView} className="animate-fadeIn">
               <InventoryModule
                 insumos={insumos}
                 productosMenu={productosMenu}
@@ -984,45 +1109,55 @@ export default function App() {
                 addLog={addLog}
               />
             </div>
+              </ErrorBoundary>
           )}
 
           {activeView === 'proveedores' && (
-            <div className="animate-fadeIn">
+            <ErrorBoundary moduleName={'proveedores'}>
+            <div key={activeView} className="animate-fadeIn">
               <ProveedoresModule
                 onRestockTodo={handleRestockTodo}
                 addLog={addLog}
               />
             </div>
+              </ErrorBoundary>
           )}
 
           {activeView === 'promociones' && (
-            <div className="animate-fadeIn">
+            <ErrorBoundary moduleName={'promociones'}>
+            <div key={activeView} className="animate-fadeIn">
               <PromocionesModule
                 addLog={addLog}
               />
             </div>
+              </ErrorBoundary>
           )}
 
           {activeView === 'reservas' && (
-            <div className="animate-fadeIn">
+            <ErrorBoundary moduleName={'reservas'}>
+            <div key={activeView} className="animate-fadeIn">
               <ReservasModule
                 mesas={mesas}
                 addLog={addLog}
               />
             </div>
+              </ErrorBoundary>
           )}
 
           {activeView === 'facturacion' && (
-            <div className="animate-fadeIn">
+            <ErrorBoundary moduleName={'facturacion'}>
+            <div key={activeView} className="animate-fadeIn">
               <FacturacionModule
                 pedidos={pedidos}
                 addLog={addLog}
               />
             </div>
+              </ErrorBoundary>
           )}
 
           {activeView === 'sistema' && (
-            <div className="animate-fadeIn">
+            <ErrorBoundary moduleName={'sistema'}>
+            <div key={activeView} className="animate-fadeIn">
               <SistemaModule
                 insumos={insumos}
                 productosMenu={productosMenu}
@@ -1033,15 +1168,18 @@ export default function App() {
                 onSyncComplete={handleSupabaseSync}
               />
             </div>
+              </ErrorBoundary>
           )}
 
           {activeView === 'backups' && (
-            <div className="animate-fadeIn">
+            <ErrorBoundary moduleName={'backups'}>
+            <div key={activeView} className="animate-fadeIn">
               <BackupsModule
                 onResetAllData={handleResetAllData}
                 addLog={addLog}
               />
             </div>
+              </ErrorBoundary>
           )}
 
         </div>

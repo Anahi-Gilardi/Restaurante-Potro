@@ -90,7 +90,7 @@ export default function KitchenMonitor({
   // If segundos_en_listo is provided (derived in simulation state loop), we check if it is >= 300 (which is 5 minutes in real clock seconds or ticks)
   const isColdPlate = (pedido: Pedido) => {
     if (pedido.estado_comanda !== 'listo') return false;
-    return (pedido.segundos_en_listo || 0) >= 300; // 5 minutes
+    return (pedido.segundos_en_listo ?? 0) >= 300; // 5 minutes
   };
 
   return (
@@ -308,7 +308,7 @@ export default function KitchenMonitor({
                         </div>
                       )}
 
-                      {/* Transfer controls: triggers Escandallo process! */}
+                      {/* Transfer controls: Mark order as fully ready to serve */}
                       <button
                         onClick={() => onProducirPedidoConEscandallo(p.id_pedido)}
                         className="w-full mt-2 py-2.5 px-3 bg-[#F97316] hover:bg-[#EA580C] active:scale-95 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all shadow-md shadow-[#F97316]/10 cursor-pointer border border-[#F97316]/20"
@@ -356,7 +356,7 @@ export default function KitchenMonitor({
             ) : (
               activeKitchenOrders.filter(p => p.estado_comanda === 'listo').map(p => {
                 const cold = isColdPlate(p);
-                const holdMinutes = Math.floor((p.segundos_en_listo || 0) / 60);
+                const holdMinutes = Math.floor((p.segundos_en_listo ?? 0) / 60);
                 
                 return (
                   <div
@@ -388,7 +388,7 @@ export default function KitchenMonitor({
                       
                       <div className="text-right flex flex-col items-end">
                         <span className="text-[9px] font-mono font-black uppercase text-emerald-305 bg-emerald-950 px-2 py-0.5 rounded-full">Listo</span>
-                        {p.segundos_en_listo && p.segundos_en_listo > 0 ? (
+                        {(p.segundos_en_listo ?? 0) > 0 ? (
                           <span className="text-[10px] font-extrabold font-mono text-emerald-400 mt-1">Demora: {holdMinutes}m</span>
                         ) : null}
                       </div>

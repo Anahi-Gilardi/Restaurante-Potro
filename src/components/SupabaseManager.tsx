@@ -71,6 +71,8 @@ export default function SupabaseManager({
   addLog
 }: SupabaseManagerProps) {
   const [copiedKey, setCopiedKey] = useState(false);
+  const [copiedSql, setCopiedSql] = useState(false);
+  const [showSqlSetupGuide, setShowSqlSetupGuide] = useState(false);
   const [url, setUrl] = useState('');
   const [anonKey, setAnonKey] = useState('');
   
@@ -96,8 +98,7 @@ export default function SupabaseManager({
 
   const candidateTables = [
     { name: 'usuarios', desc: 'Credenciales, roles y perfiles de operarios/as.', key: 'id_usuario' },
-    { name: 'mesetas', desc: 'Configuración y estado actual de mesas físicas en salón.', key: 'id_mesa' },
-    { name: 'mesas', desc: 'Nomenclatura alternativa para mesas físicas.', key: 'id_mesa' },
+    { name: 'mesas', desc: 'Configuración y estado actual de mesas físicas en salón.', key: 'id_mesa' },
     { name: 'depósitos', desc: 'Historial y stock actual de insumos y materias primas.', key: 'id_insumo' },
     { name: 'insumos', desc: 'Nomenclatura alternativa para depósitos/insumos.', key: 'id_insumo' },
     { name: 'productos_menú', desc: 'Platos, tragos y artículos activos del catálogo de venta.', key: 'id_producto' },
@@ -216,8 +217,50 @@ export default function SupabaseManager({
       // Test reading tables
       const { data: userTest, error: userError } = await client.from('usuarios').select('count', { count: 'exact', head: true });
       
-      if (userError && userError.code !== '42P01' && userError.code !== 'PGRST116') {
-        throw userError;
+      let mesasCount: any = 'Error';
+      try {
+        const resMesas = await client.from('mesas').select('count', { count: 'exact', head: true });
+        if (!resMesas.error) mesasCount = resMesas.count ?? 0;
+      } catch { }
+
+      let depositosCount: any = 'Error';
+      try {
+        let resDep = await client.from('depósitos').select('count', { count: 'exact', head: true });
+        if (resDep.error) {
+          resDep = await client.from('insumos').select('count', { count: 'exact', head: true });
+        }
+        if (!resDep.error) depositosCount = resDep.count ?? 0;
+      } catch { }
+
+      let prodCount: any = 'Error';
+      try {
+        let resProd = await client.from('productos_menu').select('count', { count: 'exact', head: true });
+        if (resProd.error) {
+          resProd = await client.from('productos_menú').select('count', { count: 'exact', head: true });
+        }
+        if (!resProd.error) prodCount = resProd.count ?? 0;
+      } catch { }
+
+      let recCount: any = 'Error';
+      try {
+        const resRec = await client.from('recetas_escandallo').select('count', { count: 'exact', head: true });
+        if (!resRec.error) recCount = resRec.count ?? 0;
+      } catch { }
+
+      let isTableMissing = false;
+      if (userError) {
+        const isMissingRelation = 
+          userError.code === '42P01' || 
+          (userError.message && (
+            userError.message.toLowerCase().includes('relation') || 
+            userError.message.toLowerCase().includes('does not exist')
+          ));
+        
+        if (isMissingRelation) {
+          isTableMissing = true;
+        } else {
+          throw userError;
+        }
       }
 
       setConnectionStatus('connected');
@@ -470,6 +513,295 @@ export default function SupabaseManager({
           <span>{connectionMessage}</span>
         </div>
       )}
+
+      {/* SQL Setup Helper button and collapsible panel */}
+      <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100 flex flex-col gap-2.5">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center gap-2">
+            <Unlock className="w-4 h-4 text-[#624A3E]" />
+            <div>
+              <span className="text-[11px] font-black uppercase text-slate-700 block text-left">Soporte SQL - Crear Tablas en Supabase</span>
+              <span className="text-[10px] text-slate-400 block text-left">Copie el script integral para inicializar su portal en un clic.</span>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowSqlSetupGuide(!showSqlSetupGuide)}
+            className="px-2.5 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-[10px] font-extrabold rounded-lg cursor-pointer transition-all shadow-xs"
+          >
+            {showSqlSetupGuide ? 'Ocultar Código' : 'Ver Código SQL'}
+          </button>
+        </div>
+
+        {showSqlSetupGuide && (
+          <div className="space-y-2.5 animate-fadeIn">
+            <p className="text-[10px] text-slate-500 leading-relaxed text-left">
+              Ejecute este script en el <strong>"SQL Editor"</strong> de su consola de Supabase para crear automáticamente todas las tablas relacionales y habilitar el acceso completo de subida/bajada sin restricciones de seguridad (RLS):
+            </p>
+            <div className="bg-slate-900 text-slate-100 p-3 rounded-xl relative font-mono text-[9px] overflow-hidden group shadow-inner">
+              <pre className="overflow-x-auto whitespace-pre max-h-56 leading-relaxed text-left pr-20">
+{`-- 1. CREACIÓN DE TODAS LAS TABLAS DE RESTAURANTE
+CREATE TABLE IF NOT EXISTS public.productos_menu (
+  id_producto text PRIMARY KEY,
+  nombre text NOT NULL,
+  precio_venta numeric NOT NULL,
+  categoria text NOT NULL,
+  activo boolean DEFAULT true,
+  imagen text
+);
+
+CREATE TABLE IF NOT EXISTS public.usuarios (
+  id_usuario bigint PRIMARY KEY,
+  nombre text NOT NULL,
+  apellido text,
+  rol text NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.mesas (
+  id_mesa bigint PRIMARY KEY,
+  numero_mesa text NOT NULL,
+  estado text NOT NULL,
+  comensales bigint
+);
+
+CREATE TABLE IF NOT EXISTS public.depósitos (
+  id_insumo text PRIMARY KEY,
+  nombre text NOT NULL,
+  stock_actual numeric NOT NULL,
+  stock_minimo numeric,
+  unidad_medida text NOT NULL,
+  categoria text NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.recetas_escandallo (
+  id_receta text PRIMARY KEY,
+  id_producto text,
+  id_insumo text,
+  cantidad_a_descontar numeric NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.promociones (
+  id_promocion text PRIMARY KEY,
+  codigo text NOT NULL,
+  descripcion text,
+  tipo_descuento text NOT NULL,
+  valor numeric NOT NULL,
+  activa boolean DEFAULT true,
+  id_producto_regalo text,
+  cantidad_compra bigint
+);
+
+CREATE TABLE IF NOT EXISTS public.proveedores (
+  id_proveedor text PRIMARY KEY,
+  nombre text NOT NULL,
+  rubro text NOT NULL,
+  contacto text,
+  telefono text,
+  email text,
+  historial_compras text
+);
+
+CREATE TABLE IF NOT EXISTS public.reservas (
+  id_reserva text PRIMARY KEY,
+  cliente text NOT NULL,
+  comensales bigint NOT NULL,
+  fecha_hora timestamp with time zone NOT NULL,
+  mesa_sugerida text,
+  estado text DEFAULT 'confirmada',
+  contacto text,
+  observaciones text
+);
+
+CREATE TABLE IF NOT EXISTS public.auditoria_eventos (
+  id text PRIMARY KEY,
+  tipo text NOT NULL,
+  mensaje text NOT NULL,
+  fecha timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.pedidos_cabecera (
+  id_pedido text PRIMARY KEY,
+  id_mesa bigint,
+  numero_mesa text NOT NULL,
+  mozo text NOT NULL,
+  estado_comanda text NOT NULL,
+  observaciones text,
+  fecha_hora timestamp with time zone NOT NULL,
+  minutos_transcurridos bigint DEFAULT 0,
+  origen text NOT NULL,
+  tiempo_despacho_minutos numeric,
+  segundos_en_listo bigint,
+  items text
+);
+
+CREATE TABLE IF NOT EXISTS public.pedido_detalle (
+  id_detalle text PRIMARY KEY,
+  id_pedido text NOT NULL,
+  id_producto text NOT NULL,
+  nombre text NOT NULL,
+  cantidad bigint NOT NULL,
+  categoria text NOT NULL
+);
+
+-- 2. DESACTIVACIÓN DE RLS PARA PERMITIR LECTURA/ESCRITURA DIRECTA
+ALTER TABLE public.productos_menu DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.usuarios DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.mesas DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.depósitos DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.insumos DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.recetas_escandallo DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.promociones DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.proveedores DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.reservas DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.auditoria_eventos DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.pedidos_cabecera DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.pedido_detalle DISABLE ROW LEVEL SECURITY;`}
+              </pre>
+              <button
+                onClick={() => {
+                  const sqlCode = `-- 1. CREACIÓN DE TODAS LAS TABLAS DE RESTAURANTE
+CREATE TABLE IF NOT EXISTS public.productos_menu (
+  id_producto text PRIMARY KEY,
+  nombre text NOT NULL,
+  precio_venta numeric NOT NULL,
+  categoria text NOT NULL,
+  activo boolean DEFAULT true,
+  imagen text
+);
+
+CREATE TABLE IF NOT EXISTS public.usuarios (
+  id_usuario bigint PRIMARY KEY,
+  nombre text NOT NULL,
+  apellido text,
+  rol text NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.mesas (
+  id_mesa bigint PRIMARY KEY,
+  numero_mesa text NOT NULL,
+  estado text NOT NULL,
+  comensales bigint
+);
+
+CREATE TABLE IF NOT EXISTS public.depósitos (
+  id_insumo text PRIMARY KEY,
+  nombre text NOT NULL,
+  stock_actual numeric NOT NULL,
+  stock_minimo numeric,
+  unidad_medida text NOT NULL,
+  categoria text NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.insumos (
+  id_insumo text PRIMARY KEY,
+  nombre text NOT NULL,
+  stock_actual numeric NOT NULL DEFAULT 0,
+  stock_minimo numeric DEFAULT 0,
+  unidad_medida text NOT NULL,
+  categoria text NOT NULL DEFAULT 'secos'
+);
+
+CREATE TABLE IF NOT EXISTS public.recetas_escandallo (
+  id_receta text PRIMARY KEY,
+  id_producto text,
+  id_insumo text,
+  cantidad_a_descontar numeric NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.promociones (
+  id_promocion text PRIMARY KEY,
+  codigo text NOT NULL,
+  descripcion text,
+  tipo_descuento text NOT NULL,
+  valor numeric NOT NULL,
+  activa boolean DEFAULT true,
+  id_producto_regalo text,
+  cantidad_compra bigint
+);
+
+CREATE TABLE IF NOT EXISTS public.proveedores (
+  id_proveedor text PRIMARY KEY,
+  nombre text NOT NULL,
+  rubro text NOT NULL,
+  contacto text,
+  telefono text,
+  email text,
+  historial_compras text
+);
+
+CREATE TABLE IF NOT EXISTS public.reservas (
+  id_reserva text PRIMARY KEY,
+  cliente text NOT NULL,
+  comensales bigint NOT NULL,
+  fecha_hora timestamp with time zone NOT NULL,
+  mesa_sugerida text,
+  estado text DEFAULT 'confirmada',
+  contacto text,
+  observaciones text
+);
+
+CREATE TABLE IF NOT EXISTS public.auditoria_eventos (
+  id text PRIMARY KEY,
+  tipo text NOT NULL,
+  mensaje text NOT NULL,
+  fecha timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.pedidos_cabecera (
+  id_pedido text PRIMARY KEY,
+  id_mesa bigint,
+  numero_mesa text NOT NULL,
+  mozo text NOT NULL,
+  estado_comanda text NOT NULL,
+  observaciones text,
+  fecha_hora timestamp with time zone NOT NULL,
+  minutos_transcurridos bigint DEFAULT 0,
+  origen text NOT NULL,
+  tiempo_despacho_minutos numeric,
+  segundos_en_listo bigint,
+  items text
+);
+
+CREATE TABLE IF NOT EXISTS public.pedido_detalle (
+  id_detalle text PRIMARY KEY,
+  id_pedido text NOT NULL,
+  id_producto text NOT NULL,
+  nombre text NOT NULL,
+  cantidad bigint NOT NULL,
+  categoria text NOT NULL
+);
+
+-- 2. DESACTIVACIÓN DE RLS PARA PERMITIR LECTURA/ESCRITURA DIRECTA
+ALTER TABLE public.productos_menu DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.usuarios DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.mesas DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.depósitos DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.recetas_escandallo DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.promociones DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.proveedores DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.reservas DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.auditoria_eventos DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.pedidos_cabecera DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.pedido_detalle DISABLE ROW LEVEL SECURITY;`;
+                  navigator.clipboard.writeText(sqlCode);
+                  setCopiedSql(true);
+                  setTimeout(() => setCopiedSql(false), 2000);
+                  addLog('sistema', 'SUPABASE: Copiado script SQL completo de estructuración de tablas.');
+                }}
+                className="absolute top-2 right-2 px-2.5 py-1 bg-white/10 hover:bg-white/20 text-white rounded text-[10px] font-extrabold flex items-center gap-1 cursor-pointer transition-all"
+              >
+                {copiedSql ? (
+                  <>
+                    <CheckCircle className="w-3 h-3 text-emerald-400 font-sans" />
+                    ¡Copiado!
+                  </>
+                ) : (
+                  'Copiar Código'
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Database stats and bi-directional synchronizer dashboard */}
       {connectionStatus === 'connected' && (
