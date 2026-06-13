@@ -97,103 +97,103 @@ export default function PanelDashboard({
                                 <div className="space-y-1">
                                             <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block">
                                                           Facturación del Turno
-                                            </span>span>
+                                            </span>
                                             <h3 className="text-2xl font-black text-stone-900 font-mono">
                                                           ${totalSales.toLocaleString('es-AR')}
-                                            </h3>h3>
+                                            </h3>
                                             <span className="text-[10px] text-emerald-600 font-semibold">
                                               {pedidosCobrados.length} pedido{pedidosCobrados.length !== 1 ? 's' : ''} cobrado{pedidosCobrados.length !== 1 ? 's' : ''}&nbsp;·&nbsp;
                                                           Ticket prom. ${ticketPromedio.toLocaleString('es-AR')}
-                                            </span>span>
-                                </div>div>
+                                            </span>
+                                </div>
                                 <div className="w-12 h-12 rounded-xl bg-emerald-50/70 border border-emerald-100 flex items-center justify-center text-emerald-600">
                                             <DollarSign className="w-5 h-5" />
-                                </div>div>
-                      </div>div>
+                                </div>
+                      </div>
               
                 {/* Mesas */}
                       <div id="kpi-mesas" className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs flex items-center justify-between">
                                 <div className="space-y-1">
-                                            <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block">Mesas Ocupadas</span>span>
+                                            <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block">Mesas Ocupadas</span>
                                             <h3 className="text-2xl font-black text-stone-900 font-mono">
                                               {activeTables}{' '}
-                                                          <span className="text-xs text-stone-500 font-normal">/ {mesas.length}</span>span>
-                                            </h3>h3>
+                                                          <span className="text-xs text-stone-500 font-normal">/ {mesas.length}</span>
+                                            </h3>
                                             <div className="flex items-center gap-2 mt-1">
                                                           <div className="w-24 bg-stone-100 h-1.5 rounded-full overflow-hidden">
                                                                           <div
                                                                                               className="bg-[#624A3E] h-1.5 rounded-full transition-all"
                                                                                               style={{ width: `${mesas.length ? (activeTables / mesas.length) * 100 : 0}%` }}
                                                                                             />
-                                                          </div>div>
+                                                          </div>
                                               {esperandoCuenta > 0 && (
                           <span className="text-[10px] text-amber-600 font-semibold">
                             {esperandoCuenta} esperando cuenta
-                          </span>span>
+                          </span>
                                                           )}
-                                            </div>div>
-                                </div>div>
+                                            </div>
+                                </div>
                                 <div className="w-12 h-12 rounded-xl bg-[#624A3E]/10 border border-[#624A3E]/20 flex items-center justify-center text-[#624A3E]">
                                             <Users className="w-5 h-5" />
-                                </div>div>
-                      </div>div>
+                                </div>
+                      </div>
               
                 {/* Cocina */}
                       <div id="kpi-cocina" className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs flex items-center justify-between">
                                 <div className="space-y-1">
-                                            <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block">Cocina Activa</span>span>
+                                            <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block">Cocina Activa</span>
                                             <h3 className="text-2xl font-black text-stone-900 font-mono">
                                               {pendingOrders}{' '}
-                                                          <span className="text-xs text-stone-500 font-normal">en proceso</span>span>
-                                            </h3>h3>
+                                                          <span className="text-xs text-stone-500 font-normal">en proceso</span>
+                                            </h3>
                                             <div className="flex items-center gap-2">
                                               {readyOrders > 0 && (
                           <span className="text-[10px] text-emerald-600 font-semibold animate-pulse">
                             {readyOrders} listo{readyOrders !== 1 ? 's' : ''} p/ entregar
-                          </span>span>
+                          </span>
                                                           )}
                                               {readyOrders === 0 && (
                           <span className="text-[10px] text-amber-600 font-semibold animate-pulse">
                                             KDS Monitor activo
-                          </span>span>
+                          </span>
                                                           )}
-                                            </div>div>
-                                </div>div>
+                                            </div>
+                                </div>
                                 <div className="w-12 h-12 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600">
                                             <ChefHat className="w-5 h-5" />
-                                </div>div>
-                      </div>div>
+                                </div>
+                      </div>
               
                 {/* Stock crítico */}
                       <div id="kpi-alertas" className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs flex items-center justify-between">
                                 <div className="space-y-1">
                                             <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block">
                                                           Alertas Stock
-                                            </span>span>
+                                            </span>
                                             <h3 className="text-2xl font-black text-stone-900 font-mono">
                                               {criticalItems}{' '}
-                                                          <span className="text-xs text-stone-500 font-normal">insumos</span>span>
-                                            </h3>h3>
+                                                          <span className="text-xs text-stone-500 font-normal">insumos</span>
+                                            </h3>
                                             <span className="text-[10px] font-semibold" style={{ color: criticalItems > 0 ? '#EF4444' : '#22C55E' }}>
                                               {criticalItems > 0 ? 'Requiere atención urgente' : 'Abastecimiento óptimo'}
-                                            </span>span>
-                                </div>div>
+                                            </span>
+                                </div>
                                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center border ${
                       criticalItems > 0
                         ? 'bg-red-50 border-red-100 text-red-500 animate-pulse'
                         : 'bg-stone-50 border-stone-100 text-stone-400'
         }`}>
                                             <AlertTriangle className="w-5 h-5" />
-                                </div>div>
-                      </div>div>
-              </div>div>
+                                </div>
+                      </div>
+              </div>
         
           {/* ── SEGUNDA FILA ─────────────────────────────────────────────── */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               
                 {/* Accesos rápidos */}
                       <div className="bg-white p-6 rounded-2xl border border-stone-200 space-y-4">
-                                <h4 className="text-xs font-black text-stone-700 uppercase tracking-wider">Accesos Rápidos del Turno</h4>h4>
+                                <h4 className="text-xs font-black text-stone-700 uppercase tracking-wider">Accesos Rápidos del Turno</h4>
                                 <div className="grid grid-cols-1 gap-2.5">
                                   {[
           { view: 'mozo', icon: <Smartphone className="w-4 h-4" />, label: 'Terminal Mozo', desc: 'Tomar pedidos y mesas' },
@@ -209,29 +209,29 @@ export default function PanelDashboard({
                                                       <div className="flex items-center gap-3">
                                                                         <div className="w-8 h-8 rounded-lg bg-[#624A3E]/10 text-[#624A3E] flex items-center justify-center">
                                                                           {icon}
-                                                                        </div>div>
+                                                                        </div>
                                                                         <div>
-                                                                                            <span className="text-xs font-bold text-stone-800 block">{label}</span>span>
-                                                                                            <span className="text-[10px] text-stone-400 block">{desc}</span>span>
-                                                                        </div>div>
-                                                      </div>div>
+                                                                                            <span className="text-xs font-bold text-stone-800 block">{label}</span>
+                                                                                            <span className="text-[10px] text-stone-400 block">{desc}</span>
+                                                                        </div>
+                                                      </div>
                                                       <ArrowRight className="w-3.5 h-3.5 text-stone-300 group-hover:text-[#624A3E] transition-colors" />
-                                      </button>button>
+                                      </button>
                                     ))}
-                                </div>div>
-                      </div>div>
+                                </div>
+                      </div>
               
                 {/* Pedidos activos */}
                       <div className="bg-white p-6 rounded-2xl border border-stone-200 space-y-4">
                                 <div className="flex items-center justify-between">
-                                            <h4 className="text-xs font-black text-stone-700 uppercase tracking-wider">Pedidos Activos</h4>h4>
+                                            <h4 className="text-xs font-black text-stone-700 uppercase tracking-wider">Pedidos Activos</h4>
                                             <button
                                                             onClick={() => onNavigate('cocina')}
                                                             className="text-[10px] text-[#624A3E] font-bold hover:underline"
                                                           >
                                                           Ver KDS →
-                                            </button>button>
-                                </div>div>
+                                            </button>
+                                </div>
                                 <div className="space-y-2 max-h-64 overflow-y-auto">
                                   {pedidos
                                                   .filter(p => p.estado_comanda !== 'entregado_cobrado')
@@ -246,35 +246,35 @@ export default function PanelDashboard({
                                                                     return (
                                                                                         <div key={p.id_pedido} className="flex items-center justify-between py-2 border-b border-stone-50 last:border-0">
                                                                                                             <div>
-                                                                                                                                  <span className="text-xs font-bold text-stone-800">{p.numero_mesa}</span>span>
-                                                                                                                                  <span className="text-[10px] text-stone-400 ml-2">{p.mozo}</span>span>
-                                                                                                              </div>div>
+                                                                                                                                  <span className="text-xs font-bold text-stone-800">{p.numero_mesa}</span>
+                                                                                                                                  <span className="text-[10px] text-stone-400 ml-2">{p.mozo}</span>
+                                                                                                              </div>
                                                                                                             <div className="flex items-center gap-2">
                                                                                                                                   <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${estadoColor[p.estado_comanda] ?? 'bg-stone-100 text-stone-500'}`}>
                                                                                                                                     {p.estado_comanda.replace('_', ' ')}
-                                                                                                                                    </span>span>
-                                                                                                                                  <span className="text-[10px] font-mono text-stone-600">${total.toLocaleString('es-AR')}</span>span>
-                                                                                                              </div>div>
-                                                                                          </div>div>
+                                                                                                                                    </span>
+                                                                                                                                  <span className="text-[10px] font-mono text-stone-600">${total.toLocaleString('es-AR')}</span>
+                                                                                                              </div>
+                                                                                          </div>
                                                                                       );
                                                   })}
                                   {pedidos.filter(p => p.estado_comanda !== 'entregado_cobrado').length === 0 && (
-                        <p className="text-[11px] text-stone-400 text-center py-6">Sin pedidos activos</p>p>
+                        <p className="text-[11px] text-stone-400 text-center py-6">Sin pedidos activos</p>
                                             )}
-                                </div>div>
-                      </div>div>
+                                </div>
+                      </div>
               
                 {/* Log de eventos + tiempo promedio */}
                       <div className="bg-white p-6 rounded-2xl border border-stone-200 space-y-4">
                                 <div className="flex items-center justify-between">
-                                            <h4 className="text-xs font-black text-stone-700 uppercase tracking-wider">Actividad Reciente</h4>h4>
+                                            <h4 className="text-xs font-black text-stone-700 uppercase tracking-wider">Actividad Reciente</h4>
                                   {tiempoPromedio && (
                         <div className="flex items-center gap-1 bg-stone-50 border border-stone-100 rounded-lg px-2 py-1">
                                         <Clock className="w-3 h-3 text-stone-400" />
-                                        <span className="text-[10px] font-mono font-bold text-stone-600">{tiempoPromedio} min prom.</span>span>
-                        </div>div>
+                                        <span className="text-[10px] font-mono font-bold text-stone-600">{tiempoPromedio} min prom.</span>
+                        </div>
                                             )}
-                                </div>div>
+                                </div>
                                 <div className="space-y-2 max-h-64 overflow-y-auto">
                                   {[...logs]
                                                   .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
@@ -292,21 +292,20 @@ export default function PanelDashboard({
                                                                                         <div key={log.id} className="flex items-start gap-2 py-1.5 border-b border-stone-50 last:border-0">
                                                                                                             <div className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${iconColor[log.tipo]?.replace('text-', 'bg-') ?? 'bg-stone-300'}`} />
                                                                                                             <div className="min-w-0">
-                                                                                                                                  <p className="text-[10px] text-stone-700 leading-tight truncate">{log.mensaje}</p>p>
+                                                                                                                                  <p className="text-[10px] text-stone-700 leading-tight truncate">{log.mensaje}</p>
                                                                                                                                   <p className="text-[9px] text-stone-400">
                                                                                                                                     {new Date(log.timestamp).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
-                                                                                                                                    </p>p>
-                                                                                                              </div>div>
-                                                                                          </div>div>
+                                                                                                                                    </p>
+                                                                                                              </div>
+                                                                                          </div>
                                                                                       );
                                                   })}
                                   {logs.length === 0 && (
-                        <p className="text-[11px] text-stone-400 text-center py-6">Sin actividad registrada</p>p>
+                        <p className="text-[11px] text-stone-400 text-center py-6">Sin actividad registrada</p>
                                             )}
-                                </div>div>
-                      </div>div>
-              </div>div>
-        </div>div>
+                                </div>
+                      </div>
+              </div>
+        </div>
       );
 }
-</div>
