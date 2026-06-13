@@ -18,6 +18,7 @@ import {
   UserCheck
 } from 'lucide-react';
 import { Mesa, Insumo, ProductoMenu, RecetaEscandallo, Pedido, PedidoItem } from '../types';
+import { useToast, ToastContainer } from './ToastContainer';
 
 interface MozoTerminalProps {
   mesas: Mesa[];
@@ -46,6 +47,7 @@ export default function MozoTerminal({
   addLog,
   permitirVentaSinStock = false
 }: MozoTerminalProps) {
+  const { toast, toasts, removeToast } = useToast();
   // Waiter selections
   const [selectedMesaId, setSelectedMesaId] = useState<number | null>(null);
   const [comensales, setComensales] = useState<number>(2);
@@ -160,7 +162,7 @@ export default function MozoTerminal({
   // Cart operations
   const handleAddToCart = (productoId: string) => {
     if (!selectedMesaId) {
-      alert("Por favor seleccione primero una mesa.");
+      toast.error("Por favor seleccione primero una mesa.");
       return;
     }
     const evalResult = evaluateStockAdd(productoId);
@@ -196,7 +198,7 @@ export default function MozoTerminal({
     for (const [insumoId, reqAmount] of Object.entries(requirements)) {
       const insumo = insumos.find(i => i.id_insumo === insumoId);
       if (insumo && insumo.stock_actual < reqAmount) {
-        alert(`No es posible procesar la orden. Se agotó un insumo clave: ${insumo.nombre}`);
+        toast.error(`No es posible procesar la orden. Se agotó un insumo clave: ${insumo.nombre}`);
         return;
       }
     }
@@ -815,7 +817,7 @@ export default function MozoTerminal({
                     <button
                       onClick={() => {
                         const amntToPay = itemizedTotal > 0 ? itemizedTotal : orderTotal;
-                        alert(`Se procesó el cobro de $${amntToPay.toLocaleString('es-AR')} para ${p.numero_mesa}.`);
+                        toast.success(`Se procesó el cobro de ${amntToPay.toLocaleString('es-AR')} para ${p.numero_mesa}.`);
                         
                         // If fully paid or equal split, complete it
                         if (itemizedTotal === 0 || itemizedTotal === orderTotal) {
@@ -840,5 +842,6 @@ export default function MozoTerminal({
         </div>
       )}
     </div>
+    <ToastContainer toasts={toasts} removeToast={removeToast} />
   );
 }
