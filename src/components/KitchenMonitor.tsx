@@ -297,13 +297,13 @@ export default function KitchenMonitor({
                         </div>
                       )}
 
-                      {/* Transfer controls: triggers Escandallo process! */}
+                      {/* Transfer controls: Mark order as fully ready to serve */}
                       <button
-                        onClick={() => onProducirPedidoConEscandallo(p.id_pedido)}
-                        className="w-full mt-2 py-2 px-3 bg-[#F97316] hover:bg-[#EA580C] active:scale-95 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all shadow-md shadow-[#F97316]/10 cursor-pointer border border-amber-955/20"
+                        onClick={() => onCambiarEstadoPedido(p.id_pedido, 'listo')}
+                        className="w-full mt-2 py-2.5 px-3 bg-[#22C55E] hover:bg-[#16a34a] active:scale-95 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all shadow-md shadow-emerald-500/10 cursor-pointer border border-emerald-600/20"
                       >
-                        <ChevronRight className="w-4 h-4" />
-                        ¡Terminado! (Descontar Insumos)
+                        <CheckCircle className="w-4 h-4 text-white" />
+                        ¡Listo para Servir! (Mandar a Listos)
                       </button>
                     </div>
                   </div>

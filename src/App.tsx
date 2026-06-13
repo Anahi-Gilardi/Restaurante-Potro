@@ -189,9 +189,57 @@ export default function App() {
 
     addLog('pedido_creado', `Mesa ${newPedidoData.numero_mesa} generó pedido #${newId} por ${newPedido.mozo}. Items: ${newPedidoData.items.map(i => `${i.nombre} (x${i.cantidad})`).join(', ')}`);
 
+    // --- DESCUENTO INMEDIATO DE INSUMOS (AUTO-ESCANDALLO) ---
+    let itemsDescontados: string[] = [];
+    let alarmasBajoStock: string[] = [];
+    let updatedInsumos: Insumo[] = [];
+
+    setInsumos(prevInsumos => {
+      const copy = prevInsumos.map(ins => ({ ...ins }));
+
+      newPedido.items.forEach(pItem => {
+        const qtyPlates = pItem.cantidad;
+        const matchingRecetas = recetas.filter(r => r.id_producto === pItem.id_producto);
+
+        matchingRecetas.forEach(rec => {
+          const insIdx = copy.findIndex(ins => ins.id_insumo === rec.id_insumo);
+          if (insIdx !== -1) {
+            const currentIns = copy[insIdx];
+            const discountAmt = rec.cantidad_a_descontar * qtyPlates;
+            const updatedStock = Math.max(0, currentIns.stock_actual - discountAmt);
+            
+            copy[insIdx].stock_actual = parseFloat(updatedStock.toFixed(2));
+            itemsDescontados.push(`${currentIns.nombre} (-${discountAmt.toFixed(1)} ${currentIns.unidad_medida})`);
+
+            if (updatedStock < currentIns.stock_minimo) {
+              alarmasBajoStock.push(currentIns.nombre);
+            }
+          }
+        });
+      });
+
+      updatedInsumos = copy;
+      return copy;
+    });
+
+    if (itemsDescontados.length > 0) {
+      addLog('descuento_stock', `ESCANDALLO (AL MANDAR COMANDA): Pedido #${newId} enviado a cocina. Insumos descontados: ${itemsDescontados.join(', ')}`);
+    }
+
+    alarmasBajoStock.forEach(nom => {
+      addLog('alerta_stock', `CONTROL REPOSICIÓN: El insumo '${nom}' ha caído por debajo del stock de seguridad.`);
+    });
+
     // Sync state mutations to Supabase in background
     dbSavePedidoComplex(newPedido);
     dbUpsertMesas(updatedMesas);
+
+    // Sync stocks to Supabase
+    setTimeout(() => {
+      if (updatedInsumos.length > 0) {
+        dbUpsertInsumos(updatedInsumos);
+      }
+    }, 50);
   };
 
   const handleMozoChange = (mozo: string) => {
@@ -420,6 +468,57 @@ export default function App() {
 
     setPedidos(prev => [newPedido, ...prev]);
     addLog('pedido_creado', `INTEGRACIÓN: Pedido online #${newId} detectado y cargado desde el puente webhook de ${source}`);
+
+    // --- DESCUENTO INMEDIATO DE INSUMOS PARA DELIVERY ---
+    let itemsDescontados: string[] = [];
+    let alarmasBajoStock: string[] = [];
+    let updatedInsumos: Insumo[] = [];
+
+    setInsumos(prevInsumos => {
+      const copy = prevInsumos.map(ins => ({ ...ins }));
+
+      newPedido.items.forEach(pItem => {
+        const qtyPlates = pItem.cantidad;
+        const matchingRecetas = recetas.filter(r => r.id_producto === pItem.id_producto);
+
+        matchingRecetas.forEach(rec => {
+          const insIdx = copy.findIndex(ins => ins.id_insumo === rec.id_insumo);
+          if (insIdx !== -1) {
+            const currentIns = copy[insIdx];
+            const discountAmt = rec.cantidad_a_descontar * qtyPlates;
+            const updatedStock = Math.max(0, currentIns.stock_actual - discountAmt);
+            
+            copy[insIdx].stock_actual = parseFloat(updatedStock.toFixed(2));
+            itemsDescontados.push(`${currentIns.nombre} (-${discountAmt.toFixed(1)} ${currentIns.unidad_medida})`);
+
+            if (updatedStock < currentIns.stock_minimo) {
+              alarmasBajoStock.push(currentIns.nombre);
+            }
+          }
+        });
+      });
+
+      updatedInsumos = copy;
+      return copy;
+    });
+
+    if (itemsDescontados.length > 0) {
+      addLog('descuento_stock', `ESCANDALLO (DELIVERY): Pedido #${newId} dedujo ingredientes del almacén: ${itemsDescontados.join(', ')}`);
+    }
+
+    alarmasBajoStock.forEach(nom => {
+      addLog('alerta_stock', `CONTROL REPOSICIÓN: El insumo '${nom}' ha caído por debajo del stock de seguridad.`);
+    });
+
+    // Save complex order with background write-through
+    dbSavePedidoComplex(newPedido);
+
+    // Sync inventory to Supabase
+    setTimeout(() => {
+      if (updatedInsumos.length > 0) {
+        dbUpsertInsumos(updatedInsumos);
+      }
+    }, 50);
   };
 
   const handleResetAllData = () => {

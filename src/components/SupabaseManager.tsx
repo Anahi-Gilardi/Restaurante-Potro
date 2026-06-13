@@ -133,7 +133,10 @@ export default function SupabaseManager({
 
       let depositosCount: any = 'Error';
       try {
-        const resDep = await client.from('depósitos').select('count', { count: 'exact', head: true });
+        let resDep = await client.from('depósitos').select('count', { count: 'exact', head: true });
+        if (resDep.error) {
+          resDep = await client.from('insumos').select('count', { count: 'exact', head: true });
+        }
         if (!resDep.error) depositosCount = resDep.count ?? 0;
       } catch { }
 
@@ -563,6 +566,7 @@ ALTER TABLE public.productos_menu DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.usuarios DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.mesetas DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.depósitos DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.insumos DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.recetas_escandallo DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.promociones DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.proveedores DISABLE ROW LEVEL SECURITY;
@@ -604,6 +608,15 @@ CREATE TABLE IF NOT EXISTS public.depósitos (
   stock_minimo numeric,
   unidad_medida text NOT NULL,
   categoria text NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.insumos (
+  id_insumo text PRIMARY KEY,
+  nombre text NOT NULL,
+  stock_actual numeric NOT NULL DEFAULT 0,
+  stock_minimo numeric DEFAULT 0,
+  unidad_medida text NOT NULL,
+  categoria text NOT NULL DEFAULT 'secos'
 );
 
 CREATE TABLE IF NOT EXISTS public.recetas_escandallo (
