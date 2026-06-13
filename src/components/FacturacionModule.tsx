@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useToast } from './ToastContainer';
 import { Receipt, Search, Printer, DollarSign, Download, Percent } from 'lucide-react';
 import { Pedido } from '../types';
 import { facturacionService, Factura } from '../services/facturacionService';
@@ -12,6 +13,7 @@ export default function FacturacionModule({
   pedidos,
   addLog
 }: FacturacionModuleProps) {
+  const { toast, toasts, dismissToast } = useToast();
   const [facturas, setFacturas] = useState<Factura[]>([]);
 
   useEffect(() => {
@@ -41,7 +43,7 @@ export default function FacturacionModule({
 
   const handlePrint = (f: Factura) => {
     addLog('sistema', `SISTEMA: Comprobante impreso de forma remota #${f.nro_ticket}. Destino: Impresora fiscal Epson TM-T20.`);
-    alert(`Comprobante fiscal listo para imprimir:\nNro Ticket: ${f.nro_ticket}\nCliente: ${f.cliente}\nTotal: $${f.total}\n\nEnviando datos al controlador fiscal...`);
+    toast.success(`Comprobante #${f.nro_ticket} enviado a impresora fiscal — ${f.cliente}`);
   };
 
   const handleNotaCredito = (id: string) => {
@@ -166,5 +168,6 @@ export default function FacturacionModule({
 
       </div>
     </div>
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
   );
 }
