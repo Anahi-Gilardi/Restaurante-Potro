@@ -42,6 +42,7 @@ import { pdfService } from '../services/pdfService';
 import { printerService } from '../services/printerService';
 import { facturacionService } from '../services/facturacionService';
 import { auditoriaService } from '../services/auditoriaService';
+import { useToast, ToastContainer } from './ToastContainer';
 
 interface CajaModuleProps {
   pedidos: Pedido[];
@@ -58,6 +59,7 @@ export default function CajaModule({
   onCambiarEstadoPedido,
   addLog
 }: CajaModuleProps) {
+  const { toast, toasts, removeToast } = useToast();
   // Configurable Restaurant Details
   const [restaurante, setRestaurante] = useState({
     nombreComercial: 'El Patrón Restaurante',
@@ -244,11 +246,11 @@ export default function CajaModule({
     e.preventDefault();
     const amt = parseFloat(mixedMontoInput);
     if (isNaN(amt) || amt <= 0) {
-      alert('Por favor, tipee un monto numérico mayor a cero.');
+      toast.error('Por favor, tipee un monto numérico mayor a cero.');
       return;
     }
     if (amt > rawRemainingMixedBalance) {
-      alert('El monto del pago excede el saldo pendiente de la cuenta.');
+      toast.error('El monto del pago excede el saldo pendiente de la cuenta.');
       return;
     }
 
@@ -265,7 +267,7 @@ export default function CajaModule({
     e.preventDefault();
     const amt = parseFloat(openingCashInput);
     if (isNaN(amt) || amt < 0) {
-      alert('Monto de inicio no válido.');
+      toast.error('Monto de inicio no válido.');
       return;
     }
 
@@ -274,7 +276,7 @@ export default function CajaModule({
     setShowOpenModal(false);
     addLog('sistema', `CAJA: Turno fiscal de caja iniciado por ${cashierNameInput}. Monto inicial: ARS $${amt.toLocaleString('es-AR')}`);
     loadCajaState();
-    alert('La jornada fiscal diaria ha sido abierta con éxito.');
+    toast.success('La jornada fiscal diaria ha sido abierta con éxito.');
   };
 
   // Close shift cashier session
@@ -282,7 +284,7 @@ export default function CajaModule({
     e.preventDefault();
     const money = parseFloat(closingPhysicalCashInput);
     if (isNaN(money) || money < 0) {
-      alert('Monto de arqueo físico ingresado no es válido.');
+      toast.error('Monto de arqueo físico ingresado no es válido.');
       return;
     }
 
@@ -322,20 +324,20 @@ export default function CajaModule({
     setClosingPhysicalCashInput('');
     setClosingObservationsInput('Facturación normal del turno');
     loadCajaState();
-    alert('Jornada finalizada comercialmente. El arqueo ha sido homologado y el balance de conciliación final exportado en formato CSV.');
+    toast.success('Jornada finalizada. Arqueo homologado y balance exportado en CSV.');
   };
 
   // MAIN TRANSACTION PROCESSOR (Step 8, 9 & 14)
   const handleConfirmCheckout = async () => {
     if (!selectedPedido) return;
     if (!cajaSession) {
-      alert('Por favor abra la caja diaria primero para poder procesar facturas.');
+      toast.error('Por favor abra la caja diaria primero para poder procesar facturas.');
       return;
     }
 
     // Validations: No double billing, validate calculations
     if (orderBreakdowns.finalTotal <= 0) {
-      alert('No se permite emitir comprobantes por un valor negativo o cero.');
+      toast.error('No se permite emitir comprobantes por un valor negativo o cero.');
       return;
     }
 
@@ -343,7 +345,7 @@ export default function CajaModule({
     let pays: { metodo: string; monto: number }[] = [];
     if (metodoPago === 'mixto') {
       if (Math.abs(mixedSum - orderBreakdowns.finalTotal) > 0.5) {
-        alert(`Monto incompleto en forma mixta. Total ticket: $${orderBreakdowns.finalTotal.toLocaleString('es-AR')}. Tíquet en queue: $${mixedSum.toLocaleString('es-AR')}. Saldo faltante: $${rawRemainingMixedBalance.toLocaleString('es-AR')}`);
+        toast.error(`Monto incompleto en forma mixta. Saldo faltante: ${rawRemainingMixedBalance.toLocaleString('es-AR')}`);
         return;
       }
       pays = [...mixedPayments];
@@ -355,7 +357,7 @@ export default function CajaModule({
     if (metodoPago === 'efectivo' && montoEntregadoEfectivo) {
       const delivered = parseFloat(montoEntregadoEfectivo);
       if (!isNaN(delivered) && delivered < orderBreakdowns.finalTotal) {
-        alert('El efectivo entregado es menor que el total de la cuenta.');
+        toast.error('El efectivo entregado es menor que el total de la cuenta.');
         return;
       }
     }
@@ -482,7 +484,7 @@ export default function CajaModule({
     setSelectedProductsForSplit([]);
     loadCajaState();
 
-    alert(`¡TICKET EMITIDO CON ÉXITO!\n\nSe cobró: $${orderBreakdowns.finalTotal.toLocaleString('es-AR')}\n\n1. Comprobante PDF generado y descargado.\n2. Mesa liberada.\n3. Recaudado comercial del turno diario actualizado.`);
+    toast.success(`Ticket emitido. Se cobró ${orderBreakdowns.finalTotal.toLocaleString('es-AR')}. PDF generado y mesa liberada.`);
   };
 
   // Print simulator fallback directly from active layout receipt
@@ -534,9 +536,9 @@ export default function CajaModule({
     });
 
     if (res.success) {
-      alert(res.message);
+      toast.error(res.message);
     } else {
-      alert(`${res.message}\n\nDetalle ESC/POS compilado enviado a la cola:\n\n${res.rawText}`);
+      toast.success(`${res.message} — ESC/POS enviado a la cola.`);
     }
   };
 
@@ -790,7 +792,7 @@ export default function CajaModule({
               onClick={() => {
                 printerService.saveConfig(printerConfig);
                 setShowPrinterSettings(false);
-                alert('Ajustes de ticketera guardados en el almacenamiento del navegador.');
+                toast.success('Ajustes de ticketera guardados en el navegador.');
               }}
               className="py-1.5 px-3 bg-[#624A3E] text-white text-[10px] font-black uppercase rounded-lg"
             >
@@ -940,7 +942,7 @@ export default function CajaModule({
                       key={b.id_pedido}
                       onClick={() => {
                         if (!cajaSession) {
-                          alert('Tenga a bien abrir primero la caja para proceder con la cuenta.');
+                          toast.error('Tenga a bien abrir primero la caja para proceder con la cuenta.');
                           return;
                         }
                         setSelectedPedidoId(b.id_pedido);
@@ -1398,7 +1400,7 @@ export default function CajaModule({
                     <button
                       onClick={async () => {
                         // Fraction payments progress loop
-                        alert(`Se ha procesado y validado el cobro de la parte #${activePayerIndex + 1} por $${(orderBreakdowns.finalTotal / splitPayerCount).toLocaleString('es-AR')}`);
+                        toast.success(`Cobro de la parte #${activePayerIndex + 1} procesado por ${(orderBreakdowns.finalTotal / splitPayerCount).toLocaleString('es-AR')}`);
                         if (activePayerIndex + 1 >= splitPayerCount) {
                           await handleConfirmCheckout();
                         } else {
@@ -1779,6 +1781,7 @@ export default function CajaModule({
         )}
       </div>
 
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
     </div>
   );
 }
