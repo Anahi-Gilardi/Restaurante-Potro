@@ -1,14 +1,5 @@
 import { getActiveSupabaseClient } from '../lib/supabaseClient';
-
-export interface Proveedor {
-  id_proveedor: string;
-  nombre: string;
-  contacto: string;
-  telefono: string;
-  categoria: 'carnes' | 'verduras' | 'bebidas' | 'viveres' | 'descartables';
-  correo: string;
-  tiempo_entrega_dias: number;
-}
+import { Proveedor } from '../types';
 
 export const proveedoresService = {
   async list(): Promise<Proveedor[]> {

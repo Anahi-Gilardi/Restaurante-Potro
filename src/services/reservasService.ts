@@ -1,15 +1,5 @@
 import { getActiveSupabaseClient } from '../lib/supabaseClient';
-
-export interface Reserva {
-  id_reserva: string;
-  nombre_cliente: string;
-  telefono: string;
-  pax: number;
-  id_mesa?: number;
-  nombre_mesa: string;
-  hora: string;
-  estado: 'confirmada' | 'sentada' | 'cancelada';
-}
+import { Reserva } from '../types';
 
 export const reservasService = {
   async list(): Promise<Reserva[]> {

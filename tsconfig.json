@@ -18,5 +18,7 @@
     "allowImportingTsExtensions": true,
     "noEmit": true,
     "strict": false
-  }
+  },
+  "include": ["src", "vite.config.ts"],
+  "exclude": ["dist", "node_modules", "__pycache__", ".streamlit"]
 }

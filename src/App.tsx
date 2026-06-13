@@ -998,11 +998,10 @@ export default function App() {
           {activeView === 'mesas' && (
             <ErrorBoundary moduleName={'mesas'}>
             <div key={activeView} className="animate-fadeIn">
-              <MesasModule
-                mesas={mesas}
-                onSubmitPedido={handleCrearPedido}
-                addLog={addLog}
-              />
+                <MesasModule
+                  mesas={mesas}
+                  addLog={addLog}
+                />
             </div>
               </ErrorBoundary>
           )}

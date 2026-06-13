@@ -44,7 +44,7 @@ export interface ProductoMenu {
   id_producto: string;
   nombre: string;
   precio_venta: number;
-  categoria: 'cocina' | 'bebidas' | 'postres';
+  categoria: string;
   activo: boolean;
   imagen: string;
   /** Subcategoría para el filtro de carta (entradas, pastas, carnes, etc.) */
@@ -63,13 +63,15 @@ export interface RecetaEscandallo {
     id_producto: string;
     id_insumo: string;
     cantidad_a_descontar: number;
+    unidad_medida?: Insumo['unidad_medida'] | string;
 }
 
 export interface PedidoItem {
     id_producto: string;
+    id_insumo?: string;
     nombre: string;
     cantidad: number;
-    categoria: 'cocina' | 'bebidas' | 'postres';
+    categoria: string;
     /** Precio unitario al momento del pedido (snapshot) */
   precio_unitario?: number;
 }
@@ -79,7 +81,7 @@ export interface Pedido {
     id_mesa: number;
     numero_mesa: string;
     mozo: string;
-    estado_comanda: 'pendiente' | 'en_cocina' | 'listo' | 'entregado_cobrado';
+    estado_comanda: 'pendiente' | 'en_cocina' | 'listo' | 'entregado_cobrado' | 'cancelado';
     items: PedidoItem[];
     observaciones?: string;
     fecha_hora: Date;
@@ -87,6 +89,8 @@ export interface Pedido {
     origen: 'Mozo' | 'Rappi' | 'PedidosYa';
     tiempo_despacho_minutos?: number;
     segundos_en_listo?: number;
+    stock_descontado?: boolean;
+    fecha_descuento_stock?: Date;
 }
 
 export interface Merma {
@@ -155,7 +159,8 @@ export interface PrinterConfig {
 export interface TicketItem {
     descripcion: string;
     cantidad: number;
-    precioUnitario: number;
+    precioUnitario?: number;
+    precio_unitario?: number;
     subtotal: number;
 }
 
@@ -178,6 +183,7 @@ export interface TicketData {
     subtotal: number;
     descuento: number;
     propina: number;
+    iva: number;
     total: number;
     metodosPago: { metodo: string; monto: number }[];
     vuelto: number;
@@ -189,15 +195,19 @@ export interface TicketData {
 /** Factura persistida en BD */
 export interface FacturaDb {
     id_factura: string;
-    nro_ticket: string;
-    tipo_comprobante: TipoComprobante;
-    cliente: string;
-    cuit: string;
+    nro_ticket?: string;
+    numero_factura?: string;
+    tipo_comprobante: TipoComprobante | 'Factura A' | 'Factura B' | 'Ticket Consumo';
+    cliente?: string;
+    cuit?: string;
+    cuit_cliente?: string;
     total: number;
-    iva_veintiuno: number;
-    medio_pago: string;
-    fecha: string;
-    estado: 'emitido' | 'nota_credito';
+    iva_veintiuno?: number;
+    medio_pago?: string;
+    metodo_pago?: string;
+    fecha?: string;
+    fecha_emision?: string;
+    estado?: 'emitido' | 'nota_credito';
     id_pedido?: number;
 }
 

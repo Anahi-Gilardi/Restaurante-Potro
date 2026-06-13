@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useToast } from './ToastContainer';
+import { useToast, ToastContainer } from './ToastContainer';
 import { Receipt, Search, Printer, DollarSign, Download, Percent } from 'lucide-react';
 import { Pedido, EventoLog } from '../types';
 import { facturacionService, Factura } from '../services/facturacionService';

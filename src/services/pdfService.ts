@@ -105,7 +105,7 @@ export const pdfService = {
         
         doc.text(item.cantidad.toString(), margin + 3, y + 5.5);
         doc.text(item.descripcion, margin + 18, y + 5.5);
-        doc.text(`$${item.precio_unitario.toLocaleString('es-AR')}`, margin + 120, y + 5.5, { align: 'right' });
+        doc.text(`$${(item.precio_unitario ?? item.precioUnitario).toLocaleString('es-AR')}`, margin + 120, y + 5.5, { align: 'right' });
         doc.text(`$${item.subtotal.toLocaleString('es-AR')}`, margin + 175, y + 5.5, { align: 'right' });
         
         y += 8;

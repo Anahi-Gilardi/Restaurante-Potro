@@ -780,7 +780,7 @@ export default function CajaModule({
                 type="checkbox" 
                 id="openDrawerCheck" 
                 checked={printerConfig.openDrawer}
-                onChange={e => setPrinterConfig(prev => ({ ...prev, openDrawer: e.checked }))}
+                onChange={e => setPrinterConfig(prev => ({ ...prev, openDrawer: e.target.checked }))}
                 className="w-4 h-4 accent-[#624A3E]"
               />
               <label htmlFor="openDrawerCheck" className="text-[10px] font-bold text-stone-600 block cursor-pointer">Abre Cajón Portamonedas</label>

@@ -291,7 +291,7 @@ export function PedidosProvider({ children }: { children: ReactNode }) {
     const { recetas } = useMenu();
   
     const handleCrearPedido = useCallback(
-          (data: Omit<Pedido, 'id_pedido' | 'fecha_hora' | 'minutos_transcurridos' | 'origen'> & { origen?: 'Mozo' }) => {
+          (data: Omit<Pedido, 'id_pedido' | 'fecha_hora' | 'minutos_transcurridos' | 'origen'> & { origen?: 'Mozo'; comensales?: number }) => {
                   const newId = Math.max(0, ...pedidos.map(p => p.id_pedido)) + 1;
                   const nuevo: Pedido = {
                             ...data,
