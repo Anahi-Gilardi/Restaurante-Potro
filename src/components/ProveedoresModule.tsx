@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Truck, Phone, Plus, Tag, Layers, CheckCircle } from 'lucide-react';
-import { proveedoresService, Proveedor } from '../services/proveedoresService';
+import { Proveedor } from '../types';
+import { proveedoresService } from '../services/proveedoresService';
 
 interface ProveedoresModuleProps {
   onRestockTodo: () => void;
