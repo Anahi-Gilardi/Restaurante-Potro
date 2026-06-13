@@ -584,7 +584,7 @@ export default function SistemaModule({
                         const dataUrl = event.target?.result as string;
                         if (dataUrl) {
                           try {
-                            localStorage.setItem('el_patron_custom_logo', dataUrl);
+                            localStorage.setItem('el_potro_custom_logo', dataUrl);
                             window.dispatchEvent(new Event('el_patron_logo_changed'));
                             addLog('sistema', `MARCA: Logotipo cargado correctamente en memoria local activa.`);
                           } catch (error) {
@@ -601,6 +601,7 @@ export default function SistemaModule({
               <button
                 type="button"
                 onClick={() => {
+                  localStorage.removeItem('el_potro_custom_logo');
                   localStorage.removeItem('el_patron_custom_logo');
                   window.dispatchEvent(new Event('el_patron_logo_changed'));
                   addLog('sistema', `MARCA: Logotipo restablecido al isotipo de vector por defecto.`);
