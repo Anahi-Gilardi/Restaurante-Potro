@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Database, Download, RefreshCw, CheckCircle, Clock, Trash } from 'lucide-react';
 import { backupsService, Checkpoint } from '../services/backupsService';
+import { EventoLog } from '../types';
 import { usuariosService } from '../services/usuariosService';
 import { mesasService } from '../services/mesasService';
 import { insumosService } from '../services/insumosService';
@@ -16,7 +17,7 @@ import { auditoriaService } from '../services/auditoriaService';
 
 interface BackupsModuleProps {
   onResetAllData: () => void;
-  addLog: (tipo: any, mensaje: string) => void;
+  addLog: (tipo: EventoLog['tipo'], mensaje: string) => void;
 }
 
 export default function BackupsModule({
