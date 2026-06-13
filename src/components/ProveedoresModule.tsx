@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Truck, Phone, Plus, Tag, Layers, CheckCircle } from 'lucide-react';
-import { Proveedor } from '../types';
+import { Proveedor, EventoLog } from '../types';
 import { proveedoresService } from '../services/proveedoresService';
 
 interface ProveedoresModuleProps {
   onRestockTodo: () => void;
-  addLog: (tipo: any, mensaje: string) => void;
+  addLog: (tipo: EventoLog['tipo'], mensaje: string) => void;
 }
 
 export default function ProveedoresModule({
