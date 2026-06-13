@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Phone, Plus, Check, Clock, User, Trash } from 'lucide-react';
-import { Mesa, Reserva } from '../types';
+import { Mesa, Reserva, EventoLog } from '../types';
 import { reservasService } from '../services/reservasService';
 
 interface ReservasModuleProps {
   mesas: Mesa[];
-  addLog: (tipo: any, mensaje: string) => void;
+  addLog: (tipo: EventoLog['tipo'], mensaje: string) => void;
 }
 
 export default function ReservasModule({ mesas, addLog }: ReservasModuleProps) {
