@@ -28,6 +28,7 @@ import InventoryModule from './components/InventoryModule';
 import BusinessIntelligence from './components/BusinessIntelligence';
 import CajaModule from './components/CajaModule';
 import ErrorBoundary from './components/ErrorBoundary';
+import { useToast, ToastContainer } from './components/ToastContainer';
 import SistemaModule from './components/SistemaModule';
 import PythonStreamlitLogin from './components/PythonStreamlitLogin';
 import ElPatronLogo from './components/ElPatronLogo';
@@ -55,6 +56,7 @@ import {
 } from './supabase';
 
 export default function App() {
+  const { toast, toasts, removeToast } = useToast();
   // --- Global Synced States ---
   const [isStreamlitLoggedIn, setIsStreamlitLoggedIn] = useState<boolean>(false);
   const [permitirVentaSinStock, setPermitirVentaSinStock] = useState<boolean>(false);
@@ -266,7 +268,7 @@ export default function App() {
     if (nuevoEstado === 'en_cocina' && pObj) {
       // 1. Validate empty orders or orders without products
       if (!pObj.items || pObj.items.length === 0) {
-        alert("Error: No se puede enviar a cocina un pedido vacío (sin productos).");
+        toast.error("Error: No se puede enviar a cocina un pedido vacío (sin productos).");
         addLog('sistema', `RECHAZADO: Intento de enviar a cocina el pedido vacío #${idPedido}`);
         return;
       }
@@ -309,7 +311,7 @@ export default function App() {
         }
 
         if (!canDeduct) {
-          alert(`No es posible iniciar cocción: ${errorMsg}`);
+          toast.error(`No es posible iniciar cocción: ${errorMsg}`);
           addLog('alerta_stock', `RECHAZADO FUEGO: Pedido #${idPedido} bloqueado por falta de stock. ${errorMsg}`);
           return; // STOP!
         }
@@ -1110,3 +1112,4 @@ export default function App() {
     </div>
   );
 }
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
