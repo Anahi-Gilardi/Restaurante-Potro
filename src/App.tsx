@@ -258,7 +258,7 @@ export default function App() {
   };
 
   // --- Handlers for Kitchen View (KDS) ---
-  const handleCambiarEstadoPedido = useCallback((idPedido: number, nuevoEstado: Pedido['estado_comanda']) => {
+  const handleCambiarEstadoPedido = (idPedido: number, nuevoEstado: Pedido['estado_comanda']) => {
     let updatedPedido: Pedido | null = null;
     let errorMsg = '';
 
@@ -494,7 +494,7 @@ export default function App() {
   }, [pedidos, mesas, addLog]);
 
   // --- Handlers for Inventory View ---
-  const handleRegistrarMerma = useCallback((idInsumo: string, cantidad: number, motivo: Merma['motivo']) => {
+  const handleRegistrarMerma = (idInsumo: string, cantidad: number, motivo: Merma['motivo']) => {
     const insObj = insumos.find(i => i.id_insumo === idInsumo);
     if (!insObj) return;
 
@@ -537,7 +537,7 @@ export default function App() {
     dbUpsertInsumos(updatedInsumos);
   }, [insumos, addLog]);
 
-  const handleRestockTodo = useCallback(() => {
+  const handleRestockTodo = () => {
     const updatedInsumos = insumos.map(i => {
       const restockAmt = i.unidad_medida === 'unidades' ? 10 : 3000;
       return {

@@ -124,15 +124,6 @@ export default function BusinessIntelligence({ productosMenu, logs, pedidos, pre
     ];
   }, []);
 
-  // Static performance delay metrics for high fidelity display
-  const waitTimesData = [
-    { plato: 'Bife de Chorizo', minutos: 15.4, ideal: 14.0, color: 'fill-emerald-450' },
-    { plato: 'Pastas Caseras', minutos: 9.8, ideal: 11.0, color: 'fill-emerald-450' },
-    { plato: 'Entraña Arriera', minutos: 17.1, ideal: 15.0, color: 'fill-amber-450' },
-    { plato: 'Hamburguesa Gourmet', minutos: 11.2, ideal: 10.0, color: 'fill-emerald-450' },
-    { plato: 'Tarta Rústica', minutos: 8.5, ideal: 9.0, color: 'fill-emerald-450' },
-  ];
-
   // Filter logs safely
   const filteredLogs = useMemo(() => {
     return logs.filter(l => {

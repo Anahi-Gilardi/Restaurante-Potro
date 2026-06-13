@@ -277,6 +277,7 @@ export default function InventoryModule({
   };
 
   return (
+    <>
     <div className="grid grid-cols-1 xl:grid-cols-12 gap-6" id="inventory-module-container">
       
       {/* LEFT AREA: Sub-navigation & Inventory Stats (Column Span 3) */}
@@ -987,5 +988,6 @@ export default function InventoryModule({
 
     </div>
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+    </>
   );
 }

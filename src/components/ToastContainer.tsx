@@ -36,7 +36,7 @@ export function useToast() {
         info:    (msg: string, dur?: number) => addToast('info',    msg, dur),
   };
 
-  return { toasts, toast, dismissToast };
+  return { toasts, toast, dismissToast, removeToast: dismissToast };
 }
 
 // ── Item individual ───────────────────────────────────────────────────────────
@@ -98,10 +98,10 @@ function ToastItem({ toast, onDismiss }: ToastItemProps) {
                                                       `}
               >
           {/* Icono */}
-              <span className="mt-0.5">{ICON_MAP[toast.type]}</span>span>
+              <span className="mt-0.5">{ICON_MAP[toast.type]}</span>
         
           {/* Mensaje */}
-              <p className="text-xs font-semibold flex-1 leading-snug">{toast.message}</p>p>
+              <p className="text-xs font-semibold flex-1 leading-snug">{toast.message}</p>
         
           {/* Botón cerrar */}
               <button
@@ -113,7 +113,7 @@ function ToastItem({ toast, onDismiss }: ToastItemProps) {
                         aria-label="Cerrar notificacion"
                       >
                       <X className="w-3.5 h-3.5" />
-              </button>button>
+              </button>
         
           {/* Barra de progreso */}
               <div
@@ -123,7 +123,7 @@ function ToastItem({ toast, onDismiss }: ToastItemProps) {
                                     width: '100%',
                         }}
                       />
-        </div>div>
+        </div>
       );
 }
 
@@ -131,11 +131,14 @@ function ToastItem({ toast, onDismiss }: ToastItemProps) {
 
 interface ToastContainerProps {
     toasts: ToastMessage[];
-    onDismiss: (id: string) => void;
+    onDismiss?: (id: string) => void;
+    removeToast?: (id: string) => void;
 }
 
-export default function ToastContainer({ toasts, onDismiss }: ToastContainerProps) {
+export function ToastContainer({ toasts, onDismiss, removeToast }: ToastContainerProps) {
     if (toasts.length === 0) return null;
+    const dismiss = onDismiss || removeToast;
+    if (!dismiss) return null;
   
     return (
           <>
@@ -145,7 +148,7 @@ export default function ToastContainer({ toasts, onDismiss }: ToastContainerProp
                                   from { width: 100%; }
                                             to   { width: 0%; }
                                                     }
-                                                          `}</style>style>
+                                                          `}</style>
           
                 <div
                           aria-label="Notificaciones"
@@ -153,11 +156,12 @@ export default function ToastContainer({ toasts, onDismiss }: ToastContainerProp
                         >
                   {toasts.map(t => (
                                     <div key={t.id} className="pointer-events-auto relative overflow-hidden">
-                                                <ToastItem toast={t} onDismiss={onDismiss} />
-                                    </div>div>
+                                                <ToastItem toast={t} onDismiss={dismiss} />
+                                    </div>
                                   ))}
-                </div>div>
-          </>>
+                </div>
+          </>
         );
 }
-</></div>
+
+export default ToastContainer;

@@ -60,6 +60,7 @@ export default function FacturacionModule({
   const c_iva = facturas.reduce((acc, f) => f.estado === 'emitido' ? acc + f.iva_veintiuno : acc, 0);
 
   return (
+    <>
     <div className="space-y-6">
       
       {/* Metrics */}
@@ -169,5 +170,6 @@ export default function FacturacionModule({
       </div>
     </div>
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+    </>
   );
 }

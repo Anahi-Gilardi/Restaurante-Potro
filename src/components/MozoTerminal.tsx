@@ -238,6 +238,7 @@ export default function MozoTerminal({
   }, [cart, productosMenu]);
 
   return (
+    <>
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6" id="mozo-terminal-container">
       {/* LEFT COLUMN: Mesa Grid and active waiter selector */}
       <div className="lg:col-span-4 space-y-6">
@@ -843,5 +844,6 @@ export default function MozoTerminal({
       )}
     </div>
     <ToastContainer toasts={toasts} removeToast={removeToast} />
+    </>
   );
 }

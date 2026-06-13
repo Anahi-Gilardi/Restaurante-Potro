@@ -21,11 +21,11 @@ export default defineConfig(() => {
     build: {
       rollupOptions: {
         output: {
-          manualChunks: {
-            react: ['react', 'react-dom'],
-            supabase: ['@supabase/supabase-js'],
-            pdf: ['jspdf'],
-            ui: ['lucide-react', 'motion'],
+          manualChunks(id) {
+            if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) return 'react';
+            if (id.includes('node_modules/@supabase/supabase-js')) return 'supabase';
+            if (id.includes('node_modules/jspdf')) return 'pdf';
+            if (id.includes('node_modules/lucide-react') || id.includes('node_modules/motion')) return 'ui';
           },
         },
       },

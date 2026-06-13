@@ -74,7 +74,7 @@ export function LogsProvider({ children }: { children: ReactNode }) {
   return (
         <LogsContext.Provider value={{ logs, addLog }}>
           {children}
-        </LogsContext.Provider>LogsContext.Provider>
+        </LogsContext.Provider>
       );
 }
 
@@ -112,7 +112,7 @@ export function MenuProvider({ children }: { children: ReactNode }) {
   return (
         <MenuContext.Provider value={{ productosMenu, recetas, setProductosMenu, setRecetas, precioMap }}>
           {children}
-        </MenuContext.Provider>MenuContext.Provider>
+        </MenuContext.Provider>
       );
 }
 
@@ -142,7 +142,7 @@ export function SalonProvider({ children }: { children: ReactNode }) {
   return (
         <SalonContext.Provider value={{ mesas, setMesas, activeMozo, setActiveMozo }}>
           {children}
-        </SalonContext.Provider>SalonContext.Provider>
+        </SalonContext.Provider>
       );
 }
 
@@ -257,7 +257,7 @@ export function InventarioProvider({ children }: { children: ReactNode }) {
                 }}
               >
           {children}
-        </InventarioContext.Provider>InventarioContext.Provider>
+        </InventarioContext.Provider>
       );
 }
 
@@ -356,7 +356,7 @@ export function PedidosProvider({ children }: { children: ReactNode }) {
                   value={{ pedidos, setPedidos, handleCrearPedido, handleCambiarEstadoPedido, handleFacturarMesa }}
                 >
             {children}
-          </PedidosContext.Provider>PedidosContext.Provider>
+          </PedidosContext.Provider>
         );
 }
 
@@ -387,11 +387,10 @@ export function AppProviders({ children }: { children: ReactNode }) {
                                   <InventarioProvider>
                                               <PedidosProvider>
                                                 {children}
-                                              </PedidosProvider>PedidosProvider>
-                                  </InventarioProvider>InventarioProvider>
-                        </SalonProvider>SalonProvider>
-                </MenuProvider>MenuProvider>
-          </LogsProvider>LogsProvider>
+                                              </PedidosProvider>
+                                  </InventarioProvider>
+                        </SalonProvider>
+                </MenuProvider>
+          </LogsProvider>
         );
 }
-</InventarioContext.Provider>

@@ -416,6 +416,7 @@ export default function SupabaseManager({
   };
 
   return (
+    <>
     <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm space-y-4 font-sans" id="supabase-manager-widget">
       <div className="flex justify-between items-start">
         <div>
@@ -1066,5 +1067,6 @@ ALTER TABLE public.pedido_detalle DISABLE ROW LEVEL SECURITY;`;
       )}
     </div>
     <ToastContainer toasts={toasts} removeToast={removeToast} />
+    </>
   );
 }
