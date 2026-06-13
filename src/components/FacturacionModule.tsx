@@ -50,6 +50,7 @@ export default function FacturacionModule({
     setFacturas(prev => prev.map(f => {
       if (f.id_factura === id) {
         addLog('sistema', `SISTEMA: Emitida Nota de Crédito fiscal anulando el ticket ${f.nro_ticket} por $${f.total}`);
+        facturacionService.markNotaCredito(id).catch(err => console.error(err));
         return { ...f, estado: 'nota_credito' };
       }
       return f;

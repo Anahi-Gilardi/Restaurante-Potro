@@ -2,15 +2,34 @@ import { getActiveSupabaseClient } from '../lib/supabaseClient';
 
 export interface Factura {
   id_factura: string;
+  id_pedido?: number;
   nro_ticket: string;
   cliente: string;
   cuit: string;
   total: number;
   iva_veintiuno: number;
-  medio_pago: 'efectivo' | 'debito' | 'tarjeta' | 'mp_qr';
+  medio_pago: 'efectivo' | 'debito' | 'tarjeta' | 'transferencia' | 'mp_qr' | 'mixto';
   fecha: string;
   estado: 'emitido' | 'nota_credito';
 }
+
+const mapMetodoPagoToDb = (medioPago: Factura['medio_pago']) => {
+  if (medioPago === 'debito') return 'Tarjeta Debito';
+  if (medioPago === 'tarjeta') return 'Tarjeta Credito';
+  if (medioPago === 'transferencia') return 'Transferencia';
+  if (medioPago === 'mp_qr') return 'MercadoPago';
+  if (medioPago === 'mixto') return 'Mixto';
+  return 'Efectivo';
+};
+
+const mapMetodoPagoFromDb = (medioPago?: string): Factura['medio_pago'] => {
+  if (medioPago === 'Tarjeta Debito') return 'debito';
+  if (medioPago === 'Tarjeta Credito') return 'tarjeta';
+  if (medioPago === 'Transferencia') return 'transferencia';
+  if (medioPago === 'MercadoPago') return 'mp_qr';
+  if (medioPago === 'Mixto') return 'mixto';
+  return 'efectivo';
+};
 
 export const facturacionService = {
   async list(): Promise<Factura[]> {
@@ -21,22 +40,19 @@ export const facturacionService = {
       throw error;
     }
     return (data || []).map(f => {
-      let mappedMedio: any = 'efectivo';
-      if (f.metodo_pago === 'Tarjeta Debito') mappedMedio = 'debito';
-      else if (f.metodo_pago === 'Tarjeta Credito') mappedMedio = 'tarjeta';
-      else if (f.metodo_pago === 'MercadoPago') mappedMedio = 'mp_qr';
-      else mappedMedio = 'efectivo';
+      const tipoComprobante = String(f.tipo_comprobante || '');
 
       return {
         id_factura: f.id_factura,
+        id_pedido: f.id_pedido || undefined,
         nro_ticket: f.numero_factura,
         cliente: f.cuit_cliente ? `Clien_CUIT_${f.cuit_cliente}` : 'Consumidor Final',
         cuit: f.cuit_cliente || '99-99999999-9',
         total: parseFloat(f.total),
         iva_veintiuno: parseFloat((f.total * 0.21).toFixed(2)),
-        medio_pago: mappedMedio,
+        medio_pago: mapMetodoPagoFromDb(f.metodo_pago),
         fecha: new Date(f.fecha_emision).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + ' hs',
-        estado: f.tipo_comprobante === 'Ticket Consumo' ? 'nota_credito' : 'emitido' // Match mock state logic securely
+        estado: tipoComprobante.toLowerCase().includes('nota') ? 'nota_credito' : 'emitido'
       };
     });
   },
@@ -44,17 +60,13 @@ export const facturacionService = {
   async create(factura: Factura): Promise<Factura> {
     const supabase = getActiveSupabaseClient();
     
-    let dbMetodo = 'Efectivo';
-    if (factura.medio_pago === 'debito') dbMetodo = 'Tarjeta Debito';
-    else if (factura.medio_pago === 'tarjeta') dbMetodo = 'Tarjeta Credito';
-    else if (factura.medio_pago === 'mp_qr') dbMetodo = 'MercadoPago';
-
     const dbPayload = {
       id_factura: factura.id_factura,
+      id_pedido: factura.id_pedido || null,
       numero_factura: factura.nro_ticket,
       total: factura.total,
-      tipo_comprobante: factura.estado === 'nota_credito' ? 'Ticket Consumo' : 'Factura B',
-      metodo_pago: dbMetodo,
+      tipo_comprobante: factura.estado === 'nota_credito' ? 'Nota Credito' : 'Factura B',
+      metodo_pago: mapMetodoPagoToDb(factura.medio_pago),
       cuit_cliente: factura.cuit,
       fecha_emision: new Date().toISOString()
     };
@@ -74,17 +86,13 @@ export const facturacionService = {
   async upsert(facturas: Factura[]): Promise<void> {
     const supabase = getActiveSupabaseClient();
     const dbPayloads = facturas.map(f => {
-      let dbMetodo = 'Efectivo';
-      if (f.medio_pago === 'debito') dbMetodo = 'Tarjeta Debito';
-      else if (f.medio_pago === 'tarjeta') dbMetodo = 'Tarjeta Credito';
-      else if (f.medio_pago === 'mp_qr') dbMetodo = 'MercadoPago';
-
       return {
         id_factura: f.id_factura,
+        id_pedido: f.id_pedido || null,
         numero_factura: f.nro_ticket,
         total: f.total,
-        tipo_comprobante: f.estado === 'nota_credito' ? 'Ticket Consumo' : 'Factura B',
-        metodo_pago: dbMetodo,
+        tipo_comprobante: f.estado === 'nota_credito' ? 'Nota Credito' : 'Factura B',
+        metodo_pago: mapMetodoPagoToDb(f.medio_pago),
         cuit_cliente: f.cuit,
         fecha_emision: new Date().toISOString()
       };
@@ -93,6 +101,18 @@ export const facturacionService = {
     const { error } = await supabase.from('facturas').upsert(dbPayloads);
     if (error) {
       console.error('Error upserting invoices:', error);
+      throw error;
+    }
+  },
+
+  async markNotaCredito(id: string): Promise<void> {
+    const supabase = getActiveSupabaseClient();
+    const { error } = await supabase
+      .from('facturas')
+      .update({ tipo_comprobante: 'Nota Credito' })
+      .eq('id_factura', id);
+    if (error) {
+      console.error('Error marking invoice as credit note:', error);
       throw error;
     }
   },

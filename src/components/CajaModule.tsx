@@ -418,12 +418,13 @@ export default function CajaModule({
       // Use existing services
       await facturacionService.create({
         id_factura: idFactura,
+        id_pedido: selectedPedido.id_pedido,
         nro_ticket: compiledTicketNo,
         cliente: nombreCliente === 'Consumidor Final' ? 'Consumidor Final' : nombreCliente + ` (CUIT ${cuitCliente})`,
         cuit: cuitCliente,
         total: orderBreakdowns.finalTotal,
         iva_veintiuno: orderBreakdowns.ivaValue,
-        medio_pago: metodoPago === 'efectivo' ? 'efectivo' : (metodoPago === 'tarjeta' ? 'tarjeta' : (metodoPago === 'transferencia' ? 'debito' : 'mp_qr')),
+        medio_pago: metodoPago,
         fecha: new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + ' hs',
         estado: 'emitido'
       });
