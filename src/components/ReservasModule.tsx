@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Phone, Plus, Check, Clock, User, Trash } from 'lucide-react';
-import { Mesa } from '../types';
-import { reservasService, Reserva } from '../services/reservasService';
+import { Mesa, Reserva } from '../types';
+import { reservasService } from '../services/reservasService';
 
 interface ReservasModuleProps {
   mesas: Mesa[];
