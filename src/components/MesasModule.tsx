@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import { useToast, ToastContainer } from './ToastContainer';
 import { Sofa, MapPin, Grid, Layers, HelpCircle, Plus, Check } from 'lucide-react';
-import { Mesa } from '../types';
+import { Mesa, EventoLog } from '../types';
 
 interface MesasModuleProps {
   mesas: Mesa[];
-  onSubmitPedido: any; // update table callback
-  addLog: (tipo: any, mensaje: string) => void;
+  addLog: (tipo: EventoLog['tipo'], mensaje: string) => void;
 }
 
 export default function MesasModule({ mesas, addLog }: MesasModuleProps) {
