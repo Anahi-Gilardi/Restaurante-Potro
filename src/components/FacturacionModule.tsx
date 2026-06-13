@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useToast } from './ToastContainer';
 import { Receipt, Search, Printer, DollarSign, Download, Percent } from 'lucide-react';
-import { Pedido } from '../types';
+import { Pedido, EventoLog } from '../types';
 import { facturacionService, Factura } from '../services/facturacionService';
 
 interface FacturacionModuleProps {
   pedidos: Pedido[];
-  addLog: (tipo: any, mensaje: string) => void;
+  addLog: (tipo: EventoLog['tipo'], mensaje: string) => void;
 }
 
 export default function FacturacionModule({
