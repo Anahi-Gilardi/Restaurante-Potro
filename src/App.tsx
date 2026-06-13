@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
   User,
   Clock,
@@ -64,6 +64,13 @@ export default function App() {
   const [recetas, setRecetas] = useState<RecetaEscandallo[]>(INITIAL_RECETAS_ESCANDALLO);
   const [pedidos, setPedidos] = useState<Pedido[]>(INITIAL_PEDIDOS);
   const [mermas, setMermas] = useState<Merma[]>([]);
+
+  // Mapa O(1) de precio_venta para cálculos de ventas en toda la app
+  const precioMap = useMemo(() => {
+    const m = new Map<string, number>();
+    productosMenu.forEach(p => m.set(p.id_producto, p.precio_venta));
+    return m;
+  }, [productosMenu]);
 
   // Helper log registrar
   const [logs, setLogs] = useState<EventoLog[]>([
@@ -466,7 +473,7 @@ export default function App() {
   };
 
   // --- Handlers for Cashier View (Caja & Cierre) ---
-  const handleFacturarMesa = (idPedido: number) => {
+  const handleFacturarMesa = useCallback((idPedido: number) => {
     const target = pedidos.find(p => p.id_pedido === idPedido);
     if (!target) return;
 
@@ -482,10 +489,10 @@ export default function App() {
     // Supabase pushes
     dbSavePedidoComplex({ ...target, estado_comanda: 'entregado_cobrado' });
     dbUpsertMesas(updatedMesas);
-  };
+  }, [pedidos, mesas, addLog]);
 
   // --- Handlers for Inventory View ---
-  const handleRegistrarMerma = (idInsumo: string, cantidad: number, motivo: Merma['motivo']) => {
+  const handleRegistrarMerma = useCallback((idInsumo: string, cantidad: number, motivo: Merma['motivo']) => {
     const insObj = insumos.find(i => i.id_insumo === idInsumo);
     if (!insObj) return;
 
@@ -514,7 +521,7 @@ export default function App() {
     dbUpsertInsumos(updatedInsumos);
   };
 
-  const handleRestockInsumo = (idInsumo: string, cantidad: number) => {
+  const handleRestockInsumo = useCallback((idInsumo: string, cantidad: number) => {
     const updatedInsumos = insumos.map(i => i.id_insumo === idInsumo ? {
       ...i,
       stock_actual: parseFloat((i.stock_actual + cantidad).toFixed(2))
@@ -526,9 +533,9 @@ export default function App() {
 
     // Sync inventory write
     dbUpsertInsumos(updatedInsumos);
-  };
+  }, [insumos, addLog]);
 
-  const handleRestockTodo = () => {
+  const handleRestockTodo = useCallback(() => {
     const updatedInsumos = insumos.map(i => {
       const restockAmt = i.unidad_medida === 'unidades' ? 10 : 3000;
       return {
@@ -881,6 +888,7 @@ export default function App() {
                 mesas={mesas}
                 pedidos={pedidos}
                 insumos={insumos}
+                productosMenu={productosMenu}
                 logs={logs}
                 getSimulatedTimeStr={getSimulatedTimeStr}
                 onNavigate={(view: any) => setActiveView(view)}
@@ -941,6 +949,8 @@ export default function App() {
             <div key={activeView} className="animate-fadeIn">
               <BusinessIntelligence
                 productosMenu={productosMenu}
+                pedidos={pedidos}
+                precioMap={precioMap}
                 logs={logs}
               />
             </div>
