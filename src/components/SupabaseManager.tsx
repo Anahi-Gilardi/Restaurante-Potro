@@ -44,6 +44,7 @@ import {
   INITIAL_PRODUCTOS_MENU, 
   INITIAL_RECETAS_ESCANDALLO 
 } from '../data/initialData';
+import { useToast, ToastContainer } from './ToastContainer';
 
 interface SupabaseManagerProps {
   onSyncComplete?: (data: {
@@ -70,6 +71,7 @@ export default function SupabaseManager({
   currentRecetas,
   addLog
 }: SupabaseManagerProps) {
+  const { toast, toasts, removeToast } = useToast();
   const [copiedKey, setCopiedKey] = useState(false);
   const [copiedSql, setCopiedSql] = useState(false);
   const [showSqlSetupGuide, setShowSqlSetupGuide] = useState(false);
@@ -280,7 +282,7 @@ export default function SupabaseManager({
 
   const handleSaveConfig = () => {
     if (!url || !anonKey) {
-      alert("Por favor rellene la URL y la Anon Key de Supabase.");
+      toast.error("Por favor rellene la URL y la Anon Key de Supabase.");
       return;
     }
     testConnection(url, anonKey);
@@ -303,7 +305,7 @@ export default function SupabaseManager({
   const handleSeedDatabase = async () => {
     const client = getSupabaseClient();
     if (!client || connectionStatus !== 'connected') {
-      alert('Debe establecer una conexión exitosa primero.');
+      toast.warning('Debe establecer una conexión exitosa primero.');
       return;
     }
 
@@ -331,13 +333,13 @@ export default function SupabaseManager({
       await dbUpsertRecetas(currentRecetas.length > 0 ? currentRecetas : INITIAL_RECETAS_ESCANDALLO);
 
       addLog('sistema', 'SUPABASE: ¡Base de Datos sembrada con éxito! Todos los registros de inventario, recetas y mesas están sincronizados en el servidor.');
-      alert('¡Base de Datos sembrada y sincronizada correctamente en Supabase! Las tablas ahora tienen registros operacionales.');
+      toast.success('¡Base de datos sembrada y sincronizada correctamente en Supabase!');
       
       // Refresh counts
       testConnection(url, anonKey);
 
     } catch (err: any) {
-      alert(`Error al sembrar datos: ${err.message || err}`);
+      toast.error(`Error al sembrar datos: ${err.message || err}`);
       addLog('sistema', `SUPABASE ERROR: Error al sembrar base de datos. ${err.message || ''}`);
     } finally {
       setIsPushing(false);
@@ -348,7 +350,7 @@ export default function SupabaseManager({
   const handlePullDatabase = async () => {
     const client = getSupabaseClient();
     if (!client || connectionStatus !== 'connected') {
-      alert('Debe establecer una conexión exitosa primero.');
+      toast.warning('Debe establecer una conexión exitosa primero.');
       return;
     }
 
@@ -401,13 +403,13 @@ export default function SupabaseManager({
       if (pulledCount > 0 && onSyncComplete) {
         onSyncComplete(syncedPayload);
         addLog('sistema', `SUPABASE: Descarga completa. Sincronizadas y actualizadas de manera segura en caliente.`);
-        alert('¡Sincronización descendente completada con éxito! La interfaz se actualizó con los datos de Supabase.');
+        toast.success('¡Sincronización completada! La interfaz se actualizó con los datos de Supabase.');
       } else {
-        alert('Las tablas remotas parecen estar vacías. Utilice "Sembrar / Inicializar" para cargarlas por primera vez.');
+        toast.warning('Las tablas remotas parecen estar vacías. Use "Sembrar / Inicializar" para cargarlas.');
       }
 
     } catch (err: any) {
-      alert(`Error de sincronización descendente: ${err.message || err}`);
+      toast.error(`Error de sincronización: ${err.message || err}`);
     } finally {
       setIsPulling(false);
     }
@@ -1063,5 +1065,6 @@ ALTER TABLE public.pedido_detalle DISABLE ROW LEVEL SECURITY;`;
         </div>
       )}
     </div>
+    <ToastContainer toasts={toasts} removeToast={removeToast} />
   );
 }
