@@ -12,10 +12,10 @@ export const reservasService = {
     return (data || []).map(r => ({
       id_reserva: r.id_reserva,
       nombre_cliente: r.cliente,
-      telefono: r.telefono || '',
+      telefono: '',
       pax: r.personas || 1,
       id_mesa: r.id_mesa || undefined,
-      nombre_mesa: r.nombre_mesa || `Mesa ${r.id_mesa || ''}`,
+      nombre_mesa: `Mesa ${r.id_mesa || ''}`,
       hora: r.hora,
       estado: r.estado === 'sentada' ? 'sentada' : r.estado === 'cancelada' ? 'cancelada' : 'confirmada'
     }));
@@ -26,10 +26,8 @@ export const reservasService = {
     const dbPayload = {
       id_reserva: res.id_reserva,
       cliente: res.nombre_cliente,
-      telefono: res.telefono,
       personas: res.pax,
       id_mesa: res.id_mesa || null,
-      nombre_mesa: res.nombre_mesa,
       hora: res.hora,
       estado: res.estado,
       fecha: new Date().toISOString().split('T')[0] // default to today
@@ -42,10 +40,10 @@ export const reservasService = {
     return {
       id_reserva: data.id_reserva,
       nombre_cliente: data.cliente,
-      telefono: data.telefono,
+      telefono: '',
       pax: data.personas,
       id_mesa: data.id_mesa,
-      nombre_mesa: data.nombre_mesa,
+      nombre_mesa: `Mesa ${data.id_mesa || ''}`,
       hora: data.hora,
       estado: data.estado
     };
@@ -55,10 +53,8 @@ export const reservasService = {
     const supabase = getActiveSupabaseClient();
     const dbPayload: any = {};
     if (fields.nombre_cliente !== undefined) dbPayload.cliente = fields.nombre_cliente;
-    if (fields.telefono !== undefined) dbPayload.telefono = fields.telefono;
     if (fields.pax !== undefined) dbPayload.personas = fields.pax;
     if (fields.id_mesa !== undefined) dbPayload.id_mesa = fields.id_mesa;
-    if (fields.nombre_mesa !== undefined) dbPayload.nombre_mesa = fields.nombre_mesa;
     if (fields.hora !== undefined) dbPayload.hora = fields.hora;
     if (fields.estado !== undefined) dbPayload.estado = fields.estado;
 
@@ -74,10 +70,8 @@ export const reservasService = {
     const dbPayloads = reservas.map(r => ({
       id_reserva: r.id_reserva,
       cliente: r.nombre_cliente,
-      telefono: r.telefono,
       personas: r.pax,
       id_mesa: r.id_mesa || null,
-      nombre_mesa: r.nombre_mesa,
       hora: r.hora,
       estado: r.estado,
       fecha: new Date().toISOString().split('T')[0]

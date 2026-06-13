@@ -697,15 +697,6 @@ CREATE TABLE IF NOT EXISTS public.mesas (
 CREATE TABLE IF NOT EXISTS public.insumos (
   id_insumo text PRIMARY KEY,
   nombre text NOT NULL,
-  stock_actual numeric NOT NULL,
-  stock_minimo numeric,
-  unidad_medida text NOT NULL,
-  categoria text NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS public.insumos (
-  id_insumo text PRIMARY KEY,
-  nombre text NOT NULL,
   stock_actual numeric NOT NULL DEFAULT 0,
   stock_minimo numeric DEFAULT 0,
   unidad_medida text NOT NULL,

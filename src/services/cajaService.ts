@@ -1,6 +1,14 @@
 import { getActiveSupabaseClient } from '../lib/supabaseClient';
 import { CierreCaja } from '../types';
 
+const inferFechaApertura = (idCierre: string) => {
+  const timestamp = Number(idCierre.replace('cie_', ''));
+  if (Number.isFinite(timestamp)) {
+    return new Date(timestamp).toISOString().replace('T', ' ').slice(0, 19);
+  }
+  return new Date().toISOString().replace('T', ' ').slice(0, 19);
+};
+
 export const cajaService = {
   getOpenSession(): CierreCaja | null {
     const raw = localStorage.getItem('el_patron_caja_activa');
@@ -20,7 +28,7 @@ export const cajaService = {
       const { data, error } = await supabase
         .from('cierres_caja')
         .select('*')
-        .order('fecha_apertura', { ascending: false });
+        .order('id_cierre', { ascending: false });
         
       if (error) {
         console.warn('Database fetching error, reading localStorage backup:', error);
@@ -29,7 +37,7 @@ export const cajaService = {
       
       return (data || []).map(cc => ({
         id_cierre: cc.id_cierre,
-        fecha_apertura: cc.fecha_apertura,
+        fecha_apertura: cc.fecha_apertura || inferFechaApertura(cc.id_cierre),
         fecha_cierre: cc.fecha_cierre,
         monto_apertura: parseFloat(cc.monto_apertura),
         monto_ventas: parseFloat(cc.monto_ventas),
@@ -105,10 +113,8 @@ export const cajaService = {
       const supabase = getActiveSupabaseClient();
       await supabase.from('cierres_caja').insert([{
         id_cierre: session.id_cierre,
-        fecha_apertura: session.fecha_apertura,
         monto_apertura: session.monto_apertura,
         observaciones: session.observaciones,
-        usuario_cajero: session.usuario_cajero,
         monto_ventas: 0
       }]);
     } catch (err) {
@@ -184,14 +190,12 @@ export const cajaService = {
         .from('cierres_caja')
         .upsert([{
           id_cierre: closed.id_cierre,
-          fecha_apertura: closed.fecha_apertura,
           fecha_cierre: closed.fecha_cierre,
           monto_apertura: closed.monto_apertura,
           monto_ventas: closed.monto_ventas,
           monto_real: closed.monto_real,
           diferencia: closed.diferencia,
-          observaciones: closed.observaciones,
-          usuario_cajero: closed.usuario_cajero
+          observaciones: closed.observaciones
         }]);
     } catch (err) {
       console.warn('Could not fully persist shift save on remote DB:', err);

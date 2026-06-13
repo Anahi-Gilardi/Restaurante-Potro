@@ -35,8 +35,6 @@ export const promocionesService = {
       id_promo: promo.id_promo,
       nombre: promo.nombre,
       descuento: promo.descuento_porcentaje,
-      tipo: promo.tipo,
-      dias_vigentes: promo.dias_vigentes,
       activa: promo.activo,
       descripcion: promo.descripcion
     };
@@ -49,8 +47,8 @@ export const promocionesService = {
       id_promo: data.id_promo,
       nombre: data.nombre,
       descuento_porcentaje: data.descuento,
-      tipo: data.tipo,
-      dias_vigentes: data.dias_vigentes,
+      tipo: 'descuento_directo',
+      dias_vigentes: 'Todos los dias',
       activo: data.activa,
       descripcion: data.descripcion
     };
@@ -61,8 +59,6 @@ export const promocionesService = {
     const dbPayload: any = {};
     if (fields.nombre !== undefined) dbPayload.nombre = fields.nombre;
     if (fields.descuento_porcentaje !== undefined) dbPayload.descuento = fields.descuento_porcentaje;
-    if (fields.tipo !== undefined) dbPayload.tipo = fields.tipo;
-    if (fields.dias_vigentes !== undefined) dbPayload.dias_vigentes = fields.dias_vigentes;
     if (fields.activo !== undefined) dbPayload.activa = fields.activo;
     if (fields.descripcion !== undefined) dbPayload.descripcion = fields.descripcion;
 
@@ -79,8 +75,6 @@ export const promocionesService = {
       id_promo: p.id_promo,
       nombre: p.nombre,
       descuento: p.descuento_porcentaje,
-      tipo: p.tipo,
-      dias_vigentes: p.dias_vigentes,
       activa: p.activo,
       descripcion: p.descripcion
     }));
