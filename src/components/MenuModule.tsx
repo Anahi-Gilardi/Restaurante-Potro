@@ -33,13 +33,13 @@ export default function MenuModule({ productosMenu, addLog }: MenuModuleProps) {
     e.preventDefault();
     if (!nombre || !precio) return;
 
-    const fallbackImg = (categoria === 'Bebidas' || categoria === 'Bodega')
+    const fallbackImg = (categoria === 'bebidas' || categoria === 'Bodega')
       ? 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&q=80'
       : categoria === 'Postres'
         ? 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&q=80'
         : 'https://images.unsplash.com/photo-1544025162-d76694265947?w=400&q=80';
 
-    const tipo = categoria === 'Bebidas' 
+    const tipo = categoria === 'bebidas' 
       ? 'bebida' 
       : categoria === 'Bodega' 
         ? 'vino' 
@@ -47,7 +47,7 @@ export default function MenuModule({ productosMenu, addLog }: MenuModuleProps) {
           ? 'postre' 
           : 'plato';
 
-    const requiere_cocina = !(categoria === 'Bebidas' || categoria === 'Bodega');
+    const requiere_cocina = !(categoria === 'bebidas' || categoria === 'Bodega');
 
     const newItem: ProductoMenu = {
       id_producto: `prod_custom_${Date.now()}`,
