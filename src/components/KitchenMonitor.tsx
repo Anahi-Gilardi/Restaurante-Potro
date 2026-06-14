@@ -1,5 +1,6 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { 
+  AlertTriangle,
   Flame, 
   Clock, 
   CheckCircle, 
@@ -7,6 +8,7 @@ import {
   ChefHat, 
   Grid, 
   Snowflake, 
+  X,
   Utensils
 } from 'lucide-react';
 import { Pedido, PedidoItem } from '../types';
@@ -34,12 +36,20 @@ const isBarItem = (item: PedidoItem) => {
 
 const isKitchenItem = (item: PedidoItem) => !isBarItem(item);
 
+type CancelRequest = {
+  pedido: Pedido;
+  title: string;
+  detail: string;
+};
+
 export default function KitchenMonitor({
   pedidos,
   onCambiarEstadoPedido,
   onProducirPedidoConEscandallo,
   minutosGlobal
 }: KitchenMonitorProps) {
+  const [cancelRequest, setCancelRequest] = useState<CancelRequest | null>(null);
+
   // Filter active orders inside the kitchen workflow
   const activeKitchenOrders = useMemo(() => {
     return pedidos.filter(p => p.estado_comanda !== 'entregado_cobrado' && p.estado_comanda !== 'cancelado');
@@ -102,6 +112,12 @@ export default function KitchenMonitor({
   const isColdPlate = (pedido: Pedido) => {
     if (pedido.estado_comanda !== 'listo') return false;
     return (pedido.segundos_en_listo ?? 0) >= 300; // 5 minutes
+  };
+
+  const confirmCancel = () => {
+    if (!cancelRequest) return;
+    onCambiarEstadoPedido(cancelRequest.pedido.id_pedido, 'cancelado');
+    setCancelRequest(null);
   };
 
   return (
@@ -232,11 +248,11 @@ export default function KitchenMonitor({
                       </button>
 
                       <button
-                        onClick={() => {
-                          if (window.confirm("¿Está seguro de que desea cancelar esta comanda pendiente?")) {
-                            onCambiarEstadoPedido(p.id_pedido, 'cancelado');
-                          }
-                        }}
+                        onClick={() => setCancelRequest({
+                          pedido: p,
+                          title: 'Cancelar comanda pendiente',
+                          detail: 'La orden saldra de la cola de cocina y quedara marcada como cancelada.'
+                        })}
                         className="w-full mt-2 py-1.5 px-3 bg-red-50 hover:bg-red-100 text-red-700 hover:text-red-800 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer border border-red-200 shadow-sm"
                       >
                         Cancelar Comanda ❌
@@ -329,11 +345,11 @@ export default function KitchenMonitor({
                       </button>
 
                       <button
-                        onClick={() => {
-                          if (window.confirm("¿Está seguro de cancelar esta comanda en preparación? Se repondrá la materia prima en stock de forma automática.")) {
-                            onCambiarEstadoPedido(p.id_pedido, 'cancelado');
-                          }
-                        }}
+                        onClick={() => setCancelRequest({
+                          pedido: p,
+                          title: 'Cancelar preparacion en curso',
+                          detail: 'La comanda se cancela desde cocina. Revise stock si ya se habian consumido insumos.'
+                        })}
                         className="w-full mt-2 py-1.5 px-3 bg-red-50 hover:bg-red-100 text-red-700 hover:text-red-800 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer border border-red-200 shadow-sm"
                       >
                         Cancelar y Reversar Insumos ❌
@@ -456,6 +472,53 @@ export default function KitchenMonitor({
         </div>
 
       </div>
+
+      {cancelRequest && (
+        <div className="fixed inset-0 z-[80] bg-black/45 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white rounded-2xl border border-stone-200 shadow-2xl overflow-hidden">
+            <div className="p-4 bg-red-50 border-b border-red-100 flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-xl bg-red-100 text-red-700">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-red-900 uppercase">{cancelRequest.title}</h3>
+                  <p className="text-xs text-red-700 mt-1">{cancelRequest.detail}</p>
+                </div>
+              </div>
+              <button onClick={() => setCancelRequest(null)} className="p-1 rounded-lg text-red-500 hover:bg-red-100">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div className="rounded-xl border border-stone-200 bg-stone-50 p-3">
+                <p className="text-[10px] font-black text-stone-400 uppercase">Comanda seleccionada</p>
+                <div className="flex items-center justify-between mt-1">
+                  <span className="text-lg font-black text-stone-900 font-mono">{cancelRequest.pedido.numero_mesa}</span>
+                  <span className="text-xs font-bold text-stone-500">Orden #{cancelRequest.pedido.id_pedido}</span>
+                </div>
+                <p className="text-xs text-stone-600 mt-1">{cancelRequest.pedido.items.length} articulos - Mozo {cancelRequest.pedido.mozo}</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setCancelRequest(null)}
+                  className="py-2.5 rounded-xl border border-stone-200 bg-white text-stone-600 text-xs font-black uppercase hover:bg-stone-50"
+                >
+                  Volver
+                </button>
+                <button
+                  onClick={confirmCancel}
+                  className="py-2.5 rounded-xl bg-red-600 text-white text-xs font-black uppercase hover:bg-red-500 shadow-sm"
+                >
+                  Confirmar cancelacion
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
