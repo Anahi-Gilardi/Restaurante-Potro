@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { Pedido, ProductoMenu } from '../types';
 import { facturacionService, Factura } from '../services/facturacionService';
+import { ToastContainer, useToast } from './ToastContainer';
 
 interface FacturacionModuleProps {
   pedidos: Pedido[];
@@ -76,6 +77,7 @@ const medioLabel = (medio: Factura['medio_pago']) => ({
 }[medio]);
 
 export default function FacturacionModule({ pedidos, productosMenu, addLog }: FacturacionModuleProps) {
+  const { toast, toasts, dismissToast } = useToast();
   const [facturas, setFacturas] = useState<FacturaExtendida[]>([]);
   const [activeTab, setActiveTab] = useState<TabKey>('archivo');
   const [search, setSearch] = useState('');
@@ -93,11 +95,15 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
   const [pagoTipo, setPagoTipo] = useState<'ticket' | 'A' | 'B' | 'X'>('ticket');
   const [pagoCliente, setPagoCliente] = useState('Consumidor Final');
   const [pagoCuit, setPagoCuit] = useState('99-99999999-9');
+  const [isEmitting, setIsEmitting] = useState(false);
 
   useEffect(() => {
     facturacionService.list()
       .then(data => setFacturas((data && data.length > 0 ? data : DEFAULT_FACTURAS) as FacturaExtendida[]))
-      .catch(() => setFacturas(DEFAULT_FACTURAS));
+      .catch(() => {
+        setFacturas(DEFAULT_FACTURAS);
+        toast.warning('No se pudo leer Supabase. Se muestra el archivo fiscal local de respaldo.');
+      });
   }, []);
 
   const pedidoTotal = (pedido: Pedido) => pedido.items.reduce((sum, item) => {
@@ -155,75 +161,98 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
     }
   }, [pagosPendientes, pedidoSeleccionado]);
 
+  const validateClienteFiscal = (tipo: 'ticket' | 'A' | 'B' | 'X', cliente: string, cuit: string) => {
+    if (tipo !== 'A') return true;
+    if (!cuit.trim() || cliente.trim().toLowerCase() === 'consumidor final') {
+      toast.error('Para Factura A carga CUIT y razon social del cliente.');
+      return false;
+    }
+    return true;
+  };
+
   const persistFactura = async (factura: FacturaExtendida) => {
     setFacturas(prev => [factura, ...prev]);
     try {
       await facturacionService.create(factura);
+      toast.success(`Comprobante ${factura.nro_ticket} guardado y PDF descargado.`);
     } catch (err) {
       console.warn('Factura guardada en modo local/demo:', err);
+      toast.warning(`PDF descargado. ${factura.nro_ticket} quedo guardado en esta sesion local.`);
     }
   };
 
   const emitManual = async () => {
+    if (isEmitting) return;
     const total = Number(manualTotal);
     if (!Number.isFinite(total) || total <= 0) {
-      alert('El total debe ser mayor a cero.');
+      toast.error('El total debe ser mayor a cero.');
       return;
     }
-    if (manualTipo === 'A' && (!manualCuit.trim() || manualCliente.trim().toLowerCase() === 'consumidor final')) {
-      alert('Para Factura A carga CUIT y razon social del cliente.');
-      return;
-    }
+    if (!validateClienteFiscal(manualTipo, manualCliente, manualCuit)) return;
 
-    const { iva } = calcIvaIncluido(total, manualIva);
-    const factura: FacturaExtendida = {
-      id_factura: `fac_${Date.now()}`,
-      nro_ticket: nextNumber(facturas, manualTipo),
-      cliente: manualCliente.trim() || 'Consumidor Final',
-      cuit: manualCuit.trim() || '99-99999999-9',
-      total,
-      iva_veintiuno: iva,
-      medio_pago: manualMedio,
-      fecha: `${new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })} hs`,
-      estado: 'emitido',
-      tipo: manualTipo,
-      id_pedido: null,
-      observaciones: manualObs
-    };
-    await persistFactura(factura);
-    addLog('sistema', `FACTURACION: Comprobante manual ${factura.nro_ticket} emitido por ${money(total)}.`);
-    await downloadFacturaPdf(factura);
-    setManualTotal('0');
-    setManualObs('');
-    setActiveTab('archivo');
+    setIsEmitting(true);
+    try {
+      const { iva } = calcIvaIncluido(total, manualIva);
+      const factura: FacturaExtendida = {
+        id_factura: `fac_${Date.now()}`,
+        nro_ticket: nextNumber(facturas, manualTipo),
+        cliente: manualCliente.trim() || 'Consumidor Final',
+        cuit: manualCuit.trim() || '99-99999999-9',
+        total,
+        iva_veintiuno: iva,
+        medio_pago: manualMedio,
+        fecha: `${new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })} hs`,
+        estado: 'emitido',
+        tipo: manualTipo,
+        id_pedido: null,
+        observaciones: manualObs
+      };
+      await downloadFacturaPdf(factura);
+      await persistFactura(factura);
+      addLog('sistema', `FACTURACION: Comprobante manual ${factura.nro_ticket} emitido por ${money(total)}.`);
+      setManualTotal('0');
+      setManualObs('');
+      setActiveTab('archivo');
+    } catch (err) {
+      console.error(err);
+      toast.error('No se pudo emitir el PDF del comprobante.');
+    } finally {
+      setIsEmitting(false);
+    }
   };
 
   const emitFromPedido = async () => {
+    if (isEmitting) return;
     if (!selectedPending) return;
-    if (pagoTipo === 'A' && (!pagoCuit.trim() || pagoCliente.trim().toLowerCase() === 'consumidor final')) {
-      alert('Para Factura A carga CUIT y razon social del cliente.');
-      return;
-    }
+    if (!validateClienteFiscal(pagoTipo, pagoCliente, pagoCuit)) return;
 
-    const { iva } = calcIvaIncluido(selectedPending.total, pagoTipo !== 'X');
-    const factura: FacturaExtendida = {
-      id_factura: `fac_${Date.now()}`,
-      nro_ticket: nextNumber(facturas, pagoTipo),
-      cliente: pagoCliente.trim() || 'Consumidor Final',
-      cuit: pagoCuit.trim() || '99-99999999-9',
-      total: selectedPending.total,
-      iva_veintiuno: iva,
-      medio_pago: 'efectivo',
-      fecha: `${new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })} hs`,
-      estado: 'emitido',
-      tipo: pagoTipo,
-      id_pedido: selectedPending.pedido.id_pedido,
-      observaciones: `Pedido #${selectedPending.pedido.id_pedido} - ${selectedPending.pedido.numero_mesa}`
-    };
-    await persistFactura(factura);
-    addLog('sistema', `FACTURACION: Pedido #${selectedPending.pedido.id_pedido} convertido en ${factura.nro_ticket}.`);
-    await downloadFacturaPdf(factura, selectedPending.pedido);
-    setActiveTab('archivo');
+    setIsEmitting(true);
+    try {
+      const { iva } = calcIvaIncluido(selectedPending.total, pagoTipo !== 'X');
+      const factura: FacturaExtendida = {
+        id_factura: `fac_${Date.now()}`,
+        nro_ticket: nextNumber(facturas, pagoTipo),
+        cliente: pagoCliente.trim() || 'Consumidor Final',
+        cuit: pagoCuit.trim() || '99-99999999-9',
+        total: selectedPending.total,
+        iva_veintiuno: iva,
+        medio_pago: 'efectivo',
+        fecha: `${new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })} hs`,
+        estado: 'emitido',
+        tipo: pagoTipo,
+        id_pedido: selectedPending.pedido.id_pedido,
+        observaciones: `Pedido #${selectedPending.pedido.id_pedido} - ${selectedPending.pedido.numero_mesa}`
+      };
+      await downloadFacturaPdf(factura, selectedPending.pedido);
+      await persistFactura(factura);
+      addLog('sistema', `FACTURACION: Pedido #${selectedPending.pedido.id_pedido} convertido en ${factura.nro_ticket}.`);
+      setActiveTab('archivo');
+    } catch (err) {
+      console.error(err);
+      toast.error('No se pudo emitir el comprobante del pedido.');
+    } finally {
+      setIsEmitting(false);
+    }
   };
 
   const handleNotaCredito = (id: string) => {
@@ -231,6 +260,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
       if (f.id_factura === id) {
         addLog('sistema', `FACTURACION: Nota de credito fiscal anulando ${f.nro_ticket} por ${money(f.total)}.`);
         facturacionService.markNotaCredito(id).catch(err => console.error(err));
+        toast.success(`Nota de credito aplicada a ${f.nro_ticket}.`);
         return { ...f, estado: 'nota_credito' };
       }
       return f;
@@ -453,8 +483,8 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
             </div>
           </div>
           <textarea value={manualObs} onChange={e => setManualObs(e.target.value)} placeholder="Observaciones, pedido externo, forma de pago detallada..." className="w-full h-20 p-3 rounded-xl border border-stone-200 text-xs" />
-          <button onClick={emitManual} className="w-full md:w-auto px-5 py-3 rounded-xl bg-[#624A3E] text-white text-xs font-black uppercase shadow">
-            Emitir y descargar comprobante PDF
+          <button disabled={isEmitting} onClick={emitManual} className="w-full md:w-auto px-5 py-3 rounded-xl bg-[#624A3E] text-white text-xs font-black uppercase shadow disabled:opacity-60 disabled:cursor-not-allowed">
+            {isEmitting ? 'Emitiendo comprobante...' : 'Emitir y descargar comprobante PDF'}
           </button>
         </div>
       )}
@@ -532,8 +562,8 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
                   <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-xl text-xs text-emerald-800 font-bold">
                     Al emitir se descarga el PDF y el comprobante queda en Archivo fiscal.
                   </div>
-                  <button onClick={emitFromPedido} className="w-full px-5 py-3 rounded-xl bg-emerald-600 text-white text-xs font-black uppercase shadow">
-                    Emitir comprobante desde pago
+                  <button disabled={isEmitting} onClick={emitFromPedido} className="w-full px-5 py-3 rounded-xl bg-emerald-600 text-white text-xs font-black uppercase shadow disabled:opacity-60 disabled:cursor-not-allowed">
+                    {isEmitting ? 'Emitiendo comprobante...' : 'Emitir comprobante desde pago'}
                   </button>
                 </div>
               </div>
@@ -693,6 +723,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
           </div>
         </div>
       )}
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 }
