@@ -40,7 +40,7 @@ import { cajaService } from '../services/cajaService';
 import { pagosService } from '../services/pagosService';
 import { pdfService } from '../services/pdfService';
 import { printerService } from '../services/printerService';
-import { facturacionService } from '../services/facturacionService';
+import { facturacionService, Factura } from '../services/facturacionService';
 import { auditoriaService } from '../services/auditoriaService';
 import { useToast, ToastContainer } from './ToastContainer';
 
@@ -79,6 +79,7 @@ export default function CajaModule({
   // Active cashier session states
   const [cajaSession, setCajaSession] = useState<CierreCaja | null>(null);
   const [sessionInsumos, setSessionInsumos] = useState<CierreCaja[]>([]);
+  const [lastFacturas, setLastFacturas] = useState<Factura[]>([]);
 
   // Shift opening/closing dialog states
   const [showOpenModal, setShowOpenModal] = useState(false);
@@ -128,6 +129,8 @@ export default function CajaModule({
     try {
       const history = await cajaService.list();
       setSessionInsumos(history);
+      const facturas = await facturacionService.list();
+      setLastFacturas(facturas.slice(0, 6));
     } catch (err) {
       console.error(err);
     }
@@ -583,6 +586,38 @@ export default function CajaModule({
     pdfService.exportToPDF(dataTicket);
   };
 
+  const downloadFacturaHistorialPdf = async (factura: Factura) => {
+    const { jsPDF } = await import('jspdf');
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const neto = Number((factura.total / 1.21).toFixed(2));
+
+    doc.setFillColor(98, 74, 62);
+    doc.rect(12, 12, 186, 24, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.text(restaurante.nombreComercial.toUpperCase(), 18, 27);
+
+    doc.setTextColor(35, 31, 28);
+    doc.setFontSize(11);
+    doc.text(`Comprobante: ${factura.nro_ticket}`, 14, 50);
+    doc.text(`Cliente: ${factura.cliente}`, 14, 60);
+    doc.text(`CUIT/DNI: ${factura.cuit || '-'}`, 14, 68);
+    doc.text(`Fecha: ${factura.fecha}`, 14, 76);
+    doc.text(`Medio de pago: ${factura.medio_pago.toUpperCase()}`, 14, 84);
+
+    doc.setDrawColor(220, 220, 220);
+    doc.line(14, 98, 196, 98);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Venta gastronomica segun ticket emitido', 14, 112);
+    doc.text(`Neto: $${neto.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`, 186, 130, { align: 'right' });
+    doc.text(`IVA 21%: $${factura.iva_veintiuno.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`, 186, 140, { align: 'right' });
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(15);
+    doc.text(`TOTAL: $${factura.total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`, 186, 154, { align: 'right' });
+    doc.save(`${factura.nro_ticket}_ticket.pdf`);
+  };
+
   // Group items by menu categories (Rule 3)
   const groupedItemsByCategory = useMemo(() => {
     if (!selectedPedido) return {};
@@ -855,6 +890,11 @@ export default function CajaModule({
                     <span>Arqueo Teórico:</span>
                     <span>${(cajaSession.monto_apertura + cajaSession.monto_ventas).toLocaleString('es-AR')}</span>
                   </div>
+
+                  <div className="flex justify-between text-[11px] font-black text-emerald-700 pt-1 border-t border-emerald-100">
+                    <span>Caja esperada:</span>
+                    <span className="font-mono">${(cajaSession.monto_apertura + cajaSession.monto_ventas).toLocaleString('es-AR')}</span>
+                  </div>
                 </div>
 
                 {/* Turn revenue detailed tags */}
@@ -998,6 +1038,31 @@ export default function CajaModule({
                 })
               )}
             </div>
+
+            {lastFacturas.length > 0 && (
+              <div className="pt-3 border-t border-stone-100 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] font-black uppercase text-stone-400 tracking-wider flex items-center gap-1">
+                    <FileText className="w-3 h-3" /> Tickets emitidos
+                  </span>
+                  <span className="text-[9px] font-mono font-bold text-stone-400">{lastFacturas.length} disponibles</span>
+                </div>
+                {lastFacturas.map(f => (
+                  <div key={f.id_factura} className="p-2 rounded-xl bg-stone-50 border border-stone-200/70 flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-black text-stone-800 font-mono truncate">{f.nro_ticket}</p>
+                      <p className="text-[9px] text-stone-500 truncate">{f.cliente} - ${f.total.toLocaleString('es-AR')}</p>
+                    </div>
+                    <button
+                      onClick={() => downloadFacturaHistorialPdf(f)}
+                      className="px-2 py-1 rounded-lg bg-[#624A3E] text-white text-[9px] font-black uppercase flex items-center gap-1 shrink-0"
+                    >
+                      <Download className="w-3 h-3" /> PDF
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
         </div>

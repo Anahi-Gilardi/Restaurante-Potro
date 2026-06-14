@@ -1096,6 +1096,7 @@ export default function App() {
             <div key={activeView} className="animate-fadeIn">
               <FacturacionModule
                 pedidos={pedidos}
+                productosMenu={productosMenu}
                 addLog={addLog}
               />
             </div>
