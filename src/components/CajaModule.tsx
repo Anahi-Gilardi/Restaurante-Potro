@@ -475,7 +475,7 @@ export default function CajaModule({
     addLog('sistema', `CAJA: Cobro finalizado correctamente para Mesa ${selectedPedido.numero_mesa}. Transacción Fiscal ${compiledTicketNo} registrada. `);
 
     // Trigger auto printing of PDF & physical printer if configured
-    pdfService.exportToPDF(dataTicket);
+    await pdfService.exportToPDF(dataTicket);
     await printerService.sendToPrinter(dataTicket, printerConfig);
 
     // Reset checkout states
@@ -546,7 +546,7 @@ export default function CajaModule({
     }
   };
 
-  const triggerPDFDownloadOnly = () => {
+  const triggerPDFDownloadOnly = async () => {
     if (!selectedPedido || !cajaSession) return;
 
     const dataTicket: TicketData = {
@@ -583,39 +583,42 @@ export default function CajaModule({
       mensajePie: restaurante.mensajePie
     };
 
-    pdfService.exportToPDF(dataTicket);
+    await pdfService.exportToPDF(dataTicket);
   };
 
   const downloadFacturaHistorialPdf = async (factura: Factura) => {
-    const { jsPDF } = await import('jspdf');
-    const doc = new jsPDF('p', 'mm', 'a4');
     const neto = Number((factura.total / 1.21).toFixed(2));
-
-    doc.setFillColor(98, 74, 62);
-    doc.rect(12, 12, 186, 24, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(18);
-    doc.text(restaurante.nombreComercial.toUpperCase(), 18, 27);
-
-    doc.setTextColor(35, 31, 28);
-    doc.setFontSize(11);
-    doc.text(`Comprobante: ${factura.nro_ticket}`, 14, 50);
-    doc.text(`Cliente: ${factura.cliente}`, 14, 60);
-    doc.text(`CUIT/DNI: ${factura.cuit || '-'}`, 14, 68);
-    doc.text(`Fecha: ${factura.fecha}`, 14, 76);
-    doc.text(`Medio de pago: ${factura.medio_pago.toUpperCase()}`, 14, 84);
-
-    doc.setDrawColor(220, 220, 220);
-    doc.line(14, 98, 196, 98);
-    doc.setFont('helvetica', 'normal');
-    doc.text('Venta gastronomica segun ticket emitido', 14, 112);
-    doc.text(`Neto: $${neto.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`, 186, 130, { align: 'right' });
-    doc.text(`IVA 21%: $${factura.iva_veintiuno.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`, 186, 140, { align: 'right' });
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(15);
-    doc.text(`TOTAL: $${factura.total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`, 186, 154, { align: 'right' });
-    doc.save(`${factura.nro_ticket}_ticket.pdf`);
+    await pdfService.exportToPDF({
+      idPedido: factura.id_pedido || 0,
+      nroComprobante: factura.nro_ticket,
+      tipoComprobante: 'ticket_consumo',
+      fechaHora: factura.fecha,
+      mesa: 'Historial',
+      mozo: 'Caja',
+      cajero: cajaSession?.usuario_cajero || 'Caja',
+      nombreComercial: restaurante.nombreComercial,
+      razonSocial: restaurante.razonSocial,
+      cuit: restaurante.cuit,
+      direccion: restaurante.direccion,
+      telefono: restaurante.telefono,
+      email: restaurante.email,
+      items: [{
+        cantidad: 1,
+        descripcion: 'Venta gastronomica segun ticket emitido',
+        precio_unitario: neto,
+        subtotal: neto
+      }],
+      subtotal: neto,
+      descuento: 0,
+      propina: 0,
+      iva: factura.iva_veintiuno,
+      total: factura.total,
+      metodosPago: [{ metodo: factura.medio_pago, monto: factura.total }],
+      vuelto: 0,
+      mensajePie: restaurante.mensajePie,
+      clienteNombre: factura.cliente,
+      clienteCuit: factura.cuit
+    });
   };
 
   // Group items by menu categories (Rule 3)

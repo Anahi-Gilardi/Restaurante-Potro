@@ -12,8 +12,9 @@ import {
   Receipt,
   Search
 } from 'lucide-react';
-import { Pedido, ProductoMenu } from '../types';
+import { Pedido, ProductoMenu, TicketData, TipoComprobante } from '../types';
 import { facturacionService, Factura } from '../services/facturacionService';
+import { pdfService } from '../services/pdfService';
 import { ToastContainer, useToast } from './ToastContainer';
 
 interface FacturacionModuleProps {
@@ -267,72 +268,61 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
     }));
   };
 
+  const tipoToComprobante = (tipo: 'ticket' | 'A' | 'B' | 'X'): TipoComprobante => {
+    if (tipo === 'A') return 'factura_a';
+    if (tipo === 'B') return 'factura_b';
+    return 'ticket_consumo';
+  };
+
   const downloadFacturaPdf = async (factura: FacturaExtendida, pedido?: Pedido) => {
-    const { jsPDF } = await import('jspdf');
-    const doc = new jsPDF('p', 'mm', 'a4');
     const tipo = facturaTipo(factura);
     const { neto } = calcIvaIncluido(factura.total, factura.iva_veintiuno > 0);
-    const items = pedido?.items || [];
-
-    doc.setFillColor(98, 74, 62);
-    doc.rect(12, 12, 186, 24, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(18);
-    doc.text('EL PATRON RESTAURANTE', 18, 27);
-    doc.setFontSize(22);
-    doc.text(tipo === 'ticket' ? 'T' : tipo, 177, 27, { align: 'center' });
-
-    doc.setTextColor(35, 31, 28);
-    doc.setFontSize(11);
-    doc.text(`Comprobante: ${factura.nro_ticket}`, 14, 50);
-    doc.text(`Fecha: ${factura.fecha}`, 14, 57);
-    doc.text(`Cliente: ${factura.cliente}`, 14, 70);
-    doc.text(`CUIT/DNI: ${factura.cuit || '-'}`, 14, 77);
-    doc.text(`Medio de pago: ${medioLabel(factura.medio_pago)}`, 14, 84);
-    if (factura.observaciones) doc.text(`Observaciones: ${factura.observaciones}`, 14, 91);
-
-    let y = 108;
-    doc.setFillColor(245, 241, 233);
-    doc.rect(14, y - 7, 182, 9, 'F');
-    doc.setFont('helvetica', 'bold');
-    doc.text('Cant.', 18, y);
-    doc.text('Concepto', 42, y);
-    doc.text('Importe', 186, y, { align: 'right' });
-    doc.setFont('helvetica', 'normal');
-    y += 10;
-
-    if (items.length > 0) {
-      items.forEach(item => {
+    const ticketItems = pedido && pedido.items.length > 0
+      ? pedido.items.map(item => {
         const prod = productosMenu.find(p => p.id_producto === item.id_producto);
         const unit = prod ? prod.precio_venta : 0;
-        doc.text(String(item.cantidad), 18, y);
-        doc.text(item.nombre.slice(0, 64), 42, y);
-        doc.text(money(unit * item.cantidad), 186, y, { align: 'right' });
-        y += 8;
-      });
-    } else {
-      doc.text('1', 18, y);
-      doc.text('Venta segun detalle comercial', 42, y);
-      doc.text(money(neto), 186, y, { align: 'right' });
-      y += 8;
-    }
+        return {
+          cantidad: item.cantidad,
+          descripcion: item.nombre,
+          precio_unitario: unit,
+          subtotal: unit * item.cantidad
+        };
+      })
+      : [{
+        cantidad: 1,
+        descripcion: factura.observaciones || 'Venta gastronomica segun detalle comercial',
+        precio_unitario: neto,
+        subtotal: neto
+      }];
 
-    y += 10;
-    doc.line(120, y, 196, y);
-    y += 8;
-    doc.text(`Neto: ${money(neto)}`, 186, y, { align: 'right' });
-    y += 8;
-    doc.text(`IVA 21%: ${money(factura.iva_veintiuno)}`, 186, y, { align: 'right' });
-    y += 10;
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(14);
-    doc.text(`TOTAL: ${money(factura.total)}`, 186, y, { align: 'right' });
+    const ticketData: TicketData = {
+      idPedido: factura.id_pedido || pedido?.id_pedido || 0,
+      nroComprobante: factura.nro_ticket,
+      tipoComprobante: tipoToComprobante(tipo),
+      fechaHora: factura.fecha,
+      mesa: pedido?.numero_mesa || 'Venta manual',
+      mozo: pedido?.mozo || 'Caja',
+      cajero: 'Caja',
+      nombreComercial: 'El Patron Restaurante',
+      razonSocial: 'Gastronomia El Patron S.A.S.',
+      cuit: '30-71649251-4',
+      direccion: 'Av. Pres. Figueroa Alcorta 3420, CABA',
+      telefono: '+54 11 4802-9988',
+      email: 'facturas@elpatronrestaurante.com.ar',
+      items: ticketItems,
+      subtotal: neto,
+      descuento: 0,
+      propina: 0,
+      iva: factura.iva_veintiuno,
+      total: factura.total,
+      metodosPago: [{ metodo: medioLabel(factura.medio_pago), monto: factura.total }],
+      vuelto: 0,
+      mensajePie: 'Gracias por su visita. Comprobante generado por El Patron Gestion Gastronomica Pro.',
+      clienteNombre: factura.cliente,
+      clienteCuit: factura.cuit
+    };
 
-    doc.setFontSize(8);
-    doc.setTextColor(120, 120, 120);
-    doc.text('Documento generado por El Patron Gestion Gastronomica Pro', 105, 285, { align: 'center' });
-    doc.save(`${factura.nro_ticket}_${factura.cliente.replace(/\W+/g, '_')}.pdf`);
+    await pdfService.exportToPDF(ticketData);
   };
 
   const downloadLibroIva = async () => {
