@@ -1,4 +1,4 @@
-Aquí tienes el código modificado y adaptado exactamente a tus requerimientos.
+
 
 ### Cambios principales realizados:
 
