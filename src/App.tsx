@@ -990,21 +990,7 @@ export default function App() {
           </div>
           )}
 
-          {/* Venta sin stock */}
-          {sidebarExpanded && activeUser.rol === 'administrador' && (
-          <div className="px-3 py-2 bg-[#B07A48]/25 border border-[#A67550]/30 rounded-xl">
-            <label className="flex items-center justify-between cursor-pointer select-none">
-              <span className="text-[11px] font-bold text-[#3B1F10]/80">
-                {permitirVentaSinStock ? '✓ Forzar Ventas' : 'Bloquear sin stock'}
-              </span>
-              <input type="checkbox" checked={permitirVentaSinStock}
-                onChange={(e) => { setPermitirVentaSinStock(e.target.checked);
-                  addLog('sistema', `REGLA: Venta forzada sin stock ${e.target.checked ? 'HABILITADA' : 'DESHABILITADA'}`);
-                }}
-                className="rounded border-[#A67550]/60 text-[#624A3E] focus:ring-[#624A3E] w-4 h-4 bg-white/50 cursor-pointer" />
-            </label>
-          </div>
-          )}
+        
 
           {/* Usuario activo */}
           <div className={`px-3 py-2 bg-[#B07A48]/25 border border-[#A67550]/30 rounded-xl ${sidebarExpanded ? '' : 'flex justify-center'}`}>
