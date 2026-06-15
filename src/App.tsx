@@ -373,10 +373,28 @@ export default function App() {
       toast.error('No hay usuarios activos disponibles para iniciar sesión.');
       return;
     }
+
     window.sessionStorage.setItem('el_patron_session', 'active');
     setActiveMozo(operator.nombre);
     setActiveView('home');
-    setIsStreamlitLoggedIn(true);
+
+    // Show loading screen and preload critical chunks before rendering the app
+    setPostLoginLoading(true);
+
+    // Preload the initial module chunks that will be needed immediately
+    const chunksToPreload = [
+      import('./components/HomeMenuModule'),
+      import('./components/PanelDashboard'),
+      import('./components/BottomNavigation'),
+    ];
+
+    Promise.allSettled(chunksToPreload).finally(() => {
+      // Small extra delay to ensure smooth transition
+      setTimeout(() => {
+        setPostLoginLoading(false);
+        setIsStreamlitLoggedIn(true);
+      }, 300);
+    });
   };
 
   const handleLogout = () => {
@@ -828,9 +846,27 @@ export default function App() {
     return `${currentHour.toString().padStart(2, '0')}:${currentMins.toString().padStart(2, '0')} hs`;
   };
 
-  if (!isStreamlitLoggedIn) {
+  if (!isStreamlitLoggedIn && !postLoginLoading) {
     return <PythonStreamlitLogin onLoginSuccess={handleLoginSuccess} />;
   }
+
+  // Post-login loading: preload chunks before rendering
+  if (postLoginLoading) {
+    return (
+      <div className="min-h-screen bg-[#F5F1E9] flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="w-12 h-12 border-3 border-[#624A3E] border-t-transparent rounded-full animate-spin mx-auto" />
+          <div className="space-y-1">
+            <p className="text-sm font-bold text-stone-700">Cargando módulos...</p>
+            <p className="text-[11px] text-stone-400 font-medium">Preparando la aplicación</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Post-login: loading screen while chunks preload
+  const [postLoginLoading, setPostLoginLoading] = useState(false);
 
   // Track chunk load errors for auto-retry
   const [chunkError, setChunkError] = useState<string | null>(null);
@@ -838,7 +874,6 @@ export default function App() {
   const [appReady, setAppReady] = useState(false);
 
   useEffect(() => {
-    // Short delay to ensure Suspense fallback shows
     const t = setTimeout(() => setAppReady(true), 50);
     return () => clearTimeout(t);
   }, []);
