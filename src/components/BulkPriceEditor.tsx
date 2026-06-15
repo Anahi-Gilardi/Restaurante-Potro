@@ -6,7 +6,7 @@ import { menuService } from '../services/menuService';
 interface BulkPriceEditorProps {
   items: ProductoMenu[];
   onItemsChange: (items: ProductoMenu[]) => void;
-  addLog: (tipo: any, mensaje: string) => void;
+  addLog: (tipo: 'pedido_creado' | 'descuento_stock' | 'alerta_stock' | 'comanda_estado' | 'merma_registrada' | 'sistema', mensaje: string) => void;
 }
 
 type AdjustmentType = 'percentage' | 'fixed';

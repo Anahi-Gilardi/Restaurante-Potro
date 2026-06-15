@@ -49,7 +49,7 @@ interface CajaModuleProps {
   productosMenu: ProductoMenu[];
   onFacturarMesa: (idPedido: number) => void;
   onCambiarEstadoPedido: (idPedido: number, nuevoEstado: Pedido['estado_comanda']) => void;
-  addLog: (tipo: 'pedido_creado' | 'descuento_stock' | 'alerta_stock' | 'comanda_estado' | 'sistema', mensaje: string) => void;
+  addLog: (tipo: 'pedido_creado' | 'descuento_stock' | 'alerta_stock' | 'comanda_estado' | 'merma_registrada' | 'sistema', mensaje: string) => void;
 }
 
 export default function CajaModule({
@@ -459,24 +459,36 @@ export default function CajaModule({
       mercadopago: pays.filter(p => p.metodo === 'mp_qr' || p.metodo === 'mercadopago').reduce((s, c) => s + c.monto, 0)
     };
 
-    await cajaService.updateSales(orderBreakdowns.finalTotal, paymentDesglosesCount);
+    try {
+      await cajaService.updateSales(orderBreakdowns.finalTotal, paymentDesglosesCount);
+    } catch (e: any) {
+      toast.error(`Error al actualizar ventas: ${e.message}`);
+    }
 
     // 4. Libera Mesa, actualiza pedido de la comanda
     onFacturarMesa(selectedPedido.id_pedido);
 
     // 5. Register log events audit tracker
-    await auditoriaService.create({
-      id: `aud_${Date.now()}`,
-      tipo: 'sistema',
-      mensaje: `Cobro Exitoso Mesa ${selectedPedido.numero_mesa}. Factura Nº: ${compiledTicketNo}. Total: $${orderBreakdowns.finalTotal.toLocaleString('es-AR')}. Pago: ${mappedMedio}`,
-      timestamp: new Date()
-    });
+    try {
+      await auditoriaService.create({
+        id: `aud_${Date.now()}`,
+        tipo: 'sistema',
+        mensaje: `Cobro Exitoso Mesa ${selectedPedido.numero_mesa}. Factura Nº: ${compiledTicketNo}. Total: $${orderBreakdowns.finalTotal.toLocaleString('es-AR')}. Pago: ${mappedMedio}`,
+        timestamp: new Date()
+      });
+    } catch (e: any) {
+      console.error('Audit log error:', e);
+    }
 
     addLog('sistema', `CAJA: Cobro finalizado correctamente para Mesa ${selectedPedido.numero_mesa}. Transacción Fiscal ${compiledTicketNo} registrada. `);
 
     // Trigger auto printing of PDF & physical printer if configured
-    await pdfService.exportToPDF(dataTicket);
-    await printerService.sendToPrinter(dataTicket, printerConfig);
+    try {
+      await pdfService.exportToPDF(dataTicket);
+      await printerService.sendToPrinter(dataTicket, printerConfig);
+    } catch (e: any) {
+      toast.warning(`Cobro registrado, pero hubo un error al generar el PDF/impresión: ${e.message}`);
+    }
 
     // Reset checkout states
     setSelectedPedidoId(null);
@@ -488,7 +500,7 @@ export default function CajaModule({
     setSelectedProductsForSplit([]);
     loadCajaState();
 
-    toast.success(`Ticket emitido. Se cobró ${orderBreakdowns.finalTotal.toLocaleString('es-AR')}. PDF generado y mesa liberada.`);
+    toast.success(`Ticket emitido. Se cobró ${orderBreakdowns.finalTotal.toLocaleString('es-AR')}. Mesa liberada.`);
   };
 
   // Print simulator fallback directly from active layout receipt
@@ -1553,7 +1565,7 @@ export default function CajaModule({
                     <p>CUIT/DNI: {cuitCliente}</p>
                     <p>FECHA: {new Date().toLocaleDateString('es-AR')} {new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}hs</p>
                     <p>MESA: {selectedPedido.numero_mesa.toUpperCase()} • MOZO: {selectedPedido.mozo}</p>
-                    <p>CAJERO: {cajaSession.usuario_cajero.toUpperCase()}</p>
+                    <p>CAJERO: {(cajaSession?.usuario_cajero || 'SIN TURNO').toUpperCase()}</p>
                   </div>
 
                   {/* List of items */}

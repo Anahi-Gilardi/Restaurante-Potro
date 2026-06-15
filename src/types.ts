@@ -240,14 +240,13 @@ export interface Proveedor {
 }
 
 export interface Promocion {
-    id_promocion: string;
-    nombre: string;
-    descripcion?: string;
-    tipo: 'porcentaje' | 'monto_fijo' | '2x1';
-    valor: number;
-    activa: boolean;
-    fecha_inicio?: string;
-    fecha_fin?: string;
+  id_promo: string;
+  nombre: string;
+  descripcion?: string;
+  tipo: 'happy_hour' | 'combo' | 'descuento_directo';
+  descuento_porcentaje: number;
+  activo: boolean;
+  dias_vigentes?: string;
 }
 
 export interface Reserva {

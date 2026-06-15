@@ -20,7 +20,7 @@ import { ToastContainer, useToast } from './ToastContainer';
 interface FacturacionModuleProps {
   pedidos: Pedido[];
   productosMenu: ProductoMenu[];
-  addLog: (tipo: any, mensaje: string) => void;
+  addLog: (tipo: 'pedido_creado' | 'descuento_stock' | 'alerta_stock' | 'comanda_estado' | 'merma_registrada' | 'sistema', mensaje: string) => void;
 }
 
 type FacturaExtendida = Factura & {
@@ -715,11 +715,15 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
             {filtered.length > 0 && (
               <button onClick={async () => {
                 toast.info(`Descargando ${filtered.length} comprobantes...`);
+                let ok = 0, fail = 0;
                 for (const f of filtered) {
-                  await downloadFacturaPdf(f);
+                  try {
+                    await downloadFacturaPdf(f);
+                    ok++;
+                  } catch { fail++; }
                   await new Promise(r => setTimeout(r, 300));
                 }
-                toast.success(`${filtered.length} PDFs descargados.`);
+                toast.success(`${ok} PDFs descargados${fail > 0 ? `, ${fail} fallaron` : ''}.`);
               }} className="px-3 py-1.5 bg-[#624A3E] hover:bg-[#503C32] text-white text-[10px] font-extrabold rounded-lg transition-all cursor-pointer flex items-center gap-1.5">
                 <Download className="w-3 h-3" /> Descargar {filtered.length} PDFs
               </button>

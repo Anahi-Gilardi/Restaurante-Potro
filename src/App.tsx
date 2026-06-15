@@ -233,7 +233,7 @@ export default function App() {
 
     client.auth.getSession().then(({ data }) => {
       if (data.session) applyAuthenticatedSession(data.session);
-    });
+    }).catch(err => console.error('Auth session error:', err));
     const { data: listener } = client.auth.onAuthStateChange((_event, session) => {
       if (session) applyAuthenticatedSession(session);
     });
