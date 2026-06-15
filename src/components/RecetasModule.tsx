@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ChefHat, Hammer, Tag, AlertTriangle, Plus, Scale } from 'lucide-react';
+import { ChefHat, Hammer, Tag, AlertTriangle, Plus, Scale, Search, Trash, Edit2, Check, X } from 'lucide-react';
 import { RecetaEscandallo, ProductoMenu, Insumo, EventoLog } from '../types';
 import { recetasService } from '../services/recetasService';
 
@@ -19,6 +19,9 @@ export default function RecetasModule({
   addLog
 }: RecetasModuleProps) {
   const [activeTabRecipe, setActiveTabRecipe] = useState<string>(productosMenu[0]?.id_producto || '');
+  const [searchProduct, setSearchProduct] = useState('');
+  const [editCantidad, setEditCantidad] = useState<string | null>(null);
+  const [editCantidadValue, setEditCantidadValue] = useState('');
 
   // Add ingredient state
   const [selectedInsumoId, setSelectedInsumoId] = useState('');
@@ -29,7 +32,8 @@ export default function RecetasModule({
     setLocalRecetas(recetas);
   }, [recetas]);
 
-  const selectedProduct = productosMenu.find(p => p.id_producto === activeTabRecipe);
+  const filteredProducts = productosMenu.filter(p => p.nombre.toLowerCase().includes(searchProduct.toLowerCase()));
+  const selectedProduct = filteredProducts.find(p => p.id_producto === activeTabRecipe);
   const currentRecipeItems = localRecetas.filter(r => r.id_producto === activeTabRecipe);
 
     // Costo calculado usando costo_unitario real del Insumo
@@ -86,8 +90,14 @@ export default function RecetasModule({
         {/* Left col: list of dish recipes selection */}
         <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs space-y-3">
           <h3 className="text-xs font-black text-stone-500 uppercase tracking-wider">Recetarios Habilitados</h3>
+          <div className="relative mb-2">
+            <Search className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+            <input type="text" value={searchProduct} onChange={e => setSearchProduct(e.target.value)}
+              placeholder="Buscar producto..."
+              className="w-full pl-8 pr-2 py-1.5 text-xs border border-stone-200 rounded-lg bg-stone-50 focus:outline-none focus:ring-1 focus:ring-[#624A3E]" />
+          </div>
           <div className="space-y-1.5 max-h-[360px] overflow-y-auto pr-1">
-            {productosMenu.filter(p => p.categoria === 'cocina').map(p => {
+            {filteredProducts.map(p => {
               const isSelected = activeTabRecipe === p.id_producto;
               const count = localRecetas.filter(r => r.id_producto === p.id_producto).length;
 
@@ -176,18 +186,36 @@ export default function RecetasModule({
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-4">
-                          <div className="text-right">
-                            <span className="text-xs font-black text-stone-900 font-mono">{rec.cantidad_a_descontar} {matchedInsumo.unidad_medida}</span>
-                            <span className="text-[9px] text-stone-400 block font-bold leading-none">de descuento</span>
+                          <div className="flex items-center gap-4">
+                            <div className="text-right">
+                              {editCantidad === rec.id_receta ? (
+                                <div className="flex items-center gap-1">
+                                  <input type="number" step="0.01" value={editCantidadValue} onChange={e => setEditCantidadValue(e.target.value)}
+                                    className="w-16 text-xs p-1 border border-stone-300 rounded bg-white text-center font-mono font-bold focus:outline-none focus:ring-1 focus:ring-[#624A3E]" />
+                                  <button onClick={() => {
+                                    const val = parseFloat(editCantidadValue);
+                                    if (val > 0) {
+                                      setLocalRecetas(prev => prev.map(r => r.id_receta === rec.id_receta ? { ...r, cantidad_a_descontar: val } : r));
+                                      recetasService.update(rec.id_receta, { cantidad_a_descontar: val }).catch(() => {});
+                                      setEditCantidad(null);
+                                    }
+                                  }} className="p-1 rounded bg-emerald-50 text-emerald-600 cursor-pointer"><Check className="w-3 h-3" /></button>
+                                  <button onClick={() => setEditCantidad(null)} className="p-1 rounded bg-stone-100 text-stone-500 cursor-pointer"><X className="w-3 h-3" /></button>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-xs font-black text-stone-900 font-mono">{rec.cantidad_a_descontar} {matchedInsumo.unidad_medida}</span>
+                                  <button onClick={() => { setEditCantidad(rec.id_receta); setEditCantidadValue(String(rec.cantidad_a_descontar)); }}
+                                    className="p-1 rounded text-stone-400 hover:text-blue-500 cursor-pointer"><Edit2 className="w-3 h-3" /></button>
+                                </div>
+                              )}
+                              <span className="text-[9px] text-stone-400 block font-bold leading-none">de descuento</span>
+                            </div>
+                            <button onClick={() => handleRemoveRecipeItem(rec.id_receta)}
+                              className="p-1 px-2 rounded-lg bg-rose-50 text-rose-500 hover:bg-rose-100 transition-colors cursor-pointer text-[10px] font-bold">
+                              <Trash className="w-3 h-3" />
+                            </button>
                           </div>
-                          <button 
-                            onClick={() => handleRemoveRecipeItem(rec.id_receta)}
-                            className="p-1 px-2 rounded-lg bg-rose-50 text-rose-500 hover:bg-rose-100 transition-colors cursor-pointer text-[10px] font-bold"
-                          >
-                            Eliminar
-                          </button>
-                        </div>
                       </div>
                     );
                   })}

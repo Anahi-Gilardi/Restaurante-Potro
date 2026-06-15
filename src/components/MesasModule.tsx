@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useToast, ToastContainer } from './ToastContainer';
-import { Sofa, MapPin, Grid, Layers, HelpCircle, Plus, Check } from 'lucide-react';
+import { Sofa, MapPin, Grid, Layers, HelpCircle, Plus, Check, Trash, Edit2, X } from 'lucide-react';
 import { Mesa, EventoLog } from '../types';
 import { mesasService } from '../services/mesasService';
 
@@ -14,6 +14,10 @@ export default function MesasModule({ mesas, onMesasChange, addLog }: MesasModul
   const [localMesas, setLocalMesas] = useState<Mesa[]>(mesas);
   const [numeroMesa, setNumeroMesa] = useState('');
   const [sector, setSector] = useState<'salon' | 'terraza' | 'vip'>('salon');
+  const [editingMesaId, setEditingMesaId] = useState<number | null>(null);
+  const [editNumero, setEditNumero] = useState('');
+  const [editSector, setEditSector] = useState<'salon' | 'terraza' | 'vip'>('salon');
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const { toast, toasts, removeToast } = useToast();
 
   useEffect(() => {
@@ -75,6 +79,40 @@ export default function MesasModule({ mesas, onMesasChange, addLog }: MesasModul
       onMesasChange(next);
       return next;
     });
+  };
+
+  const handleStartEdit = (m: Mesa) => {
+    setEditingMesaId(m.id_mesa);
+    const name = m.numero_mesa.replace(/^(VIP-|Terraza-|Mesa\s+)/, '');
+    setEditNumero(name);
+    setEditSector(m.numero_mesa.includes('VIP') ? 'vip' : m.numero_mesa.includes('Terraza') ? 'terraza' : 'salon');
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingMesaId || !editNumero) return;
+    const formattedName = editSector === 'vip' ? `VIP-${editNumero}` : editSector === 'terraza' ? `Terraza-${editNumero}` : `Mesa ${editNumero}`;
+    setLocalMesas(prev => prev.map(m => {
+      if (m.id_mesa === editingMesaId) {
+        const updated = { ...m, numero_mesa: formattedName };
+        mesasService.update(editingMesaId, { numero_mesa: formattedName }).catch(() => {});
+        addLog('sistema', `MESAS: Modificada mesa a '${formattedName}'`);
+        return updated;
+      }
+      return m;
+    }));
+    setEditingMesaId(null);
+    toast.success('Mesa actualizada.');
+  };
+
+  const handleDeleteMesa = (id: number) => {
+    setLocalMesas(prev => {
+      const next = prev.filter(m => m.id_mesa !== id);
+      onMesasChange(next);
+      return next;
+    });
+    mesasService.remove(id).catch(() => {});
+    addLog('sistema', `MESAS: Mesa eliminada del sistema`);
+    setDeleteConfirmId(null);
   };
 
   const freeCount = localMesas.filter(m => m.estado === 'libre').length;
@@ -164,27 +202,60 @@ export default function MesasModule({ mesas, onMesasChange, addLog }: MesasModul
               }
 
               return (
-                <button
-                  key={m.id_mesa}
-                  onClick={() => handleToggleEstadoMesa(m.id_mesa)}
-                  className={`p-4 rounded-xl border text-center transition-all cursor-pointer flex flex-col justify-between h-28 ${colorClasses}`}
-                >
-                  <div className="flex justify-between items-center w-full">
-                    <span className="text-[8px] uppercase tracking-wide opacity-75 font-semibold">
-                      {m.numero_mesa.includes('VIP') ? 'VIP' : m.numero_mesa.includes('Terraza') ? 'Terraza' : 'Salón'}
-                    </span>
-                    <span className={`w-2 h-2 rounded-full ${isOccupied ? 'bg-[#624A3E]' : 'bg-emerald-500'}`} />
-                  </div>
-
-                  <div className="py-2">
-                    <Sofa className="w-5 h-5 mx-auto mb-1 opacity-70" />
-                    <strong className="text-xs font-black block tracking-tight">{m.numero_mesa}</strong>
-                  </div>
-
-                  <div className="text-[9px] uppercase font-bold opacity-80 pt-1 border-t border-stone-200/40 w-full">
-                    {isOccupied ? `Ocupada (${m.comensales || 2} pax)` : 'Disponible'}
-                  </div>
-                </button>
+                <div key={m.id_mesa} className="relative group">
+                  {editingMesaId === m.id_mesa ? (
+                    <div className="p-3 rounded-xl border border-[#624A3E] bg-amber-50/30 flex flex-col gap-2 h-28">
+                      <input type="text" value={editNumero} onChange={e => setEditNumero(e.target.value)}
+                        className="w-full text-xs p-1.5 border border-stone-300 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-[#624A3E]" />
+                      <select value={editSector} onChange={e => setEditSector(e.target.value as any)}
+                        className="w-full text-[10px] p-1 border border-stone-300 rounded-lg bg-white focus:outline-none">
+                        <option value="salon">Salón</option>
+                        <option value="terraza">Terraza</option>
+                        <option value="vip">VIP</option>
+                      </select>
+                      <div className="flex gap-1">
+                        <button onClick={handleSaveEdit} className="flex-1 py-1 bg-emerald-600 text-white text-[10px] font-bold rounded-lg cursor-pointer">Guardar</button>
+                        <button onClick={() => setEditingMesaId(null)} className="py-1 px-2 bg-stone-200 text-stone-600 text-[10px] rounded-lg cursor-pointer">X</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => handleToggleEstadoMesa(m.id_mesa)}
+                      className={`p-4 rounded-xl border text-center transition-all cursor-pointer flex flex-col justify-between h-28 w-full ${colorClasses}`}
+                    >
+                      <div className="flex justify-between items-center w-full">
+                        <span className="text-[8px] uppercase tracking-wide opacity-75 font-semibold">
+                          {m.numero_mesa.includes('VIP') ? 'VIP' : m.numero_mesa.includes('Terraza') ? 'Terraza' : 'Salón'}
+                        </span>
+                        <span className={`w-2 h-2 rounded-full ${isOccupied ? 'bg-[#624A3E]' : 'bg-emerald-500'}`} />
+                      </div>
+                      <div className="py-2">
+                        <Sofa className="w-5 h-5 mx-auto mb-1 opacity-70" />
+                        <strong className="text-xs font-black block tracking-tight">{m.numero_mesa}</strong>
+                      </div>
+                      <div className="text-[9px] uppercase font-bold opacity-80 pt-1 border-t border-stone-200/40 w-full">
+                        {isOccupied ? `Ocupada (${m.comensales || 2} pax)` : 'Disponible'}
+                      </div>
+                    </button>
+                  )}
+                  {!editingMesaId && (
+                    <div className="absolute top-1 right-1 hidden group-hover:flex gap-0.5 z-10">
+                      <button onClick={(e) => { e.stopPropagation(); handleStartEdit(m); }}
+                        className="p-1 bg-white/90 rounded-l text-stone-500 hover:text-blue-600 shadow-sm border cursor-pointer"><Edit2 className="w-3 h-3" /></button>
+                      {deleteConfirmId === m.id_mesa ? (
+                        <>
+                          <button onClick={(e) => { e.stopPropagation(); handleDeleteMesa(m.id_mesa); }}
+                            className="p-1 bg-red-500 text-white cursor-pointer"><Check className="w-3 h-3" /></button>
+                          <button onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(null); }}
+                            className="p-1 bg-white rounded-r text-stone-500 shadow-sm border cursor-pointer"><X className="w-3 h-3" /></button>
+                        </>
+                      ) : (
+                        <button onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(m.id_mesa); }}
+                          className="p-1 bg-white/90 rounded-r text-stone-500 hover:text-red-600 shadow-sm border cursor-pointer"><Trash className="w-3 h-3" /></button>
+                      )}
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>
