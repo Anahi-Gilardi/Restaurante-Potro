@@ -846,29 +846,8 @@ export default function App() {
     return `${currentHour.toString().padStart(2, '0')}:${currentMins.toString().padStart(2, '0')} hs`;
   };
 
-  if (!isStreamlitLoggedIn && !postLoginLoading) {
-    return <PythonStreamlitLogin onLoginSuccess={handleLoginSuccess} />;
-  }
-
-  // Post-login loading: preload chunks before rendering
-  if (postLoginLoading) {
-    return (
-      <div className="min-h-screen bg-[#F5F1E9] flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="w-12 h-12 border-3 border-[#624A3E] border-t-transparent rounded-full animate-spin mx-auto" />
-          <div className="space-y-1">
-            <p className="text-sm font-bold text-stone-700">Cargando módulos...</p>
-            <p className="text-[11px] text-stone-400 font-medium">Preparando la aplicación</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Post-login: loading screen while chunks preload
+  // MUST declare all hooks before conditional returns (React Rules of Hooks)
   const [postLoginLoading, setPostLoginLoading] = useState(false);
-
-  // Track chunk load errors for auto-retry
   const [chunkError, setChunkError] = useState<string | null>(null);
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
   const [appReady, setAppReady] = useState(false);
@@ -888,6 +867,25 @@ export default function App() {
     window.addEventListener('unhandledrejection', handler);
     return () => window.removeEventListener('unhandledrejection', handler);
   }, []);
+
+  if (!isStreamlitLoggedIn && !postLoginLoading) {
+    return <PythonStreamlitLogin onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  // Post-login loading: preload chunks before rendering
+  if (postLoginLoading) {
+    return (
+      <div className="min-h-screen bg-[#F5F1E9] flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="w-12 h-12 border-3 border-[#624A3E] border-t-transparent rounded-full animate-spin mx-auto" />
+          <div className="space-y-1">
+            <p className="text-sm font-bold text-stone-700">Cargando módulos...</p>
+            <p className="text-[11px] text-stone-400 font-medium">Preparando la aplicación</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (chunkError) {
     return (
