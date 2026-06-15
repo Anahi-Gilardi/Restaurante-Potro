@@ -8,6 +8,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import ElPatronLogo from './ElPatronLogo';
+import { getSupabaseClient } from '../supabase';
 
 interface PythonStreamlitLoginProps {
   onLoginSuccess: () => void;
@@ -17,17 +18,41 @@ export default function PythonStreamlitLogin({ onLoginSuccess }: PythonStreamlit
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const env = (import.meta as any).env || {};
   const demoUser = String(env.VITE_DEMO_USER || 'sistema');
   const demoPassword = String(env.VITE_DEMO_PASSWORD || 'restaurante');
   const demoEnabled = env.VITE_ENABLE_DEMO_LOGIN !== 'false';
 
-  const executeLogin = (e?: React.FormEvent) => {
+  const executeLogin = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    
+
+    setError(null);
+    setInfo(null);
+
+    if (username.includes('@')) {
+      const client = getSupabaseClient();
+      if (!client) {
+        setError('Supabase Auth no está configurado para este entorno.');
+        return;
+      }
+
+      setIsLoggingIn(true);
+      const { error: authError } = await client.auth.signInWithPassword({
+        email: username.trim(),
+        password
+      });
+      if (!authError) {
+        onLoginSuccess();
+        return;
+      }
+      setIsLoggingIn(false);
+      setError('Email o contraseña incorrectos.');
+      return;
+    }
+
     if (demoEnabled && username.toLowerCase() === demoUser.toLowerCase() && password === demoPassword) {
-      setError(null);
       setIsLoggingIn(true);
       setTimeout(() => {
         onLoginSuccess();
@@ -35,6 +60,28 @@ export default function PythonStreamlitLogin({ onLoginSuccess }: PythonStreamlit
     } else {
       setError('Credenciales de acceso inválidas. Compruebe los datos e intente nuevamente.');
     }
+  };
+
+  const handlePasswordRecovery = async () => {
+    if (!username.includes('@')) {
+      setError('Ingrese primero el email de su cuenta.');
+      return;
+    }
+    const client = getSupabaseClient();
+    if (!client) {
+      setError('Supabase Auth no está configurado para este entorno.');
+      return;
+    }
+
+    setError(null);
+    const { error: recoveryError } = await client.auth.resetPasswordForEmail(username.trim(), {
+      redirectTo: window.location.origin
+    });
+    if (recoveryError) {
+      setError('No se pudo iniciar la recuperación de contraseña.');
+      return;
+    }
+    setInfo('Revisá tu email para continuar con la recuperación.');
   };
 
   return (
@@ -76,6 +123,11 @@ export default function PythonStreamlitLogin({ onLoginSuccess }: PythonStreamlit
                   <p className="font-extrabold text-rose-800">Error de Acceso</p>
                   <p className="text-rose-700/90 mt-0.5">{error}</p>
                 </div>
+              </div>
+            )}
+            {info && (
+              <div className="bg-emerald-50 border border-emerald-100 p-3.5 rounded-2xl text-xs text-emerald-800">
+                {info}
               </div>
             )}
 
@@ -124,6 +176,13 @@ export default function PythonStreamlitLogin({ onLoginSuccess }: PythonStreamlit
               >
                 <span>Ingresar al Sistema</span>
                 <ArrowRight className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={handlePasswordRecovery}
+                className="w-full py-2 text-[11px] font-bold text-stone-500 hover:text-[#4A2D1B] transition-colors"
+              >
+                Recuperar contraseña por email
               </button>
 
             </div>

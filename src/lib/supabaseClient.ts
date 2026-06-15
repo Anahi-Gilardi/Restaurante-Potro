@@ -45,7 +45,11 @@ const createConfiguredClient = (): SupabaseClient | null => {
 
   cachedFingerprint = fingerprint;
   cachedClient = createClient(config.url, config.key, {
-    auth: { persistSession: false }
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true
+    }
   });
 
   return cachedClient;

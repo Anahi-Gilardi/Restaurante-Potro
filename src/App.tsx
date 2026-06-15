@@ -160,6 +160,19 @@ export default function App() {
     autoLoadSupabase();
   }, [addLog]);
 
+  useEffect(() => {
+    const client = getSupabaseClient();
+    if (!client) return;
+
+    client.auth.getSession().then(({ data }) => {
+      if (data.session) setIsStreamlitLoggedIn(true);
+    });
+    const { data: listener } = client.auth.onAuthStateChange((_event, session) => {
+      if (session) setIsStreamlitLoggedIn(true);
+    });
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
   // Sync completion callback handed to settings
   const handleSupabaseSync = (newData: {
     mesas?: Mesa[];
@@ -286,6 +299,7 @@ export default function App() {
 
   const handleLogout = () => {
     window.sessionStorage.removeItem('el_patron_session');
+    getSupabaseClient()?.auth.signOut().catch(() => undefined);
     setIsStreamlitLoggedIn(false);
   };
 
