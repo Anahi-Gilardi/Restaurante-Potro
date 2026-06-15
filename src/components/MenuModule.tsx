@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { UtensilsCrossed, Plus, Search, Edit2, Check, RefreshCw } from 'lucide-react';
+import { UtensilsCrossed, Plus, Search, Edit2, Check, RefreshCw, Copy, X } from 'lucide-react';
 import { ProductoMenu, EventoLog } from '../types';
 import { menuService } from '../services/menuService';
 
@@ -26,9 +26,13 @@ export default function MenuModule({ productosMenu, onProductosChange, addLog }:
   const [categoria, setCategoria] = useState<string>('Entradas');
   const [imagenUrl, setImagenUrl] = useState('');
 
-  // Edit states
+  // Full edit state
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editPrecio, setEditPrecio] = useState('');
+  const [editNombre, setEditNombre] = useState('');
+  const [editDescripcion, setEditDescripcion] = useState('');
+  const [editCategoria, setEditCategoria] = useState('');
+  const [editImagen, setEditImagen] = useState('');
 
   const handleCreateItem = (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,21 +97,26 @@ export default function MenuModule({ productosMenu, onProductosChange, addLog }:
     });
   };
 
-  const handleStartEditing = (id: string, currentPrice: number) => {
-    setEditingId(id);
-    setEditPrecio(currentPrice.toString());
+  const handleStartEditing = (item: ProductoMenu) => {
+    setEditingId(item.id_producto);
+    setEditPrecio(item.precio_venta.toString());
+    setEditNombre(item.nombre);
+    setEditDescripcion(item.descripcion || '');
+    setEditCategoria(item.categoria);
+    setEditImagen(item.imagen || '');
   };
 
-  const handleSavePrecio = (id: string) => {
+  const handleSaveEdit = (id: string) => {
     const parsedPrice = parseFloat(editPrecio);
-    if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) return;
+    if (!Number.isFinite(parsedPrice) || parsedPrice <= 0 || !editNombre.trim()) return;
 
     setItems(prev => {
       const next = prev.map(item => {
       if (item.id_producto === id) {
-        menuService.update(id, { precio_venta: parsedPrice }).catch(err => console.error(err));
-        addLog('sistema', `MENÚ: Actualizado precio de venta de '${item.nombre}' de $${item.precio_venta} a $${parsedPrice}`);
-        return { ...item, precio_venta: parsedPrice };
+        const updated: any = { precio_venta: parsedPrice, nombre: editNombre.trim(), descripcion: editDescripcion.trim(), categoria: editCategoria, imagen: editImagen };
+        menuService.update(id, updated).catch(err => console.error(err));
+        addLog('sistema', `MENÚ: Actualizado '${item.nombre}' → '${editNombre}' ($${parsedPrice})`);
+        return { ...item, ...updated };
       }
       return item;
       });
@@ -115,6 +124,22 @@ export default function MenuModule({ productosMenu, onProductosChange, addLog }:
       return next;
     });
     setEditingId(null);
+  };
+
+  const handleDuplicateItem = (item: ProductoMenu) => {
+    const dup: ProductoMenu = {
+      ...item,
+      id_producto: `prod_dup_${Date.now()}`,
+      nombre: `${item.nombre} (copia)`,
+      activo: true,
+    };
+    setItems(prev => {
+      const next = [dup, ...prev];
+      onProductosChange(next);
+      return next;
+    });
+    menuService.create(dup).catch(err => console.error(err));
+    addLog('sistema', `MENÚ: Duplicado '${item.nombre}' como '${dup.nombre}'`);
   };
 
   // Filter items
@@ -266,28 +291,32 @@ export default function MenuModule({ productosMenu, onProductosChange, addLog }:
                     )}
                     
                     {editingId === item.id_producto ? (
-                      <div className="flex items-center gap-1.5 mt-1">
-                        <span className="text-xs font-bold text-stone-700">$</span>
-                        <input 
-                          type="number" 
-                          value={editPrecio}
-                          onChange={e => setEditPrecio(e.target.value)}
-                          className="w-16 text-xs p-1 border border-stone-300 rounded bg-white text-stone-800 font-mono font-bold focus:outline-none focus:ring-1 focus:ring-[#624A3E]"
-                        />
-                        <button 
-                          onClick={() => handleSavePrecio(item.id_producto)}
-                          className="p-1 rounded bg-[#22C55E]/15 hover:bg-[#22C55E]/20 text-[#22C55E] cursor-pointer"
-                        >
-                          <Check className="w-3.5 h-3.5" />
-                        </button>
+                      <div className="space-y-2 mt-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-bold text-stone-700">$</span>
+                          <input type="number" value={editPrecio} onChange={e => setEditPrecio(e.target.value)}
+                            className="w-16 text-xs p-1 border border-stone-300 rounded bg-white text-stone-800 font-mono font-bold focus:outline-none focus:ring-1 focus:ring-[#624A3E]" />
+                        </div>
+                        <input type="text" value={editNombre} onChange={e => setEditNombre(e.target.value)}
+                          className="w-full text-[10px] p-1 border border-stone-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-[#624A3E]" />
+                        <textarea value={editDescripcion} onChange={e => setEditDescripcion(e.target.value)} rows={2}
+                          className="w-full text-[10px] p-1 border border-stone-300 rounded bg-white resize-none focus:outline-none focus:ring-1 focus:ring-[#624A3E]" />
+                        <select value={editCategoria} onChange={e => setEditCategoria(e.target.value)}
+                          className="w-full text-[10px] p-1 border border-stone-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-[#624A3E]">
+                          {['Entradas','Pastas','Carnes','Pescados','Comidas Criollas','Postres','Bebidas','Bodega'].map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                        <div className="flex gap-1.5">
+                          <button onClick={() => handleSaveEdit(item.id_producto)}
+                            className="p-1 rounded bg-[#22C55E]/15 hover:bg-[#22C55E]/20 text-[#22C55E] cursor-pointer"><Check className="w-3.5 h-3.5" /></button>
+                          <button onClick={() => setEditingId(null)}
+                            className="p-1 rounded bg-stone-100 hover:bg-stone-200 text-stone-500 cursor-pointer"><X className="w-3.5 h-3.5" /></button>
+                        </div>
                       </div>
                     ) : (
                       <div className="flex items-center gap-1.5">
                         <span className="text-xs font-black text-stone-850 font-mono tracking-tight">${item.precio_venta.toLocaleString('es-AR')}</span>
-                        <button 
-                          onClick={() => handleStartEditing(item.id_producto, item.precio_venta)}
-                          className="p-1 px-1.5 rounded hover:bg-stone-200/50 text-stone-400 hover:text-stone-750 transition-colors cursor-pointer text-[10px]"
-                        >
+                        <button onClick={() => handleStartEditing(item)}
+                          className="p-1 px-1.5 rounded hover:bg-stone-200/50 text-stone-400 hover:text-stone-750 transition-colors cursor-pointer text-[10px]">
                           <Edit2 className="w-2.5 h-2.5" />
                         </button>
                       </div>
@@ -295,6 +324,11 @@ export default function MenuModule({ productosMenu, onProductosChange, addLog }:
                   </div>
 
                   <div className="flex items-center justify-between pt-2 border-t border-stone-200/40 mt-1">
+                    <button onClick={() => handleDuplicateItem(item)}
+                      className="text-[9px] font-bold px-1.5 py-0.5 rounded cursor-pointer transition-colors bg-stone-50 hover:bg-stone-100 text-stone-500 flex items-center gap-1">
+                      <Copy className="w-2.5 h-2.5" /> Duplicar
+                    </button>
+                    <div className="flex items-center gap-1">
                     <span className={`text-[9px] font-bold ${item.activo ? 'text-emerald-600' : 'text-rose-500'}`}>
                       {item.activo ? '● En carta' : '● Pausado'}
                     </span>
@@ -311,6 +345,7 @@ export default function MenuModule({ productosMenu, onProductosChange, addLog }:
                   </div>
                 </div>
               </div>
+            </div>
             ))}
           </div>
 
