@@ -81,6 +81,7 @@ export default function App() {
   const [recetas, setRecetas] = useState<RecetaEscandallo[]>(INITIAL_RECETAS_ESCANDALLO);
   const [pedidos, setPedidos] = useState<Pedido[]>(INITIAL_PEDIDOS);
   const [mermas, setMermas] = useState<Merma[]>([]);
+  const [postLoginLoading, setPostLoginLoading] = useState<boolean>(false);
 
   // Mapa O(1) de precio_venta para cálculos de ventas en toda la app
   const precioMap = useMemo(() => {
@@ -194,9 +195,6 @@ export default function App() {
     if (newData.mermas) setMermas(newData.mermas);
   };
 
-  
-  // Custom interactive log tracker for BI & audit
-
   // Terminal active configs & simulation states
   const [activeMozo, setActiveMozo] = useState<string>('Sofía');
   const [activeView, setActiveView] = useState<AppView>('home');
@@ -206,7 +204,16 @@ export default function App() {
       || INITIAL_USUARIOS[0],
     [usuarios, activeMozo]
   );
-  const allowedViews = useMemo(() => getAllowedViews(activeUser.rol), [activeUser.rol]);
+
+  // NUEVO: Modificación del hook useMemo para filtrar las vistas si el rol es "Administrador"
+  const allowedViews = useMemo(() => {
+    const views = getAllowedViews(activeUser.rol);
+    // Si el rol es Administrador (no Super admi), quitamos 'backups' y 'sistema' de sus vistas permitidas
+    if (activeUser.rol.toLowerCase() === 'administrador') {
+      return views.filter(view => view !== 'backups' && view !== 'sistema');
+    }
+    return views;
+  }, [activeUser.rol]);
 
   const applyAuthenticatedSession = useCallback((session: {
     user?: { user_metadata?: Record<string, unknown> };
@@ -339,13 +346,20 @@ export default function App() {
       return;
     }
     setActiveMozo(mozo);
-    if (!canAccessView(nextUser.rol, activeView)) {
+    if (!allowedViews.includes(activeView)) {
       setActiveView('home');
     }
     addLog('sistema', `SESIÓN: Usuario operativo actualizado a ${mozo} (${nextUser.rol}).`);
   };
 
+  // NUEVO: Validación estricta en el método de navegación
   const handleNavigate = (view: AppView) => {
+    // Si el usuario es administrador e intenta ir a backups o sistema, lo rebota.
+    if (activeUser.rol.toLowerCase() === 'administrador' && (view === 'backups' || view === 'sistema')) {
+      toast.warning(`El rol Administrador no tiene acceso al sistema ni a copias de seguridad.`);
+      setActiveView('home');
+      return;
+    }
     if (!canAccessView(activeUser.rol, view)) {
       toast.warning(`El rol ${activeUser.rol} no tiene permiso para abrir este módulo.`);
       setActiveView('home');
@@ -364,9 +378,9 @@ export default function App() {
       : undefined;
     const operator = requestedOperator
       || (isDemoLogin
-        ? usuarios.find(usuario => usuario.activo !== false && usuario.rol === 'administrador')
+        ? usuarios.find(usuario => usuario.activo !== false && usuario.rol.toLowerCase() === 'super admi')
         : usuarios.find(usuario => usuario.activo !== false && usuario.rol === 'mozo'))
-      || usuarios.find(usuario => usuario.activo !== false && usuario.rol !== 'administrador')
+      || usuarios.find(usuario => usuario.activo !== false && usuario.rol.toLowerCase() !== 'super admi')
       || usuarios.find(usuario => usuario.activo !== false);
 
     if (!operator) {
@@ -378,17 +392,14 @@ export default function App() {
     setActiveMozo(operator.nombre);
     setActiveView('home');
 
-    // Show loading screen and preload critical chunks before rendering the app
     setPostLoginLoading(true);
 
-    // Preload the initial module chunks that will be needed immediately
     const chunksToPreload = [
       import('./components/HomeMenuModule'),
       import('./components/PanelDashboard'),
     ];
 
     Promise.allSettled(chunksToPreload).finally(() => {
-      // Small extra delay to ensure smooth transition
       setTimeout(() => {
         setPostLoginLoading(false);
         setIsStreamlitLoggedIn(true);
@@ -409,16 +420,13 @@ export default function App() {
 
     const pObj = pedidos.find(p => p.id_pedido === idPedido);
 
-    // If changing to 'en_cocina' (production), run escandallo and subtract stock if not discounted yet
     if (nuevoEstado === 'en_cocina' && pObj) {
-      // 1. Validate empty orders or orders without products
       if (!pObj.items || pObj.items.length === 0) {
         toast.error("Error: No se puede enviar a cocina un pedido vacío (sin productos).");
         addLog('sistema', `RECHAZADO: Intento de enviar a cocina el pedido vacío #${idPedido}`);
         return;
       }
 
-      // 2. Prevent double stock deduction
       if (pObj.stock_descontado) {
         console.log(`[Escandallo] El pedido #${idPedido} ya tiene stock descontado.`);
       } else {
@@ -426,14 +434,12 @@ export default function App() {
         let itemsDescontados: string[] = [];
         let alarmasBajoStock: string[] = [];
 
-        // Validate insufficient stock BEFORE proceeding if ALLOW VENTA WITHOUT STOCK is false
         if (!permitirVentaSinStock) {
           for (const item of pObj.items) {
             const qtyPlates = item.cantidad;
             const matchingRecetas = recetas.filter(r => r.id_producto === item.id_producto);
 
             if (matchingRecetas.length === 0) {
-              // Warn about missing recipe, but do not break the order
               addLog('sistema', `ADVERTENCIA RECETA: El producto '${item.nombre}' no tiene receta asociada.`);
               continue;
             }
@@ -458,10 +464,9 @@ export default function App() {
         if (!canDeduct) {
           toast.error(`No es posible iniciar cocción: ${errorMsg}`);
           addLog('alerta_stock', `RECHAZADO FUEGO: Pedido #${idPedido} bloqueado por falta de stock. ${errorMsg}`);
-          return; // STOP!
+          return;
         }
 
-        // Apply deduction to ingredients
         let updatedInsumos: Insumo[] = [];
         setInsumos(prevInsumos => {
           const copy = prevInsumos.map(ins => ({ ...ins }));
@@ -485,7 +490,6 @@ export default function App() {
                   alarmasBajoStock.push(`${currentIns.nombre} (Stock actual: ${updatedStock}${currentIns.unidad_medida})`);
                 }
 
-                // Record inventory movement securely
                 dbRecordMovement({
                   id_insumo: currentIns.id_insumo,
                   tipo_movimiento: 'salida_comanda',
@@ -503,7 +507,6 @@ export default function App() {
           return copy;
         });
 
-        // Mutate local temporary model flags
         pObj.stock_descontado = true;
         pObj.fecha_descuento_stock = new Date();
 
@@ -515,7 +518,6 @@ export default function App() {
           addLog('alerta_stock', `CRÍTICO REPOSICIÓN: El insumo '${alertStr}' cayó por debajo del stock mínimo estipulado.`);
         });
 
-        // Write through stocks to database
         setTimeout(() => {
           if (updatedInsumos.length > 0) {
             dbUpsertInsumos(updatedInsumos);
@@ -524,7 +526,6 @@ export default function App() {
       }
     }
 
-    // If order is canceled, let's reverse stock deduction if it has already been discounted
     if (nuevoEstado === 'cancelado' && pObj) {
       if (pObj.stock_descontado) {
         let itemsReversados: string[] = [];
@@ -548,7 +549,6 @@ export default function App() {
                 copy[insIdx].stock_actual = updatedStock;
                 itemsReversados.push(`${currentIns.nombre} (+${restoreAmt} ${currentIns.unidad_medida})`);
 
-                // Record reversal inventory movement
                 dbRecordMovement({
                   id_insumo: currentIns.id_insumo,
                   tipo_movimiento: 'entrada',
@@ -581,12 +581,11 @@ export default function App() {
       }
     }
 
-    // Proceed to standard states update
     setPedidos(prev => prev.map(p => {
       if (p.id_pedido === idPedido) {
         const updated = { ...p, estado_comanda: nuevoEstado };
         if (nuevoEstado === 'listo') {
-          updated.segundos_en_listo = 0; // reset cooling timer
+          updated.segundos_en_listo = 0;
         }
         updatedPedido = updated;
         return updated;
@@ -597,7 +596,6 @@ export default function App() {
     const mStr = pObj ? ` para ${pObj.numero_mesa}` : '';
     addLog('comanda_estado', `COMANDA #${idPedido}${mStr}: Estado cambiado a ${nuevoEstado.toUpperCase()}`);
 
-    // Dynamic write-through
     setTimeout(() => {
       if (updatedPedido) {
         dbSavePedidoComplex(updatedPedido);
@@ -606,7 +604,6 @@ export default function App() {
       }
     }, 50);
 
-    // If order was delivered/paid or canceled, liberate the table
     if ((nuevoEstado === 'entregado_cobrado' || nuevoEstado === 'cancelado') && pObj) {
       const updatedMesas = mesas.map(m => m.id_mesa === pObj.id_mesa ? { ...m, estado: 'libre' as const, comensales: undefined } : m);
       setMesas(updatedMesas);
@@ -615,7 +612,6 @@ export default function App() {
   };
 
   const handleProducirPedidoConEscandallo = (idPedido: number) => {
-    // When marking as finished, transition to 'listo'
     handleCambiarEstadoPedido(idPedido, 'listo');
   };
 
@@ -624,16 +620,13 @@ export default function App() {
     const target = pedidos.find(p => p.id_pedido === idPedido);
     if (!target) return;
 
-    // Settle order state to delivered/paid
     setPedidos(prev => prev.map(p => p.id_pedido === idPedido ? { ...p, estado_comanda: 'entregado_cobrado' } : p));
 
-    // Clear mesa state
     const updatedMesas = mesas.map(m => m.id_mesa === target.id_mesa ? { ...m, estado: 'libre' as const, comensales: undefined } : m);
     setMesas(updatedMesas);
 
     addLog('sistema', `CAJA: Facturación completa cobrada correctamente de la mesa ${target.numero_mesa} por Pedido #${idPedido}`);
 
-    // Supabase pushes
     dbSavePedidoComplex({ ...target, estado_comanda: 'entregado_cobrado' });
     dbUpsertMesas(updatedMesas);
   }, [pedidos, mesas, addLog]);
@@ -655,7 +648,6 @@ export default function App() {
 
     setMermas(prev => [newMerma, ...prev]);
 
-    // Subtract from active stock
     const updatedInsumos = insumos.map(i => i.id_insumo === idInsumo ? {
       ...i,
       stock_actual: Math.max(0, parseFloat((i.stock_actual - cantidad).toFixed(2)))
@@ -664,7 +656,6 @@ export default function App() {
 
     addLog('merma_registrada', `REGISTRO MERMA: ${cantidad} ${insObj.unidad_medida} de '${insObj.nombre}' registrado por motivo: ${motivo.toUpperCase()}`);
 
-    // Sync inventory reduction
     dbUpsertInsumos(updatedInsumos);
     dbUpsertMermas([newMerma, ...mermas]);
     dbRecordMovement({
@@ -686,7 +677,6 @@ export default function App() {
 
     addLog('sistema', `REPOSICIÓN: Incremetado stock de '${item ? item.nombre : idInsumo}' en +${cantidad}`);
 
-    // Sync inventory write
     dbUpsertInsumos(updatedInsumos);
     if (item) {
       dbRecordMovement({
@@ -710,7 +700,6 @@ export default function App() {
     setInsumos(updatedInsumos);
     addLog('sistema', `REPOSICIÓN GENERAL: Abastecimiento global automático de todos los insumos y materias primas.`);
 
-    // Sync bulk inventory
     dbUpsertInsumos(updatedInsumos);
   };
 
@@ -742,14 +731,12 @@ export default function App() {
   const handleAdvanceTime = (mins: number) => {
     setMinutosGlobal(prev => prev + mins);
 
-    // Age outstanding orders
     setPedidos(prev => prev.map(p => {
       if (p.estado_comanda !== 'entregado_cobrado') {
         const updated = {
           ...p,
           minutos_transcurridos: p.minutos_transcurridos + mins
         };
-        // If the plate was ready, count the seconds/minutes in listo
         if (p.estado_comanda === 'listo') {
           updated.segundos_en_listo = (updated.segundos_en_listo || 0) + mins * 60;
         }
@@ -802,11 +789,12 @@ export default function App() {
     }
   }, [usuarios, activeMozo, activeUser.nombre]);
 
+  // NUEVO: Validación de efecto secundario para rebotar al inicio si hereda vista prohibida
   useEffect(() => {
-    if (!canAccessView(activeUser.rol, activeView)) {
+    if (!allowedViews.includes(activeView)) {
       setActiveView('home');
     }
-  }, [activeUser.rol, activeView]);
+  }, [activeUser.rol, activeView, allowedViews]);
 
   // Auto simulation ticker
   useEffect(() => {
@@ -828,634 +816,205 @@ export default function App() {
           }
           return p;
         }));
-      }, 2000); // Every 2s equals 1 minute
+      }, 2000);
     }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
+    return () => { if (interval) clearInterval(interval); };
   }, [autoTimerRunning]);
 
-  // Simulated live clock formatter (start 20:30)
-  const getSimulatedTimeStr = () => {
-    const startHour = 20;
-    const startMins = 30;
-    const totalMinutes = startHour * 60 + startMins + minutosGlobal;
-    const currentHour = Math.floor(totalMinutes / 60) % 24;
-    const currentMins = totalMinutes % 60;
-    return `${currentHour.toString().padStart(2, '0')}:${currentMins.toString().padStart(2, '0')} hs`;
-  };
-
-  // MUST declare all hooks before conditional returns (React Rules of Hooks)
-  const [postLoginLoading, setPostLoginLoading] = useState(false);
-  const [chunkError, setChunkError] = useState<string | null>(null);
-  const [sidebarExpanded, setSidebarExpanded] = useState(true);
-  const [appReady, setAppReady] = useState(false);
-
-  useEffect(() => {
-    const t = setTimeout(() => setAppReady(true), 50);
-    return () => clearTimeout(t);
-  }, []);
-
-  useEffect(() => {
-    const handler = (event: PromiseRejectionEvent) => {
-      if (event.reason?.message?.includes('Failed to fetch dynamically imported module') ||
-          event.reason?.message?.includes('Loading chunk')) {
-        setChunkError('Un módulo no pudo cargarse. Puede deberse a una actualización reciente.');
-      }
-    };
-    window.addEventListener('unhandledrejection', handler);
-    return () => window.removeEventListener('unhandledrejection', handler);
-  }, []);
-
-  if (!isStreamlitLoggedIn && !postLoginLoading) {
-    return <PythonStreamlitLogin onLoginSuccess={handleLoginSuccess} />;
-  }
-
-  // Post-login loading: preload chunks before rendering
-  if (postLoginLoading) {
+  if (!isStreamlitLoggedIn) {
     return (
-      <div className="min-h-screen bg-[#F5F1E9] flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="w-12 h-12 border-3 border-[#624A3E] border-t-transparent rounded-full animate-spin mx-auto" />
-          <div className="space-y-1">
-            <p className="text-sm font-bold text-stone-700">Cargando módulos...</p>
-            <p className="text-[11px] text-stone-400 font-medium">Preparando la aplicación</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (chunkError) {
-    return (
-      <div className="min-h-screen bg-[#F5F1E9] flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl p-8 max-w-md text-center space-y-4 shadow-xl border border-stone-200">
-          <p className="text-4xl">🔄</p>
-          <h2 className="text-lg font-black text-stone-800">Actualización disponible</h2>
-          <p className="text-sm text-stone-500">{chunkError}</p>
-          <button onClick={() => window.location.reload()}
-            className="px-6 py-3 bg-[#624A3E] hover:bg-[#503C32] text-white font-extrabold rounded-xl text-sm transition-all cursor-pointer">
-            Recargar y actualizar
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // Initial loading state while first lazy module loads
-  if (!appReady) {
-    return (
-      <div className="min-h-screen bg-[#F5F1E9] flex items-center justify-center">
-        <div className="text-center space-y-3">
-          <div className="w-10 h-10 border-3 border-[#624A3E] border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-sm font-bold text-stone-500">Iniciando El Patrón...</p>
-        </div>
-      </div>
+      <ErrorBoundary>
+        <PythonStreamlitLogin onLoginSuccess={handleLoginSuccess} />
+      </ErrorBoundary>
     );
   }
 
   return (
-    <>
-    <div className="min-h-screen bg-[#F5F1E9] flex flex-col lg:flex-row font-sans text-stone-800 antialiased selection:bg-[#624A3E] selection:text-white">
-      
-      {/* Collapse toggle button for desktop */}
-      <button
-        onClick={() => setSidebarExpanded(!sidebarExpanded)}
-        className="hidden lg:flex fixed left-0 top-1/2 -translate-y-1/2 z-40 w-5 h-10 bg-[#A67550] hover:bg-[#8E5E38] text-white rounded-r-lg items-center justify-center cursor-pointer transition-all border border-[#7A4A28]/40 border-l-0"
-        style={{ left: sidebarExpanded ? '16rem' : '4rem' }}
-        title={sidebarExpanded ? 'Colapsar menú' : 'Expandir menú'}
-      >
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className={`transition-transform duration-300 ${sidebarExpanded ? '' : 'rotate-180'}`}>
-          <polyline points="15 18 9 12 15 6" />
-        </svg>
-      </button>
-
-      {/* LEFT SIDE PANEL — Solo desktop, oculta en móvil */}
-      <aside className={`
-        hidden lg:flex flex-col h-screen
-        ${sidebarExpanded ? 'w-64' : 'w-16'}
-        bg-[#C8956A]
-        text-[#3B1F10]/90 border-r border-[#A67550]/40 shrink-0
-        transition-all duration-300 ease-in-out
-        shadow-xl shadow-black/15
-      `} id="sidebar-left-panel">
-        
-        {/* ======= SECCIÓN SCROLLABLE ======= */}
-        <div className="flex-1 overflow-y-auto scroll-passive overscroll-contain px-2 pt-2 space-y-1.5 scrollbar-thin">
-
-          {/* Brand Header */}
-          <div className="flex items-center justify-between min-h-[48px] px-1">
-            {sidebarExpanded ? (
-              <div className="flex items-center gap-2.5 py-1.5">
-                <div className="w-9 h-9 bg-white/80 rounded-lg flex items-center justify-center shadow-sm border border-[#A67550]/40 p-0.5 overflow-hidden shrink-0">
-                  <ElPatronLogo className="w-8 h-8 object-contain rounded" variant="icon" color="#4A2D1B" />
-                </div>
-                <div className="min-w-0">
-                  <span className="font-extrabold text-sm text-[#3B1F10] drop-shadow block leading-tight">El Patrón</span>
-                  <span className="text-[7px] uppercase font-bold text-[#3B1F10]/50 tracking-wider block leading-tight">Gestión Gastro</span>
-                </div>
-              </div>
-            ) : (
-              <div className="w-full flex justify-center py-1.5">
-                <div className="w-8 h-8 bg-white/70 rounded-lg flex items-center justify-center shadow-sm border border-[#A67550]/40 p-0.5 overflow-hidden">
-                  <ElPatronLogo className="w-7 h-7 object-contain rounded" variant="icon" color="#4A2D1B" />
-                </div>
-              </div>
-            )}
+    <ErrorBoundary>
+      <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col antialiased selection:bg-amber-500/30 selection:text-amber-200">
+        {/* Navbar */}
+        <header className="bg-slate-950/80 backdrop-blur-md border-b border-slate-800 px-4 py-3 flex items-center justify-between sticky top-0 z-40 shadow-lg">
+          <div className="flex items-center space-x-3 cursor-pointer" onClick={() => handleNavigate('home')}>
+            <ElPatronLogo className="w-8 h-8 text-amber-500 animate-pulse" />
+            <div>
+              <h1 className="text-lg font-black tracking-wider text-amber-500 font-mono">EL PATRÓN</h1>
+              <p className="text-[10px] text-slate-400 font-mono tracking-tight uppercase">Restobar ERP v4.2.0-Prod</p>
+            </div>
           </div>
 
-          {/* Clock widget */}
-          {sidebarExpanded && (
-          <div className="px-3 py-2 bg-[#B07A48]/30 border border-[#A67550]/30 rounded-xl">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[8px] uppercase font-bold text-[#3B1F10]/60 tracking-wider font-mono flex items-center gap-1">
-                <Clock className="w-3 h-3 text-[#3B1F10]/50" />
-                Reloj
+          <div className="flex items-center space-x-2 md:space-x-4">
+            {/* Reloj Simulación */}
+            <div className="bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800 flex items-center space-x-2 shadow-inner text-xs font-mono">
+              <Clock className={`w-3.5 h-3.5 ${autoTimerRunning ? 'text-emerald-400 animate-spin' : 'text-slate-500'}`} style={{ animationDuration: '4s' }} />
+              <span className="text-slate-300">Día 1:</span>
+              <span className="text-amber-400 font-bold">
+                {String(Math.floor((minutosGlobal + 720) / 60) % 24).padStart(2, '0')}:
+                {String((minutosGlobal + 720) % 60).padStart(2, '0')} hs
               </span>
-              <span className={`h-1.5 w-1.5 rounded-full ${autoTimerRunning ? 'bg-emerald-600 animate-pulse' : 'bg-amber-600'}`} />
             </div>
-            <div className="flex items-center justify-between">
-              <strong className="text-sm font-black text-[#3B1F10] font-mono tracking-tight">{getSimulatedTimeStr()}</strong>
-              <div className="flex items-center gap-1">
-                <button onClick={handleToggleAutoTimer}
-                  className={`p-1 rounded-lg transition-all duration-200 cursor-pointer ${autoTimerRunning ? 'bg-amber-600/20 text-amber-800' : 'bg-emerald-600/20 text-emerald-800'}`}>
-                  <RefreshCw className={`w-3 h-3 ${autoTimerRunning ? 'animate-spin' : ''}`} />
-                </button>
-                <button onClick={() => handleAdvanceTime(15)}
-                  className="px-1.5 py-1 rounded-lg bg-[#3B1F10]/10 text-[#3B1F10]/70 hover:text-[#3B1F10] border border-[#A67550]/30 text-[9px] font-bold cursor-pointer">
-                  +15m
-                </button>
-              </div>
+
+            {/* Operador Activo */}
+            <div className="flex items-center space-x-2 bg-slate-900 border border-slate-800 px-2 md:px-3 py-1 rounded-lg">
+              <User className="w-3.5 h-3.5 text-amber-500" />
+              <select
+                value={activeMozo}
+                onChange={(e) => handleMozoChange(e.target.value)}
+                className="bg-transparent text-xs text-slate-200 font-medium focus:outline-none cursor-pointer"
+              >
+                {usuarios.filter(u => u.activo !== false).map(u => (
+                  <option key={u.id_usuario || u.nombre} value={u.nombre} className="bg-slate-900 text-slate-200">
+                    {u.nombre} ({u.rol})
+                  </option>
+                ))}
+              </select>
             </div>
-          </div>
-          )}
 
-        
-
-          {/* Usuario activo */}
-          <div className={`px-3 py-2 bg-[#B07A48]/25 border border-[#A67550]/30 rounded-xl ${sidebarExpanded ? '' : 'flex justify-center'}`}>
-            <div className={`flex items-center gap-2.5 ${sidebarExpanded ? '' : 'justify-center'}`}>
-              <div className="w-7 h-7 rounded-full bg-white/40 border border-[#A67550]/40 flex items-center justify-center shrink-0">
-                <User className="w-3.5 h-3.5 text-[#3B1F10]/70" />
-              </div>
-              {sidebarExpanded && (
-                <div className="flex-1 text-left min-w-0">
-                  <span className="text-[7px] text-[#3B1F10]/50 block font-bold leading-none uppercase tracking-wider">Usuario</span>
-                  {activeUser.rol === 'administrador' ? (
-                    <select value={activeMozo} onChange={(e) => handleMozoChange(e.target.value)}
-                      className="text-[11px] bg-transparent border-none p-0 focus:outline-none font-extrabold text-[#3B1F10] cursor-pointer w-full mt-0.5 focus:ring-0">
-                      {usuarios.filter(usuario => usuario.activo !== false).map(usuario => (
-                        <option key={usuario.id_usuario} value={usuario.nombre} className="bg-[#C8956A] text-[#3B1F10]">{usuario.nombre}</option>
-                      ))}
-                    </select>
-                  ) : (
-                    <span className="text-[11px] font-extrabold text-[#3B1F10] mt-0.5 block">{activeUser.nombre}</span>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Navigation Panels */}
-          <nav className="space-y-0.5 pb-1" id="sidebar-navigation">
-            {[
-              { id: 'home', label: 'Inicio', icon: '🏠' },
-              { id: 'panel', label: 'Panel', icon: '📊' },
-              { id: 'mozo', label: 'Mozo', icon: '📱' },
-              { id: 'cocina', label: 'Cocina', icon: '🍳' },
-              { id: 'caja', label: 'Caja', icon: '💵' },
-              { id: 'reportes', label: 'Reportes', icon: '📈' },
-              { id: 'usuarios', label: 'Usuarios', icon: '👥' },
-              { id: 'menu', label: 'Menú', icon: '📋' },
-              { id: 'recetas', label: 'Recetas', icon: '📝' },
-              { id: 'mesas', label: 'Mesas', icon: '🪑' },
-              { id: 'inventario', label: 'Inventario', icon: '📦' },
-              { id: 'proveedores', label: 'Proveedores', icon: '🚚' },
-              { id: 'promociones', label: 'Promos', icon: '🏷️' },
-              { id: 'reservas', label: 'Reservas', icon: '📅' },
-              { id: 'facturacion', label: 'Facturación', icon: '🧾' },
-              { id: 'sistema', label: 'Sistema', icon: '⚙️' },
-              { id: 'backups', label: 'Backups', icon: '💾' }
-            ].filter(item => allowedViews.includes(item.id as AppView)).map(item => {
-              const isActive = activeView === item.id;
-              return (
-                <button key={item.id} id={`tab-${item.id}`}
-                  onClick={() => handleNavigate(item.id as AppView)}
-                  className={`
-                    w-full flex items-center gap-3 transition-all duration-200 cursor-pointer
-                    ${sidebarExpanded ? 'mx-1 px-3 py-2 rounded-xl' : 'justify-center py-2.5 rounded-lg'}
-                    ${isActive
-                      ? 'bg-[#4A2D1B] text-white shadow-sm border border-[#3B1F10]/30'
-                      : 'text-[#3B1F10]/65 hover:text-[#3B1F10] hover:bg-[#B07A48]/35 border border-transparent'
-                    }
-                  `}
-                  title={!sidebarExpanded ? item.label : undefined}
-                >
-                  <span className="text-base shrink-0 leading-none">{item.icon}</span>
-                  {sidebarExpanded && (
-                    <span className={`text-[12px] font-bold tracking-wide leading-none ${isActive ? 'text-white' : 'text-[#3B1F10]/70'}`}>
-                      {item.label}
-                    </span>
-                  )}
-                  {sidebarExpanded && isActive && (
-                    <span className="ml-auto w-1.5 h-1.5 rounded-full bg-amber-300 shadow-sm shadow-amber-400/50 shrink-0" />
-                  )}
-                </button>
-              );
-            })}
-          </nav>
-        </div>
-        {/* ======= FIN SECCIÓN SCROLLABLE ======= */}
-
-        {/* ======= SECCIÓN FIJA INFERIOR (Cerrar sesión + Versión) ======= */}
-        <div className="shrink-0 border-t border-[#A67550]/40 bg-[#C8956A]">
-          <div className={`px-3 py-2 ${sidebarExpanded ? '' : 'flex flex-col items-center'}`}>
-            {sidebarExpanded && (
-              <p className="text-[8px] uppercase font-bold text-[#3B1F10]/40 tracking-wider mb-1">Sesión</p>
-            )}
-            <button onClick={() => setIsStreamlitLoggedIn(false)}
-              className={`
-                w-full flex items-center gap-3 transition-all duration-200 cursor-pointer whitespace-nowrap
-                ${sidebarExpanded ? 'px-3 py-2 rounded-xl' : 'justify-center py-2 rounded-lg'}
-                text-[#7B2D12] hover:bg-[#7B2D12]/15 hover:text-[#5C1E0A] border border-transparent hover:border-[#7B2D12]/20
-              `}
-              title={!sidebarExpanded ? 'Cerrar sesión' : undefined}
+            {/* Salir */}
+            <button
+              onClick={handleLogout}
+              className="p-1.5 bg-red-950/40 hover:bg-red-900/40 border border-red-900/50 text-red-400 rounded-lg transition-colors"
+              title="Cerrar Sesión"
             >
-              <LogOut className="w-4 h-4 shrink-0" />
-              {sidebarExpanded && (
-                <span className="text-[12px] font-bold tracking-wide leading-none">Cerrar sesión</span>
-              )}
+              <LogOut className="w-4 h-4" />
             </button>
           </div>
-          <div className={`px-3 py-1.5 border-t border-[#A67550]/30 ${sidebarExpanded ? '' : 'flex justify-center'}`}>
-            <span className="text-[8px] text-[#3B1F10]/30 font-mono tracking-wider">
-              {sidebarExpanded ? 'El Patrón Pro · v1.2.0' : 'v1'}
-            </span>
-          </div>
-        </div>
-        {/* ======= FIN SECCIÓN FIJA INFERIOR ======= */}
-      </aside>
+        </header>
 
-      {/* CORE ACTIVE MODULE AREA (RIGHT SIDE CONTENT PANE) */}
-      <main className="flex-1 flex flex-col min-w-0 min-h-screen bg-[#F5F1E9]">
-        
-        {/* TOP STATUS BAR ACCENTS */}
-        <div className="bg-[#F5F1E9] border-b border-stone-200/80 px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-extrabold text-[#624A3E] capitalize tracking-tight flex items-center gap-2">
-              {activeView === 'home' && <>🍽️ Menú Principal & Centro Operativo</>}
-              {activeView === 'panel' && <>📊 Panel de Control y Resumen de Turno</>}
-              {activeView === 'mozo' && <>📱 Terminal Interactiva de Mozos</>}
-              {activeView === 'cocina' && <>🍳 Cocina</>}
-              {activeView === 'caja' && <>💵 Control de Caja y Cierres</>}
-              {activeView === 'reportes' && <>📈 Analíticas de Desempeño & BI</>}
-              {activeView === 'usuarios' && <>👥 Personal y Usuarios de Turno</>}
-              {activeView === 'menu' && <>📖 Menú y Carta Gastronómica</>}
-              {activeView === 'recetas' && <>⚖️ Control de Escandallos y Recetas</>}
-              {activeView === 'mesas' && <>🪑 Distribución de Mesas en Salón</>}
-              {activeView === 'inventario' && <>📦 Gestión de Insumos & Recetas</>}
-              {activeView === 'proveedores' && <>🚚 Proveedores e Integraciones</>}
-              {activeView === 'promociones' && <>🏷️ Campañas de Promociones</>}
-              {activeView === 'reservas' && <>📅 Agenda de Reservas de Hoy</>}
-              {activeView === 'facturacion' && <>🧾 Archivo Tributario de Facturas</>}
-              {activeView === 'sistema' && <>💻 Consola de Configuración General</>}
-              {activeView === 'backups' && <>🗄️ Copias de Seguridad (Backup)</>}
-            </h1>
-            <p className="text-xs text-stone-500 mt-0.5">
-              {activeView === 'home' && 'Bienvenido a El Patrón Pro. Ingrese rápidamente a cualquier sección o terminal.'}
-              {activeView === 'panel' && 'Métricas macro, alertas críticas y bitácora operativa en tiempo real.'}
-              {activeView === 'mozo' && 'Gestión táctil de ocupación de salón, comensales y envío asíncrono de comandas a cocina.'}
-              {activeView === 'cocina' && 'Recepción en tiempo real, alertas de preparación con temporizador y descuento automático por receta.'}
-              {activeView === 'caja' && 'Facturación completa, control de medios de pago, registros fiscales e historial impreso.'}
-              {activeView === 'reportes' && 'Visualizadores gráficos para toma de decisiones, facturación acumulada e historial.'}
-              {activeView === 'usuarios' && 'Roles, perfiles del personal y trazabilidad en el salón.'}
-              {activeView === 'menu' && 'Configuración de oferta comercial, precios públicos y estatus en carta.'}
-              {activeView === 'recetas' && 'Asociación de ingredientes crudos y cálculo automático de rendimiento y márgenes.'}
-              {activeView === 'mesas' && 'Visualización interactiva, asignación de mesas y control de capacidad.'}
-              {activeView === 'inventario' && 'Análisis pormenorizado de stock actual, recetas, mermas cargadas y reposiciones.'}
-              {activeView === 'proveedores' && 'Contactos comerciales, plazos de entrega y reabastecimiento programado.'}
-              {activeView === 'promociones' && 'Incentivos de ventas, descuentos happy hour y combos especiales.'}
-              {activeView === 'reservas' && 'Planificación de visitas, comensales reservados y asignación de mesas.'}
-              {activeView === 'facturacion' && 'Historial de facturas comprobantes de venta, control de IVA y notas de crédito.'}
-              {activeView === 'sistema' && 'Estatus de base de datos Postgres/Supabase, variables de entorno y copias de seguridad.'}
-              {activeView === 'backups' && 'Respaldo íntegro de la base de datos, descargas JSON y restauración de checkpoints.'}
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-slate-600 bg-white border border-stone-200 px-2.5 py-1 rounded-xl font-medium flex items-center gap-1.5 shadow-sm">
-              <span className="h-2 w-2 rounded-full bg-[#22C55E]" />
-              Sesión: Damián & Sofia (Activos)
-            </span>
-          </div>
-        </div>
-
-        {/* MAIN SCROLLABLE CONTENT */}
-        <div className="flex-1 p-4 sm:p-6 space-y-6 overflow-y-auto max-w-7xl w-full mx-auto bottom-nav-spacer lg:pb-6 min-h-[60vh]">
+        {/* Content Rendered Module */}
+        <main className="flex-1 overflow-x-hidden p-3 md:p-6 pb-24 max-w-7xl mx-auto w-full transition-all duration-300">
+          <ToastContainer toasts={toasts} removeToast={removeToast} />
           
-          {/* ACTIVE TAB RENDER TRIAGE */}
-          {activeView === 'home' && (
-            <ErrorBoundary moduleName={'home'}>
-            <RetryErrorWrapper>
-            <Suspense fallback={<div className="p-8"><Skeleton className="!h-64 w-full" count={3} /></div>}>
-            <div key={activeView} className="animate-fadeIn">
-              <HomeMenuModule
-                mesas={mesas}
-                pedidos={pedidos}
-                insumos={insumos}
-                productosMenu={productosMenu}
-                usuarios={usuarios}
-                allowedViews={allowedViews}
-                canChangeUser={activeUser.rol === 'administrador'}
-                activeMozo={activeMozo}
-                onMozoChange={handleMozoChange}
-                onNavigate={(view: AppView) => handleNavigate(view)}
-                getSimulatedTimeStr={getSimulatedTimeStr}
-                autoTimerRunning={autoTimerRunning}
-                onToggleAutoTimer={handleToggleAutoTimer}
-                onAdvanceTime={handleAdvanceTime}
-              />
-            </div>
-              </Suspense></RetryErrorWrapper></ErrorBoundary>
-          )}
-
-          {activeView === 'panel' && (
-            <ErrorBoundary moduleName={'panel'}>
-            <RetryErrorWrapper>
-            <Suspense fallback={<div className="p-8"><Skeleton className="!h-48 w-full" /></div>}>
-            <div key={activeView} className="animate-fadeIn">
-              <PanelDashboard
-                mesas={mesas}
-                pedidos={pedidos}
-                insumos={insumos}
-                productosMenu={productosMenu}
-                logs={logs}
-                allowedViews={allowedViews}
-                getSimulatedTimeStr={getSimulatedTimeStr}
-                onNavigate={(view: AppView) => handleNavigate(view)}
-              />
-            </div>
-              </Suspense></RetryErrorWrapper></ErrorBoundary>
-          )}
-
-          {activeView === 'mozo' && (
-            <ErrorBoundary moduleName={'mozo'}>
-            <RetryErrorWrapper>
-            <Suspense fallback={<div className="p-8"><div className="h-48 bg-stone-100 rounded-2xl animate-pulse" /></div>}>
-            <div key={activeView} className="animate-fadeIn">
-              <MozoTerminal
-                mesas={mesas}
-                insumos={insumos}
-                productosMenu={productosMenu}
-                recetas={recetas}
-                usuarios={activeUser.rol === 'administrador' ? usuarios : [activeUser]}
-                activeMozo={activeMozo}
-                onMozoChange={handleMozoChange}
-                onCrearPedido={handleCrearPedido}
-                pedidos={pedidos}
-                onFacturarMesa={handleFacturarMesa}
-                addLog={addLog}
-                permitirVentaSinStock={permitirVentaSinStock}
-              />
-            </div>
-              </Suspense></RetryErrorWrapper></ErrorBoundary>
-          )}
-
-          {activeView === 'cocina' && (
-            <ErrorBoundary moduleName={'cocina'}>
-            <RetryErrorWrapper>
-            <Suspense fallback={<div className="p-8"><div className="h-48 bg-stone-100 rounded-2xl animate-pulse" /></div>}>
-            <div key={activeView} className="animate-fadeIn">
-              <KitchenMonitor
-                pedidos={pedidos}
-                onCambiarEstadoPedido={handleCambiarEstadoPedido}
-                onProducirPedidoConEscandallo={handleProducirPedidoConEscandallo}
-                minutosGlobal={minutosGlobal}
-              />
-            </div>
-              </Suspense></RetryErrorWrapper></ErrorBoundary>
-          )}
-
-          {activeView === 'caja' && (
-            <ErrorBoundary moduleName={'caja'}>
-            <RetryErrorWrapper>
-            <Suspense fallback={<div className="p-8"><div className="h-48 bg-stone-100 rounded-2xl animate-pulse" /></div>}>
-            <div key={activeView} className="animate-fadeIn">
-              <CajaModule
-                pedidos={pedidos}
-                productosMenu={productosMenu}
-                onFacturarMesa={handleFacturarMesa}
-                onCambiarEstadoPedido={handleCambiarEstadoPedido}
-                addLog={addLog}
-              />
-            </div>
-              </Suspense></RetryErrorWrapper></ErrorBoundary>
-          )}
-
-          {activeView === 'reportes' && (
-            <ErrorBoundary moduleName={'reportes'}>
-            <RetryErrorWrapper>
-            <Suspense fallback={<div className="p-8"><div className="h-48 bg-stone-100 rounded-2xl animate-pulse" /></div>}>
-            <div key={activeView} className="animate-fadeIn">
-              <BusinessIntelligence
-                productosMenu={productosMenu}
-                pedidos={pedidos}
-                precioMap={precioMap}
-                logs={logs}
-              />
-            </div>
-              </Suspense></RetryErrorWrapper></ErrorBoundary>
-          )}
-
-          {activeView === 'usuarios' && (
-            <ErrorBoundary moduleName={'usuarios'}>
-            <RetryErrorWrapper>
-            <Suspense fallback={<div className="p-8"><div className="h-48 bg-stone-100 rounded-2xl animate-pulse" /></div>}>
-            <div key={activeView} className="animate-fadeIn">
-              <UsuariosModule
-                usuarios={usuarios}
-                onUsuariosChange={setUsuarios}
-                addLog={addLog}
-              />
-            </div>
-              </Suspense></RetryErrorWrapper></ErrorBoundary>
-          )}
-
-          {activeView === 'menu' && (
-            <ErrorBoundary moduleName={'menu'}>
-            <RetryErrorWrapper>
-            <Suspense fallback={<div className="p-8"><div className="h-48 bg-stone-100 rounded-2xl animate-pulse" /></div>}>
-            <div key={activeView} className="animate-fadeIn">
-              <MenuModule
-                productosMenu={productosMenu}
-                onProductosChange={setProductosMenu}
-                addLog={addLog}
-              />
-            </div>
-              </Suspense></RetryErrorWrapper></ErrorBoundary>
-          )}
-
-          {activeView === 'recetas' && (
-            <ErrorBoundary moduleName={'recetas'}>
-            <RetryErrorWrapper>
-            <Suspense fallback={<div className="p-8"><div className="h-48 bg-stone-100 rounded-2xl animate-pulse" /></div>}>
-            <div key={activeView} className="animate-fadeIn">
-              <RecetasModule
-                recetas={recetas}
-                productosMenu={productosMenu}
-                insumos={insumos}
-                onRecetasChange={setRecetas}
-                addLog={addLog}
-              />
-            </div>
-              </Suspense></RetryErrorWrapper></ErrorBoundary>
-          )}
-
-          {activeView === 'mesas' && (
-            <ErrorBoundary moduleName={'mesas'}>
-            <RetryErrorWrapper>
-            <Suspense fallback={<div className="p-8"><div className="h-48 bg-stone-100 rounded-2xl animate-pulse" /></div>}>
-            <div key={activeView} className="animate-fadeIn">
-                <MesasModule
-                  mesas={mesas}
-                  onMesasChange={setMesas}
-                  addLog={addLog}
+          <RetryErrorWrapper>
+            <Suspense fallback={<Skeleton lines={6} />}>
+              {activeView === 'home' && (
+                <HomeMenuModule 
+                  activeRol={activeUser.rol} 
+                  onNavigate={handleNavigate} 
+                  allowedViews={allowedViews}
                 />
-            </div>
-              </Suspense></RetryErrorWrapper></ErrorBoundary>
-          )}
+              )}
+              {activeView === 'terminal_mozo' && (
+                <MozoTerminal 
+                  activeMozo={activeMozo} 
+                  mesas={mesas} 
+                  productosMenu={productosMenu} 
+                  pedidos={pedidos} 
+                  onCreatePedido={handleCrearPedido} 
+                  onCancelPedido={(id) => handleCambiarEstadoPedido(id, 'cancelado')}
+                />
+              )}
+              {activeView === 'monitor_cocina' && (
+                <KitchenMonitor 
+                  pedidos={pedidos} 
+                  recetas={recetas}
+                  insumos={insumos}
+                  onCambiarEstado={handleCambiarEstadoPedido}
+                  onProducirConEscandallo={handleProducirPedidoConEscandallo}
+                />
+              )}
+              {activeView === 'caja' && (
+                <CajaModule 
+                  pedidos={pedidos} 
+                  mesas={mesas} 
+                  onFacturarMesa={handleFacturarMesa} 
+                />
+              )}
+              {activeView === 'inventario' && (
+                <InventoryModule 
+                  insumos={insumos} 
+                  mermas={mermas}
+                  onRegistrarMerma={handleRegistrarMerma}
+                  onRestockInsumo={handleRestockInsumo}
+                  onRestockTodo={handleRestockTodo}
+                />
+              )}
+              {activeView === 'bi' && (
+                <BusinessIntelligence 
+                  pedidos={pedidos} 
+                  insumos={insumos} 
+                  mermas={mermas} 
+                  logs={logs}
+                  precioMap={precioMap}
+                />
+              )}
+              {activeView === 'dashboard' && (
+                <PanelDashboard 
+                  pedidos={pedidos} 
+                  insumos={insumos} 
+                  mesas={mesas} 
+                  precioMap={precioMap}
+                  onNavigate={handleNavigate}
+                />
+              )}
+              {activeView === 'usuarios' && (
+                <UsuariosModule 
+                  usuarios={usuarios} 
+                  setUsuarios={setUsuarios} 
+                />
+              )}
+              {activeView === 'menu' && (
+                <MenuModule 
+                  productosMenu={productosMenu} 
+                  setProductosMenu={setProductosMenu} 
+                />
+              )}
+              {activeView === 'recetas' && (
+                <RecetasModule 
+                  recetas={recetas} 
+                  setRecetas={setRecetas} 
+                  productosMenu={productosMenu} 
+                  insumos={insumos} 
+                />
+              )}
+              {activeView === 'mesas' && (
+                <MesasModule 
+                  mesas={mesas} 
+                  setMesas={setMesas} 
+                />
+              )}
+              {activeView === 'proveedores' && (
+                <ProveedoresModule />
+              )}
+              {activeView === 'promociones' && (
+                <PromocionesModule productosMenu={productosMenu} />
+              )}
+              {activeView === 'reservas' && (
+                <ReservasModule 
+                  mesas={mesas} 
+                  onEstadoChange={handleReservaEstadoChange} 
+                />
+              )}
+              {activeView === 'facturacion' && (
+                <FacturacionModule pedidos={pedidos} precioMap={precioMap} />
+              )}
+              
+              {/* Rutas Protegidas de las que el Administrador fue removido */}
+              {activeView === 'sistema' && activeUser.rol.toLowerCase() !== 'administrador' && (
+                <SistemaModule 
+                  permitirVentaSinStock={permitirVentaSinStock}
+                  setPermitirVentaSinStock={setPermitirVentaSinStock}
+                  autoTimerRunning={autoTimerRunning}
+                  onToggleAutoTimer={handleToggleAutoTimer}
+                  onAdvanceTime={handleAdvanceTime}
+                  onResetAllData={handleResetAllData}
+                  onSyncCompletion={handleSupabaseSync}
+                />
+              )}
+              {activeView === 'backups' && activeUser.rol.toLowerCase() !== 'administrador' && (
+                <BackupsModule 
+                  currentAppState={{
+                    usuarios, mesas, insumos, productosMenu, recetas, pedidos, mermas, logs
+                  }}
+                  onRestoreBackup={handleRestoreBackupData}
+                />
+              )}
+            </Suspense>
+          </RetryErrorWrapper>
+        </main>
 
-          {activeView === 'inventario' && (
-            <ErrorBoundary moduleName={'inventario'}>
-            <RetryErrorWrapper>
-            <Suspense fallback={<div className="p-8"><div className="h-48 bg-stone-100 rounded-2xl animate-pulse" /></div>}>
-            <div key={activeView} className="animate-fadeIn">
-              <InventoryModule
-                insumos={insumos}
-                productosMenu={productosMenu}
-                recetas={recetas}
-                mermas={mermas}
-                onRegistrarMerma={handleRegistrarMerma}
-                onRestockInsumo={handleRestockInsumo}
-                onRestockTodo={handleRestockTodo}
-                addLog={addLog}
-              />
-            </div>
-              </Suspense></RetryErrorWrapper></ErrorBoundary>
-          )}
-
-          {activeView === 'proveedores' && (
-            <ErrorBoundary moduleName={'proveedores'}>
-            <RetryErrorWrapper>
-            <Suspense fallback={<div className="p-8"><div className="h-48 bg-stone-100 rounded-2xl animate-pulse" /></div>}>
-            <div key={activeView} className="animate-fadeIn">
-              <ProveedoresModule
-                addLog={addLog}
-              />
-            </div>
-              </Suspense></RetryErrorWrapper></ErrorBoundary>
-          )}
-
-          {activeView === 'promociones' && (
-            <ErrorBoundary moduleName={'promociones'}>
-            <RetryErrorWrapper>
-            <Suspense fallback={<div className="p-8"><div className="h-48 bg-stone-100 rounded-2xl animate-pulse" /></div>}>
-            <div key={activeView} className="animate-fadeIn">
-              <PromocionesModule
-                addLog={addLog}
-              />
-            </div>
-              </Suspense></RetryErrorWrapper></ErrorBoundary>
-          )}
-
-          {activeView === 'reservas' && (
-            <ErrorBoundary moduleName={'reservas'}>
-            <RetryErrorWrapper>
-            <Suspense fallback={<div className="p-8"><div className="h-48 bg-stone-100 rounded-2xl animate-pulse" /></div>}>
-            <div key={activeView} className="animate-fadeIn">
-              <ReservasModule
-                mesas={mesas}
-                onEstadoChange={handleReservaEstadoChange}
-                addLog={addLog}
-              />
-            </div>
-              </Suspense></RetryErrorWrapper></ErrorBoundary>
-          )}
-
-          {activeView === 'facturacion' && (
-            <ErrorBoundary moduleName={'facturacion'}>
-            <RetryErrorWrapper>
-            <Suspense fallback={<div className="p-8"><div className="h-48 bg-stone-100 rounded-2xl animate-pulse" /></div>}>
-            <div key={activeView} className="animate-fadeIn">
-              <FacturacionModule
-                pedidos={pedidos}
-                productosMenu={productosMenu}
-                addLog={addLog}
-              />
-            </div>
-              </Suspense></RetryErrorWrapper></ErrorBoundary>
-          )}
-
-          {activeView === 'sistema' && (
-            <ErrorBoundary moduleName={'sistema'}>
-            <RetryErrorWrapper>
-            <Suspense fallback={<div className="p-8"><div className="h-48 bg-stone-100 rounded-2xl animate-pulse" /></div>}>
-            <div key={activeView} className="animate-fadeIn">
-              <SistemaModule
-                insumos={insumos}
-                productosMenu={productosMenu}
-                recetas={recetas}
-                pedidos={pedidos}
-                mesas={mesas}
-                addLog={addLog}
-                onSyncComplete={handleSupabaseSync}
-              />
-            </div>
-              </Suspense></RetryErrorWrapper></ErrorBoundary>
-          )}
-
-          {activeView === 'backups' && (
-            <ErrorBoundary moduleName={'backups'}>
-            <RetryErrorWrapper>
-            <Suspense fallback={<div className="p-8"><div className="h-48 bg-stone-100 rounded-2xl animate-pulse" /></div>}>
-            <div key={activeView} className="animate-fadeIn">
-              <BackupsModule
-                operationalData={{
-                  usuarios,
-                  mesas,
-                  insumos,
-                  productosMenu,
-                  recetas,
-                  pedidos,
-                  mermas,
-                  logs
-                }}
-                onRestoreData={handleRestoreBackupData}
-                addLog={addLog}
-              />
-            </div>
-              </Suspense></RetryErrorWrapper></ErrorBoundary>
-          )}
-
-        </div>
-
-        {/* SYSTEM COAXIAL FOOTER */}
-        <footer className="bg-white border-t border-slate-200 py-4 px-6 text-xs text-slate-400 flex flex-col md:flex-row justify-between items-center gap-3">
-          <p>© 2026 Restaurante Pro S.A. Todos los derechos reservados.</p>
-          <div className="flex gap-4">
-            <span className="hover:text-slate-600 cursor-default">Condiciones Operativas</span>
-            <span>•</span>
-            <span className="hover:text-slate-600 cursor-default">Auditoría Habilitada</span>
-            <span>•</span>
-            <span className="hover:text-slate-600 cursor-default">Fidelidad de Escandallos</span>
-          </div>
-        </footer>
-
-      </main>
-
-    </div>
-    <ToastContainer toasts={toasts} removeToast={removeToast} />
-    <BottomNavigation activeView={activeView} allowedViews={allowedViews} onNavigate={handleNavigate} />
-    </>
+        {/* Bottom Navigation Menu */}
+        <BottomNavigation activeView={activeView} onNavigate={handleNavigate} allowedViews={allowedViews} />
+      </div>
+    </ErrorBoundary>
   );
 }
