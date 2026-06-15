@@ -851,7 +851,6 @@ export default function App() {
   // MUST declare all hooks before conditional returns (React Rules of Hooks)
   const [postLoginLoading, setPostLoginLoading] = useState(false);
   const [chunkError, setChunkError] = useState<string | null>(null);
-  const [sidebarExpanded, setSidebarExpanded] = useState(true);
   const [appReady, setAppReady] = useState(false);
 
   useEffect(() => {
@@ -921,22 +920,11 @@ export default function App() {
     <>
     <div className="min-h-screen bg-[#F5F1E9] flex flex-col lg:flex-row font-sans text-stone-800 antialiased selection:bg-[#624A3E] selection:text-white">
       
-      {/* Collapse toggle button for desktop */}
-      <button
-        onClick={() => setSidebarExpanded(!sidebarExpanded)}
-        className="hidden lg:flex fixed left-0 top-1/2 -translate-y-1/2 z-40 w-5 h-10 bg-[#A67550] hover:bg-[#8E5E38] text-white rounded-r-lg items-center justify-center cursor-pointer transition-all border border-[#7A4A28]/40 border-l-0"
-        style={{ left: sidebarExpanded ? '16rem' : '4rem' }}
-        title={sidebarExpanded ? 'Colapsar menú' : 'Expandir menú'}
-      >
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className={`transition-transform duration-300 ${sidebarExpanded ? '' : 'rotate-180'}`}>
-          <polyline points="15 18 9 12 15 6" />
-        </svg>
-      </button>
-
+      
       {/* LEFT SIDE PANEL — Solo desktop, oculta en móvil */}
       <aside className={`
         hidden lg:flex flex-col h-screen
-        ${sidebarExpanded ? 'w-64' : 'w-16'}
+        ${true ? 'w-64' : 'w-16'}
         bg-[#C8956A]
         text-[#3B1F10]/90 border-r border-[#A67550]/40 shrink-0
         transition-all duration-300 ease-in-out
@@ -948,7 +936,7 @@ export default function App() {
 
           {/* Brand Header */}
           <div className="flex items-center justify-between min-h-[48px] px-1">
-            {sidebarExpanded ? (
+            {true ? (
               <div className="flex items-center gap-2.5 py-1.5">
                 <div className="w-9 h-9 bg-white/80 rounded-lg flex items-center justify-center shadow-sm border border-[#A67550]/40 p-0.5 overflow-hidden shrink-0">
                   <ElPatronLogo className="w-8 h-8 object-contain rounded" variant="icon" color="#4A2D1B" />
@@ -968,7 +956,7 @@ export default function App() {
           </div>
 
           {/* Clock widget */}
-          {sidebarExpanded && (
+          {true && (
           <div className="px-3 py-2 bg-[#B07A48]/30 border border-[#A67550]/30 rounded-xl">
             <div className="flex items-center justify-between mb-1">
               <span className="text-[8px] uppercase font-bold text-[#3B1F10]/60 tracking-wider font-mono flex items-center gap-1">
@@ -996,12 +984,12 @@ export default function App() {
         
 
           {/* Usuario activo */}
-          <div className={`px-3 py-2 bg-[#B07A48]/25 border border-[#A67550]/30 rounded-xl ${sidebarExpanded ? '' : 'flex justify-center'}`}>
-            <div className={`flex items-center gap-2.5 ${sidebarExpanded ? '' : 'justify-center'}`}>
+          <div className={`px-3 py-2 bg-[#B07A48]/25 border border-[#A67550]/30 rounded-xl ${true ? '' : 'flex justify-center'}`}>
+            <div className={`flex items-center gap-2.5 ${true ? '' : 'justify-center'}`}>
               <div className="w-7 h-7 rounded-full bg-white/40 border border-[#A67550]/40 flex items-center justify-center shrink-0">
                 <User className="w-3.5 h-3.5 text-[#3B1F10]/70" />
               </div>
-              {sidebarExpanded && (
+              {true && (
                 <div className="flex-1 text-left min-w-0">
                   <span className="text-[7px] text-[#3B1F10]/50 block font-bold leading-none uppercase tracking-wider">Usuario</span>
                   {(activeUser.rol === 'administrador' || activeUser.rol === 'super_admi') ? (
@@ -1046,21 +1034,21 @@ export default function App() {
                   onClick={() => handleNavigate(item.id as AppView)}
                   className={`
                     w-full flex items-center gap-3 transition-all duration-200 cursor-pointer
-                    ${sidebarExpanded ? 'mx-1 px-3 py-2 rounded-xl' : 'justify-center py-2.5 rounded-lg'}
+                    ${true ? 'mx-1 px-3 py-2 rounded-xl' : 'justify-center py-2.5 rounded-lg'}
                     ${isActive
                       ? 'bg-[#4A2D1B] text-white shadow-sm border border-[#3B1F10]/30'
                       : 'text-[#3B1F10]/65 hover:text-[#3B1F10] hover:bg-[#B07A48]/35 border border-transparent'
                     }
                   `}
-                  title={!sidebarExpanded ? item.label : undefined}
+                  title={!true ? item.label : undefined}
                 >
                   <span className="text-base shrink-0 leading-none">{item.icon}</span>
-                  {sidebarExpanded && (
+                  {true && (
                     <span className={`text-[12px] font-bold tracking-wide leading-none ${isActive ? 'text-white' : 'text-[#3B1F10]/70'}`}>
                       {item.label}
                     </span>
                   )}
-                  {sidebarExpanded && isActive && (
+                  {true && isActive && (
                     <span className="ml-auto w-1.5 h-1.5 rounded-full bg-amber-300 shadow-sm shadow-amber-400/50 shrink-0" />
                   )}
                 </button>
@@ -1072,27 +1060,27 @@ export default function App() {
 
         {/* ======= SECCIÓN FIJA INFERIOR (Cerrar sesión + Versión) ======= */}
         <div className="shrink-0 border-t border-[#A67550]/40 bg-[#C8956A]">
-          <div className={`px-3 py-2 ${sidebarExpanded ? '' : 'flex flex-col items-center'}`}>
-            {sidebarExpanded && (
+          <div className={`px-3 py-2 ${true ? '' : 'flex flex-col items-center'}`}>
+            {true && (
               <p className="text-[8px] uppercase font-bold text-[#3B1F10]/40 tracking-wider mb-1">Sesión</p>
             )}
             <button onClick={() => setIsStreamlitLoggedIn(false)}
               className={`
                 w-full flex items-center gap-3 transition-all duration-200 cursor-pointer whitespace-nowrap
-                ${sidebarExpanded ? 'px-3 py-2 rounded-xl' : 'justify-center py-2 rounded-lg'}
+                ${true ? 'px-3 py-2 rounded-xl' : 'justify-center py-2 rounded-lg'}
                 text-[#7B2D12] hover:bg-[#7B2D12]/15 hover:text-[#5C1E0A] border border-transparent hover:border-[#7B2D12]/20
               `}
-              title={!sidebarExpanded ? 'Cerrar sesión' : undefined}
+              title={!true ? 'Cerrar sesión' : undefined}
             >
               <LogOut className="w-4 h-4 shrink-0" />
-              {sidebarExpanded && (
+              {true && (
                 <span className="text-[12px] font-bold tracking-wide leading-none">Cerrar sesión</span>
               )}
             </button>
           </div>
-          <div className={`px-3 py-1.5 border-t border-[#A67550]/30 ${sidebarExpanded ? '' : 'flex justify-center'}`}>
+          <div className={`px-3 py-1.5 border-t border-[#A67550]/30 ${true ? '' : 'flex justify-center'}`}>
             <span className="text-[8px] text-[#3B1F10]/30 font-mono tracking-wider">
-              {sidebarExpanded ? 'El Patrón Pro · v1.2.0' : 'v1'}
+              {true ? 'El Patrón Pro · v1.2.0' : 'v1'}
             </span>
           </div>
         </div>
