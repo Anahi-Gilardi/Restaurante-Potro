@@ -9,7 +9,9 @@ import {
   Grid, 
   Snowflake, 
   X,
-  Utensils
+  Utensils,
+  Search,
+  Filter
 } from 'lucide-react';
 import { Pedido, PedidoItem } from '../types';
 
@@ -49,11 +51,28 @@ export default function KitchenMonitor({
   minutosGlobal
 }: KitchenMonitorProps) {
   const [cancelRequest, setCancelRequest] = useState<CancelRequest | null>(null);
+  const [kitchenSearch, setKitchenSearch] = useState('');
+  const [showOnlyKitchen, setShowOnlyKitchen] = useState(false);
 
   // Filter active orders inside the kitchen workflow
   const activeKitchenOrders = useMemo(() => {
-    return pedidos.filter(p => p.estado_comanda !== 'entregado_cobrado' && p.estado_comanda !== 'cancelado');
-  }, [pedidos]);
+    let filtered = pedidos.filter(p => p.estado_comanda !== 'entregado_cobrado' && p.estado_comanda !== 'cancelado');
+    if (showOnlyKitchen) {
+      filtered = filtered.map(p => ({
+        ...p,
+        items: p.items.filter(item => isKitchenItem(item))
+      })).filter(p => p.items.length > 0);
+    }
+    if (kitchenSearch.trim()) {
+      const q = kitchenSearch.toLowerCase();
+      filtered = filtered.filter(p =>
+        p.numero_mesa.toLowerCase().includes(q) ||
+        p.mozo.toLowerCase().includes(q) ||
+        p.items.some(it => it.nombre.toLowerCase().includes(q))
+      );
+    }
+    return filtered;
+  }, [pedidos, kitchenSearch, showOnlyKitchen]);
 
   // Aggregate Batch Production (Modo Batch)
   const batchProduction = useMemo(() => {
@@ -163,6 +182,31 @@ export default function KitchenMonitor({
             ))}
           </div>
         )}
+      </div>
+
+      {/* Search & Filter Bar */}
+      <div className="flex flex-col sm:flex-row gap-3 items-center justify-between bg-white rounded-2xl p-3 border border-slate-100 shadow-sm">
+        <div className="relative w-full sm:w-64">
+          <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            placeholder="Buscar mesa, mozo o plato..."
+            value={kitchenSearch}
+            onChange={e => setKitchenSearch(e.target.value)}
+            className="w-full pl-9 pr-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-[#624A3E]"
+          />
+        </div>
+        <button
+          onClick={() => setShowOnlyKitchen(!showOnlyKitchen)}
+          className={`flex items-center gap-1.5 py-1.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+            showOnlyKitchen
+              ? 'bg-[#624A3E] text-white border-[#624A3E]'
+              : 'bg-stone-50 text-stone-600 border-stone-200 hover:bg-stone-100'
+          }`}
+        >
+          <Filter className="w-3.5 h-3.5" />
+          {showOnlyKitchen ? 'Solo Cocina' : 'Todo (Bar + Cocina)'}
+        </button>
       </div>
 
       {/* KITCHEN KANBAN columns */}
