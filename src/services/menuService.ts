@@ -21,7 +21,7 @@ const normalizeProductoMenu = (prod: any): ProductoMenu => {
     categoria,
     subcategoria: prod.subcategoria || undefined,
     activo: Boolean(prod.activo),
-    imagen: prod.imagen || '',
+    imagen: prod.imagen || '/logo-el-patron.jpeg',
     tipo,
     tiempo_preparacion_estimado: prod.tiempo_preparacion_estimado || undefined,
     requiere_cocina: prod.requiere_cocina ?? (tipo === 'plato' || tipo === 'postre')

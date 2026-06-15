@@ -1,6 +1,89 @@
 import { getActiveSupabaseClient } from '../lib/supabaseClient';
 import { Pedido, PedidoItem } from '../types';
 
+type PedidoHeaderRow = Record<string, any>;
+type PedidoDetailRow = Record<string, any>;
+
+const parseHeaderItems = (items: unknown): PedidoItem[] => {
+  if (!items) return [];
+
+  try {
+    const parsed = typeof items === 'string' ? JSON.parse(items) : items;
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    console.warn('Failed to parse items fallback JSON:', error);
+    return [];
+  }
+};
+
+export const hydratePedido = (
+  header: PedidoHeaderRow,
+  details: PedidoDetailRow[] = []
+): Pedido => {
+  const headerItems = parseHeaderItems(header.items);
+  const relatedItems: PedidoItem[] = details
+    .filter(detail => detail.id_pedido === header.id_pedido)
+    .sort((a, b) => String(a.id_detalle || '').localeCompare(String(b.id_detalle || '')))
+    .map(detail => ({
+      id_producto: detail.id_producto || '',
+      nombre: detail.nombre,
+      cantidad: detail.cantidad,
+      categoria: detail.categoria,
+      precio_unitario: detail.precio_unitario ?? undefined
+    }));
+
+  return {
+    id_pedido: header.id_pedido,
+    id_mesa: header.id_mesa,
+    numero_mesa: header.numero_mesa,
+    mozo: header.mozo,
+    estado_comanda: header.estado_comanda,
+    // The JSON snapshot keeps historical prices even in legacy schemas where
+    // pedido_detalle does not yet have precio_unitario.
+    items: headerItems.length > 0 ? headerItems : relatedItems,
+    observaciones: header.observaciones || undefined,
+    fecha_hora: new Date(header.fecha_hora),
+    minutos_transcurridos: header.minutos_transcurridos || 0,
+    origen: header.origen,
+    tiempo_despacho_minutos: header.tiempo_despacho_minutos ?? undefined,
+    segundos_en_listo: header.segundos_en_listo ?? undefined,
+    stock_descontado: Boolean(header.stock_descontado),
+    fecha_descuento_stock: header.fecha_descuento_stock
+      ? new Date(header.fecha_descuento_stock)
+      : undefined
+  };
+};
+
+export const serializePedidoHeader = (pedido: Pedido) => ({
+  id_pedido: pedido.id_pedido,
+  id_mesa: pedido.id_mesa || null,
+  numero_mesa: pedido.numero_mesa,
+  mozo: pedido.mozo,
+  estado_comanda: pedido.estado_comanda,
+  observaciones: pedido.observaciones || null,
+  fecha_hora: pedido.fecha_hora instanceof Date
+    ? pedido.fecha_hora.toISOString()
+    : new Date(pedido.fecha_hora).toISOString(),
+  minutos_transcurridos: pedido.minutos_transcurridos,
+  origen: pedido.origen,
+  tiempo_despacho_minutos: pedido.tiempo_despacho_minutos ?? null,
+  segundos_en_listo: pedido.segundos_en_listo ?? null,
+  stock_descontado: Boolean(pedido.stock_descontado),
+  fecha_descuento_stock: pedido.fecha_descuento_stock
+    ? new Date(pedido.fecha_descuento_stock).toISOString()
+    : null,
+  items: JSON.stringify(pedido.items)
+});
+
+export const serializePedidoDetails = (pedido: Pedido) => pedido.items.map((item, index) => ({
+  id_detalle: `${pedido.id_pedido}_${String(index).padStart(4, '0')}`,
+  id_pedido: pedido.id_pedido,
+  id_producto: item.id_producto,
+  nombre: item.nombre,
+  cantidad: item.cantidad,
+  categoria: item.categoria
+}));
+
 export const pedidosService = {
   async list(): Promise<Pedido[]> {
     const supabase = getActiveSupabaseClient();
@@ -29,43 +112,7 @@ export const pedidosService = {
     }
 
     // Assemble nested structures matching `Pedido`
-    const assembled: Pedido[] = headers.map(h => {
-      const relatedItems: PedidoItem[] = (details || [])
-        .filter(d => d.id_pedido === h.id_pedido)
-        .map(d => ({
-          id_producto: d.id_producto || '',
-          nombre: d.nombre,
-          cantidad: d.cantidad,
-          categoria: d.categoria
-        }));
-
-      // Fallback to JSON items if no details are present but json string exists
-      let finalItems = relatedItems;
-      if (finalItems.length === 0 && h.items) {
-        try {
-          finalItems = typeof h.items === 'string' ? JSON.parse(h.items) : h.items;
-        } catch (e) {
-          console.warn('Failed to parse items fallback JSON:', e);
-        }
-      }
-
-      return {
-        id_pedido: h.id_pedido,
-        id_mesa: h.id_mesa,
-        numero_mesa: h.numero_mesa,
-        mozo: h.mozo,
-        estado_comanda: h.estado_comanda,
-        items: finalItems,
-        observaciones: h.observaciones || undefined,
-        fecha_hora: new Date(h.fecha_hora),
-        minutos_transcurridos: h.minutos_transcurridos || 0,
-        origen: h.origen,
-        tiempo_despacho_minutos: h.tiempo_despacho_minutos || undefined,
-        segundos_en_listo: h.segundos_en_listo || undefined
-      };
-    });
-
-    return assembled;
+    return headers.map(header => hydratePedido(header, details || []));
   },
 
   async getById(id: number): Promise<Pedido | null> {
@@ -90,6 +137,13 @@ export const pedidosService = {
     if (fields.segundos_en_listo !== undefined) headerFields.segundos_en_listo = fields.segundos_en_listo;
     if (fields.id_mesa !== undefined) headerFields.id_mesa = fields.id_mesa;
     if (fields.numero_mesa !== undefined) headerFields.numero_mesa = fields.numero_mesa;
+    if (fields.stock_descontado !== undefined) headerFields.stock_descontado = fields.stock_descontado;
+    if (fields.fecha_descuento_stock !== undefined) {
+      headerFields.fecha_descuento_stock = fields.fecha_descuento_stock
+        ? new Date(fields.fecha_descuento_stock).toISOString()
+        : null;
+    }
+    if (fields.items !== undefined) headerFields.items = JSON.stringify(fields.items);
 
     if (Object.keys(headerFields).length > 0) {
       const { error } = await supabase
@@ -104,22 +158,35 @@ export const pedidosService = {
 
     if (fields.items !== undefined) {
       // Re-upsert details
-      const details = fields.items.map((it, idx) => ({
-        id_detalle: `${id}_${idx}_${Date.now()}`,
+      const details = serializePedidoDetails({
+        ...fields,
         id_pedido: id,
-        id_producto: it.id_producto,
-        nombre: it.nombre,
-        cantidad: it.cantidad,
-        categoria: it.categoria
-      }));
+        id_mesa: fields.id_mesa ?? 0,
+        numero_mesa: fields.numero_mesa ?? '',
+        mozo: fields.mozo ?? '',
+        estado_comanda: fields.estado_comanda ?? 'pendiente',
+        items: fields.items,
+        fecha_hora: fields.fecha_hora ?? new Date(),
+        minutos_transcurridos: fields.minutos_transcurridos ?? 0,
+        origen: fields.origen ?? 'Mozo'
+      });
 
       // Delete existing details
-      await supabase.from('pedido_detalle').delete().eq('id_pedido', id);
-      
-      const { error: detError } = await supabase.from('pedido_detalle').insert(details);
-      if (detError) {
-        console.error('Error inserting details in update:', detError);
-        throw detError;
+      const { error: deleteError } = await supabase
+        .from('pedido_detalle')
+        .delete()
+        .eq('id_pedido', id);
+      if (deleteError) {
+        console.error('Error deleting previous order details:', deleteError);
+        throw deleteError;
+      }
+
+      if (details.length > 0) {
+        const { error: detError } = await supabase.from('pedido_detalle').insert(details);
+        if (detError) {
+          console.error('Error inserting details in update:', detError);
+          throw detError;
+        }
       }
     }
   },
@@ -129,20 +196,7 @@ export const pedidosService = {
     
     // 1. Process each nested order
     for (const ped of pedidos) {
-      const cabecera = {
-        id_pedido: ped.id_pedido,
-        id_mesa: ped.id_mesa || null,
-        numero_mesa: ped.numero_mesa,
-        mozo: ped.mozo,
-        estado_comanda: ped.estado_comanda,
-        observaciones: ped.observaciones || null,
-        fecha_hora: ped.fecha_hora instanceof Date ? ped.fecha_hora.toISOString() : new Date(ped.fecha_hora).toISOString(),
-        minutos_transcurridos: ped.minutos_transcurridos,
-        origen: ped.origen,
-        tiempo_despacho_minutos: ped.tiempo_despacho_minutos || null,
-        segundos_en_listo: ped.segundos_en_listo || null,
-        items: JSON.stringify(ped.items) // JSON fallback compatibility
-      };
+      const cabecera = serializePedidoHeader(ped);
 
       const { error: hError } = await supabase.from('pedidos_cabecera').upsert(cabecera);
       if (hError) {
@@ -151,20 +205,22 @@ export const pedidosService = {
       }
 
       // 2. Handle details
-      if (ped.items && ped.items.length > 0) {
-        const details = ped.items.map((it, idx) => ({
-          id_detalle: `${ped.id_pedido}_${idx}`,
-          id_pedido: ped.id_pedido,
-          id_producto: it.id_producto,
-          nombre: it.nombre,
-          cantidad: it.cantidad,
-          categoria: it.categoria
-        }));
+      if (ped.items) {
+        const details = serializePedidoDetails(ped);
+        const { error: deleteError } = await supabase
+          .from('pedido_detalle')
+          .delete()
+          .eq('id_pedido', ped.id_pedido);
+        if (deleteError) {
+          console.error('Error deleting previous order details:', deleteError);
+          throw deleteError;
+        }
 
-        await supabase.from('pedido_detalle').delete().eq('id_pedido', ped.id_pedido);
+        if (details.length === 0) continue;
         const { error: dError } = await supabase.from('pedido_detalle').insert(details);
         if (dError) {
-          console.warn('Error inserting order details:', dError);
+          console.error('Error inserting order details:', dError);
+          throw dError;
         }
       }
     }

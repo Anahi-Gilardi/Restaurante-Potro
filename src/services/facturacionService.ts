@@ -31,35 +31,69 @@ const mapMetodoPagoFromDb = (medioPago?: string): Factura['medio_pago'] => {
   return 'efectivo';
 };
 
+const LOCAL_FACTURAS_KEY = 'el_patron_facturas_pendientes';
+
+const readLocalFacturas = (): Factura[] => {
+  if (typeof localStorage === 'undefined') return [];
+  try {
+    const parsed = JSON.parse(localStorage.getItem(LOCAL_FACTURAS_KEY) || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const writeLocalFacturas = (facturas: Factura[]) => {
+  if (typeof localStorage === 'undefined') return;
+  localStorage.setItem(LOCAL_FACTURAS_KEY, JSON.stringify(facturas));
+};
+
+export const mergeFacturas = (remote: Factura[], local: Factura[]): Factura[] => {
+  const merged = new Map<string, Factura>();
+  local.forEach(factura => merged.set(factura.id_factura, factura));
+  remote.forEach(factura => merged.set(factura.id_factura, factura));
+  return Array.from(merged.values()).sort((a, b) => b.id_factura.localeCompare(a.id_factura));
+};
+
+const cacheFactura = (factura: Factura) => {
+  writeLocalFacturas(mergeFacturas([], [factura, ...readLocalFacturas()]));
+};
+
 export const facturacionService = {
   async list(): Promise<Factura[]> {
-    const supabase = getActiveSupabaseClient();
-    const { data, error } = await supabase.from('facturas').select('*').order('fecha_emision', { ascending: false });
-    if (error) {
-      console.error('Error fetching facturas:', error);
-      throw error;
-    }
-    return (data || []).map(f => {
-      const tipoComprobante = String(f.tipo_comprobante || '');
+    const local = readLocalFacturas();
+    try {
+      const supabase = getActiveSupabaseClient();
+      const { data, error } = await supabase.from('facturas').select('*').order('fecha_emision', { ascending: false });
+      if (error) throw error;
 
-      return {
-        id_factura: f.id_factura,
-        id_pedido: f.id_pedido || undefined,
-        nro_ticket: f.numero_factura,
-        cliente: f.cuit_cliente ? `Clien_CUIT_${f.cuit_cliente}` : 'Consumidor Final',
-        cuit: f.cuit_cliente || '99-99999999-9',
-        total: parseFloat(f.total),
-        iva_veintiuno: parseFloat((f.total * 0.21).toFixed(2)),
-        medio_pago: mapMetodoPagoFromDb(f.metodo_pago),
-        fecha: new Date(f.fecha_emision).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + ' hs',
-        estado: tipoComprobante.toLowerCase().includes('nota') ? 'nota_credito' : 'emitido'
-      };
-    });
+      const remote = (data || []).map(f => {
+        const tipoComprobante = String(f.tipo_comprobante || '');
+
+        return {
+          id_factura: f.id_factura,
+          id_pedido: f.id_pedido || undefined,
+          nro_ticket: f.numero_factura,
+          cliente: f.cuit_cliente ? `Clien_CUIT_${f.cuit_cliente}` : 'Consumidor Final',
+          cuit: f.cuit_cliente || '99-99999999-9',
+          total: parseFloat(f.total),
+          iva_veintiuno: parseFloat((f.total * 0.21).toFixed(2)),
+          medio_pago: mapMetodoPagoFromDb(f.metodo_pago),
+          fecha: new Date(f.fecha_emision).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + ' hs',
+          estado: tipoComprobante.toLowerCase().includes('nota') ? 'nota_credito' as const : 'emitido' as const
+        };
+      });
+
+      return mergeFacturas(remote, local);
+    } catch (error) {
+      console.warn('No se pudo leer facturas remotas; usando respaldo local.', error);
+      return local;
+    }
   },
 
   async create(factura: Factura): Promise<Factura> {
+    cacheFactura(factura);
     const supabase = getActiveSupabaseClient();
-    
     const dbPayload = {
       id_factura: factura.id_factura,
       id_pedido: factura.id_pedido || null,
@@ -84,6 +118,7 @@ export const facturacionService = {
   },
 
   async upsert(facturas: Factura[]): Promise<void> {
+    writeLocalFacturas(mergeFacturas([], [...facturas, ...readLocalFacturas()]));
     const supabase = getActiveSupabaseClient();
     const dbPayloads = facturas.map(f => {
       return {
@@ -106,6 +141,9 @@ export const facturacionService = {
   },
 
   async markNotaCredito(id: string): Promise<void> {
+    writeLocalFacturas(readLocalFacturas().map(factura => (
+      factura.id_factura === id ? { ...factura, estado: 'nota_credito' } : factura
+    )));
     const supabase = getActiveSupabaseClient();
     const { error } = await supabase
       .from('facturas')
@@ -118,6 +156,7 @@ export const facturacionService = {
   },
 
   async remove(id: string): Promise<boolean> {
+    writeLocalFacturas(readLocalFacturas().filter(factura => factura.id_factura !== id));
     const supabase = getActiveSupabaseClient();
     const { error } = await supabase.from('facturas').delete().eq('id_factura', id);
     if (error) {

@@ -383,7 +383,7 @@ export default function CajaModule({
       fechaHora: new Date().toLocaleDateString('es-AR') + ' ' + new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + 'hs',
       items: selectedPedido.items.map(it => {
         const prod = productosMenu.find(pm => pm.id_producto === it.id_producto);
-        const uni = prod ? prod.precio_venta : 0;
+        const uni = it.precio_unitario ?? prod?.precio_venta ?? 0;
         return {
           cantidad: it.cantidad,
           descripcion: it.nombre,
@@ -453,7 +453,7 @@ export default function CajaModule({
     // 3. Update Sales stats in Cash register daily shift
     const paymentDesglosesCount = {
       efectivo: pays.filter(p => p.metodo === 'efectivo').reduce((s, c) => s + c.monto, 0),
-      debito: pays.filter(p => p.metodo === 'transferencia' || p.metodo === 'debito').reduce((s, c) => s + c.monto, 0),
+      debito: pays.filter(p => p.metodo === 'debito').reduce((s, c) => s + c.monto, 0),
       credito: pays.filter(p => p.metodo === 'tarjeta' || p.metodo === 'credito').reduce((s, c) => s + c.monto, 0),
       transferencia: pays.filter(p => p.metodo === 'transferencia').reduce((s, c) => s + c.monto, 0),
       mercadopago: pays.filter(p => p.metodo === 'mp_qr' || p.metodo === 'mercadopago').reduce((s, c) => s + c.monto, 0)

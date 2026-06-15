@@ -13,6 +13,7 @@ import {
     Package,
 } from 'lucide-react';
 import { Mesa, Pedido, Insumo, EventoLog, ProductoMenu } from '../types';
+import { AppView } from '../lib/permissions';
 
 interface PanelDashboardProps {
     mesas: Mesa[];
@@ -20,6 +21,7 @@ interface PanelDashboardProps {
     insumos: Insumo[];
     productosMenu: ProductoMenu[];
     logs: EventoLog[];
+    allowedViews: AppView[];
     onNavigate: (view: any) => void;
     getSimulatedTimeStr: () => string;
 }
@@ -30,6 +32,7 @@ export default function PanelDashboard({
     insumos,
     productosMenu,
     logs,
+    allowedViews,
     onNavigate,
     getSimulatedTimeStr
 }: PanelDashboardProps) {
@@ -200,7 +203,7 @@ export default function PanelDashboard({
           { view: 'cocina', icon: <ChefHat className="w-4 h-4" />, label: 'Cocina', desc: 'Cocina y semáforo de comandas' },
           { view: 'caja', icon: <Receipt className="w-4 h-4" />, label: 'Módulo Caja', desc: 'Cobros y cierre de turno' },
           { view: 'inventario', icon: <Package className="w-4 h-4" />, label: 'Inventario', desc: 'Stock y mermas' },
-                      ].map(({ view, icon, label, desc }) => (
+                      ].filter(({ view }) => allowedViews.includes(view as AppView)).map(({ view, icon, label, desc }) => (
                                       <button
                                                         key={view}
                                                         onClick={() => onNavigate(view)}

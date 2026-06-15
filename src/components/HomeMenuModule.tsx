@@ -21,7 +21,8 @@ import {
   CheckCircle,
   AlertTriangle
 } from 'lucide-react';
-import { Mesa, Pedido, Insumo, ProductoMenu } from '../types';
+import { Mesa, Pedido, Insumo, ProductoMenu, Usuario } from '../types';
+import { AppView } from '../lib/permissions';
 import { getSupabaseClient } from '../supabase';
 import ElPatronLogo from './ElPatronLogo';
 
@@ -30,6 +31,9 @@ interface HomeMenuModuleProps {
   pedidos: Pedido[];
   insumos: Insumo[];
   productosMenu: ProductoMenu[];
+  usuarios: Usuario[];
+  allowedViews: AppView[];
+  canChangeUser: boolean;
   activeMozo: string;
   onMozoChange: (mozo: string) => void;
   onNavigate: (view: any) => void;
@@ -44,6 +48,9 @@ export default function HomeMenuModule({
   pedidos,
   insumos,
   productosMenu,
+  usuarios,
+  allowedViews,
+  canChangeUser,
   activeMozo,
   onMozoChange,
   onNavigate,
@@ -285,16 +292,21 @@ export default function HomeMenuModule({
             <div className="w-7 h-7 rounded-full bg-stone-100 border border-stone-200 flex items-center justify-center text-stone-600">
               <User className="w-4 h-4 text-stone-500" />
             </div>
-            <select
-              value={activeMozo}
-              onChange={(e) => onMozoChange(e.target.value)}
-              className="text-xs bg-transparent border-0 font-bold text-stone-800 focus:outline-none focus:ring-0 p-0 cursor-pointer hover:text-[#624A3E]"
-            >
-              <option value="Enzo">Enzo (Mozo Salón)</option>
-              <option value="Micaela">Micaela (Mozo Salón)</option>
-              <option value="Damián">Damián (Cocinero)</option>
-              <option value="Sofía">Sofía (Administrador / Caja)</option>
-            </select>
+            {canChangeUser ? (
+              <select
+                value={activeMozo}
+                onChange={(e) => onMozoChange(e.target.value)}
+                className="text-xs bg-transparent border-0 font-bold text-stone-800 focus:outline-none focus:ring-0 p-0 cursor-pointer hover:text-[#624A3E]"
+              >
+                {usuarios.filter(usuario => usuario.activo !== false).map(usuario => (
+                  <option key={usuario.id_usuario} value={usuario.nombre}>
+                    {usuario.nombre} ({usuario.rol === 'administrador' ? 'Administrador / Caja' : usuario.rol === 'cocina' ? 'Cocina' : 'Mozo Salón'})
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <span className="text-xs font-bold text-stone-800">{activeMozo}</span>
+            )}
           </div>
           <p className="text-[11px] text-stone-400/95">Persona logueada de forma segura.</p>
         </div>
@@ -354,7 +366,7 @@ export default function HomeMenuModule({
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {menuItems.map(item => {
+          {menuItems.filter(item => allowedViews.includes(item.id as AppView)).map(item => {
             const Icon = item.icon;
             
             // Determine badge theme colors

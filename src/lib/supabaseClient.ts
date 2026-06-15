@@ -21,7 +21,7 @@ export const normalizeSupabaseUrl = (url: string) => {
 };
 
 export const getSupabaseConfig = (): SupabaseConfig => {
-  const env = (import.meta as any).env;
+  const env = (import.meta as any).env || {};
   const url = env.VITE_SUPABASE_URL || readLocalConfig('SUPABASE_URL') || DEFAULT_SUPABASE_URL;
   const key = env.VITE_SUPABASE_PUBLISHABLE_KEY || env.VITE_SUPABASE_ANON_KEY || readLocalConfig('SUPABASE_ANON_KEY') || DEFAULT_SUPABASE_ANON_KEY;
   return { url: normalizeSupabaseUrl(url), key: key.trim() };
@@ -45,7 +45,11 @@ const createConfiguredClient = (): SupabaseClient | null => {
 
   cachedFingerprint = fingerprint;
   cachedClient = createClient(config.url, config.key, {
-    auth: { persistSession: false }
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true
+    }
   });
 
   return cachedClient;
@@ -58,6 +62,8 @@ export const tryGetActiveSupabaseClient = (): SupabaseClient | null => {
 };
 
 export const resetSupabaseClientCache = () => {
+  cachedClient?.removeAllChannels();
+  cachedClient?.auth.stopAutoRefresh();
   cachedClient = null;
   cachedFingerprint = '';
 };

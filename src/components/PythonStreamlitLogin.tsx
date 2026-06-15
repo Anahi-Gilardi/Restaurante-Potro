@@ -6,7 +6,7 @@ import {
 import ElPatronLogo from './ElPatronLogo';
 
 interface PythonStreamlitLoginProps {
-  onLoginSuccess: () => void;
+  onLoginSuccess: (operatorName?: string) => void;
 }
 
 export default function PythonStreamlitLogin({ onLoginSuccess }: PythonStreamlitLoginProps) {

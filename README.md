@@ -12,7 +12,7 @@ Aplicación web para administrar la operación diaria de un restaurante: menú p
 
 ## Requisitos
 
-- Node.js 20 o superior recomendado
+- Node.js 22 (la misma versión fijada para Vercel)
 - Proyecto Supabase opcional si se quiere sincronizar datos en la nube
 
 ## Instalación
@@ -61,6 +61,7 @@ Contraseña: restaurante
 
 ```bash
 npm run lint
+npm test
 npm run build
 ```
 
@@ -90,6 +91,7 @@ npm run clean
 
 ## Notas de seguridad
 
-- No se incluyen credenciales reales en el repositorio.
-- La conexión Supabase es opcional y no usa URL ni clave hardcodeada.
+- Configurar `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` por separado en Production, Preview y Development.
+- Configurar `VITE_DEMO_USER` y `VITE_DEMO_PASSWORD` en Vercel mientras el acceso demo esté habilitado.
+- Desactivar el acceso demo con `VITE_ENABLE_DEMO_LOGIN=false` cuando Supabase Auth esté operativo.
 - Las políticas RLS de la migración son abiertas para desarrollo/demo. Para producción, restringirlas por usuario, rol y operación.

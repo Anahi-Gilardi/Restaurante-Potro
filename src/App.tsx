@@ -8,11 +8,13 @@ import {
   User,
   Clock,
   RefreshCw,
-  ShieldAlert
+  ShieldAlert,
+  LogOut
 } from 'lucide-react';
 
-import { Mesa, Insumo, ProductoMenu, RecetaEscandallo, Pedido, Merma, EventoLog } from './types';
+import { Mesa, Insumo, ProductoMenu, RecetaEscandallo, Pedido, Merma, EventoLog, Reserva, Usuario } from './types';
 import { 
+  INITIAL_USUARIOS,
   INITIAL_MESAS, 
   INITIAL_INSUMOS, 
   INITIAL_PRODUCTOS_MENU, 
@@ -42,6 +44,8 @@ import PromocionesModule from './components/PromocionesModule';
 import ReservasModule from './components/ReservasModule';
 import FacturacionModule from './components/FacturacionModule';
 import BackupsModule from './components/BackupsModule';
+import type { BackupSnapshotData } from './services/backupsService';
+import { usuariosService } from './services/usuariosService';
 import { 
   getSupabaseClient,
   dbFetchMesas,
@@ -56,12 +60,16 @@ import {
   dbUpsertMermas,
   dbRecordMovement
 } from './supabase';
+import { AppView, canAccessView, getAllowedViews } from './lib/permissions';
 
 export default function App() {
   const { toast, toasts, removeToast } = useToast();
   // --- Global Synced States ---
-  const [isStreamlitLoggedIn, setIsStreamlitLoggedIn] = useState<boolean>(false);
+  const [isStreamlitLoggedIn, setIsStreamlitLoggedIn] = useState<boolean>(() => (
+    typeof window !== 'undefined' && window.sessionStorage.getItem('el_patron_session') === 'active'
+  ));
   const [permitirVentaSinStock, setPermitirVentaSinStock] = useState<boolean>(false);
+  const [usuarios, setUsuarios] = useState<Usuario[]>(INITIAL_USUARIOS);
   const [mesas, setMesas] = useState<Mesa[]>(INITIAL_MESAS);
   const [insumos, setInsumos] = useState<Insumo[]>(INITIAL_INSUMOS);
   const [productosMenu, setProductosMenu] = useState<ProductoMenu[]>(INITIAL_PRODUCTOS_MENU);
@@ -116,6 +124,13 @@ export default function App() {
   // Auto-sync effect on mount
   useEffect(() => {
     const autoLoadSupabase = async () => {
+      try {
+        const savedUsuarios = await usuariosService.list();
+        if (savedUsuarios.length > 0) setUsuarios(savedUsuarios);
+      } catch (err) {
+        console.warn('Usuarios: no se pudo cargar la copia persistida.', err);
+      }
+
       const client = getSupabaseClient();
       if (!client) return;
       try {
@@ -178,10 +193,51 @@ export default function App() {
   // Custom interactive log tracker for BI & audit
 
   // Terminal active configs & simulation states
-  const [activeMozo, setActiveMozo] = useState<string>('Enzo');
-  const [activeView, setActiveView] = useState<
-    'home' | 'panel' | 'mozo' | 'cocina' | 'caja' | 'reportes' | 'usuarios' | 'menu' | 'recetas' | 'mesas' | 'inventario' | 'proveedores' | 'promociones' | 'reservas' | 'facturacion' | 'sistema' | 'backups'
-  >('home');
+  const [activeMozo, setActiveMozo] = useState<string>('Sofía');
+  const [activeView, setActiveView] = useState<AppView>('home');
+  const activeUser = useMemo(
+    () => usuarios.find(usuario => usuario.nombre === activeMozo && usuario.activo !== false)
+      || usuarios.find(usuario => usuario.activo !== false)
+      || INITIAL_USUARIOS[0],
+    [usuarios, activeMozo]
+  );
+  const allowedViews = useMemo(() => getAllowedViews(activeUser.rol), [activeUser.rol]);
+
+  const applyAuthenticatedSession = useCallback((session: {
+    user?: { user_metadata?: Record<string, unknown> };
+  }) => {
+    const metadata = session.user?.user_metadata;
+    const requestedName = metadata?.nombre || metadata?.name;
+    const operator = (
+      typeof requestedName === 'string'
+        ? usuarios.find(usuario => (
+            usuario.activo !== false
+            && usuario.nombre.toLowerCase() === requestedName.trim().toLowerCase()
+          ))
+        : undefined
+    ) || usuarios.find(usuario => usuario.activo !== false && usuario.rol === 'mozo')
+      || usuarios.find(usuario => usuario.activo !== false && usuario.rol !== 'administrador')
+      || usuarios.find(usuario => usuario.activo !== false);
+
+    if (operator) {
+      setActiveMozo(operator.nombre);
+      setActiveView('home');
+      setIsStreamlitLoggedIn(true);
+    }
+  }, [usuarios]);
+
+  useEffect(() => {
+    const client = getSupabaseClient();
+    if (!client) return;
+
+    client.auth.getSession().then(({ data }) => {
+      if (data.session) applyAuthenticatedSession(data.session);
+    });
+    const { data: listener } = client.auth.onAuthStateChange((_event, session) => {
+      if (session) applyAuthenticatedSession(session);
+    });
+    return () => listener.subscription.unsubscribe();
+  }, [applyAuthenticatedSession]);
 
   // Simulation Clock state (operational minutes passed)
   const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
@@ -272,8 +328,56 @@ export default function App() {
   }, [pedidos, insumos, recetas, addLog, mesas, permitirVentaSinStock, setMesas, setInsumos, setPedidos]);
 
   const handleMozoChange = (mozo: string) => {
+    const nextUser = usuarios.find(usuario => usuario.nombre === mozo && usuario.activo !== false);
+    if (!nextUser) {
+      toast.error('El usuario seleccionado no está disponible.');
+      return;
+    }
     setActiveMozo(mozo);
-    addLog('sistema', `SESIÓN: Acceso de personal actualizado por mozo: ${mozo}`);
+    if (!canAccessView(nextUser.rol, activeView)) {
+      setActiveView('home');
+    }
+    addLog('sistema', `SESIÓN: Usuario operativo actualizado a ${mozo} (${nextUser.rol}).`);
+  };
+
+  const handleNavigate = (view: AppView) => {
+    if (!canAccessView(activeUser.rol, view)) {
+      toast.warning(`El rol ${activeUser.rol} no tiene permiso para abrir este módulo.`);
+      setActiveView('home');
+      return;
+    }
+    setActiveView(view);
+  };
+
+  const handleLoginSuccess = (operatorName?: string) => {
+    const isDemoLogin = operatorName === undefined;
+    const requestedOperator = !isDemoLogin
+      ? usuarios.find(usuario => (
+          usuario.activo !== false
+          && usuario.nombre.toLowerCase() === operatorName.trim().toLowerCase()
+        ))
+      : undefined;
+    const operator = requestedOperator
+      || (isDemoLogin
+        ? usuarios.find(usuario => usuario.activo !== false && usuario.rol === 'administrador')
+        : usuarios.find(usuario => usuario.activo !== false && usuario.rol === 'mozo'))
+      || usuarios.find(usuario => usuario.activo !== false && usuario.rol !== 'administrador')
+      || usuarios.find(usuario => usuario.activo !== false);
+
+    if (!operator) {
+      toast.error('No hay usuarios activos disponibles para iniciar sesión.');
+      return;
+    }
+    window.sessionStorage.setItem('el_patron_session', 'active');
+    setActiveMozo(operator.nombre);
+    setActiveView('home');
+    setIsStreamlitLoggedIn(true);
+  };
+
+  const handleLogout = () => {
+    window.sessionStorage.removeItem('el_patron_session');
+    getSupabaseClient()?.auth.signOut().catch(() => undefined);
+    setIsStreamlitLoggedIn(false);
   };
 
   // --- Handlers for Kitchen View ---
@@ -588,6 +692,30 @@ export default function App() {
     dbUpsertInsumos(updatedInsumos);
   };
 
+  const handleReservaEstadoChange = useCallback((reserva: Reserva, estado: Reserva['estado']) => {
+    if (!reserva.id_mesa) return;
+
+    const hasActiveOrder = pedidos.some(pedido => (
+      pedido.id_mesa === reserva.id_mesa
+      && pedido.estado_comanda !== 'entregado_cobrado'
+      && pedido.estado_comanda !== 'cancelado'
+    ));
+
+    const updatedMesas = mesas.map(mesa => {
+      if (mesa.id_mesa !== reserva.id_mesa) return mesa;
+      if (estado === 'sentada') {
+        return { ...mesa, estado: 'ocupada' as const, comensales: reserva.pax };
+      }
+      if (!hasActiveOrder && (estado === 'cancelada' || estado === 'completada')) {
+        return { ...mesa, estado: 'libre' as const, comensales: undefined };
+      }
+      return mesa;
+    });
+
+    setMesas(updatedMesas);
+    dbUpsertMesas(updatedMesas);
+  }, [mesas, pedidos]);
+
   // --- Handlers for Simulation Controls ---
   const handleAdvanceTime = (mins: number) => {
     setMinutosGlobal(prev => prev + mins);
@@ -633,6 +761,31 @@ export default function App() {
     ]);
   };
 
+  const handleRestoreBackupData = (snapshot: BackupSnapshotData) => {
+    setUsuarios(snapshot.usuarios);
+    setMesas(snapshot.mesas);
+    setInsumos(snapshot.insumos);
+    setProductosMenu(snapshot.productosMenu);
+    setRecetas(snapshot.recetas);
+    setPedidos(snapshot.pedidos);
+    setMermas(snapshot.mermas);
+    setLogs(snapshot.logs);
+    setMinutosGlobal(0);
+    setAutoTimerRunning(false);
+  };
+
+  useEffect(() => {
+    if (!usuarios.some(usuario => usuario.nombre === activeMozo && usuario.activo !== false)) {
+      setActiveMozo(activeUser.nombre);
+    }
+  }, [usuarios, activeMozo, activeUser.nombre]);
+
+  useEffect(() => {
+    if (!canAccessView(activeUser.rol, activeView)) {
+      setActiveView('home');
+    }
+  }, [activeUser.rol, activeView]);
+
   // Auto simulation ticker
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
@@ -671,7 +824,7 @@ export default function App() {
   };
 
   if (!isStreamlitLoggedIn) {
-    return <PythonStreamlitLogin onLoginSuccess={() => setIsStreamlitLoggedIn(true)} />;
+    return <PythonStreamlitLogin onLoginSuccess={handleLoginSuccess} />;
   }
 
   return (
@@ -738,6 +891,7 @@ export default function App() {
         </div>
 
         {/* Business Rule: Venta sin stock */}
+        {activeUser.rol === 'administrador' && (
         <div className="p-4 bg-stone-950/30 border-b border-stone-800 space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-[10px] uppercase font-bold text-stone-400 tracking-wider flex items-center gap-1.5 font-mono">
@@ -764,6 +918,7 @@ export default function App() {
             />
           </label>
         </div>
+        )}
 
         {/* Interactive Personnel login manager */}
         <div className="p-4 border-b border-stone-800 bg-stone-950/20">
@@ -773,16 +928,23 @@ export default function App() {
             </div>
             <div className="flex-1 text-left min-w-0">
               <span className="text-[9px] text-stone-500 block font-bold leading-none uppercase">Usuario en Consola</span>
-              <select
-                value={activeMozo}
-                onChange={(e) => handleMozoChange(e.target.value)}
-                className="text-xs bg-transparent border-none p-0 focus:outline-none font-extrabold text-white cursor-pointer w-full mt-0.5 focus:ring-0"
-              >
-                <option value="Enzo" className="bg-stone-950 text-stone-200">Enzo (Mozo Salón)</option>
-                <option value="Micaela" className="bg-stone-950 text-stone-200">Micaela (Mozo Salón)</option>
-                <option value="Damián" className="bg-stone-950 text-stone-200">Damián (Cocinero)</option>
-                <option value="Sofía" className="bg-stone-950 text-stone-200">Sofía (Administrador / Caja)</option>
-              </select>
+              {activeUser.rol === 'administrador' ? (
+                <select
+                  value={activeMozo}
+                  onChange={(e) => handleMozoChange(e.target.value)}
+                  className="text-xs bg-transparent border-none p-0 focus:outline-none font-extrabold text-white cursor-pointer w-full mt-0.5 focus:ring-0"
+                >
+                  {usuarios.filter(usuario => usuario.activo !== false).map(usuario => (
+                    <option key={usuario.id_usuario} value={usuario.nombre} className="bg-stone-950 text-stone-200">
+                      {usuario.nombre} ({usuario.rol})
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <span className="text-xs font-extrabold text-white mt-0.5 block">
+                  {activeUser.nombre} ({activeUser.rol})
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -811,13 +973,13 @@ export default function App() {
                 { id: 'facturacion', label: 'Facturación' },
                 { id: 'sistema', label: 'Sistema' },
                 { id: 'backups', label: 'Backups' }
-              ].map(item => {
+              ].filter(item => allowedViews.includes(item.id as AppView)).map(item => {
                 const isActive = activeView === item.id;
                 return (
                   <button
                     key={item.id}
                     id={`tab-${item.id}`}
-                    onClick={() => setActiveView(item.id as any)}
+                    onClick={() => handleNavigate(item.id as AppView)}
                     className={`w-full py-3.5 text-center text-xs font-black rounded-lg tracking-wider border block transition-all cursor-pointer ${
                       isActive
                         ? 'bg-[#4D3227] text-white border-stone-800/10 font-bold shadow-md shadow-black/20'
@@ -839,6 +1001,14 @@ export default function App() {
             SQLite + Supabase Bridge
           </div>
           <p className="opacity-75">Sesión local conectada de forma segura.</p>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="mt-2 w-full flex items-center justify-center gap-1.5 rounded-lg border border-stone-800 px-2 py-1.5 text-stone-400 hover:bg-stone-900 hover:text-white transition-colors"
+          >
+            <LogOut className="w-3 h-3" />
+            Cerrar sesión
+          </button>
         </div>
       </aside>
 
@@ -908,9 +1078,12 @@ export default function App() {
                 pedidos={pedidos}
                 insumos={insumos}
                 productosMenu={productosMenu}
+                usuarios={usuarios}
+                allowedViews={allowedViews}
+                canChangeUser={activeUser.rol === 'administrador'}
                 activeMozo={activeMozo}
                 onMozoChange={handleMozoChange}
-                onNavigate={(view: any) => setActiveView(view)}
+                onNavigate={(view: AppView) => handleNavigate(view)}
                 getSimulatedTimeStr={getSimulatedTimeStr}
                 autoTimerRunning={autoTimerRunning}
                 onToggleAutoTimer={handleToggleAutoTimer}
@@ -929,8 +1102,9 @@ export default function App() {
                 insumos={insumos}
                 productosMenu={productosMenu}
                 logs={logs}
+                allowedViews={allowedViews}
                 getSimulatedTimeStr={getSimulatedTimeStr}
-                onNavigate={(view: any) => setActiveView(view)}
+                onNavigate={(view: AppView) => handleNavigate(view)}
               />
             </div>
               </ErrorBoundary>
@@ -944,6 +1118,7 @@ export default function App() {
                 insumos={insumos}
                 productosMenu={productosMenu}
                 recetas={recetas}
+                usuarios={activeUser.rol === 'administrador' ? usuarios : [activeUser]}
                 activeMozo={activeMozo}
                 onMozoChange={handleMozoChange}
                 onCrearPedido={handleCrearPedido}
@@ -1000,7 +1175,8 @@ export default function App() {
             <ErrorBoundary moduleName={'usuarios'}>
             <div key={activeView} className="animate-fadeIn">
               <UsuariosModule
-                logs={logs}
+                usuarios={usuarios}
+                onUsuariosChange={setUsuarios}
                 addLog={addLog}
               />
             </div>
@@ -1012,6 +1188,7 @@ export default function App() {
             <div key={activeView} className="animate-fadeIn">
               <MenuModule
                 productosMenu={productosMenu}
+                onProductosChange={setProductosMenu}
                 addLog={addLog}
               />
             </div>
@@ -1025,6 +1202,7 @@ export default function App() {
                 recetas={recetas}
                 productosMenu={productosMenu}
                 insumos={insumos}
+                onRecetasChange={setRecetas}
                 addLog={addLog}
               />
             </div>
@@ -1036,6 +1214,7 @@ export default function App() {
             <div key={activeView} className="animate-fadeIn">
                 <MesasModule
                   mesas={mesas}
+                  onMesasChange={setMesas}
                   addLog={addLog}
                 />
             </div>
@@ -1063,7 +1242,6 @@ export default function App() {
             <ErrorBoundary moduleName={'proveedores'}>
             <div key={activeView} className="animate-fadeIn">
               <ProveedoresModule
-                onRestockTodo={handleRestockTodo}
                 addLog={addLog}
               />
             </div>
@@ -1085,6 +1263,7 @@ export default function App() {
             <div key={activeView} className="animate-fadeIn">
               <ReservasModule
                 mesas={mesas}
+                onEstadoChange={handleReservaEstadoChange}
                 addLog={addLog}
               />
             </div>
@@ -1123,7 +1302,17 @@ export default function App() {
             <ErrorBoundary moduleName={'backups'}>
             <div key={activeView} className="animate-fadeIn">
               <BackupsModule
-                onResetAllData={handleResetAllData}
+                operationalData={{
+                  usuarios,
+                  mesas,
+                  insumos,
+                  productosMenu,
+                  recetas,
+                  pedidos,
+                  mermas,
+                  logs
+                }}
+                onRestoreData={handleRestoreBackupData}
                 addLog={addLog}
               />
             </div>
