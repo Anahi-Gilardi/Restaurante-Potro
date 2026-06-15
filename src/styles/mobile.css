@@ -1,0 +1,182 @@
+/* ============================================================
+   MOBILE-FIRST & LOW-END DEVICE OPTIMIZATIONS
+   Breakpoints: 360px (legacy), 480px (small), 640px (tablet), 1024px
+   ============================================================ */
+
+/* ── Touch-friendly hit targets (min 48x48) ─────────────── */
+.touch-target {
+  min-width: 48px;
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.touch-target-sm {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+/* ── Performance: reduce repaint/reflow ─────────────────── */
+.perf-safe {
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  animation: none !important;
+}
+
+.perf-card {
+  background: #fff;
+  border: 1px solid #e5e4e2;
+  border-radius: 12px;
+}
+
+/* ── Passive scroll for jank-free lists ─────────────────── */
+.scroll-passive {
+  -webkit-overflow-scrolling: touch;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* ── Bottom nav spacer (for pages with fixed bottom nav) ─ */
+.bottom-nav-spacer {
+  padding-bottom: 80px;
+}
+
+/* ── Mobile grid: cards instead of tables ──────────────── */
+.mobile-card-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+@media (min-width: 480px) {
+  .mobile-card-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (min-width: 768px) {
+  .mobile-card-grid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  }
+}
+
+/* ── Hide desktop sidebar on mobile ─────────────────────── */
+.desktop-sidebar {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .desktop-sidebar {
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+.mobile-bottom-nav {
+  display: flex;
+}
+
+@media (min-width: 768px) {
+  .mobile-bottom-nav {
+    display: none;
+  }
+}
+
+/* ── Force passive event listeners via CSS (scroll) ────── */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+input, textarea, select, button {
+  font-size: 16px !important; /* Prevents iOS zoom on focus */
+}
+
+/* ── Critical: disable animations on low-end devices ───── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── Skeleton optimization ──────────────────────────────── */
+.skeleton-pulse {
+  background: linear-gradient(90deg, #e5e4e2 25%, #f0efed 50%, #e5e4e2 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── Table → Card responsive switch ────────────────────── */
+.responsive-table thead {
+  display: none;
+}
+
+.responsive-table tr {
+  display: block;
+  padding: 12px;
+  margin-bottom: 8px;
+  border: 1px solid #e5e4e2;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.responsive-table td {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  font-size: 13px;
+  border: none;
+}
+
+.responsive-table td::before {
+  content: attr(data-label);
+  font-weight: 700;
+  color: #78716c;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+@media (min-width: 768px) {
+  .responsive-table thead {
+    display: table-header-group;
+  }
+  .responsive-table tr {
+    display: table-row;
+    padding: 0;
+    margin-bottom: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+  }
+  .responsive-table td {
+    display: table-cell;
+    padding: 12px 8px;
+    font-size: 13px;
+    border-bottom: 1px solid #e5e4e2;
+  }
+  .responsive-table td::before {
+    display: none;
+  }
+}
+
+/* ── Safe area for notched devices ──────────────────────── */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
+/* ── Disable backdrop blur on low-end ───────────────────── */
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .backdrop-fallback {
+    background: rgba(255,255,255,0.95) !important;
+  }
+}

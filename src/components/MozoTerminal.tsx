@@ -571,7 +571,7 @@ export default function MozoTerminal({
                           e.stopPropagation();
                           if (!isOutOfStock) for (let i = 0; i < n; i++) handleAddToCart(p.id_producto);
                         }}
-                        className="w-7 h-7 rounded-lg bg-[#624A3E]/10 text-[#624A3E] hover:bg-[#624A3E] hover:text-white active:scale-90 transition-all text-[10px] font-extrabold cursor-pointer"
+                        className="touch-target-sm w-11 h-11 rounded-lg bg-[#624A3E]/10 text-[#624A3E] hover:bg-[#624A3E] hover:text-white active:scale-90 transition-all text-xs font-extrabold cursor-pointer"
                         title={`Agregar ${n}`}
                       >
                         +{n}
@@ -672,7 +672,7 @@ export default function MozoTerminal({
                 <span>{Object.keys(cart).length} productos distintos</span>
                 <button
                   onClick={() => setCart({})}
-                  className="text-rose-500 hover:text-rose-700 font-bold uppercase tracking-wider cursor-pointer"
+                  className="touch-target text-rose-500 hover:text-rose-700 font-bold uppercase tracking-wider cursor-pointer text-xs"
                 >
                   Vaciar Carrito
                 </button>

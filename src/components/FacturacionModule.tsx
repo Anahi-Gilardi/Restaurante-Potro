@@ -649,7 +649,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
           </div>
 
           <div className="overflow-x-auto w-full">
-            <table className="w-full text-left text-xs border-collapse">
+            <table className="w-full text-left text-xs border-collapse responsive-table">
               <thead>
                 <tr className="border-b border-stone-150 text-stone-400 uppercase text-[9px] font-black tracking-wider">
                   <th className="py-2.5 px-3">Nro</th>
@@ -668,21 +668,21 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
                   const { neto } = calcIvaIncluido(f.total, f.iva_veintiuno > 0);
                   return (
                     <tr key={f.id_factura} className={`border-b border-stone-100 hover:bg-stone-50/50 transition-colors ${isNCD ? 'opacity-60 bg-red-50/10' : ''}`}>
-                      <td className="py-3 px-3 font-mono font-bold text-stone-800">{f.nro_ticket}</td>
-                      <td className="py-3 px-3 font-medium text-stone-400">{f.fecha}</td>
-                      <td className="py-3 px-3">
+                      <td data-label="Nro" className="py-3 px-3 font-mono font-bold text-stone-800">{f.nro_ticket}</td>
+                      <td data-label="Fecha" className="py-3 px-3 font-medium text-stone-400">{f.fecha}</td>
+                      <td data-label="Cliente" className="py-3 px-3">
                         <span className="font-extrabold text-stone-900 block">{f.cliente}</span>
                         <span className="text-[10px] text-stone-400 font-mono">{f.cuit}</span>
                       </td>
-                      <td className="py-3 px-3 text-right font-mono text-stone-550">{money(neto)}</td>
-                      <td className="py-3 px-3 text-right font-mono text-stone-400">{money(f.iva_veintiuno)}</td>
-                      <td className={`py-3 px-3 text-right font-mono font-extrabold ${isNCD ? 'text-red-500 line-through' : 'text-stone-900'}`}>{money(f.total)}</td>
-                      <td className="py-3 px-3 text-center">
+                      <td data-label="Neto" className="py-3 px-3 text-right font-mono text-stone-550">{money(neto)}</td>
+                      <td data-label="IVA" className="py-3 px-3 text-right font-mono text-stone-400">{money(f.iva_veintiuno)}</td>
+                      <td data-label="Total" className={`py-3 px-3 text-right font-mono font-extrabold ${isNCD ? 'text-red-500 line-through' : 'text-stone-900'}`}>{money(f.total)}</td>
+                      <td data-label="Estado" className="py-3 px-3 text-center">
                         <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full border ${isNCD ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-emerald-50 text-emerald-700 border-emerald-100'}`}>
                           {isNCD ? 'Anulado' : 'Valido'}
                         </span>
                       </td>
-                      <td className="py-3 px-3 text-right space-x-1.5 whitespace-nowrap">
+                      <td data-label="Acciones" className="py-3 px-3 text-right space-x-1.5 whitespace-nowrap">
                         <button onClick={() => downloadFacturaPdf(f)} className="p-1.5 rounded-lg bg-stone-50 hover:bg-[#624A3E]/10 text-stone-500 hover:text-[#624A3E] transition-all" title="Descargar PDF">
                           <Download className="w-3.5 h-3.5" />
                         </button>

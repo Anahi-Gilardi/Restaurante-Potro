@@ -44,6 +44,7 @@ import PromocionesModule from './components/PromocionesModule';
 import ReservasModule from './components/ReservasModule';
 import FacturacionModule from './components/FacturacionModule';
 import BackupsModule from './components/BackupsModule';
+import BottomNavigation from './components/BottomNavigation';
 import type { BackupSnapshotData } from './services/backupsService';
 import { usuariosService } from './services/usuariosService';
 import { 
@@ -831,8 +832,8 @@ export default function App() {
     <>
     <div className="min-h-screen bg-[#F5F1E9] flex flex-col lg:flex-row font-sans text-slate-800 antialiased selection:bg-[#624A3E] selection:text-white">
       
-      {/* LEFT SIDE PANEL (PERSISTENT SIDEBAR) */}
-      <aside className="w-full lg:w-80 bg-[#1E1E1E] text-[#E2E8F0] flex flex-col border-b lg:border-b-0 lg:border-r border-stone-850 shrink-0 z-40" id="sidebar-left-panel">
+      {/* LEFT SIDE PANEL (PERSISTENT SIDEBAR) — hidden on mobile */}
+      <aside className="desktop-sidebar w-full lg:w-80 lg:flex bg-[#1E1E1E] text-[#E2E8F0] flex-col border-b lg:border-b-0 lg:border-r border-stone-850 shrink-0 z-40" id="sidebar-left-panel">
         
         {/* Brand Header */}
         <div className="p-5 border-b border-stone-800 flex items-center justify-between bg-black/20">
@@ -1067,7 +1068,7 @@ export default function App() {
         </div>
 
         {/* MAIN SCROLLABLE CONTENT */}
-        <div className="flex-1 p-6 space-y-6 overflow-y-auto max-w-7xl w-full mx-auto">
+        <div className="flex-1 p-4 sm:p-6 space-y-6 overflow-y-auto max-w-7xl w-full mx-auto bottom-nav-spacer">
           
           {/* ACTIVE TAB RENDER TRIAGE */}
           {activeView === 'home' && (
@@ -1337,6 +1338,7 @@ export default function App() {
 
     </div>
     <ToastContainer toasts={toasts} removeToast={removeToast} />
+    <BottomNavigation activeView={activeView} allowedViews={allowedViews} onNavigate={handleNavigate} />
     </>
   );
 }
