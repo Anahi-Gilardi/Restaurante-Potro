@@ -1,263 +1,130 @@
-/**
- * Centralized Supabase Delegation File
- * Coordinates with modular services located in src/services/
- */
-
 import { supabase, getSupabaseConfig, resetSupabaseClientCache, tryGetActiveSupabaseClient } from './lib/supabaseClient';
-import { usuariosService } from './services/usuariosService';
-import { mesasService } from './services/mesasService';
-import { insumosService } from './services/insumosService';
-import { menuService } from './services/menuService';
-import { recetasService } from './services/recetasService';
-import { pedidosService } from './services/pedidosService';
-import { mermasService } from './services/mermasService';
-import { proveedoresService } from './services/proveedoresService';
-import { promocionesService } from './services/promocionesService';
-import { reservasService } from './services/reservasService';
-import { facturacionService } from './services/facturacionService';
-import { auditoriaService } from './services/auditoriaService';
-import { backupsService } from './services/backupsService';
 
-export {
-  getSupabaseConfig,
-  supabase as default
-};
+export { getSupabaseConfig, supabase as default };
 
-// Lazy creation helper delegation
-export const getSupabaseClient = () => {
-  return tryGetActiveSupabaseClient();
-};
+export const getSupabaseClient = () => tryGetActiveSupabaseClient();
+export const resetSupabaseInstance = () => resetSupabaseClientCache();
 
-export const resetSupabaseInstance = () => {
-  resetSupabaseClientCache();
-};
-
-// 1. Usuarios
+// Usuarios
 export async function dbFetchUsuarios() {
-  try {
-    return await usuariosService.list();
-  } catch (err) {
-    console.warn('Supabase: Fallo al recuperar usuarios:', err);
-    return null;
-  }
+  try { return await (await import('./services/usuariosService')).usuariosService.list(); }
+  catch (e) { console.warn('dbFetchUsuarios:', e); return null; }
 }
-
 export async function dbUpsertUsuarios(usuarios: any[]) {
-  try {
-    return await usuariosService.upsert(usuarios);
-  } catch (err) {
-    console.warn('Supabase: Fallo al guardar usuarios:', err);
-  }
+  try { await (await import('./services/usuariosService')).usuariosService.upsert(usuarios); }
+  catch (e) { console.warn('dbUpsertUsuarios:', e); }
 }
 
-// 2. Mesas
+// Mesas
 export async function dbFetchMesas() {
-  try {
-    return await mesasService.list();
-  } catch (err) {
-    console.warn('Supabase: Fallo al recuperar mesas:', err);
-    return null;
-  }
+  try { return await (await import('./services/mesasService')).mesasService.list(); }
+  catch (e) { console.warn('dbFetchMesas:', e); return null; }
 }
-
 export async function dbUpsertMesas(mesas: any[]) {
-  try {
-    return await mesasService.upsert(mesas);
-  } catch (err) {
-    console.warn('Supabase: Fallo al guardar mesas:', err);
-  }
+  try { await (await import('./services/mesasService')).mesasService.upsert(mesas); }
+  catch (e) { console.warn('dbUpsertMesas:', e); }
 }
 
-// 3. Insumos
+// Insumos
 export async function dbFetchInsumos() {
-  try {
-    return await insumosService.list();
-  } catch (err) {
-    console.warn('Supabase: Fallo al recuperar insumos:', err);
-    return null;
-  }
+  try { return await (await import('./services/insumosService')).insumosService.list(); }
+  catch (e) { console.warn('dbFetchInsumos:', e); return null; }
 }
-
 export async function dbUpsertInsumos(insumos: any[]) {
-  try {
-    return await insumosService.upsert(insumos);
-  } catch (err) {
-    console.warn('Supabase: Fallo al guardar insumos:', err);
-  }
+  try { await (await import('./services/insumosService')).insumosService.upsert(insumos); }
+  catch (e) { console.warn('dbUpsertInsumos:', e); }
+}
+export async function dbRecordMovement(movement: any) {
+  try { await (await import('./services/insumosService')).insumosService.recordMovement(movement); }
+  catch (e) { console.warn('dbRecordMovement:', e); }
 }
 
-export async function dbRecordMovement(movement: {
-  id_insumo: string;
-  tipo_movimiento: 'entrada' | 'salida_comanda' | 'salida_merma' | 'ajuste';
-  cantidad: number;
-  stock_anterior: number;
-  stock_nuevo: number;
-}) {
-  try {
-    await insumosService.recordMovement(movement);
-  } catch (err) {
-    console.warn('Supabase: Fallo al registrar movimiento de inventario:', err);
-  }
-}
-
-// 4. Productos Menú
+// Productos Menu
 export async function dbFetchProductosMenu() {
-  try {
-    return await menuService.list();
-  } catch (err) {
-    console.warn('Supabase: Fallo al recuperar productos_menu:', err);
-    return null;
-  }
+  try { return await (await import('./services/menuService')).menuService.list(); }
+  catch (e) { console.warn('dbFetchProductosMenu:', e); return null; }
 }
-
 export async function dbUpsertProductosMenu(productos: any[]) {
-  try {
-    return await menuService.upsert(productos);
-  } catch (err) {
-    console.warn('Supabase: Fallo al guardar productos:', err);
-  }
+  try { await (await import('./services/menuService')).menuService.upsert(productos); }
+  catch (e) { console.warn('dbUpsertProductosMenu:', e); }
 }
 
-// 5. Recetas
+// Recetas
 export async function dbFetchRecetas() {
-  try {
-    return await recetasService.list();
-  } catch (err) {
-    console.warn('Supabase: Fallo al recuperar recetas:', err);
-    return null;
-  }
+  try { return await (await import('./services/recetasService')).recetasService.list(); }
+  catch (e) { console.warn('dbFetchRecetas:', e); return null; }
 }
-
 export async function dbUpsertRecetas(recetas: any[]) {
-  try {
-    return await recetasService.upsert(recetas);
-  } catch (err) {
-    console.warn('Supabase: Fallo al guardar recetas:', err);
-  }
+  try { await (await import('./services/recetasService')).recetasService.upsert(recetas); }
+  catch (e) { console.warn('dbUpsertRecetas:', e); }
 }
 
-// 6. Promociones
+// Promociones
 export async function dbFetchPromociones() {
-  try {
-    return await promocionesService.list();
-  } catch (err) {
-    console.warn('Supabase: Fallo al recuperar promociones:', err);
-    return null;
-  }
+  try { return await (await import('./services/promocionesService')).promocionesService.list(); }
+  catch (e) { console.warn('dbFetchPromociones:', e); return null; }
 }
-
 export async function dbUpsertPromociones(promos: any[]) {
-  try {
-    await promocionesService.upsert(promos);
-  } catch (err) {
-    console.warn('Supabase: Fallo al guardar promociones:', err);
-  }
+  try { await (await import('./services/promocionesService')).promocionesService.upsert(promos); }
+  catch (e) { console.warn('dbUpsertPromociones:', e); }
 }
 
-// 7. Proveedores
+// Proveedores
 export async function dbFetchProveedores() {
-  try {
-    return await proveedoresService.list();
-  } catch (err) {
-    console.warn('Supabase: Fallo al recuperar proveedores:', err);
-    return null;
-  }
+  try { return await (await import('./services/proveedoresService')).proveedoresService.list(); }
+  catch (e) { console.warn('dbFetchProveedores:', e); return null; }
 }
-
 export async function dbUpsertProveedores(provs: any[]) {
-  try {
-    return await proveedoresService.upsert(provs);
-  } catch (err) {
-    console.warn('Supabase: Fallo al guardar proveedores:', err);
-  }
+  try { await (await import('./services/proveedoresService')).proveedoresService.upsert(provs); }
+  catch (e) { console.warn('dbUpsertProveedores:', e); }
 }
 
-// 8. Reservas
+// Reservas
 export async function dbFetchReservas() {
-  try {
-    return await reservasService.list();
-  } catch (err) {
-    console.warn('Supabase: Fallo al recuperar reservas:', err);
-    return null;
-  }
+  try { return await (await import('./services/reservasService')).reservasService.list(); }
+  catch (e) { console.warn('dbFetchReservas:', e); return null; }
 }
-
 export async function dbUpsertReservas(reservas: any[]) {
-  try {
-    await reservasService.upsert(reservas);
-  } catch (err) {
-    console.warn('Supabase: Fallo al guardar reservas:', err);
-  }
+  try { await (await import('./services/reservasService')).reservasService.upsert(reservas); }
+  catch (e) { console.warn('dbUpsertReservas:', e); }
 }
 
-// 9. Eventos / Auditoría
+// Auditoria / Logs
 export async function dbFetchLogs() {
-  try {
-    return await auditoriaService.list();
-  } catch (err) {
-    console.warn('Supabase: Fallo al recuperar logs:', err);
-    return null;
-  }
+  try { return await (await import('./services/auditoriaService')).auditoriaService.list(); }
+  catch (e) { console.warn('dbFetchLogs:', e); return null; }
 }
-
 export async function dbInsertLog(log: any) {
-  try {
-    await auditoriaService.create(log);
-  } catch (err) {
-    console.warn('Supabase: Fallo al guardar registro de auditoría:', err);
-  }
+  try { await (await import('./services/auditoriaService')).auditoriaService.create(log); }
+  catch (e) { console.warn('dbInsertLog:', e); }
 }
 
-// 10. Pedidos
+// Pedidos
 export async function dbFetchPedidos() {
-  try {
-    return await pedidosService.list();
-  } catch (err) {
-    console.warn('Supabase: Fallo al recuperar pedidos compuesto:', err);
-    return null;
-  }
+  try { return await (await import('./services/pedidosService')).pedidosService.list(); }
+  catch (e) { console.warn('dbFetchPedidos:', e); return null; }
 }
-
 export async function dbSavePedidoComplex(pedido: any) {
-  try {
-    await pedidosService.upsert([pedido]);
-  } catch (err) {
-    console.warn('Supabase: Fallo al guardar pedido complex:', err);
-  }
+  try { await (await import('./services/pedidosService')).pedidosService.upsert([pedido]); }
+  catch (e) { console.warn('dbSavePedidoComplex:', e); }
 }
 
-// 11. Mermas
+// Mermas
 export async function dbFetchMermas() {
-  try {
-    return await mermasService.list();
-  } catch (err) {
-    console.warn('Supabase: Fallo al recuperar mermas:', err);
-    return null;
-  }
+  try { return await (await import('./services/mermasService')).mermasService.list(); }
+  catch (e) { console.warn('dbFetchMermas:', e); return null; }
 }
-
 export async function dbUpsertMermas(mermas: any[]) {
-  try {
-    return await mermasService.upsert(mermas);
-  } catch (err) {
-    console.warn('Supabase: Fallo al guardar mermas:', err);
-  }
+  try { await (await import('./services/mermasService')).mermasService.upsert(mermas); }
+  catch (e) { console.warn('dbUpsertMermas:', e); }
 }
 
-// 12. Facturas
+// Facturas
 export async function dbFetchFacturas() {
-  try {
-    return await facturacionService.list();
-  } catch (err) {
-    console.warn('Supabase: Fallo al recuperar facturas:', err);
-    return null;
-  }
+  try { return await (await import('./services/facturacionService')).facturacionService.list(); }
+  catch (e) { console.warn('dbFetchFacturas:', e); return null; }
 }
-
 export async function dbUpsertFacturas(facturas: any[]) {
-  try {
-    return await facturacionService.upsert(facturas);
-  } catch (err) {
-    console.warn('Supabase: Fallo al guardar facturas:', err);
-  }
+  try { await (await import('./services/facturacionService')).facturacionService.upsert(facturas); }
+  catch (e) { console.warn('dbUpsertFacturas:', e); }
 }
