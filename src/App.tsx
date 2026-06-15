@@ -859,25 +859,27 @@ export default function App() {
         <main className="flex-1 overflow-x-hidden p-3 md:p-6 pb-24 max-w-7xl mx-auto w-full transition-all duration-300">
           <ToastContainer toasts={toasts} removeToast={removeToast} />
           
-          <RetryErrorWrapper>
-            <Suspense fallback={<Skeleton lines={6} />}>
-              {activeView === 'home' && (
-                <HomeMenuModule 
-                  mesas={mesas}
-                  pedidos={pedidos}
-                  insumos={insumos}
-                  productosMenu={productosMenu}
-                  usuarios={usuarios}
-                  allowedViews={allowedViews}
-                  canChangeUser={true}
-                  activeMozo={activeMozo}
-                  onMozoChange={handleMozoChange}
-                  onNavigate={handleNavigate}
-                  getSimulatedTimeStr={getSimulatedTimeStr}
-                  autoTimerRunning={autoTimerRunning}
-                  onToggleAutoTimer={handleToggleAutoTimer}
-                  onAdvanceTime={handleAdvanceTime}
-                />
+               <RetryErrorWrapper>
+          <Suspense fallback={<Skeleton lines={6} />}>
+            {activeView === 'home' && activeUser && (
+              <HomeMenuModule 
+                activeRol={activeUser.rol}
+                mesas={mesas}
+                pedidos={pedidos}
+                insumos={insumos}
+                productosMenu={productosMenu}
+                usuarios={usuarios}
+                allowedViews={allowedViews}
+                canChangeUser={true}
+                activeMozo={activeMozo}
+                onMozoChange={handleMozoChange}
+                onNavigate={handleNavigate}
+                getSimulatedTimeStr={getSimulatedTimeStr}
+                autoTimerRunning={autoTimerRunning}
+                onToggleAutoTimer={handleToggleAutoTimer}
+                onAdvanceTime={handleAdvanceTime}
+              />
+          
               )}
               {(activeView === 'terminal_mozo' || activeView === 'mozo') && (
                 <MozoTerminal 
