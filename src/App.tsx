@@ -812,7 +812,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
 
       {/* LEFT SIDE PANEL - Desktop sidebar */}
       <aside className="hidden lg:flex flex-col h-screen w-64 bg-[#C8956A] text-[#3B1F10]/90 border-r border-[#A67550]/40 shrink-0 shadow-xl shadow-black/15" id="sidebar-left-panel">
-        <div className="flex-1 overflow-y-auto scroll-passive overscroll-contain px-2 pt-2 space-y-1.5 scrollbar-thin">
+        <div className="flex-1 overflow-y-auto scroll-passive overscroll-contain px-2 pt-2 space-y-1.5 sidebar-scroll-hidden">
           <div className="flex items-center gap-2.5 py-1.5 px-1">
             <div className="w-9 h-9 bg-white/80 rounded-lg flex items-center justify-center shadow-sm border border-[#A67550]/40 p-0.5 overflow-hidden shrink-0">
               <ElPatronLogo className="w-8 h-8 object-contain rounded" variant="icon" color="#4A2D1B" />
@@ -886,7 +886,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
               { id: 'usuarios', label: 'Usuarios', icon: '👥' },
               { id: 'sistema', label: 'Sistema', icon: '💻' },
               { id: 'backups', label: 'Backups', icon: '🗄️' },
-            ].filter(item => allowedViews.includes(item.id as AppView)).map((item, i) => {
+            ].filter(item => (allowedViews || []).includes(item.id as AppView)).map((item, i) => {
               const isActive = activeView === item.id;
               return (
                 <button key={item.id} id={`tab-${item.id}`}

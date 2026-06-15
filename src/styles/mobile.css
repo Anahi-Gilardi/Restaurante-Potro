@@ -167,6 +167,15 @@ input, textarea, select, button {
   }
 }
 
+/* ── Hide sidebar scrollbar (visual only, still scrollable) ─ */
+.sidebar-scroll-hidden {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.sidebar-scroll-hidden::-webkit-scrollbar {
+  display: none;
+}
+
 /* ── Safe area for notched devices ──────────────────────── */
 @supports (padding-bottom: env(safe-area-inset-bottom)) {
   .safe-area-bottom {
