@@ -19,7 +19,9 @@ import {
   ChevronRight,
   Bell,
   CheckCircle,
-  AlertTriangle
+  AlertTriangle,
+  Truck,
+  Percent
 } from 'lucide-react';
 import { Mesa, Pedido, Insumo, ProductoMenu, Usuario } from '../types';
 import { AppView } from '../lib/permissions';
@@ -150,6 +152,42 @@ export default function HomeMenuModule({
       }
     },
     {
+      id: 'reportes',
+      title: 'Reportes / BI',
+      description: 'Análisis de ventas, rentabilidad por plato, matriz BCG y consola de auditoría.',
+      icon: TrendingUp,
+      color: 'from-sky-500/10 to-sky-600/5 hover:border-sky-400',
+      iconColor: 'text-sky-700',
+      badge: {
+        text: 'Business Intelligence',
+        type: 'neutral'
+      }
+    },
+    {
+      id: 'usuarios',
+      title: 'Usuarios',
+      description: 'Administración de perfiles operativos: mozos, cocina y administradores.',
+      icon: Users,
+      color: 'from-teal-500/10 to-teal-600/5 hover:border-teal-400',
+      iconColor: 'text-teal-700',
+      badge: {
+        text: `${usuarios.length} registrados`,
+        type: 'neutral'
+      }
+    },
+    {
+      id: 'recetas',
+      title: 'Recetas / Escandallos',
+      description: 'Vinculación de platos con insumos para descuento automático de stock por producción.',
+      icon: Scale,
+      color: 'from-cyan-500/10 to-cyan-600/5 hover:border-cyan-400',
+      iconColor: 'text-cyan-700',
+      badge: {
+        text: 'Escandallo',
+        type: 'neutral'
+      }
+    },
+    {
       id: 'inventario',
       title: 'Inventario',
       description: 'Gestión de materias primas por porción/gramaje, mermas físicas y reabastecimiento.',
@@ -171,6 +209,30 @@ export default function HomeMenuModule({
       badge: {
         text: `${occupiedTables} ocupadas`,
         type: occupiedTables > 0 ? 'amber' : 'neutral'
+      }
+    },
+    {
+      id: 'proveedores',
+      title: 'Proveedores',
+      description: 'Gestión de distribuidores, órdenes de compra y plazos de entrega.',
+      icon: Truck,
+      color: 'from-lime-500/10 to-lime-600/5 hover:border-lime-400',
+      iconColor: 'text-lime-700',
+      badge: {
+        text: 'Suministros',
+        type: 'neutral'
+      }
+    },
+    {
+      id: 'promociones',
+      title: 'Promociones',
+      description: 'Configuración de ofertas: descuentos porcentuales, montos fijos y 2x1.',
+      icon: Percent,
+      color: 'from-pink-500/10 to-pink-600/5 hover:border-pink-400',
+      iconColor: 'text-pink-700',
+      badge: {
+        text: 'Marketing',
+        type: 'neutral'
       }
     },
     {
