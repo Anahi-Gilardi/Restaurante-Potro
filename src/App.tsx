@@ -50,7 +50,6 @@ const ReservasModule = lazy(() => import('./components/ReservasModule'));
 const FacturacionModule = lazy(() => import('./components/FacturacionModule'));
 const BackupsModule = lazy(() => import('./components/BackupsModule'));
 import type { BackupSnapshotData } from './services/backupsService';
-import { usuariosService } from './services/usuariosService';
 import { 
   getSupabaseClient,
   dbFetchMesas,
@@ -63,7 +62,8 @@ import {
   dbUpsertInsumos,
   dbFetchMermas,
   dbUpsertMermas,
-  dbRecordMovement
+  dbRecordMovement,
+  dbFetchUsuarios
 } from './supabase';
 import { AppView, canAccessView, getAllowedViews } from './lib/permissions';
 
@@ -137,7 +137,7 @@ export default function App() {
   useEffect(() => {
     const autoLoadSupabase = async () => {
       try {
-        const savedUsuarios = await usuariosService.list();
+        const savedUsuarios = await dbFetchUsuarios();
         if (savedUsuarios.length > 0) setUsuarios(savedUsuarios);
       } catch (err) {
         console.warn('Usuarios: no se pudo cargar la copia persistida.', err);

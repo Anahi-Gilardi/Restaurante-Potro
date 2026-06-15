@@ -1,5 +1,5 @@
 import { getActiveSupabaseClient } from '../lib/supabaseClient';
-import {
+import type {
   EventoLog,
   Insumo,
   Merma,
@@ -11,18 +11,22 @@ import {
   Reserva,
   Usuario
 } from '../types';
-import { auditoriaService } from './auditoriaService';
-import { facturacionService, type Factura } from './facturacionService';
-import { insumosService } from './insumosService';
-import { menuService } from './menuService';
-import { mermasService } from './mermasService';
-import { mesasService } from './mesasService';
-import { pedidosService } from './pedidosService';
-import { promocionesService, type Promocion } from './promocionesService';
-import { proveedoresService } from './proveedoresService';
-import { recetasService } from './recetasService';
-import { reservasService } from './reservasService';
-import { usuariosService } from './usuariosService';
+import type { Factura } from './facturacionService';
+import type { Promocion } from './promocionesService';
+
+// Lazy imports to avoid TDZ in main bundle
+async function getAuditoriaService() { return (await import('./auditoriaService')).auditoriaService; }
+async function getFacturacionService() { return (await import('./facturacionService')).facturacionService; }
+async function getInsumosService() { return (await import('./insumosService')).insumosService; }
+async function getMenuService() { return (await import('./menuService')).menuService; }
+async function getMermasService() { return (await import('./mermasService')).mermasService; }
+async function getMesasService() { return (await import('./mesasService')).mesasService; }
+async function getPedidosService() { return (await import('./pedidosService')).pedidosService; }
+async function getPromocionesService() { return (await import('./promocionesService')).promocionesService; }
+async function getProveedoresService() { return (await import('./proveedoresService')).proveedoresService; }
+async function getRecetasService() { return (await import('./recetasService')).recetasService; }
+async function getReservasService() { return (await import('./reservasService')).reservasService; }
+async function getUsuariosService() { return (await import('./usuariosService')).usuariosService; }
 
 export interface Checkpoint {
   id_cp: string;
@@ -214,18 +218,31 @@ export const backupsService = {
       if (items.length > 0) await upsert(items);
     };
 
-    await sync(snapshot.usuarios, items => usuariosService.upsert(items));
-    await sync(snapshot.mesas, items => mesasService.upsert(items));
-    await sync(snapshot.insumos, items => insumosService.upsert(items));
-    await sync(snapshot.productosMenu, items => menuService.upsert(items));
-    await sync(snapshot.recetas, items => recetasService.upsert(items));
-    await sync(snapshot.proveedores, items => proveedoresService.upsert(items));
-    await sync(snapshot.promociones, items => promocionesService.upsert(items));
-    await sync(snapshot.reservas, items => reservasService.upsert(items));
-    await sync(snapshot.pedidos, items => pedidosService.upsert(items));
-    await sync(snapshot.mermas, items => mermasService.upsert(items));
-    await sync(snapshot.facturas, items => facturacionService.upsert(items));
-    await sync(snapshot.logs, items => auditoriaService.upsert(items));
+    const usuariosSvc = await getUsuariosService();
+    const mesasSvc = await getMesasService();
+    const insumosSvc = await getInsumosService();
+    const menuSvc = await getMenuService();
+    const recetasSvc = await getRecetasService();
+    const proveedoresSvc = await getProveedoresService();
+    const promocionesSvc = await getPromocionesService();
+    const reservasSvc = await getReservasService();
+    const pedidosSvc = await getPedidosService();
+    const mermasSvc = await getMermasService();
+    const facturacionSvc = await getFacturacionService();
+    const auditoriaSvc = await getAuditoriaService();
+
+    await sync(snapshot.usuarios, items => usuariosSvc.upsert(items));
+    await sync(snapshot.mesas, items => mesasSvc.upsert(items));
+    await sync(snapshot.insumos, items => insumosSvc.upsert(items));
+    await sync(snapshot.productosMenu, items => menuSvc.upsert(items));
+    await sync(snapshot.recetas, items => recetasSvc.upsert(items));
+    await sync(snapshot.proveedores, items => proveedoresSvc.upsert(items));
+    await sync(snapshot.promociones, items => promocionesSvc.upsert(items));
+    await sync(snapshot.reservas, items => reservasSvc.upsert(items));
+    await sync(snapshot.pedidos, items => pedidosSvc.upsert(items));
+    await sync(snapshot.mermas, items => mermasSvc.upsert(items));
+    await sync(snapshot.facturas, items => facturacionSvc.upsert(items));
+    await sync(snapshot.logs, items => auditoriaSvc.upsert(items));
   },
 
   async remove(id: string): Promise<boolean> {
