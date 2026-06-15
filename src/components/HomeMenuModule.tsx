@@ -29,6 +29,7 @@ import { getSupabaseClient } from '../supabase';
 import ElPatronLogo from './ElPatronLogo';
 
 interface HomeMenuModuleProps {
+  activeRol?: Usuario['rol'];   // ← AGREGAR ESTA LÍNEA
   mesas: Mesa[];
   pedidos: Pedido[];
   insumos: Insumo[];
@@ -46,6 +47,7 @@ interface HomeMenuModuleProps {
 }
 
 export default function HomeMenuModule({
+  activeRol,           // ← AGREGAR ESTA LÍNEA
   mesas,
   pedidos,
   insumos,
