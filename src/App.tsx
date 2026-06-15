@@ -895,10 +895,10 @@ export default function App() {
         </svg>
       </button>
 
-      {/* Mobile drawer overlay */}
+      {/* Mobile drawer overlay — más sutil para que se note la transparencia */}
       {mobileSidebarOpen && (
         <div
-          className="lg:hidden fixed inset-0 bg-black/50 z-30"
+          className="lg:hidden fixed inset-0 bg-black/30 z-30"
           onClick={() => setMobileSidebarOpen(false)}
         />
       )}
@@ -919,56 +919,57 @@ export default function App() {
       <aside className={`
         fixed lg:static inset-y-0 left-0 z-40
         ${sidebarExpanded ? 'w-64' : 'w-16'}
-        bg-stone-900/45 backdrop-blur-md text-stone-200
-        flex flex-col border-r border-stone-700/30 shrink-0
+        bg-[rgba(28,25,23,0.25)] backdrop-blur-xl 
+        text-stone-200 flex flex-col border-r border-stone-600/20 shrink-0
         transition-all duration-300 ease-in-out
+        shadow-lg shadow-black/10
         ${mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `} id="sidebar-left-panel">
         
         {/* Brand Header — Mini: solo icon, Expanded: completo */}
-        <div className="border-b border-stone-700/30 flex items-center justify-between min-h-[60px] px-3">
+        <div className="border-b border-stone-600/20 flex items-center justify-between min-h-[56px] px-3">
           {sidebarExpanded ? (
-            <div className="flex items-center gap-2.5 py-3">
-              <div className="w-9 h-9 bg-[#FAF4EE] rounded-lg flex items-center justify-center shadow-sm border border-stone-700 p-0.5 overflow-hidden shrink-0">
+            <div className="flex items-center gap-2.5 py-2.5">
+              <div className="w-9 h-9 bg-[#FAF4EE]/90 rounded-lg flex items-center justify-center shadow-sm border border-white/20 p-0.5 overflow-hidden shrink-0 backdrop-blur-sm">
                 <ElPatronLogo className="w-8 h-8 object-contain rounded" variant="icon" color="#4A2D1B" />
               </div>
               <div className="min-w-0">
-                <span className="font-extrabold text-sm text-white tracking-tight block leading-tight">El Patrón</span>
-                <span className="text-[7px] uppercase font-bold text-stone-400 tracking-wider block leading-tight">Gestión Gastro</span>
+                <span className="font-extrabold text-sm text-white drop-shadow-md block leading-tight">El Patrón</span>
+                <span className="text-[7px] uppercase font-bold text-stone-300/70 tracking-wider block leading-tight">Gestión Gastro</span>
               </div>
             </div>
           ) : (
-            <div className="w-full flex justify-center py-3">
-              <div className="w-8 h-8 bg-[#FAF4EE]/90 rounded-lg flex items-center justify-center shadow-sm border border-stone-700 p-0.5 overflow-hidden">
+            <div className="w-full flex justify-center py-2.5">
+              <div className="w-8 h-8 bg-[#FAF4EE]/80 rounded-lg flex items-center justify-center shadow-sm border border-white/20 p-0.5 overflow-hidden">
                 <ElPatronLogo className="w-7 h-7 object-contain rounded" variant="icon" color="#4A2D1B" />
               </div>
             </div>
           )}
           <button onClick={() => setIsStreamlitLoggedIn(false)}
-            className="p-1 rounded-lg hover:bg-stone-700/50 text-stone-400 hover:text-amber-400 transition-colors cursor-pointer shrink-0" title="Cerrar sesión">
+            className="p-1 rounded-lg hover:bg-white/10 text-stone-400 hover:text-amber-400 transition-colors cursor-pointer shrink-0" title="Cerrar sesión">
             <LogOut className="w-3.5 h-3.5" />
           </button>
         </div>
 
         {/* Clock widget — Solo en modo expandido */}
         {sidebarExpanded && (
-        <div className="px-3 py-2.5 border-b border-stone-700/30 space-y-2">
+        <div className="px-3 py-2.5 border-b border-stone-600/20 space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-[8px] uppercase font-bold text-stone-500 tracking-wider font-mono flex items-center gap-1">
-              <Clock className="w-3 h-3 text-amber-400" />
+            <span className="text-[8px] uppercase font-bold text-stone-400/80 tracking-wider font-mono flex items-center gap-1">
+              <Clock className="w-3 h-3 text-amber-400/80" />
               Reloj
             </span>
             <span className={`h-1.5 w-1.5 rounded-full ${autoTimerRunning ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
           </div>
-          <div className="flex items-center justify-between bg-black/30 border border-stone-700/40 p-2 rounded-lg">
-            <strong className="text-sm font-black text-white font-mono tracking-tight">{getSimulatedTimeStr()}</strong>
+          <div className="flex items-center justify-between bg-white/5 border border-white/10 p-2 rounded-lg backdrop-blur-sm">
+            <strong className="text-sm font-black text-white font-mono tracking-tight drop-shadow-md">{getSimulatedTimeStr()}</strong>
             <div className="flex items-center gap-1">
               <button onClick={handleToggleAutoTimer}
-                className={`p-1 rounded-lg transition-all cursor-pointer ${autoTimerRunning ? 'bg-amber-900/50 text-amber-300' : 'bg-emerald-900/50 text-emerald-400'}`}>
+                className={`p-1 rounded-lg transition-all cursor-pointer ${autoTimerRunning ? 'bg-amber-500/30 text-amber-300' : 'bg-emerald-500/30 text-emerald-400'}`}>
                 <RefreshCw className={`w-3 h-3 ${autoTimerRunning ? 'animate-spin' : ''}`} />
               </button>
               <button onClick={() => handleAdvanceTime(15)}
-                className="p-1 px-1.5 rounded-lg bg-stone-800/50 text-stone-400 hover:text-white border border-stone-700/50 text-[9px] font-bold cursor-pointer">
+                className="p-1 px-1.5 rounded-lg bg-white/10 text-stone-300 hover:text-white border border-white/20 text-[9px] font-bold cursor-pointer backdrop-blur-sm">
                 +15m
               </button>
             </div>
@@ -993,25 +994,23 @@ export default function App() {
         )}
 
         {/* Interactive Personnel login manager */}
-        <div className="px-3 py-2.5 border-b border-stone-700/30">
-          <div className={`flex items-center gap-2 bg-black/30 border border-stone-700/40 p-2 rounded-lg ${sidebarExpanded ? '' : 'justify-center'}`}>
-            <div className="w-7 h-7 rounded-full bg-stone-800 border border-stone-700 flex items-center justify-center shrink-0">
-              <User className="w-3.5 h-3.5 text-stone-400" />
+        <div className="px-3 py-2.5 border-b border-stone-600/20">
+          <div className={`flex items-center gap-2 bg-white/5 border border-white/10 p-2 rounded-lg backdrop-blur-sm ${sidebarExpanded ? '' : 'justify-center'}`}>
+            <div className="w-7 h-7 rounded-full bg-white/10 border border-white/20 flex items-center justify-center shrink-0 backdrop-blur-sm">
+              <User className="w-3.5 h-3.5 text-stone-300" />
             </div>
             {sidebarExpanded && (
               <div className="flex-1 text-left min-w-0">
-                <span className="text-[7px] text-stone-500 block font-bold leading-none uppercase">Usuario</span>
+                <span className="text-[7px] text-stone-400/80 block font-bold leading-none uppercase">Usuario</span>
                 {activeUser.rol === 'administrador' ? (
                   <select value={activeMozo} onChange={(e) => handleMozoChange(e.target.value)}
                     className="text-[10px] bg-transparent border-none p-0 focus:outline-none font-extrabold text-white cursor-pointer w-full mt-0.5 focus:ring-0">
                     {usuarios.filter(usuario => usuario.activo !== false).map(usuario => (
-                      <option key={usuario.id_usuario} value={usuario.nombre} className="bg-stone-950 text-stone-200">
-                        {usuario.nombre}
-                      </option>
+                      <option key={usuario.id_usuario} value={usuario.nombre} className="bg-stone-950 text-stone-200">{usuario.nombre}</option>
                     ))}
                   </select>
                 ) : (
-                  <span className="text-[10px] font-extrabold text-white mt-0.5 block">{activeUser.nombre}</span>
+                  <span className="text-[10px] font-extrabold text-white drop-shadow-md mt-0.5 block">{activeUser.nombre}</span>
                 )}
               </div>
             )}
@@ -1066,9 +1065,9 @@ export default function App() {
           </nav>
         </div>
 
-        {/* Version badge - mini */}
-        <div className={`px-3 py-2 border-t border-stone-700/30 ${sidebarExpanded ? '' : 'flex justify-center'}`}>
-          <span className="text-[8px] text-stone-500 font-mono">{sidebarExpanded ? 'v1.2.0 · El Patrón Pro' : 'v1'}</span>
+        {/* Version badge */}
+        <div className={`px-3 py-2 border-t border-stone-600/20 ${sidebarExpanded ? '' : 'flex justify-center'}`}>
+          <span className="text-[8px] text-stone-400/60 font-mono">{sidebarExpanded ? 'v1.2.0 · El Patrón Pro' : 'v1'}</span>
         </div>
 
         {/* Integration Specs footer */}
