@@ -1,64 +1,53 @@
-import React, { useState, useEffect } from 'react';
-import { Users, Shield, Plus, Check, Trash } from 'lucide-react';
+import React, { useState } from 'react';
+import { Users, Plus, Trash } from 'lucide-react';
 import { Usuario, EventoLog } from '../types';
 import { usuariosService } from '../services/usuariosService';
 import { ToastContainer, useToast } from './ToastContainer';
 
 interface UsuariosModuleProps {
-  logs: EventoLog[];
+  usuarios: Usuario[];
+  onUsuariosChange: (usuarios: Usuario[]) => void;
   addLog: (tipo: EventoLog['tipo'], mensaje: string) => void;
 }
 
-export default function UsuariosModule({ logs, addLog }: UsuariosModuleProps) {
-  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+export default function UsuariosModule({ usuarios, onUsuariosChange, addLog }: UsuariosModuleProps) {
   const { toast, toasts, removeToast } = useToast();
-
-  useEffect(() => {
-    usuariosService.list().then(data => {
-      if (data && data.length > 0) {
-        setUsuarios(data);
-      } else {
-        // Fallback default seed if db empty
-        setUsuarios([
-          { id_usuario: 1, nombre: 'Enzo', apellido: 'Fernández', rol: 'mozo' },
-          { id_usuario: 2, nombre: 'Micaela', apellido: 'Gómez', rol: 'mozo' },
-          { id_usuario: 3, nombre: 'Damián', apellido: 'Martínez', rol: 'cocina' },
-          { id_usuario: 4, nombre: 'Sofía', apellido: 'Alegre', rol: 'administrador' },
-        ]);
-      }
-    }).catch(() => {
-      setUsuarios([
-        { id_usuario: 1, nombre: 'Enzo', apellido: 'Fernández', rol: 'mozo' },
-        { id_usuario: 2, nombre: 'Micaela', apellido: 'Gómez', rol: 'mozo' },
-        { id_usuario: 3, nombre: 'Damián', apellido: 'Martínez', rol: 'cocina' },
-        { id_usuario: 4, nombre: 'Sofía', apellido: 'Alegre', rol: 'administrador' },
-      ]);
-    });
-  }, []);
 
   const [nombre, setNombre] = useState('');
   const [apellido, setApellido] = useState('');
   const [rol, setRol] = useState<'mozo' | 'cocina' | 'administrador'>('mozo');
 
-  const handleCreateUsuario = (e: React.FormEvent) => {
+  const handleCreateUsuario = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nombre || !apellido) return;
+    const normalizedNombre = nombre.trim();
+    const normalizedApellido = apellido.trim();
+    if (!normalizedNombre || !normalizedApellido) return;
+    if (usuarios.some(usuario => usuario.nombre.toLowerCase() === normalizedNombre.toLowerCase())) {
+      toast.warning('Ya existe un usuario con ese nombre operativo.');
+      return;
+    }
 
     const newUs: Usuario = {
       id_usuario: Math.max(0, ...usuarios.map(u => u.id_usuario)) + 1,
-      nombre,
-      apellido,
+      nombre: normalizedNombre,
+      apellido: normalizedApellido,
       rol,
+      activo: true
     };
 
-    setUsuarios(prev => [...prev, newUs]);
-    usuariosService.create(newUs).catch(err => console.error(err));
-    addLog('sistema', `USUARIOS: Registrado nuevo usuario '${nombre} ${apellido}' con rol: ${rol.toUpperCase()}`);
+    onUsuariosChange([...usuarios, newUs]);
+    try {
+      await usuariosService.create(newUs);
+      toast.success('Usuario creado y sincronizado.');
+    } catch {
+      toast.warning('Usuario creado en la sesión actual, pero no pudo sincronizarse.');
+    }
+    addLog('sistema', `USUARIOS: Registrado nuevo usuario '${normalizedNombre} ${normalizedApellido}' con rol: ${rol.toUpperCase()}`);
     setNombre('');
     setApellido('');
   };
 
-  const handleDeleteUsuario = (id: number) => {
+  const handleDeleteUsuario = async (id: number) => {
     const target = usuarios.find(u => u.id_usuario === id);
     if (!target) return;
     const activeAdmins = usuarios.filter(u => u.rol === 'administrador' && u.activo !== false);
@@ -66,10 +55,10 @@ export default function UsuariosModule({ logs, addLog }: UsuariosModuleProps) {
       toast.error('No se puede eliminar el último administrador activo.');
       return;
     }
-    setUsuarios(prev => prev.filter(u => u.id_usuario !== id));
-    usuariosService.remove(id).then(removed => {
-      if (!removed) toast.warning('El usuario se quitó localmente, pero no pudo sincronizarse.');
-    });
+    if (!window.confirm(`¿Eliminar a ${target.nombre} ${target.apellido}?`)) return;
+    onUsuariosChange(usuarios.filter(u => u.id_usuario !== id));
+    const removed = await usuariosService.remove(id);
+    if (!removed) toast.warning('El usuario se quitó localmente, pero no pudo sincronizarse.');
     addLog('sistema', `USUARIOS: Removido usuario '${target.nombre} ${target.apellido}' del sistema`);
   };
 
@@ -166,7 +155,7 @@ export default function UsuariosModule({ logs, addLog }: UsuariosModuleProps) {
                   <div className="flex justify-between items-center mt-4 pt-3 border-t border-stone-200/50">
                     <span className="text-[9px] text-[#22C55E] font-bold flex items-center gap-1">
                       <span className="w-1.5 h-1.5 bg-[#22C55E] rounded-full animate-ping" />
-                      Sesión activa
+                      {u.activo === false ? 'Usuario inactivo' : 'Usuario habilitado'}
                     </span>
                     {usuarios.length > 2 && (
                       <button 

@@ -3,7 +3,13 @@ import test from 'node:test';
 import { mergeCheckpoints, parseBackupContent } from './backupsService';
 
 const emptySnapshot = {
-  usuarios: [],
+  usuarios: [{
+    id_usuario: 1,
+    nombre: 'Sofía',
+    apellido: 'Admin',
+    rol: 'administrador' as const,
+    activo: true
+  }],
   mesas: [],
   insumos: [],
   productosMenu: [],
@@ -57,6 +63,13 @@ test('rechaza copias incompletas antes de reemplazar datos', () => {
   assert.throws(
     () => parseBackupContent(JSON.stringify({ mesas: [] })),
     /respaldo está incompleto/i
+  );
+});
+
+test('rechaza una restauración que dejaría el sistema sin administrador', () => {
+  assert.throws(
+    () => parseBackupContent(JSON.stringify({ ...emptySnapshot, usuarios: [] })),
+    /administrador activo/i
   );
 });
 

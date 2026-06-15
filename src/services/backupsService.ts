@@ -136,7 +136,15 @@ export const parseBackupContent = (contenido?: string): BackupSnapshotData => {
     }
   }
 
-  return reviveDates(candidate as unknown as BackupSnapshotData);
+  const snapshot = candidate as unknown as BackupSnapshotData;
+  const hasActiveAdmin = snapshot.usuarios.some(usuario => (
+    usuario.rol === 'administrador' && usuario.activo !== false
+  ));
+  if (!hasActiveAdmin) {
+    throw new Error('El respaldo no contiene ningún administrador activo.');
+  }
+
+  return reviveDates(snapshot);
 };
 
 export const backupsService = {

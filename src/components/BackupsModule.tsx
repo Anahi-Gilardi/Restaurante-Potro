@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Database, RefreshCw, CheckCircle, Clock, Trash } from 'lucide-react';
 import { backupsService, BackupSnapshotData, Checkpoint, parseBackupContent } from '../services/backupsService';
-import { EventoLog, Insumo, Merma, Mesa, Pedido, ProductoMenu, RecetaEscandallo } from '../types';
+import { EventoLog, Insumo, Merma, Mesa, Pedido, ProductoMenu, RecetaEscandallo, Usuario } from '../types';
 import { usuariosService } from '../services/usuariosService';
 import { mesasService } from '../services/mesasService';
 import { insumosService } from '../services/insumosService';
@@ -18,6 +18,7 @@ import { ToastContainer, useToast } from './ToastContainer';
 
 interface BackupsModuleProps {
   operationalData: {
+    usuarios: Usuario[];
     mesas: Mesa[];
     insumos: Insumo[];
     productosMenu: ProductoMenu[];
@@ -67,7 +68,7 @@ export default function BackupsModule({
         facturas,
         logs
       ] = await Promise.all([
-        usuariosService.list().catch(() => []),
+        usuariosService.list().catch(() => operationalData.usuarios),
         mesasService.list().catch(() => operationalData.mesas),
         insumosService.list().catch(() => operationalData.insumos),
         menuService.list().catch(() => operationalData.productosMenu),

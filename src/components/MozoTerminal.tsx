@@ -17,7 +17,7 @@ import {
   Receipt,
   UserCheck
 } from 'lucide-react';
-import { Mesa, Insumo, ProductoMenu, RecetaEscandallo, Pedido, PedidoItem } from '../types';
+import { Mesa, Insumo, ProductoMenu, RecetaEscandallo, Pedido, PedidoItem, Usuario } from '../types';
 import { useToast, ToastContainer } from './ToastContainer';
 
 interface MozoTerminalProps {
@@ -25,6 +25,7 @@ interface MozoTerminalProps {
   insumos: Insumo[];
   productosMenu: ProductoMenu[];
   recetas: RecetaEscandallo[];
+  usuarios: Usuario[];
   activeMozo: string;
   onMozoChange: (mozo: string) => void;
   onCrearPedido: (pedido: Omit<Pedido, 'id_pedido' | 'fecha_hora' | 'minutos_transcurridos' | 'origen'> & { origen?: 'Mozo' }) => void;
@@ -39,6 +40,7 @@ export default function MozoTerminal({
   insumos,
   productosMenu,
   recetas,
+  usuarios,
   activeMozo,
   onMozoChange,
   onCrearPedido,
@@ -256,17 +258,17 @@ export default function MozoTerminal({
             </div>
           </div>
           <div className="grid grid-cols-3 gap-2">
-            {['Enzo', 'Micaela', 'Sofía'].map(mozoName => (
+            {usuarios.filter(usuario => usuario.activo !== false && usuario.rol !== 'cocina').map(usuario => (
               <button
-                key={mozoName}
-                onClick={() => onMozoChange(mozoName)}
+                key={usuario.id_usuario}
+                onClick={() => onMozoChange(usuario.nombre)}
                 className={`py-2 px-3 rounded-lg text-sm font-extrabold transition-all cursor-pointer ${
-                  activeMozo === mozoName 
+                  activeMozo === usuario.nombre
                     ? 'bg-[#624A3E] text-white shadow-sm scale-[1.02] border border-[#5d3a2e]' 
                     : 'bg-stone-50 text-stone-600 border border-stone-200 hover:bg-[#F5F1E9]'
                 }`}
               >
-                {mozoName}
+                {usuario.nombre}
               </button>
             ))}
           </div>

@@ -11,7 +11,7 @@ import ElPatronLogo from './ElPatronLogo';
 import { getSupabaseClient } from '../supabase';
 
 interface PythonStreamlitLoginProps {
-  onLoginSuccess: () => void;
+  onLoginSuccess: (operatorName?: string) => void;
 }
 
 export default function PythonStreamlitLogin({ onLoginSuccess }: PythonStreamlitLoginProps) {
@@ -39,12 +39,14 @@ export default function PythonStreamlitLogin({ onLoginSuccess }: PythonStreamlit
       }
 
       setIsLoggingIn(true);
-      const { error: authError } = await client.auth.signInWithPassword({
+      const { data, error: authError } = await client.auth.signInWithPassword({
         email: username.trim(),
         password
       });
       if (!authError) {
-        onLoginSuccess();
+        const metadata = data.user?.user_metadata;
+        const operatorName = metadata?.nombre || metadata?.name || '';
+        onLoginSuccess(typeof operatorName === 'string' ? operatorName : '');
         return;
       }
       setIsLoggingIn(false);
