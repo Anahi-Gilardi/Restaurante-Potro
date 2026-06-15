@@ -937,56 +937,56 @@ export default function App() {
       <aside className={`
         hidden lg:flex flex-col
         ${sidebarExpanded ? 'w-64' : 'w-16'}
-        bg-[rgba(28,25,23,0.25)] backdrop-blur-xl 
-        text-stone-200 border-r border-stone-600/20 shrink-0
+        bg-[#2d1810]/25 backdrop-blur-xl
+        text-amber-50/80 border-r border-amber-900/20 shrink-0
         transition-all duration-300 ease-in-out
-        shadow-lg shadow-black/10
+        shadow-xl shadow-black/20
       `} id="sidebar-left-panel">
         
-        {/* Brand Header — Mini: solo icon, Expanded: completo */}
-        <div className="border-b border-stone-600/20 flex items-center justify-between min-h-[56px] px-3">
+        {/* Brand Header */}
+        <div className="border-b border-amber-900/20 flex items-center justify-between min-h-[56px] px-3">
           {sidebarExpanded ? (
             <div className="flex items-center gap-2.5 py-2.5">
-              <div className="w-9 h-9 bg-[#FAF4EE]/90 rounded-lg flex items-center justify-center shadow-sm border border-white/20 p-0.5 overflow-hidden shrink-0 backdrop-blur-sm">
+              <div className="w-9 h-9 bg-[#FAF4EE]/90 rounded-lg flex items-center justify-center shadow-sm border border-amber-900/30 p-0.5 overflow-hidden shrink-0">
                 <ElPatronLogo className="w-8 h-8 object-contain rounded" variant="icon" color="#4A2D1B" />
               </div>
               <div className="min-w-0">
-                <span className="font-extrabold text-sm text-white drop-shadow-md block leading-tight">El Patrón</span>
-                <span className="text-[7px] uppercase font-bold text-stone-300/70 tracking-wider block leading-tight">Gestión Gastro</span>
+                <span className="font-extrabold text-sm text-amber-50 drop-shadow-lg block leading-tight">El Patrón</span>
+                <span className="text-[7px] uppercase font-bold text-amber-200/50 tracking-wider block leading-tight">Gestión Gastro</span>
               </div>
             </div>
           ) : (
             <div className="w-full flex justify-center py-2.5">
-              <div className="w-8 h-8 bg-[#FAF4EE]/80 rounded-lg flex items-center justify-center shadow-sm border border-white/20 p-0.5 overflow-hidden">
+              <div className="w-8 h-8 bg-[#FAF4EE]/80 rounded-lg flex items-center justify-center shadow-sm border border-amber-900/30 p-0.5 overflow-hidden">
                 <ElPatronLogo className="w-7 h-7 object-contain rounded" variant="icon" color="#4A2D1B" />
               </div>
             </div>
           )}
           <button onClick={() => setIsStreamlitLoggedIn(false)}
-            className="p-1 rounded-lg hover:bg-white/10 text-stone-400 hover:text-amber-400 transition-colors cursor-pointer shrink-0" title="Cerrar sesión">
+            className="p-1.5 rounded-lg hover:bg-amber-900/30 text-amber-400/60 hover:text-amber-300 transition-all duration-200 cursor-pointer shrink-0" title="Cerrar sesión">
             <LogOut className="w-3.5 h-3.5" />
           </button>
         </div>
 
-        {/* Clock widget — Solo en modo expandido */}
+        {/* Clock widget */}
         {sidebarExpanded && (
-        <div className="px-3 py-2.5 border-b border-stone-600/20 space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-[8px] uppercase font-bold text-stone-400/80 tracking-wider font-mono flex items-center gap-1">
-              <Clock className="w-3 h-3 text-amber-400/80" />
+        <div className="mx-3 mt-3 mb-1 px-3 py-2 bg-amber-950/30 border border-amber-900/20 rounded-xl backdrop-blur-sm">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[8px] uppercase font-bold text-amber-200/60 tracking-wider font-mono flex items-center gap-1">
+              <Clock className="w-3 h-3 text-amber-400/70" />
               Reloj
             </span>
             <span className={`h-1.5 w-1.5 rounded-full ${autoTimerRunning ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
           </div>
-          <div className="flex items-center justify-between bg-white/5 border border-white/10 p-2 rounded-lg backdrop-blur-sm">
-            <strong className="text-sm font-black text-white font-mono tracking-tight drop-shadow-md">{getSimulatedTimeStr()}</strong>
+          <div className="flex items-center justify-between">
+            <strong className="text-sm font-black text-amber-50 font-mono tracking-tight drop-shadow-lg">{getSimulatedTimeStr()}</strong>
             <div className="flex items-center gap-1">
               <button onClick={handleToggleAutoTimer}
-                className={`p-1 rounded-lg transition-all cursor-pointer ${autoTimerRunning ? 'bg-amber-500/30 text-amber-300' : 'bg-emerald-500/30 text-emerald-400'}`}>
+                className={`p-1 rounded-lg transition-all duration-200 cursor-pointer ${autoTimerRunning ? 'bg-amber-500/30 text-amber-300' : 'bg-emerald-500/30 text-emerald-400'}`}>
                 <RefreshCw className={`w-3 h-3 ${autoTimerRunning ? 'animate-spin' : ''}`} />
               </button>
               <button onClick={() => handleAdvanceTime(15)}
-                className="p-1 px-1.5 rounded-lg bg-white/10 text-stone-300 hover:text-white border border-white/20 text-[9px] font-bold cursor-pointer backdrop-blur-sm">
+                className="px-1.5 py-1 rounded-lg bg-amber-950/40 text-amber-300/70 hover:text-amber-200 border border-amber-900/30 text-[9px] font-bold cursor-pointer transition-all duration-200">
                 +15m
               </button>
             </div>
@@ -994,48 +994,48 @@ export default function App() {
         </div>
         )}
 
-        {/* Venta sin stock — Solo en modo expandido */}
+        {/* Venta sin stock */}
         {sidebarExpanded && activeUser.rol === 'administrador' && (
-        <div className="px-3 py-2 border-b border-stone-700/30">
-          <label className="flex items-center justify-between bg-black/30 border border-stone-700/40 p-2 rounded-lg cursor-pointer hover:bg-black/50 transition-all select-none">
-            <span className="text-[10px] font-bold text-white tracking-tight">
-              {permitirVentaSinStock ? 'Forzar Ventas' : 'Bloquear sin stock'}
+        <div className="mx-3 mt-2 mb-1">
+          <label className="flex items-center justify-between px-3 py-2 bg-amber-950/25 border border-amber-900/20 rounded-xl cursor-pointer hover:bg-amber-950/40 transition-all duration-200 select-none backdrop-blur-sm">
+            <span className="text-[11px] font-bold text-amber-200/80">
+              {permitirVentaSinStock ? '✓ Forzar Ventas' : 'Bloquear sin stock'}
             </span>
             <input type="checkbox" checked={permitirVentaSinStock}
               onChange={(e) => { setPermitirVentaSinStock(e.target.checked);
                 addLog('sistema', `REGLA: Venta forzada sin stock ${e.target.checked ? 'HABILITADA' : 'DESHABILITADA'}`);
               }}
-              className="rounded border-stone-700 text-[#624A3E] focus:ring-[#624A3E] w-4 h-4 bg-stone-800 cursor-pointer" />
+              className="rounded border-amber-700/50 text-[#624A3E] focus:ring-[#624A3E] w-4 h-4 bg-amber-950/50 cursor-pointer" />
           </label>
         </div>
         )}
 
-        {/* Interactive Personnel login manager */}
-        <div className="px-3 py-2.5 border-b border-stone-600/20">
-          <div className={`flex items-center gap-2 bg-white/5 border border-white/10 p-2 rounded-lg backdrop-blur-sm ${sidebarExpanded ? '' : 'justify-center'}`}>
-            <div className="w-7 h-7 rounded-full bg-white/10 border border-white/20 flex items-center justify-center shrink-0 backdrop-blur-sm">
-              <User className="w-3.5 h-3.5 text-stone-300" />
+        {/* Usuario activo */}
+        <div className="mx-3 mt-2 mb-1">
+          <div className={`flex items-center gap-2.5 px-3 py-2 bg-amber-950/25 border border-amber-900/20 rounded-xl backdrop-blur-sm ${sidebarExpanded ? '' : 'justify-center'}`}>
+            <div className="w-7 h-7 rounded-full bg-amber-900/30 border border-amber-900/30 flex items-center justify-center shrink-0">
+              <User className="w-3.5 h-3.5 text-amber-300/70" />
             </div>
             {sidebarExpanded && (
               <div className="flex-1 text-left min-w-0">
-                <span className="text-[7px] text-stone-400/80 block font-bold leading-none uppercase">Usuario</span>
+                <span className="text-[7px] text-amber-200/50 block font-bold leading-none uppercase tracking-wider">Usuario</span>
                 {activeUser.rol === 'administrador' ? (
                   <select value={activeMozo} onChange={(e) => handleMozoChange(e.target.value)}
-                    className="text-[10px] bg-transparent border-none p-0 focus:outline-none font-extrabold text-white cursor-pointer w-full mt-0.5 focus:ring-0">
+                    className="text-[11px] bg-transparent border-none p-0 focus:outline-none font-extrabold text-amber-50 cursor-pointer w-full mt-0.5 focus:ring-0">
                     {usuarios.filter(usuario => usuario.activo !== false).map(usuario => (
-                      <option key={usuario.id_usuario} value={usuario.nombre} className="bg-stone-950 text-stone-200">{usuario.nombre}</option>
+                      <option key={usuario.id_usuario} value={usuario.nombre} className="bg-[#2d1810] text-amber-50">{usuario.nombre}</option>
                     ))}
                   </select>
                 ) : (
-                  <span className="text-[10px] font-extrabold text-white drop-shadow-md mt-0.5 block">{activeUser.nombre}</span>
+                  <span className="text-[11px] font-extrabold text-amber-50 drop-shadow-lg mt-0.5 block">{activeUser.nombre}</span>
                 )}
               </div>
             )}
           </div>
         </div>
 
-        {/* Multi-role Navigation Panels - Adaptable a mini/expandido */}
-        <div className="flex-1 overflow-y-auto p-2 space-y-1 scroll-passive">
+        {/* Navigation Panels */}
+        <div className="flex-1 overflow-y-auto px-2 py-2 space-y-0.5 scroll-passive">
           <nav className="space-y-0.5" id="sidebar-navigation">
             {[
               { id: 'home', label: 'Inicio', icon: '🏠' },
@@ -1061,21 +1061,26 @@ export default function App() {
                 <button
                   key={item.id}
                   id={`tab-${item.id}`}
-                  onClick={() => { handleNavigate(item.id as AppView); }}
-                  className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all cursor-pointer group ${
-                    isActive
-                      ? 'bg-[#624A3E]/60 text-white shadow-sm border border-stone-600/20'
-                      : 'text-stone-400 hover:text-stone-200 hover:bg-stone-800/40 border border-transparent'
-                  } ${sidebarExpanded ? 'justify-start' : 'justify-center'}`}
+                  onClick={() => handleNavigate(item.id as AppView)}
+                  className={`
+                    w-full flex items-center gap-3 transition-all duration-200 cursor-pointer
+                    ${sidebarExpanded ? 'mx-1 px-3 py-2 rounded-xl' : 'justify-center py-2.5 rounded-lg'}
+                    ${isActive
+                      ? 'bg-[#4A2D1B]/80 text-amber-50 shadow-sm border border-amber-900/30 backdrop-blur-sm'
+                      : 'text-amber-200/50 hover:text-amber-50 hover:bg-amber-900/20 border border-transparent'
+                    }
+                  `}
                   title={!sidebarExpanded ? item.label : undefined}
                 >
-                  <span className="text-base shrink-0">{item.icon}</span>
+                  <span className="text-base shrink-0 leading-none">{item.icon}</span>
                   {sidebarExpanded && (
-                    <span className={`text-[11px] font-bold tracking-tight ${isActive ? 'text-white' : 'text-stone-300 group-hover:text-white'}`}>
+                    <span className={`text-[12px] font-bold tracking-wide leading-none ${isActive ? 'text-amber-50' : 'text-amber-200/60'}`}>
                       {item.label}
                     </span>
                   )}
-                  {sidebarExpanded && isActive && <div className="w-1 h-1 rounded-full bg-amber-400 ml-auto shrink-0" />}
+                  {sidebarExpanded && isActive && (
+                    <span className="ml-auto w-1.5 h-1.5 rounded-full bg-amber-400 shadow-sm shadow-amber-400/50 shrink-0" />
+                  )}
                 </button>
               );
             })}
@@ -1083,25 +1088,10 @@ export default function App() {
         </div>
 
         {/* Version badge */}
-        <div className={`px-3 py-2 border-t border-stone-600/20 ${sidebarExpanded ? '' : 'flex justify-center'}`}>
-          <span className="text-[8px] text-stone-400/60 font-mono">{sidebarExpanded ? 'v1.2.0 · El Patrón Pro' : 'v1'}</span>
-        </div>
-
-        {/* Integration Specs footer */}
-        <div className="p-4 bg-stone-950 text-stone-400 text-[10px] border-t border-stone-800 space-y-1">
-          <div className="flex items-center gap-1.5 text-stone-300 font-bold font-mono">
-            <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-ping" />
-            SQLite + Supabase Bridge
-          </div>
-          <p className="opacity-75">Sesión local conectada de forma segura.</p>
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="mt-2 w-full flex items-center justify-center gap-1.5 rounded-lg border border-stone-800 px-2 py-1.5 text-stone-400 hover:bg-stone-900 hover:text-white transition-colors"
-          >
-            <LogOut className="w-3 h-3" />
-            Cerrar sesión
-          </button>
+        <div className={`px-4 py-2.5 border-t border-amber-900/20 ${sidebarExpanded ? '' : 'flex justify-center'}`}>
+          <span className="text-[8px] text-amber-300/30 font-mono tracking-wider">
+            {sidebarExpanded ? 'El Patrón Pro · v1.2.0' : 'v1'}
+          </span>
         </div>
       </aside>
 
