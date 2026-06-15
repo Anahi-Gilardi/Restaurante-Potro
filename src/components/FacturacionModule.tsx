@@ -708,8 +708,22 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
             )}
           </div>
 
-          <div className="text-[10px] text-stone-400 font-bold uppercase">
-            Numeracion fiscal PV 0001 - Ticket {nextNumber(facturas, 'ticket')} - A {nextNumber(facturas, 'A')} - B {nextNumber(facturas, 'B')} - X {nextNumber(facturas, 'X')} - Anulados {anuladas}
+          <div className="flex justify-between items-center">
+            <div className="text-[10px] text-stone-400 font-bold uppercase">
+              Numeracion fiscal PV 0001 - Ticket {nextNumber(facturas, 'ticket')} - A {nextNumber(facturas, 'A')} - B {nextNumber(facturas, 'B')} - X {nextNumber(facturas, 'X')} - Anulados {anuladas}
+            </div>
+            {filtered.length > 0 && (
+              <button onClick={async () => {
+                toast.info(`Descargando ${filtered.length} comprobantes...`);
+                for (const f of filtered) {
+                  await downloadFacturaPdf(f);
+                  await new Promise(r => setTimeout(r, 300));
+                }
+                toast.success(`${filtered.length} PDFs descargados.`);
+              }} className="px-3 py-1.5 bg-[#624A3E] hover:bg-[#503C32] text-white text-[10px] font-extrabold rounded-lg transition-all cursor-pointer flex items-center gap-1.5">
+                <Download className="w-3 h-3" /> Descargar {filtered.length} PDFs
+              </button>
+            )}
           </div>
         </div>
       )}

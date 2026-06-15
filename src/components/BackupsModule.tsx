@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Database, RefreshCw, CheckCircle, Clock, Trash } from 'lucide-react';
+import { Database, RefreshCw, CheckCircle, Clock, Trash, Search, X, AlertTriangle } from 'lucide-react';
 import { backupsService, BackupSnapshotData, Checkpoint, parseBackupContent } from '../services/backupsService';
 import { EventoLog, Insumo, Merma, Mesa, Pedido, ProductoMenu, RecetaEscandallo, Usuario } from '../types';
 import { usuariosService } from '../services/usuariosService';
@@ -38,6 +38,12 @@ export default function BackupsModule({
 }: BackupsModuleProps) {
   const { toast, toasts, removeToast } = useToast();
   const [backups, setBackups] = useState<Checkpoint[]>([]);
+  const [searchBackup, setSearchBackup] = useState('');
+  const [confirmAction, setConfirmAction] = useState<{ type: 'restore' | 'delete'; cp: Checkpoint } | null>(null);
+
+  const filteredBackups = backups.filter(cp =>
+    cp.nombre.toLowerCase().includes(searchBackup.toLowerCase())
+  );
 
   useEffect(() => {
     backupsService.list().then(setBackups).catch(() => {
@@ -136,10 +142,11 @@ export default function BackupsModule({
   const [restoredOk, setRestoredOk] = useState<string | null>(null);
 
   const handleRestoreBackup = async (cp: Checkpoint) => {
-    if (!window.confirm(`¿Restaurar el punto "${cp.nombre}"? Los datos guardados se aplicarán al estado actual y a Supabase.`)) {
-      return;
-    }
+    setConfirmAction({ type: 'restore', cp });
+  };
 
+  const executeRestore = async (cp: Checkpoint) => {
+    setConfirmAction(null);
     setLoadingId(cp.id_cp);
     try {
       const snapshot = parseBackupContent(cp.contenido);
@@ -157,8 +164,13 @@ export default function BackupsModule({
     }
   };
 
-  const handleDeleteBackup = async (id: string) => {
-    if (!window.confirm('¿Eliminar este punto de control?')) return;
+  const handleDeleteBackup = (id: string) => {
+    const cp = backups.find(c => c.id_cp === id);
+    if (cp) setConfirmAction({ type: 'delete', cp });
+  };
+
+  const executeDelete = async (id: string) => {
+    setConfirmAction(null);
     setBackups(prev => prev.filter(c => c.id_cp !== id));
     const removedFromCloud = await backupsService.remove(id);
     addLog('sistema', `SISTEMA: Registro de checkpoint eliminado de la tabla backups.`);
@@ -217,6 +229,14 @@ export default function BackupsModule({
           </div>
         )}
 
+        {/* Search */}
+        <div className="relative max-w-xs">
+          <Search className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+          <input type="text" value={searchBackup} onChange={e => setSearchBackup(e.target.value)}
+            placeholder="Buscar respaldo..."
+            className="w-full pl-8 pr-2 py-1.5 text-xs border border-stone-200 rounded-lg bg-stone-50 focus:outline-none focus:ring-1 focus:ring-[#624A3E]" />
+        </div>
+
         {/* Checkpoints List */}
         <div className="space-y-3">
           {backups.length === 0 && (
@@ -226,7 +246,7 @@ export default function BackupsModule({
               <p className="text-xs text-stone-400 mt-1">Creá un respaldo para descargarlo y conservar una copia restaurable.</p>
             </div>
           )}
-          {backups.map(cp => {
+          {filteredBackups.map(cp => {
             const isLoading = loadingId === cp.id_cp;
             return (
               <div key={cp.id_cp} className="p-4 bg-[#F5F1E9]/40 border border-stone-150 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 hover:bg-[#F5F1E9]/70 transition-all">
@@ -259,7 +279,7 @@ export default function BackupsModule({
                     className="flex-1 sm:flex-initial py-1.5 px-3 rounded-lg bg-orange-50 hover:bg-orange-100 disabled:bg-stone-100 text-orange-700 disabled:text-stone-400 text-[10px] font-black transition-colors flex items-center justify-center gap-1 cursor-pointer"
                   >
                     <RefreshCw className={`w-3 h-3 ${isLoading ? 'animate-spin' : ''}`} />
-                    {isLoading ? 'Cargando backup...' : 'Restaurar Sistema'}
+                    {isLoading ? 'Cargando backup...' : 'Restaurar'}
                   </button>
                   <button
                     onClick={() => handleDeleteBackup(cp.id_cp)}
@@ -276,6 +296,37 @@ export default function BackupsModule({
 
       </div>
       <ToastContainer toasts={toasts} removeToast={removeToast} />
+
+      {confirmAction && (
+        <div className="fixed inset-0 z-[80] bg-black/45 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white rounded-2xl border border-stone-200 shadow-2xl overflow-hidden">
+            <div className="p-4 bg-amber-50 border-b border-amber-100 flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-xl bg-amber-100 text-amber-700"><AlertTriangle className="w-5 h-5" /></div>
+                <div>
+                  <h3 className="text-sm font-black text-amber-900 uppercase">
+                    {confirmAction.type === 'restore' ? 'Restaurar Respaldo' : 'Eliminar Respaldo'}
+                  </h3>
+                  <p className="text-xs text-amber-700 mt-1">
+                    {confirmAction.type === 'restore'
+                      ? `Se restaurarán los datos del punto "${confirmAction.cp.nombre}".`
+                      : `Se eliminará permanentemente "${confirmAction.cp.nombre}".`}
+                  </p>
+                </div>
+              </div>
+              <button onClick={() => setConfirmAction(null)} className="p-1 rounded-lg text-amber-500 hover:bg-amber-100 cursor-pointer"><X className="w-4 h-4" /></button>
+            </div>
+            <div className="p-5 flex gap-2 justify-end">
+              <button onClick={() => setConfirmAction(null)}
+                className="py-2 px-4 rounded-xl border border-stone-200 bg-white text-stone-600 text-xs font-black uppercase hover:bg-stone-50 cursor-pointer">Cancelar</button>
+              <button onClick={() => confirmAction.type === 'restore' ? executeRestore(confirmAction.cp) : executeDelete(confirmAction.cp.id_cp)}
+                className="py-2 px-4 rounded-xl bg-red-600 text-white text-xs font-black uppercase hover:bg-red-500 cursor-pointer">
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
