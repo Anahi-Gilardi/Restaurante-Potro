@@ -144,10 +144,9 @@ export default function MozoTerminal({
 
   // Quick check of remaining simulated capacity for UI tags
   const getSimulatedStockRemaining = (prod: ProductoMenu) => {
-    // Find recipes associated to this product
     const productRecipes = recetas.filter(r => r.id_producto === prod.id_producto);
-    let maxPlatesSimulated = 999;
-
+    if (productRecipes.length === 0) return 999;
+    let maxPlatesSimulated = Infinity;
     productRecipes.forEach(rec => {
       const insumo = insumos.find(i => i.id_insumo === rec.id_insumo);
       if (insumo) {
@@ -157,8 +156,7 @@ export default function MozoTerminal({
         }
       }
     });
-
-    return maxPlatesSimulated === 999 ? 0 : maxPlatesSimulated;
+    return maxPlatesSimulated === Infinity ? 999 : maxPlatesSimulated;
   };
 
   // Cart operations
@@ -444,28 +442,32 @@ export default function MozoTerminal({
 
           <div className="flex gap-1.5 w-full overflow-x-auto py-1 scrollbar-thin scroll-smooth border-t border-stone-100 pt-3">
             {[
-              { id: 'todo', label: 'Todos 🍽️' },
-              { id: 'Entradas', label: 'Entradas 🥗' },
-              { id: 'Pastas', label: 'Pastas 🍝' },
-              { id: 'Carnes', label: 'Carnes 🥩' },
-              { id: 'Pescados', label: 'Pescados 🐟' },
-              { id: 'Comidas Criollas', label: 'Criollas 🥧' },
-              { id: 'Postres', label: 'Postres 🍰' },
-              { id: 'Bebidas', label: 'Bebidas 🥤' },
-              { id: 'Bodega', label: 'Bodega 🍷' }
-            ].map(cat => (
-              <button
-                key={cat.id}
-                onClick={() => setSelectedCategoria(cat.id)}
-                className={`py-1.5 px-3 text-xs font-extrabold rounded-lg whitespace-nowrap transition-all duration-150 cursor-pointer active:scale-95 flex items-center gap-1 shrink-0 ${
-                  selectedCategoria === cat.id 
-                    ? 'bg-[#624A3E] text-white shadow-sm ring-1 ring-amber-900/10' 
-                    : 'bg-stone-50 text-stone-600 border border-stone-200 hover:bg-[#F5F1E9] hover:text-stone-900'
-                }`}
-              >
-                {cat.label}
-              </button>
-            ))}
+              { id: 'todo', label: 'Todos' },
+              { id: 'Entradas', label: 'Entradas' },
+              { id: 'Pastas', label: 'Pastas' },
+              { id: 'Carnes', label: 'Carnes' },
+              { id: 'Pescados', label: 'Pescados' },
+              { id: 'Comidas Criollas', label: 'Criollas' },
+              { id: 'Postres', label: 'Postres' },
+              { id: 'Bebidas', label: 'Bebidas' },
+              { id: 'Bodega', label: 'Bodega' }
+            ].map(cat => {
+              const count = cat.id === 'todo' ? productosMenu.filter(p => p.activo).length : productosMenu.filter(p => p.activo && p.categoria === cat.id).length;
+              return (
+                <button
+                  key={cat.id}
+                  onClick={() => setSelectedCategoria(cat.id)}
+                  className={`py-1.5 px-3 text-xs font-extrabold rounded-lg whitespace-nowrap transition-all duration-150 cursor-pointer active:scale-95 flex items-center gap-1 shrink-0 ${
+                    selectedCategoria === cat.id 
+                      ? 'bg-[#624A3E] text-white shadow-sm ring-1 ring-amber-900/10' 
+                      : 'bg-stone-50 text-stone-600 border border-stone-200 hover:bg-[#F5F1E9] hover:text-stone-900'
+                  }`}
+                >
+                  {cat.label}
+                  <span className={`text-[9px] font-bold ml-0.5 ${selectedCategoria === cat.id ? 'text-white/70' : 'text-stone-400'}`}>({count})</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -550,16 +552,21 @@ export default function MozoTerminal({
                   </div>
 
                   {/* elastic sum button */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (!isOutOfStock) handleAddToCart(p.id_producto);
-                    }}
-                    className="w-8 h-8 rounded-full bg-[#624A3E] text-white hover:bg-[#503C32] active:scale-90 transition-all duration-150 flex items-center justify-center font-bold shadow-md shadow-[#624A3E]/20 cursor-pointer border border-amber-950/10 shrink-0"
-                    title="Añadir a comanda"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {[1, 2, 3].map(n => (
+                      <button
+                        key={n}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (!isOutOfStock) for (let i = 0; i < n; i++) handleAddToCart(p.id_producto);
+                        }}
+                        className="w-7 h-7 rounded-lg bg-[#624A3E]/10 text-[#624A3E] hover:bg-[#624A3E] hover:text-white active:scale-90 transition-all text-[10px] font-extrabold cursor-pointer"
+                        title={`Agregar ${n}`}
+                      >
+                        +{n}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             );
@@ -612,10 +619,10 @@ export default function MozoTerminal({
                     <div key={prodId} className="flex justify-between items-center text-xs bg-slate-50 p-2 rounded-xl border border-slate-100 hover:border-slate-200 transition-colors">
                       <div className="flex-1 pr-1 font-sans">
                         <span className="font-bold text-slate-800 line-clamp-1">{p.nombre}</span>
-                        <span className="text-[10px] text-slate-400 font-mono">${(p.precio_venta).toLocaleString('es-AR')} u.</span>
-                      </div>
-                      
-                      <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] text-slate-400 font-mono">${(p.precio_venta).toLocaleString('es-AR')} u.</span>
+                       </div>
+
+                       <div className="flex items-center gap-1.5">
                         <button
                           onClick={() => handleRemoveFromCart(prodId)}
                           className="w-5 h-5 bg-white hover:bg-slate-100 rounded border border-slate-200 flex items-center justify-center text-slate-600 transition-colors"
@@ -647,6 +654,17 @@ export default function MozoTerminal({
                   onChange={(e) => setObservaciones(e.target.value)}
                   className="w-full text-xs text-slate-700 p-2 border border-slate-100 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-950 resize-none h-14"
                 />
+              </div>
+
+              {/* Cart count badge */}
+              <div className="flex items-center justify-between text-[10px] text-stone-500 font-medium pb-1">
+                <span>{Object.keys(cart).length} productos distintos</span>
+                <button
+                  onClick={() => setCart({})}
+                  className="text-rose-500 hover:text-rose-700 font-bold uppercase tracking-wider cursor-pointer"
+                >
+                  Vaciar Carrito
+                </button>
               </div>
 
               {/* FOOTER TOTAL & INJECT BTN */}
