@@ -918,7 +918,7 @@ export default function App() {
 
   return (
     <>
-    <div className="min-h-screen bg-[#F5F1E9] flex flex-col lg:flex-row font-sans text-stone-800 antialiased selection:bg-[#624A3E] selection:text-white">
+    <div className="h-screen overflow-hidden bg-[#F5F1E9] flex flex-col lg:flex-row font-sans text-stone-800 antialiased selection:bg-[#624A3E] selection:text-white">
       
       
       {/* LEFT SIDE PANEL — Solo desktop, oculta en móvil */}
@@ -1088,7 +1088,7 @@ export default function App() {
       </aside>
 
       {/* CORE ACTIVE MODULE AREA (RIGHT SIDE CONTENT PANE) */}
-      <main className="flex-1 flex flex-col min-w-0 min-h-screen bg-[#F5F1E9]">
+      <main className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto bg-[#F5F1E9]">
         
         {/* TOP STATUS BAR ACCENTS */}
         <div className="bg-[#F5F1E9] border-b border-stone-200/80 px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
