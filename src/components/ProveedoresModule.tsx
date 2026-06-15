@@ -2,17 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { Truck, Phone, Plus, Tag, Layers, CheckCircle } from 'lucide-react';
 import { Proveedor, EventoLog } from '../types';
 import { proveedoresService } from '../services/proveedoresService';
+import { ToastContainer, useToast } from './ToastContainer';
 
 interface ProveedoresModuleProps {
-  onRestockTodo: () => void;
   addLog: (tipo: EventoLog['tipo'], mensaje: string) => void;
 }
 
 export default function ProveedoresModule({
-  onRestockTodo,
   addLog
 }: ProveedoresModuleProps) {
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
+  const { toast, toasts, removeToast } = useToast();
 
   useEffect(() => {
     proveedoresService.list().then(data => {
@@ -59,7 +59,9 @@ export default function ProveedoresModule({
     };
 
     setProveedores(prev => [...prev, newProv]);
-    proveedoresService.create(newProv).catch(err => console.error(err));
+    proveedoresService.create(newProv).catch(() => {
+      toast.warning('El proveedor quedó disponible localmente, pero no pudo sincronizarse.');
+    });
     addLog('sistema', `PROVEEDORES: Incorporado nuevo proveedor de materia prima '${nombre}' para categoría: ${categoria.toUpperCase()}`);
     setNombre('');
     setContacto('');
@@ -71,8 +73,7 @@ export default function ProveedoresModule({
     setOrderedId(prov.id_proveedor);
     addLog('sistema', `REPOSICIÓN: Solicitud de reabastecimiento enviada por API-Rest a '${prov.nombre}'. Reaprovisionamiento estimado en ${prov.tiempo_entrega_dias} día(s).`);
     
-    // Simulate stock fill
-    onRestockTodo();
+    toast.success(`Solicitud enviada a ${prov.nombre}. El stock se acredita al registrar la recepción.`);
 
     setTimeout(() => {
       setOrderedId(null);
@@ -80,6 +81,7 @@ export default function ProveedoresModule({
   };
 
   return (
+    <>
     <div className="space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         
@@ -239,5 +241,7 @@ export default function ProveedoresModule({
 
       </div>
     </div>
+    <ToastContainer toasts={toasts} removeToast={removeToast} />
+    </>
   );
 }

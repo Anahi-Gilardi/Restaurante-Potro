@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Users, Shield, Plus, Check, Trash } from 'lucide-react';
 import { Usuario, EventoLog } from '../types';
 import { usuariosService } from '../services/usuariosService';
+import { ToastContainer, useToast } from './ToastContainer';
 
 interface UsuariosModuleProps {
   logs: EventoLog[];
@@ -10,6 +11,7 @@ interface UsuariosModuleProps {
 
 export default function UsuariosModule({ logs, addLog }: UsuariosModuleProps) {
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+  const { toast, toasts, removeToast } = useToast();
 
   useEffect(() => {
     usuariosService.list().then(data => {
@@ -59,12 +61,20 @@ export default function UsuariosModule({ logs, addLog }: UsuariosModuleProps) {
   const handleDeleteUsuario = (id: number) => {
     const target = usuarios.find(u => u.id_usuario === id);
     if (!target) return;
+    const activeAdmins = usuarios.filter(u => u.rol === 'administrador' && u.activo !== false);
+    if (target.rol === 'administrador' && activeAdmins.length <= 1) {
+      toast.error('No se puede eliminar el último administrador activo.');
+      return;
+    }
     setUsuarios(prev => prev.filter(u => u.id_usuario !== id));
-    usuariosService.remove(id).catch(err => console.error(err));
+    usuariosService.remove(id).then(removed => {
+      if (!removed) toast.warning('El usuario se quitó localmente, pero no pudo sincronizarse.');
+    });
     addLog('sistema', `USUARIOS: Removido usuario '${target.nombre} ${target.apellido}' del sistema`);
   };
 
   return (
+    <>
     <div className="space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left column: Add Form */}
@@ -175,5 +185,7 @@ export default function UsuariosModule({ logs, addLog }: UsuariosModuleProps) {
         </div>
       </div>
     </div>
+    <ToastContainer toasts={toasts} removeToast={removeToast} />
+    </>
   );
 }

@@ -18,11 +18,15 @@ export default function PythonStreamlitLogin({ onLoginSuccess }: PythonStreamlit
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const env = (import.meta as any).env || {};
+  const demoUser = String(env.VITE_DEMO_USER || 'sistema');
+  const demoPassword = String(env.VITE_DEMO_PASSWORD || 'restaurante');
+  const demoEnabled = env.VITE_ENABLE_DEMO_LOGIN !== 'false';
 
   const executeLogin = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     
-    if (username.toLowerCase() === 'sistema' && password === 'restaurante') {
+    if (demoEnabled && username.toLowerCase() === demoUser.toLowerCase() && password === demoPassword) {
       setError(null);
       setIsLoggingIn(true);
       setTimeout(() => {
@@ -33,15 +37,6 @@ export default function PythonStreamlitLogin({ onLoginSuccess }: PythonStreamlit
     }
   };
 
-  const handleBypass = () => {
-    setUsername('sistema');
-    setPassword('restaurante');
-    setError(null);
-    setIsLoggingIn(true);
-    setTimeout(() => {
-      onLoginSuccess();
-    }, 500);
-  };
   return (
     <div className="min-h-screen bg-[#F5F1E9] text-stone-850 font-sans flex items-center justify-center p-4 relative overflow-hidden" id="pos-login-container">
       {/* Abstract warm luxury decoration */}
@@ -131,28 +126,17 @@ export default function PythonStreamlitLogin({ onLoginSuccess }: PythonStreamlit
                 <ArrowRight className="w-4 h-4" />
               </button>
 
-              <button
-                type="button"
-                onClick={handleBypass}
-                className="w-full py-2.5 px-4 bg-amber-50 hover:bg-amber-100 text-[#6B4A35] hover:text-[#4A2D1B] font-extrabold rounded-xl text-[11px] uppercase tracking-wider transition-all border border-amber-200/50 flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <span>Ingreso Rápido Demo</span>
-              </button>
             </div>
           </form>
         )}
 
-        {/* Guest / Demo Notice Banner */}
-        <div className="border-t border-stone-150 pt-5 text-center space-y-2">
-          <p className="text-[10px] text-stone-400 font-medium">
-            Acceso administrativo de demostración autorizado:
-          </p>
-          <div className="inline-flex justify-center gap-4 bg-stone-50 border border-stone-155 px-3 py-1.5 rounded-xl font-mono text-[10px] text-stone-550">
-            <span>Usuario: <strong className="text-[#4A2D1B]">sistema</strong></span>
-            <span className="text-stone-300">|</span>
-            <span>Clave: <strong className="text-[#4A2D1B]">restaurante</strong></span>
+        {demoEnabled && (
+          <div className="border-t border-stone-150 pt-5 text-center">
+            <p className="text-[10px] text-amber-700 font-medium">
+              Modo de acceso local habilitado. Configure credenciales privadas en Vercel.
+            </p>
           </div>
-        </div>
+        )}
 
       </div>
 

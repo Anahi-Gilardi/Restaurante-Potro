@@ -8,10 +8,11 @@ import {
   User,
   Clock,
   RefreshCw,
-  ShieldAlert
+  ShieldAlert,
+  LogOut
 } from 'lucide-react';
 
-import { Mesa, Insumo, ProductoMenu, RecetaEscandallo, Pedido, Merma, EventoLog } from './types';
+import { Mesa, Insumo, ProductoMenu, RecetaEscandallo, Pedido, Merma, EventoLog, Reserva } from './types';
 import { 
   INITIAL_MESAS, 
   INITIAL_INSUMOS, 
@@ -60,7 +61,9 @@ import {
 export default function App() {
   const { toast, toasts, removeToast } = useToast();
   // --- Global Synced States ---
-  const [isStreamlitLoggedIn, setIsStreamlitLoggedIn] = useState<boolean>(false);
+  const [isStreamlitLoggedIn, setIsStreamlitLoggedIn] = useState<boolean>(() => (
+    typeof window !== 'undefined' && window.sessionStorage.getItem('el_patron_session') === 'active'
+  ));
   const [permitirVentaSinStock, setPermitirVentaSinStock] = useState<boolean>(false);
   const [mesas, setMesas] = useState<Mesa[]>(INITIAL_MESAS);
   const [insumos, setInsumos] = useState<Insumo[]>(INITIAL_INSUMOS);
@@ -274,6 +277,16 @@ export default function App() {
   const handleMozoChange = (mozo: string) => {
     setActiveMozo(mozo);
     addLog('sistema', `SESIÓN: Acceso de personal actualizado por mozo: ${mozo}`);
+  };
+
+  const handleLoginSuccess = () => {
+    window.sessionStorage.setItem('el_patron_session', 'active');
+    setIsStreamlitLoggedIn(true);
+  };
+
+  const handleLogout = () => {
+    window.sessionStorage.removeItem('el_patron_session');
+    setIsStreamlitLoggedIn(false);
   };
 
   // --- Handlers for Kitchen View ---
@@ -588,6 +601,30 @@ export default function App() {
     dbUpsertInsumos(updatedInsumos);
   };
 
+  const handleReservaEstadoChange = useCallback((reserva: Reserva, estado: Reserva['estado']) => {
+    if (!reserva.id_mesa) return;
+
+    const hasActiveOrder = pedidos.some(pedido => (
+      pedido.id_mesa === reserva.id_mesa
+      && pedido.estado_comanda !== 'entregado_cobrado'
+      && pedido.estado_comanda !== 'cancelado'
+    ));
+
+    const updatedMesas = mesas.map(mesa => {
+      if (mesa.id_mesa !== reserva.id_mesa) return mesa;
+      if (estado === 'sentada') {
+        return { ...mesa, estado: 'ocupada' as const, comensales: reserva.pax };
+      }
+      if (!hasActiveOrder && (estado === 'cancelada' || estado === 'completada')) {
+        return { ...mesa, estado: 'libre' as const, comensales: undefined };
+      }
+      return mesa;
+    });
+
+    setMesas(updatedMesas);
+    dbUpsertMesas(updatedMesas);
+  }, [mesas, pedidos]);
+
   // --- Handlers for Simulation Controls ---
   const handleAdvanceTime = (mins: number) => {
     setMinutosGlobal(prev => prev + mins);
@@ -671,7 +708,7 @@ export default function App() {
   };
 
   if (!isStreamlitLoggedIn) {
-    return <PythonStreamlitLogin onLoginSuccess={() => setIsStreamlitLoggedIn(true)} />;
+    return <PythonStreamlitLogin onLoginSuccess={handleLoginSuccess} />;
   }
 
   return (
@@ -839,6 +876,14 @@ export default function App() {
             SQLite + Supabase Bridge
           </div>
           <p className="opacity-75">Sesión local conectada de forma segura.</p>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="mt-2 w-full flex items-center justify-center gap-1.5 rounded-lg border border-stone-800 px-2 py-1.5 text-stone-400 hover:bg-stone-900 hover:text-white transition-colors"
+          >
+            <LogOut className="w-3 h-3" />
+            Cerrar sesión
+          </button>
         </div>
       </aside>
 
@@ -1066,7 +1111,6 @@ export default function App() {
             <ErrorBoundary moduleName={'proveedores'}>
             <div key={activeView} className="animate-fadeIn">
               <ProveedoresModule
-                onRestockTodo={handleRestockTodo}
                 addLog={addLog}
               />
             </div>
@@ -1088,6 +1132,7 @@ export default function App() {
             <div key={activeView} className="animate-fadeIn">
               <ReservasModule
                 mesas={mesas}
+                onEstadoChange={handleReservaEstadoChange}
                 addLog={addLog}
               />
             </div>

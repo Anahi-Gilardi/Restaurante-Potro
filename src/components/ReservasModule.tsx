@@ -5,10 +5,11 @@ import { reservasService } from '../services/reservasService';
 
 interface ReservasModuleProps {
   mesas: Mesa[];
+  onEstadoChange: (reserva: Reserva, estado: Reserva['estado']) => void;
   addLog: (tipo: EventoLog['tipo'], mensaje: string) => void;
 }
 
-export default function ReservasModule({ mesas, addLog }: ReservasModuleProps) {
+export default function ReservasModule({ mesas, onEstadoChange, addLog }: ReservasModuleProps) {
   const [reservas, setReservas] = useState<Reserva[]>([]);
 
   useEffect(() => {
@@ -61,6 +62,7 @@ export default function ReservasModule({ mesas, addLog }: ReservasModuleProps) {
     setReservas(prev => prev.map(r => {
       if (r.id_reserva === id) {
         reservasService.update(id, { estado: nuevoEstado }).catch(err => console.error(err));
+        onEstadoChange(r, nuevoEstado);
         addLog('sistema', `RESERVAS: Reserva de '${r.nombre_cliente}' cambió de estado a ${nuevoEstado.toUpperCase()}`);
         return { ...r, estado: nuevoEstado };
       }
@@ -71,6 +73,7 @@ export default function ReservasModule({ mesas, addLog }: ReservasModuleProps) {
   const handleDeleteReserva = (id: string) => {
     const target = reservas.find(r => r.id_reserva === id);
     if (!target) return;
+    onEstadoChange(target, 'cancelada');
     setReservas(prev => prev.filter(r => r.id_reserva !== id));
     reservasService.remove(id).catch(err => console.error(err));
     addLog('sistema', `RESERVAS: Anulada la reserva de '${target.nombre_cliente}' de las ${target.hora}`);
