@@ -28,6 +28,7 @@ import { useToast, ToastContainer } from './components/ToastContainer';
 import PythonStreamlitLogin from './components/PythonStreamlitLogin';
 import ElPatronLogo from './components/ElPatronLogo';
 import BottomNavigation from './components/BottomNavigation';
+import RetryErrorWrapper from './components/RetryErrorWrapper';
 import Skeleton from './components/Skeleton';
 
 // Lazy-loaded modules (code-split, loaded on demand)
@@ -1154,6 +1155,7 @@ export default function App() {
           {/* ACTIVE TAB RENDER TRIAGE */}
           {activeView === 'home' && (
             <ErrorBoundary moduleName={'home'}>
+            <RetryErrorWrapper>
             <Suspense fallback={<div className="p-8"><Skeleton className="!h-64 w-full" count={3} /></div>}>
             <div key={activeView} className="animate-fadeIn">
               <HomeMenuModule
@@ -1173,11 +1175,12 @@ export default function App() {
                 onAdvanceTime={handleAdvanceTime}
               />
             </div>
-              </Suspense></ErrorBoundary>
+              </Suspense></RetryErrorWrapper></ErrorBoundary>
           )}
 
           {activeView === 'panel' && (
             <ErrorBoundary moduleName={'panel'}>
+            <RetryErrorWrapper>
             <Suspense fallback={<div className="p-8"><Skeleton className="!h-48 w-full" /></div>}>
             <div key={activeView} className="animate-fadeIn">
               <PanelDashboard
@@ -1191,11 +1194,12 @@ export default function App() {
                 onNavigate={(view: AppView) => handleNavigate(view)}
               />
             </div>
-              </Suspense></ErrorBoundary>
+              </Suspense></RetryErrorWrapper></ErrorBoundary>
           )}
 
           {activeView === 'mozo' && (
             <ErrorBoundary moduleName={'mozo'}>
+            <RetryErrorWrapper>
             <Suspense fallback={<div className="p-8"><div className="h-48 bg-stone-100 rounded-2xl animate-pulse" /></div>}>
             <div key={activeView} className="animate-fadeIn">
               <MozoTerminal
@@ -1213,11 +1217,12 @@ export default function App() {
                 permitirVentaSinStock={permitirVentaSinStock}
               />
             </div>
-              </Suspense></ErrorBoundary>
+              </Suspense></RetryErrorWrapper></ErrorBoundary>
           )}
 
           {activeView === 'cocina' && (
             <ErrorBoundary moduleName={'cocina'}>
+            <RetryErrorWrapper>
             <Suspense fallback={<div className="p-8"><div className="h-48 bg-stone-100 rounded-2xl animate-pulse" /></div>}>
             <div key={activeView} className="animate-fadeIn">
               <KitchenMonitor
@@ -1227,11 +1232,12 @@ export default function App() {
                 minutosGlobal={minutosGlobal}
               />
             </div>
-              </Suspense></ErrorBoundary>
+              </Suspense></RetryErrorWrapper></ErrorBoundary>
           )}
 
           {activeView === 'caja' && (
             <ErrorBoundary moduleName={'caja'}>
+            <RetryErrorWrapper>
             <Suspense fallback={<div className="p-8"><div className="h-48 bg-stone-100 rounded-2xl animate-pulse" /></div>}>
             <div key={activeView} className="animate-fadeIn">
               <CajaModule
@@ -1242,11 +1248,12 @@ export default function App() {
                 addLog={addLog}
               />
             </div>
-              </Suspense></ErrorBoundary>
+              </Suspense></RetryErrorWrapper></ErrorBoundary>
           )}
 
           {activeView === 'reportes' && (
             <ErrorBoundary moduleName={'reportes'}>
+            <RetryErrorWrapper>
             <Suspense fallback={<div className="p-8"><div className="h-48 bg-stone-100 rounded-2xl animate-pulse" /></div>}>
             <div key={activeView} className="animate-fadeIn">
               <BusinessIntelligence
@@ -1256,11 +1263,12 @@ export default function App() {
                 logs={logs}
               />
             </div>
-              </Suspense></ErrorBoundary>
+              </Suspense></RetryErrorWrapper></ErrorBoundary>
           )}
 
           {activeView === 'usuarios' && (
             <ErrorBoundary moduleName={'usuarios'}>
+            <RetryErrorWrapper>
             <Suspense fallback={<div className="p-8"><div className="h-48 bg-stone-100 rounded-2xl animate-pulse" /></div>}>
             <div key={activeView} className="animate-fadeIn">
               <UsuariosModule
@@ -1269,11 +1277,12 @@ export default function App() {
                 addLog={addLog}
               />
             </div>
-              </Suspense></ErrorBoundary>
+              </Suspense></RetryErrorWrapper></ErrorBoundary>
           )}
 
           {activeView === 'menu' && (
             <ErrorBoundary moduleName={'menu'}>
+            <RetryErrorWrapper>
             <Suspense fallback={<div className="p-8"><div className="h-48 bg-stone-100 rounded-2xl animate-pulse" /></div>}>
             <div key={activeView} className="animate-fadeIn">
               <MenuModule
@@ -1282,11 +1291,12 @@ export default function App() {
                 addLog={addLog}
               />
             </div>
-              </Suspense></ErrorBoundary>
+              </Suspense></RetryErrorWrapper></ErrorBoundary>
           )}
 
           {activeView === 'recetas' && (
             <ErrorBoundary moduleName={'recetas'}>
+            <RetryErrorWrapper>
             <Suspense fallback={<div className="p-8"><div className="h-48 bg-stone-100 rounded-2xl animate-pulse" /></div>}>
             <div key={activeView} className="animate-fadeIn">
               <RecetasModule
@@ -1297,11 +1307,12 @@ export default function App() {
                 addLog={addLog}
               />
             </div>
-              </Suspense></ErrorBoundary>
+              </Suspense></RetryErrorWrapper></ErrorBoundary>
           )}
 
           {activeView === 'mesas' && (
             <ErrorBoundary moduleName={'mesas'}>
+            <RetryErrorWrapper>
             <Suspense fallback={<div className="p-8"><div className="h-48 bg-stone-100 rounded-2xl animate-pulse" /></div>}>
             <div key={activeView} className="animate-fadeIn">
                 <MesasModule
@@ -1310,11 +1321,12 @@ export default function App() {
                   addLog={addLog}
                 />
             </div>
-              </Suspense></ErrorBoundary>
+              </Suspense></RetryErrorWrapper></ErrorBoundary>
           )}
 
           {activeView === 'inventario' && (
             <ErrorBoundary moduleName={'inventario'}>
+            <RetryErrorWrapper>
             <Suspense fallback={<div className="p-8"><div className="h-48 bg-stone-100 rounded-2xl animate-pulse" /></div>}>
             <div key={activeView} className="animate-fadeIn">
               <InventoryModule
@@ -1328,33 +1340,36 @@ export default function App() {
                 addLog={addLog}
               />
             </div>
-              </Suspense></ErrorBoundary>
+              </Suspense></RetryErrorWrapper></ErrorBoundary>
           )}
 
           {activeView === 'proveedores' && (
             <ErrorBoundary moduleName={'proveedores'}>
+            <RetryErrorWrapper>
             <Suspense fallback={<div className="p-8"><div className="h-48 bg-stone-100 rounded-2xl animate-pulse" /></div>}>
             <div key={activeView} className="animate-fadeIn">
               <ProveedoresModule
                 addLog={addLog}
               />
             </div>
-              </Suspense></ErrorBoundary>
+              </Suspense></RetryErrorWrapper></ErrorBoundary>
           )}
 
           {activeView === 'promociones' && (
             <ErrorBoundary moduleName={'promociones'}>
+            <RetryErrorWrapper>
             <Suspense fallback={<div className="p-8"><div className="h-48 bg-stone-100 rounded-2xl animate-pulse" /></div>}>
             <div key={activeView} className="animate-fadeIn">
               <PromocionesModule
                 addLog={addLog}
               />
             </div>
-              </Suspense></ErrorBoundary>
+              </Suspense></RetryErrorWrapper></ErrorBoundary>
           )}
 
           {activeView === 'reservas' && (
             <ErrorBoundary moduleName={'reservas'}>
+            <RetryErrorWrapper>
             <Suspense fallback={<div className="p-8"><div className="h-48 bg-stone-100 rounded-2xl animate-pulse" /></div>}>
             <div key={activeView} className="animate-fadeIn">
               <ReservasModule
@@ -1363,11 +1378,12 @@ export default function App() {
                 addLog={addLog}
               />
             </div>
-              </Suspense></ErrorBoundary>
+              </Suspense></RetryErrorWrapper></ErrorBoundary>
           )}
 
           {activeView === 'facturacion' && (
             <ErrorBoundary moduleName={'facturacion'}>
+            <RetryErrorWrapper>
             <Suspense fallback={<div className="p-8"><div className="h-48 bg-stone-100 rounded-2xl animate-pulse" /></div>}>
             <div key={activeView} className="animate-fadeIn">
               <FacturacionModule
@@ -1376,11 +1392,12 @@ export default function App() {
                 addLog={addLog}
               />
             </div>
-              </Suspense></ErrorBoundary>
+              </Suspense></RetryErrorWrapper></ErrorBoundary>
           )}
 
           {activeView === 'sistema' && (
             <ErrorBoundary moduleName={'sistema'}>
+            <RetryErrorWrapper>
             <Suspense fallback={<div className="p-8"><div className="h-48 bg-stone-100 rounded-2xl animate-pulse" /></div>}>
             <div key={activeView} className="animate-fadeIn">
               <SistemaModule
@@ -1393,11 +1410,12 @@ export default function App() {
                 onSyncComplete={handleSupabaseSync}
               />
             </div>
-              </Suspense></ErrorBoundary>
+              </Suspense></RetryErrorWrapper></ErrorBoundary>
           )}
 
           {activeView === 'backups' && (
             <ErrorBoundary moduleName={'backups'}>
+            <RetryErrorWrapper>
             <Suspense fallback={<div className="p-8"><div className="h-48 bg-stone-100 rounded-2xl animate-pulse" /></div>}>
             <div key={activeView} className="animate-fadeIn">
               <BackupsModule
@@ -1415,7 +1433,7 @@ export default function App() {
                 addLog={addLog}
               />
             </div>
-              </Suspense></ErrorBoundary>
+              </Suspense></RetryErrorWrapper></ErrorBoundary>
           )}
 
         </div>

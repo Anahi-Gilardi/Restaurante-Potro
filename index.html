@@ -1,14 +1,34 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#4A2D1B" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <title>El Patrón | Gestión Gastronómica Pro</title>
     <link rel="icon" type="image/jpeg" href="/logo-el-patron.jpeg" />
+    <link rel="apple-touch-icon" href="/logo-el-patron-192.png" />
+    <link rel="manifest" href="/manifest.webmanifest" crossorigin="anonymous" />
+    <script>
+    // Detect chunk load errors and auto-reload BEFORE React mounts
+    window.addEventListener('error', function(e) {
+      if (e.target && (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK')) {
+        if (e.target.href && (e.target.href.includes('/assets/') || e.target.src?.includes('/assets/'))) {
+          e.preventDefault();
+          console.warn('[SW] Asset load error, reloading for new version');
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistration().then(function(reg) { if (reg) reg.unregister(); });
+          }
+          location.reload();
+        }
+      }
+    }, true);
+    </script>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-
