@@ -21,7 +21,7 @@ export default function BottomNavigation({ activeView, allowedViews, onNavigate 
   const visible = NAV_ITEMS.filter(item => allowedViews.includes(item.id));
 
   return (
-    <nav className="mobile-bottom-nav fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-stone-200 safe-area-bottom shadow-lg">
+    <nav className="mobile-bottom-nav fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-stone-200 safe-area-bottom shadow-lg">
       <div className="flex justify-around items-center w-full h-16">
         {visible.map(item => {
           const Icon = item.icon;
