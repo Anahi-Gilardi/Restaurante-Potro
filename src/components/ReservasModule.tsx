@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Phone, Plus, Check, Clock, User, Trash, Edit2, X, Search } from 'lucide-react';
+import { useDebounce } from '../hooks/useDebounce';
 import { Mesa, Reserva, EventoLog } from '../types';
 import { reservasService } from '../services/reservasService';
 import { reservaSchema } from '../lib/validations';
@@ -18,6 +19,7 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog }: Reserv
   const [reservas, setReservas] = useState<Reserva[]>([]);
   const [selectedDate, setSelectedDate] = useState(formatDate(new Date()));
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
 
   useEffect(() => {
     reservasService.list().then(data => {
@@ -44,8 +46,8 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog }: Reserv
 
   const reservasDelDia = reservas.filter(r => !r.fecha || r.fecha === selectedDate);
   const filtered = reservasDelDia.filter(r =>
-    r.nombre_cliente.toLowerCase().includes(search.toLowerCase()) ||
-    r.telefono.includes(search)
+    r.nombre_cliente.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+    r.telefono.includes(debouncedSearch)
   );
 
   const handleCreateReserva = (e: React.FormEvent) => {

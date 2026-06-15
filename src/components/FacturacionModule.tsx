@@ -17,6 +17,7 @@ import { facturacionService, Factura } from '../services/facturacionService';
 import { pdfService } from '../services/pdfService';
 import { ToastContainer, useToast } from './ToastContainer';
 import { isArcaConfigured, createArcaInvoice, TIPOS_COMPROBANTE, TIPOS_DOCUMENTO } from '../services/arcaService';
+import { useDebounce } from '../hooks/useDebounce';
 
 interface FacturacionModuleProps {
   pedidos: Pedido[];
@@ -86,6 +87,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
   const [facturas, setFacturas] = useState<FacturaExtendida[]>([]);
   const [activeTab, setActiveTab] = useState<TabKey>('archivo');
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
   const [tipoFiltro, setTipoFiltro] = useState<TipoFiltro>('todos');
   const [estadoFiltro, setEstadoFiltro] = useState<EstadoFiltro>('todos');
   const [medioFiltro, setMedioFiltro] = useState<MedioFiltro>('todos');
@@ -135,7 +137,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
     .filter(p => p.total > 0), [pedidos, productosMenu, facturas]);
 
   const filtered = facturas.filter(f => {
-    const term = search.trim().toLowerCase();
+    const term = debouncedSearch.trim().toLowerCase();
     const tipo = facturaTipo(f);
     const matchesSearch = !term
       || f.cliente.toLowerCase().includes(term)
@@ -777,14 +779,12 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
                 toast.info(`Descargando ${filtered.length} comprobantes...`);
                 let ok = 0, fail = 0;
                 for (const f of filtered) {
-                  try {
-                    await downloadFacturaPdf(f);
-                    ok++;
-                  } catch { fail++; }
+                  try { await downloadFacturaPdf(f); ok++; }
+                  catch { fail++; }
                   await new Promise(r => setTimeout(r, 300));
                 }
                 toast.success(`${ok} PDFs descargados${fail > 0 ? `, ${fail} fallaron` : ''}.`);
-              }} className="px-3 py-1.5 bg-[#624A3E] hover:bg-[#503C32] text-white text-[10px] font-extrabold rounded-lg transition-all cursor-pointer flex items-center gap-1.5">
+              }} className="touch-target px-3 py-2 bg-[#624A3E] hover:bg-[#503C32] text-white text-xs font-extrabold rounded-lg transition-all cursor-pointer flex items-center gap-1.5">
                 <Download className="w-3 h-3" /> Descargar {filtered.length} PDFs
               </button>
             )}

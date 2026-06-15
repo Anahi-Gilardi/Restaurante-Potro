@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Database, RefreshCw, CheckCircle, Clock, Trash, Search, X, AlertTriangle } from 'lucide-react';
+import { useDebounce } from '../hooks/useDebounce';
 import { backupsService, BackupSnapshotData, Checkpoint, parseBackupContent } from '../services/backupsService';
 import { EventoLog, Insumo, Merma, Mesa, Pedido, ProductoMenu, RecetaEscandallo, Usuario } from '../types';
 import { usuariosService } from '../services/usuariosService';
@@ -39,10 +40,11 @@ export default function BackupsModule({
   const { toast, toasts, removeToast } = useToast();
   const [backups, setBackups] = useState<Checkpoint[]>([]);
   const [searchBackup, setSearchBackup] = useState('');
+  const debouncedSearchBackup = useDebounce(searchBackup, 300);
   const [confirmAction, setConfirmAction] = useState<{ type: 'restore' | 'delete'; cp: Checkpoint } | null>(null);
 
   const filteredBackups = backups.filter(cp =>
-    cp.nombre.toLowerCase().includes(searchBackup.toLowerCase())
+    cp.nombre.toLowerCase().includes(debouncedSearchBackup.toLowerCase())
   );
 
   useEffect(() => {
