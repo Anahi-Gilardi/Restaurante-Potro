@@ -831,12 +831,84 @@ export default function App() {
     return <PythonStreamlitLogin onLoginSuccess={handleLoginSuccess} />;
   }
 
+  // Track chunk load errors for auto-retry
+  const [chunkError, setChunkError] = useState<string | null>(null);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  const handleNavigateWithMobileClose = (view: AppView) => {
+    handleNavigate(view);
+    setMobileSidebarOpen(false);
+  };
+
+  useEffect(() => {
+    const handler = (event: PromiseRejectionEvent) => {
+      if (event.reason?.message?.includes('Failed to fetch dynamically imported module') ||
+          event.reason?.message?.includes('Loading chunk')) {
+        setChunkError('Un módulo no pudo cargarse. Puede deberse a una actualización reciente.');
+      }
+    };
+    window.addEventListener('unhandledrejection', handler);
+    return () => window.removeEventListener('unhandledrejection', handler);
+  }, []);
+
+  if (chunkError) {
+    return (
+      <div className="min-h-screen bg-[#F5F1E9] flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl p-8 max-w-md text-center space-y-4 shadow-xl border border-stone-200">
+          <p className="text-4xl">🔄</p>
+          <h2 className="text-lg font-black text-stone-800">Actualización disponible</h2>
+          <p className="text-sm text-stone-500">{chunkError}</p>
+          <button onClick={() => window.location.reload()}
+            className="px-6 py-3 bg-[#624A3E] hover:bg-[#503C32] text-white font-extrabold rounded-xl text-sm transition-all cursor-pointer">
+            Recargar y actualizar
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
     <div className="min-h-screen bg-[#F5F1E9] flex flex-col lg:flex-row font-sans text-slate-800 antialiased selection:bg-[#624A3E] selection:text-white">
       
-      {/* LEFT SIDE PANEL (PERSISTENT SIDEBAR) — hidden on mobile */}
-      <aside className="desktop-sidebar w-full lg:w-80 lg:flex bg-[#1E1E1E] text-[#E2E8F0] flex-col border-b lg:border-b-0 lg:border-r border-stone-850 shrink-0 z-40" id="sidebar-left-panel">
+      {/* Mobile hamburger button */}
+      <button
+        onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
+        className="lg:hidden fixed top-3 left-3 z-50 touch-target w-11 h-11 bg-[#4A2D1B] text-white rounded-xl shadow-lg flex items-center justify-center cursor-pointer border border-stone-700"
+        aria-label="Abrir menú"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+          {mobileSidebarOpen ? (
+            <>
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </>
+          ) : (
+            <>
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="18" x2="21" y2="18" />
+            </>
+          )}
+        </svg>
+      </button>
+
+      {/* Mobile drawer overlay */}
+      {mobileSidebarOpen && (
+        <div
+          className="lg:hidden fixed inset-0 bg-black/50 z-30"
+          onClick={() => setMobileSidebarOpen(false)}
+        />
+      )}
+
+      {/* LEFT SIDE PANEL — Drawer en mobile, sidebar fijo en desktop */}
+      <aside className={`
+        fixed lg:static inset-y-0 left-0 z-40
+        w-80 max-w-[85vw] bg-[#1E1E1E] text-[#E2E8F0]
+        flex flex-col border-r border-stone-850 shrink-0
+        transition-transform duration-300 ease-in-out
+        ${mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+      `} id="sidebar-left-panel">
         
         {/* Brand Header */}
         <div className="p-5 border-b border-stone-800 flex items-center justify-between bg-black/20">
@@ -989,7 +1061,7 @@ export default function App() {
                   <button
                     key={item.id}
                     id={`tab-${item.id}`}
-                    onClick={() => handleNavigate(item.id as AppView)}
+                    onClick={() => handleNavigateWithMobileClose(item.id as AppView)}
                     className={`w-full py-3.5 text-center text-xs font-black rounded-lg tracking-wider border block transition-all cursor-pointer ${
                       isActive
                         ? 'bg-[#4D3227] text-white border-stone-800/10 font-bold shadow-md shadow-black/20'
