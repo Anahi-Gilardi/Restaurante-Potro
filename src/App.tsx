@@ -948,10 +948,17 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
             )}
             {(activeView === 'terminal_mozo' || activeView === 'mozo') && (
               <MozoTerminal 
-                activeMozo={activeMozo} mesas={mesas}
-                productosMenu={productosMenu} pedidos={pedidos}
-                onCreatePedido={handleCrearPedido}
-                onCancelPedido={(id) => handleCambiarEstadoPedido(id, 'cancelado')}
+                activeMozo={activeMozo}
+                mesas={mesas}
+                insumos={insumos}
+                productosMenu={productosMenu}
+                recetas={recetas}
+                usuarios={usuarios}
+                pedidos={pedidos}
+                onMozoChange={setActiveMozo}
+                onCrearPedido={handleCrearPedido}
+                onFacturarMesa={handleFacturarMesa}
+                addLog={() => {}}
               />
             )}
             {(activeView === 'monitor_cocina' || activeView === 'cocina') && (
