@@ -834,13 +834,7 @@ export default function App() {
 
   // Track chunk load errors for auto-retry
   const [chunkError, setChunkError] = useState<string | null>(null);
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
-
-  const handleNavigateWithMobileClose = (view: AppView) => {
-    handleNavigate(view);
-    setMobileSidebarOpen(false);
-  };
 
   useEffect(() => {
     const handler = (event: PromiseRejectionEvent) => {
@@ -873,36 +867,6 @@ export default function App() {
     <>
     <div className="min-h-screen bg-[#F5F1E9] flex flex-col lg:flex-row font-sans text-slate-800 antialiased selection:bg-[#624A3E] selection:text-white">
       
-      {/* Mobile hamburger button */}
-      <button
-        onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
-        className="lg:hidden fixed top-3 left-3 z-50 touch-target w-11 h-11 bg-[#4A2D1B] text-white rounded-xl shadow-lg flex items-center justify-center cursor-pointer border border-stone-700"
-        aria-label="Abrir menú"
-      >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-          {mobileSidebarOpen ? (
-            <>
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </>
-          ) : (
-            <>
-              <line x1="3" y1="6" x2="21" y2="6" />
-              <line x1="3" y1="12" x2="21" y2="12" />
-              <line x1="3" y1="18" x2="21" y2="18" />
-            </>
-          )}
-        </svg>
-      </button>
-
-      {/* Mobile drawer overlay — más sutil para que se note la transparencia */}
-      {mobileSidebarOpen && (
-        <div
-          className="lg:hidden fixed inset-0 bg-black/30 z-30"
-          onClick={() => setMobileSidebarOpen(false)}
-        />
-      )}
-
       {/* Collapse toggle button for desktop */}
       <button
         onClick={() => setSidebarExpanded(!sidebarExpanded)}
@@ -915,15 +879,14 @@ export default function App() {
         </svg>
       </button>
 
-      {/* LEFT SIDE PANEL — Mini/Expandible sidebar */}
+      {/* LEFT SIDE PANEL — Solo desktop, oculta en móvil */}
       <aside className={`
-        fixed lg:static inset-y-0 left-0 z-40
+        hidden lg:flex flex-col
         ${sidebarExpanded ? 'w-64' : 'w-16'}
         bg-[rgba(28,25,23,0.25)] backdrop-blur-xl 
-        text-stone-200 flex flex-col border-r border-stone-600/20 shrink-0
+        text-stone-200 border-r border-stone-600/20 shrink-0
         transition-all duration-300 ease-in-out
         shadow-lg shadow-black/10
-        ${mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `} id="sidebar-left-panel">
         
         {/* Brand Header — Mini: solo icon, Expanded: completo */}
@@ -1044,7 +1007,7 @@ export default function App() {
                 <button
                   key={item.id}
                   id={`tab-${item.id}`}
-                  onClick={() => { handleNavigateWithMobileClose(item.id as AppView); }}
+                  onClick={() => { handleNavigate(item.id as AppView); }}
                   className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all cursor-pointer group ${
                     isActive
                       ? 'bg-[#624A3E]/60 text-white shadow-sm border border-stone-600/20'
@@ -1143,7 +1106,7 @@ export default function App() {
         </div>
 
         {/* MAIN SCROLLABLE CONTENT */}
-        <div className="flex-1 p-4 sm:p-6 space-y-6 overflow-y-auto max-w-7xl w-full mx-auto bottom-nav-spacer">
+        <div className="flex-1 p-4 sm:p-6 space-y-6 overflow-y-auto max-w-7xl w-full mx-auto bottom-nav-spacer lg:pb-6">
           
           {/* ACTIVE TAB RENDER TRIAGE */}
           {activeView === 'home' && (
