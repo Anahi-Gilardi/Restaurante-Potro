@@ -57,10 +57,6 @@ const createConfiguredClient = (): SupabaseClient | null => {
 
 export const supabase = createConfiguredClient();
 
-export const tryGetActiveSupabaseClient = (): SupabaseClient | null => {
-  return createConfiguredClient();
-};
-
 export const resetSupabaseClientCache = () => {
   cachedClient?.removeAllChannels();
   cachedClient?.auth.stopAutoRefresh();
@@ -71,7 +67,19 @@ export const resetSupabaseClientCache = () => {
 export const getActiveSupabaseClient = (): SupabaseClient => {
   const client = createConfiguredClient();
   if (!client) {
-    throw new Error('Supabase no está configurado. Ingrese VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY o configure la conexión desde el módulo Sistema.');
+    throw new Error('Supabase no está configurado. Configure la conexión desde el módulo Sistema.');
   }
   return client;
+};
+
+/**
+ * Safe version that never throws — returns null if not configured.
+ * Use this in services that have local fallbacks.
+ */
+export const tryGetActiveSupabaseClient = (): SupabaseClient | null => {
+  try {
+    return createConfiguredClient();
+  } catch {
+    return null;
+  }
 };
