@@ -60,6 +60,15 @@ ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS pin TEXT;
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS activo BOOLEAN NOT NULL DEFAULT true;
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS mail TEXT;
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS contrasena TEXT;
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS username TEXT;
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS password TEXT;
+
+-- Insertar usuarios demo (solo si no existen)
+INSERT INTO usuarios (id_usuario, nombre, apellido, username, password, rol, activo) VALUES
+  (1, 'Super Admin', '', 'super@admi.com', 'superadmi2026/', 'superadmin', true),
+  (2, 'Administrador', '', 'admi@patron.com', 'Elpatron2026/', 'administrador', true),
+  (3, 'Mozo', '', 'mozo@patron.com', 'Elpatronmozo2026/', 'mozo', true)
+ON CONFLICT (id_usuario) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS mesas (
   id_mesa INT PRIMARY KEY,

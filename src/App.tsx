@@ -205,14 +205,8 @@ export default function App() {
     [usuarios, activeMozo]
   );
 
-  // NUEVO: Modificación del hook useMemo para filtrar las vistas si el rol es "Administrador"
   const allowedViews = useMemo(() => {
-    const views = getAllowedViews(activeUser.rol);
-    // Si el rol es Administrador (no Super admi), quitamos 'backups' y 'sistema' de sus vistas permitidas
-    if (activeUser.rol.toLowerCase() === 'administrador') {
-      return views.filter(view => view !== 'backups' && view !== 'sistema');
-    }
-    return views;
+    return getAllowedViews(activeUser.rol);
   }, [activeUser.rol]);
 
   const applyAuthenticatedSession = useCallback((session: {
@@ -354,12 +348,6 @@ export default function App() {
 
   // NUEVO: Validación estricta en el método de navegación
   const handleNavigate = (view: AppView) => {
-    // Si el usuario es administrador e intenta ir a backups o sistema, lo rebota.
-    if (activeUser.rol.toLowerCase() === 'administrador' && (view === 'backups' || view === 'sistema')) {
-      toast.warning(`El rol Administrador no tiene acceso al sistema ni a copias de seguridad.`);
-      setActiveView('home');
-      return;
-    }
     if (!canAccessView(activeUser.rol, view)) {
       toast.warning(`El rol ${activeUser.rol} no tiene permiso para abrir este módulo.`);
       setActiveView('home');
@@ -874,7 +862,7 @@ export default function App() {
                   allowedViews={allowedViews}
                 />
               )}
-              {activeView === 'terminal_mozo' && (
+              {(activeView === 'terminal_mozo' || activeView === 'mozo') && (
                 <MozoTerminal 
                   activeMozo={activeMozo} 
                   mesas={mesas} 
@@ -884,7 +872,7 @@ export default function App() {
                   onCancelPedido={(id) => handleCambiarEstadoPedido(id, 'cancelado')}
                 />
               )}
-              {activeView === 'monitor_cocina' && (
+              {(activeView === 'monitor_cocina' || activeView === 'cocina') && (
                 <KitchenMonitor 
                   pedidos={pedidos} 
                   recetas={recetas}
@@ -909,7 +897,7 @@ export default function App() {
                   onRestockTodo={handleRestockTodo}
                 />
               )}
-              {activeView === 'bi' && (
+              {(activeView === 'bi' || activeView === 'reportes') && (
                 <BusinessIntelligence 
                   pedidos={pedidos} 
                   insumos={insumos} 
@@ -918,7 +906,7 @@ export default function App() {
                   precioMap={precioMap}
                 />
               )}
-              {activeView === 'dashboard' && (
+              {(activeView === 'dashboard' || activeView === 'panel') && (
                 <PanelDashboard 
                   pedidos={pedidos} 
                   insumos={insumos} 
@@ -969,8 +957,8 @@ export default function App() {
                 <FacturacionModule pedidos={pedidos} precioMap={precioMap} />
               )}
               
-              {/* Rutas Protegidas de las que el Administrador fue removido */}
-              {activeView === 'sistema' && activeUser.rol.toLowerCase() !== 'administrador' && (
+              {/* Rutas Protegidas: solo superadmin */}
+              {activeView === 'sistema' && activeUser.rol === 'superadmin' && (
                 <SistemaModule 
                   permitirVentaSinStock={permitirVentaSinStock}
                   setPermitirVentaSinStock={setPermitirVentaSinStock}
@@ -981,7 +969,7 @@ export default function App() {
                   onSyncCompletion={handleSupabaseSync}
                 />
               )}
-              {activeView === 'backups' && activeUser.rol.toLowerCase() !== 'administrador' && (
+              {activeView === 'backups' && activeUser.rol === 'superadmin' && (
                 <BackupsModule 
                   currentAppState={{
                     usuarios, mesas, insumos, productosMenu, recetas, pedidos, mermas, logs

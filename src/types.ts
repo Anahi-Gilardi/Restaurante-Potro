@@ -13,7 +13,7 @@ export interface Usuario {
     apellido: string;
     username: string;
     password: string;
-    rol: 'mozo' | 'cocina' | 'administrador';
+    rol: 'superadmin' | 'administrador' | 'mozo' | 'cocina';
     activo?: boolean;
 }
 

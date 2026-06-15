@@ -2,50 +2,125 @@ import React, { useState } from 'react';
 import { 
   Loader2,
   ArrowRight,
-  User,
+  Mail,
   Lock,
-  AlertCircle
+  AlertCircle,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import ElPatronLogo from './ElPatronLogo';
 import { Usuario } from '../types';
-import { INITIAL_USUARIOS } from '../data/initialData';
+import { getSupabaseClient } from '../supabase';
 
 interface PythonStreamlitLoginProps {
   onLoginSuccess: (user: Usuario) => void;
 }
 
+interface LoginUser {
+  id_usuario: number;
+  nombre: string;
+  apellido: string;
+  username: string;
+  password: string;
+  rol: Usuario['rol'];
+  activo?: boolean;
+}
+
+const LOCAL_USERS: LoginUser[] = [
+  { id_usuario: 1, nombre: 'Super Admin', apellido: '', username: 'super@admi.com', password: 'superadmi2026/', rol: 'superadmin' },
+  { id_usuario: 2, nombre: 'Administrador', apellido: '', username: 'admi@patron.com', password: 'Elpatron2026/', rol: 'administrador' },
+  { id_usuario: 3, nombre: 'Mozo', apellido: '', username: 'mozo@patron.com', password: 'Elpatronmozo2026/', rol: 'mozo' },
+  { id_usuario: 4, nombre: 'Enzo', apellido: 'Fernández', username: 'enzo', password: '1234', rol: 'mozo' },
+  { id_usuario: 5, nombre: 'Micaela', apellido: 'Gómez', username: 'micaela', password: '1234', rol: 'mozo' },
+  { id_usuario: 6, nombre: 'Damián', apellido: 'Martínez', username: 'damian', password: '1234', rol: 'cocina' },
+  { id_usuario: 7, nombre: 'Sofía', apellido: 'Alegre', username: 'sofia', password: '1234', rol: 'administrador' },
+  { id_usuario: 8, nombre: 'Nuevo', apellido: 'Usuario', username: 'nuevo', password: 'clave', rol: 'mozo' },
+];
+
 export default function PythonStreamlitLogin({ onLoginSuccess }: PythonStreamlitLoginProps) {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [error, setError] = useState('');
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     setError('');
 
-    if (!username.trim() || !password.trim()) {
-      setError('Ingresá usuario y contraseña');
-      return;
-    }
-
-    const user = INITIAL_USUARIOS.find(
-      u => u.username === username.trim().toLowerCase() && u.password === password
-    );
-
-    if (!user) {
-      setError('Usuario o contraseña incorrectos');
-      return;
-    }
-
-    if (user.activo === false) {
-      setError('Este usuario está desactivado');
+    if (!email.trim() || !password.trim()) {
+      setError('Ingresá email y contraseña');
       return;
     }
 
     setIsLoggingIn(true);
-    setTimeout(() => {
-      onLoginSuccess(user);
-    }, 500);
+
+    try {
+      const supabase = getSupabaseClient();
+
+      if (supabase) {
+        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+          email: email.trim().toLowerCase(),
+          password,
+        });
+
+        if (authError) throw authError;
+
+        if (authData.user) {
+          const { data: profile } = await supabase
+            .from('usuarios')
+            .select('*')
+            .eq('id_usuario', authData.user.id)
+            .single();
+
+          if (profile) {
+            onLoginSuccess(profile as Usuario);
+            return;
+          }
+        }
+      }
+
+      const localUser = LOCAL_USERS.find(
+        u => u.username === email.trim().toLowerCase() && u.password === password
+      );
+
+      if (!localUser) {
+        setError('Email o contraseña incorrectos');
+        setIsLoggingIn(false);
+        return;
+      }
+
+      if (localUser.activo === false) {
+        setError('Este usuario está desactivado');
+        setIsLoggingIn(false);
+        return;
+      }
+
+      setTimeout(() => {
+        onLoginSuccess(localUser as Usuario);
+      }, 500);
+
+    } catch (err: any) {
+      const localUser = LOCAL_USERS.find(
+        u => u.username === email.trim().toLowerCase() && u.password === password
+      );
+
+      if (localUser) {
+        if (localUser.activo === false) {
+          setError('Este usuario está desactivado');
+          setIsLoggingIn(false);
+          return;
+        }
+        setTimeout(() => {
+          onLoginSuccess(localUser as Usuario);
+        }, 500);
+        return;
+      }
+
+      setError(err?.message === 'Invalid login credentials'
+        ? 'Email o contraseña incorrectos'
+        : 'Error de conexión. Verificá tus credenciales.');
+      setIsLoggingIn(false);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -83,14 +158,14 @@ export default function PythonStreamlitLogin({ onLoginSuccess }: PythonStreamlit
         ) : (
           <div className="space-y-4 pt-2" onKeyDown={handleKeyDown}>
             <div className="space-y-1">
-              <label className="text-[11px] uppercase font-bold text-stone-500 tracking-wider">Usuario</label>
+              <label className="text-[11px] uppercase font-bold text-stone-500 tracking-wider">Email</label>
               <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
                 <input
-                  type="text"
-                  value={username}
-                  onChange={e => setUsername(e.target.value)}
-                  placeholder="Ingresá tu usuario"
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="Ingresá tu email"
                   className="w-full py-3 pl-10 pr-4 bg-stone-50 border border-stone-200 rounded-xl text-sm text-stone-800 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-[#4A2D1B]/20 focus:border-[#4A2D1B] transition-all"
                   autoFocus
                 />
@@ -102,12 +177,19 @@ export default function PythonStreamlitLogin({ onLoginSuccess }: PythonStreamlit
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
                 <input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   placeholder="Ingresá tu contraseña"
-                  className="w-full py-3 pl-10 pr-4 bg-stone-50 border border-stone-200 rounded-xl text-sm text-stone-800 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-[#4A2D1B]/20 focus:border-[#4A2D1B] transition-all"
+                  className="w-full py-3 pl-10 pr-10 bg-stone-50 border border-stone-200 rounded-xl text-sm text-stone-800 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-[#4A2D1B]/20 focus:border-[#4A2D1B] transition-all"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 cursor-pointer"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
             </div>
 
@@ -122,7 +204,7 @@ export default function PythonStreamlitLogin({ onLoginSuccess }: PythonStreamlit
               onClick={handleLogin}
               className="w-full py-4 px-4 bg-[#4A2D1B] hover:bg-[#6B4A35] text-white font-extrabold rounded-xl text-sm uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md shadow-[#4A2D1B]/10"
             >
-              <span>Acceder al Programa</span>
+              <span>Iniciar Sesión</span>
               <ArrowRight className="w-5 h-5" />
             </button>
           </div>
