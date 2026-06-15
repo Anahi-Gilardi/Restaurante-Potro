@@ -115,6 +115,7 @@ export default function RecetasModule({
                     <img 
                       src={p.imagen} 
                       alt={p.nombre} 
+                      loading="lazy" decoding="async"
                       referrerPolicy="no-referrer"
                       className="w-8 h-8 rounded-lg object-cover shrink-0 border border-stone-200/50"
                     />
@@ -142,6 +143,7 @@ export default function RecetasModule({
                 <img 
                   src={selectedProduct.imagen} 
                   alt={selectedProduct.nombre} 
+                  loading="lazy" decoding="async"
                   referrerPolicy="no-referrer"
                   className="w-12 h-12 rounded-xl object-cover shrink-0 border border-stone-200"
                 />

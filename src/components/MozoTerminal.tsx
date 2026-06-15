@@ -508,6 +508,7 @@ export default function MozoTerminal({
                   <img
                     src={p.imagen}
                     alt={p.nombre}
+                    loading="lazy" decoding="async"
                     referrerPolicy="no-referrer"
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />

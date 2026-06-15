@@ -95,6 +95,7 @@ export default function ElPatronLogo({ className = 'w-16 h-16', color = '#5C4033
       <img
         src={logoSrc}
         alt="El Patrón Restaurante"
+        loading="lazy" decoding="async"
         className="w-full h-full object-contain rounded-full bg-[#FAF4EE] border border-stone-300/40 p-0.5 shadow-sm"
         onError={() => {
           if (logoSrc !== DEFAULT_LOGO_SRC) {

@@ -680,6 +680,7 @@ export default function InventoryModule({
                       <img
                         src={p.imagen}
                         alt=""
+                        loading="lazy" decoding="async"
                         className="w-8 h-8 rounded-lg object-cover"
                       />
                       <div className="flex-1 min-w-0">

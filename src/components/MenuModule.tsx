@@ -311,6 +311,7 @@ export default function MenuModule({ productosMenu, onProductosChange, addLog }:
                 <img 
                   src={item.imagen} 
                   alt={item.nombre} 
+                  loading="lazy" decoding="async"
                   referrerPolicy="no-referrer"
                   className="w-16 h-16 rounded-xl object-cover shrink-0 bg-stone-100 border border-stone-200"
                 />
