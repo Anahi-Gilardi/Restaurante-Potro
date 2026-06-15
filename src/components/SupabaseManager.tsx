@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Database, 
   Server, 
@@ -100,6 +100,7 @@ export default function SupabaseManager({
   const [inspectFilter, setInspectFilter] = useState('');
   const [pageSize, setPageSize] = useState(5);
   const [pageIndex, setPageIndex] = useState(0);
+  const initialTestStarted = useRef(false);
 
   const candidateTables = [
     { name: 'usuarios', desc: 'Credenciales, roles y perfiles de operarios/as.', key: 'id_usuario' },
@@ -122,6 +123,9 @@ export default function SupabaseManager({
   ];
 
   useEffect(() => {
+    if (initialTestStarted.current) return;
+    initialTestStarted.current = true;
+
     // Initial load
     const config = getSupabaseConfig();
     setUrl(config.url);
@@ -203,6 +207,11 @@ export default function SupabaseManager({
   const testConnection = async (testUrl: string, testKey: string) => {
     const normalizedUrl = normalizeSupabaseUrl(testUrl);
     const normalizedKey = testKey.trim();
+    const currentConfig = getSupabaseConfig();
+    const configChanged = (
+      normalizeSupabaseUrl(currentConfig.url) !== normalizedUrl
+      || currentConfig.key !== normalizedKey
+    );
 
     if (!normalizedUrl || !normalizedKey) {
       setConnectionStatus('not_configured');
@@ -219,7 +228,7 @@ export default function SupabaseManager({
       localStorage.setItem('SUPABASE_ANON_KEY', normalizedKey);
       setUrl(normalizedUrl);
       setAnonKey(normalizedKey);
-      resetSupabaseInstance();
+      if (configChanged) resetSupabaseInstance();
 
       const client = getSupabaseClient();
       if (!client) {

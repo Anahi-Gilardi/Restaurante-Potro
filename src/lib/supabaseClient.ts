@@ -62,6 +62,8 @@ export const tryGetActiveSupabaseClient = (): SupabaseClient | null => {
 };
 
 export const resetSupabaseClientCache = () => {
+  cachedClient?.removeAllChannels();
+  cachedClient?.auth.stopAutoRefresh();
   cachedClient = null;
   cachedFingerprint = '';
 };
