@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import ElPatronLogo from './ElPatronLogo';
 import { Usuario } from '../types';
-import { getSupabaseClient } from '../supabase';
+import { tryGetActiveSupabaseClient } from '../lib/supabaseClient';
 
 interface PythonStreamlitLoginProps {
   onLoginSuccess: (user: Usuario) => void;
@@ -55,7 +55,7 @@ export default function PythonStreamlitLogin({ onLoginSuccess }: PythonStreamlit
     setIsLoggingIn(true);
 
     try {
-      const supabase = getSupabaseClient();
+      const supabase = tryGetActiveSupabaseClient();
 
       if (supabase) {
         const { data: authData, error: authError } = await supabase.auth.signInWithPassword({

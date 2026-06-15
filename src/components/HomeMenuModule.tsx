@@ -25,11 +25,11 @@ import {
 } from 'lucide-react';
 import { Mesa, Pedido, Insumo, ProductoMenu, Usuario } from '../types';
 import { AppView } from '../lib/permissions';
-import { getSupabaseClient } from '../supabase';
+import { tryGetActiveSupabaseClient } from '../lib/supabaseClient';
 import ElPatronLogo from './ElPatronLogo';
 
 interface HomeMenuModuleProps {
-  activeRol?: Usuario['rol'];   // ← AGREGAR ESTA LÍNEA
+  activeRol: Usuario['rol'];
   mesas: Mesa[];
   pedidos: Pedido[];
   insumos: Insumo[];
@@ -47,7 +47,7 @@ interface HomeMenuModuleProps {
 }
 
 export default function HomeMenuModule({
-  activeRol,           // ← AGREGAR ESTA LÍNEA
+  activeRol,
   mesas,
   pedidos,
   insumos,
@@ -89,7 +89,7 @@ export default function HomeMenuModule({
   const lowStockCount = insumos.filter(i => i.stock_actual <= i.stock_minimo).length;
 
   // Supabase connection client state check
-  const hasSupabase = !!getSupabaseClient();
+  const hasSupabase = !!tryGetActiveSupabaseClient();
 
   // Menu items list
   const menuItems = [
