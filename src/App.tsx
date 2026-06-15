@@ -43,6 +43,7 @@ import PromocionesModule from './components/PromocionesModule';
 import ReservasModule from './components/ReservasModule';
 import FacturacionModule from './components/FacturacionModule';
 import BackupsModule from './components/BackupsModule';
+import type { BackupSnapshotData } from './services/backupsService';
 import { 
   getSupabaseClient,
   dbFetchMesas,
@@ -684,6 +685,18 @@ export default function App() {
     ]);
   };
 
+  const handleRestoreBackupData = (snapshot: BackupSnapshotData) => {
+    setMesas(snapshot.mesas);
+    setInsumos(snapshot.insumos);
+    setProductosMenu(snapshot.productosMenu);
+    setRecetas(snapshot.recetas);
+    setPedidos(snapshot.pedidos);
+    setMermas(snapshot.mermas);
+    setLogs(snapshot.logs);
+    setMinutosGlobal(0);
+    setAutoTimerRunning(false);
+  };
+
   // Auto simulation ticker
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
@@ -1185,7 +1198,16 @@ export default function App() {
             <ErrorBoundary moduleName={'backups'}>
             <div key={activeView} className="animate-fadeIn">
               <BackupsModule
-                onResetAllData={handleResetAllData}
+                operationalData={{
+                  mesas,
+                  insumos,
+                  productosMenu,
+                  recetas,
+                  pedidos,
+                  mermas,
+                  logs
+                }}
+                onRestoreData={handleRestoreBackupData}
                 addLog={addLog}
               />
             </div>

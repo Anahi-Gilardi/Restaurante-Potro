@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Database, Download, RefreshCw, CheckCircle, Clock, Trash } from 'lucide-react';
-import { backupsService, Checkpoint } from '../services/backupsService';
-import { EventoLog } from '../types';
+import { Database, RefreshCw, CheckCircle, Clock, Trash } from 'lucide-react';
+import { backupsService, BackupSnapshotData, Checkpoint, parseBackupContent } from '../services/backupsService';
+import { EventoLog, Insumo, Merma, Mesa, Pedido, ProductoMenu, RecetaEscandallo } from '../types';
 import { usuariosService } from '../services/usuariosService';
 import { mesasService } from '../services/mesasService';
 import { insumosService } from '../services/insumosService';
@@ -14,31 +14,34 @@ import { promocionesService } from '../services/promocionesService';
 import { reservasService } from '../services/reservasService';
 import { facturacionService } from '../services/facturacionService';
 import { auditoriaService } from '../services/auditoriaService';
+import { ToastContainer, useToast } from './ToastContainer';
 
 interface BackupsModuleProps {
-  onResetAllData: () => void;
+  operationalData: {
+    mesas: Mesa[];
+    insumos: Insumo[];
+    productosMenu: ProductoMenu[];
+    recetas: RecetaEscandallo[];
+    pedidos: Pedido[];
+    mermas: Merma[];
+    logs: EventoLog[];
+  };
+  onRestoreData: (snapshot: BackupSnapshotData) => void;
   addLog: (tipo: EventoLog['tipo'], mensaje: string) => void;
 }
 
 export default function BackupsModule({
-  onResetAllData,
+  operationalData,
+  onRestoreData,
   addLog
 }: BackupsModuleProps) {
+  const { toast, toasts, removeToast } = useToast();
   const [backups, setBackups] = useState<Checkpoint[]>([]);
 
   useEffect(() => {
-    backupsService.list().then(data => {
-      if (data && data.length > 0) {
-        setBackups(data);
-      } else {
-        const defaults: Checkpoint[] = [
-          { id_cp: 'cp_1', nombre: 'Cierre de Caja Turno Tarde', fecha: 'Hoy - 16:30 hs', peso: '234 KB', tablas_afectadas: 'pedidos, mesas, logs', tipo: 'manual' },
-          { id_cp: 'cp_2', nombre: 'Backup Automático Diario Cloud', fecha: 'Ayer - 04:00 AM', peso: '512 KB', tablas_afectadas: 'todas (completo)', tipo: 'automatica' },
-          { id_cp: 'cp_3', nombre: 'Ajuste Inicial de Escandallos Receta', fecha: '10 de Junio - 20:10 hs', peso: '190 KB', tablas_afectadas: 'insumos, recetas', tipo: 'manual' },
-        ];
-        setBackups(defaults);
-      }
-    }).catch(() => {});
+    backupsService.list().then(setBackups).catch(() => {
+      toast.error('No se pudo cargar el historial de respaldos.');
+    });
   }, []);
 
   const [loadingId, setLoadingId] = useState<string | null>(null);
@@ -65,17 +68,17 @@ export default function BackupsModule({
         logs
       ] = await Promise.all([
         usuariosService.list().catch(() => []),
-        mesasService.list().catch(() => []),
-        insumosService.list().catch(() => []),
-        menuService.list().catch(() => []),
-        recetasService.list().catch(() => []),
-        pedidosService.list().catch(() => []),
-        mermasService.list().catch(() => []),
+        mesasService.list().catch(() => operationalData.mesas),
+        insumosService.list().catch(() => operationalData.insumos),
+        menuService.list().catch(() => operationalData.productosMenu),
+        recetasService.list().catch(() => operationalData.recetas),
+        pedidosService.list().catch(() => operationalData.pedidos),
+        mermasService.list().catch(() => operationalData.mermas),
         proveedoresService.list().catch(() => []),
         promocionesService.list().catch(() => []),
         reservasService.list().catch(() => []),
         facturacionService.list().catch(() => []),
-        auditoriaService.list().catch(() => [])
+        auditoriaService.list().catch(() => operationalData.logs)
       ]);
 
       const snapshot = {
@@ -115,9 +118,15 @@ export default function BackupsModule({
       downloadAnchor.remove();
 
       addLog('sistema', `SISTEMA: Copia de seguridad guardada en Supabase y descargada como JSON.`);
+      toast.success(
+        newBackup.ubicacion === 'cloud'
+          ? 'Respaldo guardado localmente y sincronizado con Supabase.'
+          : 'Respaldo descargado y guardado localmente. Supabase no estaba disponible.'
+      );
     } catch (error: any) {
       console.error(error);
       addLog('sistema', `ERROR: Falló el volcado automático del sistema: ${error.message}`);
+      toast.error(`No se pudo crear el respaldo: ${error.message}`);
     } finally {
       setBackingUp(false);
     }
@@ -125,21 +134,34 @@ export default function BackupsModule({
 
   const [restoredOk, setRestoredOk] = useState<string | null>(null);
 
-  const handleRestoreBackup = (cp: Checkpoint) => {
+  const handleRestoreBackup = async (cp: Checkpoint) => {
+    if (!window.confirm(`¿Restaurar el punto "${cp.nombre}"? Los datos guardados se aplicarán al estado actual y a Supabase.`)) {
+      return;
+    }
+
     setLoadingId(cp.id_cp);
-    setTimeout(() => {
-      onResetAllData();
-      addLog('sistema', `SISTEMA: Base de datos restaurada al punto de control '${cp.nombre}' con borrado local.`);
-      setRestoredOk(`El punto '${cp.nombre}' se ha restaurado con éxito.`);
-      setLoadingId(null);
+    try {
+      const snapshot = parseBackupContent(cp.contenido);
+      await backupsService.restore(snapshot);
+      onRestoreData(snapshot);
+      addLog('sistema', `SISTEMA: Estado operativo y Supabase restaurados desde el punto de control '${cp.nombre}'.`);
+      setRestoredOk(`El punto '${cp.nombre}' se restauró correctamente.`);
+      toast.success('Estado operativo restaurado desde la copia seleccionada.');
       setTimeout(() => setRestoredOk(null), 6000);
-    }, 1500);
+    } catch (error: any) {
+      addLog('sistema', `ERROR: No se pudo restaurar '${cp.nombre}': ${error.message}`);
+      toast.error(error.message);
+    } finally {
+      setLoadingId(null);
+    }
   };
 
-  const handleDeleteBackup = (id: string) => {
+  const handleDeleteBackup = async (id: string) => {
+    if (!window.confirm('¿Eliminar este punto de control?')) return;
     setBackups(prev => prev.filter(c => c.id_cp !== id));
-    backupsService.remove(id).catch(err => console.error(err));
+    const removedFromCloud = await backupsService.remove(id);
     addLog('sistema', `SISTEMA: Registro de checkpoint eliminado de la tabla backups.`);
+    toast.info(removedFromCloud ? 'Respaldo eliminado.' : 'Respaldo local eliminado; no se pudo confirmar el borrado remoto.');
   };
 
   return (
@@ -156,10 +178,10 @@ export default function BackupsModule({
           <h4 className="text-2xl font-black text-stone-900 font-mono mt-1">Postgres / SQLite</h4>
         </div>
         <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-[#624A3E]/5 border-l-4 border-l-[#624A3E]">
-          <span className="text-[10px] text-stone-400 font-bold uppercase tracking-wider block">Último Respoldo Sincronizado</span>
+          <span className="text-[10px] text-stone-400 font-bold uppercase tracking-wider block">Último Respaldo Disponible</span>
           <h4 className="text-base font-bold text-stone-700 mt-2 flex items-center gap-1">
             <Clock className="w-4 h-4 text-stone-400" />
-            Hoy, hace 15 min
+            {backups[0]?.fecha || 'Sin respaldos'}
           </h4>
         </div>
       </div>
@@ -196,6 +218,13 @@ export default function BackupsModule({
 
         {/* Checkpoints List */}
         <div className="space-y-3">
+          {backups.length === 0 && (
+            <div className="rounded-2xl border border-dashed border-stone-300 p-8 text-center">
+              <Database className="w-8 h-8 text-stone-300 mx-auto mb-2" />
+              <p className="text-sm font-bold text-stone-600">Todavía no hay puntos de control reales.</p>
+              <p className="text-xs text-stone-400 mt-1">Creá un respaldo para descargarlo y conservar una copia restaurable.</p>
+            </div>
+          )}
           {backups.map(cp => {
             const isLoading = loadingId === cp.id_cp;
             return (
@@ -217,13 +246,15 @@ export default function BackupsModule({
                     <span>Tamaño: <strong className="text-stone-500 font-mono">{cp.peso}</strong></span>
                     <span>•</span>
                     <span>Tablas: <strong className="text-stone-500">{cp.tablas_afectadas}</strong></span>
+                    <span>•</span>
+                    <span>Ubicación: <strong className="text-stone-500">{cp.ubicacion === 'cloud' ? 'Supabase + local' : 'Local'}</strong></span>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
                   <button
                     onClick={() => handleRestoreBackup(cp)}
-                    disabled={isLoading}
+                    disabled={isLoading || !cp.contenido}
                     className="flex-1 sm:flex-initial py-1.5 px-3 rounded-lg bg-orange-50 hover:bg-orange-100 disabled:bg-stone-100 text-orange-700 disabled:text-stone-400 text-[10px] font-black transition-colors flex items-center justify-center gap-1 cursor-pointer"
                   >
                     <RefreshCw className={`w-3 h-3 ${isLoading ? 'animate-spin' : ''}`} />
@@ -243,6 +274,7 @@ export default function BackupsModule({
         </div>
 
       </div>
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
     </div>
   );
 }
