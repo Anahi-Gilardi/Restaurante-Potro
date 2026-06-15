@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Calendar, Phone, Plus, Check, Clock, User, Trash, Edit2, X, Search } from 'lucide-react';
 import { Mesa, Reserva, EventoLog } from '../types';
 import { reservasService } from '../services/reservasService';
+import { reservaSchema } from '../lib/validations';
 
 interface ReservasModuleProps {
   mesas: Mesa[];
@@ -49,7 +50,12 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog }: Reserv
 
   const handleCreateReserva = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nombre || !telefono) return;
+    const validation = reservaSchema.safeParse({ nombre_cliente: nombre, telefono, pax: parseInt(pax) || 2, hora, observaciones });
+    if (!validation.success) {
+      const msgs = validation.error.issues.map(i => i.message).join('. ');
+      addLog('sistema', `RESERVAS: Error de validación: ${msgs}`);
+      return;
+    }
     const selectedMesa = mesas.find(m => m.numero_mesa === nombreMesa);
 
     if (editingId) {

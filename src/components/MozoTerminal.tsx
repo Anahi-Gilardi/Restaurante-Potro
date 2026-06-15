@@ -15,7 +15,8 @@ import {
   Wine, 
   DollarSign, 
   Receipt,
-  UserCheck
+  UserCheck,
+  RefreshCw
 } from 'lucide-react';
 import { Mesa, Insumo, ProductoMenu, RecetaEscandallo, Pedido, PedidoItem, Usuario } from '../types';
 import { useToast, ToastContainer } from './ToastContainer';
@@ -59,6 +60,8 @@ export default function MozoTerminal({
   // Current order cart
   const [cart, setCart] = useState<{ [id_producto: string]: number }>({});
   const [observaciones, setObservaciones] = useState('');
+  const [lastCheckoutTime, setLastCheckoutTime] = useState<number | null>(null);
+  const [checkoutStatus, setCheckoutStatus] = useState<'idle' | 'sending' | 'done'>('idle');
 
   // Bill splitting state
   const [splittingPedidoId, setSplittingPedidoId] = useState<number | null>(null);
@@ -215,6 +218,10 @@ export default function MozoTerminal({
       };
     });
 
+    // Optimistic UI update: show feedback immediately
+    setCheckoutStatus('sending');
+    setLastCheckoutTime(Date.now());
+
     onCrearPedido({
       id_mesa: selectedMesaId,
       numero_mesa: selectedMesa ? selectedMesa.numero_mesa : `Mesa ${selectedMesaId}`,
@@ -224,9 +231,13 @@ export default function MozoTerminal({
       observaciones: observaciones.trim() || undefined,
     });
 
-    // Reset layout
+    // Optimistic: reset immediately, then show success
     setCart({});
     setObservaciones('');
+    setTimeout(() => {
+      setCheckoutStatus('done');
+      setTimeout(() => setCheckoutStatus('idle'), 1500);
+    }, 200);
     addLog('pedido_creado', `Mozo ${activeMozo} inyectó pedido para ${selectedMesa?.numero_mesa} con ${items.length} platos.`);
   };
 
@@ -678,10 +689,22 @@ export default function MozoTerminal({
 
                 <button
                   onClick={checkoutCart}
-                  className="w-full py-2.5 px-4 bg-[#624A3E] hover:bg-[#503C32] active:scale-95 text-white rounded-xl text-xs font-black flex items-center justify-center gap-2 shadow-md shadow-[#624A3E]/20 transition-all duration-100 cursor-pointer border border-amber-950/10"
+                  disabled={checkoutStatus === 'sending'}
+                  className={`w-full py-2.5 px-4 rounded-xl text-xs font-black flex items-center justify-center gap-2 shadow-md transition-all duration-100 cursor-pointer border ${
+                    checkoutStatus === 'done'
+                      ? 'bg-emerald-600 text-white border-emerald-500 shadow-emerald-500/20'
+                      : checkoutStatus === 'sending'
+                      ? 'bg-amber-500 text-white border-amber-400 animate-pulse'
+                      : 'bg-[#624A3E] hover:bg-[#503C32] active:scale-95 text-white border-amber-950/10 shadow-[#624A3E]/20'
+                  }`}
                 >
-                  <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                  Enviar a Cocina (Nuevo Pedido) 🚀
+                  {checkoutStatus === 'done' ? (
+                    <><CheckCircle className="w-3.5 h-3.5" /> Pedido Enviado ✓</>
+                  ) : checkoutStatus === 'sending' ? (
+                    <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Enviando...</>
+                  ) : (
+                    <><Sparkles className="w-3.5 h-3.5 text-amber-300" /> Enviar a Cocina 🚀</>
+                  )}
                 </button>
               </div>
             </>

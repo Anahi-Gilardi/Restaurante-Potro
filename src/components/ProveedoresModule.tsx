@@ -4,6 +4,7 @@ import { Truck, Phone, Plus, Tag, Layers, CheckCircle, Search, Edit2, Trash, X }
 import { Proveedor, EventoLog } from '../types';
 import { proveedoresService } from '../services/proveedoresService';
 import { ToastContainer, useToast } from './ToastContainer';
+import { proveedorSchema } from '../lib/validations';
 
 interface ProveedoresModuleProps {
   addLog: (tipo: EventoLog['tipo'], mensaje: string) => void;
@@ -52,7 +53,12 @@ export default function ProveedoresModule({ addLog }: ProveedoresModuleProps) {
 
   const handleCreateProveedor = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nombre || !contacto || !telefono) return;
+    const validation = proveedorSchema.safeParse({ nombre, contacto, telefono, correo, categoria, tiempo_entrega_dias: parseInt(tiempo) || 1 });
+    if (!validation.success) {
+      const msgs = validation.error.issues.map(i => i.message).join('. ');
+      toast.error(msgs);
+      return;
+    }
     const newProv: Proveedor = {
       id_proveedor: `prov_${Date.now()}`,
       nombre, contacto, telefono, categoria,

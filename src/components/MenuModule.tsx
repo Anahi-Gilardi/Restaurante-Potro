@@ -2,8 +2,10 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useDebounce } from '../hooks/useDebounce';
 import { UtensilsCrossed, Plus, Search, Edit2, Check, RefreshCw, Copy, X, DollarSign } from 'lucide-react';
 import BulkPriceEditor from './BulkPriceEditor';
+import { CardSkeleton } from './Skeleton';
 import { ProductoMenu, EventoLog } from '../types';
 import { menuService } from '../services/menuService';
+import { menuItemSchema } from '../lib/validations';
 
 interface MenuModuleProps {
   productosMenu: ProductoMenu[];
@@ -22,6 +24,12 @@ export default function MenuModule({ productosMenu, onProductosChange, addLog }:
   const debouncedSearch = useDebounce(search, 300);
   const [selectedCategoria, setSelectedCategoria] = useState<string>('todos');
   const [showBulkEditor, setShowBulkEditor] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const t = setTimeout(() => setLoading(false), 350);
+    return () => clearTimeout(t);
+  }, []);
 
   // Add Item state
   const [nombre, setNombre] = useState('');
@@ -41,7 +49,12 @@ export default function MenuModule({ productosMenu, onProductosChange, addLog }:
   const handleCreateItem = (e: React.FormEvent) => {
     e.preventDefault();
     const parsedPrice = parseFloat(precio);
-    if (!nombre.trim() || !Number.isFinite(parsedPrice) || parsedPrice <= 0) return;
+    const validation = menuItemSchema.safeParse({ nombre, precio_venta: parsedPrice, categoria, descripcion });
+    if (!validation.success) {
+      const msgs = validation.error.issues.map(i => i.message).join('. ');
+      addLog('sistema', `MENÚ: Error de validación: ${msgs}`);
+      return;
+    }
 
     const normalizedCategoria = categoria.toLowerCase();
     const fallbackImg = (normalizedCategoria === 'bebidas' || normalizedCategoria === 'bodega')
@@ -288,7 +301,7 @@ export default function MenuModule({ productosMenu, onProductosChange, addLog }:
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-            {filtered.map(item => (
+            {loading ? <div className="col-span-3"><CardSkeleton count={6} /></div> : filtered.map(item => (
               <div 
                 key={item.id_producto} 
                 className={`p-3 bg-[#F5F1E9]/30 border rounded-2xl flex gap-3 transition-colors hover:bg-[#F5F1E9]/60 ${

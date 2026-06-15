@@ -4,6 +4,8 @@ import { Users, Plus, Trash, Edit2, Check, X, Search } from 'lucide-react';
 import { Usuario, EventoLog } from '../types';
 import { usuariosService } from '../services/usuariosService';
 import { ToastContainer, useToast } from './ToastContainer';
+import { usuarioSchema } from '../lib/validations';
+import { ListSkeleton } from './Skeleton';
 
 interface UsuariosModuleProps {
   usuarios: Usuario[];
@@ -14,6 +16,12 @@ interface UsuariosModuleProps {
 export default function UsuariosModule({ usuarios, onUsuariosChange, addLog }: UsuariosModuleProps) {
   const { toast, toasts, removeToast } = useToast();
   const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const t = setTimeout(() => setLoading(false), 400);
+    return () => clearTimeout(t);
+  }, []);
 
   const [nombre, setNombre] = useState('');
   const [apellido, setApellido] = useState('');
@@ -35,9 +43,13 @@ export default function UsuariosModule({ usuarios, onUsuariosChange, addLog }: U
 
   const handleCreateUsuario = async (e: React.FormEvent) => {
     e.preventDefault();
-    const normalizedNombre = nombre.trim();
-    const normalizedApellido = apellido.trim();
-    if (!normalizedNombre || !normalizedApellido) return;
+    const validation = usuarioSchema.safeParse({ nombre, apellido, rol });
+    if (!validation.success) {
+      const msgs = validation.error.issues.map(i => i.message).join('. ');
+      toast.error(msgs);
+      return;
+    }
+    const { nombre: normalizedNombre, apellido: normalizedApellido } = validation.data;
     if (usuarios.some(usuario => usuario.nombre.toLowerCase() === normalizedNombre.toLowerCase())) {
       toast.warning('Ya existe un usuario con ese nombre operativo.');
       return;
@@ -176,7 +188,9 @@ export default function UsuariosModule({ usuarios, onUsuariosChange, addLog }: U
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {filtered.map(u => {
+            {loading ? (
+              <div className="col-span-2"><ListSkeleton count={4} /></div>
+            ) : filtered.map(u => {
               let badgeColor = 'bg-stone-100 text-stone-700 border-stone-205';
               let desc = 'Soporte de salón y comandas táctiles';
               if (u.rol === 'mozo') { badgeColor = 'bg-blue-50 text-blue-800 border-blue-100'; }

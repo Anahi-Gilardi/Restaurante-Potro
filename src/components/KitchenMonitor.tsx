@@ -12,7 +12,8 @@ import {
   X,
   Utensils,
   Search,
-  Filter
+  Filter,
+  RefreshCw
 } from 'lucide-react';
 import { Pedido, PedidoItem } from '../types';
 
@@ -55,10 +56,14 @@ export default function KitchenMonitor({
   const [kitchenSearch, setKitchenSearch] = useState('');
   const debouncedKitchenSearch = useDebounce(kitchenSearch, 300);
   const [showOnlyKitchen, setShowOnlyKitchen] = useState(false);
+  const [optimisticUpdates, setOptimisticUpdates] = useState<Map<number, { estado: Pedido['estado_comanda']; updating: boolean }>>(new Map());
 
   // Filter active orders inside the kitchen workflow
   const activeKitchenOrders = useMemo(() => {
-    let filtered = pedidos.filter(p => p.estado_comanda !== 'entregado_cobrado' && p.estado_comanda !== 'cancelado');
+    let filtered = pedidos.filter(p => {
+      const effective = optimisticUpdates.get(p.id_pedido)?.estado || p.estado_comanda;
+      return effective !== 'entregado_cobrado' && effective !== 'cancelado';
+    });
     if (showOnlyKitchen) {
       filtered = filtered.map(p => ({
         ...p,
@@ -74,7 +79,7 @@ export default function KitchenMonitor({
       );
     }
     return filtered;
-  }, [pedidos, debouncedKitchenSearch, showOnlyKitchen]);
+  }, [pedidos, debouncedKitchenSearch, showOnlyKitchen, optimisticUpdates]);
 
   // Aggregate Batch Production (Modo Batch)
   const batchProduction = useMemo(() => {
@@ -133,6 +138,23 @@ export default function KitchenMonitor({
   const isColdPlate = (pedido: Pedido) => {
     if (pedido.estado_comanda !== 'listo') return false;
     return (pedido.segundos_en_listo ?? 0) >= 300; // 5 minutes
+  };
+
+  const handleOptimisticStatus = (idPedido: number, nuevoEstado: Pedido['estado_comanda']) => {
+    setOptimisticUpdates(prev => new Map(prev).set(idPedido, { estado: nuevoEstado, updating: true }));
+    onCambiarEstadoPedido(idPedido, nuevoEstado);
+    setTimeout(() => {
+      setOptimisticUpdates(prev => {
+        const next = new Map(prev);
+        next.delete(idPedido);
+        return next;
+      });
+    }, 1500);
+  };
+
+  const getEffectiveStatus = (pedido: Pedido): Pedido['estado_comanda'] => {
+    const optimistic = optimisticUpdates.get(pedido.id_pedido);
+    return optimistic ? optimistic.estado : pedido.estado_comanda;
   };
 
   const confirmCancel = () => {
@@ -286,11 +308,14 @@ export default function KitchenMonitor({
 
                       {/* Transfer controls */}
                       <button
-                        onClick={() => onCambiarEstadoPedido(p.id_pedido, 'en_cocina')}
+                        onClick={() => handleOptimisticStatus(p.id_pedido, 'en_cocina')}
                         className="w-full mt-2 py-2 px-3 bg-[#624A3E] hover:bg-[#503C32] active:scale-95 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all shadow-md shadow-[#624A3E]/10 cursor-pointer border border-amber-955/20 animate-pulse"
                       >
-                        <Flame className="w-3.5 h-3.5 text-[#F97316]" />
-                        Iniciar Fuego (Marchar) 🔥
+                        {optimisticUpdates.get(p.id_pedido)?.updating ? (
+                          <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Actualizando...</>
+                        ) : (
+                          <><Flame className="w-3.5 h-3.5 text-[#F97316]" /> Iniciar Fuego (Marchar) 🔥</>
+                        )}
                       </button>
 
                       <button
@@ -383,11 +408,14 @@ export default function KitchenMonitor({
 
                       {/* Transfer controls: Mark order as fully ready to serve */}
                       <button
-                        onClick={() => onProducirPedidoConEscandallo(p.id_pedido)}
+                        onClick={() => { handleOptimisticStatus(p.id_pedido, 'listo'); onProducirPedidoConEscandallo(p.id_pedido); }}
                         className="w-full mt-2 py-2.5 px-3 bg-[#F97316] hover:bg-[#EA580C] active:scale-95 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all shadow-md shadow-[#F97316]/10 cursor-pointer border border-[#F97316]/20"
                       >
-                        <ChevronRight className="w-4 h-4" />
-                        ¡Terminado! (Listo para Servir) 🍽️
+                        {optimisticUpdates.get(p.id_pedido)?.updating ? (
+                          <><RefreshCw className="w-4 h-4 animate-spin" /> Actualizando...</>
+                        ) : (
+                          <><ChevronRight className="w-4 h-4" /> ¡Terminado! (Listo para Servir) 🍽️</>
+                        )}
                       </button>
 
                       <button
@@ -494,20 +522,28 @@ export default function KitchenMonitor({
 
                       {/* Complete/Deliver Trigger with explicit text highlighting archival */}
                       <button
-                        onClick={() => onCambiarEstadoPedido(p.id_pedido, 'entregado_cobrado')}
+                        onClick={() => handleOptimisticStatus(p.id_pedido, 'entregado_cobrado')}
                         className={`w-full mt-2 py-2 px-3 rounded-xl text-xs font-black flex flex-col items-center justify-center gap-0.5 transition-all shadow-md cursor-pointer border ${
                           cold 
                             ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-500/10' 
                             : 'bg-[#22C55E] hover:bg-[#16a34a] text-white shadow-emerald-500/10'
                         }`}
                       >
-                        <span className="flex items-center gap-1.5 font-black uppercase tracking-wider text-[11px]">
-                          <Utensils className="w-3.5 h-3.5" />
-                          Entregar a Mesa (Servido) 🍽️
-                        </span>
-                        <span className="text-[9px] font-medium opacity-90 block">
-                          [Acción: Archivar de Cocina y transferir a cuenta]
-                        </span>
+                        {optimisticUpdates.get(p.id_pedido)?.updating ? (
+                          <span className="flex items-center gap-1.5 font-black uppercase tracking-wider text-[11px]">
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Archivando...
+                          </span>
+                        ) : (
+                          <>
+                            <span className="flex items-center gap-1.5 font-black uppercase tracking-wider text-[11px]">
+                              <Utensils className="w-3.5 h-3.5" />
+                              Entregar a Mesa (Servido) 🍽️
+                            </span>
+                            <span className="text-[9px] font-medium opacity-90 block">
+                              [Acción: Archivar de Cocina y transferir a cuenta]
+                            </span>
+                          </>
+                        )}
                       </button>
                     </div>
                   </div>
