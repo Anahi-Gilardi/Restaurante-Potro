@@ -1,12 +1,5 @@
 
 
-### Cambios principales realizados:
-
-1. **Control de Vistas en el Panel y Navegación:** Se modificó la lógica que calcula las pestañas o módulos accesibles de la aplicación (`allowedViews`). Si el usuario tiene el rol `"Administrador"`, se filtran y ocultan por completo los módulos de `backups` y `sistema`.
-2. **Navegación e Intentos de Acceso:** Se ha blindado el manejador de navegación (`handleNavigate`) y los efectos colaterales para asegurar que si un `"Administrador"` intenta acceder de forma manual o forzada a estos módulos, sea redirigido de inmediato a la pantalla principal (`home`).
-3. **Control Total de Roles:** El rol `"Super admi"` hereda acceso absoluto sin ninguna restricción, permitiéndole ver, modificar, gestionar la base de datos y agregar más roles en el panel de usuarios.
-
-Aquí tienes el componente `App.tsx` actualizado:
 
 ```tsx
 /**
