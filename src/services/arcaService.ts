@@ -1,127 +1,86 @@
-import { Arca } from '@arcasdk/core';
-import type { InvoiceData } from '@arcasdk/core';
+// arcaService.ts — Proxy para la API de ARCA
+// Las llamadas reales a @arcasdk/core se hacen desde /api/arca.ts (server-side)
 
-interface ArcaConfig {
+interface ArcaCredentials {
   cuit: number;
   key: string;
   cert: string;
   production?: boolean;
 }
 
-let arcaInstance: Arca | null = null;
-let arcaConfig: ArcaConfig | null = null;
+const STORAGE_KEY = 'el_patron_arca_creds';
 
-const STORAGE_KEY = 'el_patron_arca_config';
+const API_URL = '/api/arca';
 
-export function saveArcaConfig(config: ArcaConfig): void {
-  arcaConfig = config;
-  arcaInstance = null;
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...config, key: '', cert: '' }));
-  } catch {}
-}
-
-export function getArcaConfig(): ArcaConfig | null {
-  if (arcaConfig) return arcaConfig;
+function getStoredCredentials(): ArcaCredentials | null {
   try {
     const env = (import.meta as any).env || {};
     const envCuit = env.VITE_ARCA_CUIT;
     const envKey = env.VITE_ARCA_KEY;
     const envCert = env.VITE_ARCA_CERT;
     if (envCuit && envKey && envCert) {
-      arcaConfig = { cuit: Number(envCuit), key: envKey, cert: envCert, production: env.VITE_ARCA_PROD === 'true' };
-      return arcaConfig;
+      return { cuit: Number(envCuit), key: envKey, cert: envCert, production: env.VITE_ARCA_PROD === 'true' };
     }
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      if (parsed.cuit) return parsed;
-    }
-  } catch {}
-  return null;
+    // Only store non-sensitive metadata, credentials must be in env vars or entered each session
+    return null;
+  } catch { return null; }
 }
 
 export function isArcaConfigured(): boolean {
-  return getArcaConfig() !== null;
+  return getStoredCredentials() !== null;
 }
 
-async function getArca(): Promise<Arca> {
-  if (arcaInstance) return arcaInstance;
-  const config = getArcaConfig();
-  if (!config) throw new Error('ARCA no está configurado. Configure CUIT, clave y certificado en Sistema > ARCA.');
-  arcaInstance = new Arca({
-    key: config.key,
-    cert: config.cert,
-    cuit: config.cuit,
-    production: config.production ?? false,
-  });
-  return arcaInstance;
+export async function testArcaConnection(): Promise<boolean> {
+  const creds = getStoredCredentials();
+  if (!creds) return false;
+  try {
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'test', credentials: creds }),
+    });
+    return res.ok;
+  } catch { return false; }
 }
-
-export async function clearArcaInstance(): Promise<void> {
-  arcaInstance = null;
-}
-
-// ─── Factura A / B / Ticket ──────────────────────────────────────
 
 export interface ArcaInvoicePayload {
-  tipoComprobante: 1 | 6 | 11 | 201 | 206; // 1=Factura A, 6=Factura B, 11=Factura C, 201=Ticket A, 206=Ticket B
-  puntoVenta: number;
-  cliente: { tipoDoc: number; nroDoc: number; nombre: string; condicionIva: number };
-  items: { descripcion: string; cantidad: number; precioUnitario: number; ivaId: number; ivaBase: number; ivaImporte: number }[];
+  tipoComprobante: number;
+  puntoVenta?: number;
+  docTipo: number;
+  docNro: number;
+  condicionIva: number;
   total: number;
   neto: number;
   ivaTotal: number;
+  ivaItems?: { Id: number; BaseImp: number; Importe: number }[];
 }
 
-export async function createArcaInvoice(payload: ArcaInvoicePayload) {
-  const arca = await getArca();
+export interface ArcaInvoiceResult {
+  success: boolean;
+  cae: string;
+  vencimiento: string;
+}
 
-  const comprobanteTipo = payload.tipoComprobante;
-  const docTipo = payload.cliente.tipoDoc;
-  const docNro = payload.cliente.nroDoc;
-  const posicionIva = payload.cliente.condicionIva;
+export async function createArcaInvoice(payload: ArcaInvoicePayload): Promise<ArcaInvoiceResult> {
+  const creds = getStoredCredentials();
+  if (!creds) throw new Error('ARCA no está configurado');
 
-  const date = new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
-    .toISOString().split('T')[0].replace(/\-/g, '');
+  const res = await fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'createInvoice', credentials: creds, payload }),
+  });
 
-  const ivaItems = payload.items
-    .filter(item => item.ivaId && item.ivaBase > 0)
-    .map(item => ({
-      Id: item.ivaId,
-      BaseImp: item.ivaBase,
-      Importe: item.ivaImporte,
-    }));
-
-  const invoicePayload: any = {
-    CantReg: 1,
-    PtoVta: payload.puntoVenta,
-    CbteTipo: comprobanteTipo,
-    Concepto: 1,
-    DocTipo: docTipo,
-    DocNro: docNro,
-    CbteDesde: 1,
-    CbteHasta: 1,
-    CbteFch: date,
-    ImpTotal: payload.total,
-    ImpTotConc: 0,
-    ImpNeto: payload.neto,
-    ImpOpEx: 0,
-    ImpIVA: payload.ivaTotal,
-    ImpTrib: 0,
-    MonId: 'PES',
-    MonCotiz: 1,
-    CondicionIVAReceptorId: posicionIva,
-  };
-
-  if (ivaItems.length > 0) {
-    invoicePayload.Iva = ivaItems;
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Error de conexión con ARCA' }));
+    throw new Error(err.error || `HTTP ${res.status}`);
   }
 
-  return await arca.electronicBillingService.createInvoice(invoicePayload);
+  const data = await res.json();
+  return data;
 }
 
-// ─── Tipos de comprobante ARCA ──────────────────────────────────
+// ─── Tipos de comprobante y lookup helpers ───────────────────
 
 export const TIPOS_COMPROBANTE = {
   'factura_a': { id: 1, label: 'Factura A', requiereCuit: true, condicionIva: 1 },
@@ -144,5 +103,5 @@ export const CONDICIONES_IVA_RECEPTOR = [
   { id: 4, label: 'IVA Sujeto Exento' },
   { id: 5, label: 'Consumidor Final' },
   { id: 6, label: 'IVA Monotributo' },
-  { id: 7, label: 'IVA No Alcanzado' },
+  { id: 12, label: 'IVA No Alcanzado' },
 ];
