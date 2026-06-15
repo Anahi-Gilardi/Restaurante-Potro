@@ -81,6 +81,12 @@ export default function App() {
   const [recetas, setRecetas] = useState<RecetaEscandallo[]>(INITIAL_RECETAS_ESCANDALLO);
   const [pedidos, setPedidos] = useState<Pedido[]>(INITIAL_PEDIDOS);
   const [mermas, setMermas] = useState<Merma[]>([]);
+  const getSimulatedTimeStr = useCallback(() => {
+    const h = String(Math.floor((minutosGlobal + 720) / 60) % 24).padStart(2, '0');
+    const m = String((minutosGlobal + 720) % 60).padStart(2, '0');
+    return `${h}:${m} hs`;
+  }, [minutosGlobal]);
+
   const [postLoginLoading, setPostLoginLoading] = useState<boolean>(false);
 
   // Mapa O(1) de precio_venta para cálculos de ventas en toda la app
@@ -857,9 +863,20 @@ export default function App() {
             <Suspense fallback={<Skeleton lines={6} />}>
               {activeView === 'home' && (
                 <HomeMenuModule 
-                  activeRol={activeUser.rol} 
-                  onNavigate={handleNavigate} 
+                  mesas={mesas}
+                  pedidos={pedidos}
+                  insumos={insumos}
+                  productosMenu={productosMenu}
+                  usuarios={usuarios}
                   allowedViews={allowedViews}
+                  canChangeUser={true}
+                  activeMozo={activeMozo}
+                  onMozoChange={handleMozoChange}
+                  onNavigate={handleNavigate}
+                  getSimulatedTimeStr={getSimulatedTimeStr}
+                  autoTimerRunning={autoTimerRunning}
+                  onToggleAutoTimer={handleToggleAutoTimer}
+                  onAdvanceTime={handleAdvanceTime}
                 />
               )}
               {(activeView === 'terminal_mozo' || activeView === 'mozo') && (
