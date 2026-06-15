@@ -3,10 +3,5 @@
   "framework": "vite",
   "installCommand": "npm ci",
   "buildCommand": "npm run build",
-  "outputDirectory": "dist",
-  "functions": {
-    "api/*.js": {
-      "runtime": "@vercel/node@4"
-    }
-  }
+  "outputDirectory": "dist"
 }
