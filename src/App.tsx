@@ -1012,6 +1012,7 @@ export default function App() {
             <div key={activeView} className="animate-fadeIn">
               <MenuModule
                 productosMenu={productosMenu}
+                onProductosChange={setProductosMenu}
                 addLog={addLog}
               />
             </div>
@@ -1025,6 +1026,7 @@ export default function App() {
                 recetas={recetas}
                 productosMenu={productosMenu}
                 insumos={insumos}
+                onRecetasChange={setRecetas}
                 addLog={addLog}
               />
             </div>
@@ -1036,6 +1038,7 @@ export default function App() {
             <div key={activeView} className="animate-fadeIn">
                 <MesasModule
                   mesas={mesas}
+                  onMesasChange={setMesas}
                   addLog={addLog}
                 />
             </div>

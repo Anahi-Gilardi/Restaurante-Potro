@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ChefHat, Hammer, Tag, AlertTriangle, Plus, Scale } from 'lucide-react';
 import { RecetaEscandallo, ProductoMenu, Insumo, EventoLog } from '../types';
+import { recetasService } from '../services/recetasService';
 
 interface RecetasModuleProps {
   recetas: RecetaEscandallo[];
   productosMenu: ProductoMenu[];
   insumos: Insumo[];
+  onRecetasChange: (recetas: RecetaEscandallo[]) => void;
   addLog: (tipo: EventoLog['tipo'], mensaje: string) => void;
 }
 
@@ -13,6 +15,7 @@ export default function RecetasModule({
   recetas,
   productosMenu,
   insumos,
+  onRecetasChange,
   addLog
 }: RecetasModuleProps) {
   const [activeTabRecipe, setActiveTabRecipe] = useState<string>(productosMenu[0]?.id_producto || '');
@@ -21,6 +24,10 @@ export default function RecetasModule({
   const [selectedInsumoId, setSelectedInsumoId] = useState('');
   const [cantidadUsar, setCantidadUsar] = useState('');
   const [localRecetas, setLocalRecetas] = useState<RecetaEscandallo[]>(recetas);
+
+  useEffect(() => {
+    setLocalRecetas(recetas);
+  }, [recetas]);
 
   const selectedProduct = productosMenu.find(p => p.id_producto === activeTabRecipe);
   const currentRecipeItems = localRecetas.filter(r => r.id_producto === activeTabRecipe);
@@ -48,7 +55,12 @@ export default function RecetasModule({
       cantidad_a_descontar: parseFloat(cantidadUsar)
     };
 
-    setLocalRecetas(prev => [...prev, newRec]);
+    setLocalRecetas(prev => {
+      const next = [...prev, newRec];
+      onRecetasChange(next);
+      return next;
+    });
+    recetasService.create(newRec).catch(err => console.error(err));
     addLog('sistema', `ESCANDALLO: Agregado insumo ${matchedIn.nombre} (${cantidadUsar} ${matchedIn.unidad_medida}) a la receta de ${selectedProduct?.nombre}`);
     setCantidadUsar('');
     setSelectedInsumoId('');
@@ -58,7 +70,12 @@ export default function RecetasModule({
     const targetItem = localRecetas.find(r => r.id_receta === id);
     if (!targetItem) return;
     const matchedIn = insumos.find(i => i.id_insumo === targetItem.id_insumo);
-    setLocalRecetas(prev => prev.filter(r => r.id_receta !== id));
+    setLocalRecetas(prev => {
+      const next = prev.filter(r => r.id_receta !== id);
+      onRecetasChange(next);
+      return next;
+    });
+    recetasService.remove(id).catch(err => console.error(err));
     addLog('sistema', `ESCANDALLO: Removido insumo ${matchedIn ? matchedIn.nombre : targetItem.id_insumo} de la receta de ${selectedProduct?.nombre}`);
   };
 

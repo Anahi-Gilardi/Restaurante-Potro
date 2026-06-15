@@ -1,18 +1,24 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useToast, ToastContainer } from './ToastContainer';
 import { Sofa, MapPin, Grid, Layers, HelpCircle, Plus, Check } from 'lucide-react';
 import { Mesa, EventoLog } from '../types';
+import { mesasService } from '../services/mesasService';
 
 interface MesasModuleProps {
   mesas: Mesa[];
+  onMesasChange: (mesas: Mesa[]) => void;
   addLog: (tipo: EventoLog['tipo'], mensaje: string) => void;
 }
 
-export default function MesasModule({ mesas, addLog }: MesasModuleProps) {
+export default function MesasModule({ mesas, onMesasChange, addLog }: MesasModuleProps) {
   const [localMesas, setLocalMesas] = useState<Mesa[]>(mesas);
   const [numeroMesa, setNumeroMesa] = useState('');
   const [sector, setSector] = useState<'salon' | 'terraza' | 'vip'>('salon');
   const { toast, toasts, removeToast } = useToast();
+
+  useEffect(() => {
+    setLocalMesas(mesas);
+  }, [mesas]);
 
   const handleCreateMesa = (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,24 +42,39 @@ export default function MesasModule({ mesas, addLog }: MesasModuleProps) {
       estado: 'libre'
     };
 
-    setLocalMesas(prev => [...prev, newMesa]);
+    setLocalMesas(prev => {
+      const next = [...prev, newMesa];
+      onMesasChange(next);
+      return next;
+    });
+    mesasService.create(newMesa).catch(() => {
+      toast.warning('La mesa quedo disponible en esta sesion, pero no pudo sincronizarse.');
+    });
     addLog('sistema', `MESAS: Creada nueva mesa física '${formattedName}' en el sector ${sector.toUpperCase()}`);
     setNumeroMesa('');
   };
 
   const handleToggleEstadoMesa = (id: number) => {
-    setLocalMesas(prev => prev.map(m => {
+    setLocalMesas(prev => {
+      const next = prev.map(m => {
       if (m.id_mesa === id) {
         const nextEstado = m.estado === 'libre' ? 'ocupada' : 'libre';
-        addLog('sistema', `MESAS: Cambiado estado de '${m.numero_mesa}' a ${nextEstado.toUpperCase()}`);
-        return {
+        const updated = {
           ...m,
           estado: nextEstado,
           comensales: nextEstado === 'ocupada' ? 2 : undefined
-        };
+        } as Mesa;
+        mesasService.update(id, updated).catch(() => {
+          toast.warning('El estado cambio localmente, pero no pudo sincronizarse.');
+        });
+        addLog('sistema', `MESAS: Cambiado estado de '${m.numero_mesa}' a ${nextEstado.toUpperCase()}`);
+        return updated;
       }
       return m;
-    }));
+      });
+      onMesasChange(next);
+      return next;
+    });
   };
 
   const freeCount = localMesas.filter(m => m.estado === 'libre').length;

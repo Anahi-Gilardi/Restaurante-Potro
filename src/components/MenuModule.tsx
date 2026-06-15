@@ -5,10 +5,11 @@ import { menuService } from '../services/menuService';
 
 interface MenuModuleProps {
   productosMenu: ProductoMenu[];
+  onProductosChange: (productos: ProductoMenu[]) => void;
   addLog: (tipo: EventoLog['tipo'], mensaje: string) => void;
 }
 
-export default function MenuModule({ productosMenu, addLog }: MenuModuleProps) {
+export default function MenuModule({ productosMenu, onProductosChange, addLog }: MenuModuleProps) {
   const [items, setItems] = useState<ProductoMenu[]>(productosMenu);
 
   useEffect(() => {
@@ -64,7 +65,11 @@ export default function MenuModule({ productosMenu, addLog }: MenuModuleProps) {
       tiempo_preparacion_estimado: requiere_cocina ? 12 : undefined
     };
 
-    setItems(prev => [newItem, ...prev]);
+    setItems(prev => {
+      const next = [newItem, ...prev];
+      onProductosChange(next);
+      return next;
+    });
     menuService.create(newItem).catch(err => console.error(err));
     addLog('sistema', `MENÚ: Creado nuevo platillo/bebida '${nombre}' con precio de venta $${precio}`);
     setNombre('');
@@ -73,7 +78,8 @@ export default function MenuModule({ productosMenu, addLog }: MenuModuleProps) {
   };
 
   const handleToggleActivo = (id: string) => {
-    setItems(prev => prev.map(item => {
+    setItems(prev => {
+      const next = prev.map(item => {
       if (item.id_producto === id) {
         const nextState = !item.activo;
         menuService.update(id, { activo: nextState }).catch(err => console.error(err));
@@ -81,7 +87,10 @@ export default function MenuModule({ productosMenu, addLog }: MenuModuleProps) {
         return { ...item, activo: nextState };
       }
       return item;
-    }));
+      });
+      onProductosChange(next);
+      return next;
+    });
   };
 
   const handleStartEditing = (id: string, currentPrice: number) => {
@@ -93,14 +102,18 @@ export default function MenuModule({ productosMenu, addLog }: MenuModuleProps) {
     const parsedPrice = parseFloat(editPrecio);
     if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) return;
 
-    setItems(prev => prev.map(item => {
+    setItems(prev => {
+      const next = prev.map(item => {
       if (item.id_producto === id) {
         menuService.update(id, { precio_venta: parsedPrice }).catch(err => console.error(err));
         addLog('sistema', `MENÚ: Actualizado precio de venta de '${item.nombre}' de $${item.precio_venta} a $${parsedPrice}`);
         return { ...item, precio_venta: parsedPrice };
       }
       return item;
-    }));
+      });
+      onProductosChange(next);
+      return next;
+    });
     setEditingId(null);
   };
 

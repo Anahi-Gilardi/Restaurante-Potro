@@ -210,7 +210,8 @@ export default function MozoTerminal({
         id_producto: prodId,
         nombre: p.nombre,
         cantidad: Number(qty),
-        categoria: p.categoria
+        categoria: p.categoria,
+        precio_unitario: p.precio_venta
       };
     });
 
