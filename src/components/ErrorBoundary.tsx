@@ -25,36 +25,44 @@ export default class ErrorBoundary extends React.Component<Props, State> {
     console.error('[ErrorBoundary]', this.props.moduleName, error, info);
   }
 
+  handleRetry = () => {
+    this.setState({ hasError: false, error: null });
+  };
+
+  handleReload = () => {
+    window.location.reload();
+  };
+
   render(): ReactNode {
     if (this.state.hasError) {
       return (
-        <div style={{
-          margin: '24px', padding: '24px',
-          background: '#fef2f2', border: '1px solid #fecaca',
-          borderRadius: '16px', textAlign: 'center'
-        }}>
-          <p style={{ fontSize: '2rem', margin: '0 0 8px' }}>⚠️</p>
-          <h2 style={{ color: '#b91c1c', fontWeight: 900, margin: '0 0 12px' }}>
-            Error en: {this.props.moduleName?.toUpperCase() ?? 'MÓDULO'}
+        <div className="m-6 p-6 bg-red-50 border border-red-200 rounded-2xl text-center space-y-4">
+          <p className="text-3xl">⚠️</p>
+          <h2 className="text-red-700 font-black text-lg uppercase tracking-tight">
+            Error en módulo: {this.props.moduleName?.toUpperCase() ?? 'SISTEMA'}
           </h2>
-          <pre style={{
-            color: '#ef4444', fontSize: '0.75rem', background: '#fee2e2',
-            padding: '12px', borderRadius: '8px',
-            textAlign: 'left', whiteSpace: 'pre-wrap', margin: '0 0 12px'
-          }}>
+          <div className="bg-red-100 text-red-600 text-xs font-mono p-3 rounded-xl text-left whitespace-pre-wrap max-w-lg mx-auto border border-red-200">
             {this.state.error?.message ?? 'Error desconocido'}
-          </pre>
-          <button
-            type="button"
-            onClick={() => this.setState({ hasError: false, error: null })}
-            style={{
-              padding: '8px 20px', background: '#dc2626',
-              color: 'white', border: 'none', borderRadius: '10px',
-              fontWeight: 700, cursor: 'pointer'
-            }}
-          >
-            Reintentar módulo
-          </button>
+          </div>
+          <p className="text-xs text-red-500 font-medium">
+            {this.state.error?.stack?.split('\n').slice(0, 3).join('\n')}
+          </p>
+          <div className="flex justify-center gap-3 pt-2">
+            <button
+              type="button"
+              onClick={this.handleRetry}
+              className="touch-target px-5 py-2.5 bg-red-600 hover:bg-red-500 text-white text-xs font-extrabold rounded-xl transition-colors cursor-pointer shadow-sm"
+            >
+              Reintentar módulo
+            </button>
+            <button
+              type="button"
+              onClick={this.handleReload}
+              className="touch-target px-5 py-2.5 bg-white border border-stone-300 hover:bg-stone-50 text-stone-700 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+            >
+              Recargar página
+            </button>
+          </div>
         </div>
       );
     }
