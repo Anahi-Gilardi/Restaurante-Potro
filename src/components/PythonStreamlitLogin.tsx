@@ -58,27 +58,46 @@ export default function PythonStreamlitLogin({ onLoginSuccess }: PythonStreamlit
       const supabase = getSupabaseClient();
 
       if (supabase) {
-        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-          email: email.trim().toLowerCase(),
-          password,
-        });
+        // Buscar usuario en la tabla por correo/mail
+        const emailNorm = email.trim().toLowerCase();
+        
+        const { data: profileByMail } = await supabase
+          .from('usuarios')
+          .select('*')
+          .or(`correo.eq.${emailNorm},mail.eq.${emailNorm}`)
+          .single();
 
-        if (authError) throw authError;
-
-        if (authData.user) {
-          const { data: profile } = await supabase
-            .from('usuarios')
-            .select('*')
-            .eq('id_usuario', authData.user.id)
-            .single();
-
-          if (profile) {
-            onLoginSuccess(profile as Usuario);
+        if (profileByMail) {
+          // Verificar contraseña (texto plano según estructura de la tabla)
+          const campoPass = profileByMail.contrasena ?? profileByMail.password;
+          if (campoPass !== password) {
+            setError('Email o contraseña incorrectos');
+            setIsLoggingIn(false);
             return;
           }
+          if (profileByMail.activo === false) {
+            setError('Este usuario está desactivado');
+            setIsLoggingIn(false);
+            return;
+          }
+          // Mapear campos de Supabase al tipo Usuario local
+          const mappedUser: Usuario = {
+            id_usuario: profileByMail.id_usuario ?? 0,
+            nombre: profileByMail.nombre ?? '',
+            apellido: profileByMail.apellido ?? '',
+            username: profileByMail.correo ?? profileByMail.mail ?? emailNorm,
+            password: campoPass,
+            rol: profileByMail.rol as Usuario['rol'],
+            activo: profileByMail.activo !== false,
+          };
+          setTimeout(() => {
+            onLoginSuccess(mappedUser);
+          }, 500);
+          return;
         }
       }
 
+      // Fallback local si Supabase no está configurado o no encontró el usuario
       const localUser = LOCAL_USERS.find(
         u => u.username === email.trim().toLowerCase() && u.password === password
       );
@@ -100,6 +119,7 @@ export default function PythonStreamlitLogin({ onLoginSuccess }: PythonStreamlit
       }, 500);
 
     } catch (err: any) {
+      // Si Supabase falla, intentar login local
       const localUser = LOCAL_USERS.find(
         u => u.username === email.trim().toLowerCase() && u.password === password
       );
@@ -116,9 +136,7 @@ export default function PythonStreamlitLogin({ onLoginSuccess }: PythonStreamlit
         return;
       }
 
-      setError(err?.message === 'Invalid login credentials'
-        ? 'Email o contraseña incorrectos'
-        : 'Error de conexión. Verificá tus credenciales.');
+      setError('Email o contraseña incorrectos');
       setIsLoggingIn(false);
     }
   };
