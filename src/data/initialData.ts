@@ -9,6 +9,7 @@ export const INITIAL_USUARIOS: Usuario[] = [
   { id_usuario: 6, nombre: 'Damián', apellido: 'Martínez', username: 'damian', password: '1234', rol: 'cocina' },
   { id_usuario: 7, nombre: 'Sofía', apellido: 'Alegre', username: 'sofia', password: '1234', rol: 'administrador' },
   { id_usuario: 8, nombre: 'Nuevo', apellido: 'Usuario', username: 'nuevo', password: 'clave', rol: 'mozo' },
+  { id_usuario: 9, nombre: 'Admin', apellido: '', username: 'admin', password: '1998', rol: 'superadmin' },
 ];
 
 export const INITIAL_MESAS: Mesa[] = [
