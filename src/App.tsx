@@ -922,7 +922,7 @@ export default function App() {
       {/* Collapse toggle button for desktop */}
       <button
         onClick={() => setSidebarExpanded(!sidebarExpanded)}
-        className="hidden lg:flex fixed left-0 top-1/2 -translate-y-1/2 z-40 w-5 h-10 bg-[#4A2D1B]/80 hover:bg-[#4A2D1B] text-white rounded-r-lg items-center justify-center cursor-pointer transition-all border border-stone-700/50 border-l-0"
+        className="hidden lg:flex fixed left-0 top-1/2 -translate-y-1/2 z-40 w-5 h-10 bg-[#A67550] hover:bg-[#8E5E38] text-white rounded-r-lg items-center justify-center cursor-pointer transition-all border border-[#7A4A28]/40 border-l-0"
         style={{ left: sidebarExpanded ? '16rem' : '4rem' }}
         title={sidebarExpanded ? 'Colapsar menú' : 'Expandir menú'}
       >
@@ -935,56 +935,52 @@ export default function App() {
       <aside className={`
         hidden lg:flex flex-col
         ${sidebarExpanded ? 'w-64' : 'w-16'}
-        bg-[#2d1810]/25 backdrop-blur-xl
-        text-amber-50/80 border-r border-amber-900/20 shrink-0
+        bg-[#C8956A]
+        text-[#3B1F10]/90 border-r border-[#A67550]/40 shrink-0
         transition-all duration-300 ease-in-out
-        shadow-xl shadow-black/20
+        shadow-xl shadow-black/15
       `} id="sidebar-left-panel">
         
         {/* Brand Header */}
-        <div className="border-b border-amber-900/20 flex items-center justify-between min-h-[56px] px-3">
+        <div className="border-b border-[#A67550]/30 flex items-center justify-between min-h-[56px] px-3">
           {sidebarExpanded ? (
             <div className="flex items-center gap-2.5 py-2.5">
-              <div className="w-9 h-9 bg-[#FAF4EE]/90 rounded-lg flex items-center justify-center shadow-sm border border-amber-900/30 p-0.5 overflow-hidden shrink-0">
+              <div className="w-9 h-9 bg-white/80 rounded-lg flex items-center justify-center shadow-sm border border-[#A67550]/40 p-0.5 overflow-hidden shrink-0">
                 <ElPatronLogo className="w-8 h-8 object-contain rounded" variant="icon" color="#4A2D1B" />
               </div>
               <div className="min-w-0">
-                <span className="font-extrabold text-sm text-amber-50 drop-shadow-lg block leading-tight">El Patrón</span>
-                <span className="text-[7px] uppercase font-bold text-amber-200/50 tracking-wider block leading-tight">Gestión Gastro</span>
+                <span className="font-extrabold text-sm text-[#3B1F10] drop-shadow block leading-tight">El Patrón</span>
+                <span className="text-[7px] uppercase font-bold text-[#3B1F10]/50 tracking-wider block leading-tight">Gestión Gastro</span>
               </div>
             </div>
           ) : (
             <div className="w-full flex justify-center py-2.5">
-              <div className="w-8 h-8 bg-[#FAF4EE]/80 rounded-lg flex items-center justify-center shadow-sm border border-amber-900/30 p-0.5 overflow-hidden">
+              <div className="w-8 h-8 bg-white/70 rounded-lg flex items-center justify-center shadow-sm border border-[#A67550]/40 p-0.5 overflow-hidden">
                 <ElPatronLogo className="w-7 h-7 object-contain rounded" variant="icon" color="#4A2D1B" />
               </div>
             </div>
           )}
-          <button onClick={() => setIsStreamlitLoggedIn(false)}
-            className="p-1.5 rounded-lg hover:bg-amber-900/30 text-amber-400/60 hover:text-amber-300 transition-all duration-200 cursor-pointer shrink-0" title="Cerrar sesión">
-            <LogOut className="w-3.5 h-3.5" />
-          </button>
         </div>
 
         {/* Clock widget */}
         {sidebarExpanded && (
-        <div className="mx-3 mt-3 mb-1 px-3 py-2 bg-amber-950/30 border border-amber-900/20 rounded-xl backdrop-blur-sm">
+        <div className="mx-3 mt-3 mb-1 px-3 py-2 bg-[#B07A48]/30 border border-[#A67550]/30 rounded-xl">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[8px] uppercase font-bold text-amber-200/60 tracking-wider font-mono flex items-center gap-1">
-              <Clock className="w-3 h-3 text-amber-400/70" />
+            <span className="text-[8px] uppercase font-bold text-[#3B1F10]/60 tracking-wider font-mono flex items-center gap-1">
+              <Clock className="w-3 h-3 text-[#3B1F10]/50" />
               Reloj
             </span>
-            <span className={`h-1.5 w-1.5 rounded-full ${autoTimerRunning ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+            <span className={`h-1.5 w-1.5 rounded-full ${autoTimerRunning ? 'bg-emerald-600 animate-pulse' : 'bg-amber-600'}`} />
           </div>
           <div className="flex items-center justify-between">
-            <strong className="text-sm font-black text-amber-50 font-mono tracking-tight drop-shadow-lg">{getSimulatedTimeStr()}</strong>
+            <strong className="text-sm font-black text-[#3B1F10] font-mono tracking-tight">{getSimulatedTimeStr()}</strong>
             <div className="flex items-center gap-1">
               <button onClick={handleToggleAutoTimer}
-                className={`p-1 rounded-lg transition-all duration-200 cursor-pointer ${autoTimerRunning ? 'bg-amber-500/30 text-amber-300' : 'bg-emerald-500/30 text-emerald-400'}`}>
+                className={`p-1 rounded-lg transition-all duration-200 cursor-pointer ${autoTimerRunning ? 'bg-amber-600/20 text-amber-800' : 'bg-emerald-600/20 text-emerald-800'}`}>
                 <RefreshCw className={`w-3 h-3 ${autoTimerRunning ? 'animate-spin' : ''}`} />
               </button>
               <button onClick={() => handleAdvanceTime(15)}
-                className="px-1.5 py-1 rounded-lg bg-amber-950/40 text-amber-300/70 hover:text-amber-200 border border-amber-900/30 text-[9px] font-bold cursor-pointer transition-all duration-200">
+                className="px-1.5 py-1 rounded-lg bg-[#3B1F10]/10 text-[#3B1F10]/70 hover:text-[#3B1F10] border border-[#A67550]/30 text-[9px] font-bold cursor-pointer transition-all duration-200">
                 +15m
               </button>
             </div>
@@ -995,37 +991,37 @@ export default function App() {
         {/* Venta sin stock */}
         {sidebarExpanded && activeUser.rol === 'administrador' && (
         <div className="mx-3 mt-2 mb-1">
-          <label className="flex items-center justify-between px-3 py-2 bg-amber-950/25 border border-amber-900/20 rounded-xl cursor-pointer hover:bg-amber-950/40 transition-all duration-200 select-none backdrop-blur-sm">
-            <span className="text-[11px] font-bold text-amber-200/80">
+          <label className="flex items-center justify-between px-3 py-2 bg-[#B07A48]/25 border border-[#A67550]/30 rounded-xl cursor-pointer hover:bg-[#B07A48]/40 transition-all duration-200 select-none">
+            <span className="text-[11px] font-bold text-[#3B1F10]/80">
               {permitirVentaSinStock ? '✓ Forzar Ventas' : 'Bloquear sin stock'}
             </span>
             <input type="checkbox" checked={permitirVentaSinStock}
               onChange={(e) => { setPermitirVentaSinStock(e.target.checked);
                 addLog('sistema', `REGLA: Venta forzada sin stock ${e.target.checked ? 'HABILITADA' : 'DESHABILITADA'}`);
               }}
-              className="rounded border-amber-700/50 text-[#624A3E] focus:ring-[#624A3E] w-4 h-4 bg-amber-950/50 cursor-pointer" />
+              className="rounded border-[#A67550]/60 text-[#624A3E] focus:ring-[#624A3E] w-4 h-4 bg-white/50 cursor-pointer" />
           </label>
         </div>
         )}
 
         {/* Usuario activo */}
         <div className="mx-3 mt-2 mb-1">
-          <div className={`flex items-center gap-2.5 px-3 py-2 bg-amber-950/25 border border-amber-900/20 rounded-xl backdrop-blur-sm ${sidebarExpanded ? '' : 'justify-center'}`}>
-            <div className="w-7 h-7 rounded-full bg-amber-900/30 border border-amber-900/30 flex items-center justify-center shrink-0">
-              <User className="w-3.5 h-3.5 text-amber-300/70" />
+          <div className={`flex items-center gap-2.5 px-3 py-2 bg-[#B07A48]/25 border border-[#A67550]/30 rounded-xl ${sidebarExpanded ? '' : 'justify-center'}`}>
+            <div className="w-7 h-7 rounded-full bg-white/40 border border-[#A67550]/40 flex items-center justify-center shrink-0">
+              <User className="w-3.5 h-3.5 text-[#3B1F10]/70" />
             </div>
             {sidebarExpanded && (
               <div className="flex-1 text-left min-w-0">
-                <span className="text-[7px] text-amber-200/50 block font-bold leading-none uppercase tracking-wider">Usuario</span>
+                <span className="text-[7px] text-[#3B1F10]/50 block font-bold leading-none uppercase tracking-wider">Usuario</span>
                 {activeUser.rol === 'administrador' ? (
                   <select value={activeMozo} onChange={(e) => handleMozoChange(e.target.value)}
-                    className="text-[11px] bg-transparent border-none p-0 focus:outline-none font-extrabold text-amber-50 cursor-pointer w-full mt-0.5 focus:ring-0">
+                    className="text-[11px] bg-transparent border-none p-0 focus:outline-none font-extrabold text-[#3B1F10] cursor-pointer w-full mt-0.5 focus:ring-0">
                     {usuarios.filter(usuario => usuario.activo !== false).map(usuario => (
-                      <option key={usuario.id_usuario} value={usuario.nombre} className="bg-[#2d1810] text-amber-50">{usuario.nombre}</option>
+                      <option key={usuario.id_usuario} value={usuario.nombre} className="bg-[#C8956A] text-[#3B1F10]">{usuario.nombre}</option>
                     ))}
                   </select>
                 ) : (
-                  <span className="text-[11px] font-extrabold text-amber-50 drop-shadow-lg mt-0.5 block">{activeUser.nombre}</span>
+                  <span className="text-[11px] font-extrabold text-[#3B1F10] mt-0.5 block">{activeUser.nombre}</span>
                 )}
               </div>
             )}
@@ -1064,20 +1060,20 @@ export default function App() {
                     w-full flex items-center gap-3 transition-all duration-200 cursor-pointer
                     ${sidebarExpanded ? 'mx-1 px-3 py-2 rounded-xl' : 'justify-center py-2.5 rounded-lg'}
                     ${isActive
-                      ? 'bg-[#4A2D1B]/80 text-amber-50 shadow-sm border border-amber-900/30 backdrop-blur-sm'
-                      : 'text-amber-200/50 hover:text-amber-50 hover:bg-amber-900/20 border border-transparent'
+                      ? 'bg-[#4A2D1B] text-white shadow-sm border border-[#3B1F10]/30'
+                      : 'text-[#3B1F10]/65 hover:text-[#3B1F10] hover:bg-[#B07A48]/35 border border-transparent'
                     }
                   `}
                   title={!sidebarExpanded ? item.label : undefined}
                 >
                   <span className="text-base shrink-0 leading-none">{item.icon}</span>
                   {sidebarExpanded && (
-                    <span className={`text-[12px] font-bold tracking-wide leading-none ${isActive ? 'text-amber-50' : 'text-amber-200/60'}`}>
+                    <span className={`text-[12px] font-bold tracking-wide leading-none ${isActive ? 'text-white' : 'text-[#3B1F10]/70'}`}>
                       {item.label}
                     </span>
                   )}
                   {sidebarExpanded && isActive && (
-                    <span className="ml-auto w-1.5 h-1.5 rounded-full bg-amber-400 shadow-sm shadow-amber-400/50 shrink-0" />
+                    <span className="ml-auto w-1.5 h-1.5 rounded-full bg-amber-300 shadow-sm shadow-amber-400/50 shrink-0" />
                   )}
                 </button>
               );
@@ -1085,9 +1081,30 @@ export default function App() {
           </nav>
         </div>
 
+        {/* Cerrar sesión — separado del menú de navegación */}
+        <div className={`px-2 pb-2 border-t border-[#A67550]/40 pt-2`}>
+          {sidebarExpanded && (
+            <p className="text-[8px] uppercase font-bold text-[#3B1F10]/40 tracking-wider px-3 mb-1">Sesión</p>
+          )}
+          <button
+            onClick={() => setIsStreamlitLoggedIn(false)}
+            className={`
+              w-full flex items-center gap-3 transition-all duration-200 cursor-pointer
+              ${sidebarExpanded ? 'mx-1 px-3 py-2 rounded-xl' : 'justify-center py-2.5 rounded-lg'}
+              text-[#7B2D12] hover:bg-[#7B2D12]/15 hover:text-[#5C1E0A] border border-transparent hover:border-[#7B2D12]/20
+            `}
+            title={!sidebarExpanded ? 'Cerrar sesión' : undefined}
+          >
+            <LogOut className="w-4 h-4 shrink-0" />
+            {sidebarExpanded && (
+              <span className="text-[12px] font-bold tracking-wide leading-none">Cerrar sesión</span>
+            )}
+          </button>
+        </div>
+
         {/* Version badge */}
-        <div className={`px-4 py-2.5 border-t border-amber-900/20 ${sidebarExpanded ? '' : 'flex justify-center'}`}>
-          <span className="text-[8px] text-amber-300/30 font-mono tracking-wider">
+        <div className={`px-4 py-2 border-t border-[#A67550]/30 ${sidebarExpanded ? '' : 'flex justify-center'}`}>
+          <span className="text-[8px] text-[#3B1F10]/30 font-mono tracking-wider">
             {sidebarExpanded ? 'El Patrón Pro · v1.2.0' : 'v1'}
           </span>
         </div>
