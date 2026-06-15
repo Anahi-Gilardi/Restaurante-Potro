@@ -835,6 +835,13 @@ export default function App() {
   // Track chunk load errors for auto-retry
   const [chunkError, setChunkError] = useState<string | null>(null);
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
+  const [appReady, setAppReady] = useState(false);
+
+  useEffect(() => {
+    // Short delay to ensure Suspense fallback shows
+    const t = setTimeout(() => setAppReady(true), 50);
+    return () => clearTimeout(t);
+  }, []);
 
   useEffect(() => {
     const handler = (event: PromiseRejectionEvent) => {
@@ -863,9 +870,21 @@ export default function App() {
     );
   }
 
+  // Initial loading state while first lazy module loads
+  if (!appReady) {
+    return (
+      <div className="min-h-screen bg-[#F5F1E9] flex items-center justify-center">
+        <div className="text-center space-y-3">
+          <div className="w-10 h-10 border-3 border-[#624A3E] border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-sm font-bold text-stone-500">Iniciando El Patrón...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
-    <div className="min-h-screen bg-[#F5F1E9] flex flex-col lg:flex-row font-sans text-slate-800 antialiased selection:bg-[#624A3E] selection:text-white">
+    <div className="min-h-screen bg-[#F5F1E9] flex flex-col lg:flex-row font-sans text-stone-800 antialiased selection:bg-[#624A3E] selection:text-white">
       
       {/* Collapse toggle button for desktop */}
       <button
@@ -1052,7 +1071,7 @@ export default function App() {
       </aside>
 
       {/* CORE ACTIVE MODULE AREA (RIGHT SIDE CONTENT PANE) */}
-      <main className="flex-1 flex flex-col min-w-0 bg-[#F5F1E9]">
+      <main className="flex-1 flex flex-col min-w-0 min-h-screen bg-[#F5F1E9]">
         
         {/* TOP STATUS BAR ACCENTS */}
         <div className="bg-[#F5F1E9] border-b border-stone-200/80 px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
@@ -1106,7 +1125,7 @@ export default function App() {
         </div>
 
         {/* MAIN SCROLLABLE CONTENT */}
-        <div className="flex-1 p-4 sm:p-6 space-y-6 overflow-y-auto max-w-7xl w-full mx-auto bottom-nav-spacer lg:pb-6">
+        <div className="flex-1 p-4 sm:p-6 space-y-6 overflow-y-auto max-w-7xl w-full mx-auto bottom-nav-spacer lg:pb-6 min-h-[60vh]">
           
           {/* ACTIVE TAB RENDER TRIAGE */}
           {activeView === 'home' && (
