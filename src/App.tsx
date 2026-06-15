@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react';
 import { 
   User,
   Clock,
@@ -22,29 +22,32 @@ import {
   INITIAL_PEDIDOS 
 } from './data/initialData';
 
-// Subcomponents matching the design
-import HomeMenuModule from './components/HomeMenuModule';
-import MozoTerminal from './components/MozoTerminal';
-import KitchenMonitor from './components/KitchenMonitor';
-import InventoryModule from './components/InventoryModule';
-import BusinessIntelligence from './components/BusinessIntelligence';
-import CajaModule from './components/CajaModule';
+// Static imports (small, used on every render or at login)
 import ErrorBoundary from './components/ErrorBoundary';
 import { useToast, ToastContainer } from './components/ToastContainer';
-import SistemaModule from './components/SistemaModule';
 import PythonStreamlitLogin from './components/PythonStreamlitLogin';
 import ElPatronLogo from './components/ElPatronLogo';
-import PanelDashboard from './components/PanelDashboard';
-import UsuariosModule from './components/UsuariosModule';
-import MenuModule from './components/MenuModule';
-import RecetasModule from './components/RecetasModule';
-import MesasModule from './components/MesasModule';
-import ProveedoresModule from './components/ProveedoresModule';
-import PromocionesModule from './components/PromocionesModule';
-import ReservasModule from './components/ReservasModule';
-import FacturacionModule from './components/FacturacionModule';
-import BackupsModule from './components/BackupsModule';
 import BottomNavigation from './components/BottomNavigation';
+import Skeleton from './components/Skeleton';
+
+// Lazy-loaded modules (code-split, loaded on demand)
+const HomeMenuModule = lazy(() => import('./components/HomeMenuModule'));
+const MozoTerminal = lazy(() => import('./components/MozoTerminal'));
+const KitchenMonitor = lazy(() => import('./components/KitchenMonitor'));
+const InventoryModule = lazy(() => import('./components/InventoryModule'));
+const BusinessIntelligence = lazy(() => import('./components/BusinessIntelligence'));
+const CajaModule = lazy(() => import('./components/CajaModule'));
+const SistemaModule = lazy(() => import('./components/SistemaModule'));
+const PanelDashboard = lazy(() => import('./components/PanelDashboard'));
+const UsuariosModule = lazy(() => import('./components/UsuariosModule'));
+const MenuModule = lazy(() => import('./components/MenuModule'));
+const RecetasModule = lazy(() => import('./components/RecetasModule'));
+const MesasModule = lazy(() => import('./components/MesasModule'));
+const ProveedoresModule = lazy(() => import('./components/ProveedoresModule'));
+const PromocionesModule = lazy(() => import('./components/PromocionesModule'));
+const ReservasModule = lazy(() => import('./components/ReservasModule'));
+const FacturacionModule = lazy(() => import('./components/FacturacionModule'));
+const BackupsModule = lazy(() => import('./components/BackupsModule'));
 import type { BackupSnapshotData } from './services/backupsService';
 import { usuariosService } from './services/usuariosService';
 import { 
@@ -846,9 +849,15 @@ export default function App() {
               <span className="text-[9px] uppercase font-bold text-[#FAF4EE]/70 tracking-wider block mt-0.5 leading-none">Gestión Gastronómica Pro</span>
             </div>
           </div>
+          <div className="flex items-center gap-1">
+          <button onClick={() => setIsStreamlitLoggedIn(false)}
+            className="p-1.5 rounded-lg hover:bg-stone-800 text-stone-400 hover:text-amber-400 transition-colors cursor-pointer" title="Cerrar sesión">
+            <LogOut className="w-4 h-4" />
+          </button>
           <span className="bg-[#4A2D1B]/35 text-amber-200 text-[8px] border border-stone-800 px-1.5 py-1 rounded font-bold font-mono shrink-0">
             v1.2.0
           </span>
+          </div>
         </div>
 
         {/* Real-time System Simulation Clock widget */}
@@ -1073,6 +1082,7 @@ export default function App() {
           {/* ACTIVE TAB RENDER TRIAGE */}
           {activeView === 'home' && (
             <ErrorBoundary moduleName={'home'}>
+            <Suspense fallback={<div className="p-8"><Skeleton className="!h-64 w-full" count={3} /></div>}>
             <div key={activeView} className="animate-fadeIn">
               <HomeMenuModule
                 mesas={mesas}
@@ -1091,11 +1101,12 @@ export default function App() {
                 onAdvanceTime={handleAdvanceTime}
               />
             </div>
-              </ErrorBoundary>
+              </Suspense></ErrorBoundary>
           )}
 
           {activeView === 'panel' && (
             <ErrorBoundary moduleName={'panel'}>
+            <Suspense fallback={<div className="p-8"><Skeleton className="!h-48 w-full" /></div>}>
             <div key={activeView} className="animate-fadeIn">
               <PanelDashboard
                 mesas={mesas}
@@ -1108,11 +1119,12 @@ export default function App() {
                 onNavigate={(view: AppView) => handleNavigate(view)}
               />
             </div>
-              </ErrorBoundary>
+              </Suspense></ErrorBoundary>
           )}
 
           {activeView === 'mozo' && (
             <ErrorBoundary moduleName={'mozo'}>
+            <Suspense fallback={<div className="p-8"><div className="h-48 bg-stone-100 rounded-2xl animate-pulse" /></div>}>
             <div key={activeView} className="animate-fadeIn">
               <MozoTerminal
                 mesas={mesas}
@@ -1129,11 +1141,12 @@ export default function App() {
                 permitirVentaSinStock={permitirVentaSinStock}
               />
             </div>
-              </ErrorBoundary>
+              </Suspense></ErrorBoundary>
           )}
 
           {activeView === 'cocina' && (
             <ErrorBoundary moduleName={'cocina'}>
+            <Suspense fallback={<div className="p-8"><div className="h-48 bg-stone-100 rounded-2xl animate-pulse" /></div>}>
             <div key={activeView} className="animate-fadeIn">
               <KitchenMonitor
                 pedidos={pedidos}
@@ -1142,11 +1155,12 @@ export default function App() {
                 minutosGlobal={minutosGlobal}
               />
             </div>
-              </ErrorBoundary>
+              </Suspense></ErrorBoundary>
           )}
 
           {activeView === 'caja' && (
             <ErrorBoundary moduleName={'caja'}>
+            <Suspense fallback={<div className="p-8"><div className="h-48 bg-stone-100 rounded-2xl animate-pulse" /></div>}>
             <div key={activeView} className="animate-fadeIn">
               <CajaModule
                 pedidos={pedidos}
@@ -1156,11 +1170,12 @@ export default function App() {
                 addLog={addLog}
               />
             </div>
-              </ErrorBoundary>
+              </Suspense></ErrorBoundary>
           )}
 
           {activeView === 'reportes' && (
             <ErrorBoundary moduleName={'reportes'}>
+            <Suspense fallback={<div className="p-8"><div className="h-48 bg-stone-100 rounded-2xl animate-pulse" /></div>}>
             <div key={activeView} className="animate-fadeIn">
               <BusinessIntelligence
                 productosMenu={productosMenu}
@@ -1169,11 +1184,12 @@ export default function App() {
                 logs={logs}
               />
             </div>
-              </ErrorBoundary>
+              </Suspense></ErrorBoundary>
           )}
 
           {activeView === 'usuarios' && (
             <ErrorBoundary moduleName={'usuarios'}>
+            <Suspense fallback={<div className="p-8"><div className="h-48 bg-stone-100 rounded-2xl animate-pulse" /></div>}>
             <div key={activeView} className="animate-fadeIn">
               <UsuariosModule
                 usuarios={usuarios}
@@ -1181,11 +1197,12 @@ export default function App() {
                 addLog={addLog}
               />
             </div>
-              </ErrorBoundary>
+              </Suspense></ErrorBoundary>
           )}
 
           {activeView === 'menu' && (
             <ErrorBoundary moduleName={'menu'}>
+            <Suspense fallback={<div className="p-8"><div className="h-48 bg-stone-100 rounded-2xl animate-pulse" /></div>}>
             <div key={activeView} className="animate-fadeIn">
               <MenuModule
                 productosMenu={productosMenu}
@@ -1193,11 +1210,12 @@ export default function App() {
                 addLog={addLog}
               />
             </div>
-              </ErrorBoundary>
+              </Suspense></ErrorBoundary>
           )}
 
           {activeView === 'recetas' && (
             <ErrorBoundary moduleName={'recetas'}>
+            <Suspense fallback={<div className="p-8"><div className="h-48 bg-stone-100 rounded-2xl animate-pulse" /></div>}>
             <div key={activeView} className="animate-fadeIn">
               <RecetasModule
                 recetas={recetas}
@@ -1207,11 +1225,12 @@ export default function App() {
                 addLog={addLog}
               />
             </div>
-              </ErrorBoundary>
+              </Suspense></ErrorBoundary>
           )}
 
           {activeView === 'mesas' && (
             <ErrorBoundary moduleName={'mesas'}>
+            <Suspense fallback={<div className="p-8"><div className="h-48 bg-stone-100 rounded-2xl animate-pulse" /></div>}>
             <div key={activeView} className="animate-fadeIn">
                 <MesasModule
                   mesas={mesas}
@@ -1219,11 +1238,12 @@ export default function App() {
                   addLog={addLog}
                 />
             </div>
-              </ErrorBoundary>
+              </Suspense></ErrorBoundary>
           )}
 
           {activeView === 'inventario' && (
             <ErrorBoundary moduleName={'inventario'}>
+            <Suspense fallback={<div className="p-8"><div className="h-48 bg-stone-100 rounded-2xl animate-pulse" /></div>}>
             <div key={activeView} className="animate-fadeIn">
               <InventoryModule
                 insumos={insumos}
@@ -1236,31 +1256,34 @@ export default function App() {
                 addLog={addLog}
               />
             </div>
-              </ErrorBoundary>
+              </Suspense></ErrorBoundary>
           )}
 
           {activeView === 'proveedores' && (
             <ErrorBoundary moduleName={'proveedores'}>
+            <Suspense fallback={<div className="p-8"><div className="h-48 bg-stone-100 rounded-2xl animate-pulse" /></div>}>
             <div key={activeView} className="animate-fadeIn">
               <ProveedoresModule
                 addLog={addLog}
               />
             </div>
-              </ErrorBoundary>
+              </Suspense></ErrorBoundary>
           )}
 
           {activeView === 'promociones' && (
             <ErrorBoundary moduleName={'promociones'}>
+            <Suspense fallback={<div className="p-8"><div className="h-48 bg-stone-100 rounded-2xl animate-pulse" /></div>}>
             <div key={activeView} className="animate-fadeIn">
               <PromocionesModule
                 addLog={addLog}
               />
             </div>
-              </ErrorBoundary>
+              </Suspense></ErrorBoundary>
           )}
 
           {activeView === 'reservas' && (
             <ErrorBoundary moduleName={'reservas'}>
+            <Suspense fallback={<div className="p-8"><div className="h-48 bg-stone-100 rounded-2xl animate-pulse" /></div>}>
             <div key={activeView} className="animate-fadeIn">
               <ReservasModule
                 mesas={mesas}
@@ -1268,11 +1291,12 @@ export default function App() {
                 addLog={addLog}
               />
             </div>
-              </ErrorBoundary>
+              </Suspense></ErrorBoundary>
           )}
 
           {activeView === 'facturacion' && (
             <ErrorBoundary moduleName={'facturacion'}>
+            <Suspense fallback={<div className="p-8"><div className="h-48 bg-stone-100 rounded-2xl animate-pulse" /></div>}>
             <div key={activeView} className="animate-fadeIn">
               <FacturacionModule
                 pedidos={pedidos}
@@ -1280,11 +1304,12 @@ export default function App() {
                 addLog={addLog}
               />
             </div>
-              </ErrorBoundary>
+              </Suspense></ErrorBoundary>
           )}
 
           {activeView === 'sistema' && (
             <ErrorBoundary moduleName={'sistema'}>
+            <Suspense fallback={<div className="p-8"><div className="h-48 bg-stone-100 rounded-2xl animate-pulse" /></div>}>
             <div key={activeView} className="animate-fadeIn">
               <SistemaModule
                 insumos={insumos}
@@ -1296,11 +1321,12 @@ export default function App() {
                 onSyncComplete={handleSupabaseSync}
               />
             </div>
-              </ErrorBoundary>
+              </Suspense></ErrorBoundary>
           )}
 
           {activeView === 'backups' && (
             <ErrorBoundary moduleName={'backups'}>
+            <Suspense fallback={<div className="p-8"><div className="h-48 bg-stone-100 rounded-2xl animate-pulse" /></div>}>
             <div key={activeView} className="animate-fadeIn">
               <BackupsModule
                 operationalData={{
@@ -1317,7 +1343,7 @@ export default function App() {
                 addLog={addLog}
               />
             </div>
-              </ErrorBoundary>
+              </Suspense></ErrorBoundary>
           )}
 
         </div>
