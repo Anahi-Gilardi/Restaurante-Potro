@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useDebounce } from '../hooks/useDebounce';
 import { Truck, Phone, Plus, Tag, Layers, CheckCircle, Search, Edit2, Trash, X } from 'lucide-react';
 import { Proveedor, EventoLog } from '../types';
 import { proveedoresService } from '../services/proveedoresService';
@@ -12,6 +13,7 @@ export default function ProveedoresModule({ addLog }: ProveedoresModuleProps) {
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const { toast, toasts, removeToast } = useToast();
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
   const [filterCat, setFilterCat] = useState<string>('todas');
 
   useEffect(() => {
@@ -42,7 +44,7 @@ export default function ProveedoresModule({ addLog }: ProveedoresModuleProps) {
 
   const filtered = useMemo(() => {
     return proveedores.filter(p => {
-      const matchSearch = p.nombre.toLowerCase().includes(search.toLowerCase()) || p.contacto.toLowerCase().includes(search.toLowerCase());
+      const matchSearch = p.nombre.toLowerCase().includes(debouncedSearch.toLowerCase()) || p.contacto.toLowerCase().includes(debouncedSearch.toLowerCase());
       const matchCat = filterCat === 'todas' || p.categoria === filterCat;
       return matchSearch && matchCat;
     });

@@ -92,5 +92,18 @@ export const menuService = {
       return false;
     }
     return true;
+  },
+
+  async bulkUpdatePrices(updates: { id: string; precio_venta: number }[]): Promise<boolean> {
+    const supabase = getActiveSupabaseClient();
+    const { error } = await supabase.from('productos_menu').upsert(
+      updates.map(u => ({ id_producto: u.id, precio_venta: u.precio_venta })),
+      { onConflict: 'id_producto' }
+    );
+    if (error) {
+      console.error('Error in bulk price update:', error);
+      throw error;
+    }
+    return true;
   }
 };

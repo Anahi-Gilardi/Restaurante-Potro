@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import { useDebounce } from '../hooks/useDebounce';
 import { Users, Plus, Trash, Edit2, Check, X, Search } from 'lucide-react';
 import { Usuario, EventoLog } from '../types';
 import { usuariosService } from '../services/usuariosService';
@@ -26,10 +27,11 @@ export default function UsuariosModule({ usuarios, onUsuariosChange, addLog }: U
 
   // Delete confirm
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
+  const debouncedSearch = useDebounce(search, 300);
 
-  const filtered = usuarios.filter(u =>
-    `${u.nombre} ${u.apellido}`.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = useMemo(() => usuarios.filter(u =>
+    `${u.nombre} ${u.apellido}`.toLowerCase().includes(debouncedSearch.toLowerCase())
+  ), [usuarios, debouncedSearch]);
 
   const handleCreateUsuario = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { UtensilsCrossed, Plus, Search, Edit2, Check, RefreshCw, Copy, X } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useDebounce } from '../hooks/useDebounce';
+import { UtensilsCrossed, Plus, Search, Edit2, Check, RefreshCw, Copy, X, DollarSign } from 'lucide-react';
+import BulkPriceEditor from './BulkPriceEditor';
 import { ProductoMenu, EventoLog } from '../types';
 import { menuService } from '../services/menuService';
 
@@ -17,7 +19,9 @@ export default function MenuModule({ productosMenu, onProductosChange, addLog }:
   }, [productosMenu]);
 
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
   const [selectedCategoria, setSelectedCategoria] = useState<string>('todos');
+  const [showBulkEditor, setShowBulkEditor] = useState(false);
 
   // Add Item state
   const [nombre, setNombre] = useState('');
@@ -143,14 +147,31 @@ export default function MenuModule({ productosMenu, onProductosChange, addLog }:
   };
 
   // Filter items
-  const filtered = items.filter(item => {
-    const matchesSearch = item.nombre.toLowerCase().includes(search.toLowerCase());
+  const filtered = useMemo(() => items.filter(item => {
+    const matchesSearch = item.nombre.toLowerCase().includes(debouncedSearch.toLowerCase());
     const matchesCat = selectedCategoria === 'todos' || item.categoria === selectedCategoria;
     return matchesSearch && matchesCat;
-  });
+  }), [items, debouncedSearch, selectedCategoria]);
 
   return (
     <div className="space-y-6">
+      {/* Bulk editor toggle */}
+      <div className="flex gap-2">
+        <button onClick={() => setShowBulkEditor(false)}
+          className={`px-4 py-2 text-xs font-extrabold rounded-xl transition-all cursor-pointer border ${
+            !showBulkEditor ? 'bg-[#624A3E] text-white border-[#624A3E]' : 'bg-white text-stone-600 border-stone-200 hover:bg-stone-50'}`}>
+          <UtensilsCrossed className="w-3.5 h-3.5 inline mr-1" /> Catálogo
+        </button>
+        <button onClick={() => setShowBulkEditor(true)}
+          className={`px-4 py-2 text-xs font-extrabold rounded-xl transition-all cursor-pointer border ${
+            showBulkEditor ? 'bg-[#624A3E] text-white border-[#624A3E]' : 'bg-white text-stone-600 border-stone-200 hover:bg-stone-50'}`}>
+          <DollarSign className="w-3.5 h-3.5 inline mr-1" /> Precios Masivos
+        </button>
+      </div>
+
+      {showBulkEditor ? (
+        <BulkPriceEditor items={items} onItemsChange={onProductosChange} addLog={addLog} />
+      ) : (
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         
         {/* Left col: Add new Item */}
@@ -352,6 +373,7 @@ export default function MenuModule({ productosMenu, onProductosChange, addLog }:
         </div>
 
       </div>
+      )}
     </div>
   );
 }

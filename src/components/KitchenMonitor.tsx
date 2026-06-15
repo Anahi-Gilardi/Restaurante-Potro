@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { useDebounce } from '../hooks/useDebounce';
 import { 
   AlertTriangle,
   Flame, 
@@ -52,6 +53,7 @@ export default function KitchenMonitor({
 }: KitchenMonitorProps) {
   const [cancelRequest, setCancelRequest] = useState<CancelRequest | null>(null);
   const [kitchenSearch, setKitchenSearch] = useState('');
+  const debouncedKitchenSearch = useDebounce(kitchenSearch, 300);
   const [showOnlyKitchen, setShowOnlyKitchen] = useState(false);
 
   // Filter active orders inside the kitchen workflow
@@ -63,8 +65,8 @@ export default function KitchenMonitor({
         items: p.items.filter(item => isKitchenItem(item))
       })).filter(p => p.items.length > 0);
     }
-    if (kitchenSearch.trim()) {
-      const q = kitchenSearch.toLowerCase();
+    if (debouncedKitchenSearch.trim()) {
+      const q = debouncedKitchenSearch.toLowerCase();
       filtered = filtered.filter(p =>
         p.numero_mesa.toLowerCase().includes(q) ||
         p.mozo.toLowerCase().includes(q) ||
@@ -72,7 +74,7 @@ export default function KitchenMonitor({
       );
     }
     return filtered;
-  }, [pedidos, kitchenSearch, showOnlyKitchen]);
+  }, [pedidos, debouncedKitchenSearch, showOnlyKitchen]);
 
   // Aggregate Batch Production (Modo Batch)
   const batchProduction = useMemo(() => {
