@@ -1,14 +1,7 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
   "installCommand": "npm ci",
   "buildCommand": "npm run build",
-  "outputDirectory": "dist",
-  "functions": {
-    "api/arca.js": {
-      "runtime": "@vercel/node@4"
-    }
-  },
-  "routes": [
-    { "src": "/api/(.*)", "dest": "/api/arca.js" },
-    { "src": "/(.*)", "dest": "/index.html" }
-  ]
+  "outputDirectory": "dist"
 }
