@@ -11,7 +11,7 @@ export interface Usuario {
     id_usuario: number;
     nombre: string;
     apellido: string;
-    rol: 'mozo' | 'cocina' | 'administrador';
+    rol: 'super_admi' | 'administrador';
     activo?: boolean;
 }
 

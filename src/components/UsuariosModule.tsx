@@ -25,13 +25,13 @@ export default function UsuariosModule({ usuarios, onUsuariosChange, addLog }: U
 
   const [nombre, setNombre] = useState('');
   const [apellido, setApellido] = useState('');
-  const [rol, setRol] = useState<'mozo' | 'cocina' | 'administrador'>('mozo');
+  const [rol, setRol] = useState<'super_admi' | 'administrador'>('administrador');
 
   // Edit state
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editNombre, setEditNombre] = useState('');
   const [editApellido, setEditApellido] = useState('');
-  const [editRol, setEditRol] = useState<'mozo' | 'cocina' | 'administrador'>('mozo');
+  const [editRol, setEditRol] = useState<'super_admi' | 'administrador'>('administrador');
 
   // Delete confirm
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
@@ -117,8 +117,8 @@ export default function UsuariosModule({ usuarios, onUsuariosChange, addLog }: U
     setDeleteConfirm(null);
     const target = usuarios.find(u => u.id_usuario === id);
     if (!target) return;
-    const activeAdmins = usuarios.filter(u => u.rol === 'administrador' && u.activo !== false);
-    if (target.rol === 'administrador' && activeAdmins.length <= 1) {
+    const activeAdmins = usuarios.filter(u => (u.rol === 'super_admi' || u.rol === 'administrador') && u.activo !== false);
+    if ((target.rol === 'super_admi' || target.rol === 'administrador') && activeAdmins.length <= 1) {
       toast.error('No se puede eliminar el último administrador activo.');
       return;
     }
@@ -166,9 +166,8 @@ export default function UsuariosModule({ usuarios, onUsuariosChange, addLog }: U
               <label className="text-[10px] font-black text-stone-500 uppercase tracking-wider block mb-1">Rol Operativo</label>
               <select value={rol} onChange={e => setRol(e.target.value as any)}
                 className="w-full text-xs p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none focus:ring-1 focus:ring-[#624A3E] cursor-pointer font-bold text-stone-700">
-                <option value="mozo">Mozo de Salón</option>
-                <option value="cocina">Chef / Cocinero</option>
-                <option value="administrador">Administrador / Cajero</option>
+                <option value="administrador">Administrador</option>
+                <option value="super_admi">Super Admin</option>
               </select>
             </div>
             <button type="submit"
@@ -193,9 +192,8 @@ export default function UsuariosModule({ usuarios, onUsuariosChange, addLog }: U
             ) : filtered.map(u => {
               let badgeColor = 'bg-stone-100 text-stone-700 border-stone-205';
               let desc = 'Soporte de salón y comandas táctiles';
-              if (u.rol === 'mozo') { badgeColor = 'bg-blue-50 text-blue-800 border-blue-100'; }
-              else if (u.rol === 'cocina') { badgeColor = 'bg-orange-50 text-orange-850 border-orange-100'; desc = 'Control y despacho de comandas en Cocina'; }
-              else if (u.rol === 'administrador') { badgeColor = 'bg-emerald-50 text-emerald-800 border-emerald-100'; desc = 'Facturación, Arqueo de Caja y Escandallos'; }
+              if (u.rol === 'super_admi') { badgeColor = 'bg-purple-50 text-purple-800 border-purple-100'; desc = 'Acceso total al sistema'; }
+              else if (u.rol === 'administrador') { badgeColor = 'bg-emerald-50 text-emerald-800 border-emerald-100'; desc = 'Operaciones del negocio'; }
 
               const isEditing = editingId === u.id_usuario;
 
@@ -210,9 +208,8 @@ export default function UsuariosModule({ usuarios, onUsuariosChange, addLog }: U
                           className="w-full text-xs p-2 rounded-xl border border-stone-200 bg-white focus:outline-none focus:ring-1 focus:ring-[#624A3E]" />
                         <select value={editRol} onChange={e => setEditRol(e.target.value as any)}
                           className="w-full text-xs p-2 rounded-xl border border-stone-200 bg-white focus:outline-none focus:ring-1 focus:ring-[#624A3E]">
-                          <option value="mozo">Mozo</option>
-                          <option value="cocina">Cocina</option>
                           <option value="administrador">Administrador</option>
+                          <option value="super_admi">Super Admin</option>
                         </select>
                         <div className="flex gap-2">
                           <button onClick={() => handleSaveEdit(u.id_usuario)}

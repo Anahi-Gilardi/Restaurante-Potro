@@ -362,7 +362,7 @@ export default function HomeMenuModule({
               >
                 {usuarios.filter(usuario => usuario.activo !== false).map(usuario => (
                   <option key={usuario.id_usuario} value={usuario.nombre}>
-                    {usuario.nombre} ({usuario.rol === 'administrador' ? 'Administrador / Caja' : usuario.rol === 'cocina' ? 'Cocina' : 'Mozo Salón'})
+                    {usuario.nombre} ({usuario.rol === 'super_admi' ? 'Super Admin' : 'Administrador'})
                   </option>
                 ))}
               </select>

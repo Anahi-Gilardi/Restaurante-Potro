@@ -3,7 +3,7 @@ import { z } from 'zod';
 export const usuarioSchema = z.object({
   nombre: z.string().trim().min(2, 'Nombre debe tener al menos 2 caracteres').max(50),
   apellido: z.string().trim().min(2, 'Apellido debe tener al menos 2 caracteres').max(50),
-  rol: z.enum(['mozo', 'cocina', 'administrador']),
+  rol: z.enum(['super_admi', 'administrador']),
 });
 
 export const mesaSchema = z.object({
