@@ -1,22 +1,55 @@
 import React, { useState } from 'react';
 import { 
   Loader2,
-  ArrowRight
+  ArrowRight,
+  User,
+  Lock,
+  AlertCircle
 } from 'lucide-react';
 import ElPatronLogo from './ElPatronLogo';
+import { Usuario } from '../types';
+import { INITIAL_USUARIOS } from '../data/initialData';
 
 interface PythonStreamlitLoginProps {
-  onLoginSuccess: (operatorName?: string) => void;
+  onLoginSuccess: (user: Usuario) => void;
 }
 
 export default function PythonStreamlitLogin({ onLoginSuccess }: PythonStreamlitLoginProps) {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleEnter = () => {
+  const handleLogin = () => {
+    setError('');
+
+    if (!username.trim() || !password.trim()) {
+      setError('Ingresá usuario y contraseña');
+      return;
+    }
+
+    const user = INITIAL_USUARIOS.find(
+      u => u.username === username.trim().toLowerCase() && u.password === password
+    );
+
+    if (!user) {
+      setError('Usuario o contraseña incorrectos');
+      return;
+    }
+
+    if (user.activo === false) {
+      setError('Este usuario está desactivado');
+      return;
+    }
+
     setIsLoggingIn(true);
     setTimeout(() => {
-      onLoginSuccess();
+      onLoginSuccess(user);
     }, 500);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') handleLogin();
   };
 
   return (
@@ -48,9 +81,45 @@ export default function PythonStreamlitLogin({ onLoginSuccess }: PythonStreamlit
             </div>
           </div>
         ) : (
-          <div className="space-y-5 pt-2">
+          <div className="space-y-4 pt-2" onKeyDown={handleKeyDown}>
+            <div className="space-y-1">
+              <label className="text-[11px] uppercase font-bold text-stone-500 tracking-wider">Usuario</label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+                <input
+                  type="text"
+                  value={username}
+                  onChange={e => setUsername(e.target.value)}
+                  placeholder="Ingresá tu usuario"
+                  className="w-full py-3 pl-10 pr-4 bg-stone-50 border border-stone-200 rounded-xl text-sm text-stone-800 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-[#4A2D1B]/20 focus:border-[#4A2D1B] transition-all"
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[11px] uppercase font-bold text-stone-500 tracking-wider">Contraseña</label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+                <input
+                  type="password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder="Ingresá tu contraseña"
+                  className="w-full py-3 pl-10 pr-4 bg-stone-50 border border-stone-200 rounded-xl text-sm text-stone-800 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-[#4A2D1B]/20 focus:border-[#4A2D1B] transition-all"
+                />
+              </div>
+            </div>
+
+            {error && (
+              <div className="flex items-center gap-2 py-2 px-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 font-medium">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                {error}
+              </div>
+            )}
+
             <button
-              onClick={handleEnter}
+              onClick={handleLogin}
               className="w-full py-4 px-4 bg-[#4A2D1B] hover:bg-[#6B4A35] text-white font-extrabold rounded-xl text-sm uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md shadow-[#4A2D1B]/10"
             >
               <span>Acceder al Programa</span>

@@ -1,10 +1,11 @@
 import { Usuario, Mesa, Insumo, ProductoMenu, RecetaEscandallo, Pedido } from '../types';
 
 export const INITIAL_USUARIOS: Usuario[] = [
-  { id_usuario: 1, nombre: 'Enzo', apellido: 'Fernández', rol: 'mozo' },
-  { id_usuario: 2, nombre: 'Micaela', apellido: 'Gómez', rol: 'mozo' },
-  { id_usuario: 3, nombre: 'Damián', apellido: 'Martínez', rol: 'cocina' },
-  { id_usuario: 4, nombre: 'Sofía', apellido: 'Alegre', rol: 'administrador' },
+  { id_usuario: 1, nombre: 'Enzo', apellido: 'Fernández', username: 'enzo', password: '1234', rol: 'mozo' },
+  { id_usuario: 2, nombre: 'Micaela', apellido: 'Gómez', username: 'micaela', password: '1234', rol: 'mozo' },
+  { id_usuario: 3, nombre: 'Damián', apellido: 'Martínez', username: 'damian', password: '1234', rol: 'cocina' },
+  { id_usuario: 4, nombre: 'Sofía', apellido: 'Alegre', username: 'sofia', password: '1234', rol: 'administrador' },
+  { id_usuario: 5, nombre: 'Nuevo', apellido: 'Usuario', username: 'nuevo', password: 'clave', rol: 'mozo' },
 ];
 
 export const INITIAL_MESAS: Mesa[] = [
