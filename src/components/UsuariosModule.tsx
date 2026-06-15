@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useDebounce } from '../hooks/useDebounce';
 import { Users, Plus, Trash, Edit2, Check, X, Search } from 'lucide-react';
 import { Usuario, EventoLog } from '../types';

@@ -385,7 +385,6 @@ export default function App() {
     const chunksToPreload = [
       import('./components/HomeMenuModule'),
       import('./components/PanelDashboard'),
-      import('./components/BottomNavigation'),
     ];
 
     Promise.allSettled(chunksToPreload).finally(() => {
