@@ -80,12 +80,7 @@ export default function App() {
   const [productosMenu, setProductosMenu] = useState<ProductoMenu[]>(INITIAL_PRODUCTOS_MENU);
   const [recetas, setRecetas] = useState<RecetaEscandallo[]>(INITIAL_RECETAS_ESCANDALLO);
   const [pedidos, setPedidos] = useState<Pedido[]>(INITIAL_PEDIDOS);
-  const [mermas, setMermas] = useState<Merma[]>([]);
-  const getSimulatedTimeStr = useCallback(() => {
-    const h = String(Math.floor((minutosGlobal + 720) / 60) % 24).padStart(2, '0');
-    const m = String((minutosGlobal + 720) % 60).padStart(2, '0');
-    return `${h}:${m} hs`;
-  }, [minutosGlobal]);
+ const [mermas, setMermas] = useState<Merma[]>([]);
 
   const [postLoginLoading, setPostLoginLoading] = useState<boolean>(false);
 
@@ -252,8 +247,15 @@ export default function App() {
   }, [applyAuthenticatedSession]);
 
   // Simulation Clock state (operational minutes passed)
-  const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
+const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
   const [autoTimerRunning, setAutoTimerRunning] = useState<boolean>(false);
+
+  // CORRECCIÓN TDZ: getSimulatedTimeStr DEBE estar DESPUÉS de minutosGlobal
+  const getSimulatedTimeStr = useCallback(() => {
+    const h = String(Math.floor((minutosGlobal + 720) / 60) % 24).padStart(2, '0');
+    const m = String((minutosGlobal + 720) % 60).padStart(2, '0');
+    return `${h}:${m} hs`;
+  }, [minutosGlobal]);
 
 
   // --- Handlers for Waiter View (Terminal Mozo) ---
