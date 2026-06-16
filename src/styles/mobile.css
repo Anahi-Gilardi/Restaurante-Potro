@@ -78,7 +78,7 @@
   display: flex;
 }
 
-@media (min-width: 768px) {
+@media (min-width: 1024px) {
   .mobile-bottom-nav {
     display: none;
   }
@@ -89,7 +89,7 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-input, textarea, select, button {
+input, textarea, select {
   font-size: 16px !important; /* Prevents iOS zoom on focus */
 }
 

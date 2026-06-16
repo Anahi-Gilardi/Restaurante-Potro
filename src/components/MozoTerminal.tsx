@@ -295,12 +295,12 @@ export default function MozoTerminal({
 
   return (
     <>
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6" id="mozo-terminal-container">
+    <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-6" id="mozo-terminal-container">
       {/* LEFT COLUMN: Mesa Grid and active waiter selector */}
-      <div className="lg:col-span-4 space-y-6">
+      <div className="min-w-0 space-y-4 lg:col-span-4 lg:space-y-6">
         
         {/* Active Waiter Picker */}
-        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
+        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-100 shadow-sm">
           <div className="flex items-center gap-3 mb-3">
             <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
               <UserCheck className="w-5 h-5" />
@@ -310,7 +310,7 @@ export default function MozoTerminal({
               <h3 className="font-bold text-slate-800 font-sans tracking-tight">Terminal Registrada</h3>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {usuarios.filter(usuario => usuario.activo !== false && usuario.rol !== 'cocina').map(usuario => (
               <button
                 key={usuario.id_usuario}
@@ -328,7 +328,7 @@ export default function MozoTerminal({
         </div>
 
         {/* Mesas Selector Grid */}
-        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
+        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-100 shadow-sm">
           <div className="flex justify-between items-center mb-4">
             <h3 className="font-bold text-slate-800 font-sans tracking-tight flex items-center gap-2">
               <UtensilsCrossed className="w-4 h-4 text-slate-500" />
@@ -339,7 +339,7 @@ export default function MozoTerminal({
             </span>
           </div>
 
-          <div className="grid grid-cols-4 gap-2.5">
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-4">
             {mesas.map(m => {
               const isSelected = m.id_mesa === selectedMesaId;
               const isOcupada = m.estado === 'ocupada';
@@ -478,9 +478,9 @@ export default function MozoTerminal({
       </div>
 
       {/* CENTRAL COLUMN: Product Catalog */}
-      <div className="lg:col-span-5 space-y-4">
+      <div className="min-w-0 lg:col-span-5 space-y-4">
          {/* Search and Filters */}
-        <div className="bg-white rounded-2xl p-4 border border-stone-105 shadow-sm space-y-3">
+        <div className="bg-white rounded-2xl p-3 sm:p-4 border border-stone-105 shadow-sm space-y-3">
           <div className="flex flex-col md:flex-row gap-3 justify-between items-center">
             <h3 className="font-extrabold text-xs text-[#624A3E] tracking-wider uppercase">Filtro de Categorías Premium</h3>
             <div className="relative w-full md:w-56">
@@ -527,7 +527,7 @@ export default function MozoTerminal({
         </div>
 
         {/* Product Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[550px] overflow-y-auto pr-1">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:max-h-[550px] lg:overflow-y-auto lg:pr-1">
           {filteredProducts.map(p => {
             const stockRemaining = getSimulatedStockRemaining(p);
             const isOutOfStock = stockRemaining <= 0;
@@ -668,8 +668,8 @@ export default function MozoTerminal({
       </div>
 
       {/* RIGHT COLUMN: Active Comanda Cart Summary */}
-      <div className="lg:col-span-3">
-        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col h-[520px] sticky top-6">
+      <div className="min-w-0 lg:col-span-3">
+        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-100 shadow-sm flex flex-col min-h-[380px] sm:min-h-[480px] lg:h-[520px] lg:sticky lg:top-6">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <h3 className="font-bold text-slate-800 text-sm font-sans flex items-center gap-2">
               <ShoppingBag className="w-4 h-4 text-slate-500" />
