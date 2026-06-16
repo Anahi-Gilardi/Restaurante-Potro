@@ -69,6 +69,7 @@ export default function MozoTerminal({
   const insumos = propInsumos ?? ctxInventario.insumos;
   const pedidos = propPedidos ?? ctxPedidos.pedidos;
   const mesas = propMesas ?? ctxSalon.mesas;
+  const usuarios = propUsuarios;
   const activeMozo = propActiveMozo ?? ctxSalon.activeMozo;
   const onMozoChange = propOnMozoChange ?? ctxSalon.setActiveMozo;
   const onCrearPedido = propOnCrearPedido ?? ctxPedidos.handleCrearPedido;
