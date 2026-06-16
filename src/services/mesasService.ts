@@ -1,6 +1,15 @@
 import { getActiveSupabaseClient } from '../lib/supabaseClient';
 import { Mesa } from '../types';
 
+const toDbMesa = (mesa: Mesa | Partial<Mesa>) => {
+  const dbMesa: Record<string, string | number | null> = {};
+  if (mesa.id_mesa !== undefined) dbMesa.id_mesa = mesa.id_mesa;
+  if (mesa.numero_mesa !== undefined) dbMesa.numero_mesa = mesa.numero_mesa;
+  if (mesa.estado !== undefined) dbMesa.estado = mesa.estado;
+  if ('comensales' in mesa) dbMesa.comensales = mesa.comensales ?? null;
+  return dbMesa;
+};
+
 export const mesasService = {
   async list(): Promise<Mesa[]> {
     const supabase = getActiveSupabaseClient();
@@ -24,7 +33,7 @@ export const mesasService = {
 
   async create(mesa: Mesa): Promise<Mesa> {
     const supabase = getActiveSupabaseClient();
-    const { data, error } = await supabase.from('mesas').insert([mesa]).select().single();
+    const { data, error } = await supabase.from('mesas').insert([toDbMesa(mesa)]).select().single();
     if (error) {
       console.error('Error creating mesa:', error);
       throw error;
@@ -34,7 +43,7 @@ export const mesasService = {
 
   async update(id: number, mesa: Partial<Mesa>): Promise<Mesa> {
     const supabase = getActiveSupabaseClient();
-    const { data, error } = await supabase.from('mesas').update(mesa).eq('id_mesa', id).select().single();
+    const { data, error } = await supabase.from('mesas').update(toDbMesa(mesa)).eq('id_mesa', id).select().single();
     if (error) {
       console.error('Error updating mesa:', error);
       throw error;
@@ -44,12 +53,7 @@ export const mesasService = {
 
   async upsert(mesas: Mesa[]): Promise<Mesa[]> {
     const supabase = getActiveSupabaseClient();
-    const mapped = mesas.map(m => ({
-      id_mesa: m.id_mesa,
-      numero_mesa: m.numero_mesa,
-      estado: m.estado,
-      comensales: m.comensales || null
-    }));
+    const mapped = mesas.map(toDbMesa);
     const { data, error } = await supabase.from('mesas').upsert(mapped).select();
     if (error) {
       console.error('Error upserting mesas:', error);

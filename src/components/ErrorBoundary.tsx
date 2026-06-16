@@ -28,34 +28,34 @@ export default class ErrorBoundary extends React.Component<Props, State> {
   render(): ReactNode {
     if (this.state.hasError) {
       return (
-        <div style={{
-          margin: '24px', padding: '24px',
-          background: '#fef2f2', border: '1px solid #fecaca',
-          borderRadius: '16px', textAlign: 'center'
-        }}>
-          <p style={{ fontSize: '2rem', margin: '0 0 8px' }}>⚠️</p>
-          <h2 style={{ color: '#b91c1c', fontWeight: 900, margin: '0 0 12px' }}>
-            Error en: {this.props.moduleName?.toUpperCase() ?? 'MÓDULO'}
+        <section
+          role="alert"
+          className="m-6 rounded-3xl border border-rose-200 bg-rose-50 p-6 text-center shadow-sm"
+        >
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-2xl shadow-sm">
+            !
+          </div>
+          <h2 className="mb-2 text-base font-black text-rose-900">
+            No se pudo cargar este módulo
           </h2>
-          <pre style={{
-            color: '#ef4444', fontSize: '0.75rem', background: '#fee2e2',
-            padding: '12px', borderRadius: '8px',
-            textAlign: 'left', whiteSpace: 'pre-wrap', margin: '0 0 12px'
-          }}>
-            {this.state.error?.message ?? 'Error desconocido'}
-          </pre>
+          <p className="mx-auto mb-4 max-w-xl text-sm leading-relaxed text-rose-800/85">
+            Vuelva a intentarlo. Si el problema continúa, informe el módulo
+            {this.props.moduleName ? ` "${this.props.moduleName}"` : ''} al equipo de soporte.
+          </p>
+          <details className="mx-auto mb-4 max-w-xl rounded-2xl bg-white/70 p-3 text-left text-xs text-rose-700">
+            <summary className="cursor-pointer font-bold text-rose-900">Detalle técnico</summary>
+            <pre className="mt-2 whitespace-pre-wrap break-words">
+              {this.state.error?.message ?? 'Error desconocido'}
+            </pre>
+          </details>
           <button
             type="button"
             onClick={() => this.setState({ hasError: false, error: null })}
-            style={{
-              padding: '8px 20px', background: '#dc2626',
-              color: 'white', border: 'none', borderRadius: '10px',
-              fontWeight: 700, cursor: 'pointer'
-            }}
+            className="rounded-xl bg-rose-700 px-5 py-2 text-sm font-black text-white shadow-sm transition-colors hover:bg-rose-800 focus-visible-ring"
           >
-            Reintentar módulo
+            Reintentar
           </button>
-        </div>
+        </section>
       );
     }
     return this.props.children;

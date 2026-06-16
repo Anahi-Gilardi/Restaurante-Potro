@@ -10,7 +10,7 @@ export const INITIAL_USUARIOS: Usuario[] = [
 export const INITIAL_MESAS: Mesa[] = [
   { id_mesa: 1, numero_mesa: 'Mesa 1', estado: 'libre' },
   { id_mesa: 2, numero_mesa: 'Mesa 2', estado: 'ocupada', comensales: 2 },
-  { id_mesa: 3, numero_mesa: 'Mesa 3', estado: 'libre' },
+  { id_mesa: 3, numero_mesa: 'Mesa 3', estado: 'reservada', reserva_cliente: 'Gisela Scaglia', reserva_hora: '21:00' },
   { id_mesa: 4, numero_mesa: 'Mesa 4', estado: 'ocupada', comensales: 3 },
   { id_mesa: 5, numero_mesa: 'Mesa 5', estado: 'libre' },
   { id_mesa: 6, numero_mesa: 'Mesa 6', estado: 'libre' },

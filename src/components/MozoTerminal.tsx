@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import { 
   Users, 
   Plus, 
@@ -9,15 +10,23 @@ import {
   Bookmark, 
   Search, 
   Sparkles, 
-  Coffee, 
-  Pizza, 
   UtensilsCrossed, 
   Wine, 
-  DollarSign, 
   Receipt,
-  UserCheck
+  UserCheck,
+  MoreVertical,
+  Loader2,
+  Power,
+  Unlock,
+  FileText,
+  X
 } from 'lucide-react';
 import { Mesa, Insumo, ProductoMenu, RecetaEscandallo, Pedido, PedidoItem, Usuario } from '../types';
+import { useMozoMesasRealtime } from '../hooks/useMozoMesasRealtime';
+import { useMozoTerminal } from '../hooks/useMozoTerminal';
+import { normalizeRole } from '../lib/permissions';
+import { menuService } from '../services/menuService';
+import { mesasService } from '../services/mesasService';
 import { useToast, ToastContainer } from './ToastContainer';
 
 interface MozoTerminalProps {
@@ -28,7 +37,7 @@ interface MozoTerminalProps {
   usuarios: Usuario[];
   activeMozo: string;
   onMozoChange: (mozo: string) => void;
-  onCrearPedido: (pedido: Omit<Pedido, 'id_pedido' | 'fecha_hora' | 'minutos_transcurridos' | 'origen'> & { origen?: 'Mozo' }) => void;
+  onCrearPedido: (pedido: Omit<Pedido, 'id_pedido' | 'fecha_hora' | 'minutos_transcurridos' | 'origen'> & { origen?: 'Mozo'; comensales?: number }) => void | Promise<void>;
   pedidos: Pedido[];
   onFacturarMesa: (idPedido: number) => void;
   addLog: (tipo: 'pedido_creado' | 'descuento_stock' | 'alerta_stock' | 'comanda_estado' | 'sistema', mensaje: string) => void;
@@ -50,204 +59,129 @@ export default function MozoTerminal({
   permitirVentaSinStock = false
 }: MozoTerminalProps) {
   const { toast, toasts, removeToast } = useToast();
-  // Waiter selections
-  const [selectedMesaId, setSelectedMesaId] = useState<number | null>(null);
-  const [comensales, setComensales] = useState<number>(2);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategoria, setSelectedCategoria] = useState<string>('todo');
-  
-  // Current order cart
-  const [cart, setCart] = useState<{ [id_producto: string]: number }>({});
-  const [observaciones, setObservaciones] = useState('');
+  const [liveMesas, setLiveMesas] = useMozoMesasRealtime(mesas);
+  const [openProductSettingsId, setOpenProductSettingsId] = useState<string | null>(null);
+  const [productOverrides, setProductOverrides] = useState<Record<string, { precio_venta?: number; paused?: boolean }>>({});
+  const [reservedSheetMesa, setReservedSheetMesa] = useState<Mesa | null>(null);
+  const [releaseLoadingMesaId, setReleaseLoadingMesaId] = useState<number | null>(null);
 
   // Bill splitting state
   const [splittingPedidoId, setSplittingPedidoId] = useState<number | null>(null);
   const [splitCount, setSplitCount] = useState<number>(2);
   const [splitItemsChecked, setSplitItemsChecked] = useState<{ [itemIdx: number]: boolean }>({});
 
-  const selectedMesa = useMemo(() => {
-    return mesas.find(m => m.id_mesa === selectedMesaId) || null;
-  }, [selectedMesaId, mesas]);
+  const canEditProducts = useMemo(() => {
+    return usuarios.some(usuario => usuario.nombre === activeMozo && normalizeRole(usuario.rol) === 'administrador');
+  }, [activeMozo, usuarios]);
 
-  // Find active order of the selected table if any (to split or pay)
-  const activePedidoDeMesa = useMemo(() => {
-    if (!selectedMesaId) return null;
-    return pedidos.find(p => p.id_mesa === selectedMesaId && p.estado_comanda !== 'entregado_cobrado') || null;
-  }, [selectedMesaId, pedidos]);
-
-  // Filter products by category and search
-  const filteredProducts = useMemo(() => {
-    return productosMenu.filter(p => {
-      const matchCat = selectedCategoria === 'todo' || p.categoria === selectedCategoria;
-      const matchSearch = p.nombre.toLowerCase().includes(searchQuery.toLowerCase());
-      return p.activo && matchCat && matchSearch;
-    });
-  }, [productosMenu, selectedCategoria, searchQuery]);
-
-  // Helper: check how much of an insumo would be required by the current cart
-  const calculateCartInsumoRequirements = (tempCart: { [id_producto: string]: number }) => {
-    const requirements: { [id_insumo: string]: number } = {};
-    
-    Object.keys(tempCart).forEach(prodId => {
-      const qty = tempCart[prodId];
-      if (qty <= 0) return;
-      
-      // Find recipes
-      const productRecipes = recetas.filter(r => r.id_producto === prodId);
-      productRecipes.forEach(rec => {
-        if (!requirements[rec.id_insumo]) {
-          requirements[rec.id_insumo] = 0;
-        }
-        requirements[rec.id_insumo] += rec.cantidad_a_descontar * qty;
-      });
-    });
-
-    return requirements;
-  };
-
-  // Helper: evaluate if adding 1 unit of a product breaches current stock
-  const evaluateStockAdd = (productoId: string): { allowed: boolean; warning?: string; isCritical: boolean } => {
-    const nextCart = { ...cart, [productoId]: (cart[productoId] || 0) + 1 };
-    const requirements = calculateCartInsumoRequirements(nextCart);
-
-    for (const [insumoId, reqAmount] of Object.entries(requirements)) {
-      const insumo = insumos.find(i => i.id_insumo === insumoId);
-      if (!insumo) continue;
-
-      if (insumo.stock_actual < reqAmount) {
-        if (permitirVentaSinStock) {
-          return { 
-            allowed: true, 
-            isCritical: false, 
-            warning: `[FORZADO] Stock insuficiente de: "${insumo.nombre}" (Faltante: ${(reqAmount - insumo.stock_actual).toFixed(2)}${insumo.unidad_medida}).` 
-          };
-        } else {
-          return { 
-            allowed: false, 
-            isCritical: true, 
-            warning: `¡BLOQUEADO! Sin material suficiente de: "${insumo.nombre}". Se requiere ${reqAmount}${insumo.unidad_medida} y el stock actual es de ${insumo.stock_actual}${insumo.unidad_medida}.` 
-          };
-        }
-      }
-
-      if (insumo.stock_actual - reqAmount <= insumo.stock_minimo) {
-        return { 
-          allowed: true, 
-          isCritical: false, 
-          warning: `Existencia cercana al Stock Mínimo de Seguridad para "${insumo.nombre}" (${insumo.stock_actual}${insumo.unidad_medida} disponibles).` 
-        };
-      }
-    }
-
-    return { allowed: true, isCritical: false };
-  };
-
-  // Quick check of remaining simulated capacity for UI tags
-  const getSimulatedStockRemaining = (prod: ProductoMenu) => {
-    // Find recipes associated to this product
-    const productRecipes = recetas.filter(r => r.id_producto === prod.id_producto);
-    let maxPlatesSimulated = 999;
-
-    productRecipes.forEach(rec => {
-      const insumo = insumos.find(i => i.id_insumo === rec.id_insumo);
-      if (insumo) {
-        const remainingForThis = Math.floor(insumo.stock_actual / rec.cantidad_a_descontar);
-        if (remainingForThis < maxPlatesSimulated) {
-          maxPlatesSimulated = remainingForThis;
-        }
-      }
-    });
-
-    return maxPlatesSimulated === 999 ? 0 : maxPlatesSimulated;
-  };
-
-  // Cart operations
-  const handleAddToCart = (productoId: string) => {
-    if (!selectedMesaId) {
-      toast.error("Por favor seleccione primero una mesa.");
-      return;
-    }
-    const evalResult = evaluateStockAdd(productoId);
-    if (!evalResult.allowed) {
-      addLog('alerta_stock', `Cancelado intento de pedido: ${evalResult.warning}`);
-      return;
-    }
-    
-    setCart(prev => ({
-      ...prev,
-      [productoId]: (prev[productoId] || 0) + 1
-    }));
-  };
-
-  const handleRemoveFromCart = (productoId: string) => {
-    setCart(prev => {
-      const updated = { ...prev };
-      if (updated[productoId] > 1) {
-        updated[productoId] -= 1;
-      } else {
-        delete updated[productoId];
-      }
-      return updated;
-    });
-  };
-
-  const checkoutCart = () => {
-    if (!selectedMesaId) return;
-    if (Object.keys(cart).length === 0) return;
-
-    // Double check stock at moment of checkout
-    const requirements = calculateCartInsumoRequirements(cart);
-    for (const [insumoId, reqAmount] of Object.entries(requirements)) {
-      const insumo = insumos.find(i => i.id_insumo === insumoId);
-      if (insumo && insumo.stock_actual < reqAmount && !permitirVentaSinStock) {
-        toast.error(`No es posible procesar la orden. Se agotó un insumo clave: ${insumo.nombre}`);
-        return;
-      }
-    }
-
-    // Build items list
-    const items: PedidoItem[] = Object.entries(cart).map(([prodId, qty]) => {
-      const p = productosMenu.find(item => item.id_producto === prodId)!;
+  const effectiveProducts = useMemo(() => {
+    return productosMenu.map(producto => {
+      const override = productOverrides[producto.id_producto];
       return {
-        id_producto: prodId,
-        nombre: p.nombre,
-        cantidad: Number(qty),
-        categoria: p.categoria,
-        precio_unitario: p.precio_venta
+        ...producto,
+        precio_venta: override?.precio_venta ?? producto.precio_venta,
       };
     });
+  }, [productOverrides, productosMenu]);
 
-    onCrearPedido({
-      id_mesa: selectedMesaId,
-      numero_mesa: selectedMesa ? selectedMesa.numero_mesa : `Mesa ${selectedMesaId}`,
-      mozo: activeMozo,
-      estado_comanda: 'pendiente',
-      items,
-      observaciones: observaciones.trim() || undefined,
+  const {
+    selectedMesaId,
+    setSelectedMesaId,
+    comensales,
+    setComensales,
+    searchQuery,
+    setSearchQuery,
+    selectedCategoria,
+    setSelectedCategoria,
+    cart,
+    observaciones,
+    setObservaciones,
+    selectedMesa,
+    activePedidoDeMesa,
+    filteredProducts,
+    getSimulatedStockRemaining,
+    addToCart,
+    removeFromCart,
+    clearCart,
+    checkoutCart,
+    totalCartValue,
+    isSubmitting,
+    canAddQuantity,
+  } = useMozoTerminal({
+    mesas: liveMesas,
+    insumos,
+    productosMenu: effectiveProducts,
+    recetas,
+    pedidos,
+    activeMozo,
+    permitirVentaSinStock,
+    toast,
+    addLog,
+    onCrearPedido,
+  });
+
+  const persistProductPrice = (productoId: string, precioVenta: number) => {
+    if (!Number.isFinite(precioVenta) || precioVenta < 0) return;
+    void menuService.update(productoId, { precio_venta: precioVenta }).catch(() => {
+      toast.warning('El precio quedó aplicado en esta sesión, pero no pudo sincronizarse con Supabase.');
     });
-
-    // Reset layout
-    setCart({});
-    setObservaciones('');
-    addLog('pedido_creado', `Mozo ${activeMozo} inyectó pedido para ${selectedMesa?.numero_mesa} con ${items.length} platos.`);
   };
 
-  // Calculating totals
-  const totalCartValue = useMemo(() => {
-    return Object.entries(cart).reduce((total, [prodId, qty]) => {
-      const p = productosMenu.find(item => item.id_producto === prodId);
-      return total + (p ? p.precio_venta * Number(qty) : 0);
-    }, 0);
-  }, [cart, productosMenu]);
+  const toggleProductAvailability = (producto: ProductoMenu, paused: boolean) => {
+    setProductOverrides(prev => ({
+      ...prev,
+      [producto.id_producto]: {
+        ...prev[producto.id_producto],
+        paused,
+      },
+    }));
+
+    void menuService.update(producto.id_producto, { activo: !paused }).catch(() => {
+      toast.warning('La disponibilidad cambió localmente, pero no pudo sincronizarse.');
+    });
+  };
+
+  const handleReleaseMesa = async (mesa: Mesa) => {
+    if (releaseLoadingMesaId !== null) return;
+
+    const previousMesas = liveMesas;
+    const releasedMesa: Mesa = {
+      ...mesa,
+      estado: 'libre',
+      comensales: undefined,
+      reserva_cliente: undefined,
+      reserva_hora: undefined,
+      ocupada_desde: undefined,
+    };
+
+    setReleaseLoadingMesaId(mesa.id_mesa);
+    setLiveMesas(prev => prev.map(item => (item.id_mesa === mesa.id_mesa ? releasedMesa : item)));
+    setSelectedMesaId(mesa.id_mesa);
+    setReservedSheetMesa(null);
+
+    try {
+      // La tabla actual usa id_mesa y no tiene reserva_id; este update evita enviar columnas inexistentes.
+      await mesasService.update(mesa.id_mesa, { estado: 'libre', comensales: undefined });
+      toast.success(`${mesa.numero_mesa} quedó libre para comandar.`, 2600);
+      addLog('sistema', `MESAS: ${mesa.numero_mesa} liberada desde Terminal de Mozos. Reserva removida.`);
+    } catch (error) {
+      setLiveMesas(previousMesas);
+      setSelectedMesaId(null);
+      toast.error('No se pudo liberar la mesa. Se restauró la reserva para evitar inconsistencias.');
+      addLog('sistema', `ERROR MESAS: No se pudo liberar ${mesa.numero_mesa}: ${error instanceof Error ? error.message : 'error desconocido'}`);
+    } finally {
+      setReleaseLoadingMesaId(null);
+    }
+  };
 
   return (
     <>
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6" id="mozo-terminal-container">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:h-[calc(100vh-2rem)] lg:overflow-hidden" id="mozo-terminal-container">
       {/* LEFT COLUMN: Mesa Grid and active waiter selector */}
-      <div className="lg:col-span-4 space-y-6">
+      <div className="lg:col-span-3 space-y-4 lg:overflow-y-auto min-h-0 pr-1">
         
         {/* Active Waiter Picker */}
-        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
+        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
           <div className="flex items-center gap-3 mb-3">
             <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
               <UserCheck className="w-5 h-5" />
@@ -258,7 +192,7 @@ export default function MozoTerminal({
             </div>
           </div>
           <div className="grid grid-cols-3 gap-2">
-            {usuarios.filter(usuario => usuario.activo !== false && usuario.rol !== 'cocina').map(usuario => (
+            {usuarios.filter(usuario => usuario.activo !== false && normalizeRole(usuario.rol) !== 'cocina').map(usuario => (
               <button
                 key={usuario.id_usuario}
                 onClick={() => onMozoChange(usuario.nombre)}
@@ -275,23 +209,24 @@ export default function MozoTerminal({
         </div>
 
         {/* Mesas Selector Grid */}
-        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
+        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
           <div className="flex justify-between items-center mb-4">
             <h3 className="font-bold text-slate-800 font-sans tracking-tight flex items-center gap-2">
               <UtensilsCrossed className="w-4 h-4 text-slate-500" />
               Distribución de Mesas
             </h3>
             <span className="text-[11px] font-mono bg-slate-50 text-slate-500 px-2 py-0.5 rounded">
-              {mesas.filter(m => m.estado === 'ocupada').length} Ocupadas
+              {liveMesas.filter(m => m.estado === 'ocupada').length} Ocupadas
             </span>
           </div>
 
           <div className="grid grid-cols-4 gap-2.5">
-            {mesas.map(m => {
+            {liveMesas.map(m => {
               const isSelected = m.id_mesa === selectedMesaId;
               const isOcupada = m.estado === 'ocupada';
               const isInCuenta = m.estado === 'esperando_cuenta';
-              const isReservada = m.id_mesa === 3; // Mesa 3 is reserved for dinner per instructions
+              const isReservada = m.estado === 'reservada';
+              const isReleasing = releaseLoadingMesaId === m.id_mesa;
 
               // Determine visual theme according to exact state specs
               let stateClasses = "border-stone-200 bg-white hover:bg-stone-50 text-stone-700";
@@ -312,18 +247,56 @@ export default function MozoTerminal({
               }
 
               return (
-                <button
+                <div
                   key={m.id_mesa}
                   id={`mesa-btn-${m.id_mesa}`}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => {
+                    if (isReservada) {
+                      setReservedSheetMesa(m);
+                      return;
+                    }
                     setSelectedMesaId(m.id_mesa);
                     // Prepopulate comensales if occupied
                     if (m.estado === 'ocupada' && m.comensales) {
                       setComensales(m.comensales);
                     }
                   }}
-                  className={`p-2.5 rounded-xl flex flex-col justify-between items-center transition-all aspect-square border cursor-pointer ${stateClasses}`}
+                  onKeyDown={(event) => {
+                    if (event.key !== 'Enter' && event.key !== ' ') return;
+                    event.preventDefault();
+                    if (isReservada) {
+                      setReservedSheetMesa(m);
+                      return;
+                    }
+                    setSelectedMesaId(m.id_mesa);
+                    if (m.estado === 'ocupada' && m.comensales) {
+                      setComensales(m.comensales);
+                    }
+                  }}
+                  className={`p-2.5 rounded-xl flex flex-col justify-between items-center transition-all aspect-square border cursor-pointer relative active:scale-95 ${stateClasses} ${isReleasing ? 'opacity-70 pointer-events-none' : ''}`}
                 >
+                  {isReleasing && (
+                    <span className="absolute inset-0 rounded-xl bg-white/60 backdrop-blur-[1px] flex items-center justify-center">
+                      <Loader2 className="w-4 h-4 animate-spin text-[#624A3E]" />
+                    </span>
+                  )}
+                  {m.estado !== 'libre' && (
+                    <button
+                      type="button"
+                      disabled={isReleasing}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        void handleReleaseMesa(m);
+                      }}
+                      className="absolute right-1.5 top-1.5 z-10 flex h-6 w-6 items-center justify-center rounded-full border border-white/80 bg-white/95 text-emerald-700 shadow-sm transition hover:bg-emerald-50 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+                      title={`Liberar ${m.numero_mesa}`}
+                      aria-label={`Liberar ${m.numero_mesa}`}
+                    >
+                      {isReleasing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Unlock className="h-3 w-3" />}
+                    </button>
+                  )}
                   <span className="text-xs font-black font-sans">{m.numero_mesa}</span>
                   {isOcupada ? (
                     <div className="flex items-center gap-0.5 mt-2">
@@ -332,10 +305,14 @@ export default function MozoTerminal({
                     </div>
                   ) : isInCuenta ? (
                     <span className="text-[8px] uppercase tracking-wider font-extrabold text-[#c47f1a]">Salar</span>
+                  ) : isReservada ? (
+                    <span className={`text-[8px] uppercase tracking-wider font-extrabold ${isSelected ? 'text-white/70' : 'text-[#6d3f9e]'}`}>
+                      Gestionar
+                    </span>
                   ) : (
                     <span className={`text-[8px] uppercase tracking-wider font-semibold opacity-80 ${isSelected ? 'text-white/60' : ''}`}>{labelText}</span>
                   )}
-                </button>
+                </div>
               );
             })}
           </div>
@@ -371,6 +348,22 @@ export default function MozoTerminal({
                 )}
               </div>
 
+              {selectedMesa.estado !== 'libre' && (
+                <button
+                  type="button"
+                  disabled={releaseLoadingMesaId === selectedMesa.id_mesa}
+                  onClick={() => void handleReleaseMesa(selectedMesa)}
+                  className="w-full rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700 transition-all hover:bg-emerald-100 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 flex items-center justify-center gap-2"
+                >
+                  {releaseLoadingMesaId === selectedMesa.id_mesa ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Unlock className="h-3.5 w-3.5" />
+                  )}
+                  Liberar mesa ahora
+                </button>
+              )}
+
               {/* ACTIVE ORDER CONTROLS (IF TABLE OCCUPIED) */}
               {activePedidoDeMesa ? (
                 <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
@@ -392,7 +385,7 @@ export default function MozoTerminal({
                       <div key={idx} className="flex justify-between text-xs text-slate-600">
                         <span>{it.cantidad}x {it.nombre}</span>
                         <span className="font-mono text-slate-400 font-medium">
-                          ${(productosMenu.find(p => p.id_producto === it.id_producto)?.precio_venta || 0).toLocaleString('es-AR')}
+                          ${(effectiveProducts.find(p => p.id_producto === it.id_producto)?.precio_venta || 0).toLocaleString('es-AR')}
                         </span>
                       </div>
                     ))}
@@ -425,9 +418,9 @@ export default function MozoTerminal({
       </div>
 
       {/* CENTRAL COLUMN: Product Catalog */}
-      <div className="lg:col-span-5 space-y-4">
+      <div className="lg:col-span-6 bg-white/40 rounded-2xl p-4 overflow-y-auto min-h-0 space-y-4 border border-white/60 shadow-sm">
          {/* Search and Filters */}
-        <div className="bg-white rounded-2xl p-4 border border-stone-105 shadow-sm space-y-3">
+        <div className="bg-white/90 rounded-2xl p-4 border border-stone-100 shadow-sm space-y-3">
           <div className="flex flex-col md:flex-row gap-3 justify-between items-center">
             <h3 className="font-extrabold text-xs text-[#624A3E] tracking-wider uppercase">Filtro de Categorías Premium</h3>
             <div className="relative w-full md:w-56">
@@ -470,20 +463,21 @@ export default function MozoTerminal({
         </div>
 
         {/* Product Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[550px] overflow-y-auto pr-1">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pr-1">
           {filteredProducts.map(p => {
             const stockRemaining = getSimulatedStockRemaining(p);
-            const isOutOfStock = stockRemaining <= 0;
-            const isLowStock = stockRemaining > 0 && stockRemaining <= 3;
+            const isPaused = productOverrides[p.id_producto]?.paused === true;
+            const isOutOfStock = isPaused || stockRemaining <= 0;
+            const isLowStock = !isPaused && stockRemaining > 0 && stockRemaining <= 3;
             const currentInCart = cart[p.id_producto] || 0;
 
             return (
               <div
                 key={p.id_producto}
-                onClick={() => !isOutOfStock && handleAddToCart(p.id_producto)}
+                onClick={() => !isOutOfStock && !isSubmitting && addToCart(p.id_producto, 1)}
                 className={`group cursor-pointer rounded-2xl bg-white border overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 relative ${
                   isOutOfStock 
-                    ? 'opacity-60 border-rose-100 pointer-events-none bg-stone-50' 
+                    ? 'opacity-70 border-rose-100 bg-stone-50'
                     : currentInCart > 0 
                       ? 'border-[#624A3E] bg-[#F5F1E9]/40 ring-1 ring-[#624A3E]/20' 
                       : 'border-stone-200/80 hover:-translate-y-1'
@@ -508,6 +502,20 @@ export default function MozoTerminal({
                     )}
                   </div>
 
+                  {canEditProducts && (
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setOpenProductSettingsId(openProductSettingsId === p.id_producto ? null : p.id_producto);
+                      }}
+                      className="absolute left-2 bottom-2 w-8 h-8 rounded-xl bg-white/95 text-stone-700 border border-stone-200 shadow-sm backdrop-blur hover:bg-stone-50 active:scale-95 transition-all flex items-center justify-center"
+                      aria-label={`Configurar ${p.nombre}`}
+                    >
+                      <MoreVertical className="w-4 h-4" />
+                    </button>
+                  )}
+
                   {/* Stock Tag Alert */}
                   {isOutOfStock ? (
                     <div className="absolute inset-0 bg-red-950/60 flex items-center justify-center text-center p-2">
@@ -529,6 +537,54 @@ export default function MozoTerminal({
                       </span>
                     </div>
                   )}
+                  <AnimatePresence>
+                    {canEditProducts && openProductSettingsId === p.id_producto && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.96, y: -6 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.96, y: -6 }}
+                        transition={{ duration: 0.16, ease: 'easeOut' }}
+                        onClick={(event) => event.stopPropagation()}
+                        className="absolute right-2 top-12 z-20 w-56 rounded-2xl border border-stone-200 bg-white p-3 shadow-xl shadow-stone-900/15"
+                      >
+                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-stone-400">Ajuste rápido</p>
+                        <label className="mt-3 block text-[11px] font-bold text-stone-600">
+                          Precio de venta
+                          <input
+                            type="number"
+                            min={0}
+                            step={100}
+                            value={p.precio_venta}
+                            onChange={(event) => {
+                              const nextPrice = Number(event.target.value);
+                              setProductOverrides(prev => ({
+                                ...prev,
+                                [p.id_producto]: {
+                                  ...prev[p.id_producto],
+                                  precio_venta: Number.isFinite(nextPrice) ? nextPrice : 0,
+                                },
+                              }));
+                            }}
+                            onBlur={(event) => persistProductPrice(p.id_producto, Number(event.target.value))}
+                            className="mt-1 w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-sm font-black text-stone-900 outline-none transition focus:border-[#624A3E] focus:ring-2 focus:ring-[#624A3E]/20"
+                          />
+                        </label>
+
+                        <button
+                          type="button"
+                          onClick={() => toggleProductAvailability(p, !isPaused)}
+                          className={`mt-3 flex w-full items-center justify-between rounded-xl border px-3 py-2 text-xs font-black transition-all active:scale-95 ${
+                            isPaused
+                              ? 'border-rose-200 bg-rose-50 text-rose-700'
+                              : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                          }`}
+                        >
+                          <span>{isPaused ? 'Sin stock pausado' : 'Disponible para venta'}</span>
+                          <Power className="w-4 h-4" />
+                        </button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
 
                 {/* Content */}
@@ -553,13 +609,29 @@ export default function MozoTerminal({
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (!isOutOfStock) handleAddToCart(p.id_producto);
+                      if (!isOutOfStock && !isSubmitting) addToCart(p.id_producto, 1);
                     }}
-                    className="w-8 h-8 rounded-full bg-[#624A3E] text-white hover:bg-[#503C32] active:scale-90 transition-all duration-150 flex items-center justify-center font-bold shadow-md shadow-[#624A3E]/20 cursor-pointer border border-amber-950/10 shrink-0"
+                    disabled={isSubmitting || isOutOfStock || !canAddQuantity(p.id_producto, 1)}
+                    className="w-8 h-8 rounded-full bg-[#624A3E] text-white hover:bg-[#503C32] active:scale-95 transition-all duration-150 flex items-center justify-center font-bold shadow-md shadow-[#624A3E]/20 cursor-pointer border border-amber-950/10 shrink-0 disabled:cursor-not-allowed disabled:bg-stone-300 disabled:text-stone-500 disabled:shadow-none"
                     title="Añadir a comanda"
                   >
                     <Plus className="w-4 h-4" />
                   </button>
+                  {[2, 3].map(quantity => (
+                    <button
+                      key={quantity}
+                      type="button"
+                      disabled={isSubmitting || isOutOfStock || !canAddQuantity(p.id_producto, quantity)}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        addToCart(p.id_producto, quantity);
+                      }}
+                      className="h-8 min-w-8 rounded-full border border-[#624A3E]/20 bg-[#624A3E]/10 px-2 text-[11px] font-black text-[#624A3E] transition-all hover:bg-[#624A3E] hover:text-white active:scale-95 disabled:cursor-not-allowed disabled:border-stone-200 disabled:bg-stone-100 disabled:text-stone-400"
+                      title={`Añadir ${quantity} unidades`}
+                    >
+                      +{quantity}
+                    </button>
+                  ))}
                 </div>
               </div>
             );
@@ -568,8 +640,8 @@ export default function MozoTerminal({
       </div>
 
       {/* RIGHT COLUMN: Active Comanda Cart Summary */}
-      <div className="lg:col-span-3">
-        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col h-[520px] sticky top-6">
+      <div className="lg:col-span-3 min-h-0">
+        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col lg:h-full min-h-[520px] lg:min-h-0 sticky top-6">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <h3 className="font-bold text-slate-800 text-sm font-sans flex items-center gap-2">
               <ShoppingBag className="w-4 h-4 text-slate-500" />
@@ -607,7 +679,7 @@ export default function MozoTerminal({
               {/* CART ITEMS LIST */}
               <div className="flex-1 overflow-y-auto py-3 space-y-2 pr-1">
                 {Object.entries(cart).map(([prodId, qty]) => {
-                  const p = productosMenu.find(item => item.id_producto === prodId)!;
+                  const p = effectiveProducts.find(item => item.id_producto === prodId)!;
                   return (
                     <div key={prodId} className="flex justify-between items-center text-xs bg-slate-50 p-2 rounded-xl border border-slate-100 hover:border-slate-200 transition-colors">
                       <div className="flex-1 pr-1 font-sans">
@@ -617,15 +689,17 @@ export default function MozoTerminal({
                       
                       <div className="flex items-center gap-1.5">
                         <button
-                          onClick={() => handleRemoveFromCart(prodId)}
-                          className="w-5 h-5 bg-white hover:bg-slate-100 rounded border border-slate-200 flex items-center justify-center text-slate-600 transition-colors"
+                          disabled={isSubmitting}
+                          onClick={() => removeFromCart(prodId)}
+                          className="w-5 h-5 bg-white hover:bg-slate-100 rounded border border-slate-200 flex items-center justify-center text-slate-600 transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           <Minus className="w-3 h-3" />
                         </button>
                         <span className="font-mono text-xs font-bold w-4 text-center">{qty}</span>
                         <button
-                          onClick={() => handleAddToCart(prodId)}
-                          className="w-5 h-5 bg-white hover:bg-slate-100 rounded border border-slate-200 flex items-center justify-center text-slate-600 transition-colors"
+                          disabled={isSubmitting || !canAddQuantity(prodId, 1)}
+                          onClick={() => addToCart(prodId, 1)}
+                          className="w-5 h-5 bg-white hover:bg-slate-100 rounded border border-slate-200 flex items-center justify-center text-slate-600 transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           <Plus className="w-3 h-3" />
                         </button>
@@ -659,10 +733,20 @@ export default function MozoTerminal({
                 </div>
 
                 <button
-                  onClick={checkoutCart}
-                  className="w-full py-2.5 px-4 bg-[#624A3E] hover:bg-[#503C32] active:scale-95 text-white rounded-xl text-xs font-black flex items-center justify-center gap-2 shadow-md shadow-[#624A3E]/20 transition-all duration-100 cursor-pointer border border-amber-950/10"
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={clearCart}
+                  className="w-full py-2 px-4 bg-rose-50 hover:bg-rose-100 active:scale-95 text-rose-700 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all duration-100 cursor-pointer border border-rose-100 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                  Vaciar Carrito
+                </button>
+
+                <button
+                  onClick={checkoutCart}
+                  disabled={isSubmitting || Object.keys(cart).length === 0}
+                  className="w-full py-2.5 px-4 bg-[#624A3E] hover:bg-[#503C32] active:scale-95 text-white rounded-xl text-xs font-black flex items-center justify-center gap-2 shadow-md shadow-[#624A3E]/20 transition-all duration-100 cursor-pointer border border-amber-950/10 disabled:cursor-not-allowed disabled:bg-stone-300 disabled:shadow-none"
+                >
+                  {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin text-white" /> : <Sparkles className="w-3.5 h-3.5 text-amber-300" />}
                   Enviar a Cocina (Nuevo Pedido) 🚀
                 </button>
               </div>
@@ -701,7 +785,7 @@ export default function MozoTerminal({
               if (!p) return null;
 
               const orderTotal = p.items.reduce((sum, item) => {
-                const prod = productosMenu.find(pr => pr.id_producto === item.id_producto);
+                const prod = effectiveProducts.find(pr => pr.id_producto === item.id_producto);
                 return sum + (prod ? prod.precio_venta * item.cantidad : 0);
               }, 0);
 
@@ -709,7 +793,7 @@ export default function MozoTerminal({
               const expandedItemsList: { item: PedidoItem; index: number; singlePrice: number }[] = [];
               let curIdx = 0;
               p.items.forEach(it => {
-                const prod = productosMenu.find(pr => pr.id_producto === it.id_producto);
+                const prod = effectiveProducts.find(pr => pr.id_producto === it.id_producto);
                 const sPrice = prod ? prod.precio_venta : 0;
                 for (let i = 0; i < it.cantidad; i++) {
                   expandedItemsList.push({ item: it, index: curIdx++, singlePrice: sPrice });
@@ -846,6 +930,87 @@ export default function MozoTerminal({
         </div>
       )}
     </div>
+    <AnimatePresence>
+      {reservedSheetMesa && (
+        <motion.div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/45 p-3 backdrop-blur-sm"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={() => setReservedSheetMesa(null)}
+        >
+          <motion.div
+            initial={{ y: 28, opacity: 0, scale: 0.98 }}
+            animate={{ y: 0, opacity: 1, scale: 1 }}
+            exit={{ y: 28, opacity: 0, scale: 0.98 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+            onClick={(event) => event.stopPropagation()}
+            className="w-full max-w-md rounded-3xl border border-white/70 bg-white p-5 shadow-2xl shadow-slate-950/25"
+          >
+            <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-stone-200" />
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <span className="inline-flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-violet-700">
+                  Reservada
+                </span>
+                <h3 className="mt-2 text-lg font-black text-stone-950">{reservedSheetMesa.numero_mesa}</h3>
+                <p className="text-xs text-stone-500">
+                  Esta mesa tiene una reserva activa. Liberala para comandar de inmediato.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setReservedSheetMesa(null)}
+                className="rounded-full border border-stone-200 bg-stone-50 p-2 text-stone-500 transition hover:bg-stone-100 active:scale-95"
+                aria-label="Cerrar opciones de reserva"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-stone-100 bg-stone-50 p-4">
+              <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-stone-500">
+                <FileText className="h-4 w-4 text-violet-500" />
+                Ver Observaciones
+              </div>
+              <dl className="mt-3 grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <dt className="font-bold text-stone-400">Cliente</dt>
+                  <dd className="mt-0.5 font-black text-stone-800">{reservedSheetMesa.reserva_cliente || 'Sin cliente cargado'}</dd>
+                </div>
+                <div>
+                  <dt className="font-bold text-stone-400">Horario</dt>
+                  <dd className="mt-0.5 font-black text-stone-800">{reservedSheetMesa.reserva_hora || 'Sin hora'}</dd>
+                </div>
+              </dl>
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 gap-2">
+              <button
+                type="button"
+                disabled={releaseLoadingMesaId === reservedSheetMesa.id_mesa}
+                onClick={() => void handleReleaseMesa(reservedSheetMesa)}
+                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#624A3E] px-4 py-3 text-sm font-black text-white shadow-lg shadow-[#624A3E]/20 transition hover:bg-[#503C32] active:scale-95 disabled:cursor-not-allowed disabled:bg-stone-300 disabled:shadow-none"
+              >
+                {releaseLoadingMesaId === reservedSheetMesa.id_mesa ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Unlock className="h-4 w-4" />
+                )}
+                Liberar Mesa / Quitar Reserva
+              </button>
+              <button
+                type="button"
+                onClick={() => setReservedSheetMesa(null)}
+                className="rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-black text-stone-600 transition hover:bg-stone-50 active:scale-95"
+              >
+                Mantener Reserva
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
     <ToastContainer toasts={toasts} removeToast={removeToast} />
     </>
   );

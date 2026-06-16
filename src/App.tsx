@@ -4,13 +4,6 @@
  */
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { 
-  User,
-  Clock,
-  RefreshCw,
-  ShieldAlert,
-  LogOut
-} from 'lucide-react';
 
 import { Mesa, Insumo, ProductoMenu, RecetaEscandallo, Pedido, Merma, EventoLog, Reserva, Usuario } from './types';
 import { 
@@ -33,7 +26,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { useToast, ToastContainer } from './components/ToastContainer';
 import SistemaModule from './components/SistemaModule';
 import PythonStreamlitLogin from './components/PythonStreamlitLogin';
-import ElPatronLogo from './components/ElPatronLogo';
+import AppSidebar from './components/AppSidebar';
 import PanelDashboard from './components/PanelDashboard';
 import UsuariosModule from './components/UsuariosModule';
 import MenuModule from './components/MenuModule';
@@ -60,13 +53,24 @@ import {
   dbUpsertMermas,
   dbRecordMovement
 } from './supabase';
-import { AppView, canAccessView, getAllowedViews } from './lib/permissions';
+import { AppView, canAccessView, getAllowedViews, normalizeRole } from './lib/permissions';
+import { APP_VIEW_META } from './lib/viewMeta';
+
+const SESSION_STATUS_KEY = 'el_patron_session';
+const SESSION_USER_KEY = 'el_patron_session_user';
+const DEFAULT_ADMIN_NAME = INITIAL_USUARIOS.find(usuario => usuario.rol === 'administrador')?.nombre
+  || INITIAL_USUARIOS[0].nombre;
 
 export default function App() {
   const { toast, toasts, removeToast } = useToast();
   // --- Global Synced States ---
   const [isStreamlitLoggedIn, setIsStreamlitLoggedIn] = useState<boolean>(() => (
-    typeof window !== 'undefined' && window.sessionStorage.getItem('el_patron_session') === 'active'
+    typeof window !== 'undefined' && window.sessionStorage.getItem(SESSION_STATUS_KEY) === 'active'
+  ));
+  const [sessionOwnerName, setSessionOwnerName] = useState<string>(() => (
+    typeof window !== 'undefined'
+      ? window.sessionStorage.getItem(SESSION_USER_KEY) || DEFAULT_ADMIN_NAME
+      : DEFAULT_ADMIN_NAME
   ));
   const [permitirVentaSinStock, setPermitirVentaSinStock] = useState<boolean>(false);
   const [usuarios, setUsuarios] = useState<Usuario[]>(INITIAL_USUARIOS);
@@ -193,7 +197,11 @@ export default function App() {
   // Custom interactive log tracker for BI & audit
 
   // Terminal active configs & simulation states
-  const [activeMozo, setActiveMozo] = useState<string>('Sofía');
+  const [activeMozo, setActiveMozo] = useState<string>(() => (
+    typeof window !== 'undefined'
+      ? window.sessionStorage.getItem(SESSION_USER_KEY) || DEFAULT_ADMIN_NAME
+      : DEFAULT_ADMIN_NAME
+  ));
   const [activeView, setActiveView] = useState<AppView>('home');
   const activeUser = useMemo(
     () => usuarios.find(usuario => usuario.nombre === activeMozo && usuario.activo !== false)
@@ -201,6 +209,14 @@ export default function App() {
       || INITIAL_USUARIOS[0],
     [usuarios, activeMozo]
   );
+  const sessionUser = useMemo(
+    () => usuarios.find(usuario => (
+      usuario.nombre === sessionOwnerName && usuario.activo !== false
+    )) || usuarios.find(usuario => usuario.activo !== false && usuario.rol === 'administrador')
+      || activeUser,
+    [usuarios, sessionOwnerName, activeUser]
+  );
+  const canManageOperators = normalizeRole(sessionUser.rol) === 'administrador';
   const allowedViews = useMemo(() => getAllowedViews(activeUser.rol), [activeUser.rol]);
 
   const applyAuthenticatedSession = useCallback((session: {
@@ -208,6 +224,7 @@ export default function App() {
   }) => {
     const metadata = session.user?.user_metadata;
     const requestedName = metadata?.nombre || metadata?.name;
+    const requestedRole = metadata?.rol || metadata?.role;
     const operator = (
       typeof requestedName === 'string'
         ? usuarios.find(usuario => (
@@ -215,11 +232,20 @@ export default function App() {
             && usuario.nombre.toLowerCase() === requestedName.trim().toLowerCase()
           ))
         : undefined
+    ) || (
+      typeof requestedRole === 'string'
+        ? usuarios.find(usuario => (
+            usuario.activo !== false && usuario.rol === requestedRole
+          ))
+        : undefined
     ) || usuarios.find(usuario => usuario.activo !== false && usuario.rol === 'mozo')
       || usuarios.find(usuario => usuario.activo !== false && usuario.rol !== 'administrador')
       || usuarios.find(usuario => usuario.activo !== false);
 
     if (operator) {
+      window.sessionStorage.setItem(SESSION_STATUS_KEY, 'active');
+      window.sessionStorage.setItem(SESSION_USER_KEY, operator.nombre);
+      setSessionOwnerName(operator.nombre);
       setActiveMozo(operator.nombre);
       setActiveView('home');
       setIsStreamlitLoggedIn(true);
@@ -245,7 +271,10 @@ export default function App() {
 
 
   // --- Handlers for Waiter View (Terminal Mozo) ---
-  const handleCrearPedido = useCallback((newPedidoData: Omit<Pedido, 'id_pedido' | 'fecha_hora' | 'minutos_transcurridos' | 'origen'> & { origen?: 'Mozo'; comensales?: number }) => {
+  const handleCrearPedido = useCallback(async (newPedidoData: Omit<Pedido, 'id_pedido' | 'fecha_hora' | 'minutos_transcurridos' | 'origen'> & { origen?: 'Mozo'; comensales?: number }) => {
+    const previousPedidos = pedidos;
+    const previousMesas = mesas;
+    const previousInsumos = insumos;
     const newId = Math.max(1000, ...pedidos.map(p => p.id_pedido)) + 1;
     let itemsDescontados: string[] = [];
     let alarmasBajoStock: string[] = [];
@@ -317,13 +346,21 @@ export default function App() {
       addLog('alerta_stock', `CONTROL REPOSICIÓN: El insumo '${nom}' ha caído por debajo del stock de seguridad.`);
     });
 
-    // Sync state mutations to Supabase in background
-    dbSavePedidoComplex(newPedido);
-    dbUpsertMesas(updatedMesas);
-
-    if (stockDescontado) {
-      stockMovements.forEach(movement => dbRecordMovement(movement).catch(console.error));
-      dbUpsertInsumos(updatedInsumos);
+    try {
+      await Promise.all([
+        dbSavePedidoComplex(newPedido),
+        dbUpsertMesas(updatedMesas),
+        ...(stockDescontado ? [
+          dbUpsertInsumos(updatedInsumos),
+          ...stockMovements.map(movement => dbRecordMovement(movement))
+        ] : [])
+      ]);
+    } catch (error) {
+      setPedidos(previousPedidos);
+      setMesas(previousMesas);
+      setInsumos(previousInsumos);
+      addLog('sistema', `ROLLBACK: No se pudo sincronizar el pedido #${newId}. Se restauró la comanda local.`);
+      throw error;
     }
   }, [pedidos, insumos, recetas, addLog, mesas, permitirVentaSinStock, setMesas, setInsumos, setPedidos]);
 
@@ -368,15 +405,21 @@ export default function App() {
       toast.error('No hay usuarios activos disponibles para iniciar sesión.');
       return;
     }
-    window.sessionStorage.setItem('el_patron_session', 'active');
+    window.sessionStorage.setItem(SESSION_STATUS_KEY, 'active');
+    window.sessionStorage.setItem(SESSION_USER_KEY, operator.nombre);
+    setSessionOwnerName(operator.nombre);
     setActiveMozo(operator.nombre);
     setActiveView('home');
     setIsStreamlitLoggedIn(true);
   };
 
   const handleLogout = () => {
-    window.sessionStorage.removeItem('el_patron_session');
+    window.sessionStorage.removeItem(SESSION_STATUS_KEY);
+    window.sessionStorage.removeItem(SESSION_USER_KEY);
     getSupabaseClient()?.auth.signOut().catch(() => undefined);
+    setSessionOwnerName(DEFAULT_ADMIN_NAME);
+    setActiveMozo(DEFAULT_ADMIN_NAME);
+    setActiveView('home');
     setIsStreamlitLoggedIn(false);
   };
 
@@ -824,193 +867,35 @@ export default function App() {
   };
 
   if (!isStreamlitLoggedIn) {
-    return <PythonStreamlitLogin onLoginSuccess={handleLoginSuccess} />;
+    return <PythonStreamlitLogin onLoginSuccess={handleLoginSuccess} localUsers={usuarios} />;
   }
+
+  const activeViewMeta = APP_VIEW_META[activeView];
 
   return (
     <>
     <div className="min-h-screen bg-[#F5F1E9] flex flex-col lg:flex-row font-sans text-slate-800 antialiased selection:bg-[#624A3E] selection:text-white">
       
-      {/* LEFT SIDE PANEL (PERSISTENT SIDEBAR) */}
-      <aside className="w-full lg:w-80 bg-[#1E1E1E] text-[#E2E8F0] flex flex-col border-b lg:border-b-0 lg:border-r border-stone-850 shrink-0 z-40" id="sidebar-left-panel">
-        
-        {/* Brand Header */}
-        <div className="p-5 border-b border-stone-800 flex items-center justify-between bg-black/20">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-[#FAF4EE] rounded-xl flex items-center justify-center shadow-md border border-stone-850 p-0.5 overflow-hidden shrink-0">
-              <ElPatronLogo className="w-11 h-11 object-contain rounded-lg" variant="icon" color="#4A2D1B" />
-            </div>
-            <div className="min-w-0">
-              <span className="font-sans font-extrabold text-base text-white tracking-tight block">El Patrón</span>
-              <span className="text-[9px] uppercase font-bold text-[#FAF4EE]/70 tracking-wider block mt-0.5 leading-none">Gestión Gastronómica Pro</span>
-            </div>
-          </div>
-          <span className="bg-[#4A2D1B]/35 text-amber-200 text-[8px] border border-stone-800 px-1.5 py-1 rounded font-bold font-mono shrink-0">
-            v1.2.0
-          </span>
-        </div>
-
-        {/* Real-time System Simulation Clock widget */}
-        <div className="p-4 bg-stone-950/40 border-b border-stone-800 space-y-2.5">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase font-bold text-stone-400 tracking-wider flex items-center gap-1.5 font-mono">
-              <Clock className="w-3.5 h-3.5 text-amber-550" style={{ color: '#F59E0B' }} />
-              Reloj del Restaurante
-            </span>
-            <span className={`h-2 w-2 rounded-full ${autoTimerRunning ? 'bg-emerald-500 animate-pulse' : 'bg-amber-550'}`} style={{ backgroundColor: autoTimerRunning ? '#22C55E' : '#F59E0B' }} />
-          </div>
-
-          <div className="flex items-center justify-between bg-[#151515] border border-stone-800 p-2.5 rounded-xl">
-            <div>
-              <span className="text-[9px] text-stone-550 font-bold block leading-none text-stone-500">HORA DE SERVICIO</span>
-              <strong className="text-lg font-black text-white font-mono tracking-tight">{getSimulatedTimeStr()}</strong>
-            </div>
-
-            <div className="flex items-center gap-1">
-              <button
-                onClick={handleToggleAutoTimer}
-                title={autoTimerRunning ? 'Pausar Simulación Automática' : 'Iniciar Simulación en Tiempo Real'}
-                className={`p-1.5 rounded-lg transition-all cursor-pointer ${
-                  autoTimerRunning 
-                    ? 'bg-amber-900/60 text-amber-300 border border-amber-500/30 hover:bg-amber-800' 
-                    : 'bg-emerald-950 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-900'
-                }`}
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${autoTimerRunning ? 'animate-spin' : ''}`} />
-              </button>
-              
-              <button
-                onClick={() => handleAdvanceTime(15)}
-                title="Adelantar +15 Minutos"
-                className="p-1 px-1.5 rounded-lg bg-stone-800 text-stone-300 hover:text-white border border-stone-700 hover:bg-stone-700 text-[10px] font-bold cursor-pointer transition-all"
-              >
-                +15m
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Business Rule: Venta sin stock */}
-        {activeUser.rol === 'administrador' && (
-        <div className="p-4 bg-stone-950/30 border-b border-stone-800 space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase font-bold text-stone-400 tracking-wider flex items-center gap-1.5 font-mono">
-              <ShieldAlert className="w-3.5 h-3.5 text-[#F97316]" />
-              Fórmula sin Stock
-            </span>
-            <span className="text-[10px] text-stone-500 font-bold font-mono">RESTRICCIÓN</span>
-          </div>
-          <label className="flex items-center justify-between bg-[#151515] border border-stone-800 p-2.5 rounded-xl cursor-pointer hover:bg-[#252525] transition-all select-none">
-            <div className="min-w-0 pr-2">
-              <span className="text-[9px] text-stone-500 font-bold block leading-none">VENTA PARMITIDA</span>
-              <span className="text-xs font-semibold text-white tracking-tight truncate block mt-0.5">
-                {permitirVentaSinStock ? 'Forzar Ventas Habilitada' : 'Bloquear sin ingred.'}
-              </span>
-            </div>
-            <input
-              type="checkbox"
-              checked={permitirVentaSinStock}
-              onChange={(e) => {
-                setPermitirVentaSinStock(e.target.checked);
-                addLog('sistema', `REGLA DE NEGOCIO: Venta forzada sin stock ${e.target.checked ? 'HABILITADA (se admiten negativos)' : 'DESHABILITADA (bloqueo automático)'}`);
-              }}
-              className="rounded border-stone-700 text-[#624A3E] focus:ring-[#624A3E] w-4 h-4 bg-stone-800 cursor-pointer"
-            />
-          </label>
-        </div>
-        )}
-
-        {/* Interactive Personnel login manager */}
-        <div className="p-4 border-b border-stone-800 bg-stone-950/20">
-          <div className="flex items-center gap-3 bg-stone-900/90 border border-stone-800 p-3 rounded-xl">
-            <div className="w-8 h-8 rounded-full bg-stone-800 border border-stone-750 flex items-center justify-center text-stone-305">
-              <User className="w-4 h-4 text-stone-400" />
-            </div>
-            <div className="flex-1 text-left min-w-0">
-              <span className="text-[9px] text-stone-500 block font-bold leading-none uppercase">Usuario en Consola</span>
-              {activeUser.rol === 'administrador' ? (
-                <select
-                  value={activeMozo}
-                  onChange={(e) => handleMozoChange(e.target.value)}
-                  className="text-xs bg-transparent border-none p-0 focus:outline-none font-extrabold text-white cursor-pointer w-full mt-0.5 focus:ring-0"
-                >
-                  {usuarios.filter(usuario => usuario.activo !== false).map(usuario => (
-                    <option key={usuario.id_usuario} value={usuario.nombre} className="bg-stone-950 text-stone-200">
-                      {usuario.nombre} ({usuario.rol})
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <span className="text-xs font-extrabold text-white mt-0.5 block">
-                  {activeUser.nombre} ({activeUser.rol})
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Multi-role Navigation Panels */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          <div className="space-y-1">
-            <span className="text-[10px] font-black text-stone-500 tracking-wider uppercase pl-2 mb-2 block">Módulos del Sistema</span>
-            
-            <nav className="space-y-2" id="sidebar-navigation">
-              {[
-                { id: 'home', label: 'Menú Principal 🍽️' },
-                { id: 'panel', label: 'Panel General' },
-                { id: 'mozo', label: 'Mozo / Salón' },
-                { id: 'cocina', label: 'Cocina' },
-                { id: 'caja', label: 'Caja' },
-                { id: 'reportes', label: 'Reportes / BI' },
-                { id: 'usuarios', label: 'Usuarios' },
-                { id: 'menu', label: 'Menú' },
-                { id: 'recetas', label: 'Recetas / Escandallos' },
-                { id: 'mesas', label: 'Mesas' },
-                { id: 'inventario', label: 'Inventario' },
-                { id: 'proveedores', label: 'Proveedores' },
-                { id: 'promociones', label: 'Promociones' },
-                { id: 'reservas', label: 'Reservas' },
-                { id: 'facturacion', label: 'Facturación' },
-                { id: 'sistema', label: 'Sistema' },
-                { id: 'backups', label: 'Backups' }
-              ].filter(item => allowedViews.includes(item.id as AppView)).map(item => {
-                const isActive = activeView === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    id={`tab-${item.id}`}
-                    onClick={() => handleNavigate(item.id as AppView)}
-                    className={`w-full py-3.5 text-center text-xs font-black rounded-lg tracking-wider border block transition-all cursor-pointer ${
-                      isActive
-                        ? 'bg-[#4D3227] text-white border-stone-800/10 font-bold shadow-md shadow-black/20'
-                        : 'bg-[#181816]/75 hover:bg-[#25231F] text-stone-300 hover:text-white border-stone-850/60'
-                    }`}
-                  >
-                    {item.label}
-                  </button>
-                );
-              })}
-            </nav>
-          </div>
-        </div>
-
-        {/* Integration Specs footer */}
-        <div className="p-4 bg-stone-950 text-stone-400 text-[10px] border-t border-stone-800 space-y-1">
-          <div className="flex items-center gap-1.5 text-stone-300 font-bold font-mono">
-            <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-ping" />
-            SQLite + Supabase Bridge
-          </div>
-          <p className="opacity-75">Sesión local conectada de forma segura.</p>
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="mt-2 w-full flex items-center justify-center gap-1.5 rounded-lg border border-stone-800 px-2 py-1.5 text-stone-400 hover:bg-stone-900 hover:text-white transition-colors"
-          >
-            <LogOut className="w-3 h-3" />
-            Cerrar sesión
-          </button>
-        </div>
-      </aside>
+      <AppSidebar
+        activeView={activeView}
+        activeUser={activeUser}
+        activeMozo={activeMozo}
+        allowedViews={allowedViews}
+        autoTimerRunning={autoTimerRunning}
+        canManageOperators={canManageOperators}
+        permitirVentaSinStock={permitirVentaSinStock}
+        usuarios={usuarios}
+        getSimulatedTimeStr={getSimulatedTimeStr}
+        onAdvanceTime={handleAdvanceTime}
+        onLogout={handleLogout}
+        onMozoChange={handleMozoChange}
+        onNavigate={handleNavigate}
+        onStockRuleChange={(enabled) => {
+          setPermitirVentaSinStock(enabled);
+          addLog('sistema', `REGLA DE NEGOCIO: Venta forzada sin stock ${enabled ? 'habilitada' : 'deshabilitada'}.`);
+        }}
+        onToggleAutoTimer={handleToggleAutoTimer}
+      />
 
       {/* CORE ACTIVE MODULE AREA (RIGHT SIDE CONTENT PANE) */}
       <main className="flex-1 flex flex-col min-w-0 bg-[#F5F1E9]">
@@ -1018,50 +903,18 @@ export default function App() {
         {/* TOP STATUS BAR ACCENTS */}
         <div className="bg-[#F5F1E9] border-b border-stone-200/80 px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
           <div>
-            <h1 className="text-xl font-extrabold text-[#624A3E] capitalize tracking-tight flex items-center gap-2">
-              {activeView === 'home' && <>🍽️ Menú Principal & Centro Operativo</>}
-              {activeView === 'panel' && <>📊 Panel de Control y Resumen de Turno</>}
-              {activeView === 'mozo' && <>📱 Terminal Interactiva de Mozos</>}
-              {activeView === 'cocina' && <>🍳 Cocina</>}
-              {activeView === 'caja' && <>💵 Control de Caja y Cierres</>}
-              {activeView === 'reportes' && <>📈 Analíticas de Desempeño & BI</>}
-              {activeView === 'usuarios' && <>👥 Personal y Usuarios de Turno</>}
-              {activeView === 'menu' && <>📖 Menú y Carta Gastronómica</>}
-              {activeView === 'recetas' && <>⚖️ Control de Escandallos y Recetas</>}
-              {activeView === 'mesas' && <>🪑 Distribución de Mesas en Salón</>}
-              {activeView === 'inventario' && <>📦 Gestión de Insumos & Recetas</>}
-              {activeView === 'proveedores' && <>🚚 Proveedores e Integraciones</>}
-              {activeView === 'promociones' && <>🏷️ Campañas de Promociones</>}
-              {activeView === 'reservas' && <>📅 Agenda de Reservas de Hoy</>}
-              {activeView === 'facturacion' && <>🧾 Archivo Tributario de Facturas</>}
-              {activeView === 'sistema' && <>💻 Consola de Configuración General</>}
-              {activeView === 'backups' && <>🗄️ Copias de Seguridad (Backup)</>}
+            <h1 className="text-xl font-extrabold text-[#624A3E] tracking-tight flex items-center gap-2">
+              {activeViewMeta.title}
             </h1>
             <p className="text-xs text-stone-500 mt-0.5">
-              {activeView === 'home' && 'Bienvenido a El Patrón Pro. Ingrese rápidamente a cualquier sección o terminal.'}
-              {activeView === 'panel' && 'Métricas macro, alertas críticas y bitácora operativa en tiempo real.'}
-              {activeView === 'mozo' && 'Gestión táctil de ocupación de salón, comensales y envío asíncrono de comandas a cocina.'}
-              {activeView === 'cocina' && 'Recepción en tiempo real, alertas de preparación con temporizador y descuento automático por receta.'}
-              {activeView === 'caja' && 'Facturación completa, control de medios de pago, registros fiscales e historial impreso.'}
-              {activeView === 'reportes' && 'Visualizadores gráficos para toma de decisiones, facturación acumulada e historial.'}
-              {activeView === 'usuarios' && 'Roles, perfiles del personal y trazabilidad en el salón.'}
-              {activeView === 'menu' && 'Configuración de oferta comercial, precios públicos y estatus en carta.'}
-              {activeView === 'recetas' && 'Asociación de ingredientes crudos y cálculo automático de rendimiento y márgenes.'}
-              {activeView === 'mesas' && 'Visualización interactiva, asignación de mesas y control de capacidad.'}
-              {activeView === 'inventario' && 'Análisis pormenorizado de stock actual, recetas, mermas cargadas y reposiciones.'}
-              {activeView === 'proveedores' && 'Contactos comerciales, plazos de entrega y reabastecimiento programado.'}
-              {activeView === 'promociones' && 'Incentivos de ventas, descuentos happy hour y combos especiales.'}
-              {activeView === 'reservas' && 'Planificación de visitas, comensales reservados y asignación de mesas.'}
-              {activeView === 'facturacion' && 'Historial de facturas comprobantes de venta, control de IVA y notas de crédito.'}
-              {activeView === 'sistema' && 'Estatus de base de datos Postgres/Supabase, variables de entorno y copias de seguridad.'}
-              {activeView === 'backups' && 'Respaldo íntegro de la base de datos, descargas JSON y restauración de checkpoints.'}
+              {activeViewMeta.description}
             </p>
           </div>
 
           <div className="flex items-center gap-3">
             <span className="text-xs text-slate-600 bg-white border border-stone-200 px-2.5 py-1 rounded-xl font-medium flex items-center gap-1.5 shadow-sm">
               <span className="h-2 w-2 rounded-full bg-[#22C55E]" />
-              Sesión: Damián & Sofia (Activos)
+              Sesión: {sessionUser.nombre} · Operador: {activeUser.nombre}
             </span>
           </div>
         </div>
@@ -1080,7 +933,7 @@ export default function App() {
                 productosMenu={productosMenu}
                 usuarios={usuarios}
                 allowedViews={allowedViews}
-                canChangeUser={activeUser.rol === 'administrador'}
+                canChangeUser={canManageOperators}
                 activeMozo={activeMozo}
                 onMozoChange={handleMozoChange}
                 onNavigate={(view: AppView) => handleNavigate(view)}
@@ -1118,7 +971,7 @@ export default function App() {
                 insumos={insumos}
                 productosMenu={productosMenu}
                 recetas={recetas}
-                usuarios={activeUser.rol === 'administrador' ? usuarios : [activeUser]}
+                usuarios={canManageOperators ? usuarios : [activeUser]}
                 activeMozo={activeMozo}
                 onMozoChange={handleMozoChange}
                 onCrearPedido={handleCrearPedido}

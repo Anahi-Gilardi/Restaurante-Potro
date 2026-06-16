@@ -1,20 +1,21 @@
 import React, { useState } from 'react';
 import { 
-  KeyRound, 
   Lock, 
   User, 
   Loader2,
-  Database,
   ArrowRight
 } from 'lucide-react';
 import ElPatronLogo from './ElPatronLogo';
 import { getSupabaseClient } from '../supabase';
+import { resolveLocalLoginUser } from '../lib/auth';
+import type { Usuario } from '../types';
 
 interface PythonStreamlitLoginProps {
   onLoginSuccess: (operatorName?: string) => void;
+  localUsers: Usuario[];
 }
 
-export default function PythonStreamlitLogin({ onLoginSuccess }: PythonStreamlitLoginProps) {
+export default function PythonStreamlitLogin({ onLoginSuccess, localUsers }: PythonStreamlitLoginProps) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -31,16 +32,18 @@ export default function PythonStreamlitLogin({ onLoginSuccess }: PythonStreamlit
     setError(null);
     setInfo(null);
 
-    if (username.includes('@')) {
+    const normalizedUsername = username.trim();
+
+    if (normalizedUsername.includes('@')) {
       const client = getSupabaseClient();
       if (!client) {
-        setError('Supabase Auth no está configurado para este entorno.');
+        setError('El acceso por email no está configurado en este entorno. Use un usuario local o revise la conexión de Supabase.');
         return;
       }
 
       setIsLoggingIn(true);
       const { data, error: authError } = await client.auth.signInWithPassword({
-        email: username.trim(),
+        email: normalizedUsername,
         password
       });
       if (!authError) {
@@ -50,28 +53,29 @@ export default function PythonStreamlitLogin({ onLoginSuccess }: PythonStreamlit
         return;
       }
       setIsLoggingIn(false);
-      setError('Email o contraseña incorrectos.');
+      setError('No pudimos validar ese email y contraseña. Revise los datos o use el acceso local del restaurante.');
       return;
     }
 
-    if (demoEnabled && username.toLowerCase() === demoUser.toLowerCase() && password === demoPassword) {
+    const localOperator = resolveLocalLoginUser(normalizedUsername, demoUser, localUsers);
+    if (demoEnabled && localOperator && password === demoPassword) {
       setIsLoggingIn(true);
       setTimeout(() => {
-        onLoginSuccess();
+        onLoginSuccess(localOperator.nombre);
       }, 700);
     } else {
-      setError('Credenciales de acceso inválidas. Compruebe los datos e intente nuevamente.');
+      setError('Credenciales inválidas. Revise el usuario, el email o la contraseña e intente nuevamente.');
     }
   };
 
   const handlePasswordRecovery = async () => {
-    if (!username.includes('@')) {
+    if (!username.trim().includes('@')) {
       setError('Ingrese primero el email de su cuenta.');
       return;
     }
     const client = getSupabaseClient();
     if (!client) {
-      setError('Supabase Auth no está configurado para este entorno.');
+      setError('La recuperación por email no está disponible porque Supabase Auth no está configurado.');
       return;
     }
 
@@ -80,10 +84,10 @@ export default function PythonStreamlitLogin({ onLoginSuccess }: PythonStreamlit
       redirectTo: window.location.origin
     });
     if (recoveryError) {
-      setError('No se pudo iniciar la recuperación de contraseña.');
+      setError('No se pudo iniciar la recuperación. Revise el email o intente nuevamente en unos minutos.');
       return;
     }
-    setInfo('Revisá tu email para continuar con la recuperación.');
+    setInfo('Revise su email para continuar con la recuperación.');
   };
 
   return (
@@ -136,34 +140,38 @@ export default function PythonStreamlitLogin({ onLoginSuccess }: PythonStreamlit
             {/* Input fields */}
             <div className="space-y-4">
               <div className="space-y-1.5">
-                <label className="block text-[10px] font-bold text-stone-500 uppercase tracking-widest">
-                  Usuario de Turno
+                <label htmlFor="login-username" className="block text-[10px] font-bold text-stone-500 uppercase tracking-widest">
+                  Usuario o Email
                 </label>
                 <div className="relative">
                   <User className="absolute left-3.5 top-3 w-4 h-4 text-stone-400" />
                   <input
+                    id="login-username"
                     type="text"
                     required
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    placeholder="Ej. sistema"
+                    placeholder="Ej. Sofía o correo@empresa.com"
+                    aria-invalid={Boolean(error)}
                     className="w-full pl-10 pr-4 py-2.5 text-sm border border-stone-200 focus:border-[#4A2D1B] focus:ring-1 focus:ring-[#4A2D1B] rounded-xl bg-stone-50/50 focus:outline-none transition-all placeholder:text-stone-300 font-sans font-medium"
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-[10px] font-bold text-stone-500 uppercase tracking-widest">
-                  Contraseña de Seguridad
+                <label htmlFor="login-password" className="block text-[10px] font-bold text-stone-500 uppercase tracking-widest">
+                  Contraseña
                 </label>
                 <div className="relative">
                   <Lock className="absolute left-3.5 top-3 w-4 h-4 text-stone-400" />
                   <input
+                    id="login-password"
                     type="password"
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
+                    aria-invalid={Boolean(error)}
                     className="w-full pl-10 pr-4 py-2.5 text-sm border border-stone-200 focus:border-[#4A2D1B] focus:ring-1 focus:ring-[#4A2D1B] rounded-xl bg-stone-50/50 focus:outline-none transition-all placeholder:text-stone-300 font-sans"
                   />
                 </div>
@@ -194,7 +202,7 @@ export default function PythonStreamlitLogin({ onLoginSuccess }: PythonStreamlit
         {demoEnabled && (
           <div className="border-t border-stone-150 pt-5 text-center">
             <p className="text-[10px] text-amber-700 font-medium">
-              Modo de acceso local habilitado. Configure credenciales privadas en Vercel.
+              Acceso local habilitado para los usuarios activos del restaurante.
             </p>
           </div>
         )}

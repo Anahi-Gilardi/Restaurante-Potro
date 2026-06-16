@@ -18,3 +18,12 @@ test('el mozo queda limitado a la operación de salón', () => {
 test('cocina no puede administrar caja ni usuarios', () => {
   assert.deepEqual(getAllowedViews('cocina'), ['home', 'panel', 'cocina']);
 });
+
+test('un rol desconocido no rompe la navegación y recibe permisos mínimos', () => {
+  assert.deepEqual(getAllowedViews(undefined), ['home', 'panel', 'mozo', 'mesas', 'reservas']);
+  assert.equal(canAccessView('encargado', 'sistema'), false);
+});
+
+test('superadmin se interpreta como administrador', () => {
+  assert.equal(canAccessView('superadmin', 'sistema'), true);
+});

@@ -18,8 +18,11 @@ export interface Usuario {
 export interface Mesa {
     id_mesa: number;
     numero_mesa: string;
-    estado: 'libre' | 'ocupada' | 'esperando_cuenta';
+    estado: 'libre' | 'reservada' | 'ocupada' | 'esperando_cuenta';
     comensales?: number;
+    reserva_cliente?: string;
+    reserva_hora?: string;
+    ocupada_desde?: string;
 }
 
 export interface Insumo {

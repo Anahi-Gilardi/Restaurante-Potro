@@ -45,10 +45,17 @@ const ROLE_PERMISSIONS: Record<Usuario['rol'], AppView[]> = {
   administrador: ALL_APP_VIEWS
 };
 
-export const getAllowedViews = (role: Usuario['rol']): AppView[] => (
-  [...ROLE_PERMISSIONS[role]]
+export const normalizeRole = (role: unknown): Usuario['rol'] => {
+  const normalized = String(role || '').trim().toLowerCase();
+  if (normalized === 'administrador' || normalized === 'admin' || normalized === 'superadmin') return 'administrador';
+  if (normalized === 'cocina' || normalized === 'chef' || normalized === 'cocinero') return 'cocina';
+  return 'mozo';
+};
+
+export const getAllowedViews = (role: Usuario['rol'] | unknown): AppView[] => (
+  [...ROLE_PERMISSIONS[normalizeRole(role)]]
 );
 
-export const canAccessView = (role: Usuario['rol'], view: AppView): boolean => (
-  ROLE_PERMISSIONS[role].includes(view)
+export const canAccessView = (role: Usuario['rol'] | unknown, view: AppView): boolean => (
+  ROLE_PERMISSIONS[normalizeRole(role)].includes(view)
 );

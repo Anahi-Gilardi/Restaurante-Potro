@@ -7,3 +7,114 @@
   --font-display-serif: 'Cinzel', serif;
 }
 
+:root {
+  color-scheme: light;
+  --color-bg: #f5f1e9;
+  --color-surface: #fffdf8;
+  --color-surface-muted: #f8f3ea;
+  --color-text: #2f231c;
+  --color-text-muted: #74675d;
+  --color-brand: #62412b;
+  --color-brand-strong: #42291b;
+  --color-accent: #d6a45d;
+  --color-success: #15803d;
+  --color-warning: #b45309;
+  --color-danger: #b42318;
+  --radius-card: 1.25rem;
+  --shadow-card: 0 18px 45px rgba(74, 45, 27, 0.08);
+}
+
+html {
+  background: var(--color-bg);
+}
+
+body {
+  min-width: 320px;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+button,
+select,
+input,
+textarea {
+  font: inherit;
+}
+
+.focus-visible-ring {
+  outline: none;
+}
+
+.focus-visible-ring:focus-visible {
+  outline: 2px solid rgba(214, 164, 93, 0.85);
+  outline-offset: 2px;
+}
+
+.app-surface {
+  background: var(--color-surface);
+  border: 1px solid rgba(120, 98, 79, 0.16);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.app-muted-surface {
+  background: var(--color-surface-muted);
+  border: 1px solid rgba(120, 98, 79, 0.12);
+  border-radius: 1rem;
+}
+
+.sidebar-icon-button {
+  display: inline-flex;
+  width: 2rem;
+  height: 2rem;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-width: 1px;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: color 180ms ease, background-color 180ms ease, border-color 180ms ease, transform 180ms ease;
+}
+
+.sidebar-icon-button:hover {
+  transform: translateY(-1px);
+}
+
+.sidebar-surface {
+  background-color: #211813;
+  background-image:
+    radial-gradient(circle at 18% 8%, rgba(207, 151, 84, 0.14), transparent 27%),
+    radial-gradient(circle at 88% 78%, rgba(112, 68, 39, 0.12), transparent 34%),
+    repeating-linear-gradient(
+      118deg,
+      rgba(255, 255, 255, 0.012) 0,
+      rgba(255, 255, 255, 0.012) 1px,
+      transparent 1px,
+      transparent 5px
+    ),
+    linear-gradient(180deg, #281d17 0%, #1d1511 52%, #18110e 100%);
+  box-shadow: 18px 0 50px rgba(46, 29, 19, 0.13);
+}
+
+.sidebar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(214, 164, 93, 0.28) transparent;
+}
+
+.sidebar-scroll::-webkit-scrollbar {
+  width: 5px;
+}
+
+.sidebar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background: rgba(214, 164, 93, 0.25);
+  border-radius: 999px;
+}
+
+.sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(214, 164, 93, 0.42);
+}
+
