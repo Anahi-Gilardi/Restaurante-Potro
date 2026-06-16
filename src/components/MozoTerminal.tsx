@@ -556,13 +556,13 @@ export default function MozoTerminal({
                       </span>
                     </div>
                   ) : isLowStock ? (
-                    <div className="absolute top-2 right-2">
+                    <div className="absolute bottom-2 left-2">
                       <span className="bg-[#F97316] text-white text-[9px] font-extrabold px-2 py-0.5 rounded shadow">
                         Bajo stock: {stockRemaining}u
                       </span>
                     </div>
                   ) : (
-                    <div className="absolute top-2 right-2">
+                    <div className="absolute bottom-2 left-2">
                       <span className="bg-[#22C55E] text-white text-[9px] font-extrabold px-2 py-0.5 rounded shadow">
                         Disp: {stockRemaining}u
                       </span>
@@ -570,13 +570,13 @@ export default function MozoTerminal({
                   )}
                 </div>
 
-                {/* Content */}
-                <div className="p-3 flex justify-between items-start bg-white">
-                  <div className="min-w-0 flex-1">
-                    <h4 className="font-extrabold text-stone-850 text-xs md:text-sm font-sans line-clamp-2 min-h-[2.5rem] leading-snug group-hover:text-[#624A3E] transition-colors">
-                      {p.nombre}
-                    </h4>
-                    <div className="mt-1 flex items-center gap-1.5">
+                {/* Content: stacked layout - name full width, price+actions below */}
+                <div className="p-3 bg-white">
+                  <h4 className="font-extrabold text-stone-800 text-sm font-sans line-clamp-2 min-h-[2.5rem] leading-snug group-hover:text-[#624A3E] transition-colors">
+                    {p.nombre}
+                  </h4>
+                  <div className="flex items-center justify-between gap-2 mt-2">
+                    <div className="flex items-center gap-2 min-w-0">
                       {editingPriceProduct === p.id_producto ? (
                         <div className="flex items-center gap-1">
                           <input type="number" value={editingPriceValue} step={100}
@@ -591,58 +591,57 @@ export default function MozoTerminal({
                             <X className="w-3 h-3" /></button>
                         </div>
                       ) : (
-                        <span className="text-stone-900 font-mono text-xs font-black">
+                        <span className="text-stone-900 font-mono text-sm font-black">
                           ${p.precio_venta.toLocaleString('es-AR')}
                         </span>
                       )}
                       {currentInCart > 0 && (
-                        <span className="bg-[#624A3E] text-white rounded-full px-1.5 py-0.1 text-[9px] font-black font-mono">
+                        <span className="bg-[#624A3E] text-white rounded-full px-1.5 py-0.1 text-[9px] font-black font-mono shrink-0">
                           {currentInCart} en bolsa
                         </span>
                       )}
                     </div>
-                  </div>
-
-                  {/* Admin gear menu */}
-                  {isAdmin && (
-                    <div className="relative shrink-0 ml-2">
-                      <button onClick={(e) => { e.stopPropagation(); setAdminMenuProduct(adminMenuProduct === p.id_producto ? null : p.id_producto); }}
-                        className="w-7 h-7 flex items-center justify-center rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-500 transition-all cursor-pointer">
-                        <MoreVertical className="w-3.5 h-3.5" />
-                      </button>
-                      {adminMenuProduct === p.id_producto && (
-                        <div className="absolute top-8 right-0 z-50 bg-white border border-stone-200 rounded-xl shadow-xl py-1 w-44"
-                          onClick={e => e.stopPropagation()}>
-                          <button onClick={() => { setEditingPriceProduct(p.id_producto); setEditingPriceValue(p.precio_venta); setAdminMenuProduct(null); }}
-                            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-stone-700 hover:bg-amber-50 transition-colors cursor-pointer">
-                            <Pencil className="w-3.5 h-3.5 text-amber-600" /> Editar Precio
-                          </button>
-                          <button onClick={() => handleToggleAvailability(p.id_producto)}
-                            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 transition-colors cursor-pointer">
-                            <EyeOff className="w-3.5 h-3.5" /> {p.activo ? 'Ocultar / Dar de Baja' : 'Restaurar'}
-                          </button>
-                        </div>
-                      )}
+                    <div className="flex items-center gap-1 shrink-0">
+                      {[1, 2, 3].map(n => (
+                        <button
+                          key={n}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!isOutOfStock) for (let i = 0; i < n; i++) handleAddToCart(p.id_producto);
+                          }}
+                          className="touch-target-sm w-10 h-10 rounded-lg bg-[#624A3E]/10 text-[#624A3E] hover:bg-[#624A3E] hover:text-white active:scale-90 transition-all text-xs font-extrabold cursor-pointer"
+                          title={`Agregar ${n}`}
+                        >
+                          +{n}
+                        </button>
+                      ))}
                     </div>
-                  )}
-
-                  {/* elastic sum button */}
-                  <div className="flex items-center gap-1 shrink-0 ml-2">
-                    {[1, 2, 3].map(n => (
-                      <button
-                        key={n}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (!isOutOfStock) for (let i = 0; i < n; i++) handleAddToCart(p.id_producto);
-                        }}
-                        className="touch-target-sm w-11 h-11 rounded-lg bg-[#624A3E]/10 text-[#624A3E] hover:bg-[#624A3E] hover:text-white active:scale-90 transition-all text-xs font-extrabold cursor-pointer"
-                        title={`Agregar ${n}`}
-                      >
-                        +{n}
-                      </button>
-                    ))}
                   </div>
                 </div>
+
+                {/* Admin gear menu - floating on image */}
+                {isAdmin && (
+                  <div className="absolute top-2 right-2">
+                    <button onClick={(e) => { e.stopPropagation(); setAdminMenuProduct(adminMenuProduct === p.id_producto ? null : p.id_producto); }}
+                      className="w-7 h-7 flex items-center justify-center rounded-full bg-white/90 hover:bg-white shadow-sm border border-stone-200 text-stone-500 hover:text-stone-700 transition-all cursor-pointer backdrop-blur-sm">
+                      <MoreVertical className="w-3.5 h-3.5" />
+                    </button>
+                    {adminMenuProduct === p.id_producto && (
+                      <div className="absolute top-9 right-0 z-50 bg-white border border-stone-200 rounded-xl shadow-xl py-1 w-44"
+                        onClick={e => e.stopPropagation()}>
+                        <button onClick={() => { setEditingPriceProduct(p.id_producto); setEditingPriceValue(p.precio_venta); setAdminMenuProduct(null); }}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-stone-700 hover:bg-amber-50 transition-colors cursor-pointer">
+                          <Pencil className="w-3.5 h-3.5 text-amber-600" /> Editar Precio
+                        </button>
+                        <button onClick={() => handleToggleAvailability(p.id_producto)}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 transition-colors cursor-pointer">
+                          <EyeOff className="w-3.5 h-3.5" /> {p.activo ? 'Ocultar / Dar de Baja' : 'Restaurar'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
               </div>
             );
           })}
