@@ -291,7 +291,7 @@ export default function HomeMenuModule({
     <div className="space-y-8 animate-fadeIn" id="home-operational-menu">
       
       {/* 1. Impact Brand Header Block */}
-      <div className="bg-gradient-to-br from-[#4A2D1B] via-[#6B4A35] to-[#2E190E] rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden flex flex-col md:flex-row items-center gap-6 border-b-4 border-[#6B4A35]">
+      <div className="bg-gradient-to-br from-[#4A2D1B] via-[#6B4A35] to-[#2E190E] rounded-3xl p-8 md:p-10 text-white shadow-xl relative overflow-hidden flex flex-col md:flex-row items-center gap-6 border-b-4 border-[#6B4A35]">
         {/* Subtle decorative logo outline in the background of the banner */}
         <div className="absolute right-[-25px] bottom-[-25px] opacity-10 rotate-12 scale-110 pointer-events-none">
           <ElPatronLogo className="w-64 h-64" variant="icon" color="#FFFDF8" />
@@ -309,14 +309,11 @@ export default function HomeMenuModule({
           </span>
         </div>
 
-
-
-
         <div className="flex-1 space-y-2.5 relative z-10 text-center md:text-left">
-          <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight text-[#FFFDF8] font-sans">
+          <h2 className="text-4xl md:text-5xl font-semibold tracking-tight text-[#FFFDF8] font-sans">
             Bienvenido a El Patrón
           </h2>
-          <p className="text-sm text-[#FAF4EE]/90 font-medium leading-relaxed max-w-xl">
+          <p className="text-base md:text-lg text-[#FAF4EE]/90 font-medium leading-relaxed max-w-xl">
             Sistema integral de gestión gastronómica diseñado para el control operativo absoluto en cocina, salón, caja, facturación e inventario de alta precisión.
           </p>
           <div className="flex flex-wrap justify-center md:justify-start gap-2 pt-1">
@@ -331,30 +328,30 @@ export default function HomeMenuModule({
       </div>
 
       {/* 2. Top-Level Operational Context Row (Live stats + quick action info) */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-white p-5 rounded-2xl border border-stone-200/80 shadow-xs">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-white p-5 md:p-6 rounded-2xl border border-stone-200/80 shadow-xs max-w-7xl mx-auto">
         
         {/* Supabase Connection State */}
-        <div className="space-y-1.5 border-r border-stone-100/80 pr-4 last:border-0">
-          <span className="text-[10px] uppercase font-bold text-stone-400 tracking-wider block">Estado de Servidores</span>
+        <div className="space-y-2 md:border-r border-stone-100/80 md:pr-4 last:border-0">
+          <span className="text-xs font-bold text-stone-400 uppercase tracking-widest block mb-2">Estado de Servidores</span>
           <div className="flex items-center gap-2">
             {hasSupabase ? (
-              <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-100 text-emerald-800 text-xs font-bold px-3 py-1.5 rounded-xl">
+              <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-100 text-emerald-800 text-sm font-medium px-3 py-1.5 rounded-xl">
                 <Cloud className="w-4 h-4 text-emerald-600" />
                 <span>Supabase Activo</span>
               </div>
             ) : (
-              <div className="flex items-center gap-2 bg-amber-50 border border-amber-100 text-amber-800 text-xs font-bold px-3 py-1.5 rounded-xl">
+              <div className="flex items-center gap-2 bg-amber-50 border border-amber-100 text-amber-800 text-sm font-medium px-3 py-1.5 rounded-xl">
                 <CloudOff className="w-4 h-4 text-amber-600" />
                 <span>SQLite (Local)</span>
               </div>
             )}
           </div>
-          <p className="text-[11px] text-stone-400/95">Persistencia de datos robusta en tiempo real.</p>
+          <p className="text-sm text-stone-400/95">Persistencia de datos robusta en tiempo real.</p>
         </div>
 
         {/* Active operator / logged user */}
-        <div className="space-y-1.5 border-r border-stone-100/80 px-2 last:border-0">
-          <span className="text-[10px] uppercase font-bold text-stone-400 tracking-wider block">Usuario Activo</span>
+        <div className="space-y-2 md:border-r border-stone-100/80 md:px-2 last:border-0">
+          <span className="text-xs font-bold text-stone-400 uppercase tracking-widest block mb-2">Usuario Activo</span>
           <div className="flex items-center gap-1.5">
             <div className="w-7 h-7 rounded-full bg-stone-100 border border-stone-200 flex items-center justify-center text-stone-600">
               <User className="w-4 h-4 text-stone-500" />
@@ -363,7 +360,7 @@ export default function HomeMenuModule({
               <select
                 value={activeMozo}
                 onChange={(e) => onMozoChange(e.target.value)}
-                className="text-xs bg-transparent border-0 font-bold text-stone-800 focus:outline-none focus:ring-0 p-0 cursor-pointer hover:text-[#624A3E]"
+                className="text-sm bg-transparent border-0 font-medium text-stone-800 focus:outline-none focus:ring-0 p-0 cursor-pointer hover:text-[#624A3E]"
               >
                 {usuarios.filter(usuario => usuario.activo !== false).map(usuario => (
                   <option key={usuario.id_usuario} value={usuario.nombre}>
@@ -372,67 +369,67 @@ export default function HomeMenuModule({
                 ))}
               </select>
             ) : (
-              <span className="text-xs font-bold text-stone-800">{activeMozo}</span>
+              <span className="text-sm font-medium text-stone-800">{activeMozo}</span>
             )}
           </div>
-          <p className="text-[11px] text-stone-400/95">Persona logueada de forma segura.</p>
+          <p className="text-sm text-stone-400/95">Persona logueada de forma segura.</p>
         </div>
 
         {/* Simulated shift time with clock advancement */}
-        <div className="space-y-1.5 border-r border-stone-100/80 px-2 last:border-0 bg-stone-50/50 p-2 rounded-xl border border-dashed border-stone-200">
+        <div className="space-y-2 md:border-r border-stone-100/80 md:px-2 last:border-0 bg-stone-50/50 p-4 rounded-xl border border-dashed border-stone-200">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase font-bold text-stone-400 tracking-wider flex items-center gap-1 font-mono">
+            <span className="text-xs font-bold text-stone-400 uppercase tracking-widest flex items-center gap-1 font-mono">
               <Clock className="w-3 h-3 text-stone-500" />
               Reloj Operacional
             </span>
             <span className={`h-1.5 w-1.5 rounded-full ${autoTimerRunning ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'}`} />
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-sm font-black text-stone-800 font-mono tracking-tight">{getSimulatedTimeStr()}</span>
+            <span className="text-base font-medium text-stone-800 font-mono tracking-tight">{getSimulatedTimeStr()}</span>
             <div className="flex gap-1">
               <button
                 onClick={onToggleAutoTimer}
                 title={autoTimerRunning ? "Pausar" : "Iniciar"}
-                className={`p-1 rounded-lg ${autoTimerRunning ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'} cursor-pointer`}
+                className={`p-1.5 rounded-lg ${autoTimerRunning ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'} cursor-pointer`}
               >
-                <RefreshCw className={`w-3 h-3 ${autoTimerRunning ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-3.5 h-3.5 ${autoTimerRunning ? 'animate-spin' : ''}`} />
               </button>
               <button
                 onClick={() => onAdvanceTime(15)}
-                className="text-[9px] px-1.5 py-0.5 font-bold bg-white border border-stone-250 rounded hover:bg-stone-100"
+                className="text-[10px] px-2 py-1 font-bold bg-white border border-stone-250 rounded hover:bg-stone-100"
               >
                 +15m
               </button>
             </div>
           </div>
-          <p className="text-[10px] text-stone-400 font-medium">Control de comanda en reloj.</p>
+          <p className="text-sm text-stone-400 font-medium">Control de comanda en reloj.</p>
         </div>
 
         {/* Brief live status overview */}
-        <div className="space-y-1.5 pl-2">
-          <span className="text-[10px] uppercase font-bold text-stone-400 tracking-wider block">Turno en Cifras</span>
+        <div className="space-y-2 md:pl-2">
+          <span className="text-xs font-bold text-stone-400 uppercase tracking-widest block mb-2">Turno en Cifras</span>
           <div className="flex flex-wrap gap-1.5">
-            <div className="bg-stone-50 border border-stone-200/60 px-2 py-0.5 rounded-lg flex items-center gap-1 text-[10px] font-bold text-stone-700">
+            <div className="bg-stone-50 border border-stone-200/60 px-2.5 py-1 rounded-lg flex items-center gap-1 text-sm font-medium text-stone-700">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
               <span>Salón: {occupiedTables} / {mesas.length}</span>
             </div>
-            <div className="bg-stone-50 border border-stone-200/60 px-2 py-0.5 rounded-lg flex items-center gap-1 text-[10px] font-bold text-stone-700">
+            <div className="bg-stone-50 border border-stone-200/60 px-2.5 py-1 rounded-lg flex items-center gap-1 text-sm font-medium text-stone-700">
               <span className="h-1.5 w-1.5 rounded-full bg-orange-500 animate-pulse" />
               <span>Cocina: {pendingCooking}</span>
             </div>
           </div>
-          <p className="text-[11px] text-stone-400/95">Métricas resumidas generales.</p>
+          <p className="text-sm text-stone-400/95">Métricas resumidas generales.</p>
         </div>
 
       </div>
 
       {/* 3. Elegantly designed modules dashboard grid (operational focus) */}
-      <div className="space-y-4">
-        <h3 className="text-xs font-black text-stone-500 uppercase tracking-widest block pl-1">
+      <div className="max-w-7xl mx-auto px-0 md:px-0 space-y-6">
+        <h3 className="text-lg font-semibold text-stone-500 uppercase tracking-widest mb-6">
           Módulos y Terminales de Operación
         </h3>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {menuItems.filter(item => allowedViews.includes(item.id as AppView)).map(item => {
             const Icon = item.icon;
             
@@ -446,12 +443,12 @@ export default function HomeMenuModule({
               <button
                 key={item.id}
                 onClick={() => onNavigate(item.id)}
-                className={`group bg-white p-5 rounded-2xl border border-stone-200/80 shadow-xs hover:shadow-md transition-all text-left flex flex-col justify-between h-[160px] cursor-pointer bg-gradient-to-br ${item.color} border-l-4 border-l-[#8C6239]/80`}
+                className={`group bg-white p-6 rounded-2xl border border-stone-200/80 shadow-xs hover:shadow-md transition-all text-left flex flex-col justify-between min-h-[160px] cursor-pointer bg-gradient-to-br ${item.color} border-l-4 border-l-[#8C6239]/80`}
               >
                 {/* Module Top Row */}
-                <div className="w-full flex justify-between items-start gap-4">
+                <div className="w-full flex items-center justify-between gap-4">
                   <div className={`p-2.5 rounded-xl bg-white shadow-xs border border-stone-150 ${item.iconColor}`}>
-                    <Icon className="w-5 h-5 shrink-0" />
+                    <Icon className="w-6 h-6 shrink-0" />
                   </div>
                   
                   <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full font-mono uppercase tracking-wide ${badgeStyle}`}>
@@ -460,12 +457,12 @@ export default function HomeMenuModule({
                 </div>
 
                 {/* Module description content */}
-                <div className="space-y-1 pt-3">
-                  <h4 className="font-extrabold text-stone-900 group-hover:text-[#624A3E] transition-colors text-sm tracking-tight flex items-center gap-1">
+                <div className="space-y-1.5 pt-3">
+                  <h4 className="font-semibold text-xl text-stone-900 group-hover:text-[#624A3E] transition-colors tracking-tight flex items-center gap-1">
                     <span>{item.title}</span>
-                    <ChevronRight className="w-3.5 h-3.5 text-stone-400 group-hover:translate-x-0.5 transition-transform" />
+                    <ChevronRight className="w-4 h-4 text-stone-400 group-hover:translate-x-0.5 transition-transform" />
                   </h4>
-                  <p className="text-[11px] text-stone-500 group-hover:text-stone-600 transition-colors line-clamp-2 leading-relaxed">
+                  <p className="text-sm text-stone-500 group-hover:text-stone-600 transition-colors line-clamp-2 leading-relaxed">
                     {item.description}
                   </p>
                 </div>
