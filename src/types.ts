@@ -273,6 +273,12 @@ export interface Reserva {
     /** Mesa asignada (alias de nombre_mesa) */
     mesa_asignada?: string;
     observaciones?: string;
+    /** Determina si la reserva es parte de la lista de espera */
+    lista_espera?: boolean;
+    /** Momento en que la reserva entro a lista de espera */
+    entrada_lista_espera?: string;
+    /** Prioridad en lista de espera (menor numero = mas alta prioridad) */
+    prioridad_espera?: number;
 }
 
 // ---------------------------------------------------------------------------

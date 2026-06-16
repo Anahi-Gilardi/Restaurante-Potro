@@ -1,9 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { Calendar, Phone, Plus, Check, Clock, User, Trash, Edit2, X, Search } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import {
+  Calendar, Phone, Plus, Check, Clock, User, Trash, Edit2, X, Search,
+  ChevronLeft, ChevronRight, CalendarDays, List, AlertCircle, ArrowRight,
+  Users, Armchair, Loader2, CalendarClock
+} from 'lucide-react';
 import { useDebounce } from '../hooks/useDebounce';
 import { Mesa, Reserva, EventoLog } from '../types';
 import { reservasService } from '../services/reservasService';
 import { reservaSchema } from '../lib/validations';
+import { ToastContainer, useToast } from './ToastContainer';
 
 interface ReservasModuleProps {
   mesas: Mesa[];
@@ -14,81 +19,226 @@ interface ReservasModuleProps {
 function formatDate(d: Date): string {
   return d.toISOString().split('T')[0];
 }
+function parseTimeToMin(t: string): number {
+  const [h, m] = t.replace(' hs', '').split(':').map(Number);
+  return h * 60 + m;
+}
+function sameDay(a: string, b: string): boolean {
+  return a === b;
+}
+function addDays(d: Date, days: number): Date {
+  const copy = new Date(d);
+  copy.setDate(copy.getDate() + days);
+  return copy;
+}
+function getMonthGrid(year: number, month: number) {
+  const firstDay = new Date(year, month, 1);
+  const start = new Date(firstDay);
+  start.setDate(start.getDate() - ((firstDay.getDay() + 6) % 7));
+  const cells: Date[] = [];
+  for (let w = 0; w < 6; w++) {
+    for (let d = 0; d < 7; d++) {
+      cells.push(new Date(start.getFullYear(), start.getMonth(), start.getDate() + w * 7 + d));
+    }
+  }
+  return cells;
+}
+function monthLabel(d: Date): string {
+  return d.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+}
+function weekRangeLabel(start: Date): string {
+  const end = addDays(start, 6);
+  const s = start.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
+  const e = end.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
+  return `${s} – ${e}`;
+}
 
 export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {} }: ReservasModuleProps) {
+  const { toast, toasts, removeToast } = useToast();
+
+  // ── Base de datos local ────────────────────────────────────────────────────
   const [reservas, setReservas] = useState<Reserva[]>([]);
-  const [selectedDate, setSelectedDate] = useState(formatDate(new Date()));
-  const [search, setSearch] = useState('');
-  const debouncedSearch = useDebounce(search, 300);
+  const [initialLoaded, setInitialLoaded] = useState(false);
 
   useEffect(() => {
     reservasService.list().then(data => {
-      if (data && data.length > 0) { setReservas(data); }
-      else {
+      if (data && data.length > 0) {
+        setReservas(
+          data.map((d: any) => ({
+            ...d,
+            lista_espera: d.lista_espera ?? false,
+            prioridad_espera: d.prioridad_espera ?? 0,
+          }))
+        );
+      } else {
+        const today = formatDate(new Date());
         setReservas([
-          { id_reserva: 'r_1', nombre_cliente: 'Gisela Scaglia', telefono: '+54 11 9382-3844', pax: 4, nombre_mesa: 'VIP-1', hora: '21:00 hs', estado: 'confirmada', fecha: formatDate(new Date()) },
-          { id_reserva: 'r_2', nombre_cliente: 'Mariano Closs', telefono: '+54 9 11 3881-2993', pax: 2, nombre_mesa: 'Mesa 1', hora: '21:30 hs', estado: 'confirmada', fecha: formatDate(new Date()) },
-          { id_reserva: 'r_3', nombre_cliente: 'Romina Pereyra', telefono: '+54 11 6005-2810', pax: 3, nombre_mesa: 'Mesa 5', hora: '22:00 hs', estado: 'confirmada', fecha: formatDate(new Date()) },
-          { id_reserva: 'r_4', nombre_cliente: 'Juan Román Riquelme', telefono: '+54 9 11 5010-1010', pax: 6, nombre_mesa: 'Terraza-3', hora: '22:30 hs', estado: 'confirmada', fecha: formatDate(new Date()) },
+          { id_reserva: 'r_1', nombre_cliente: 'Gisela Scaglia', telefono: '+54 11 9382-3844', pax: 4, nombre_mesa: 'VIP-1', hora: '21:00 hs', estado: 'confirmada', fecha: today, id_mesa: 101 },
+          { id_reserva: 'r_2', nombre_cliente: 'Mariano Closs', telefono: '+54 9 11 3881-2993', pax: 2, nombre_mesa: 'Mesa 1', hora: '21:30 hs', estado: 'confirmada', fecha: today, id_mesa: 1 },
+          { id_reserva: 'r_3', nombre_cliente: 'Romina Pereyra', telefono: '+54 11 6005-2810', pax: 3, nombre_mesa: 'Mesa 5', hora: '22:00 hs', estado: 'confirmada', fecha: today, id_mesa: 5 },
+          { id_reserva: 'r_4', nombre_cliente: 'Juan Roman Riquelme', telefono: '+54 9 11 5010-1010', pax: 6, nombre_mesa: 'Terraza-3', hora: '22:30 hs', estado: 'confirmada', fecha: today, id_mesa: 13 },
         ]);
       }
-    }).catch(() => {});
+      setInitialLoaded(true);
+    }).catch(() => {
+      setInitialLoaded(true);
+    });
   }, []);
 
+  // ── Estados UI ─────────────────────────────────────────────────────────────
+  const [selectedDate, setSelectedDate] = useState(formatDate(new Date()));
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [calendarView, setCalendarView] = useState<'month' | 'week'>('month');
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [weekStart, setWeekStart] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+    return d;
+  });
+  const [tab, setTab] = useState<'reservas' | 'espera'>('reservas');
+
+  // ── Formulario ─────────────────────────────────────────────────────────────
   const [nombre, setNombre] = useState('');
   const [telefono, setTelefono] = useState('');
   const [pax, setPax] = useState('2');
   const [nombreMesa, setNombreMesa] = useState(mesas[0]?.numero_mesa || 'Mesa 1');
   const [hora, setHora] = useState('21:00');
   const [observaciones, setObservaciones] = useState('');
+  const [formularioDate, setFormularioDate] = useState(formatDate(new Date()));
+  const [forceEspera, setForceEspera] = useState(false);
 
-  const [editingId, setEditingId] = useState<string | null>(null);
+  // ── Helpers de disponibilidad ──────────────────────────────────────────────
+  const reservasEnFecha = useCallback((fecha: string, excluirId?: string) => {
+    return reservas.filter(r => r.fecha === fecha && r.estado !== 'cancelada' && r.id_reserva !== excluirId && !r.lista_espera);
+  }, [reservas]);
 
-  const reservasDelDia = reservas.filter(r => !r.fecha || r.fecha === selectedDate);
-  const filtered = reservasDelDia.filter(r =>
-    r.nombre_cliente.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-    r.telefono.includes(debouncedSearch)
-  );
+  const mesasDisponiblesEnFechaHora = useCallback((fecha: string, horaStr: string, paxReq: number, excluirId?: string): Mesa[] => {
+    const targetMin = parseTimeToMin(horaStr);
+    const ocupadosIds = new Set<number>();
+
+    reservasEnFecha(fecha, excluirId).forEach(r => {
+      const rMin = parseTimeToMin(r.hora);
+      if (Math.abs(rMin - targetMin) <= 120) {
+        if (r.id_mesa) ocupadosIds.add(r.id_mesa);
+      }
+    });
+
+    return mesas.filter(m => {
+      if (m.estado === 'ocupada') return false;
+      if (ocupadosIds.has(m.id_mesa)) return false;
+      if (m.comensales && m.comensales < paxReq) {
+        const capOk = (m.comensales ?? 0) >= paxReq || paxReq <= (m.comensales ?? 0) + 2;
+        if (!capOk) return false;
+      }
+      return true;
+    });
+  }, [mesas, reservasEnFecha]);
+
+  // ── CRUD ───────────────────────────────────────────────────────────────────
+  const resetForm = () => {
+    setNombre(''); setTelefono(''); setObservaciones('');
+    setPax('2'); setHora('21:00'); setForceEspera(false);
+    setEditingId(null);
+  };
 
   const handleCreateReserva = (e: React.FormEvent) => {
     e.preventDefault();
     const validation = reservaSchema.safeParse({ nombre_cliente: nombre, telefono, pax: parseInt(pax) || 2, hora, observaciones });
     if (!validation.success) {
       const msgs = validation.error.issues.map(i => i.message).join('. ');
-      addLog('sistema', `RESERVAS: Error de validación: ${msgs}`);
+      addLog('sistema', `RESERVAS: Error de validacion: ${msgs}`);
+      toast.error(msgs);
       return;
     }
+
+    const capPax = parseInt(pax) || 2;
     const selectedMesa = mesas.find(m => m.numero_mesa === nombreMesa);
+    let idMesaAsignada = selectedMesa?.id_mesa;
+    let nombreMesaAsignada = nombreMesa;
+    let enviarEspera = forceEspera;
+
+    if (!forceEspera && selectedMesa) {
+      const disponibles = mesasDisponiblesEnFechaHora(formularioDate, hora, capPax, editingId ?? undefined);
+      if (!disponibles.some(m => m.id_mesa === selectedMesa.id_mesa)) {
+        enviarEspera = true;
+        toast.warning('La mesa elegida ya esta reservada u ocupada. Se enviara a lista de espera.');
+      }
+    } else if (!forceEspera) {
+      const disponibles = mesasDisponiblesEnFechaHora(formularioDate, hora, capPax, editingId ?? undefined);
+      if (disponibles.length === 0) {
+        enviarEspera = true;
+        toast.info('No hay mesas disponibles para esa fecha y hora. Se enviara a lista de espera.');
+      } else {
+        idMesaAsignada = disponibles[0].id_mesa;
+        nombreMesaAsignada = disponibles[0].numero_mesa;
+      }
+    }
 
     if (editingId) {
       setReservas(prev => prev.map(r => {
         if (r.id_reserva === editingId) {
-          const updated = { ...r, nombre_cliente: nombre, telefono, pax: parseInt(pax) || 2, nombre_mesa: nombreMesa, id_mesa: selectedMesa?.id_mesa, hora: `${hora} hs`, observaciones: observaciones.trim() || undefined };
+          const updated: Reserva = {
+            ...r,
+            nombre_cliente: nombre, telefono,
+            pax: capPax,
+            nombre_mesa: enviarEspera ? 'En espera' : nombreMesaAsignada,
+            id_mesa: enviarEspera ? undefined : idMesaAsignada,
+            hora: `${hora} hs`,
+            observaciones: observaciones.trim() || undefined,
+            fecha: formularioDate,
+            estado: enviarEspera ? 'pendiente' : (r.estado === 'pendiente' ? 'confirmada' : r.estado),
+            lista_espera: enviarEspera,
+            prioridad_espera: enviarEspera ? (r.prioridad_espera ?? Date.now()) : undefined,
+          };
           addLog('sistema', `RESERVAS: Modificada reserva de '${nombre}'`);
+          reservasService.update(editingId, updated).catch(err => console.error(err));
+          if (!enviarEspera && updated.id_mesa) onEstadoChange(updated, updated.estado);
           return updated;
         }
         return r;
       }));
       setEditingId(null);
-    } else {
-      const newRes: Reserva = {
-        id_reserva: `r_${Date.now()}`,
-        nombre_cliente: nombre, telefono, pax: parseInt(pax) || 2, nombre_mesa: nombreMesa,
-        id_mesa: selectedMesa?.id_mesa, hora: `${hora} hs`, estado: 'confirmada',
-        fecha: selectedDate, observaciones: observaciones.trim() || undefined,
-      };
-      setReservas(prev => [...prev, newRes]);
-      reservasService.create(newRes).catch(err => console.error(err));
-      addLog('sistema', `RESERVAS: Registrada nueva reserva para '${nombre}' para ${pax} personas el ${selectedDate} a las ${hora}hs en ${nombreMesa}`);
+      resetForm();
+      toast.success('Reserva actualizada correctamente.');
+      return;
     }
-    setNombre(''); setTelefono(''); setObservaciones('');
+
+    const newRes: Reserva = {
+      id_reserva: `r_${Date.now()}`,
+      nombre_cliente: nombre, telefono,
+      pax: capPax,
+      nombre_mesa: enviarEspera ? 'En espera' : nombreMesaAsignada,
+      id_mesa: enviarEspera ? undefined : idMesaAsignada,
+      hora: `${hora} hs`,
+      estado: enviarEspera ? 'pendiente' : 'confirmada',
+      fecha: formularioDate,
+      observaciones: observaciones.trim() || undefined,
+      lista_espera: enviarEspera,
+      prioridad_espera: enviarEspera ? Date.now() : undefined,
+      entrada_lista_espera: enviarEspera ? new Date().toISOString() : undefined,
+    };
+    setReservas(prev => [...prev, newRes]);
+    reservasService.create(newRes).catch(err => console.error(err));
+    addLog('sistema', `RESERVAS: Registrada nueva reserva para '${nombre}' para ${capPax} personas el ${formularioDate} a las ${hora}hs`);
+    if (!enviarEspera && newRes.id_mesa) onEstadoChange(newRes, 'confirmada');
+    resetForm();
+    toast.success(enviarEspera ? 'Cliente agregado a la lista de espera.' : 'Reserva confirmada exitosamente.');
   };
 
   const handleEdit = (r: Reserva) => {
     setEditingId(r.id_reserva);
-    setNombre(r.nombre_cliente); setTelefono(r.telefono);
-    setPax(String(r.pax)); setNombreMesa(r.nombre_mesa);
-    setHora(r.hora.replace(' hs', '')); setObservaciones(r.observaciones || '');
+    setNombre(r.nombre_cliente);
+    setTelefono(r.telefono);
+    setPax(String(r.pax));
+    setNombreMesa(r.nombre_mesa === 'En espera' ? (mesas[0]?.numero_mesa || 'Mesa 1') : r.nombre_mesa);
+    setHora(r.hora.replace(' hs', ''));
+    setObservaciones(r.observaciones || '');
+    setFormularioDate(r.fecha || formatDate(new Date()));
+    setForceEspera(r.lista_espera ?? false);
+    // Scroll hacia el formulario
+    setTab('reservas');
   };
 
   const handleChangeEstado = (id: string, nuevoEstado: Reserva['estado']) => {
@@ -96,7 +246,7 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
       if (r.id_reserva === id) {
         reservasService.update(id, { estado: nuevoEstado }).catch(err => console.error(err));
         onEstadoChange(r, nuevoEstado);
-        addLog('sistema', `RESERVAS: Reserva de '${r.nombre_cliente}' cambió a ${nuevoEstado.toUpperCase()}`);
+        addLog('sistema', `RESERVAS: Reserva de '${r.nombre_cliente}' cambio a ${nuevoEstado.toUpperCase()}`);
         return { ...r, estado: nuevoEstado };
       }
       return r;
@@ -106,157 +256,561 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
   const handleDeleteReserva = (id: string) => {
     const target = reservas.find(r => r.id_reserva === id);
     if (!target) return;
-    onEstadoChange(target, 'cancelada');
+    if (target.id_mesa) onEstadoChange(target, 'cancelada');
     setReservas(prev => prev.filter(r => r.id_reserva !== id));
     reservasService.remove(id).catch(err => console.error(err));
     addLog('sistema', `RESERVAS: Anulada la reserva de '${target.nombre_cliente}' de las ${target.hora}`);
+    toast.success('Reserva eliminada.');
   };
 
+  const handleAsignarMesa = (reservaId: string, mesaId: number) => {
+    const mesa = mesas.find(m => m.id_mesa === mesaId);
+    if (!mesa) return;
+    setReservas(prev => prev.map(r => {
+      if (r.id_reserva === reservaId) {
+        const updated: Reserva = {
+          ...r,
+          id_mesa: mesa.id_mesa,
+          nombre_mesa: mesa.numero_mesa,
+          estado: 'confirmada',
+          lista_espera: false,
+          prioridad_espera: undefined,
+          entrada_lista_espera: undefined,
+        };
+        reservasService.update(reservaId, updated).catch(err => console.error(err));
+        onEstadoChange(updated, 'confirmada');
+        addLog('sistema', `RESERVAS: '${r.nombre_cliente}' asignado a ${mesa.numero_mesa} desde lista de espera.`);
+        toast.success(`Mesa ${mesa.numero_mesa} asignada.`);
+        return updated;
+      }
+      return r;
+    }));
+  };
+
+  // ── Filtros ────────────────────────────────────────────────────────────────
+  const reservasDelDia = useMemo(() =>
+    reservas.filter(
+      r => !r.lista_espera && r.fecha === selectedDate && r.estado !== 'cancelada'
+    ),
+    [reservas, selectedDate]
+  );
+  const listaEsperaGlobal = useMemo(() =>
+    reservas.filter(r => r.lista_espera && r.estado === 'pendiente').sort(
+      (a, b) => (a.prioridad_espera ?? 0) - (b.prioridad_espera ?? 0)
+    ),
+    [reservas]
+  );
+  const filtered = useMemo(() => reservasDelDia.filter(
+    r => r.nombre_cliente.toLowerCase().includes(debouncedSearch.toLowerCase()) || r.telefono.includes(debouncedSearch)
+  ), [reservasDelDia, debouncedSearch]);
+
+  // ── Calendario mensual helpers ─────────────────────────────────────────────
+  const mesasOcupadasEnFecha = (fechaStr: string): number => {
+    const ocupados = new Set<number>();
+    reservas.forEach(r => {
+      if (r.fecha === fechaStr && r.estado !== 'cancelada' && !r.lista_espera && r.id_mesa) {
+        ocupados.add(r.id_mesa);
+      }
+    });
+    return ocupados.size;
+  };
+  const totalReservasDia = (fechaStr: string) =>
+    reservas.filter(r => r.fecha === fechaStr && r.estado !== 'cancelada').length;
+
+  const disponiblesHoy = useMemo(() => {
+    const ocupados = new Set(
+      reservas
+        .filter(r => r.fecha === selectedDate && r.estado !== 'cancelada' && !r.lista_espera && r.id_mesa)
+        .map(r => r.id_mesa!)
+    );
+    return mesas.filter(m => !ocupados.has(m.id_mesa) && m.estado !== 'ocupada');
+  }, [mesas, reservas, selectedDate]);
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+  const todayStr = formatDate(new Date());
+
+  const weekDays = useMemo(() => {
+    const days: Date[] = [];
+    for (let i = 0; i < 7; i++) days.push(addDays(weekStart, i));
+    return days;
+  }, [weekStart]);
+
+  const isCurrentMonth = (d: Date) => d.getMonth() === currentMonth.getMonth() && d.getFullYear() === currentMonth.getFullYear();
+
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-xs h-fit space-y-4">
-          <h3 className="text-sm font-black text-stone-800 uppercase tracking-tight flex items-center gap-2">
-            <Plus className="w-4 h-4 text-[#624A3E]" />
-            {editingId ? 'Editar Reserva' : 'Nueva Reserva'}
-          </h3>
-          <form onSubmit={handleCreateReserva} className="space-y-3">
-            <div>
-              <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Fecha</label>
-              <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
-                className="w-full text-xs p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none focus:ring-1 focus:ring-[#624A3E]" required />
-            </div>
-            <div>
-              <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Nombre y Apellido</label>
-              <input type="text" value={nombre} onChange={e => setNombre(e.target.value)}
-                placeholder="Ej. Gisela Scaglia"
-                className="w-full text-xs p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none focus:ring-1 focus:ring-[#624A3E]" required />
-            </div>
-            <div>
-              <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Celular / WhatsApp</label>
-              <input type="text" value={telefono} onChange={e => setTelefono(e.target.value)}
-                placeholder="Ej. +54 11 9382-3844"
-                className="w-full text-xs p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none focus:ring-1 focus:ring-[#624A3E]" required />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
+    <div className="space-y-6" id="reservas-module">
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+
+        {/* ═══════════════════════════════
+            COLUMNA IZQUIERDA: Formulario
+            ═══════════════════════════════ */}
+        <div className="xl:col-span-3 space-y-5">
+          <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs h-fit space-y-4">
+            <h3 className="text-sm font-black text-stone-800 uppercase tracking-tight flex items-center gap-2">
+              <Plus className="w-4 h-4 text-[#624A3E]" />
+              {editingId ? 'Editar Reserva' : 'Nueva Reserva'}
+            </h3>
+            <form onSubmit={handleCreateReserva} className="space-y-3">
               <div>
-                <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Pax</label>
-                <select value={pax} onChange={e => setPax(e.target.value)}
-                  className="w-full text-xs p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none cursor-pointer focus:ring-1 focus:ring-[#624A3E] font-semibold text-stone-700">
-                  {[1,2,3,4,5,6].map(n => <option key={n} value={n}>{n} {n === 1 ? 'Persona' : 'Personas'}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Hora</label>
-                <input type="time" value={hora} onChange={e => setHora(e.target.value)}
+                <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Fecha</label>
+                <input type="date" value={formularioDate} onChange={e => setFormularioDate(e.target.value)}
                   className="w-full text-xs p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none focus:ring-1 focus:ring-[#624A3E]" required />
               </div>
-            </div>
-            <div>
-              <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Mesa</label>
-              <select value={nombreMesa} onChange={e => setNombreMesa(e.target.value)}
-                className="w-full text-xs p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none cursor-pointer focus:ring-1 focus:ring-[#624A3E] font-semibold text-stone-700">
-                {mesas.map(m => <option key={m.id_mesa} value={m.numero_mesa}>{m.numero_mesa}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Observaciones</label>
-              <textarea value={observaciones} onChange={e => setObservaciones(e.target.value)}
-                placeholder="Ej. Alergia al maní, mesa cerca de ventana..."
-                rows={2}
-                className="w-full text-xs p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none focus:ring-1 focus:ring-[#624A3E] resize-none" />
-            </div>
-            <button type="submit"
-              className="w-full py-2.5 bg-[#624A3E] hover:bg-[#503C32] text-white text-xs font-extrabold rounded-xl transition-all cursor-pointer">
-              {editingId ? 'Guardar Cambios' : 'Confirmar Reserva'}
-            </button>
-            {editingId && (
-              <button type="button" onClick={() => { setEditingId(null); setNombre(''); setTelefono(''); setObservaciones(''); }}
-                className="w-full py-2 text-xs font-bold text-stone-500 hover:text-stone-700 transition-colors cursor-pointer">
-                Cancelar edición
+              <div>
+                <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Nombre y Apellido</label>
+                <input type="text" value={nombre} onChange={e => setNombre(e.target.value)}
+                  placeholder="Ej. Gisela Scaglia"
+                  className="w-full text-xs p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none focus:ring-1 focus:ring-[#624A3E]" required />
+              </div>
+              <div>
+                <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Celular / WhatsApp</label>
+                <input type="text" value={telefono} onChange={e => setTelefono(e.target.value)}
+                  placeholder="Ej. +54 11 9382-3844"
+                  className="w-full text-xs p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none focus:ring-1 focus:ring-[#624A3E]" required />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Pax</label>
+                  <select value={pax} onChange={e => setPax(e.target.value)}
+                    className="w-full text-xs p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none cursor-pointer focus:ring-1 focus:ring-[#624A3E] font-semibold text-stone-700">
+                    {[1, 2, 3, 4, 5, 6, 7, 8].map(n => <option key={n} value={n}>{n} {n === 1 ? 'Persona' : 'Personas'}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Hora</label>
+                  <input type="time" value={hora} onChange={e => setHora(e.target.value)}
+                    className="w-full text-xs p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none focus:ring-1 focus:ring-[#624A3E]" required />
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Mesa preferida</label>
+                <select value={nombreMesa} onChange={e => setNombreMesa(e.target.value)}
+                  className="w-full text-xs p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none cursor-pointer focus:ring-1 focus:ring-[#624A3E] font-semibold text-stone-700">
+                  {mesas.map(m => <option key={m.id_mesa} value={m.numero_mesa}>{m.numero_mesa} ({m.comensales ?? '?'} pax)</option>)}
+                </select>
+                <p className="text-[9px] text-stone-400 mt-1">{disponiblesHoy.length} mesas libres para el dia seleccionado</p>
+              </div>
+              <div>
+                <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Observaciones</label>
+                <textarea value={observaciones} onChange={e => setObservaciones(e.target.value)}
+                  placeholder="Ej. Alergia al mani, mesa cerca de ventana..."
+                  rows={2}
+                  className="w-full text-xs p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none focus:ring-1 focus:ring-[#624A3E] resize-none" />
+              </div>
+              <div className="flex items-center gap-2">
+                <input id="forceEspera" type="checkbox" checked={forceEspera} onChange={e => setForceEspera(e.target.checked)} className="rounded border-stone-300 text-[#624A3E] focus:ring-1 focus:ring-[#624A3E]" />
+                <label htmlFor="forceEspera" className="text-[10px] font-bold text-stone-600">Enviar a lista de espera</label>
+              </div>
+              <button type="submit"
+                className="w-full py-2.5 bg-[#624A3E] hover:bg-[#503C32] text-white text-xs font-extrabold rounded-xl transition-all cursor-pointer">
+                {editingId ? 'Guardar Cambios' : 'Confirmar Reserva'}
               </button>
+              {editingId && (
+                <button type="button" onClick={resetForm}
+                  className="w-full py-2 text-xs font-bold text-stone-500 hover:text-stone-700 transition-colors cursor-pointer">
+                  Cancelar edicion
+                </button>
+              )}
+            </form>
+          </div>
+
+          {/* Mini panel disponibilidad */}
+          <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs space-y-3">
+            <h4 className="text-xs font-black text-stone-800 uppercase flex items-center gap-2">
+              <Armchair className="w-4 h-4 text-[#624A3E]" /> Disponibilidad
+            </h4>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-stone-500 font-semibold">Fecha:</span>
+              <span className="font-bold text-stone-800">{selectedDate}</span>
+            </div>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-stone-500 font-semibold">Mesas libres:</span>
+              <span className="font-bold text-emerald-600">{disponiblesHoy.length} / {mesas.length}</span>
+            </div>
+            {listaEsperaGlobal.length > 0 && (
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-stone-500 font-semibold">En espera:</span>
+                <span className="font-bold text-amber-600">{listaEsperaGlobal.length}</span>
+              </div>
             )}
-          </form>
+            <div className="pt-2 border-t border-stone-100 flex flex-wrap gap-1">
+              {mesas.map(m => {
+                const estaLibre = disponiblesHoy.some(d => d.id_mesa === m.id_mesa);
+                const estaReservada = reservas.some(
+                  r => r.fecha === selectedDate && r.id_mesa === m.id_mesa && r.estado !== 'cancelada' && !r.lista_espera
+                );
+                let bg = 'bg-stone-100 text-stone-400';
+                if (estaLibre) bg = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+                else if (estaReservada) bg = 'bg-amber-50 text-amber-700 border border-amber-200';
+                return (
+                  <span key={m.id_mesa} className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-md ${bg}`}>{m.numero_mesa}</span>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
-        <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-xs lg:col-span-3 space-y-4">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-2 border-b border-stone-100">
-            <h3 className="text-sm font-black text-stone-800 uppercase tracking-tight flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-[#624A3E]" />
-              Reservas ({filtered.length})
-            </h3>
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <Search className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-                <input type="text" value={search} onChange={e => setSearch(e.target.value)}
-                  placeholder="Buscar..."
-                  className="pl-8 pr-2 py-1 text-[10px] border border-stone-200 rounded-lg bg-stone-50 focus:outline-none focus:ring-1 focus:ring-[#624A3E] w-32" />
+        {/* ═══════════════════════════════
+            COLUMNA CENTRAL: Calendario + Lista
+            ═══════════════════════════════ */}
+        <div className="xl:col-span-6 space-y-5">
+
+          {/* Cabecera calendario */}
+          <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+              <h3 className="text-sm font-black text-stone-800 uppercase tracking-tight flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-[#624A3E]" />
+                {calendarView === 'month' ? monthLabel(currentMonth) : weekRangeLabel(weekStart)}
+              </h3>
+              <div className="flex items-center gap-2">
+                <div className="flex bg-stone-100 p-0.5 rounded-lg border border-stone-200">
+                  <button onClick={() => setCalendarView('month')}
+                    className={`px-2 py-1 text-[10px] font-bold rounded-md cursor-pointer transition-all ${calendarView === 'month' ? 'bg-white text-stone-900 shadow-xs' : 'text-stone-500 hover:text-stone-800'}`}>
+                    <CalendarDays className="w-3.5 h-3.5 inline mr-1" />Mes
+                  </button>
+                  <button onClick={() => setCalendarView('week')}
+                    className={`px-2 py-1 text-[10px] font-bold rounded-md cursor-pointer transition-all ${calendarView === 'week' ? 'bg-white text-stone-900 shadow-xs' : 'text-stone-500 hover:text-stone-800'}`}>
+                    <List className="w-3.5 h-3.5 inline mr-1" />Semana
+                  </button>
+                </div>
+                <div className="flex gap-1">
+                  <button onClick={() => {
+                    if (calendarView === 'month') {
+                      setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+                    } else {
+                      setWeekStart(prev => addDays(prev, -7));
+                    }
+                  }} className="p-1 rounded-lg hover:bg-stone-100 text-stone-500 cursor-pointer"><ChevronLeft className="w-4 h-4" /></button>
+                  <button onClick={() => {
+                    if (calendarView === 'month') {
+                      setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
+                    } else {
+                      setWeekStart(prev => addDays(prev, 7));
+                    }
+                  }} className="p-1 rounded-lg hover:bg-stone-100 text-stone-500 cursor-pointer"><ChevronRight className="w-4 h-4" /></button>
+                </div>
               </div>
-              <span className="text-[9px] bg-stone-100 text-stone-500 font-bold px-2 py-0.5 rounded-full">
-                {selectedDate}
-              </span>
+            </div>
+
+            {/* ============ VISTA MENSUAL ============ */}
+            {calendarView === 'month' && (
+              <div>
+                <div className="grid grid-cols-7 gap-1 mb-1">
+                  {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map(d => (
+                    <div key={d} className="text-center text-[10px] font-black text-stone-400 uppercase py-1">{d}</div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-7 gap-1">
+                  {getMonthGrid(currentMonth.getFullYear(), currentMonth.getMonth()).map((cellDate, idx) => {
+                    const cellStr = formatDate(cellDate);
+                    const isToday = cellStr === todayStr;
+                    const isSelected = cellStr === selectedDate;
+                    const isCurrent = isCurrentMonth(cellDate);
+                    const count = totalReservasDia(cellStr);
+                    const ocupadas = mesasOcupadasEnFecha(cellStr);
+                    return (
+                      <button key={idx} onClick={() => setSelectedDate(cellStr)}
+                        className={`relative h-14 rounded-xl border text-left p-1.5 transition-all cursor-pointer flex flex-col justify-between ${isSelected ? 'bg-[#624A3E] text-white border-[#624A3E] ring-2 ring-[#624A3E]/20' : isToday ? 'bg-stone-100 border-[#624A3E] text-stone-900' : isCurrent ? 'bg-white border-stone-200 hover:bg-stone-50 text-stone-800' : 'bg-stone-50/50 border-stone-100 text-stone-300'}`}>
+                        <span className={`text-[11px] font-bold leading-none ${isSelected ? 'text-white' : 'text-stone-700'}`}>{cellDate.getDate()}</span>
+                        {count > 0 && (
+                          <div className="flex flex-wrap gap-0.5 mt-auto">
+                            {Array.from({ length: Math.min(count, 4) }).map((_, i) => (
+                              <span key={i} className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-white/70' : 'bg-[#624A3E]'}`} />
+                            ))}
+                          </div>
+                        )}
+                        {count > 0 && (
+                          <span className={`absolute top-1 right-1 text-[8px] font-black ${isSelected ? 'text-white/80' : 'text-stone-400'}`}>{count}</span>
+                        )}
+                        {ocupadas === mesas.length && isCurrent && (
+                          <span className="absolute bottom-1 right-1 w-1.5 h-1.5 rounded-full bg-rose-500" title="Sin mesas libres" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="flex items-center gap-3 mt-3 pt-2 border-t border-stone-100">
+                  <span className="flex items-center gap-1 text-[9px] text-stone-500 font-semibold"><span className="w-2 h-2 rounded-full bg-[#624A3E]" />Reservado</span>
+                  <span className="flex items-center gap-1 text-[9px] text-stone-500 font-semibold"><span className="w-2 h-2 rounded-full bg-rose-500" />Sin capacidad</span>
+                </div>
+              </div>
+            )}
+
+            {/* ============ VISTA SEMANAL ============ */}
+            {calendarView === 'week' && (
+              <div className="space-y-2">
+                {weekDays.map(d => {
+                  const ds = formatDate(d);
+                  const dayReservas = reservas.filter(r => r.fecha === ds && r.estado !== 'cancelada' && !r.lista_espera);
+                  const isSel = ds === selectedDate;
+                  return (
+                    <button key={ds} onClick={() => setSelectedDate(ds)}
+                      className={`w-full flex items-center gap-3 p-2.5 rounded-xl border transition-all cursor-pointer text-left ${isSel ? 'bg-[#624A3E] text-white border-[#624A3E]' : d.getDay() === 0 || d.getDay() === 6 ? 'bg-stone-50 border-stone-200 text-stone-700' : 'bg-white border-stone-200 hover:bg-stone-50 text-stone-800'}`}>
+                      <div className="w-10 text-center shrink-0">
+                        <span className="text-[9px] font-bold uppercase block opacity-70">{d.toLocaleDateString('es-AR', { weekday: 'short' })}</span>
+                        <span className="text-sm font-extrabold block">{d.getDate()}</span>
+                      </div>
+                      <div className="flex-1">
+                        {dayReservas.length === 0 ? (
+                          <span className={`text-[10px] font-medium ${isSel ? 'text-white/70' : 'text-stone-400 italic'}`}>Sin reservas</span>
+                        ) : (
+                          <div className="flex gap-1.5 flex-wrap">
+                            {dayReservas.slice(0, 5).map(r => (
+                              <span key={r.id_reserva} className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${isSel ? 'bg-white/15 border-white/30 text-white' : 'bg-[#F5F1E9] border-stone-200 text-stone-700'}`}>
+                                {r.hora} &middot; {r.nombre_cliente.split(' ')[0]}
+                              </span>
+                            ))}
+                            {dayReservas.length > 5 && <span className={`text-[9px] font-bold ${isSel ? 'text-white/80' : 'text-stone-400'}`}>+{dayReservas.length - 5}</span>}
+                          </div>
+                        )}
+                      </div>
+                      {dayReservas.length > 0 && (
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isSel ? 'bg-white/20 text-white' : 'bg-stone-100 text-stone-600'}`}>{dayReservas.length}</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* ============ PEINCIALES HOY / MANANA ============ */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {[todayStr, formatDate(addDays(new Date(), 1))].map((dStr, i) => {
+              const count = totalReservasDia(dStr);
+              const ocupadas = mesasOcupadasEnFecha(dStr);
+              return (
+                <button key={dStr} onClick={() => setSelectedDate(dStr)}
+                  className={`p-4 rounded-2xl border transition-all text-left cursor-pointer ${selectedDate === dStr ? 'bg-[#624A3E] text-white border-[#624A3E] shadow-md' : 'bg-white hover:bg-stone-50 border-stone-200 text-stone-800'}`}>
+                  <div className="flex justify-between items-center">
+                    <span className={`text-[10px] font-black uppercase tracking-wider ${selectedDate === dStr ? 'text-white/80' : 'text-stone-500'}`}>{i === 0 ? 'Hoy' : 'Manana'}</span>
+                    <CalendarClock className={`w-4 h-4 ${selectedDate === dStr ? 'text-white/70' : 'text-stone-400'}`} />
+                  </div>
+                  <div className="mt-2 space-y-0.5">
+                    <p className={`text-xl font-black ${selectedDate === dStr ? 'text-white' : 'text-stone-900'}`}>{count} reserva{count !== 1 ? 's' : ''}</p>
+                    <p className={`text-[10px] font-semibold ${selectedDate === dStr ? 'text-white/70' : 'text-stone-500'}`}>
+                      {disponiblesHoy.length} / {mesas.length} mesas libres
+                    </p>
+                    {ocupadas === mesas.length && (
+                      <p className={`text-[10px] font-bold ${selectedDate === dStr ? 'text-amber-200' : 'text-rose-600'}`}>Sin disponibilidad</p>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* ============ TARJETAS DE RESERVAS DEL DÍA ============ */}
+          <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-stone-100">
+              <h3 className="text-sm font-black text-stone-800 uppercase tracking-tight flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-[#624A3E]" />
+                Reservas {selectedDate} ({filtered.length})
+              </h3>
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                  <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+                    placeholder="Buscar..."
+                    className="pl-8 pr-2 py-1 text-[10px] border border-stone-200 rounded-lg bg-stone-50 focus:outline-none focus:ring-1 focus:ring-[#624A3E] w-36" />
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2.5 mt-3">
+              {filtered.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 gap-2">
+                  <Calendar className="w-8 h-8 text-stone-300" />
+                  <p className="text-xs text-stone-400 italic">Sin reservas para esta fecha.</p>
+                </div>
+              ) : (
+                filtered.map(r => {
+                  let statusBg = 'bg-stone-50 text-stone-600 border-stone-200';
+                  if (r.estado === 'sentada') statusBg = 'bg-emerald-50 text-emerald-800 border-emerald-100';
+                  if (r.estado === 'confirmada') statusBg = 'bg-blue-50 text-blue-800 border-blue-100';
+                  if (r.estado === 'pendiente') statusBg = 'bg-amber-50 text-amber-800 border-amber-100';
+                  if (r.estado === 'completada') statusBg = 'bg-stone-100 text-stone-500 border-stone-200';
+
+                  return (
+                    <div key={r.id_reserva} className="p-4 bg-[#F5F1E9]/40 border border-stone-150 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 hover:bg-[#F5F1E9]/70 transition-colors">
+                      <div className="space-y-1 flex-1">
+                        <div className="flex items-center gap-2.5">
+                          <h4 className="font-extrabold text-stone-900 text-sm tracking-tight">{r.nombre_cliente}</h4>
+                          <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full border ${statusBg}`}>{r.estado}</span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-stone-500 font-medium">
+                          <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5 text-stone-400" />{r.hora}</span>
+                          <span>&middot;</span>
+                          <span className="flex items-center gap-1"><Phone className="w-3.5 h-3.5 text-stone-400" />{r.telefono}</span>
+                          <span>&middot;</span>
+                          <span>{r.nombre_mesa} ({r.pax} pax)</span>
+                        </div>
+                        {r.observaciones && (
+                          <p className="text-[10px] text-amber-700 italic mt-1">{r.observaciones}</p>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button onClick={() => handleEdit(r)} title="Editar"
+                          className="p-1.5 rounded-lg bg-stone-50 hover:bg-blue-50 text-stone-400 hover:text-blue-500 transition-colors cursor-pointer">
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                        {r.estado === 'confirmada' && (
+                          <button onClick={() => handleChangeEstado(r.id_reserva, 'sentada')}
+                            className="py-1 px-2.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[10px] font-black cursor-pointer transition-colors">
+                            Sentar
+                          </button>
+                        )}
+                        {r.estado === 'sentada' && (
+                          <button onClick={() => handleChangeEstado(r.id_reserva, 'completada')}
+                            className="py-1 px-2.5 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-600 text-[10px] font-black cursor-pointer transition-colors">
+                            Completar
+                          </button>
+                        )}
+                        <button onClick={() => handleDeleteReserva(r.id_reserva)} title="Anular"
+                          className="p-1.5 rounded-lg bg-stone-50 hover:bg-rose-50 text-stone-400 hover:text-rose-500 transition-colors cursor-pointer">
+                          <Trash className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* ═══════════════════════════════
+            COLUMNA DERECHA: Lista de Espera + Próximas
+            ═══════════════════════════════ */}
+        <div className="xl:col-span-3 space-y-5">
+
+          {/* Tabs */}
+          <div className="flex bg-stone-100 p-0.5 rounded-xl border border-stone-200">
+            <button onClick={() => setTab('reservas')}
+              className={`flex-1 py-2 text-[10px] font-extrabold rounded-lg cursor-pointer transition-all ${tab === 'reservas' ? 'bg-white text-stone-900 shadow-xs' : 'text-stone-500 hover:text-stone-800'}`}>
+              Proximas
+            </button>
+            <button onClick={() => setTab('espera')}
+              className={`flex-1 py-2 text-[10px] font-extrabold rounded-lg cursor-pointer transition-all flex items-center justify-center gap-1.5 ${tab === 'espera' ? 'bg-white text-stone-900 shadow-xs' : 'text-stone-500 hover:text-stone-800'}`}>
+              Lista de espera
+              {listaEsperaGlobal.length > 0 && (
+                <span className="bg-amber-500 text-white text-[9px] w-4 h-4 flex items-center justify-center rounded-full font-bold">{listaEsperaGlobal.length}</span>
+              )}
+            </button>
+          </div>
+
+          {tab === 'espera' && (
+            <div className="bg-white rounded-2xl border border-stone-200 shadow-xs p-5 space-y-3">
+              <h4 className="text-xs font-black text-stone-800 uppercase flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-600" /> Clientes en espera ({listaEsperaGlobal.length})
+              </h4>
+              <p className="text-[10px] text-stone-500 leading-snug">Ordenados por prioridad (primero en llegar). Asigne una mesa disponible para confirmar la reserva.</p>
+
+              <div className="space-y-2.5">
+                {listaEsperaGlobal.length === 0 ? (
+                  <div className="py-6 flex flex-col items-center gap-2">
+                    <Users className="w-8 h-8 text-stone-300" />
+                    <p className="text-xs text-stone-400 italic">No hay clientes en lista de espera.</p>
+                  </div>
+                ) : (
+                  listaEsperaGlobal.map((r, idx) => (
+                    <div key={r.id_reserva} className="p-3 bg-[#F5F1E9]/40 border border-stone-150 rounded-xl space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="w-5 h-5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-black flex items-center justify-center">{idx + 1}</span>
+                          <h5 className="text-xs font-extrabold text-stone-900">{r.nombre_cliente}</h5>
+                        </div>
+                        <span className="text-[9px] font-bold text-stone-500 bg-stone-100 px-1.5 py-0.5 rounded">{r.pax} pax</span>
+                      </div>
+                      <div className="text-[10px] text-stone-500 flex items-center gap-3 font-medium">
+                        <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{r.fecha}</span>
+                        <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{r.hora}</span>
+                      </div>
+                      <div className="border-t border-stone-200/60 pt-2">
+                        <p className="text-[9px] font-bold text-stone-700 mb-1.5 uppercase">Asignar mesa disponible:</p>
+                        <div className="flex flex-wrap gap-1">
+                          {(() => {
+                            const disp = mesasDisponiblesEnFechaHora(r.fecha || todayStr, r.hora.replace(' hs', ''), r.pax, r.id_reserva);
+                            return disp.length === 0 ? (
+                              <span className="text-[10px] text-rose-600 font-medium flex items-center gap-1"><AlertCircle className="w-3 h-3" />Sin mesas libres</span>
+                            ) : (
+                              disp.map(m => (
+                                <button key={m.id_mesa} onClick={() => handleAsignarMesa(r.id_reserva, m.id_mesa)}
+                                  className="text-[9px] font-extrabold px-2 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 transition-colors cursor-pointer">
+                                  {m.numero_mesa}
+                                </button>
+                              ))
+                            );
+                          })()}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => handleEdit(r)}
+                          className="text-[9px] font-bold text-stone-500 hover:text-stone-700 underline cursor-pointer">Editar</button>
+                        <button onClick={() => handleDeleteReserva(r.id_reserva)}
+                          className="text-[9px] font-bold text-rose-500 hover:text-rose-700 underline cursor-pointer">Eliminar</button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
+          {tab === 'reservas' && (
+            <div className="bg-white rounded-2xl border border-stone-200 shadow-xs p-5 space-y-3">
+              <h4 className="text-xs font-black text-stone-800 uppercase flex items-center gap-2">
+                <Clock className="w-4 h-4 text-[#624A3E]" /> Proximas reservas
+              </h4>
+              <div className="space-y-2">
+                {reservas
+                  .filter(r => !r.lista_espera && r.estado !== 'cancelada' && r.estado !== 'completada' && r.fecha >= todayStr)
+                  .sort((a, b) => (a.fecha || '').localeCompare(b.fecha || '') || parseTimeToMin(a.hora) - parseTimeToMin(b.hora))
+                  .slice(0, 8)
+                  .map(r => (
+                    <button key={r.id_reserva} onClick={() => { setSelectedDate(r.fecha || todayStr); setTab('reservas'); }}
+                      className="w-full flex items-center gap-2 p-2.5 rounded-xl bg-stone-50 hover:bg-stone-100 border border-stone-100 transition-all cursor-pointer text-left">
+                      <div className="w-8 h-8 rounded-lg bg-[#624A3E] text-white flex items-center justify-center text-[10px] font-black shrink-0">
+                        {r.fecha?.slice(8)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[11px] font-bold text-stone-800 truncate">{r.nombre_cliente}</p>
+                        <p className="text-[9px] text-stone-500 flex items-center gap-1"><Clock className="w-3 h-3" />{r.hora} &middot; {r.nombre_mesa} &middot; {r.pax} pax</p>
+                      </div>
+                    </button>
+                  ))}
+              </div>
+            </div>
+          )}
+
+          {/* Quick stats globales */}
+          <div className="bg-white rounded-2xl border border-stone-200 shadow-xs p-5 space-y-3">
+            <h4 className="text-xs font-black text-stone-800 uppercase">Resumen global</h4>
+            <div className="grid grid-cols-2 gap-2 text-center">
+              <div className="bg-stone-50 p-2 rounded-xl border border-stone-100">
+                <span className="text-base font-black text-stone-900">{reservas.filter(r => r.estado === 'confirmada' && !r.lista_espera).length}</span>
+                <p className="text-[9px] text-stone-500 font-bold mt-0.5">Confirmadas</p>
+              </div>
+              <div className="bg-stone-50 p-2 rounded-xl border border-stone-100">
+                <span className="text-base font-black text-stone-900">{listaEsperaGlobal.length}</span>
+                <p className="text-[9px] text-stone-500 font-bold mt-0.5">En espera</p>
+              </div>
+              <div className="bg-stone-50 p-2 rounded-xl border border-stone-100">
+                <span className="text-base font-black text-stone-900">{reservas.filter(r => r.estado === 'sentada' && !r.lista_espera).length}</span>
+                <p className="text-[9px] text-stone-500 font-bold mt-0.5">Sentadas</p>
+              </div>
+              <div className="bg-stone-50 p-2 rounded-xl border border-stone-100">
+                <span className="text-base font-black text-stone-900">{reservas.filter(r => r.estado === 'cancelada').length}</span>
+                <p className="text-[9px] text-stone-500 font-bold mt-0.5">Canceladas</p>
+              </div>
             </div>
           </div>
 
-          <div className="space-y-2.5">
-            {filtered.length === 0 ? (
-              <p className="text-xs text-stone-400 italic text-center py-8">Sin reservas para esta fecha.</p>
-            ) : (
-              filtered.map(r => {
-                let statusBg = 'bg-stone-50 text-stone-600 border-stone-201';
-                if (r.estado === 'sentada') statusBg = 'bg-emerald-50 text-emerald-800 border-emerald-100';
-                if (r.estado === 'confirmada') statusBg = 'bg-blue-50 text-blue-800 border-blue-100';
-                if (r.estado === 'pendiente') statusBg = 'bg-amber-50 text-amber-800 border-amber-100';
-                if (r.estado === 'completada') statusBg = 'bg-stone-100 text-stone-500 border-stone-200';
-
-                return (
-                  <div key={r.id_reserva} className="p-4 bg-[#F5F1E9]/40 border border-stone-150 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 hover:bg-[#F5F1E9]/70 transition-colors">
-                    <div className="space-y-1 flex-1">
-                      <div className="flex items-center gap-2.5">
-                        <h4 className="font-extrabold text-stone-900 text-sm tracking-tight">{r.nombre_cliente}</h4>
-                        <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full border ${statusBg}`}>{r.estado}</span>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-stone-500 font-medium">
-                        <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5 text-stone-400" />{r.hora}</span>
-                        <span>•</span>
-                        <span className="flex items-center gap-1"><Phone className="w-3.5 h-3.5 text-stone-400" />{r.telefono}</span>
-                        <span>•</span>
-                        <span>{r.nombre_mesa} ({r.pax} pax)</span>
-                      </div>
-                      {r.observaciones && (
-                        <p className="text-[10px] text-amber-700 italic mt-1">📝 {r.observaciones}</p>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button onClick={() => handleEdit(r)}
-                        className="p-1.5 rounded-lg bg-stone-50 hover:bg-blue-50 text-stone-400 hover:text-blue-500 transition-colors cursor-pointer" title="Editar">
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      {r.estado === 'confirmada' && (
-                        <button onClick={() => handleChangeEstado(r.id_reserva, 'sentada')}
-                          className="py-1 px-2.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[10px] font-black cursor-pointer transition-colors">
-                          Sentar
-                        </button>
-                      )}
-                      {r.estado === 'sentada' && (
-                        <button onClick={() => handleChangeEstado(r.id_reserva, 'completada')}
-                          className="py-1 px-2.5 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-600 text-[10px] font-black cursor-pointer transition-colors">
-                          Completar
-                        </button>
-                      )}
-                      <button onClick={() => handleDeleteReserva(r.id_reserva)}
-                        className="p-1.5 rounded-lg bg-stone-50 hover:bg-rose-50 text-stone-400 hover:text-rose-500 transition-colors cursor-pointer" title="Anular">
-                        <Trash className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
         </div>
       </div>
+
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
     </div>
   );
 }

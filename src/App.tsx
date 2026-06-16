@@ -685,10 +685,13 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
 
     const updatedMesas = mesas.map(mesa => {
       if (mesa.id_mesa !== reserva.id_mesa) return mesa;
+      if (estado === 'confirmada') {
+        return { ...mesa, estado: 'reservada' as const, comensales: reserva.pax };
+      }
       if (estado === 'sentada') {
         return { ...mesa, estado: 'ocupada' as const, comensales: reserva.pax };
       }
-      if (!hasActiveOrder && (estado === 'cancelada' || estado === 'completada')) {
+      if (!hasActiveOrder && (estado === 'cancelada' || estado === 'completada' || estado === 'pendiente')) {
         return { ...mesa, estado: 'libre' as const, comensales: undefined };
       }
       return mesa;
@@ -696,7 +699,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
 
     setMesas(updatedMesas);
     dbUpsertMesas(updatedMesas);
-    addLog('sistema', `RESERVA: Mesa ${reserva.id_mesa} cambió a estado '${estado}'.`);
+    addLog('sistema', `RESERVA: Mesa ${reserva.id_mesa} cambio a estado '${estado}'.`);
   }, [mesas, pedidos, addLog]);
 
   // --- Handlers for Simulation Controls ---
