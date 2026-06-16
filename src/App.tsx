@@ -8,7 +8,6 @@ import {
   User,
   Clock,
   RefreshCw,
-  ShieldAlert,
   LogOut
 } from 'lucide-react';
 
@@ -28,6 +27,7 @@ import { useToast, ToastContainer } from './components/ToastContainer';
 import PythonStreamlitLogin from './components/PythonStreamlitLogin';
 import ElPatronLogo from './components/ElPatronLogo';
 import BottomNavigation from './components/BottomNavigation';
+import MobileNav from './components/MobileNav';
 import RetryErrorWrapper from './components/RetryErrorWrapper';
 import Skeleton from './components/Skeleton';
 
@@ -808,6 +808,22 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     <ErrorBoundary>
     <div className="h-screen overflow-hidden bg-[#F5F1E9] flex flex-col lg:flex-row font-sans text-stone-800 antialiased selection:bg-[#624A3E] selection:text-white">
 
+      {/* MOBILE/TABLET HEADER + DRAWER / RAIL */}
+      <MobileNav
+        activeView={activeView}
+        allowedViews={allowedViews}
+        activeUser={activeUser}
+        activeMozo={activeMozo}
+        usuarios={usuarios}
+        autoTimerRunning={autoTimerRunning}
+        getSimulatedTimeStr={getSimulatedTimeStr}
+        onNavigate={handleNavigate}
+        onMozoChange={handleMozoChange}
+        onLogout={handleLogout}
+        onToggleAutoTimer={handleToggleAutoTimer}
+        onAdvanceTime={handleAdvanceTime}
+      />
+
       {/* LEFT SIDE PANEL - Desktop sidebar */}
       <aside className="hidden lg:flex flex-col h-screen w-64 bg-[#C8956A] text-[#3B1F10]/90 border-r border-[#A67550]/40 shrink-0 shadow-xl shadow-black/15" id="sidebar-left-panel">
         <div className="flex-1 overflow-y-auto scroll-passive overscroll-contain px-2 pt-2 space-y-1.5 sidebar-scroll-hidden">
@@ -925,7 +941,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
       </aside>
 
       {/* MAIN CONTENT AREA */}
-      <main className="flex-1 overflow-x-hidden p-3 md:p-6 pb-24 max-w-7xl mx-auto w-full transition-all duration-300 mt-2">
+      <main className="flex-1 overflow-x-hidden p-2 sm:p-3 md:p-4 lg:p-6 pb-24 pt-16 md:pt-4 lg:pt-2 md:pl-[4.5rem] lg:pl-3 max-w-7xl mx-auto w-full transition-all duration-300">
         <ToastContainer toasts={toasts} removeToast={removeToast} />
 
         <RetryErrorWrapper>

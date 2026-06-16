@@ -300,8 +300,8 @@ export default function BackupsModule({
       <ToastContainer toasts={toasts} removeToast={removeToast} />
 
       {confirmAction && (
-        <div className="fixed inset-0 z-[80] bg-black/45 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-white rounded-2xl border border-stone-200 shadow-2xl overflow-hidden">
+        <div className="fixed inset-0 z-[80] bg-black/45 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="w-full max-w-md bg-white rounded-t-2xl sm:rounded-2xl border border-stone-200 shadow-2xl overflow-hidden">
             <div className="p-4 bg-amber-50 border-b border-amber-100 flex items-start justify-between gap-3">
               <div className="flex items-start gap-3">
                 <div className="p-2 rounded-xl bg-amber-100 text-amber-700"><AlertTriangle className="w-5 h-5" /></div>
@@ -316,13 +316,13 @@ export default function BackupsModule({
                   </p>
                 </div>
               </div>
-              <button onClick={() => setConfirmAction(null)} className="p-1 rounded-lg text-amber-500 hover:bg-amber-100 cursor-pointer"><X className="w-4 h-4" /></button>
+              <button onClick={() => setConfirmAction(null)} className="touch-target p-1 rounded-lg text-amber-500 hover:bg-amber-100 cursor-pointer"><X className="w-4 h-4" /></button>
             </div>
-            <div className="p-5 flex gap-2 justify-end">
+            <div className="p-4 sm:p-5 flex flex-col sm:flex-row gap-2 justify-end">
               <button onClick={() => setConfirmAction(null)}
-                className="py-2 px-4 rounded-xl border border-stone-200 bg-white text-stone-600 text-xs font-black uppercase hover:bg-stone-50 cursor-pointer">Cancelar</button>
+                className="min-h-11 py-2 px-4 rounded-xl border border-stone-200 bg-white text-stone-600 text-xs font-black uppercase hover:bg-stone-50 cursor-pointer">Cancelar</button>
               <button onClick={() => confirmAction.type === 'restore' ? executeRestore(confirmAction.cp) : executeDelete(confirmAction.cp.id_cp)}
-                className="py-2 px-4 rounded-xl bg-red-600 text-white text-xs font-black uppercase hover:bg-red-500 cursor-pointer">
+                className="min-h-11 py-2 px-4 rounded-xl bg-red-600 text-white text-xs font-black uppercase hover:bg-red-500 cursor-pointer">
                 Confirmar
               </button>
             </div>

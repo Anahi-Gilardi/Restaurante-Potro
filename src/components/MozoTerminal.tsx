@@ -297,12 +297,12 @@ export default function MozoTerminal({
     <>
     <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-6" id="mozo-terminal-container">
       {/* LEFT COLUMN: Mesa Grid and active waiter selector */}
-      <div className="min-w-0 space-y-4 lg:col-span-4 lg:space-y-6">
+      <div className="min-w-0 space-y-4 lg:col-span-4 lg:space-y-6 order-1">
         
         {/* Active Waiter Picker */}
         <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-100 shadow-sm">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
+            <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center shrink-0">
               <UserCheck className="w-5 h-5" />
             </div>
             <div>
@@ -315,7 +315,7 @@ export default function MozoTerminal({
               <button
                 key={usuario.id_usuario}
                 onClick={() => onMozoChange(usuario.nombre)}
-                className={`py-2 px-3 rounded-lg text-sm font-extrabold transition-all cursor-pointer ${
+                className={`min-h-11 py-2 px-3 rounded-lg text-sm font-extrabold transition-all cursor-pointer ${
                   activeMozo === usuario.nombre
                     ? 'bg-[#624A3E] text-white shadow-sm scale-[1.02] border border-[#5d3a2e]' 
                     : 'bg-stone-50 text-stone-600 border border-stone-200 hover:bg-[#F5F1E9]'
@@ -330,7 +330,7 @@ export default function MozoTerminal({
         {/* Mesas Selector Grid */}
         <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-100 shadow-sm">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="font-bold text-slate-800 font-sans tracking-tight flex items-center gap-2">
+            <h3 className="font-bold text-sm md:text-base text-slate-800 font-sans tracking-tight flex items-center gap-2">
               <UtensilsCrossed className="w-4 h-4 text-slate-500" />
               Distribución de Mesas
             </h3>
@@ -339,7 +339,7 @@ export default function MozoTerminal({
             </span>
           </div>
 
-          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-4">
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-2.5">
             {mesas.map(m => {
               const isSelected = m.id_mesa === selectedMesaId;
               const isOcupada = m.estado === 'ocupada';
@@ -375,18 +375,18 @@ export default function MozoTerminal({
                       setComensales(m.comensales);
                     }
                   }}
-                  className={`p-2.5 rounded-xl flex flex-col justify-between items-center transition-all aspect-square border cursor-pointer ${stateClasses}`}
+                  className={`min-h-[72px] p-2.5 rounded-xl flex flex-col justify-between items-center transition-all aspect-square sm:aspect-auto sm:h-24 border cursor-pointer ${stateClasses}`}
                 >
-                  <span className="text-xs font-black font-sans">{m.numero_mesa}</span>
+                  <span className="text-xs sm:text-sm font-black font-sans">{m.numero_mesa}</span>
                   {isOcupada ? (
-                    <div className="flex items-center gap-0.5 mt-2">
-                      <Users className={`w-3 h-3 ${isSelected ? 'text-amber-205 text-white' : 'text-[#2563a0]'}`} />
-                      <span className="text-[10px] font-bold">{m.comensales || 0}</span>
+                    <div className="flex items-center gap-0.5 mt-1 sm:mt-2">
+                      <Users className={`w-3 h-3 ${isSelected ? 'text-white' : 'text-[#2563a0]'}`} />
+                      <span className="text-[10px] sm:text-xs font-bold">{m.comensales || 0}</span>
                     </div>
                   ) : isInCuenta ? (
-                    <span className="text-[8px] uppercase tracking-wider font-extrabold text-[#c47f1a]">Saldar</span>
+                    <span className="text-[8px] sm:text-[10px] uppercase tracking-wider font-extrabold text-[#c47f1a] text-center leading-tight">Saldar</span>
                   ) : (
-                    <span className={`text-[8px] uppercase tracking-wider font-semibold opacity-80 ${isSelected ? 'text-white/60' : ''}`}>{labelText}</span>
+                    <span className={`text-[8px] sm:text-[10px] uppercase tracking-wider font-semibold opacity-80 text-center leading-tight ${isSelected ? 'text-white/60' : ''}`}>{labelText}</span>
                   )}
                 </button>
               );
@@ -478,24 +478,24 @@ export default function MozoTerminal({
       </div>
 
       {/* CENTRAL COLUMN: Product Catalog */}
-      <div className="min-w-0 lg:col-span-5 space-y-4">
+      <div className="min-w-0 lg:col-span-5 space-y-4 order-3 lg:order-2">
          {/* Search and Filters */}
         <div className="bg-white rounded-2xl p-3 sm:p-4 border border-stone-105 shadow-sm space-y-3">
-          <div className="flex flex-col md:flex-row gap-3 justify-between items-center">
-            <h3 className="font-extrabold text-xs text-[#624A3E] tracking-wider uppercase">Filtro de Categorías Premium</h3>
-            <div className="relative w-full md:w-56">
+          <div className="flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center">
+            <h3 className="font-extrabold text-sm md:text-base text-[#624A3E] tracking-wider uppercase">Filtro de Categorías Premium</h3>
+            <div className="relative w-full sm:w-56">
               <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 placeholder="Buscar plato o bebida..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 bg-stone-50 border border-stone-200/80 rounded-xl text-xs text-stone-700 placeholder-stone-400 focus:outline-none focus:ring-1 focus:ring-[#624A3E] focus:border-[#624A3E] transition-all"
+                className="w-full min-h-11 pl-9 pr-3 py-2 bg-stone-50 border border-stone-200/80 rounded-xl text-sm text-stone-700 placeholder-stone-400 focus:outline-none focus:ring-1 focus:ring-[#624A3E] focus:border-[#624A3E] transition-all"
               />
             </div>
           </div>
 
-          <div className="flex gap-1.5 w-full overflow-x-auto py-1 scrollbar-thin scroll-smooth border-t border-stone-100 pt-3">
+          <div className="flex gap-1.5 w-full overflow-x-auto py-1.5 scrollbar-thin scroll-smooth border-t border-stone-100 pt-3 pb-2">
             {[
               { id: 'todo', label: 'Todos' },
               { id: 'Entradas', label: 'Entradas' },
@@ -527,7 +527,7 @@ export default function MozoTerminal({
         </div>
 
         {/* Product Cards Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:max-h-[550px] lg:overflow-y-auto lg:pr-1">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-1 xl:grid-cols-2 gap-3 lg:max-h-[550px] lg:overflow-y-auto lg:pr-1">
           {filteredProducts.map(p => {
             const stockRemaining = getSimulatedStockRemaining(p);
             const isOutOfStock = stockRemaining <= 0;
@@ -548,7 +548,7 @@ export default function MozoTerminal({
                 style={{ contentVisibility: 'auto' }}
               >
                 {/* Product Image */}
-                <div className="h-28 w-full bg-stone-50 relative overflow-hidden">
+                <div className="h-24 sm:h-28 w-full bg-stone-50 relative overflow-hidden">
                   <img
                     src={p.imagen}
                     alt={p.nombre}
@@ -628,7 +628,7 @@ export default function MozoTerminal({
                             e.stopPropagation();
                             if (!isOutOfStock) for (let i = 0; i < n; i++) handleAddToCart(p.id_producto);
                           }}
-                          className="touch-target-sm w-10 h-10 rounded-lg bg-[#624A3E]/10 text-[#624A3E] hover:bg-[#624A3E] hover:text-white active:scale-90 transition-all text-xs font-extrabold cursor-pointer"
+                          className="touch-target w-10 h-10 sm:w-11 sm:h-11 rounded-lg bg-[#624A3E]/10 text-[#624A3E] hover:bg-[#624A3E] hover:text-white active:scale-90 transition-all text-xs font-extrabold cursor-pointer flex items-center justify-center"
                           title={`Agregar ${n}`}
                         >
                           +{n}
@@ -668,15 +668,15 @@ export default function MozoTerminal({
       </div>
 
       {/* RIGHT COLUMN: Active Comanda Cart Summary */}
-      <div className="min-w-0 lg:col-span-3">
-        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-100 shadow-sm flex flex-col min-h-[380px] sm:min-h-[480px] lg:h-[520px] lg:sticky lg:top-6">
+      <div className="min-w-0 lg:col-span-3 order-2">
+        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-100 shadow-sm flex flex-col min-h-[320px] sm:min-h-[400px] lg:h-[520px] lg:sticky lg:top-6">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-            <h3 className="font-bold text-slate-800 text-sm font-sans flex items-center gap-2">
+            <h3 className="font-bold text-slate-800 text-sm md:text-base font-sans flex items-center gap-2">
               <ShoppingBag className="w-4 h-4 text-slate-500" />
               Nueva Comanda
             </h3>
             {selectedMesa && (
-              <span className="bg-slate-900 text-white font-sans text-[10px] font-extrabold px-2 py-0.5 rounded">
+              <span className="bg-slate-900 text-white font-sans text-[10px] sm:text-xs font-extrabold px-2 py-0.5 rounded">
                 {selectedMesa.numero_mesa}
               </span>
             )}
@@ -687,8 +687,8 @@ export default function MozoTerminal({
               <div className="w-12 h-12 bg-slate-50 text-slate-400 rounded-full flex items-center justify-center mb-3">
                 <UtensilsCrossed className="w-5 h-5" />
               </div>
-              <h4 className="font-bold text-slate-700 text-xs">Seleccione Mesa</h4>
-              <p className="text-slate-400 text-[10px] mt-1 max-w-[180px]">
+              <h4 className="font-bold text-slate-700 text-sm">Seleccione Mesa</h4>
+              <p className="text-slate-400 text-xs mt-1 max-w-[180px]">
                 Marque una mesa disponible en el plano izquierdo para iniciar la comanda.
               </p>
             </div>
@@ -697,8 +697,8 @@ export default function MozoTerminal({
               <div className="w-12 h-12 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mb-3">
                 <Sparkles className="w-5 h-5" />
               </div>
-              <h4 className="font-bold text-slate-700 text-xs">Comanda Vacía</h4>
-              <p className="text-slate-400 text-[10px] mt-1 max-w-[180px]">
+              <h4 className="font-bold text-slate-700 text-sm">Comanda Vacía</h4>
+              <p className="text-slate-400 text-xs mt-1 max-w-[180px]">
                 Toque los platos de la carta central para cargarlos a la mesa de forma interactiva.
               </p>
             </div>
@@ -718,16 +718,16 @@ export default function MozoTerminal({
                        <div className="flex items-center gap-1.5">
                         <button
                           onClick={() => handleRemoveFromCart(prodId)}
-                          className="w-5 h-5 bg-white hover:bg-slate-100 rounded border border-slate-200 flex items-center justify-center text-slate-600 transition-colors"
+                          className="touch-target w-8 h-8 bg-white hover:bg-slate-100 rounded border border-slate-200 flex items-center justify-center text-slate-600 transition-colors"
                         >
-                          <Minus className="w-3 h-3" />
+                          <Minus className="w-3.5 h-3.5" />
                         </button>
-                        <span className="font-mono text-xs font-bold w-4 text-center">{qty}</span>
+                        <span className="font-mono text-sm font-bold w-5 text-center">{qty}</span>
                         <button
                           onClick={() => handleAddToCart(prodId)}
-                          className="w-5 h-5 bg-white hover:bg-slate-100 rounded border border-slate-200 flex items-center justify-center text-slate-600 transition-colors"
+                          className="touch-target w-8 h-8 bg-white hover:bg-slate-100 rounded border border-slate-200 flex items-center justify-center text-slate-600 transition-colors"
                         >
-                          <Plus className="w-3 h-3" />
+                          <Plus className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </div>
@@ -745,7 +745,7 @@ export default function MozoTerminal({
                   placeholder="Ej: Bife bien cocido, papas sin sal, agua a temperatura ambiente..."
                   value={observaciones}
                   onChange={(e) => setObservaciones(e.target.value)}
-                  className="w-full text-xs text-slate-700 p-2 border border-slate-100 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-950 resize-none h-14"
+                  className="w-full min-h-11 text-base text-slate-700 p-2.5 border border-slate-100 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-950 resize-none h-16"
                 />
               </div>
 
@@ -772,7 +772,7 @@ export default function MozoTerminal({
                 <button
                   onClick={checkoutCart}
                   disabled={checkoutStatus === 'sending'}
-                  className={`w-full py-2.5 px-4 rounded-xl text-xs font-black flex items-center justify-center gap-2 shadow-md transition-all duration-100 cursor-pointer border ${
+                  className={`w-full min-h-11 py-3 px-4 rounded-xl text-sm sm:text-base font-black flex items-center justify-center gap-2 shadow-md transition-all duration-100 cursor-pointer border ${
                     checkoutStatus === 'done'
                       ? 'bg-emerald-600 text-white border-emerald-500 shadow-emerald-500/20'
                       : checkoutStatus === 'sending'
@@ -796,8 +796,8 @@ export default function MozoTerminal({
 
       {/* BILL SPLITTING MODAL (MODO DIVISION DE CUENTAS) */}
       {splittingPedidoId !== null && (
-        <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl p-6 shadow-xl max-w-md w-full border border-slate-100">
+        <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 z-50">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl p-5 sm:p-6 shadow-xl max-w-md w-full max-h-[92vh] overflow-y-auto border border-slate-100">
             <div className="flex justify-between items-start mb-4">
               <div>
                 <h3 className="font-extrabold text-base text-slate-900 font-sans tracking-tight flex items-center gap-2">
@@ -858,14 +858,14 @@ export default function MozoTerminal({
                       <div className="flex items-center bg-white border border-slate-200 rounded-lg p-1.5 gap-2.5">
                         <button 
                           onClick={() => setSplitCount(c => Math.max(2, c - 1))}
-                          className="w-5 h-5 rounded bg-slate-50 flex items-center justify-center font-bold text-xs"
+                          className="touch-target w-8 h-8 rounded bg-slate-50 flex items-center justify-center font-bold text-sm active:scale-90"
                         >
                           -
                         </button>
-                        <span className="text-xs font-bold font-mono">{splitCount}</span>
+                        <span className="text-sm font-bold font-mono w-5 text-center">{splitCount}</span>
                         <button 
                           onClick={() => setSplitCount(c => c + 1)}
-                          className="w-5 h-5 rounded bg-slate-50 flex items-center justify-center font-bold text-xs"
+                          className="touch-target w-8 h-8 rounded bg-slate-50 flex items-center justify-center font-bold text-sm active:scale-90"
                         >
                           +
                         </button>

@@ -701,7 +701,7 @@ export default function CajaModule({
                 type="text" 
                 value={restaurante.nombreComercial} 
                 onChange={e => setRestaurante(prev => ({ ...prev, nombreComercial: e.target.value }))}
-                className="w-full p-2 text-xs bg-white border border-stone-200 rounded-lg text-stone-800 font-semibold"
+                className="w-full min-h-11 p-2.5 text-sm bg-white border border-stone-200 rounded-lg text-stone-800 font-semibold"
               />
             </div>
             <div>
@@ -710,7 +710,7 @@ export default function CajaModule({
                 type="text" 
                 value={restaurante.razonSocial} 
                 onChange={e => setRestaurante(prev => ({ ...prev, razonSocial: e.target.value }))}
-                className="w-full p-2 text-xs bg-white border border-stone-200 rounded-lg text-stone-800"
+                className="w-full min-h-11 p-2.5 text-sm bg-white border border-stone-200 rounded-lg text-stone-800"
               />
             </div>
             <div>
@@ -719,7 +719,7 @@ export default function CajaModule({
                 type="text" 
                 value={restaurante.cuit} 
                 onChange={e => setRestaurante(prev => ({ ...prev, cuit: e.target.value }))}
-                className="w-full p-2 text-xs bg-white border border-stone-200 rounded-lg text-stone-800 font-mono"
+                className="w-full min-h-11 p-2.5 text-sm bg-white border border-stone-200 rounded-lg text-stone-800 font-mono"
               />
             </div>
             <div>
@@ -728,7 +728,7 @@ export default function CajaModule({
                 type="text" 
                 value={restaurante.direccion} 
                 onChange={e => setRestaurante(prev => ({ ...prev, direccion: e.target.value }))}
-                className="w-full p-2 text-xs bg-white border border-stone-200 rounded-lg text-stone-800"
+                className="w-full min-h-11 p-2.5 text-sm bg-white border border-stone-200 rounded-lg text-stone-800"
               />
             </div>
             <div>
@@ -737,7 +737,7 @@ export default function CajaModule({
                 type="text" 
                 value={restaurante.telefono} 
                 onChange={e => setRestaurante(prev => ({ ...prev, telefono: e.target.value }))}
-                className="w-full p-2 text-xs bg-white border border-stone-200 rounded-lg text-stone-800"
+                className="w-full min-h-11 p-2.5 text-sm bg-white border border-stone-200 rounded-lg text-stone-800"
               />
             </div>
             <div>
@@ -746,7 +746,7 @@ export default function CajaModule({
                 type="text" 
                 value={restaurante.email} 
                 onChange={e => setRestaurante(prev => ({ ...prev, email: e.target.value }))}
-                className="w-full p-2 text-xs bg-white border border-stone-200 rounded-lg text-stone-800"
+                className="w-full min-h-11 p-2.5 text-sm bg-white border border-stone-200 rounded-lg text-stone-800"
               />
             </div>
             <div>
@@ -755,13 +755,13 @@ export default function CajaModule({
                 type="text" 
                 value={restaurante.mensajePie} 
                 onChange={e => setRestaurante(prev => ({ ...prev, mensajePie: e.target.value }))}
-                className="w-full p-2 text-xs bg-white border border-stone-200 rounded-lg text-stone-800"
+                className="w-full min-h-11 p-2.5 text-sm bg-white border border-stone-200 rounded-lg text-stone-800"
               />
             </div>
             <div className="flex items-end">
               <button
                 onClick={() => setEditRestauranteMode(false)}
-                className="w-full py-2 bg-[#624A3E] hover:bg-[#503C32] text-white text-[10px] uppercase font-black rounded-lg cursor-pointer"
+                className="w-full min-h-11 py-2.5 bg-[#624A3E] hover:bg-[#503C32] text-white text-xs uppercase font-black rounded-lg cursor-pointer"
               >
                 Guardar Configuración
               </button>
@@ -772,22 +772,22 @@ export default function CajaModule({
 
       {/* PRINTER SETTINGS MODULE FOR ESC/POS */}
       {showPrinterSettings && (
-        <div className="bg-white border border-stone-200 p-5 rounded-2xl animate-fadeIn space-y-3">
+        <div className="bg-white border border-stone-200 p-4 sm:p-5 rounded-2xl animate-fadeIn space-y-3">
           <div className="flex justify-between items-center border-b border-stone-100 pb-2">
-            <h4 className="text-xs font-black text-stone-800 uppercase flex items-center gap-1.5">
+            <h4 className="text-xs sm:text-sm font-black text-stone-800 uppercase flex items-center gap-1.5">
               <Printer className="w-4 h-4 text-[#624A3E]" /> Parámetros de Integración Térmica (ESC/POS)
             </h4>
             <span className="text-[9px] text-[#22C55E] bg-emerald-50 px-2 py-0.5 rounded-full font-bold">API Enlazable</span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-            <div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
+            <div className="sm:col-span-2 md:col-span-1">
               <label className="text-[10px] font-bold text-stone-500 block mb-1">Nombre de Impresora</label>
               <input 
                 type="text" 
                 value={printerConfig.printerName}
                 onChange={e => setPrinterConfig(prev => ({ ...prev, printerName: e.target.value }))}
-                className="w-full p-2.5 text-xs border border-stone-200 rounded-lg font-mono text-stone-700"
+                className="w-full min-h-11 p-2.5 text-sm border border-stone-200 rounded-lg font-mono text-stone-700"
               />
             </div>
 
@@ -796,7 +796,7 @@ export default function CajaModule({
               <select
                 value={printerConfig.paperWidth}
                 onChange={e => setPrinterConfig(prev => ({ ...prev, paperWidth: e.target.value as '58mm' | '80mm' }))}
-                className="w-full p-2.5 text-xs border border-stone-200 rounded-lg bg-stone-50 font-bold"
+                className="w-full min-h-11 p-2.5 text-sm border border-stone-200 rounded-lg bg-stone-50 font-bold"
               >
                 <option value="80mm">80 milímetros (Estándar)</option>
                 <option value="58mm">58 milímetros (Estrecha)</option>
@@ -811,7 +811,7 @@ export default function CajaModule({
                 max="5"
                 value={printerConfig.copies}
                 onChange={e => setPrinterConfig(prev => ({ ...prev, copies: parseInt(e.target.value) || 1 }))}
-                className="w-full p-2.5 text-xs border border-stone-200 rounded-lg text-stone-700"
+                className="w-full min-h-11 p-2.5 text-sm border border-stone-200 rounded-lg text-stone-700"
               />
             </div>
 
@@ -821,7 +821,7 @@ export default function CajaModule({
                 id="autoCutCheck" 
                 checked={printerConfig.autoCut}
                 onChange={e => setPrinterConfig(prev => ({ ...prev, autoCut: e.target.checked }))}
-                className="w-4 h-4 accent-[#624A3E]"
+                className="w-5 h-5 accent-[#624A3E]"
               />
               <label htmlFor="autoCutCheck" className="text-[10px] font-bold text-stone-600 block cursor-pointer">Corte Automático</label>
             </div>
@@ -832,7 +832,7 @@ export default function CajaModule({
                 id="openDrawerCheck" 
                 checked={printerConfig.openDrawer}
                 onChange={e => setPrinterConfig(prev => ({ ...prev, openDrawer: e.target.checked }))}
-                className="w-4 h-4 accent-[#624A3E]"
+                className="w-5 h-5 accent-[#624A3E]"
               />
               <label htmlFor="openDrawerCheck" className="text-[10px] font-bold text-stone-600 block cursor-pointer">Abre Cajón Portamonedas</label>
             </div>
@@ -845,7 +845,7 @@ export default function CajaModule({
                 setShowPrinterSettings(false);
                 toast.success('Ajustes de ticketera guardados en el navegador.');
               }}
-              className="py-1.5 px-3 bg-[#624A3E] text-white text-[10px] font-black uppercase rounded-lg"
+              className="min-h-10 py-2 px-4 bg-[#624A3E] text-white text-xs font-black uppercase rounded-lg"
             >
               Aplicar Cambios
             </button>
@@ -854,17 +854,17 @@ export default function CajaModule({
       )}
 
       {/* CORE SPLIT SCREEN LAYOUT */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6">
         
         {/* LEFT COLUMN: ACTIVE DRAWER & ACTIVE COMMANDS (LG: Span 4) */}
-        <div className="lg:col-span-4 space-y-6">
+        <div className="lg:col-span-4 space-y-4 lg:space-y-6">
           
           {/* DAILY DRAWER SHIFT COMPONENT (Rule 1) */}
-          <div className="bg-white rounded-2xl p-5 border border-stone-200 shadow-sm space-y-4">
+          <div className="bg-white rounded-2xl p-4 sm:p-5 border border-stone-200 shadow-sm space-y-4">
             <div className="flex justify-between items-start">
-              <div>
+              <div className="min-w-0">
                 <span className="text-[9px] uppercase font-black text-stone-400 block tracking-wider">Flujo Contable Diario</span>
-                <h3 className="font-extrabold text-stone-900 text-sm tracking-tight font-sans">Estado de Caja Diaria</h3>
+                <h3 className="font-extrabold text-stone-900 text-sm md:text-base tracking-tight font-sans">Estado de Caja Diaria</h3>
               </div>
               
               <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase flex items-center gap-1 border ${
@@ -1086,16 +1086,16 @@ export default function CajaModule({
         <div className="lg:col-span-8">
           
           {selectedPedido ? (
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 bg-white rounded-2xl p-6 border border-stone-200 shadow-sm">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 lg:gap-6 bg-white rounded-2xl p-4 sm:p-6 border border-stone-200 shadow-sm">
               
               {/* TICKET OPTIONS CONTROLS (MD: Span 7) */}
               <div className="md:col-span-7 space-y-4 font-sans">
                 
                 {/* Header detail selected */}
-                <div className="border-b border-stone-200 pb-3 flex justify-between items-start">
-                  <div>
-                    <span className="text-[11px] text-amber-700 font-black uppercase tracking-wider block">Terminal de Liquidación</span>
-                    <h3 className="font-extrabold text-stone-900 text-sm tracking-tight flex items-center gap-1.5 mt-0.5">
+                <div className="border-b border-stone-200 pb-3 flex flex-col sm:flex-row justify-between items-start gap-2">
+                  <div className="min-w-0">
+                    <span className="text-[10px] sm:text-[11px] text-amber-700 font-black uppercase tracking-wider block">Terminal de Liquidación</span>
+                    <h3 className="font-extrabold text-stone-900 text-sm md:text-base tracking-tight flex items-center gap-1.5 mt-0.5">
                       Saldando Cuenta: {selectedPedido.numero_mesa} ({selectedPedido.mozo})
                     </h3>
                   </div>
@@ -1106,10 +1106,10 @@ export default function CajaModule({
                 </div>
 
                 {/* Group categories of order items (Rule 3) */}
-                <div className="bg-stone-50 border border-stone-200/60 p-3.5 rounded-xl space-y-2">
+                <div className="bg-stone-50 border border-stone-200/60 p-3 sm:p-3.5 rounded-xl space-y-2">
                   <h4 className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">Items del pedido</h4>
                   
-                  <div className="space-y-3 max-h-[160px] overflow-y-auto pr-1 text-xs">
+                  <div className="space-y-3 max-h-[160px] overflow-y-auto pr-1 text-xs sm:text-sm">
                     {(Object.entries(groupedItemsByCategory) as [string, any[]][]).map(([category, items]) => (
                       <div key={category} className="space-y-1">
                         <h5 className="text-[9px] font-black text-[#624A3E] uppercase tracking-wider">
@@ -1124,7 +1124,7 @@ export default function CajaModule({
 
                             return (
                               <div key={idx} className="flex justify-between items-center text-stone-700 py-0.5 font-medium">
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 min-w-0">
                                   {/* Item split selection checkbox (Dividir por productos - Rule 3) */}
                                   {splitByProducts && (
                                     <input 
@@ -1137,12 +1137,12 @@ export default function CajaModule({
                                           setSelectedProductsForSplit(prev => [...prev, it.id_producto]);
                                         }
                                       }}
-                                      className="w-3.5 h-3.5 accent-[#624A3E]"
+                                      className="w-4 h-4 accent-[#624A3E] shrink-0"
                                     />
                                   )}
-                                  <span>{it.cantidad}x {it.nombre}</span>
+                                  <span className="truncate">{it.cantidad}x {it.nombre}</span>
                                 </div>
-                                <span className="font-mono text-stone-900">
+                                <span className="font-mono text-stone-900 shrink-0">
                                   ${(it.cantidad * unitPrice).toLocaleString('es-AR')}
                                 </span>
                               </div>
@@ -1160,7 +1160,7 @@ export default function CajaModule({
                         setSplitByProducts(!splitByProducts);
                         setSelectedProductsForSplit([]);
                       }}
-                      className="text-[9px] font-extrabold uppercase text-[#624A3E] hover:underline flex items-center gap-1 cursor-pointer"
+                      className="text-[10px] font-extrabold uppercase text-[#624A3E] hover:underline flex items-center gap-1 cursor-pointer"
                     >
                       <Users className="w-3 h-3" />
                       {splitByProducts ? 'Quitar selector por producto' : 'Dividir o seleccionar ítems indiv.'}
@@ -1189,13 +1189,13 @@ export default function CajaModule({
                 <div className="bg-[#ebf1f5]/25 border border-slate-200/60 p-3 rounded-xl space-y-2">
                   <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Información Tributaria</h4>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                     <div>
-                      <label className="text-[8px] font-bold uppercase text-stone-500 block mb-0.5">Tipo de Factura</label>
+                      <label className="text-[9px] font-bold uppercase text-stone-500 block mb-0.5">Tipo de Factura</label>
                       <select
                         value={tipoComprobante}
                         onChange={e => setTipoComprobante(e.target.value as TipoComprobante)}
-                        className="w-full text-xs p-1.5 border border-slate-200 rounded bg-white text-stone-700 font-bold"
+                        className="w-full min-h-11 text-sm p-2 border border-slate-200 rounded bg-white text-stone-700 font-bold"
                       >
                         <option value="factura_b">Factura B (Cons. Final)</option>
                         <option value="factura_a">Factura A (Inscripto)</option>
@@ -1204,7 +1204,7 @@ export default function CajaModule({
                     </div>
 
                     <div>
-                      <label className="text-[8px] font-bold uppercase text-stone-500 block mb-0.5">DNI/CUIT Cliente</label>
+                      <label className="text-[9px] font-bold uppercase text-stone-500 block mb-0.5">DNI/CUIT Cliente</label>
                       <input 
                         type="text" 
                         value={cuitCliente}
@@ -1215,18 +1215,18 @@ export default function CajaModule({
                             setNombreCliente('Consumidor Final');
                           }
                         }}
-                        className="w-full text-xs p-1.5 border border-slate-200 rounded bg-white text-stone-700 font-mono"
+                        className="w-full min-h-11 text-sm p-2 border border-slate-200 rounded bg-white text-stone-700 font-mono"
                         placeholder="Ej. 20-38449102-1"
                       />
                     </div>
 
                     <div>
-                      <label className="text-[8px] font-bold uppercase text-stone-500 block mb-0.5">Razón Social Cliente</label>
+                      <label className="text-[9px] font-bold uppercase text-stone-500 block mb-0.5">Razón Social Cliente</label>
                       <input 
                         type="text" 
                         value={nombreCliente}
                         onChange={e => setNombreCliente(e.target.value)}
-                        className="w-full text-xs p-1.5 border border-slate-200 rounded bg-white text-stone-700"
+                        className="w-full min-h-11 text-sm p-2 border border-slate-200 rounded bg-white text-stone-700"
                         placeholder="Ej. José de San Martín"
                       />
                     </div>
@@ -1246,29 +1246,29 @@ export default function CajaModule({
                           setSplitPayerCount(prev => Math.max(1, prev - 1));
                           setActivePayerIndex(0);
                         }}
-                        className="w-7 h-7 bg-stone-50 hover:bg-stone-100 rounded text-stone-700 font-bold flex items-center justify-center cursor-pointer"
+                        className="touch-target w-9 h-9 bg-stone-50 hover:bg-stone-100 rounded text-stone-700 font-bold flex items-center justify-center cursor-pointer active:scale-90"
                       >
                         -
                       </button>
-                      <span className="text-xs font-mono font-black text-stone-900">{splitPayerCount} pax</span>
+                      <span className="text-sm font-mono font-black text-stone-900">{splitPayerCount} pax</span>
                       <button
                         onClick={() => {
                           setSplitPayerCount(prev => prev + 1);
                           setActivePayerIndex(0);
                         }}
-                        className="w-7 h-7 bg-stone-50 hover:bg-stone-100 rounded text-stone-700 font-bold flex items-center justify-center cursor-pointer"
+                        className="touch-target w-9 h-9 bg-stone-50 hover:bg-stone-100 rounded text-stone-700 font-bold flex items-center justify-center cursor-pointer active:scale-90"
                       >
                         +
                       </button>
                     </div>
 
                     {splitPayerCount > 1 && (
-                      <div className="text-[10px] text-stone-600 leading-normal bg-white p-2 rounded border border-stone-100 space-y-0.5 text-center">
+                      <div className="text-[10px] sm:text-xs text-stone-600 leading-normal bg-white p-2 rounded border border-stone-100 space-y-0.5 text-center">
                         <p className="font-bold">Monto partes iguales:</p>
-                        <p className="text-emerald-700 text-xs font-black font-mono">
+                        <p className="text-emerald-700 text-sm font-black font-mono">
                           ${(orderBreakdowns.finalTotal / splitPayerCount).toLocaleString('es-AR', { maximumFractionDigits: 1 })} c/u
                         </p>
-                        <span className="bg-[#624A3E]/10 text-[#624A3E] px-1.5 py-0.2 rounded font-extrabold text-[8px] tracking-wider uppercase inline-block">
+                        <span className="bg-[#624A3E]/10 text-[#624A3E] px-1.5 py-0.5 rounded font-extrabold text-[9px] tracking-wider uppercase inline-block">
                           Pagador Actual: {activePayerIndex + 1} de {splitPayerCount}
                         </span>
                       </div>
@@ -1283,11 +1283,11 @@ export default function CajaModule({
                     
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="text-[8px] font-bold text-stone-500 block mb-0.5">Manual Desc %</label>
+                        <label className="text-[9px] font-bold text-stone-500 block mb-0.5">Manual Desc %</label>
                         <select
                           value={descuentoPorcentaje}
                           onChange={e => setDescuentoPorcentaje(parseInt(e.target.value) || 0)}
-                          className="w-full text-xs p-1.5 border border-stone-200 rounded bg-white font-bold"
+                          className="w-full min-h-11 text-sm p-2 border border-stone-200 rounded bg-white font-bold"
                         >
                           <option value="0">0%</option>
                           <option value="5">5%</option>
@@ -1298,11 +1298,11 @@ export default function CajaModule({
                       </div>
 
                       <div>
-                        <label className="text-[8px] font-bold text-stone-500 block mb-0.5">Propina %</label>
+                        <label className="text-[9px] font-bold text-stone-500 block mb-0.5">Propina %</label>
                         <select
                           value={propinaPorcentaje}
                           onChange={e => setPropinaPorcentaje(parseInt(e.target.value) || 0)}
-                          className="w-full text-xs p-1.5 border border-stone-200 rounded bg-white font-bold"
+                          className="w-full min-h-11 text-sm p-2 border border-stone-200 rounded bg-white font-bold"
                         >
                           <option value="0">0%</option>
                           <option value="5">5%</option>
@@ -1315,7 +1315,7 @@ export default function CajaModule({
                 </div>
 
                 {/* PAYMENT TYPE / MIXED PAYMENTS LAYOUT (Rule 4) */}
-                <div className="bg-white border border-stone-200 p-4 rounded-xl space-y-3.5">
+                <div className="bg-white border border-stone-200 p-3 sm:p-4 rounded-xl space-y-3.5">
                   <div>
                     <label className="text-[10px] font-black text-stone-500 uppercase tracking-widest block mb-1.5">
                       Método de Liquidación Caja
@@ -1336,7 +1336,7 @@ export default function CajaModule({
                             setMixedPayments([]);
                             setMontoEntregadoEfectivo('');
                           }}
-                          className={`p-2.5 rounded-xl text-xs font-black flex items-center justify-start gap-2 border transition-all cursor-pointer ${
+                          className={`min-h-11 py-2.5 px-2 rounded-xl text-xs font-black flex items-center justify-start gap-2 border transition-all cursor-pointer ${
                             metodoPago === m.key 
                               ? 'bg-[#624A3E] text-white border-[#624A3E] shadow-sm'
                               : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100'
@@ -1357,13 +1357,14 @@ export default function CajaModule({
                         <p className="text-[10px] text-stone-500 font-medium">Ayuda vuelto rápido cajero</p>
                       </div>
                       
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
                         <input 
                           type="number"
+                          inputMode="decimal"
                           value={montoEntregadoEfectivo}
                           onChange={e => setMontoEntregadoEfectivo(e.target.value)}
                           placeholder="Monto entregado"
-                          className="p-2 border border-stone-200 rounded-lg text-xs font-mono font-black text-stone-800 w-28 bg-white"
+                          className="min-h-11 p-2 border border-stone-200 rounded-lg text-sm font-mono font-black text-stone-800 w-full sm:w-28 bg-white"
                         />
                         {calculatedChange > 0 && (
                           <div className="text-right pl-2 border-l border-stone-200">
@@ -1379,18 +1380,18 @@ export default function CajaModule({
 
                   {/* Mixed Payment Rows interface */}
                   {metodoPago === 'mixto' && (
-                    <div className="space-y-3.5 bg-slate-50 p-3.5 rounded-xl border border-stone-200">
-                      <div className="flex justify-between items-center text-[10px] font-black uppercase text-stone-500 border-b border-stone-200 pb-1">
+                    <div className="space-y-3.5 bg-slate-50 p-3 sm:p-3.5 rounded-xl border border-stone-200">
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center text-[10px] font-black uppercase text-stone-500 border-b border-stone-200 pb-1 gap-1">
                         <span>Pagos Cargados parciamente</span>
                         <span className="font-mono text-emerald-800">
-                          Totaling Queue: ${mixedSum.toLocaleString('es-AR')} / ${orderBreakdowns.finalTotal.toLocaleString('es-AR')}
+                          Total: ${mixedSum.toLocaleString('es-AR')} / ${orderBreakdowns.finalTotal.toLocaleString('es-AR')}
                         </span>
                       </div>
 
                       {mixedPayments.length > 0 ? (
                         <div className="space-y-1">
                           {mixedPayments.map((p, idx) => (
-                            <div key={idx} className="flex justify-between items-center bg-white border border-stone-100 p-2 rounded-lg text-xs font-bold text-stone-700">
+                            <div key={idx} className="flex justify-between items-center bg-white border border-stone-100 p-2 rounded-lg text-xs sm:text-sm font-bold text-stone-700">
                               <span className="uppercase flex items-center gap-1">
                                 <ChevronRight className="w-3.5 h-3.5 text-[#624A3E]" /> {p.metodo}
                               </span>
@@ -1399,7 +1400,7 @@ export default function CajaModule({
                                 <button
                                   type="button"
                                   onClick={() => handleRemoveMixedPayment(idx)}
-                                  className="text-stone-400 hover:text-rose-600 transition-colors cursor-pointer"
+                                  className="touch-target w-8 h-8 text-stone-400 hover:text-rose-600 transition-colors cursor-pointer flex items-center justify-center"
                                   title="Borrar pago parcial"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
@@ -1418,7 +1419,7 @@ export default function CajaModule({
                           <select
                             value={mixedMetodoInput}
                             onChange={e => setMixedMetodoInput(e.target.value)}
-                            className="bg-white border text-xs p-2 rounded-lg"
+                            className="min-h-11 bg-white border text-sm p-2 rounded-lg"
                           >
                             <option value="efectivo">Efectivo</option>
                             <option value="tarjeta">Tarjeta Crédito</option>
@@ -1428,23 +1429,23 @@ export default function CajaModule({
 
                           <input
                             type="number"
+                            inputMode="decimal"
                             placeholder="Monto"
                             value={mixedMontoInput}
                             onChange={e => {
                               setMixedMontoInput(e.target.value);
-                              // Auto pre-populate cash entregado for vuelto dynamic helper inside mixto if method is cash
                               if (mixedMetodoInput === 'efectivo') {
                                 setMontoEntregadoEfectivo(e.target.value);
                               }
                             }}
-                            className="flex-1 bg-white border p-2 text-xs rounded-lg font-mono font-bold"
+                            className="min-h-11 flex-1 bg-white border p-2 text-sm rounded-lg font-mono font-bold"
                           />
 
                           <button
                             type="submit"
-                            className="py-2 px-3 bg-[#624A3E] text-white text-xs font-black rounded-lg cursor-pointer flex items-center gap-1 shrink-0"
+                            className="min-h-11 py-2 px-3 bg-[#624A3E] text-white text-xs font-black rounded-lg cursor-pointer flex items-center justify-center gap-1 shrink-0"
                           >
-                            <Plus className="w-3.5 h-3.5" /> Agregar Pago
+                            <Plus className="w-3.5 h-3.5" /> Agregar
                           </button>
                         </form>
                       ) : (
@@ -1455,15 +1456,16 @@ export default function CajaModule({
 
                       {/* Cash change for mixed cash payments */}
                       {mixedPayments.some(p => p.metodo === 'efectivo') && (
-                        <div className="bg-white p-2.5 rounded-lg border border-stone-200 flex justify-between items-center text-xs">
+                        <div className="bg-white p-2.5 rounded-lg border border-stone-200 flex flex-col sm:flex-row justify-between items-start sm:items-center text-xs gap-2">
                           <span className="text-stone-500 font-bold block uppercase text-[10px]">Arqueo Cambio Extra (Efectivo Mixto)</span>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 w-full sm:w-auto">
                             <input 
                               type="number" 
+                              inputMode="decimal"
                               value={montoEntregadoEfectivo}
                               onChange={e => setMontoEntregadoEfectivo(e.target.value)}
                               placeholder="Monto entregado"
-                              className="p-1.5 border border-stone-200 rounded text-xs text-stone-800 font-mono w-24"
+                              className="min-h-11 p-1.5 border border-stone-200 rounded text-sm text-stone-800 font-mono w-full sm:w-24"
                             />
                             {calculatedChange > 0 && (
                               <span className="text-[#22C55E] font-black">${calculatedChange.toLocaleString('es-AR')}</span>
@@ -1480,7 +1482,6 @@ export default function CajaModule({
                   {splitPayerCount > 1 ? (
                     <button
                       onClick={async () => {
-                        // Fraction payments progress loop
                         toast.success(`Cobro de la parte #${activePayerIndex + 1} procesado por ${(orderBreakdowns.finalTotal / splitPayerCount).toLocaleString('es-AR')}`);
                         if (activePayerIndex + 1 >= splitPayerCount) {
                           await handleConfirmCheckout();
@@ -1488,7 +1489,7 @@ export default function CajaModule({
                           setActivePayerIndex(prev => prev + 1);
                         }
                       }}
-                      className="w-full py-3 bg-[#22C55E] hover:bg-[#16a34a] text-white text-xs uppercase tracking-wider font-extrabold rounded-xl transition-all shadow cursor-pointer flex items-center justify-center gap-2"
+                      className="w-full min-h-11 py-3 bg-[#22C55E] hover:bg-[#16a34a] text-white text-sm uppercase tracking-wider font-extrabold rounded-xl transition-all shadow cursor-pointer flex items-center justify-center gap-2"
                     >
                       <CheckCircle className="w-5 h-5" />
                       Cobrar Parte #{activePayerIndex + 1} de {splitPayerCount} (${(orderBreakdowns.finalTotal / splitPayerCount).toLocaleString('es-AR', { maximumFractionDigits: 1 })})
@@ -1496,28 +1497,28 @@ export default function CajaModule({
                   ) : (
                     <button
                       onClick={handleConfirmCheckout}
-                      className="w-full py-3 bg-[#624A3E] hover:bg-[#503C32] text-white text-xs uppercase tracking-wider font-extrabold rounded-xl transition-all shadow-md cursor-pointer flex items-center justify-center gap-2"
+                      className="w-full min-h-11 py-3 bg-[#624A3E] hover:bg-[#503C32] text-white text-sm uppercase tracking-wider font-extrabold rounded-xl transition-all shadow-md cursor-pointer flex items-center justify-center gap-2"
                     >
                       <CheckCircle className="w-5 h-5 text-amber-300" />
-                      Homologar Cobro y Emitir Comprobante - PDF/Térmico (${orderBreakdowns.finalTotal.toLocaleString('es-AR')} {restaurante.moneda})
+                      Cobrar y Emitir Comprobante (${orderBreakdowns.finalTotal.toLocaleString('es-AR')} {restaurante.moneda})
                     </button>
                   )}
 
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       onClick={triggerPDFDownloadOnly}
-                      className="py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 text-[10px] uppercase font-extrabold rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                      className="min-h-10 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 text-[10px] uppercase font-extrabold rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5"
                     >
                       <Download className="w-3.5 h-3.5" />
-                      Descargar PDF Muestra
+                      Descargar PDF
                     </button>
                     
                     <button
                       onClick={triggerManualPrint}
-                      className="py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 text-[10px] uppercase font-extrabold rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                      className="min-h-10 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 text-[10px] uppercase font-extrabold rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5"
                     >
                       <Printer className="w-3.5 h-3.5" />
-                      Imprimir Ticket / Enviar
+                      Imprimir Ticket
                     </button>
                   </div>
 
@@ -1527,7 +1528,7 @@ export default function CajaModule({
                       setSplitPayerCount(1);
                       setActivePayerIndex(0);
                     }}
-                    className="w-full text-center py-2 text-stone-500 hover:text-stone-800 text-[10px] uppercase font-extrabold cursor-pointer"
+                    className="w-full min-h-10 text-center py-2 text-stone-500 hover:text-stone-800 text-xs uppercase font-extrabold cursor-pointer"
                   >
                     ← Volver a Comandas
                   </button>
@@ -1536,15 +1537,13 @@ export default function CajaModule({
               </div>
 
               {/* EPSON TICKET PREVIEW SIMULATOR (MD: Span 5) */}
-              <div className="md:col-span-5 bg-stone-100/60 border border-stone-200/50 p-4 rounded-xl flex flex-col items-center justify-start">
+              <div className="md:col-span-5 bg-stone-100/60 border border-stone-200/50 p-3 sm:p-4 rounded-xl flex flex-col items-center justify-start">
                 <span className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-3 flex items-center gap-1">
-                  <Printer className="w-3.5 h-3.5" /> Simulación de Salida Térmica (80mm)
+                  <Printer className="w-3.5 h-3.5" /> Simulación Salida Térmica (80mm)
                 </span>
 
-                {/* Simulated thermal roll */}
-                <div className="w-full bg-white text-stone-800 p-4 shadow-sm font-mono text-[9px] leading-relaxed border border-stone-200 relative">
+                <div className="w-full bg-white text-stone-800 p-3 sm:p-4 shadow-sm font-mono text-[9px] sm:text-[10px] leading-relaxed border border-stone-200 relative">
                   
-                  {/* Zig-zag top edge design */}
                   <div className="absolute top-0 inset-x-0 h-1 bg-stone-300 flex overflow-hidden">
                     {Array.from({ length: 40 }).map((_, i) => (
                       <div key={i} className="w-1.5 h-1.5 shrink-0 bg-stone-200 rotate-45 transform -translate-y-0.5 border border-stone-200" />
@@ -1552,14 +1551,14 @@ export default function CajaModule({
                   </div>
 
                   <div className="text-center pt-2.5 pb-1 border-b border-dotted border-stone-300 space-y-0.5">
-                    <span className="font-bold text-[10px] block uppercase tracking-tight">{restaurante.nombreComercial}</span>
-                    <span className="block text-[8px] text-stone-500">Raz. Soc: {restaurante.razonSocial}</span>
-                    <span className="block text-[8px] text-stone-500">CUIT: {restaurante.cuit}</span>
-                    <span className="block text-[8px] text-stone-500">{restaurante.direccion}</span>
-                    <span className="block text-[8px] text-stone-500">Telf: {restaurante.telefono}</span>
+                    <span className="font-bold text-[10px] sm:text-xs block uppercase tracking-tight">{restaurante.nombreComercial}</span>
+                    <span className="block text-[8px] sm:text-[9px] text-stone-500">Raz. Soc: {restaurante.razonSocial}</span>
+                    <span className="block text-[8px] sm:text-[9px] text-stone-500">CUIT: {restaurante.cuit}</span>
+                    <span className="block text-[8px] sm:text-[9px] text-stone-500">{restaurante.direccion}</span>
+                    <span className="block text-[8px] sm:text-[9px] text-stone-500">Telf: {restaurante.telefono}</span>
                   </div>
 
-                  <div className="py-2 border-b border-dotted border-stone-300 space-y-0.5 text-[8.5px]">
+                  <div className="py-2 border-b border-dotted border-stone-300 space-y-0.5 text-[8.5px] sm:text-[9px]">
                     <p>COMPROB.: {tipoComprobante === 'factura_b' ? 'FACTURA B-CONS. FINAL' : (tipoComprobante === 'factura_a' ? 'FACTURA A-RESP. INS.' : 'TICKET INTERNO')}</p>
                     <p>CLIENTE: {nombreCliente.toUpperCase()}</p>
                     <p>CUIT/DNI: {cuitCliente}</p>
@@ -1568,9 +1567,8 @@ export default function CajaModule({
                     <p>CAJERO: {(cajaSession?.usuario_cajero || 'SIN TURNO').toUpperCase()}</p>
                   </div>
 
-                  {/* List of items */}
                   <div className="py-2 border-b border-dotted border-stone-300 space-y-1">
-                    <div className="flex justify-between font-bold">
+                    <div className="flex justify-between font-bold text-[9px] sm:text-[10px]">
                       <span>DESCRIPCIÓN / CANT.</span>
                       <span>TOTAL ($)</span>
                     </div>
@@ -1580,14 +1578,13 @@ export default function CajaModule({
                       const unit = pm ? pm.precio_venta : 0;
                       return (
                         <div key={idx} className="flex justify-between font-sans">
-                          <span>{it.cantidad}x {it.nombre}</span>
+                          <span className="truncate pr-2">{it.cantidad}x {it.nombre}</span>
                           <span className="font-mono">${(it.cantidad * unit).toLocaleString('es-AR')}</span>
                         </div>
                       );
                     })}
                   </div>
 
-                  {/* Pricing summaries */}
                   <div className="py-2 border-b border-dotted border-stone-300 space-y-1 font-sans">
                     <div className="flex justify-between">
                       <span>Subtotal Neto:</span>
@@ -1619,7 +1616,6 @@ export default function CajaModule({
                     </div>
                   </div>
 
-                  {/* QR code simulated block */}
                   <div className="text-center pt-2 space-y-1 border-t border-stone-200">
                     <div className="w-14 h-14 bg-stone-50 border border-stone-200 mx-auto flex items-center justify-center relative">
                       <div className="grid grid-cols-4 gap-0.5 p-1 w-full h-full opacity-60">
@@ -1676,8 +1672,8 @@ export default function CajaModule({
 
       {/* SHIFT OPEN MODAL Dialog (Rule 1) */}
       {showOpenModal && (
-        <div className="fixed inset-0 bg-stone-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl border border-stone-200 max-w-md w-full p-6 animate-scaleIn space-y-4 shadow-lg font-sans">
+        <div className="fixed inset-0 bg-stone-900/40 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-50">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl border border-stone-200 max-w-md w-full p-5 sm:p-6 animate-scaleIn space-y-4 shadow-lg font-sans">
             <h3 className="text-sm font-black text-stone-900 uppercase tracking-tight flex items-center gap-2">
               <Unlock className="w-5 h-5 text-emerald-600" />
               Apertura de Caja Diaria
@@ -1692,10 +1688,11 @@ export default function CajaModule({
                 <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Monto Inicial ($ ARS)</label>
                 <input 
                   type="number"
+                  inputMode="decimal"
                   required
                   value={openingCashInput}
                   onChange={e => setOpeningCashInput(e.target.value)}
-                  className="w-full text-xs p-2.5 rounded-xl border border-stone-200 font-mono font-extrabold focus:ring-1 focus:ring-[#624A3E] focus:outline-none bg-stone-50"
+                  className="w-full min-h-11 text-sm p-2.5 rounded-xl border border-stone-200 font-mono font-extrabold focus:ring-1 focus:ring-[#624A3E] focus:outline-none bg-stone-50"
                   placeholder="Ej. 25000"
                 />
               </div>
@@ -1707,7 +1704,7 @@ export default function CajaModule({
                   required
                   value={cashierNameInput}
                   onChange={e => setCashierNameInput(e.target.value)}
-                  className="w-full text-xs p-2.5 rounded-xl border border-stone-200 focus:ring-1 focus:ring-[#624A3E] focus:outline-none"
+                  className="w-full min-h-11 text-sm p-2.5 rounded-xl border border-stone-200 focus:ring-1 focus:ring-[#624A3E] focus:outline-none"
                   placeholder="Ej. Sofía Colombo"
                 />
               </div>
@@ -1716,13 +1713,13 @@ export default function CajaModule({
                 <button
                   type="button"
                   onClick={() => setShowOpenModal(false)}
-                  className="w-1/2 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-600 text-xs font-black uppercase rounded-xl"
+                  className="w-1/2 min-h-11 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-600 text-xs font-black uppercase rounded-xl"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="w-1/2 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black uppercase rounded-xl shadow cursor-pointer"
+                  className="w-1/2 min-h-11 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black uppercase rounded-xl shadow cursor-pointer"
                 >
                   Confirmar Apertura
                 </button>
@@ -1734,8 +1731,8 @@ export default function CajaModule({
 
       {/* SHIFT CLOSE MODAL Dialog (Rule 1) */}
       {showCloseModal && (
-        <div className="fixed inset-0 bg-stone-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl border border-stone-200 max-w-md w-full p-6 animate-scaleIn space-y-4 shadow-lg font-sans">
+        <div className="fixed inset-0 bg-stone-900/40 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-50">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl border border-stone-200 max-w-md w-full p-5 sm:p-6 animate-scaleIn space-y-4 shadow-lg font-sans">
             <h3 className="text-sm font-black text-stone-900 uppercase tracking-tight flex items-center gap-2">
               <Lock className="w-5 h-5 text-stone-900" />
               Cierre de turno & Conciliación (Arqueo)
@@ -1767,10 +1764,11 @@ export default function CajaModule({
                 <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Monto Real Físico de Arqueo ($ ARS)</label>
                 <input 
                   type="number"
+                  inputMode="decimal"
                   required
                   value={closingPhysicalCashInput}
                   onChange={e => setClosingPhysicalCashInput(e.target.value)}
-                  className="w-full text-xs p-2.5 rounded-xl border border-stone-200 font-mono font-extrabold focus:ring-1 focus:ring-[#624A3E] focus:outline-none bg-stone-50"
+                  className="w-full min-h-11 text-sm p-2.5 rounded-xl border border-stone-200 font-mono font-extrabold focus:ring-1 focus:ring-[#624A3E] focus:outline-none bg-stone-50"
                   placeholder="Ej. 120000"
                 />
               </div>
@@ -1780,7 +1778,7 @@ export default function CajaModule({
                 <textarea 
                   value={closingObservationsInput}
                   onChange={e => setClosingObservationsInput(e.target.value)}
-                  className="w-full h-16 text-xs p-2.5 rounded-xl border border-stone-200 focus:ring-1 focus:ring-[#624A3E] focus:outline-none"
+                  className="w-full h-16 text-sm p-2.5 rounded-xl border border-stone-200 focus:ring-1 focus:ring-[#624A3E] focus:outline-none"
                   placeholder="Ex. Todo perfectamente conciliado"
                 />
               </div>
@@ -1789,13 +1787,13 @@ export default function CajaModule({
                 <button
                   type="button"
                   onClick={() => setShowCloseModal(false)}
-                  className="w-1/2 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-600 text-xs font-black uppercase rounded-xl"
+                  className="w-1/2 min-h-11 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-600 text-xs font-black uppercase rounded-xl"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="w-1/2 py-2.5 bg-stone-900 hover:bg-stone-800 text-white text-xs font-black uppercase rounded-xl shadow cursor-pointer border border-[#ddd7ce]"
+                  className="w-1/2 min-h-11 py-2.5 bg-stone-900 hover:bg-stone-800 text-white text-xs font-black uppercase rounded-xl shadow cursor-pointer border border-[#ddd7ce]"
                 >
                   Confirmar Arqueo & Cerrar
                 </button>
