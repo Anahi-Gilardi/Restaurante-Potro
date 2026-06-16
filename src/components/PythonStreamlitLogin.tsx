@@ -26,6 +26,10 @@ interface LoginUser {
   activo?: boolean;
 }
 
+// ⚠️ SEGURIDAD: Las credenciales hardcodeadas son SOLO para demo/desarrollo local.
+// En producción, ELIMINAR este array y usar exclusivamente la autenticación de Supabase.
+// Las passwords aquí NO deben ser las mismas que en producción.
+// TODO: Migrar completamente a Supabase Auth antes del despliegue en producción.
 const LOCAL_USERS: LoginUser[] = [
   { id_usuario: 1, nombre: 'Super Admin', apellido: '', username: 'super@admi.com', password: 'superadmi2026/', rol: 'superadmin' },
   { id_usuario: 2, nombre: 'Administrador', apellido: '', username: 'admi@patron.com', password: 'Elpatron2026/', rol: 'administrador' },
