@@ -48,7 +48,7 @@ const ALL_SIN_RESTRINGIDOS = ALL_APP_VIEWS.filter(
 const ROLE_PERMISSIONS: Record<Usuario['rol'], AppView[]> = {
   superadmin: ALL_APP_VIEWS,
   administrador: ALL_SIN_RESTRINGIDOS,
-  mozo: ALL_SIN_RESTRINGIDOS,
+  mozo: ['home', 'panel', 'mozo', 'caja', 'reservas'] as AppView[],
   cocina: ['home', 'panel', 'cocina']
 };
 
