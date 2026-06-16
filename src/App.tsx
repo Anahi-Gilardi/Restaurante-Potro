@@ -963,26 +963,28 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
             )}
             {(activeView === 'monitor_cocina' || activeView === 'cocina') && (
               <KitchenMonitor 
-                pedidos={pedidos} recetas={recetas} insumos={insumos}
-                onCambiarEstado={handleCambiarEstadoPedido}
-                onProducirConEscandallo={handleProducirPedidoConEscandallo}
+                pedidos={pedidos}
+                onCambiarEstadoPedido={handleCambiarEstadoPedido}
+                onProducirPedidoConEscandallo={handleProducirPedidoConEscandallo}
+                minutosGlobal={minutosGlobal}
               />
             )}
             {activeView === 'caja' && (
-              <CajaModule pedidos={pedidos} mesas={mesas} onFacturarMesa={handleFacturarMesa} />
+              <CajaModule pedidos={pedidos} productosMenu={productosMenu} onFacturarMesa={handleFacturarMesa} onCambiarEstadoPedido={handleCambiarEstadoPedido} addLog={() => {}} />
             )}
             {activeView === 'inventario' && (
-              <InventoryModule insumos={insumos} mermas={mermas}
+              <InventoryModule insumos={insumos} productosMenu={productosMenu} recetas={recetas} mermas={mermas}
                 onRegistrarMerma={handleRegistrarMerma}
                 onRestockInsumo={handleRestockInsumo}
                 onRestockTodo={handleRestockTodo}
+                addLog={() => {}}
               />
             )}
             {(activeView === 'bi' || activeView === 'reportes') && (
-              <BusinessIntelligence pedidos={pedidos} insumos={insumos} mermas={mermas} logs={logs} precioMap={precioMap} />
+              <BusinessIntelligence pedidos={pedidos} productosMenu={productosMenu} logs={logs} precioMap={precioMap} />
             )}
             {(activeView === 'dashboard' || activeView === 'panel') && (
-              <PanelDashboard pedidos={pedidos} insumos={insumos} mesas={mesas} precioMap={precioMap} onNavigate={handleNavigate} />
+              <PanelDashboard pedidos={pedidos} insumos={insumos} mesas={mesas} productosMenu={productosMenu} logs={logs} allowedViews={allowedViews} onNavigate={handleNavigate} getSimulatedTimeStr={getSimulatedTimeStr} />
             )}
             {activeView === 'usuarios' && (
               <UsuariosModule usuarios={usuarios} setUsuarios={setUsuarios} />
@@ -1002,23 +1004,24 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
               <ReservasModule mesas={mesas} onEstadoChange={handleReservaEstadoChange} />
             )}
             {activeView === 'facturacion' && (
-              <FacturacionModule pedidos={pedidos} precioMap={precioMap} />
+              <FacturacionModule pedidos={pedidos} productosMenu={productosMenu} addLog={() => {}} />
             )}
             {activeView === 'sistema' && activeUser.rol === 'superadmin' && (
               <SistemaModule 
-                permitirVentaSinStock={permitirVentaSinStock}
-                setPermitirVentaSinStock={setPermitirVentaSinStock}
-                autoTimerRunning={autoTimerRunning}
-                onToggleAutoTimer={handleToggleAutoTimer}
-                onAdvanceTime={handleAdvanceTime}
-                onResetAllData={handleResetAllData}
-                onSyncCompletion={handleSupabaseSync}
+                insumos={insumos}
+                productosMenu={productosMenu}
+                recetas={recetas}
+                pedidos={pedidos}
+                mesas={mesas}
+                addLog={() => {}}
+                onSyncComplete={handleSupabaseSync}
               />
             )}
             {activeView === 'backups' && activeUser.rol === 'superadmin' && (
               <BackupsModule 
-                currentAppState={{ usuarios, mesas, insumos, productosMenu, recetas, pedidos, mermas, logs }}
-                onRestoreBackup={handleRestoreBackupData}
+                operationalData={{ usuarios, mesas, insumos, productosMenu, recetas, pedidos, mermas, logs }}
+                onRestoreData={handleRestoreBackupData}
+                addLog={() => {}}
               />
             )}
           </Suspense>
