@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Menu, X, User, Clock, LogOut, ChevronRight } from 'lucide-react';
+import { Menu, X, User, Clock, LogOut } from 'lucide-react';
 import { AppView, getAllowedViews } from '../lib/permissions';
 import { Usuario } from '../types';
 import ElPatronLogo from './ElPatronLogo';
@@ -54,7 +54,6 @@ export default function MobileNav({
   onAdvanceTime
 }: MobileNavProps) {
   const [open, setOpen] = useState(false);
-  const [expanded, setExpanded] = useState(true);
   const drawerRef = useRef<HTMLDivElement>(null);
 
   const isAdmin = activeUser.rol === 'administrador' || activeUser.rol === 'superadmin';
@@ -118,38 +117,6 @@ export default function MobileNav({
           </button>
         </div>
       </header>
-
-      {/* ── Tablet collapsible rail (md:flex lg:hidden) ────────────────────── */}
-      <aside className={`hidden md:fixed md:left-0 md:top-14 md:bottom-16 md:flex md:flex-col md:bg-[#C8956A] md:border-r md:border-[#A67550]/40 md:transition-all md:duration-300 md:z-30 ${expanded ? 'md:w-52' : 'md:w-16'}`}>
-        <button
-          onClick={() => setExpanded(!expanded)}
-          className="absolute -right-3 top-3 w-6 h-6 rounded-full bg-[#624A3E] text-white shadow-md flex items-center justify-center cursor-pointer hover:bg-[#503C32]"
-        >
-          <ChevronRight className={`w-3.5 h-3.5 transition-transform ${expanded ? 'rotate-180' : ''}`} />
-        </button>
-
-        <div className="flex-1 overflow-y-auto overscroll-contain py-2 px-1.5 space-y-1">
-          {visibleItems.map(item => {
-            const isActive = activeView === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => onNavigate(item.id)}
-                className={`w-full flex items-center gap-3 rounded-xl px-2 py-2.5 transition-all duration-200 cursor-pointer ${isActive ? 'bg-[#4A2D1B] text-white shadow-sm' : 'text-[#3B1F10]/65 hover:text-[#3B1F10] hover:bg-[#B07A48]/35'}`}
-                title={item.label}
-              >
-                <span className="text-base shrink-0 leading-none">{item.icon}</span>
-                {expanded && (
-                  <span className="text-[12px] font-bold tracking-wide leading-none truncate">{item.label}</span>
-                )}
-                {expanded && isActive && (
-                  <span className="ml-auto w-1.5 h-1.5 rounded-full bg-amber-300 shadow-sm shadow-amber-400/50 shrink-0" />
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </aside>
 
       {/* ── Mobile drawer (full overlay) ───────────────────────────────────── */}
       {open && (

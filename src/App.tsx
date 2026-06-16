@@ -827,159 +827,100 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
         onAdvanceTime={handleAdvanceTime}
       />
 
-      {/* LEFT SIDE PANEL - Desktop sidebar */}
+      {/* LEFT SIDE PANEL - Desktop/Tablet sidebar */}
       <aside
-        className={`hidden lg:flex flex-col h-screen fixed left-0 top-0 bg-[#C8956A] text-[#3B1F10]/90 border-r border-[#A67550]/40 shrink-0 shadow-xl shadow-black/15 transition-all duration-300 z-30 ${
+        className={`fixed left-0 top-0 h-screen z-50 hidden lg:flex flex-col bg-[#C8956A] text-[#3B1F10]/90 border-r border-[#A67550]/40 shadow-xl shadow-black/15 transition-all duration-300 ease-in-out ${
           isSidebarCollapsed ? 'w-16' : 'w-64'
         }`}
         id="sidebar-left-panel"
       >
-        <div className="flex-1 overflow-y-auto scroll-passive overscroll-contain px-2 pt-2 space-y-1.5 sidebar-scroll-hidden">
-          <div className={`flex items-center gap-2.5 py-1.5 px-1 ${isSidebarCollapsed ? 'justify-center' : ''}`}>
-            <div className="w-9 h-9 bg-white/80 rounded-lg flex items-center justify-center shadow-sm border border-[#A67550]/40 p-0.5 overflow-hidden shrink-0">
-              <ElPatronLogo className="w-8 h-8 object-contain rounded" variant="icon" color="#4A2D1B" />
-            </div>
-            {!isSidebarCollapsed && (
-              <div className="min-w-0 transition-all duration-300 overflow-hidden">
-                <span className="font-extrabold text-sm text-[#3B1F10] drop-shadow block leading-tight">El Patrón</span>
-                <span className="text-[7px] uppercase font-bold text-[#3B1F10]/50 tracking-wider block leading-tight">Gestión Gastro</span>
-              </div>
-            )}
+        {/* Logo */}
+        <div className={`flex items-center border-b border-[#3B1F10]/10 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} py-4`}>
+          <div className="w-8 h-8 bg-white/80 rounded-lg flex items-center justify-center shadow-sm border border-[#A67550]/40 p-0.5 overflow-hidden shrink-0">
+            <ElPatronLogo className="w-7 h-7 object-contain rounded" variant="icon" color="#4A2D1B" />
           </div>
-
           {!isSidebarCollapsed && (
-            <>
-              <div className="px-3 py-2 bg-[#B07A48]/30 border border-[#A67550]/30 rounded-xl">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[8px] uppercase font-bold text-[#3B1F10]/60 tracking-wider font-mono flex items-center gap-1">
-                    <Clock className="w-3 h-3 text-[#3B1F10]/50" />
-                    Reloj
-                  </span>
-                  <span className={`h-1.5 w-1.5 rounded-full ${autoTimerRunning ? 'bg-emerald-600 animate-pulse' : 'bg-amber-600'}`} />
-                </div>
-                <div className="flex items-center justify-between">
-                  <strong className="text-sm font-black text-[#3B1F10] font-mono tracking-tight">{getSimulatedTimeStr()}</strong>
-                  <div className="flex items-center gap-1">
-                    <button onClick={handleToggleAutoTimer}
-                      className={`p-1 rounded-lg transition-all duration-200 cursor-pointer ${autoTimerRunning ? 'bg-amber-600/20 text-amber-800' : 'bg-emerald-600/20 text-emerald-800'}`}>
-                      <RefreshCw className={`w-3 h-3 ${autoTimerRunning ? 'animate-spin' : ''}`} />
-                    </button>
-                    <button onClick={() => handleAdvanceTime(15)}
-                      className="px-1.5 py-1 rounded-lg bg-[#3B1F10]/10 text-[#3B1F10]/70 hover:text-[#3B1F10] border border-[#A67550]/30 text-[9px] font-bold cursor-pointer">
-                      +15m
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="px-3 py-2 bg-[#B07A48]/25 border border-[#A67550]/30 rounded-xl">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-7 h-7 rounded-full bg-white/40 border border-[#A67550]/40 flex items-center justify-center shrink-0">
-                    <User className="w-3.5 h-3.5 text-[#3B1F10]/70" />
-                  </div>
-                  <div className="flex-1 text-left min-w-0">
-                    <span className="text-[7px] text-[#3B1F10]/50 block font-bold leading-none uppercase tracking-wider">Usuario</span>
-                    {(activeUser.rol === 'administrador' || activeUser.rol === 'superadmin') ? (
-                      <select value={activeMozo} onChange={(e) => handleMozoChange(e.target.value)}
-                        className="text-[11px] bg-transparent border-none p-0 focus:outline-none font-extrabold text-[#3B1F10] cursor-pointer w-full mt-0.5 focus:ring-0">
-                        {usuarios.filter(usuario => usuario.activo !== false).map(usuario => (
-                          <option key={usuario.id_usuario || usuario.nombre} value={usuario.nombre} className="bg-[#C8956A] text-[#3B1F10]">{usuario.nombre}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <span className="text-[11px] font-extrabold text-[#3B1F10] mt-0.5 block">{activeUser.nombre}</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </>
+            <div className="ml-3 min-w-0">
+              <span className="font-bold text-sm text-[#3B1F10] block leading-tight truncate">El Patrón</span>
+              <span className="text-[7px] uppercase font-bold text-[#3B1F10]/50 tracking-wider block leading-tight">Gestión Gastro</span>
+            </div>
           )}
-
-          <nav className="space-y-0.5 pb-1" id="sidebar-navigation">
-            {[
-              { id: 'home', label: 'Inicio', icon: '🏠' },
-              { id: 'panel', label: 'Panel', icon: '📊' },
-              { id: 'mozo', label: 'Mozo', icon: '📱' },
-              { id: 'cocina', label: 'Cocina', icon: '🍳' },
-              { id: 'caja', label: 'Caja', icon: '💵' },
-              { id: 'reportes', label: 'Reportes', icon: '📈' },
-              { id: 'menu', label: 'Menú', icon: '📖' },
-              { id: 'recetas', label: 'Recetas', icon: '⚖️' },
-              { id: 'mesas', label: 'Mesas', icon: '🪑' },
-              { id: 'inventario', label: 'Inventario', icon: '📦' },
-              { id: 'proveedores', label: 'Proveedores', icon: '🚚' },
-              { id: 'promociones', label: 'Promociones', icon: '🏷️' },
-              { id: 'reservas', label: 'Reservas', icon: '📅' },
-              { id: 'facturacion', label: 'Facturación', icon: '🧾' },
-              { id: 'usuarios', label: 'Usuarios', icon: '👥' },
-              { id: 'sistema', label: 'Sistema', icon: '💻' },
-              { id: 'backups', label: 'Backups', icon: '🗄️' },
-            ].filter(item => (allowedViews || []).includes(item.id as AppView)).map((item) => {
-              const isActive = activeView === item.id;
-              return (
-                <button key={item.id} id={`tab-${item.id}`}
-                  title={item.label}
-                  onClick={() => handleNavigate(item.id as AppView)}
-                  className={`w-full flex items-center gap-3 transition-all duration-200 cursor-pointer mx-1 rounded-xl ${
-                    isActive
-                      ? 'bg-[#4A2D1B] text-white shadow-sm border border-[#3B1F10]/30'
-                      : 'text-[#3B1F10]/65 hover:text-[#3B1F10] hover:bg-[#B07A48]/35 border border-transparent'
-                  } ${isSidebarCollapsed ? 'justify-center px-2 py-2.5' : 'px-3 py-2'}`}
-                >
-                  <span className="text-base shrink-0 leading-none">{item.icon}</span>
-                  <span className={`text-[12px] font-bold tracking-wide leading-none whitespace-nowrap overflow-hidden transition-all duration-300 ${
-                    isActive ? 'text-white' : 'text-[#3B1F10]/70'
-                  } ${isSidebarCollapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'}`}>
-                    {item.label}
-                  </span>
-                  {isActive && (
-                    <span className={`w-1.5 h-1.5 rounded-full bg-amber-300 shadow-sm shadow-amber-400/50 shrink-0 ${isSidebarCollapsed ? 'absolute top-2 right-2' : 'ml-auto'}`} />
-                  )}
-                </button>
-              );
-            })}
-          </nav>
         </div>
 
-        <div className="shrink-0 border-t border-[#A67550]/40 bg-[#C8956A]">
-          <div className="px-2 py-2">
-            {!isSidebarCollapsed && (
-              <p className="text-[8px] uppercase font-bold text-[#3B1F10]/40 tracking-wider mb-1">Sesión</p>
-            )}
-            <button onClick={handleLogout}
-              title={isSidebarCollapsed ? 'Cerrar sesión' : undefined}
-              className={`w-full flex items-center gap-3 rounded-xl transition-all duration-200 cursor-pointer whitespace-nowrap text-[#7B2D12] hover:bg-[#7B2D12]/15 hover:text-[#5C1E0A] border border-transparent hover:border-[#7B2D12]/20 ${
-                isSidebarCollapsed ? 'justify-center px-2 py-2.5' : 'px-3 py-2'
-              }`}
-            >
-              <LogOut className="w-4 h-4 shrink-0" />
-              <span className={`text-[12px] font-bold tracking-wide leading-none whitespace-nowrap overflow-hidden transition-all duration-300 ${
-                isSidebarCollapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'
-              }`}>
-                Cerrar sesión
-              </span>
-            </button>
-          </div>
-          <div className={`px-3 py-1.5 border-t border-[#A67550]/30 flex items-center ${isSidebarCollapsed ? 'justify-center' : 'justify-between'}`}>
-            <span className={`text-[8px] text-[#3B1F10]/30 font-mono tracking-wider whitespace-nowrap overflow-hidden transition-all duration-300 ${
-              isSidebarCollapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'
-            }`}>
-              El Patrón Pro · v1.2.0
-            </span>
-            <button
-              onClick={() => setIsSidebarCollapsed(c => !c)}
-              title={isSidebarCollapsed ? 'Expandir' : 'Colapsar'}
-              className="p-1 rounded-lg bg-[#3B1F10]/10 text-[#3B1F10]/70 hover:bg-[#3B1F10]/20 hover:text-[#3B1F10] cursor-pointer transition-colors"
-            >
-              {isSidebarCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
-            </button>
-          </div>
+        {/* Nav items */}
+        <nav className="flex-1 overflow-y-auto overscroll-contain py-3 sidebar-scroll-hidden">
+          {[
+            { id: 'home', label: 'Inicio', icon: '🏠' },
+            { id: 'panel', label: 'Panel', icon: '📊' },
+            { id: 'mozo', label: 'Mozo', icon: '📱' },
+            { id: 'cocina', label: 'Cocina', icon: '🍳' },
+            { id: 'caja', label: 'Caja', icon: '💵' },
+            { id: 'reportes', label: 'Reportes', icon: '📈' },
+            { id: 'menu', label: 'Menú', icon: '📖' },
+            { id: 'recetas', label: 'Recetas', icon: '⚖️' },
+            { id: 'mesas', label: 'Mesas', icon: '🪑' },
+            { id: 'inventario', label: 'Inventario', icon: '📦' },
+            { id: 'proveedores', label: 'Proveedores', icon: '🚚' },
+            { id: 'promociones', label: 'Promociones', icon: '🏷️' },
+            { id: 'reservas', label: 'Reservas', icon: '📅' },
+            { id: 'facturacion', label: 'Facturación', icon: '🧾' },
+            { id: 'usuarios', label: 'Usuarios', icon: '👥' },
+            { id: 'sistema', label: 'Sistema', icon: '💻' },
+            { id: 'backups', label: 'Backups', icon: '🗄️' },
+          ].filter(item => (allowedViews || []).includes(item.id as AppView)).map((item) => {
+            const isActive = activeView === item.id;
+            return (
+              <button
+                key={item.id}
+                id={`tab-${item.id}`}
+                title={isSidebarCollapsed ? item.label : ''}
+                onClick={() => handleNavigate(item.id as AppView)}
+                className={`w-full flex items-center gap-3 px-3 py-3 transition-colors cursor-pointer ${
+                  isSidebarCollapsed ? 'justify-center' : 'justify-start'
+                } ${
+                  isActive
+                    ? 'bg-[#4A2D1B] text-white'
+                    : 'text-[#3B1F10]/65 hover:text-[#3B1F10] hover:bg-[#B07A48]/35'
+                }`}
+              >
+                <span className="text-base shrink-0 leading-none">{item.icon}</span>
+                {!isSidebarCollapsed && (
+                  <span className="text-sm whitespace-nowrap truncate">{item.label}</span>
+                )}
+                {!isSidebarCollapsed && isActive && (
+                  <span className="ml-auto w-1.5 h-1.5 rounded-full bg-amber-300 shadow-sm shadow-amber-400/50 shrink-0" />
+                )}
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* Footer */}
+        <div className="border-t border-[#3B1F10]/10 p-3">
+          <button
+            onClick={handleLogout}
+            title={isSidebarCollapsed ? 'Cerrar sesión' : ''}
+            className={`w-full flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-[#7B2D12]/10 text-[#7B2D12] transition-colors cursor-pointer ${
+              isSidebarCollapsed ? 'justify-center' : 'justify-start'
+            }`}
+          >
+            <LogOut className="w-5 h-5 flex-shrink-0" />
+            {!isSidebarCollapsed && <span className="text-sm">Cerrar sesión</span>}
+          </button>
+
+          <button
+            onClick={() => setIsSidebarCollapsed(c => !c)}
+            title={isSidebarCollapsed ? 'Expandir' : 'Colapsar'}
+            className="w-full flex items-center justify-center mt-2 p-2 rounded-lg hover:bg-[#3B1F10]/10 text-[#3B1F10]/70 transition-colors cursor-pointer"
+          >
+            {isSidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+          </button>
         </div>
       </aside>
 
       {/* MAIN CONTENT AREA */}
-      <main className={`flex-1 overflow-x-hidden p-2 sm:p-3 md:p-4 lg:p-6 pb-24 pt-16 lg:pt-2 max-w-[1600px] mx-auto w-full transition-all duration-300 ${
-        isSidebarCollapsed ? 'lg:pl-[4.5rem]' : 'lg:pl-[17rem]'
+      <main className={`flex-1 overflow-x-hidden overflow-y-auto p-2 sm:p-3 md:p-4 lg:p-6 pb-24 pt-16 lg:pt-4 max-w-[1600px] mx-auto w-full transition-all duration-300 ease-in-out ${
+        isSidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64'
       }`}>
         <ToastContainer toasts={toasts} removeToast={removeToast} />
 
