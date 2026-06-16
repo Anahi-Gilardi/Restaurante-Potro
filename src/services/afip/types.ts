@@ -11,6 +11,7 @@ export interface WsaaCredentials {
   token: string;
   sign: string;
   expiresAt: Date;
+  cuit: number;
 }
 
 export interface AfipInvoiceRequest {

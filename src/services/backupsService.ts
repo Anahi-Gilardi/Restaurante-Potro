@@ -142,7 +142,7 @@ export const parseBackupContent = (contenido?: string): BackupSnapshotData => {
 
   const snapshot = candidate as unknown as BackupSnapshotData;
   const hasActiveAdmin = snapshot.usuarios.some(usuario => (
-    (usuario.rol === 'super_admi' || usuario.rol === 'administrador') && usuario.activo !== false
+    (usuario.rol === 'superadmin' || usuario.rol === 'administrador') && usuario.activo !== false
   ));
   if (!hasActiveAdmin) {
     throw new Error('El respaldo no contiene ningún administrador activo.');

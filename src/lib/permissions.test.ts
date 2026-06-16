@@ -16,13 +16,13 @@ test('administrador no puede acceder a sistema ni backups', () => {
   assert.equal(canAccessView('administrador', 'sistema'), false);
 });
 
-test('mozo tiene el mismo acceso que administrador (excepto sistema/backups)', () => {
+test('mozo tiene acceso operativo limitado al salón', () => {
   assert.equal(canAccessView('mozo', 'mozo'), true);
   assert.equal(canAccessView('mozo', 'reservas'), true);
   assert.equal(canAccessView('mozo', 'caja'), true);
-  assert.equal(canAccessView('mozo', 'menu'), true);
-  assert.equal(canAccessView('mozo', 'inventario'), true);
-  assert.equal(canAccessView('mozo', 'reportes'), true);
+  assert.equal(canAccessView('mozo', 'menu'), false);
+  assert.equal(canAccessView('mozo', 'inventario'), false);
+  assert.equal(canAccessView('mozo', 'reportes'), false);
   assert.equal(canAccessView('mozo', 'sistema'), false);
   assert.equal(canAccessView('mozo', 'backups'), false);
 });

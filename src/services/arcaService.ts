@@ -46,9 +46,23 @@ export async function testArcaConnection(): Promise<boolean> {
 export interface ArcaInvoicePayload {
   tipoComprobante: number;
   puntoVenta?: number;
-  docTipo: number;
-  docNro: number;
-  condicionIva: number;
+  cliente?: {
+    tipoDoc: number;
+    nroDoc: number;
+    nombre?: string;
+    condicionIva: number;
+  };
+  items?: Array<{
+    descripcion: string;
+    cantidad: number;
+    precioUnitario: number;
+    ivaId: number;
+    ivaBase: number;
+    ivaImporte: number;
+  }>;
+  docTipo?: number;
+  docNro?: number;
+  condicionIva?: number;
   total: number;
   neto: number;
   ivaTotal: number;
@@ -57,8 +71,12 @@ export interface ArcaInvoicePayload {
 
 export interface ArcaInvoiceResult {
   success: boolean;
-  cae: string;
-  vencimiento: string;
+  cae?: string;
+  vencimiento?: string;
+  CodAutorizacion?: string;
+  CAE?: string;
+  Vencimiento?: string;
+  CAEFchVto?: string;
 }
 
 export async function createArcaInvoice(payload: ArcaInvoicePayload): Promise<ArcaInvoiceResult> {

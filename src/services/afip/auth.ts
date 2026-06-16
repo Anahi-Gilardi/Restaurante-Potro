@@ -45,7 +45,7 @@ function buildTicketReq(service: string, cuit: number, cert: string): string {
 }
 
 /** Parsea el TA (XML de respuesta del WSAA) */
-function parseTaResponse(xml: string): WsaaCredentials {
+function parseTaResponse(xml: string, cuit: number): WsaaCredentials {
   const token = xml.match(/<token>([^<]+)<\/token>/)?.[1] || '';
   const sign = xml.match(/<sign>([^<]+)<\/sign>/)?.[1] || '';
   const expiresAt = new Date();
@@ -62,14 +62,14 @@ function parseTaResponse(xml: string): WsaaCredentials {
     expiresAt.setHours(+h, +m, +s, 0);
   }
 
-  return { token, sign, expiresAt };
+  return { token, sign, expiresAt, cuit };
 }
 
 /** Obtiene un TA válido (desde cache o renovándolo) */
 export async function getAccessToken(config: AfipConfig, service = 'wsfe'): Promise<WsaaCredentials> {
   const cached = getTaCache();
   if (cached) {
-    const ta = parseTaResponse(atob(cached.ta));
+    const ta = parseTaResponse(atob(cached.ta), config.cuit);
     if (ta.token) return ta;
   }
 
@@ -89,5 +89,5 @@ export async function getAccessToken(config: AfipConfig, service = 'wsfe'): Prom
 
   const taXml = await res.text();
   setTaCache(btoa(taXml));
-  return parseTaResponse(taXml);
+  return parseTaResponse(taXml, config.cuit);
 }

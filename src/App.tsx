@@ -926,7 +926,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
         <ToastContainer toasts={toasts} removeToast={removeToast} />
 
         <RetryErrorWrapper>
-          <Suspense fallback={<Skeleton lines={6} />}>
+          <Suspense fallback={<Skeleton count={6} />}>
             {activeView === 'home' && activeUser && (
               <HomeMenuModule 
                 activeRol={activeUser.rol}
@@ -941,7 +941,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
                 onAdvanceTime={handleAdvanceTime}
               />
             )}
-            {(activeView === 'terminal_mozo' || activeView === 'mozo') && (
+            {activeView === 'mozo' && (
               <MozoTerminal 
                 activeMozo={activeMozo}
                 mesas={mesas}
@@ -957,7 +957,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
                 addLog={addLog}
               />
             )}
-            {(activeView === 'monitor_cocina' || activeView === 'cocina') && (
+            {activeView === 'cocina' && (
               <KitchenMonitor 
                 pedidos={pedidos}
                 onCambiarEstadoPedido={handleCambiarEstadoPedido}
@@ -976,26 +976,26 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
                 addLog={addLog}
               />
             )}
-            {(activeView === 'bi' || activeView === 'reportes') && (
+            {activeView === 'reportes' && (
               <BusinessIntelligence pedidos={pedidos} productosMenu={productosMenu} logs={logs} precioMap={precioMap} />
             )}
-            {(activeView === 'dashboard' || activeView === 'panel') && (
+            {activeView === 'panel' && (
               <PanelDashboard pedidos={pedidos} insumos={insumos} mesas={mesas} productosMenu={productosMenu} logs={logs} allowedViews={allowedViews} onNavigate={handleNavigate} getSimulatedTimeStr={getSimulatedTimeStr} />
             )}
             {activeView === 'usuarios' && (
-              <UsuariosModule usuarios={usuarios} setUsuarios={setUsuarios} />
+              <UsuariosModule usuarios={usuarios} onUsuariosChange={setUsuarios} addLog={addLog} />
             )}
             {activeView === 'menu' && (
-              <MenuModule productosMenu={productosMenu} setProductosMenu={setProductosMenu} />
+              <MenuModule productosMenu={productosMenu} onProductosChange={setProductosMenu} addLog={addLog} />
             )}
             {activeView === 'recetas' && (
-              <RecetasModule recetas={recetas} setRecetas={setRecetas} productosMenu={productosMenu} insumos={insumos} />
+              <RecetasModule recetas={recetas} onRecetasChange={setRecetas} productosMenu={productosMenu} insumos={insumos} addLog={addLog} />
             )}
             {activeView === 'mesas' && (
-              <MesasModule mesas={mesas} setMesas={setMesas} />
+              <MesasModule mesas={mesas} onMesasChange={setMesas} addLog={addLog} />
             )}
-            {activeView === 'proveedores' && <ProveedoresModule />}
-            {activeView === 'promociones' && <PromocionesModule productosMenu={productosMenu} />}
+            {activeView === 'proveedores' && <ProveedoresModule addLog={addLog} />}
+            {activeView === 'promociones' && <PromocionesModule addLog={addLog} />}
             {activeView === 'reservas' && (
               <ReservasModule mesas={mesas} onEstadoChange={handleReservaEstadoChange} addLog={addLog} />
             )}

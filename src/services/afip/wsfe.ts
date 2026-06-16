@@ -59,7 +59,7 @@ function parseFeResponse(xml: string): AfipInvoiceResponse {
     obsTags.forEach(block => {
       const code = parseInt(block.match(/<Code>(\d+)<\/Code>/)?.[1] || '0');
       const msg = block.match(/<Msg>([^<]*)<\/Msg>/)?.[1] || '';
-      if (code) obs.push({ code, msg });
+      if (code) obs.push({ Code: code, Msg: msg });
     });
   }
 
