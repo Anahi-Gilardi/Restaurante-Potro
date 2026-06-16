@@ -343,7 +343,7 @@ export default function MozoTerminal({
               const isSelected = m.id_mesa === selectedMesaId;
               const isOcupada = m.estado === 'ocupada';
               const isInCuenta = m.estado === 'esperando_cuenta';
-              const isReservada = m.id_mesa === 3; // Mesa 3 is reserved for dinner per instructions
+              const isReservada = m.estado === 'reservada';
 
               // Determine visual theme according to exact state specs
               let stateClasses = "border-stone-200 bg-white hover:bg-stone-50 text-stone-700";
@@ -383,7 +383,7 @@ export default function MozoTerminal({
                       <span className="text-[10px] font-bold">{m.comensales || 0}</span>
                     </div>
                   ) : isInCuenta ? (
-                    <span className="text-[8px] uppercase tracking-wider font-extrabold text-[#c47f1a]">Salar</span>
+                    <span className="text-[8px] uppercase tracking-wider font-extrabold text-[#c47f1a]">Saldar</span>
                   ) : (
                     <span className={`text-[8px] uppercase tracking-wider font-semibold opacity-80 ${isSelected ? 'text-white/60' : ''}`}>{labelText}</span>
                   )}
@@ -460,7 +460,7 @@ export default function MozoTerminal({
                     </button>
                     <button
                       onClick={() => onFacturarMesa(activePedidoDeMesa.id_pedido)}
-                      className="flex-1 py-1 px-2.5 bg-slate-900 border border-slate-9 border-transparent hover:bg-slate-800 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1 transition-colors shadow-sm"
+                      className="flex-1 py-1 px-2.5 bg-slate-900 border border-transparent hover:bg-slate-800 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1 transition-colors shadow-sm"
                     >
                       Cobrar Mesa
                     </button>
@@ -951,6 +951,7 @@ export default function MozoTerminal({
                         } else {
                           // partial pay, we log it
                           addLog('sistema', `Mesa ${p.numero_mesa}: Cobro parcial de $${itemizedTotal.toLocaleString('es-AR')} recibido.`);
+                                  toast.warning(`Cobro parcial registrado. Saldo pendiente: $${(orderTotal - itemizedTotal).toLocaleString('es-AR')}. La mesa sigue abierta.`);
                         }
                         setSplittingPedidoId(null);
                         setSplitItemsChecked({});
