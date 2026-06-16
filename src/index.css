@@ -7,3 +7,25 @@
   --font-display-serif: 'Cinzel', serif;
 }
 
+/* Scrollbar delgado y pegado al borde */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #475569 transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 4px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: #475569;
+  border-radius: 999px;
+}
+
+html, body {
+  overflow-x: hidden;
+}
