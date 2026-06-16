@@ -310,18 +310,6 @@ export default function HomeMenuModule({
         </div>
 
 
-                <!-- En el contenedor que envuelve a toda la aplicación -->
-        <div class="flex h-screen w-screen bg-[#FDFBF7] gap-4">
-          
-          <aside>
-            <!-- Tu menú lateral izquierdo -->
-          </aside>
-        
-          <main class="flex-1 ...">
-            <!-- Tu panel de contenido derecho -->
-          </main>
-        
-        </div>
 
 
         <div className="flex-1 space-y-2.5 relative z-10 text-center md:text-left">
