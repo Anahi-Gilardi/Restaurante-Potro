@@ -10,7 +10,8 @@ import {
   Plus,
   Printer,
   Receipt,
-  Search
+  Search,
+  ScanLine
 } from 'lucide-react';
 import { Pedido, ProductoMenu, TicketData, TipoComprobante } from '../types';
 import { facturacionService, Factura } from '../services/facturacionService';

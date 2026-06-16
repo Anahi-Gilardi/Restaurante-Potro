@@ -11,6 +11,10 @@ export interface Factura {
   medio_pago: 'efectivo' | 'debito' | 'tarjeta' | 'transferencia' | 'mp_qr' | 'mixto';
   fecha: string;
   estado: 'emitido' | 'nota_credito';
+  afip_cae?: string;
+  afip_vto?: string;
+  afip_qr?: string;
+  afip_resultado?: 'A' | 'O' | 'R';
 }
 
 const mapMetodoPagoToDb = (medioPago: Factura['medio_pago']) => {
