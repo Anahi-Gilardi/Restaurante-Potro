@@ -874,7 +874,7 @@ export default function App() {
 
   return (
     <>
-    <div className="min-h-screen bg-[#F5F1E9] flex flex-col lg:flex-row font-sans text-slate-800 antialiased selection:bg-[#624A3E] selection:text-white">
+    <div className="min-h-screen w-full overflow-x-hidden bg-[#F5F1E9] flex flex-col lg:flex-row font-sans text-slate-800 antialiased selection:bg-[#624A3E] selection:text-white">
       
       <AppSidebar
         activeView={activeView}
@@ -898,21 +898,21 @@ export default function App() {
       />
 
       {/* CORE ACTIVE MODULE AREA (RIGHT SIDE CONTENT PANE) */}
-      <main className="flex-1 flex flex-col min-w-0 bg-[#F5F1E9]">
+      <main className="flex-1 flex flex-col min-w-0 w-full overflow-x-hidden bg-[#F5F1E9]">
         
         {/* TOP STATUS BAR ACCENTS */}
-        <div className="bg-[#F5F1E9] border-b border-stone-200/80 px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-extrabold text-[#624A3E] tracking-tight flex items-center gap-2">
+        <div className="bg-[#F5F1E9] border-b border-stone-200/80 px-3 py-3 sm:px-4 sm:py-4 lg:px-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 md:gap-4">
+          <div className="min-w-0">
+            <h1 className="text-lg sm:text-xl font-extrabold text-[#624A3E] tracking-tight flex items-center gap-2 leading-tight">
               {activeViewMeta.title}
             </h1>
-            <p className="text-xs text-stone-500 mt-0.5">
+            <p className="text-xs text-stone-500 mt-0.5 leading-snug">
               {activeViewMeta.description}
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-slate-600 bg-white border border-stone-200 px-2.5 py-1 rounded-xl font-medium flex items-center gap-1.5 shadow-sm">
+          <div className="flex w-full md:w-auto items-center gap-3">
+            <span className="w-full md:w-auto text-xs text-slate-600 bg-white border border-stone-200 px-2.5 py-1.5 rounded-xl font-medium flex items-center gap-1.5 shadow-sm leading-snug">
               <span className="h-2 w-2 rounded-full bg-[#22C55E]" />
               Sesión: {sessionUser.nombre} · Operador: {activeUser.nombre}
             </span>
@@ -920,7 +920,7 @@ export default function App() {
         </div>
 
         {/* MAIN SCROLLABLE CONTENT */}
-        <div className="flex-1 p-6 space-y-6 overflow-y-auto max-w-7xl w-full mx-auto">
+        <div className="flex-1 p-3 sm:p-4 lg:p-6 space-y-4 lg:space-y-6 overflow-y-auto overflow-x-hidden max-w-7xl w-full mx-auto">
           
           {/* ACTIVE TAB RENDER TRIAGE */}
           {activeView === 'home' && (
@@ -1175,9 +1175,9 @@ export default function App() {
         </div>
 
         {/* SYSTEM COAXIAL FOOTER */}
-        <footer className="bg-white border-t border-slate-200 py-4 px-6 text-xs text-slate-400 flex flex-col md:flex-row justify-between items-center gap-3">
+        <footer className="bg-white border-t border-slate-200 py-4 px-3 sm:px-6 text-xs text-slate-400 flex flex-col md:flex-row justify-between items-center gap-3 text-center md:text-left">
           <p>© 2026 Restaurante Pro S.A. Todos los derechos reservados.</p>
-          <div className="flex gap-4">
+          <div className="flex flex-wrap justify-center gap-2 sm:gap-4">
             <span className="hover:text-slate-600 cursor-default">Condiciones Operativas</span>
             <span>•</span>
             <span className="hover:text-slate-600 cursor-default">Auditoría Habilitada</span>

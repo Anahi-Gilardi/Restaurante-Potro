@@ -24,6 +24,14 @@
   --shadow-card: 0 18px 45px rgba(74, 45, 27, 0.08);
 }
 
+html,
+body,
+#root {
+  width: 100%;
+  min-height: 100%;
+  overflow-x: hidden;
+}
+
 html {
   background: var(--color-bg);
 }
@@ -34,11 +42,30 @@ body {
   color: var(--color-text);
 }
 
+* {
+  min-width: 0;
+}
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+
 button,
 select,
 input,
 textarea {
   font: inherit;
+}
+
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
 }
 
 .focus-visible-ring {

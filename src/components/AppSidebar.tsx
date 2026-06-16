@@ -89,15 +89,15 @@ export default function AppSidebar({
 
   return (
     <aside
-      className="sidebar-surface relative w-full lg:w-[18.5rem] lg:h-screen lg:sticky lg:top-0 text-stone-100 flex flex-col border-b lg:border-b-0 lg:border-r border-[#6E4B32]/35 shrink-0 z-40 overflow-hidden"
+      className="sidebar-surface relative w-full max-h-[64vh] lg:max-h-none lg:w-[18.5rem] lg:h-screen lg:sticky lg:top-0 text-stone-100 flex flex-col border-b lg:border-b-0 lg:border-r border-[#6E4B32]/35 shrink-0 z-40 overflow-hidden"
       id="sidebar-left-panel"
     >
       <div className="pointer-events-none absolute -top-24 -left-20 h-64 w-64 rounded-full bg-[#C79052]/10 blur-3xl" />
 
-      <div className="relative px-5 py-4 border-b border-white/[0.07] flex items-center justify-between">
+      <div className="relative px-3 py-3 sm:px-5 sm:py-4 border-b border-white/[0.07] flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-[#F7EFE4] rounded-2xl flex items-center justify-center shadow-[0_10px_30px_rgba(0,0,0,0.28)] ring-1 ring-[#E6C99D]/35 p-1 overflow-hidden shrink-0">
-            <ElPatronLogo className="w-10 h-10 object-contain rounded-full" variant="icon" color="#4A2D1B" />
+          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-[#F7EFE4] rounded-2xl flex items-center justify-center shadow-[0_10px_30px_rgba(0,0,0,0.28)] ring-1 ring-[#E6C99D]/35 p-1 overflow-hidden shrink-0">
+            <ElPatronLogo className="w-8 h-8 sm:w-10 sm:h-10 object-contain rounded-full" variant="icon" color="#4A2D1B" />
           </div>
           <div className="min-w-0">
             <span className="font-display-serif font-bold text-[15px] text-[#FFF8ED] tracking-[0.04em] block">El Patrón</span>
@@ -109,8 +109,8 @@ export default function AppSidebar({
         </span>
       </div>
 
-      <div className="relative px-4 pt-4 space-y-3">
-        <section className="rounded-2xl border border-white/[0.08] bg-black/20 p-3.5 shadow-[0_12px_35px_rgba(0,0,0,0.16)] backdrop-blur-sm" aria-label="Reloj del servicio">
+      <div className="relative px-3 pt-3 sm:px-4 sm:pt-4 space-y-2 sm:space-y-3">
+        <section className="rounded-2xl border border-white/[0.08] bg-black/20 p-3 sm:p-3.5 shadow-[0_12px_35px_rgba(0,0,0,0.16)] backdrop-blur-sm" aria-label="Reloj del servicio">
           <div className="flex items-center justify-between mb-2.5">
             <span className="text-[9px] uppercase font-bold text-[#C9B8A4] tracking-[0.16em] flex items-center gap-2">
               <Clock3 className="w-3.5 h-3.5 text-[#D6A45D]" />
@@ -122,8 +122,8 @@ export default function AppSidebar({
             </span>
           </div>
 
-          <div className="flex items-end justify-between">
-            <strong className="text-[22px] leading-none font-black text-white font-mono tracking-[-0.04em]">{getSimulatedTimeStr()}</strong>
+          <div className="flex items-end justify-between gap-2">
+            <strong className="text-[18px] sm:text-[22px] leading-none font-black text-white font-mono tracking-[-0.04em]">{getSimulatedTimeStr()}</strong>
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
@@ -206,13 +206,13 @@ export default function AppSidebar({
         </section>
       </div>
 
-      <div className="sidebar-scroll relative flex-1 min-h-0 overflow-y-auto px-4 pt-4 pb-3">
+      <div className="sidebar-scroll relative flex-1 min-h-0 overflow-y-auto px-3 pt-3 pb-3 sm:px-4 sm:pt-4">
         <div className="flex items-center justify-between px-2 mb-2">
           <span className="text-[9px] font-black text-stone-500 tracking-[0.17em] uppercase">Navegación</span>
           <span className="text-[8px] text-stone-600 font-mono">{visibleNavigation.length} módulos</span>
         </div>
 
-        <nav className="space-y-1" id="sidebar-navigation" aria-label="Navegación principal">
+        <nav className="grid grid-cols-2 gap-1 sm:grid-cols-3 lg:block lg:space-y-1" id="sidebar-navigation" aria-label="Navegación principal">
           {visibleNavigation.map(item => {
             const isActive = activeView === item.id;
             const ItemIcon = item.icon;
@@ -224,7 +224,7 @@ export default function AppSidebar({
                 type="button"
                 onClick={() => onNavigate(item.id as AppView)}
                 aria-current={isActive ? 'page' : undefined}
-                className={`group relative w-full min-h-10 px-3 py-2 flex items-center gap-3 text-left rounded-xl border transition-all cursor-pointer focus-visible-ring ${
+                className={`group relative w-full min-h-10 px-2.5 py-2 sm:px-3 flex items-center gap-2.5 sm:gap-3 text-left rounded-xl border transition-all cursor-pointer focus-visible-ring ${
                   isActive
                     ? 'bg-gradient-to-r from-[#7A4D2E]/95 to-[#533522]/90 text-white border-[#C98D4C]/30 shadow-[0_8px_22px_rgba(0,0,0,0.2)]'
                     : 'bg-transparent text-stone-400 border-transparent hover:bg-white/[0.055] hover:text-stone-100 hover:border-white/[0.06]'
@@ -236,10 +236,10 @@ export default function AppSidebar({
                 }`}>
                   <ItemIcon className="w-3.5 h-3.5" strokeWidth={isActive ? 2.2 : 1.9} />
                 </span>
-                <span className={`flex-1 text-[11px] tracking-[0.01em] ${isActive ? 'font-bold' : 'font-semibold'}`}>
+                <span className={`flex-1 min-w-0 truncate text-[11px] tracking-[0.01em] ${isActive ? 'font-bold' : 'font-semibold'}`}>
                   {item.label}
                 </span>
-                <ChevronRight className={`w-3.5 h-3.5 transition-all ${
+                <ChevronRight className={`hidden lg:block w-3.5 h-3.5 transition-all ${
                   isActive ? 'text-[#F0C47D] opacity-100' : 'text-stone-600 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0'
                 }`} />
               </button>
@@ -248,7 +248,7 @@ export default function AppSidebar({
         </nav>
       </div>
 
-      <div className="relative px-4 py-3 border-t border-white/[0.07] bg-black/15">
+      <div className="relative px-3 py-3 sm:px-4 border-t border-white/[0.07] bg-black/15">
         <div className="flex items-center justify-between gap-3 mb-2.5">
           <div className="flex items-center gap-2 min-w-0">
             <span className="relative flex h-2 w-2 shrink-0">

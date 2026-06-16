@@ -176,9 +176,9 @@ export default function MozoTerminal({
 
   return (
     <>
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:h-[calc(100vh-2rem)] lg:overflow-hidden" id="mozo-terminal-container">
+    <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-12 lg:h-[calc(100dvh-2rem)] lg:overflow-hidden" id="mozo-terminal-container">
       {/* LEFT COLUMN: Mesa Grid and active waiter selector */}
-      <div className="lg:col-span-3 space-y-4 lg:overflow-y-auto min-h-0 pr-1">
+      <div className="min-w-0 space-y-4 lg:col-span-3 lg:overflow-y-auto min-h-0 lg:pr-1">
         
         {/* Active Waiter Picker */}
         <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
@@ -191,7 +191,7 @@ export default function MozoTerminal({
               <h3 className="font-bold text-slate-800 font-sans tracking-tight">Terminal Registrada</h3>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
             {usuarios.filter(usuario => usuario.activo !== false && normalizeRole(usuario.rol) !== 'cocina').map(usuario => (
               <button
                 key={usuario.id_usuario}
@@ -220,7 +220,7 @@ export default function MozoTerminal({
             </span>
           </div>
 
-          <div className="grid grid-cols-4 gap-2.5">
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-4">
             {liveMesas.map(m => {
               const isSelected = m.id_mesa === selectedMesaId;
               const isOcupada = m.estado === 'ocupada';
@@ -418,7 +418,7 @@ export default function MozoTerminal({
       </div>
 
       {/* CENTRAL COLUMN: Product Catalog */}
-      <div className="lg:col-span-6 bg-white/40 rounded-2xl p-4 overflow-y-auto min-h-0 space-y-4 border border-white/60 shadow-sm">
+      <div className="min-w-0 lg:col-span-6 bg-white/40 rounded-2xl p-3 sm:p-4 overflow-y-auto min-h-0 space-y-4 border border-white/60 shadow-sm">
          {/* Search and Filters */}
         <div className="bg-white/90 rounded-2xl p-4 border border-stone-100 shadow-sm space-y-3">
           <div className="flex flex-col md:flex-row gap-3 justify-between items-center">
@@ -640,8 +640,8 @@ export default function MozoTerminal({
       </div>
 
       {/* RIGHT COLUMN: Active Comanda Cart Summary */}
-      <div className="lg:col-span-3 min-h-0">
-        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col lg:h-full min-h-[520px] lg:min-h-0 sticky top-6">
+      <div className="min-w-0 lg:col-span-3 lg:min-h-0">
+        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-100 shadow-sm flex flex-col min-h-[380px] sm:min-h-[480px] lg:h-full lg:min-h-0 lg:sticky lg:top-6">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <h3 className="font-bold text-slate-800 text-sm font-sans flex items-center gap-2">
               <ShoppingBag className="w-4 h-4 text-slate-500" />

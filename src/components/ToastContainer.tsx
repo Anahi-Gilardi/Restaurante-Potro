@@ -92,7 +92,7 @@ function ToastItem({ toast, onDismiss }: ToastItemProps) {
                 aria-live="assertive"
                 className={`
                         flex items-start gap-3 px-4 py-3 rounded-xl border shadow-md
-                                transition-all duration-300 ease-out w-80 max-w-full
+                                transition-all duration-300 ease-out w-full sm:w-80 max-w-full
                                         ${STYLE_MAP[toast.type]}
                                                 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}
                                                       `}
@@ -152,7 +152,7 @@ export function ToastContainer({ toasts, onDismiss, removeToast }: ToastContaine
           
                 <div
                           aria-label="Notificaciones"
-                          className="fixed top-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none"
+                          className="fixed left-3 right-3 top-3 z-[9999] flex flex-col gap-2 pointer-events-none sm:left-auto sm:right-4 sm:top-4 sm:w-80"
                         >
                   {toasts.map(t => (
                                     <div key={t.id} className="pointer-events-auto relative overflow-hidden">
