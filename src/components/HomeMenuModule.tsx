@@ -309,6 +309,21 @@ export default function HomeMenuModule({
           </span>
         </div>
 
+
+                <!-- En el contenedor que envuelve a toda la aplicación -->
+        <div class="flex h-screen w-screen bg-[#FDFBF7] gap-4">
+          
+          <aside>
+            <!-- Tu menú lateral izquierdo -->
+          </aside>
+        
+          <main class="flex-1 ...">
+            <!-- Tu panel de contenido derecho -->
+          </main>
+        
+        </div>
+
+
         <div className="flex-1 space-y-2.5 relative z-10 text-center md:text-left">
           <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight text-[#FFFDF8] font-sans">
             Bienvenido a El Patrón
