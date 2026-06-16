@@ -408,7 +408,7 @@ export default function KitchenMonitor({
 
                       {/* Transfer controls: Mark order as fully ready to serve */}
                       <button
-                        onClick={() => { handleOptimisticStatus(p.id_pedido, 'listo'); onProducirPedidoConEscandallo(p.id_pedido); }}
+                        onClick={() => handleOptimisticStatus(p.id_pedido, 'listo')}
                         className="w-full mt-2 py-2.5 px-3 bg-[#F97316] hover:bg-[#EA580C] active:scale-95 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all shadow-md shadow-[#F97316]/10 cursor-pointer border border-[#F97316]/20"
                       >
                         {optimisticUpdates.get(p.id_pedido)?.updating ? (
