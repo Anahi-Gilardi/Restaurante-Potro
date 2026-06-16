@@ -552,9 +552,9 @@ export default function CajaModule({
     });
 
     if (res.success) {
-      toast.error(res.message);
+      toast.success(res.message);
     } else {
-      toast.success(`${res.message} — ESC/POS enviado a la cola.`);
+      toast.error(`${res.message} — revisar conexión ESC/POS.`);
     }
   };
 
