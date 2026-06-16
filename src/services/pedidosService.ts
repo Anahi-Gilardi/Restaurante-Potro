@@ -81,7 +81,8 @@ export const serializePedidoDetails = (pedido: Pedido) => pedido.items.map((item
   id_producto: item.id_producto,
   nombre: item.nombre,
   cantidad: item.cantidad,
-  categoria: item.categoria
+  categoria: item.categoria,
+  precio_unitario: item.precio_unitario ?? null,
 }));
 
 export const pedidosService = {
@@ -221,7 +222,7 @@ export const pedidosService = {
         if (details.length === 0) continue;
         const { error: dError } = await supabase.from('pedido_detalle').insert(details);
         if (dError) {
-          console.error('Error inserting order details:', dError);
+          console.error('Error inserting order details:', dError.message || JSON.stringify(dError));
           throw dError;
         }
       }

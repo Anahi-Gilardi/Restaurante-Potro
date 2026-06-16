@@ -144,7 +144,8 @@ CREATE TABLE IF NOT EXISTS pedido_detalle (
   id_producto TEXT,
   nombre TEXT NOT NULL,
   cantidad INT NOT NULL DEFAULT 1,
-  categoria TEXT NOT NULL DEFAULT 'Menu'
+  categoria TEXT NOT NULL DEFAULT 'Menu',
+  precio_unitario NUMERIC
 );
 
 CREATE TABLE IF NOT EXISTS mermas (

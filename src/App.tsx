@@ -1002,7 +1002,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
             {activeView === 'proveedores' && <ProveedoresModule />}
             {activeView === 'promociones' && <PromocionesModule productosMenu={productosMenu} />}
             {activeView === 'reservas' && (
-              <ReservasModule mesas={mesas} onEstadoChange={handleReservaEstadoChange} />
+              <ReservasModule mesas={mesas} onEstadoChange={handleReservaEstadoChange} addLog={() => {}} />
             )}
             {activeView === 'facturacion' && (
               <FacturacionModule pedidos={pedidos} productosMenu={productosMenu} addLog={() => {}} />

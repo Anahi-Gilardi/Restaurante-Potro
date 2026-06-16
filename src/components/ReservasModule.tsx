@@ -15,7 +15,7 @@ function formatDate(d: Date): string {
   return d.toISOString().split('T')[0];
 }
 
-export default function ReservasModule({ mesas, onEstadoChange, addLog }: ReservasModuleProps) {
+export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {} }: ReservasModuleProps) {
   const [reservas, setReservas] = useState<Reserva[]>([]);
   const [selectedDate, setSelectedDate] = useState(formatDate(new Date()));
   const [search, setSearch] = useState('');

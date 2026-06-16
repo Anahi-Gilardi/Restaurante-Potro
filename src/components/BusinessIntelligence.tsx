@@ -49,11 +49,12 @@ export default function BusinessIntelligence({ productosMenu, logs, pedidos, pre
 
   /** % de pedidos despachados dentro del semáforo verde (≤10 min) */
   const efectividadReal = useMemo(() => {
-    if (pedidosCobrados.length === 0) return null;
-    const enTiempo = pedidosCobrados.filter(
-      p => (p.tiempo_despacho_minutos ?? 99) <= 10
-    ).length;
-    return ((enTiempo / pedidosCobrados.length) * 100).toFixed(1);
+    const conTiempo = pedidosCobrados.filter(
+      p => typeof p.tiempo_despacho_minutos === 'number' && p.tiempo_despacho_minutos > 0
+    );
+    if (conTiempo.length === 0) return null;
+    const enTiempo = conTiempo.filter(p => p.tiempo_despacho_minutos! <= 10).length;
+    return ((enTiempo / conTiempo.length) * 100).toFixed(1);
   }, [pedidosCobrados]);
 
   /** Ranking de platos más vendidos (top 5) con sus ingresos reales */
