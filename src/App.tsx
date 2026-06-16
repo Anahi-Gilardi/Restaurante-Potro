@@ -31,6 +31,7 @@ import BottomNavigation from './components/BottomNavigation';
 import RetryErrorWrapper from './components/RetryErrorWrapper';
 import Skeleton from './components/Skeleton';
 
+import type { BackupSnapshotData } from './services/backupsService';
 // Lazy-loaded modules (code-split, loaded on demand)
 const HomeMenuModule = lazy(() => import('./components/HomeMenuModule'));
 const MozoTerminal = lazy(() => import('./components/MozoTerminal'));
@@ -49,7 +50,6 @@ const PromocionesModule = lazy(() => import('./components/PromocionesModule'));
 const ReservasModule = lazy(() => import('./components/ReservasModule'));
 const FacturacionModule = lazy(() => import('./components/FacturacionModule'));
 const BackupsModule = lazy(() => import('./components/BackupsModule'));
-import type { BackupSnapshotData } from './services/backupsService';
 import { 
   getSupabaseClient,
   dbFetchMesas,
@@ -484,9 +484,6 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
           return copy;
         });
 
-        pObj.stock_descontado = true;
-        pObj.fecha_descuento_stock = new Date();
-
         if (itemsDescontados.length > 0) {
           addLog('descuento_stock', `ESCANDALLO: Pedido #${idPedido} cambió a EN_COCINA. Descuento automático de: ${itemsDescontados.join(', ')}`);
         }
@@ -495,11 +492,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
           addLog('alerta_stock', `CRÍTICO REPOSICIÓN: El insumo '${alertStr}' cayó por debajo del stock mínimo estipulado.`);
         });
 
-        setTimeout(() => {
-          if (updatedInsumos.length > 0) {
-            dbUpsertInsumos(updatedInsumos);
-          }
-        }, 50);
+        dbUpsertInsumos(updatedInsumos);
       }
     }
 
@@ -541,18 +534,11 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
           return copy;
         });
 
-        pObj.stock_descontado = false;
-        pObj.fecha_descuento_stock = undefined;
-
         if (itemsReversados.length > 0) {
           addLog('descuento_stock', `REVERSO ESCANDALLO: Pedido #${idPedido} CANCELADO. Reintegro automático de: ${itemsReversados.join(', ')}`);
         }
 
-        setTimeout(() => {
-          if (updatedInsumos.length > 0) {
-            dbUpsertInsumos(updatedInsumos);
-          }
-        }, 50);
+        dbUpsertInsumos(updatedInsumos);
       } else {
         addLog('sistema', `CANCELACIÓN: Pedido #${idPedido} cancelado sin descuento de stock previo.`);
       }
@@ -560,9 +546,17 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
 
     setPedidos(prev => prev.map(p => {
       if (p.id_pedido === idPedido) {
-        const updated = { ...p, estado_comanda: nuevoEstado };
+        const updated: Pedido = { ...p, estado_comanda: nuevoEstado };
         if (nuevoEstado === 'listo') {
           updated.segundos_en_listo = 0;
+        }
+        if (nuevoEstado === 'en_cocina' && !p.stock_descontado) {
+          updated.stock_descontado = true;
+          updated.fecha_descuento_stock = new Date();
+        }
+        if (nuevoEstado === 'cancelado') {
+          updated.stock_descontado = false;
+          updated.fecha_descuento_stock = undefined;
         }
         updatedPedido = updated;
         return updated;
@@ -702,7 +696,8 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
 
     setMesas(updatedMesas);
     dbUpsertMesas(updatedMesas);
-  }, [mesas, pedidos]);
+    addLog('sistema', `RESERVA: Mesa ${reserva.id_mesa} cambió a estado '${estado}'.`);
+  }, [mesas, pedidos, addLog]);
 
   // --- Handlers for Simulation Controls ---
   const handleAdvanceTime = (mins: number) => {
@@ -959,7 +954,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
                 onMozoChange={setActiveMozo}
                 onCrearPedido={handleCrearPedido}
                 onFacturarMesa={handleFacturarMesa}
-                addLog={() => {}}
+                addLog={addLog}
               />
             )}
             {(activeView === 'monitor_cocina' || activeView === 'cocina') && (
@@ -971,14 +966,14 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
               />
             )}
             {activeView === 'caja' && (
-              <CajaModule pedidos={pedidos} productosMenu={productosMenu} onFacturarMesa={handleFacturarMesa} onCambiarEstadoPedido={handleCambiarEstadoPedido} addLog={() => {}} />
+              <CajaModule pedidos={pedidos} productosMenu={productosMenu} onFacturarMesa={handleFacturarMesa} onCambiarEstadoPedido={handleCambiarEstadoPedido} addLog={addLog} />
             )}
             {activeView === 'inventario' && (
               <InventoryModule insumos={insumos} productosMenu={productosMenu} recetas={recetas} mermas={mermas}
                 onRegistrarMerma={handleRegistrarMerma}
                 onRestockInsumo={handleRestockInsumo}
                 onRestockTodo={handleRestockTodo}
-                addLog={() => {}}
+                addLog={addLog}
               />
             )}
             {(activeView === 'bi' || activeView === 'reportes') && (
@@ -1002,10 +997,10 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
             {activeView === 'proveedores' && <ProveedoresModule />}
             {activeView === 'promociones' && <PromocionesModule productosMenu={productosMenu} />}
             {activeView === 'reservas' && (
-              <ReservasModule mesas={mesas} onEstadoChange={handleReservaEstadoChange} addLog={() => {}} />
+              <ReservasModule mesas={mesas} onEstadoChange={handleReservaEstadoChange} addLog={addLog} />
             )}
             {activeView === 'facturacion' && (
-              <FacturacionModule pedidos={pedidos} productosMenu={productosMenu} addLog={() => {}} />
+              <FacturacionModule pedidos={pedidos} productosMenu={productosMenu} addLog={addLog} />
             )}
             {activeView === 'sistema' && activeUser.rol === 'superadmin' && (
               <SistemaModule 
@@ -1014,7 +1009,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
                 recetas={recetas}
                 pedidos={pedidos}
                 mesas={mesas}
-                addLog={() => {}}
+                addLog={addLog}
                 onSyncComplete={handleSupabaseSync}
               />
             )}
@@ -1022,7 +1017,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
               <BackupsModule 
                 operationalData={{ usuarios, mesas, insumos, productosMenu, recetas, pedidos, mermas, logs }}
                 onRestoreData={handleRestoreBackupData}
-                addLog={() => {}}
+                addLog={addLog}
               />
             )}
           </Suspense>
