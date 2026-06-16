@@ -239,7 +239,7 @@ export default function KitchenMonitor({
         {/* COLUMN 1: PENDIENTES (Amarillo Ámbar) */}
         <div className="space-y-4 bg-[#F59E0B]/5 p-4 rounded-2xl border border-[#F59E0B]/20 shadow-inner">
           <div className="flex justify-between items-center bg-[#F59E0B]/10 p-3 rounded-xl border border-[#F59E0B]/20 shadow-sm">
-            <h4 className="font-extrabold text-amber-850 text-xs tracking-tight flex items-center gap-1.5 font-sans">
+            <h4 className="font-extrabold text-amber-800 text-xs tracking-tight flex items-center gap-1.5 font-sans">
               <span className="w-2.5 h-2.5 rounded-full bg-[#F59E0B] animate-ping"></span>
               PENDIENTES (Ingresos)
             </h4>
@@ -286,7 +286,7 @@ export default function KitchenMonitor({
                       {/* Items list with orange giant 3x format */}
                       <div className="space-y-2">
                         {p.items.map((it, idx) => (
-                          <div key={idx} className="flex justify-between items-center text-sm font-sans text-stone-805 py-1.5 border-b border-stone-100 last:border-0">
+                          <div key={idx} className="flex justify-between items-center text-sm font-sans text-stone-800 py-1.5 border-b border-stone-100 last:border-0">
                             <span className="flex items-center gap-2">
                               <strong className="text-[1.3rem] font-black text-[#F97316] font-mono tracking-tight shrink-0">{it.cantidad}x</strong>
                               <span className="font-extrabold text-stone-900 text-sm leading-snug">{it.nombre}</span>
@@ -339,7 +339,7 @@ export default function KitchenMonitor({
         {/* COLUMN 2: EN PREPARACIÓN (Naranja Fuego) */}
         <div className="space-y-4 bg-[#F97316]/5 p-4 rounded-2xl border border-[#F97316]/20 shadow-inner">
           <div className="flex justify-between items-center bg-[#F97316]/10 p-3 rounded-xl border border-[#F97316]/20 shadow-sm">
-            <h4 className="font-black text-orange-850 text-xs tracking-tight flex items-center gap-1.5 font-sans">
+            <h4 className="font-black text-orange-800 text-xs tracking-tight flex items-center gap-1.5 font-sans">
               <Flame className="w-4 h-4 text-[#F97316] animate-pulse" />
               EN PREPARACIÓN (Fuegos)
             </h4>
@@ -386,7 +386,7 @@ export default function KitchenMonitor({
                       {/* Items list with orange giant 3x format */}
                       <div className="space-y-2">
                         {p.items.map((it, idx) => (
-                          <div key={idx} className="flex justify-between items-center text-sm font-sans text-stone-805 py-1.5 border-b border-stone-100 last:border-0 font-sans">
+                          <div key={idx} className="flex justify-between items-center text-sm font-sans text-stone-800 py-1.5 border-b border-stone-100 last:border-0 font-sans">
                             <span className="flex items-center gap-2">
                               <strong className="text-[1.3rem] font-black text-[#F97316] font-mono tracking-tight shrink-0">{it.cantidad}x</strong>
                               <span className="font-extrabold text-stone-900 text-sm leading-snug">{it.nombre}</span>
@@ -439,7 +439,7 @@ export default function KitchenMonitor({
         {/* COLUMN 3: LISTO PARA SERVIR (Verde Oliva Activo) */}
         <div className="space-y-4 bg-[#22C55E]/5 p-4 rounded-2xl border border-[#22C55E]/20 shadow-inner">
           <div className="flex justify-between items-center bg-[#22C55E]/10 p-3 rounded-xl border border-[#22C55E]/20 shadow-sm">
-            <h4 className="font-black text-emerald-850 text-xs tracking-tight flex items-center gap-1.5 font-sans">
+            <h4 className="font-black text-emerald-800 text-xs tracking-tight flex items-center gap-1.5 font-sans">
               <CheckCircle className="w-4 h-4 text-[#22C55E]" />
               LISTOS (A Servir / Retirada)
             </h4>
@@ -488,7 +488,7 @@ export default function KitchenMonitor({
                       </div>
                       
                       <div className="text-right flex flex-col items-end">
-                        <span className="text-[9px] font-mono font-black uppercase text-emerald-305 bg-emerald-950 px-2 py-0.5 rounded-full">Listo</span>
+                        <span className="text-[9px] font-mono font-black uppercase text-emerald-300 bg-emerald-950 px-2 py-0.5 rounded-full">Listo</span>
                         {(p.segundos_en_listo ?? 0) > 0 ? (
                           <span className="text-[10px] font-extrabold font-mono text-emerald-400 mt-1">Demora: {holdMinutes}m</span>
                         ) : null}
@@ -500,12 +500,12 @@ export default function KitchenMonitor({
                       {/* Items list with line through but highlighted OK badge */}
                       <div className="space-y-2">
                         {p.items.map((it, idx) => (
-                          <div key={idx} className="flex justify-between items-center text-sm font-sans text-stone-805 py-1.5 border-b border-stone-100 last:border-0">
+                          <div key={idx} className="flex justify-between items-center text-sm font-sans text-stone-800 py-1.5 border-b border-stone-100 last:border-0">
                             <span className="flex items-center gap-2 max-w-[70%]">
                               <strong className="text-[1.3rem] font-black text-[#22C55E] font-mono tracking-tight shrink-0">{it.cantidad}x</strong>
                               <span className="font-extrabold text-stone-900 text-sm leading-snug line-through opacity-50">{it.nombre}</span>
                             </span>
-                            <span className="bg-emerald-100 text-emerald-805 text-[9px] px-2 py-0.5 rounded-full font-black uppercase inline-flex items-center">
+                            <span className="bg-emerald-100 text-emerald-800 text-[9px] px-2 py-0.5 rounded-full font-black uppercase inline-flex items-center">
                               OK ✅
                             </span>
                           </div>
