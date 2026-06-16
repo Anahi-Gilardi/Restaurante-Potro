@@ -20,10 +20,24 @@ export interface Usuario {
 export interface Mesa {
     id_mesa: number;
     numero_mesa: string;
-    estado: 'libre' | 'ocupada' | 'esperando_cuenta' | 'reservada';
+    estado: 'libre' | 'ocupada' | 'esperando_cuenta' | 'reservada' | 'limpiando';
     comensales?: number;
     reserva_cliente?: string;
     reserva_hora?: string;
+    /** Capacidad máxima de comensales según el plano */
+    capacidad?: number;
+    /** Sector del restaurante */
+    sector?: 'comedor' | 'salon' | 'terraza' | 'vip';
+    /** Coordenada X (%) para el plano interactivo */
+    x?: number;
+    /** Coordenada Y (%) para el plano interactivo */
+    y?: number;
+    /** Forma visual de la mesa en el plano */
+    forma?: 'redonda' | 'rectangular';
+    /** IDs de mesas unidas a esta mesa combinada */
+    mesas_unidas?: number[];
+    /** ID de la mesa principal si esta mesa está unida a otra */
+    parent_id?: number | null;
 }
 
 export interface Insumo {
