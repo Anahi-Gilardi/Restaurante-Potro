@@ -952,6 +952,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
                 mesas={mesas}
                 insumos={insumos}
                 productosMenu={productosMenu}
+                setProductosMenu={setProductosMenu}
                 recetas={recetas}
                 usuarios={usuarios}
                 pedidos={pedidos}

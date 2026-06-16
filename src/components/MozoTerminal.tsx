@@ -16,7 +16,11 @@ import {
   DollarSign, 
   Receipt,
   UserCheck,
-  RefreshCw
+  RefreshCw,
+  MoreVertical,
+  Pencil,
+  EyeOff,
+  X
 } from 'lucide-react';
 import { Mesa, Insumo, ProductoMenu, RecetaEscandallo, Pedido, PedidoItem, Usuario } from '../types';
 import { useToast, ToastContainer } from './ToastContainer';
@@ -25,6 +29,7 @@ interface MozoTerminalProps {
   mesas: Mesa[];
   insumos: Insumo[];
   productosMenu: ProductoMenu[];
+  setProductosMenu: (items: ProductoMenu[] | ((prev: ProductoMenu[]) => ProductoMenu[])) => void;
   recetas: RecetaEscandallo[];
   usuarios: Usuario[];
   activeMozo: string;
@@ -32,7 +37,7 @@ interface MozoTerminalProps {
   onCrearPedido: (pedido: Omit<Pedido, 'id_pedido' | 'fecha_hora' | 'minutos_transcurridos' | 'origen'> & { origen?: 'Mozo' }) => void;
   pedidos: Pedido[];
   onFacturarMesa: (idPedido: number) => void;
-  addLog: (tipo: 'pedido_creado' | 'descuento_stock' | 'alerta_stock' | 'comanda_estado' | 'merma_registrada' | 'sistema', mensaje: string) => void;
+  addLog: (tipo: any, mensaje: string) => void;
   permitirVentaSinStock?: boolean;
 }
 
@@ -40,6 +45,7 @@ export default function MozoTerminal({
   mesas,
   insumos,
   productosMenu,
+  setProductosMenu,
   recetas,
   usuarios,
   activeMozo,
@@ -62,6 +68,13 @@ export default function MozoTerminal({
   const [observaciones, setObservaciones] = useState('');
   const [lastCheckoutTime, setLastCheckoutTime] = useState<number | null>(null);
   const [checkoutStatus, setCheckoutStatus] = useState<'idle' | 'sending' | 'done'>('idle');
+
+  // Admin menu state
+  const [adminMenuProduct, setAdminMenuProduct] = useState<string | null>(null);
+  const [editingPriceProduct, setEditingPriceProduct] = useState<string | null>(null);
+  const [editingPriceValue, setEditingPriceValue] = useState<number>(0);
+  const activeUser = useMemo(() => usuarios.find(u => u.nombre === activeMozo), [usuarios, activeMozo]);
+  const isAdmin = activeUser?.rol === 'superadmin' || activeUser?.rol === 'administrador';
 
   // Bill splitting state
   const [splittingPedidoId, setSplittingPedidoId] = useState<number | null>(null);
@@ -248,6 +261,18 @@ export default function MozoTerminal({
       return total + (p ? p.precio_venta * Number(qty) : 0);
     }, 0);
   }, [cart, productosMenu]);
+
+  // Admin: optimistic price update
+  const handleUpdatePrice = (id: string, newPrice: number) => {
+    setEditingPriceProduct(null);
+    setProductosMenu(prev => prev.map(p => p.id_producto === id ? { ...p, precio_venta: newPrice } : p));
+  };
+
+  // Admin: toggle availability (soft delete)
+  const handleToggleAvailability = (id: string) => {
+    setAdminMenuProduct(null);
+    setProductosMenu(prev => prev.map(p => p.id_producto === id ? { ...p, activo: !p.activo } : p));
+  };
 
   return (
     <>
@@ -546,15 +571,30 @@ export default function MozoTerminal({
                 </div>
 
                 {/* Content */}
-                <div className="p-3 flex justify-between items-center bg-white">
+                <div className="p-3 flex justify-between items-start bg-white">
                   <div className="min-w-0 flex-1">
-                    <h4 className="font-extrabold text-stone-850 text-xs font-sans line-clamp-1 leading-snug group-hover:text-[#624A3E] transition-colors">
+                    <h4 className="font-extrabold text-stone-850 text-xs md:text-sm font-sans line-clamp-2 min-h-[2.5rem] leading-snug group-hover:text-[#624A3E] transition-colors">
                       {p.nombre}
                     </h4>
                     <div className="mt-1 flex items-center gap-1.5">
-                      <span className="text-stone-900 font-mono text-xs font-black">
-                        ${p.precio_venta.toLocaleString('es-AR')}
-                      </span>
+                      {editingPriceProduct === p.id_producto ? (
+                        <div className="flex items-center gap-1">
+                          <input type="number" value={editingPriceValue} step={100}
+                            onChange={e => setEditingPriceValue(Number(e.target.value))}
+                            className="w-24 text-xs font-black font-mono p-1 border border-[#624A3E] rounded bg-amber-50 focus:outline-none"
+                            autoFocus
+                          />
+                          <button onClick={() => handleUpdatePrice(p.id_producto, editingPriceValue)}
+                            className="text-[10px] bg-[#624A3E] text-white px-1.5 py-1 rounded font-bold cursor-pointer">OK</button>
+                          <button onClick={() => setEditingPriceProduct(null)}
+                            className="text-[10px] bg-stone-200 px-1.5 py-1 rounded font-bold cursor-pointer">
+                            <X className="w-3 h-3" /></button>
+                        </div>
+                      ) : (
+                        <span className="text-stone-900 font-mono text-xs font-black">
+                          ${p.precio_venta.toLocaleString('es-AR')}
+                        </span>
+                      )}
                       {currentInCart > 0 && (
                         <span className="bg-[#624A3E] text-white rounded-full px-1.5 py-0.1 text-[9px] font-black font-mono">
                           {currentInCart} en bolsa
@@ -563,8 +603,31 @@ export default function MozoTerminal({
                     </div>
                   </div>
 
+                  {/* Admin gear menu */}
+                  {isAdmin && (
+                    <div className="relative shrink-0 ml-2">
+                      <button onClick={(e) => { e.stopPropagation(); setAdminMenuProduct(adminMenuProduct === p.id_producto ? null : p.id_producto); }}
+                        className="w-7 h-7 flex items-center justify-center rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-500 transition-all cursor-pointer">
+                        <MoreVertical className="w-3.5 h-3.5" />
+                      </button>
+                      {adminMenuProduct === p.id_producto && (
+                        <div className="absolute top-8 right-0 z-50 bg-white border border-stone-200 rounded-xl shadow-xl py-1 w-44"
+                          onClick={e => e.stopPropagation()}>
+                          <button onClick={() => { setEditingPriceProduct(p.id_producto); setEditingPriceValue(p.precio_venta); setAdminMenuProduct(null); }}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-stone-700 hover:bg-amber-50 transition-colors cursor-pointer">
+                            <Pencil className="w-3.5 h-3.5 text-amber-600" /> Editar Precio
+                          </button>
+                          <button onClick={() => handleToggleAvailability(p.id_producto)}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 transition-colors cursor-pointer">
+                            <EyeOff className="w-3.5 h-3.5" /> {p.activo ? 'Ocultar / Dar de Baja' : 'Restaurar'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* elastic sum button */}
-                  <div className="flex items-center gap-1 shrink-0">
+                  <div className="flex items-center gap-1 shrink-0 ml-2">
                     {[1, 2, 3].map(n => (
                       <button
                         key={n}
