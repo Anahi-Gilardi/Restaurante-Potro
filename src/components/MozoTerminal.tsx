@@ -23,6 +23,7 @@ import {
   X
 } from 'lucide-react';
 import { Mesa, Insumo, ProductoMenu, RecetaEscandallo, Pedido, PedidoItem, Usuario } from '../types';
+import { useMenu, useSalon, useInventario, usePedidos } from '../context/AppContext';
 import { useToast, ToastContainer } from './ToastContainer';
 
 interface MozoTerminalProps {
@@ -42,20 +43,37 @@ interface MozoTerminalProps {
 }
 
 export default function MozoTerminal({
-  mesas,
-  insumos,
-  productosMenu,
-  setProductosMenu,
-  recetas,
-  usuarios,
-  activeMozo,
-  onMozoChange,
-  onCrearPedido,
-  pedidos,
-  onFacturarMesa,
-  addLog,
+  mesas: propMesas,
+  insumos: propInsumos,
+  productosMenu: propProductosMenu,
+  setProductosMenu: propSetProductosMenu,
+  recetas: propRecetas,
+  usuarios: propUsuarios = [],
+  activeMozo: propActiveMozo,
+  onMozoChange: propOnMozoChange,
+  onCrearPedido: propOnCrearPedido,
+  pedidos: propPedidos,
+  onFacturarMesa: propOnFacturarMesa,
+  addLog: propAddLog,
   permitirVentaSinStock = false
 }: MozoTerminalProps) {
+  // Use context as primary source, fall back to props for backward compat
+  const ctxMenu = useMenu();
+  const ctxSalon = useSalon();
+  const ctxInventario = useInventario();
+  const ctxPedidos = usePedidos();
+
+  const productosMenu = propProductosMenu ?? ctxMenu.productosMenu;
+  const setProductosMenu = propSetProductosMenu ?? ctxMenu.setProductosMenu;
+  const recetas = propRecetas ?? ctxMenu.recetas;
+  const insumos = propInsumos ?? ctxInventario.insumos;
+  const pedidos = propPedidos ?? ctxPedidos.pedidos;
+  const mesas = propMesas ?? ctxSalon.mesas;
+  const activeMozo = propActiveMozo ?? ctxSalon.activeMozo;
+  const onMozoChange = propOnMozoChange ?? ctxSalon.setActiveMozo;
+  const onCrearPedido = propOnCrearPedido ?? ctxPedidos.handleCrearPedido;
+  const onFacturarMesa = propOnFacturarMesa ?? ctxPedidos.handleFacturarMesa;
+  const addLog = propAddLog ?? ((...args: any[]) => {});
   const { toast, toasts, removeToast } = useToast();
   // Waiter selections
   const [selectedMesaId, setSelectedMesaId] = useState<number | null>(null);

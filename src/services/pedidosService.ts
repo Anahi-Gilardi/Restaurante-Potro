@@ -101,10 +101,12 @@ export const pedidosService = {
     
     if (!headers || headers.length === 0) return [];
 
-    // 2. Fetch all details for these headers
+    // 2. Fetch details filtered by header IDs only (avoid SELECT * full scan)
+    const headerIds = headers.map(h => h.id_pedido);
     const { data: details, error: dError } = await supabase
       .from('pedido_detalle')
-      .select('*');
+      .select('*')
+      .in('id_pedido', headerIds);
       
     if (dError) {
       console.error('Error fetching pedido details:', dError);
