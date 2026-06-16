@@ -927,7 +927,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
       </aside>
 
       {/* MAIN CONTENT AREA */}
-      <main className="flex-1 overflow-x-hidden p-4 md:p-8 pb-24 max-w-6xl mx-auto w-full transition-all duration-300 mt-2">
+      <main className="flex-1 overflow-x-hidden p-3 md:p-6 pb-24 max-w-7xl mx-auto w-full transition-all duration-300 mt-2">
         <ToastContainer toasts={toasts} removeToast={removeToast} />
 
         <RetryErrorWrapper>
