@@ -137,7 +137,7 @@ const SalonContext = createContext<SalonContextValue | null>(null);
 
 export function SalonProvider({ children }: { children: ReactNode }) {
     const [mesas, setMesas] = useState<Mesa[]>(INITIAL_MESAS);
-    const [activeMozo, setActiveMozo] = useState<string>('Enzo Fernández');
+    const [activeMozo, setActiveMozo] = useState<string>('Sofía'); // Sincronizado con App.tsx
 
   return (
         <SalonContext.Provider value={{ mesas, setMesas, activeMozo, setActiveMozo }}>
@@ -292,7 +292,7 @@ export function PedidosProvider({ children }: { children: ReactNode }) {
   
     const handleCrearPedido = useCallback(
           (data: Omit<Pedido, 'id_pedido' | 'fecha_hora' | 'minutos_transcurridos' | 'origen'> & { origen?: 'Mozo'; comensales?: number }) => {
-                  const newId = Math.max(0, ...pedidos.map(p => p.id_pedido)) + 1;
+                  const newId = Math.max(0, ...pedidos.map((p: Pedido) => p.id_pedido)) + 1; // Note: use functional setPedidos if concurrent creation is an issue
                   const nuevo: Pedido = {
                             ...data,
                             id_pedido: newId,
