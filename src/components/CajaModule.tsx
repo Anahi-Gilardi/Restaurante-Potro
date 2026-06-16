@@ -654,7 +654,7 @@ export default function CajaModule({
     <div className="space-y-6" id="gastro-checkout-master">
       
       {/* HEADER BAR: Settings & Restaurant Config */}
-      <div className="bg-white rounded-2xl p-4 border border-stone-200/80 shadow-xs flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div className="bg-white rounded-2xl p-4 border border-stone-200/80 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div className="flex items-center gap-3">
           <div className="p-2 ml-1 bg-[#624A3E]/10 rounded-xl text-[#624A3E]">
             <Receipt className="w-6 h-6" />
@@ -860,7 +860,7 @@ export default function CajaModule({
         <div className="lg:col-span-4 space-y-6">
           
           {/* DAILY DRAWER SHIFT COMPONENT (Rule 1) */}
-          <div className="bg-white rounded-2xl p-5 border border-stone-200 shadow-xs space-y-4">
+          <div className="bg-white rounded-2xl p-5 border border-stone-200 shadow-sm space-y-4">
             <div className="flex justify-between items-start">
               <div>
                 <span className="text-[9px] uppercase font-black text-stone-400 block tracking-wider">Flujo Contable Diario</span>
@@ -891,17 +891,17 @@ export default function CajaModule({
                     <span className="font-mono text-stone-900">{cajaSession.fecha_apertura}</span>
                   </div>
 
-                  <div className="flex justify-between text-xs font-semibold text-stone-600 pt-1 border-t border-stone-150">
+                  <div className="flex justify-between text-xs font-semibold text-stone-600 pt-1 border-t border-stone-100">
                     <span>Monto Inicial:</span>
                     <span className="font-mono text-stone-900">${cajaSession.monto_apertura.toLocaleString('es-AR')}</span>
                   </div>
 
-                  <div className="flex justify-between text-[13px] font-black text-[#624A3E] pt-1 border-t border-stone-150">
+                  <div className="flex justify-between text-[13px] font-black text-[#624A3E] pt-1 border-t border-stone-100">
                     <span>Ventas registradas:</span>
                     <span className="font-mono">${cajaSession.monto_ventas.toLocaleString('es-AR')}</span>
                   </div>
 
-                  <div className="flex justify-between text-xs font-bold text-stone-900 pt-1 font-mono border-t border-stone-150 border-dotted">
+                  <div className="flex justify-between text-xs font-bold text-stone-900 pt-1 font-mono border-t border-stone-100 border-dotted">
                     <span>Arqueo Teórico:</span>
                     <span>${(cajaSession.monto_apertura + cajaSession.monto_ventas).toLocaleString('es-AR')}</span>
                   </div>
@@ -939,7 +939,7 @@ export default function CajaModule({
 
                 <button
                   onClick={() => setShowCloseModal(true)}
-                  className="w-full py-2.5 bg-stone-900 hover:bg-stone-800 text-white rounded-xl text-[10px] uppercase font-black transition-all cursor-pointer shadow-xs border border-[#ddd7ce] flex items-center justify-center gap-1.5"
+                  className="w-full py-2.5 bg-stone-900 hover:bg-stone-800 text-white rounded-xl text-[10px] uppercase font-black transition-all cursor-pointer shadow-sm border border-[#ddd7ce] flex items-center justify-center gap-1.5"
                 >
                   <Download className="w-3.5 h-3.5 text-amber-300" />
                   Cierre de Turno comercial
@@ -964,20 +964,20 @@ export default function CajaModule({
           </div>
 
           {/* ACTIVE UNBILLED COMMANDS LIST (Rule 2) */}
-          <div className="bg-white rounded-2xl p-5 border border-stone-200 shadow-xs space-y-4">
+          <div className="bg-white rounded-2xl p-5 border border-stone-200 shadow-sm space-y-4">
             <div className="flex justify-between items-center pb-2 border-b border-stone-100">
               <h4 className="font-black text-stone-800 font-sans tracking-tight text-xs uppercase flex items-center gap-1.5">
                 <Receipt className="w-4 h-4 text-[#624A3E]" />
                 Comandas en Salón
               </h4>
-              <span className="text-[9px] font-bold bg-[#F5F1E9] text-[#624A3E] border border-stone-150 rounded-full px-2 py-0.5 font-mono">
+              <span className="text-[9px] font-bold bg-[#F5F1E9] text-[#624A3E] border border-stone-100 rounded-full px-2 py-0.5 font-mono">
                 {activeBills.length} pendientes
               </span>
             </div>
 
             <div className="space-y-2 max-h-[350px] overflow-y-auto pr-1">
               {activeBills.length === 0 ? (
-                <div className="text-center p-8 border border-dashed border-stone-150 rounded-xl bg-stone-50/50">
+                <div className="text-center p-8 border border-dashed border-stone-100 rounded-xl bg-stone-50/50">
                   <CheckCircle className="w-7 h-7 text-emerald-500 mx-auto mb-2" />
                   <p className="text-[11px] text-stone-500 font-black uppercase">¡Todo liquidado!</p>
                   <p className="text-[9px] text-stone-400 mt-0.5">No hay comandos de mesas pendientes de liquidación.</p>
@@ -1011,7 +1011,7 @@ export default function CajaModule({
                       className={`w-full p-3 rounded-xl border text-left transition-all flex justify-between items-center cursor-pointer ${
                         isSelected 
                           ? 'border-[#624A3E] bg-[#F5F1E9] ring-2 ring-[#624A3E]/10 shadow-sm'
-                          : 'border-stone-250 bg-white hover:bg-stone-50'
+                          : 'border-stone-200 bg-white hover:bg-stone-50'
                       }`}
                     >
                       <div className="space-y-1">
@@ -1086,7 +1086,7 @@ export default function CajaModule({
         <div className="lg:col-span-8">
           
           {selectedPedido ? (
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 bg-white rounded-2xl p-6 border border-stone-200 shadow-xs">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 bg-white rounded-2xl p-6 border border-stone-200 shadow-sm">
               
               {/* TICKET OPTIONS CONTROLS (MD: Span 7) */}
               <div className="md:col-span-7 space-y-4 font-sans">
@@ -1263,7 +1263,7 @@ export default function CajaModule({
                     </div>
 
                     {splitPayerCount > 1 && (
-                      <div className="text-[10px] text-stone-600 leading-normal bg-white p-2 rounded border border-stone-150 space-y-0.5 text-center">
+                      <div className="text-[10px] text-stone-600 leading-normal bg-white p-2 rounded border border-stone-100 space-y-0.5 text-center">
                         <p className="font-bold">Monto partes iguales:</p>
                         <p className="text-emerald-700 text-xs font-black font-mono">
                           ${(orderBreakdowns.finalTotal / splitPayerCount).toLocaleString('es-AR', { maximumFractionDigits: 1 })} c/u
@@ -1338,7 +1338,7 @@ export default function CajaModule({
                           }}
                           className={`p-2.5 rounded-xl text-xs font-black flex items-center justify-start gap-2 border transition-all cursor-pointer ${
                             metodoPago === m.key 
-                              ? 'bg-[#624A3E] text-white border-[#624A3E] shadow-xs'
+                              ? 'bg-[#624A3E] text-white border-[#624A3E] shadow-sm'
                               : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100'
                           }`}
                         >
@@ -1363,7 +1363,7 @@ export default function CajaModule({
                           value={montoEntregadoEfectivo}
                           onChange={e => setMontoEntregadoEfectivo(e.target.value)}
                           placeholder="Monto entregado"
-                          className="p-2 border border-stone-200 rounded-lg text-xs font-mono font-black text-stone-850 w-28 bg-white"
+                          className="p-2 border border-stone-200 rounded-lg text-xs font-mono font-black text-stone-800 w-28 bg-white"
                         />
                         {calculatedChange > 0 && (
                           <div className="text-right pl-2 border-l border-stone-200">
@@ -1390,7 +1390,7 @@ export default function CajaModule({
                       {mixedPayments.length > 0 ? (
                         <div className="space-y-1">
                           {mixedPayments.map((p, idx) => (
-                            <div key={idx} className="flex justify-between items-center bg-white border border-stone-150 p-2 rounded-lg text-xs font-bold text-stone-700">
+                            <div key={idx} className="flex justify-between items-center bg-white border border-stone-100 p-2 rounded-lg text-xs font-bold text-stone-700">
                               <span className="uppercase flex items-center gap-1">
                                 <ChevronRight className="w-3.5 h-3.5 text-[#624A3E]" /> {p.metodo}
                               </span>
@@ -1647,7 +1647,7 @@ export default function CajaModule({
 
             </div>
           ) : (
-            <div className="bg-white rounded-2xl p-10 border border-stone-200 shadow-xs text-center flex flex-col justify-center items-center min-h-[450px]">
+            <div className="bg-white rounded-2xl p-10 border border-stone-200 shadow-sm text-center flex flex-col justify-center items-center min-h-[450px]">
               <div className="p-4 bg-[#F5F1E9] rounded-2xl text-[#624A3E] mb-4">
                 <Receipt className="w-10 h-10" />
               </div>
@@ -1746,7 +1746,7 @@ export default function CajaModule({
             </p>
 
             {cajaSession && (
-              <div className="bg-stone-50 p-3 rounded-xl border border-stone-150 text-[10px] font-mono space-y-1 text-stone-600">
+              <div className="bg-stone-50 p-3 rounded-xl border border-stone-100 text-[10px] font-mono space-y-1 text-stone-600">
                 <div className="flex justify-between">
                   <span>Monto inicial:</span>
                   <span>${cajaSession.monto_apertura.toLocaleString('es-AR')}</span>
@@ -1795,7 +1795,7 @@ export default function CajaModule({
                 </button>
                 <button
                   type="submit"
-                  className="w-1/2 py-2.5 bg-stone-900 hover:bg-stone-850 text-white text-xs font-black uppercase rounded-xl shadow cursor-pointer border border-[#ddd7ce]"
+                  className="w-1/2 py-2.5 bg-stone-900 hover:bg-stone-800 text-white text-xs font-black uppercase rounded-xl shadow cursor-pointer border border-[#ddd7ce]"
                 >
                   Confirmar Arqueo & Cerrar
                 </button>
@@ -1806,7 +1806,7 @@ export default function CajaModule({
       )}
 
       {/* HISTORICAL SHIFTS LIST */}
-      <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs space-y-4 font-sans">
+      <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-sm space-y-4 font-sans">
         <h4 className="text-xs font-black text-stone-800 uppercase tracking-tight flex items-center gap-1.5 pb-2 border-b border-stone-100">
           <Calendar className="w-4 h-4 text-[#624A3E]" /> Registro de Auditoría de Cierres de Caja Homologados ({sessionInsumos.length})
         </h4>
@@ -1832,12 +1832,12 @@ export default function CajaModule({
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2 sm:text-right shrink-0">
-                    <div className="bg-white p-2 rounded border border-stone-150 min-w-[100px] text-center">
+                    <div className="bg-white p-2 rounded border border-stone-100 min-w-[100px] text-center">
                       <span className="text-[8px] text-stone-400 block font-black uppercase">Ventas Turno</span>
                       <span className="font-mono font-bold text-stone-900">${cs.monto_ventas.toLocaleString('es-AR')}</span>
                     </div>
 
-                    <div className="bg-white p-2 rounded border border-stone-150 min-w-[100px] text-center">
+                    <div className="bg-white p-2 rounded border border-stone-100 min-w-[100px] text-center">
                       <span className="text-[8px] text-stone-400 block font-black uppercase">Monto Real</span>
                       <span className="font-mono font-bold text-stone-900">${(cs.monto_real || 0).toLocaleString('es-AR')}</span>
                     </div>
