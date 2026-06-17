@@ -641,6 +641,7 @@ CREATE TABLE IF NOT EXISTS public.auditoria_eventos (
 
 CREATE TABLE IF NOT EXISTS public.pedidos_cabecera (
   id_pedido bigint PRIMARY KEY,
+  idempotency_key text,
   id_mesa bigint,
   numero_mesa text NOT NULL,
   mozo text NOT NULL,
@@ -653,6 +654,13 @@ CREATE TABLE IF NOT EXISTS public.pedidos_cabecera (
   segundos_en_listo bigint,
   items text
 );
+
+ALTER TABLE public.pedidos_cabecera
+  ADD COLUMN IF NOT EXISTS idempotency_key text;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_pedidos_cabecera_idempotency_key
+  ON public.pedidos_cabecera (idempotency_key)
+  WHERE idempotency_key IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS public.pedido_detalle (
   id_detalle text PRIMARY KEY,
@@ -760,6 +768,7 @@ CREATE TABLE IF NOT EXISTS public.auditoria_eventos (
 
 CREATE TABLE IF NOT EXISTS public.pedidos_cabecera (
   id_pedido bigint PRIMARY KEY,
+  idempotency_key text,
   id_mesa bigint,
   numero_mesa text NOT NULL,
   mozo text NOT NULL,
@@ -772,6 +781,13 @@ CREATE TABLE IF NOT EXISTS public.pedidos_cabecera (
   segundos_en_listo bigint,
   items text
 );
+
+ALTER TABLE public.pedidos_cabecera
+  ADD COLUMN IF NOT EXISTS idempotency_key text;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_pedidos_cabecera_idempotency_key
+  ON public.pedidos_cabecera (idempotency_key)
+  WHERE idempotency_key IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS public.pedido_detalle (
   id_detalle text PRIMARY KEY,

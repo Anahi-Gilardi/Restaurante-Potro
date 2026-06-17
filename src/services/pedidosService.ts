@@ -34,6 +34,7 @@ export const hydratePedido = (
 
   return {
     id_pedido: header.id_pedido,
+    idempotency_key: header.idempotency_key ?? undefined,
     id_mesa: header.id_mesa,
     numero_mesa: header.numero_mesa,
     mozo: header.mozo,
@@ -56,6 +57,7 @@ export const hydratePedido = (
 
 export const serializePedidoHeader = (pedido: Pedido) => ({
   id_pedido: pedido.id_pedido,
+  idempotency_key: pedido.idempotency_key ?? null,
   id_mesa: pedido.id_mesa || null,
   numero_mesa: pedido.numero_mesa,
   mozo: pedido.mozo,

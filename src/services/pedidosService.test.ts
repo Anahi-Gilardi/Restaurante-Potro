@@ -5,6 +5,7 @@ import type { Pedido } from '../types';
 
 const pedido: Pedido = {
   id_pedido: 1201,
+  idempotency_key: 'mozo-4-123-test',
   id_mesa: 4,
   numero_mesa: 'Mesa 4',
   mozo: 'Micaela',
@@ -43,4 +44,12 @@ test('prioriza el snapshot JSON para no perder el precio historico', () => {
   }]);
 
   assert.equal(hydrated.items[0].precio_unitario, 18500);
+});
+
+test('preserva idempotency_key para evitar comandas duplicadas', () => {
+  const header = serializePedidoHeader(pedido);
+  const hydrated = hydratePedido(header, []);
+
+  assert.equal(header.idempotency_key, 'mozo-4-123-test');
+  assert.equal(hydrated.idempotency_key, 'mozo-4-123-test');
 });

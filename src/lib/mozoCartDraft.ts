@@ -3,6 +3,20 @@ export type MozoCart = Record<string, number>;
 export interface MozoCartDraft {
   cart: MozoCart;
   observaciones: string;
+  mesaId: number;
+  mozo?: string;
+  createdAt: number;
+  updatedAt: number;
+  idempotencyKey: string;
+  schemaVersion: 2;
+}
+
+export interface MozoCartDraftInput {
+  cart: MozoCart;
+  observaciones: string;
+  mozo?: string;
+  now?: number;
+  idempotencyKey?: string;
 }
 
 interface StorageLike {
@@ -12,9 +26,15 @@ interface StorageLike {
 }
 
 const STORAGE_PREFIX = 'mozo_cart_draft_v1';
+export const MOZO_CART_DRAFT_TTL_MS = 45 * 60 * 1000;
 
 export function getMozoCartDraftKey(mesaId: number): string {
   return `${STORAGE_PREFIX}:${mesaId}`;
+}
+
+export function createMozoCartIdempotencyKey(mesaId: number, now = Date.now()): string {
+  const randomPart = Math.random().toString(36).slice(2, 10);
+  return `mozo-${mesaId}-${now}-${randomPart}`;
 }
 
 export function sanitizeMozoCart(value: unknown): MozoCart {
@@ -29,33 +49,66 @@ export function sanitizeMozoCart(value: unknown): MozoCart {
   }, {});
 }
 
-export function readMozoCartDraft(mesaId: number, storage: StorageLike | null | undefined = getBrowserStorage()): MozoCartDraft {
-  if (!storage) return { cart: {}, observaciones: '' };
+export function isMozoCartDraftExpired(draft: Pick<MozoCartDraft, 'updatedAt'>, now = Date.now()): boolean {
+  return now - draft.updatedAt > MOZO_CART_DRAFT_TTL_MS;
+}
+
+export function readMozoCartDraft(
+  mesaId: number,
+  storage: StorageLike | null | undefined = getBrowserStorage(),
+  now = Date.now(),
+): MozoCartDraft | null {
+  if (!storage) return null;
 
   try {
     const raw = storage.getItem(getMozoCartDraftKey(mesaId));
-    if (!raw) return { cart: {}, observaciones: '' };
+    if (!raw) return null;
 
     const parsed = JSON.parse(raw) as Partial<MozoCartDraft>;
-    return {
+    const createdAt = typeof parsed.createdAt === 'number' ? parsed.createdAt : now;
+    const updatedAt = typeof parsed.updatedAt === 'number' ? parsed.updatedAt : createdAt;
+    const draft: MozoCartDraft = {
       cart: sanitizeMozoCart(parsed.cart),
       observaciones: typeof parsed.observaciones === 'string' ? parsed.observaciones : '',
+      mesaId,
+      mozo: typeof parsed.mozo === 'string' ? parsed.mozo : undefined,
+      createdAt,
+      updatedAt,
+      idempotencyKey: typeof parsed.idempotencyKey === 'string'
+        ? parsed.idempotencyKey
+        : createMozoCartIdempotencyKey(mesaId, createdAt),
+      schemaVersion: 2,
     };
+
+    if (isMozoCartDraftExpired(draft, now)) {
+      clearMozoCartDraft(mesaId, storage);
+      return null;
+    }
+
+    return draft;
   } catch {
-    return { cart: {}, observaciones: '' };
+    return null;
   }
 }
 
 export function writeMozoCartDraft(
   mesaId: number,
-  draft: MozoCartDraft,
+  draft: MozoCartDraftInput,
   storage: StorageLike | null | undefined = getBrowserStorage(),
 ): void {
   if (!storage) return;
 
+  const now = draft.now ?? Date.now();
+  const existing = readMozoCartDraft(mesaId, storage, now);
   const cleanDraft: MozoCartDraft = {
     cart: sanitizeMozoCart(draft.cart),
     observaciones: draft.observaciones.trim(),
+    mesaId,
+    mozo: draft.mozo,
+    createdAt: existing?.createdAt ?? now,
+    updatedAt: now,
+    idempotencyKey: draft.idempotencyKey ?? existing?.idempotencyKey ?? createMozoCartIdempotencyKey(mesaId, now),
+    schemaVersion: 2,
   };
 
   const isEmpty = Object.keys(cleanDraft.cart).length === 0 && cleanDraft.observaciones.length === 0;

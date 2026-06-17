@@ -42,6 +42,7 @@ import {
     INITIAL_RECETAS_ESCANDALLO,
     INITIAL_PEDIDOS,
 } from '../data/initialData';
+import { createClientPedidoId } from '../lib/pedidoIds';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -275,8 +276,8 @@ interface PedidosContextValue {
     pedidos: Pedido[];
     setPedidos: React.Dispatch<React.SetStateAction<Pedido[]>>;
     handleCrearPedido: (
-          data: Omit<Pedido, 'id_pedido' | 'fecha_hora' | 'minutos_transcurridos' | 'origen'> & { origen?: 'Mozo' }
-        ) => void;
+          data: Omit<Pedido, 'id_pedido' | 'fecha_hora' | 'minutos_transcurridos' | 'origen'> & { origen?: 'Mozo'; idempotency_key?: string }
+        ) => void | Promise<void>;
     handleCambiarEstadoPedido: (idPedido: number, nuevoEstado: Pedido['estado_comanda']) => void;
     handleFacturarMesa: (idPedido: number) => void;
 }
@@ -291,8 +292,9 @@ export function PedidosProvider({ children }: { children: ReactNode }) {
     const { recetas } = useMenu();
   
     const handleCrearPedido = useCallback(
-          (data: Omit<Pedido, 'id_pedido' | 'fecha_hora' | 'minutos_transcurridos' | 'origen'> & { origen?: 'Mozo'; comensales?: number }) => {
-                  const newId = Math.max(0, ...pedidos.map((p: Pedido) => p.id_pedido)) + 1; // Note: use functional setPedidos if concurrent creation is an issue
+          (data: Omit<Pedido, 'id_pedido' | 'fecha_hora' | 'minutos_transcurridos' | 'origen'> & { origen?: 'Mozo'; comensales?: number; idempotency_key?: string }) => {
+                  if (data.idempotency_key && pedidos.some(p => p.idempotency_key === data.idempotency_key)) return;
+                  const newId = createClientPedidoId(pedidos.map((p: Pedido) => p.id_pedido));
                   const nuevo: Pedido = {
                             ...data,
                             id_pedido: newId,
@@ -301,7 +303,13 @@ export function PedidosProvider({ children }: { children: ReactNode }) {
                             origen: data.origen ?? 'Mozo',
                   };
             
-                  setPedidos(prev => [nuevo, ...prev]);
+                  setPedidos(prev => {
+                            if (nuevo.idempotency_key && prev.some(p => p.idempotency_key === nuevo.idempotency_key)) return prev;
+                            const safeId = prev.some(p => p.id_pedido === nuevo.id_pedido)
+                                      ? createClientPedidoId(prev.map((p: Pedido) => p.id_pedido))
+                                      : nuevo.id_pedido;
+                            return [{ ...nuevo, id_pedido: safeId }, ...prev];
+                  });
                   setMesas(prev =>
                             prev.map(m =>
                                         m.id_mesa === nuevo.id_mesa ? { ...m, estado: 'ocupada', comensales: data.comensales } : m

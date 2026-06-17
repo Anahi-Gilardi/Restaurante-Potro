@@ -96,6 +96,7 @@ export interface PedidoItem {
 
 export interface Pedido {
     id_pedido: number;
+    idempotency_key?: string;
     id_mesa: number;
     numero_mesa: string;
     mozo: string;

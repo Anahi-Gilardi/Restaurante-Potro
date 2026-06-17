@@ -106,7 +106,7 @@ export async function dbFetchPedidos() {
 }
 export async function dbSavePedidoComplex(pedido: any) {
   try { await (await import('./services/pedidosService')).pedidosService.upsert([pedido]); }
-  catch (e) { console.warn('dbSavePedidoComplex:', e); }
+  catch (e) { console.warn('dbSavePedidoComplex:', e); throw e; }
 }
 
 // Mermas

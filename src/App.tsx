@@ -68,6 +68,7 @@ import {
   dbFetchUsuarios
 } from './supabase';
 import { AppView, canAccessView, getAllowedViews } from './lib/permissions';
+import { createClientPedidoId } from './lib/pedidoIds';
 
 export default function App() {
   const { toast, toasts, removeToast } = useToast();
@@ -262,8 +263,17 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
 
 
   // --- Handlers for Waiter View (Terminal Mozo) ---
-  const handleCrearPedido = useCallback((newPedidoData: Omit<Pedido, 'id_pedido' | 'fecha_hora' | 'minutos_transcurridos' | 'origen'> & { origen?: 'Mozo'; comensales?: number }) => {
-    const newId = Math.max(1000, ...pedidos.map(p => p.id_pedido)) + 1;
+  const handleCrearPedido = useCallback(async (newPedidoData: Omit<Pedido, 'id_pedido' | 'fecha_hora' | 'minutos_transcurridos' | 'origen'> & { origen?: 'Mozo'; comensales?: number; idempotency_key?: string }) => {
+    const existingByKey = newPedidoData.idempotency_key
+      ? pedidos.find(p => p.idempotency_key === newPedidoData.idempotency_key)
+      : undefined;
+    if (existingByKey) {
+      await dbSavePedidoComplex(existingByKey);
+      addLog('sistema', `PEDIDOS: Reintento sincronizado por idempotencia (${newPedidoData.idempotency_key}).`);
+      return;
+    }
+    const currentPedidos = pedidos;
+    const newId = createClientPedidoId(currentPedidos.map(p => p.id_pedido));
     let itemsDescontados: string[] = [];
     let alarmasBajoStock: string[] = [];
     const stockMovements: Array<{
@@ -317,7 +327,13 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
       fecha_descuento_stock: stockDescontado ? new Date() : undefined
     };
 
-    setPedidos(prev => [newPedido, ...prev]);
+    setPedidos(prev => {
+      if (newPedido.idempotency_key && prev.some(p => p.idempotency_key === newPedido.idempotency_key)) return prev;
+      const safeId = prev.some(p => p.id_pedido === newPedido.id_pedido)
+        ? createClientPedidoId(prev.map(p => p.id_pedido))
+        : newPedido.id_pedido;
+      return [{ ...newPedido, id_pedido: safeId }, ...prev];
+    });
 
     // Update mesa occupied
     const updatedMesas = mesas.map(m => m.id_mesa === newPedidoData.id_mesa ? { ...m, estado: 'ocupada' as const, comensales: newPedidoData.comensales || 2 } : m);
@@ -335,12 +351,12 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     });
 
     // Sync state mutations to Supabase in background
-    dbSavePedidoComplex(newPedido);
-    dbUpsertMesas(updatedMesas);
+    await dbSavePedidoComplex(newPedido);
+    await dbUpsertMesas(updatedMesas);
 
     if (stockDescontado) {
       stockMovements.forEach(movement => dbRecordMovement(movement).catch(console.error));
-      dbUpsertInsumos(updatedInsumos);
+      await dbUpsertInsumos(updatedInsumos);
     }
   }, [pedidos, insumos, recetas, addLog, mesas, permitirVentaSinStock, setMesas, setInsumos, setPedidos]);
 

@@ -25,7 +25,18 @@ import {
 import { Mesa, Insumo, ProductoMenu, RecetaEscandallo, Pedido, PedidoItem, Usuario, EventoLog } from '../types';
 import { useMenu, useSalon, useInventario, usePedidos } from '../context/AppContext';
 import { useToast, ToastContainer } from './ToastContainer';
-import { clearMozoCartDraft, MozoCart, readMozoCartDraft, writeMozoCartDraft } from '../lib/mozoCartDraft';
+import { clearMozoCartDraft, createMozoCartIdempotencyKey, MozoCart, readMozoCartDraft, writeMozoCartDraft } from '../lib/mozoCartDraft';
+
+const CHECKOUT_TIMEOUT_MS = 12000;
+
+function withCheckoutTimeout<T>(operation: Promise<T>, timeoutMs = CHECKOUT_TIMEOUT_MS): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error('Tiempo de espera agotado al enviar la comanda.')), timeoutMs);
+  });
+
+  return Promise.race([operation, timeout]).finally(() => clearTimeout(timeoutId));
+}
 
 interface MozoTerminalProps {
   mesas: Mesa[];
@@ -36,7 +47,7 @@ interface MozoTerminalProps {
   usuarios: Usuario[];
   activeMozo: string;
   onMozoChange: (mozo: string) => void;
-  onCrearPedido: (pedido: Omit<Pedido, 'id_pedido' | 'fecha_hora' | 'minutos_transcurridos' | 'origen'> & { origen?: 'Mozo' }) => void;
+  onCrearPedido: (pedido: Omit<Pedido, 'id_pedido' | 'fecha_hora' | 'minutos_transcurridos' | 'origen'> & { origen?: 'Mozo'; idempotency_key?: string }) => void | Promise<void>;
   pedidos: Pedido[];
   onFacturarMesa: (idPedido: number) => void;
   addLog: (tipo: EventoLog['tipo'], mensaje: string) => void;
@@ -87,6 +98,7 @@ export default function MozoTerminal({
   // Current order cart
   const [cart, setCart] = useState<MozoCart>({});
   const [observaciones, setObservaciones] = useState('');
+  const [cartIdempotencyKey, setCartIdempotencyKey] = useState<string | null>(null);
   const [lastCheckoutTime, setLastCheckoutTime] = useState<number | null>(null);
   const [checkoutStatus, setCheckoutStatus] = useState<'idle' | 'sending' | 'done'>('idle');
 
@@ -106,29 +118,59 @@ export default function MozoTerminal({
     return mesas.find(m => m.id_mesa === selectedMesaId) || null;
   }, [selectedMesaId, mesas]);
 
+  const getValidCartFromDraft = useCallback((draftCart: MozoCart): { cart: MozoCart; removed: string[] } => {
+    return Object.entries(draftCart).reduce<{ cart: MozoCart; removed: string[] }>((acc, [productId, qty]) => {
+      const product = productosMenu.find(p => p.id_producto === productId);
+      if (!product || !product.activo) {
+        acc.removed.push(product?.nombre ?? productId);
+        return acc;
+      }
+      acc.cart[productId] = qty;
+      return acc;
+    }, { cart: {}, removed: [] });
+  }, [productosMenu]);
+
   useEffect(() => {
     if (!selectedMesaId) return;
-    writeMozoCartDraft(selectedMesaId, { cart, observaciones });
-  }, [selectedMesaId, cart, observaciones]);
+    writeMozoCartDraft(selectedMesaId, {
+      cart,
+      observaciones,
+      mozo: activeMozo,
+      idempotencyKey: cartIdempotencyKey ?? undefined,
+    });
+  }, [selectedMesaId, cart, observaciones, activeMozo, cartIdempotencyKey]);
 
   const handleSelectMesa = useCallback((mesa: Mesa) => {
     if (checkoutInFlightRef.current) return;
-    if (selectedMesaId) writeMozoCartDraft(selectedMesaId, { cart, observaciones });
+    if (selectedMesaId) {
+      writeMozoCartDraft(selectedMesaId, {
+        cart,
+        observaciones,
+        mozo: activeMozo,
+        idempotencyKey: cartIdempotencyKey ?? undefined,
+      });
+    }
 
     const draft = readMozoCartDraft(mesa.id_mesa);
+    const validatedDraft = draft ? getValidCartFromDraft(draft.cart) : { cart: {}, removed: [] };
     setSelectedMesaId(mesa.id_mesa);
-    setCart(draft.cart);
-    setObservaciones(draft.observaciones);
+    setCart(validatedDraft.cart);
+    setObservaciones(draft?.observaciones ?? '');
+    setCartIdempotencyKey(draft?.idempotencyKey ?? createMozoCartIdempotencyKey(mesa.id_mesa));
     setCheckoutStatus('idle');
 
     if (mesa.estado === 'ocupada' && mesa.comensales) {
       setComensales(mesa.comensales);
     }
 
-    if (Object.keys(draft.cart).length > 0) {
+    if (validatedDraft.removed.length > 0) {
+      toast.warning(`Quitamos ${validatedDraft.removed.length} producto(s) del borrador porque ya no están activos.`);
+    }
+
+    if (Object.keys(validatedDraft.cart).length > 0) {
       toast.info(`Recuperamos la comanda pendiente de ${mesa.numero_mesa}.`);
     }
-  }, [cart, observaciones, selectedMesaId, toast]);
+  }, [activeMozo, cart, cartIdempotencyKey, getValidCartFromDraft, observaciones, selectedMesaId, toast]);
 
   // Find active order of the selected table if any (to split or pay)
   const activePedidoDeMesa = useMemo(() => {
@@ -260,7 +302,7 @@ export default function MozoTerminal({
     if (selectedMesaId) clearMozoCartDraft(selectedMesaId);
   };
 
-  const checkoutCart = () => {
+  const checkoutCart = async () => {
     if (checkoutInFlightRef.current || checkoutStatus === 'sending') return;
     if (!selectedMesaId) return;
     if (Object.keys(cart).length === 0) return;
@@ -296,19 +338,23 @@ export default function MozoTerminal({
     checkoutInFlightRef.current = true;
     setCheckoutStatus('sending');
     setLastCheckoutTime(Date.now());
+    const idempotencyKey = cartIdempotencyKey ?? createMozoCartIdempotencyKey(selectedMesaId);
+    setCartIdempotencyKey(idempotencyKey);
 
     try {
-      onCrearPedido({
+      await withCheckoutTimeout(Promise.resolve(onCrearPedido({
+        idempotency_key: idempotencyKey,
         id_mesa: selectedMesaId,
         numero_mesa: selectedMesa ? selectedMesa.numero_mesa : `Mesa ${selectedMesaId}`,
         mozo: activeMozo,
         estado_comanda: 'pendiente',
         items,
         observaciones: observaciones.trim() || undefined,
-      });
+      })));
 
       setCart({});
       setObservaciones('');
+      setCartIdempotencyKey(null);
       clearMozoCartDraft(selectedMesaId);
       setTimeout(() => {
         setCheckoutStatus('done');
@@ -321,7 +367,7 @@ export default function MozoTerminal({
     } catch {
       checkoutInFlightRef.current = false;
       setCheckoutStatus('idle');
-      toast.error('No se pudo enviar la comanda. El carrito quedó guardado para reintentar.');
+      toast.error('No se pudo confirmar la comanda. Revisá la conexión y reintentá; el carrito quedó guardado.');
     }
   };
 
