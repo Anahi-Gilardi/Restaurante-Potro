@@ -579,7 +579,10 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     }, 50);
 
     if ((nuevoEstado === 'entregado_cobrado' || nuevoEstado === 'cancelado') && pObj) {
-      const updatedMesas = mesas.map(m => m.id_mesa === pObj.id_mesa ? { ...m, estado: 'libre' as const, comensales: undefined } : m);
+      const updatedMesas = mesas.map(m => m.id_mesa === pObj.id_mesa
+        ? { ...m, estado: 'libre' as const, comensales: undefined, reserva_cliente: undefined, reserva_hora: undefined }
+        : m
+      );
       setMesas(updatedMesas);
       dbUpsertMesas(updatedMesas);
     }
@@ -593,10 +596,14 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
   const handleFacturarMesa = useCallback((idPedido: number) => {
     const target = pedidos.find(p => p.id_pedido === idPedido);
     if (!target) return;
+    if (target.estado_comanda === 'entregado_cobrado') return;
 
     setPedidos(prev => prev.map(p => p.id_pedido === idPedido ? { ...p, estado_comanda: 'entregado_cobrado' } : p));
 
-    const updatedMesas = mesas.map(m => m.id_mesa === target.id_mesa ? { ...m, estado: 'libre' as const, comensales: undefined } : m);
+    const updatedMesas = mesas.map(m => m.id_mesa === target.id_mesa
+      ? { ...m, estado: 'libre' as const, comensales: undefined, reserva_cliente: undefined, reserva_hora: undefined }
+      : m
+    );
     setMesas(updatedMesas);
 
     addLog('sistema', `CAJA: Facturación completa cobrada correctamente de la mesa ${target.numero_mesa} por Pedido #${idPedido}`);

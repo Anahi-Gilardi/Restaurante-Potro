@@ -91,6 +91,7 @@ export default function CajaModule({
 
   // Interactive cashier selection
   const [selectedPedidoId, setSelectedPedidoId] = useState<number | null>(null);
+  const [isCheckoutSubmitting, setIsCheckoutSubmitting] = useState(false);
   
   // Checkout options
   const [tipoComprobante, setTipoComprobante] = useState<TipoComprobante>('factura_b');
@@ -332,7 +333,13 @@ export default function CajaModule({
 
   // MAIN TRANSACTION PROCESSOR (Step 8, 9 & 14)
   const handleConfirmCheckout = async () => {
+    if (isCheckoutSubmitting) return;
     if (!selectedPedido) return;
+    if (selectedPedido.estado_comanda === 'entregado_cobrado' || selectedPedido.estado_comanda === 'cancelado') {
+      toast.warning('Esta cuenta ya fue cerrada y no puede volver a facturarse.');
+      setSelectedPedidoId(null);
+      return;
+    }
     if (!cajaSession) {
       toast.error('Por favor abra la caja diaria primero para poder procesar facturas.');
       return;
@@ -365,6 +372,7 @@ export default function CajaModule({
       }
     }
 
+    setIsCheckoutSubmitting(true);
     const compiledTicketNo = `T-0001-${Math.floor(Math.random() * 900000 + 100000)}`;
 
     // Build standard unified ticket structure
@@ -466,7 +474,14 @@ export default function CajaModule({
     }
 
     // 4. Libera Mesa, actualiza pedido de la comanda
-    onFacturarMesa(selectedPedido.id_pedido);
+    try {
+      onFacturarMesa(selectedPedido.id_pedido);
+    } catch (error) {
+      setIsCheckoutSubmitting(false);
+      toast.error('No se pudo cerrar la mesa localmente. El cobro no se completó.');
+      console.error('Error cerrando mesa facturada:', error);
+      return;
+    }
 
     // 5. Register log events audit tracker
     try {
@@ -499,6 +514,7 @@ export default function CajaModule({
     setSplitByProducts(false);
     setSelectedProductsForSplit([]);
     loadCajaState();
+    setIsCheckoutSubmitting(false);
 
     toast.success(`Ticket emitido. Se cobró ${orderBreakdowns.finalTotal.toLocaleString('es-AR')}. Mesa liberada.`);
   };
@@ -997,6 +1013,7 @@ export default function CajaModule({
                     <button
                       key={b.id_pedido}
                       onClick={() => {
+                        if (isCheckoutSubmitting) return;
                         if (!cajaSession) {
                           toast.error('Tenga a bien abrir primero la caja para proceder con la cuenta.');
                           return;
@@ -1008,7 +1025,8 @@ export default function CajaModule({
                         setSelectedProductsForSplit([]);
                         setMixedPayments([]);
                       }}
-                      className={`w-full p-3 rounded-xl border text-left transition-all flex justify-between items-center cursor-pointer ${
+                      disabled={isCheckoutSubmitting}
+                      className={`w-full p-3 rounded-xl border text-left transition-all flex justify-between items-center cursor-pointer disabled:opacity-60 disabled:cursor-wait ${
                         isSelected 
                           ? 'border-[#624A3E] bg-[#F5F1E9] ring-2 ring-[#624A3E]/10 shadow-sm'
                           : 'border-stone-200 bg-white hover:bg-stone-50'
@@ -1482,6 +1500,7 @@ export default function CajaModule({
                   {splitPayerCount > 1 ? (
                     <button
                       onClick={async () => {
+                        if (isCheckoutSubmitting) return;
                         toast.success(`Cobro de la parte #${activePayerIndex + 1} procesado por ${(orderBreakdowns.finalTotal / splitPayerCount).toLocaleString('es-AR')}`);
                         if (activePayerIndex + 1 >= splitPayerCount) {
                           await handleConfirmCheckout();
@@ -1489,18 +1508,24 @@ export default function CajaModule({
                           setActivePayerIndex(prev => prev + 1);
                         }
                       }}
-                      className="w-full min-h-11 py-3 bg-[#22C55E] hover:bg-[#16a34a] text-white text-sm uppercase tracking-wider font-extrabold rounded-xl transition-all shadow cursor-pointer flex items-center justify-center gap-2"
+                      disabled={isCheckoutSubmitting}
+                      className="w-full min-h-11 py-3 bg-[#22C55E] hover:bg-[#16a34a] text-white text-sm uppercase tracking-wider font-extrabold rounded-xl transition-all shadow cursor-pointer flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-wait"
                     >
-                      <CheckCircle className="w-5 h-5" />
-                      Cobrar Parte #{activePayerIndex + 1} de {splitPayerCount} (${(orderBreakdowns.finalTotal / splitPayerCount).toLocaleString('es-AR', { maximumFractionDigits: 1 })})
+                      {isCheckoutSubmitting ? <RefreshCw className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}
+                      {isCheckoutSubmitting
+                        ? 'Procesando cobro...'
+                        : `Cobrar Parte #${activePayerIndex + 1} de ${splitPayerCount} ($${(orderBreakdowns.finalTotal / splitPayerCount).toLocaleString('es-AR', { maximumFractionDigits: 1 })})`}
                     </button>
                   ) : (
                     <button
                       onClick={handleConfirmCheckout}
-                      className="w-full min-h-11 py-3 bg-[#624A3E] hover:bg-[#503C32] text-white text-sm uppercase tracking-wider font-extrabold rounded-xl transition-all shadow-md cursor-pointer flex items-center justify-center gap-2"
+                      disabled={isCheckoutSubmitting}
+                      className="w-full min-h-11 py-3 bg-[#624A3E] hover:bg-[#503C32] text-white text-sm uppercase tracking-wider font-extrabold rounded-xl transition-all shadow-md cursor-pointer flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-wait"
                     >
-                      <CheckCircle className="w-5 h-5 text-amber-300" />
-                      Cobrar y Emitir Comprobante (${orderBreakdowns.finalTotal.toLocaleString('es-AR')} {restaurante.moneda})
+                      {isCheckoutSubmitting ? <RefreshCw className="w-5 h-5 animate-spin text-amber-200" /> : <CheckCircle className="w-5 h-5 text-amber-300" />}
+                      {isCheckoutSubmitting
+                        ? 'Procesando cobro...'
+                        : `Cobrar y Emitir Comprobante ($${orderBreakdowns.finalTotal.toLocaleString('es-AR')} ${restaurante.moneda})`}
                     </button>
                   )}
 
