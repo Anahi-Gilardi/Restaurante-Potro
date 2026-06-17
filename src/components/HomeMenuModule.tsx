@@ -396,7 +396,7 @@ export default function HomeMenuModule({
               </button>
               <button
                 onClick={() => onAdvanceTime(15)}
-                className="text-[10px] px-2 py-1 font-bold bg-white border border-stone-250 rounded hover:bg-stone-100"
+                className="text-[10px] px-2 py-1 font-bold bg-white border border-stone-200 rounded hover:bg-stone-100"
               >
                 +15m
               </button>

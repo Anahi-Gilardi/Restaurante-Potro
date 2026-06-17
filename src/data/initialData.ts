@@ -247,7 +247,7 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     precio_venta: 10500.00,
     categoria: 'Pastas',
     activo: true,
-    imagen: 'https://images.unsplash.com/photo-1551183053-f57a3e72c842?w=500&q=80&auto=format&fit=crop',
+    imagen: 'https://images.unsplash.com/photo-1551183053-bf91a1d81141?w=500&q=80&auto=format&fit=crop',
     tipo: 'plato',
     tiempo_preparacion_estimado: 12,
     requiere_cocina: true

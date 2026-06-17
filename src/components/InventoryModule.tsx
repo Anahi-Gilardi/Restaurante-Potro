@@ -21,6 +21,7 @@ import {
   Sparkles,
   DollarSign
 } from 'lucide-react';
+import { DEFAULT_PRODUCT_IMAGE, getSafeImageSrc } from '../lib/imageFallbacks';
 import { Insumo, ProductoMenu, RecetaEscandallo, Merma } from '../types';
 
 interface InventoryModuleProps {
@@ -678,9 +679,10 @@ export default function InventoryModule({
                       }`}
                     >
                       <img
-                        src={p.imagen}
+                        src={getSafeImageSrc(p.imagen)}
                         alt=""
                         loading="lazy" decoding="async"
+                        onError={(event) => { event.currentTarget.src = DEFAULT_PRODUCT_IMAGE; }}
                         className="w-8 h-8 rounded-lg object-cover"
                       />
                       <div className="flex-1 min-w-0">

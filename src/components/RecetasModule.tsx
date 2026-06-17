@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ChefHat, Hammer, Tag, AlertTriangle, Plus, Scale, Search, Trash, Edit2, Check, X } from 'lucide-react';
 import { RecetaEscandallo, ProductoMenu, Insumo, EventoLog } from '../types';
 import { recetasService } from '../services/recetasService';
+import { DEFAULT_PRODUCT_IMAGE, getSafeImageSrc } from '../lib/imageFallbacks';
 
 interface RecetasModuleProps {
   recetas: RecetaEscandallo[];
@@ -113,10 +114,11 @@ export default function RecetasModule({
                 >
                   <div className="min-w-0 flex items-center gap-2.5">
                     <img 
-                      src={p.imagen} 
+                      src={getSafeImageSrc(p.imagen)}
                       alt={p.nombre} 
                       loading="lazy" decoding="async"
                       referrerPolicy="no-referrer"
+                      onError={(event) => { event.currentTarget.src = DEFAULT_PRODUCT_IMAGE; }}
                       className="w-8 h-8 rounded-lg object-cover shrink-0 border border-stone-200/50"
                     />
                     <div className="truncate">
@@ -124,7 +126,7 @@ export default function RecetasModule({
                       <strong className="text-xs font-extrabold truncate block">{p.nombre}</strong>
                     </div>
                   </div>
-                  <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full font-mono ${isSelected ? 'bg-white/20 text-white' : 'bg-stone-250 text-stone-500'}`}>
+                  <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full font-mono ${isSelected ? 'bg-white/20 text-white' : 'bg-stone-200 text-stone-500'}`}>
                     {count} ing
                   </span>
                 </button>
@@ -141,10 +143,11 @@ export default function RecetasModule({
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-stone-100">
               <div className="flex items-center gap-3">
                 <img 
-                  src={selectedProduct.imagen} 
+                  src={getSafeImageSrc(selectedProduct.imagen)}
                   alt={selectedProduct.nombre} 
                   loading="lazy" decoding="async"
                   referrerPolicy="no-referrer"
+                  onError={(event) => { event.currentTarget.src = DEFAULT_PRODUCT_IMAGE; }}
                   className="w-12 h-12 rounded-xl object-cover shrink-0 border border-stone-200"
                 />
                 <div>
@@ -234,7 +237,7 @@ export default function RecetasModule({
                   <select
                     value={selectedInsumoId}
                     onChange={e => setSelectedInsumoId(e.target.value)}
-                    className="w-full text-xs p-2 rounded-lg border border-stone-250 bg-white focus:outline-none focus:ring-1 focus:ring-[#624A3E] cursor-pointer"
+                    className="w-full text-xs p-2 rounded-lg border border-stone-200 bg-white focus:outline-none focus:ring-1 focus:ring-[#624A3E] cursor-pointer"
                     required
                   >
                     <option value="">-- Seleccionar --</option>
@@ -252,7 +255,7 @@ export default function RecetasModule({
                     placeholder="Ej: 150"
                     value={cantidadUsar}
                     onChange={e => setCantidadUsar(e.target.value)}
-                    className="w-full text-xs p-2 rounded-lg border border-stone-250 bg-white focus:outline-none focus:ring-1 focus:ring-[#624A3E]"
+                    className="w-full text-xs p-2 rounded-lg border border-stone-200 bg-white focus:outline-none focus:ring-1 focus:ring-[#624A3E]"
                     required
                   />
                 </div>

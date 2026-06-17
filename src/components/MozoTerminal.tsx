@@ -25,6 +25,7 @@ import {
 import { Mesa, Insumo, ProductoMenu, RecetaEscandallo, Pedido, PedidoItem, Usuario } from '../types';
 import { useMenu, useSalon, useInventario, usePedidos } from '../context/AppContext';
 import { useToast, ToastContainer } from './ToastContainer';
+import { DEFAULT_PRODUCT_IMAGE, getSafeImageSrc } from '../lib/imageFallbacks';
 
 interface MozoTerminalProps {
   mesas: Mesa[];
@@ -550,10 +551,11 @@ export default function MozoTerminal({
                 {/* Product Image */}
                 <div className="h-24 sm:h-28 w-full bg-stone-50 relative overflow-hidden">
                   <img
-                    src={p.imagen}
+                    src={getSafeImageSrc(p.imagen)}
                     alt={p.nombre}
                     loading="lazy" decoding="async"
                     referrerPolicy="no-referrer"
+                    onError={(event) => { event.currentTarget.src = DEFAULT_PRODUCT_IMAGE; }}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                   
