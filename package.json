@@ -12,7 +12,9 @@
     "preview": "vite preview",
     "clean": "node -e \"const fs=require('fs'); for (const path of ['dist']) fs.rmSync(path,{recursive:true,force:true});\"",
     "lint": "tsc --noEmit",
-    "test": "tsx --test src/**/*.test.ts"
+    "test": "tsx --test src/**/*.test.ts",
+    "check:recetas": "tsx scripts/check-recetas-module.ts",
+    "verify": "npm run lint && npm test && npm run check:recetas && npm run build"
   },
   "dependencies": {
     "@arcasdk/core": "^1.3.1",
