@@ -124,7 +124,7 @@ export default function RecetasModule({
                       <strong className="text-xs font-extrabold truncate block">{p.nombre}</strong>
                     </div>
                   </div>
-                  <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full font-mono ${isSelected ? 'bg-white/20 text-white' : 'bg-stone-250 text-stone-550'}`}>
+                  <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full font-mono ${isSelected ? 'bg-white/20 text-white' : 'bg-stone-250 text-stone-500'}`}>
                     {count} ing
                   </span>
                 </button>
@@ -177,7 +177,7 @@ export default function RecetasModule({
                     if (!matchedInsumo) return null;
 
                     return (
-                      <div key={rec.id_receta} className="p-3 bg-stone-50/50 border border-stone-150 rounded-xl flex items-center justify-between text-xs hover:bg-[#F5F1E9]/30 transition-colors">
+                      <div key={rec.id_receta} className="p-3 bg-stone-50/50 border border-stone-200 rounded-xl flex items-center justify-between text-xs hover:bg-[#F5F1E9]/30 transition-colors">
                         <div className="flex items-center gap-2.5">
                           <div className="w-8 h-8 bg-[#624A3E]/10 rounded-lg flex items-center justify-center text-[#624A3E]">
                             <Scale className="w-4 h-4" />

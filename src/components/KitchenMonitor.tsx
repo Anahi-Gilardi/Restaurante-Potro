@@ -228,7 +228,7 @@ export default function KitchenMonitor({
           {estado === 'pendiente' && (
             <button
               onClick={() => handleOptimisticStatus(p.id_pedido, 'en_cocina')}
-              className="w-full min-h-11 mt-2 py-2.5 px-3 bg-[#624A3E] hover:bg-[#503C32] active:scale-95 text-white rounded-xl text-sm font-black flex items-center justify-center gap-1.5 transition-all shadow-md shadow-[#624A3E]/10 cursor-pointer border border-amber-955/20 animate-pulse"
+              className="w-full min-h-11 mt-2 py-2.5 px-3 bg-[#624A3E] hover:bg-[#503C32] active:scale-95 text-white rounded-xl text-sm font-black flex items-center justify-center gap-1.5 transition-all shadow-md shadow-[#624A3E]/10 cursor-pointer border border-amber-950/20 animate-pulse"
             >
               {optimisticUpdates.get(p.id_pedido)?.updating ? (
                 <><RefreshCw className="w-4 h-4 animate-spin" /> Actualizando...</>

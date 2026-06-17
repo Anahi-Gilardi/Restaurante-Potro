@@ -447,7 +447,7 @@ export default function HomeMenuModule({
               >
                 {/* Module Top Row */}
                 <div className="w-full flex items-center justify-between gap-4">
-                  <div className={`p-2.5 rounded-xl bg-white shadow-xs border border-stone-150 ${item.iconColor}`}>
+                  <div className={`p-2.5 rounded-xl bg-white shadow-xs border border-stone-200 ${item.iconColor}`}>
                     <Icon className="w-6 h-6 shrink-0" />
                   </div>
                   

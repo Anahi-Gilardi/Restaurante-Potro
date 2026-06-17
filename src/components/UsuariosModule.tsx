@@ -194,7 +194,7 @@ export default function UsuariosModule({ usuarios, onUsuariosChange, addLog }: U
             {loading ? (
               <div className="col-span-2"><ListSkeleton count={4} /></div>
             ) : filtered.map(u => {
-              let badgeColor = 'bg-stone-100 text-stone-700 border-stone-205';
+              let badgeColor = 'bg-stone-100 text-stone-700 border-stone-200';
               let desc = 'Soporte de salón y comandas táctiles';
               if (u.rol === 'superadmin') { badgeColor = 'bg-purple-50 text-purple-800 border-purple-100'; desc = 'Acceso total al sistema'; }
               else if (u.rol === 'administrador') { badgeColor = 'bg-emerald-50 text-emerald-800 border-emerald-100'; desc = 'Operaciones del negocio'; }
@@ -202,7 +202,7 @@ export default function UsuariosModule({ usuarios, onUsuariosChange, addLog }: U
               const isEditing = editingId === u.id_usuario;
 
               return (
-                <div key={u.id_usuario} className={`p-4 bg-[#F5F1E9]/40 border rounded-2xl flex flex-col justify-between transition-colors ${u.activo === false ? 'border-rose-200 opacity-70' : 'border-stone-150 hover:bg-[#F5F1E9]/70'}`}>
+                <div key={u.id_usuario} className={`p-4 bg-[#F5F1E9]/40 border rounded-2xl flex flex-col justify-between transition-colors ${u.activo === false ? 'border-rose-200 opacity-70' : 'border-stone-200 hover:bg-[#F5F1E9]/70'}`}>
                   <div className="space-y-1">
                     {isEditing ? (
                       <div className="space-y-2">
@@ -243,7 +243,7 @@ export default function UsuariosModule({ usuarios, onUsuariosChange, addLog }: U
                           {u.activo === false ? 'Habilitar' : 'Deshabilitar'}
                         </button>
                         <button onClick={() => handleStartEdit(u)}
-                          className="p-1 text-stone-400 hover:text-blue-500 rounded hover:bg-stone-150 transition-colors cursor-pointer">
+                          className="p-1 text-stone-400 hover:text-blue-500 rounded hover:bg-stone-200 transition-colors cursor-pointer">
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
@@ -256,7 +256,7 @@ export default function UsuariosModule({ usuarios, onUsuariosChange, addLog }: U
                         </div>
                       ) : (
                         <button onClick={() => setDeleteConfirm(u.id_usuario)}
-                          className="p-1 text-stone-400 hover:text-red-500 rounded hover:bg-stone-150 transition-colors cursor-pointer"
+                          className="p-1 text-stone-400 hover:text-red-500 rounded hover:bg-stone-200 transition-colors cursor-pointer"
                           title="Eliminar usuario">
                           <Trash className="w-3.5 h-3.5" />
                         </button>

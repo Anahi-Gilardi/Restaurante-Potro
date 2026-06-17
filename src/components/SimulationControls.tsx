@@ -42,7 +42,7 @@ export default function SimulationControls({
   };
 
   return (
-    <div className="bg-slate-900 text-white rounded-2xl p-4 border border-slate-850 shadow-lg flex flex-col md:flex-row gap-4 justify-between items-center" id="simulation-bar-container">
+    <div className="bg-slate-900 text-white rounded-2xl p-4 border border-slate-800 shadow-lg flex flex-col md:flex-row gap-4 justify-between items-center" id="simulation-bar-container">
       
       {/* SIMULATED TIME AND TIMER STATUS */}
       <div className="flex items-center gap-4 w-full md:w-auto">

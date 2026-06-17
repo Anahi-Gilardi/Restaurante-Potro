@@ -137,7 +137,7 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     precio_venta: 7600.00,
     categoria: 'Entradas',
     activo: true,
-    imagen: 'https://images.unsplash.com/photo-1511181642675-9312b3e201c5?w=500&q=80&auto=format&fit=crop',
+    imagen: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=500&q=80&auto=format&fit=crop',
     tipo: 'plato',
     tiempo_preparacion_estimado: 8,
     requiere_cocina: true
@@ -149,7 +149,7 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     precio_venta: 8200.00,
     categoria: 'Entradas',
     activo: true,
-    imagen: 'https://images.unsplash.com/photo-1592417817098-8f3d6eb19675?w=500&q=80&auto=format&fit=crop',
+    imagen: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&q=80&auto=format&fit=crop',
     tipo: 'plato',
     tiempo_preparacion_estimado: 6,
     requiere_cocina: true
@@ -173,7 +173,7 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     precio_venta: 6900.00,
     categoria: 'Entradas',
     activo: true,
-    imagen: 'https://images.unsplash.com/photo-1582231317502-d45089c25373?w=500&q=80&auto=format&fit=crop',
+    imagen: 'https://images.unsplash.com/photo-1541518763669-27fef04b14ea?w=500&q=80&auto=format&fit=crop',
     tipo: 'plato',
     tiempo_preparacion_estimado: 12,
     requiere_cocina: true
@@ -309,7 +309,7 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     precio_venta: 15800.00,
     categoria: 'Carnes',
     activo: true,
-    imagen: 'https://images.unsplash.com/photo-1602489114881-2244463dfde3?w=500&q=80&auto=format&fit=crop',
+    imagen: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=500&q=80&auto=format&fit=crop',
     tipo: 'plato',
     tiempo_preparacion_estimado: 16,
     requiere_cocina: true
@@ -385,7 +385,7 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     precio_venta: 14200.00,
     categoria: 'Comidas Criollas',
     activo: true,
-    imagen: 'https://images.unsplash.com/photo-1594212699903-ec8a3cee50f6?w=500&q=80&auto=format&fit=crop',
+    imagen: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500&q=80&auto=format&fit=crop',
     tipo: 'plato',
     tiempo_preparacion_estimado: 15,
     requiere_cocina: true
@@ -1007,7 +1007,7 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     categoria: 'Bebidas',
     subcategoria: 'Agua',
     activo: true,
-    imagen: 'https://images.unsplash.com/photo-1608885898957-a599fb18ec3f?w=400&q=80&auto=format&fit=crop',
+    imagen: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&q=80&auto=format&fit=crop',
     tipo: 'bebida',
     requiere_cocina: false
   },

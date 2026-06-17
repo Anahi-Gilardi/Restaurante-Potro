@@ -480,7 +480,7 @@ export default function MozoTerminal({
       {/* CENTRAL COLUMN: Product Catalog */}
       <div className="min-w-0 lg:col-span-5 space-y-4 order-3 lg:order-2">
          {/* Search and Filters */}
-        <div className="bg-white rounded-2xl p-3 sm:p-4 border border-stone-105 shadow-sm space-y-3">
+        <div className="bg-white rounded-2xl p-3 sm:p-4 border border-stone-100 shadow-sm space-y-3">
           <div className="flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center">
             <h3 className="font-extrabold text-sm md:text-base text-[#624A3E] tracking-wider uppercase">Filtro de Categorías Premium</h3>
             <div className="relative w-full sm:w-56">
@@ -957,7 +957,7 @@ export default function MozoTerminal({
                         setSplittingPedidoId(null);
                         setSplitItemsChecked({});
                       }}
-                      className="flex-1 py-2 text-xs bg-slate-900 hover:bg-slate-850 text-white font-bold rounded-xl shadow flex items-center justify-center gap-1.5"
+                      className="flex-1 py-2 text-xs bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl shadow flex items-center justify-center gap-1.5"
                     >
                       <CheckCircle className="w-3.5 h-3.5" />
                       Cobrar ${ (itemizedTotal > 0 ? itemizedTotal : orderTotal).toLocaleString('es-AR') }

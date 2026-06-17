@@ -839,7 +839,7 @@ export default function InventoryModule({
                   <div className="relative">
                     <input
                       type="number"
-                      className="w-full text-xs p-2.5 bg-slate-50 border border-slate-150 rounded-lg text-slate-850"
+                      className="w-full text-xs p-2.5 bg-slate-50 border border-slate-150 rounded-lg text-slate-800"
                       value={compraCantidad || ''}
                       onChange={(e) => setCompraCantidad(Math.max(1, parseFloat(e.target.value)))}
                       placeholder="Ej: 2000"

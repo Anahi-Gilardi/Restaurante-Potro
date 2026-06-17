@@ -29,7 +29,7 @@ export function CardSkeleton({ count = 6 }: { count?: number }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
       {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="p-3 bg-white border border-stone-150 rounded-2xl flex gap-3">
+        <div key={i} className="p-3 bg-white border border-stone-200 rounded-2xl flex gap-3">
           <Skeleton type="card" className="!w-16 !h-16 shrink-0" />
           <div className="flex-1 space-y-2">
             <Skeleton className="!h-3 w-1/3" />

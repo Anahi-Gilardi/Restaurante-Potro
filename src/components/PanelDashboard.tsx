@@ -207,7 +207,7 @@ export default function PanelDashboard({
                                       <button
                                                         key={view}
                                                         onClick={() => onNavigate(view)}
-                                                        className="flex items-center justify-between p-3 rounded-xl border border-stone-150 hover:bg-[#F5F1E9] transition-all text-left group cursor-pointer"
+                                                        className="flex items-center justify-between p-3 rounded-xl border border-stone-200 hover:bg-[#F5F1E9] transition-all text-left group cursor-pointer"
                                                       >
                                                       <div className="flex items-center gap-3">
                                                                         <div className="w-8 h-8 rounded-lg bg-[#624A3E]/10 text-[#624A3E] flex items-center justify-center">

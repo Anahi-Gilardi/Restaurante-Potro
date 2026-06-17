@@ -305,7 +305,7 @@ export default function MenuModule({ productosMenu, onProductosChange, addLog }:
               <div 
                 key={item.id_producto} 
                 className={`p-3 bg-[#F5F1E9]/30 border rounded-2xl flex gap-3 transition-colors hover:bg-[#F5F1E9]/60 ${
-                  item.activo ? 'border-stone-150' : 'border-rose-105 bg-rose-50/10 opacity-70'
+                  item.activo ? 'border-stone-200' : 'border-rose-100 bg-rose-50/10 opacity-70'
                 }`}
               >
                 <img 

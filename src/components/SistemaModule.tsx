@@ -384,7 +384,7 @@ export default function SistemaModule({
             </div>
           </div>
 
-          <div className="bg-slate-950 rounded-xl p-3 border border-slate-850 font-mono text-[10px] text-slate-300 max-h-[160px] overflow-y-auto scrollbar-thin">
+          <div className="bg-slate-950 rounded-xl p-3 border border-slate-800 font-mono text-[10px] text-slate-300 max-h-[160px] overflow-y-auto scrollbar-thin">
             {[
               'libpq-dev',
               'build-essential',
@@ -416,7 +416,7 @@ export default function SistemaModule({
             ))}
           </div>
 
-          <div className="flex justify-between items-center bg-slate-850 p-2.5 rounded-xl border border-slate-800 text-[11px] text-slate-300">
+          <div className="flex justify-between items-center bg-slate-800 p-2.5 rounded-xl border border-slate-800 text-[11px] text-slate-300">
             <span>Ubicación del script:</span>
             <span className="font-mono text-[10px] text-[#FF4B4B] bg-slate-950 px-2 py-0.5 rounded font-bold">backend/login.py</span>
           </div>
@@ -441,7 +441,7 @@ export default function SistemaModule({
           <div className="space-y-3">
             
             {/* Checklist item 1 */}
-            <label className="flex items-start gap-3 p-2.5 bg-slate-850 hover:bg-slate-800/80 rounded-xl cursor-pointer transition-colors border border-slate-800">
+            <label className="flex items-start gap-3 p-2.5 bg-slate-800 hover:bg-slate-800/80 rounded-xl cursor-pointer transition-colors border border-slate-800">
               <input
                 type="checkbox"
                 checked={deployChecklist.db_local}
@@ -457,7 +457,7 @@ export default function SistemaModule({
             </label>
 
             {/* Checklist item 2 */}
-            <label className="flex items-start gap-3 p-2.5 bg-slate-850 hover:bg-slate-800/80 rounded-xl cursor-pointer transition-colors border border-slate-800">
+            <label className="flex items-start gap-3 p-2.5 bg-slate-800 hover:bg-slate-800/80 rounded-xl cursor-pointer transition-colors border border-slate-800">
               <input
                 type="checkbox"
                 checked={deployChecklist.sql_supabase}
@@ -473,7 +473,7 @@ export default function SistemaModule({
             </label>
 
             {/* Checklist item 3 */}
-            <label className="flex items-start gap-3 p-2.5 bg-slate-850 hover:bg-slate-800/80 rounded-xl cursor-pointer transition-colors border border-slate-800">
+            <label className="flex items-start gap-3 p-2.5 bg-slate-800 hover:bg-slate-800/80 rounded-xl cursor-pointer transition-colors border border-slate-800">
               <input
                 type="checkbox"
                 checked={menuItemsWithoutRecipe.length === 0}
@@ -494,7 +494,7 @@ export default function SistemaModule({
             </label>
 
             {/* Checklist item 4 */}
-            <label className="flex items-start gap-3 p-2.5 bg-slate-850 hover:bg-slate-800/80 rounded-xl cursor-pointer transition-colors border border-slate-800">
+            <label className="flex items-start gap-3 p-2.5 bg-slate-800 hover:bg-slate-800/80 rounded-xl cursor-pointer transition-colors border border-slate-800">
               <input
                 type="checkbox"
                 checked={ingredientsBelowMin.length === 0}
@@ -515,7 +515,7 @@ export default function SistemaModule({
             </label>
 
             {/* Checklist item 5 */}
-            <label className="flex items-start gap-3 p-2.5 bg-slate-850 hover:bg-slate-800/80 rounded-xl cursor-pointer transition-colors border border-slate-800">
+            <label className="flex items-start gap-3 p-2.5 bg-slate-800 hover:bg-slate-800/80 rounded-xl cursor-pointer transition-colors border border-slate-800">
               <input
                 type="checkbox"
                 checked={deployChecklist.ci_github}
@@ -608,7 +608,7 @@ export default function SistemaModule({
                   window.dispatchEvent(new Event('el_patron_logo_changed'));
                   addLog('sistema', `MARCA: Logotipo restablecido al isotipo de vector por defecto.`);
                 }}
-                className="px-3 py-1.5 border border-stone-200 hover:border-red-200 text-stone-550 hover:text-rose-600 rounded-lg text-[10px] font-extrabold bg-white hover:bg-stone-50 transition-all cursor-pointer shadow-xs"
+                className="px-3 py-1.5 border border-stone-200 hover:border-red-200 text-stone-500 hover:text-rose-600 rounded-lg text-[10px] font-extrabold bg-white hover:bg-stone-50 transition-all cursor-pointer shadow-xs"
               >
                 Restaurar
               </button>

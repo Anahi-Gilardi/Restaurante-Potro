@@ -632,7 +632,7 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
                   if (r.estado === 'completada') statusBg = 'bg-stone-100 text-stone-500 border-stone-200';
 
                   return (
-                    <div key={r.id_reserva} className="p-4 bg-[#F5F1E9]/40 border border-stone-150 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 hover:bg-[#F5F1E9]/70 transition-colors">
+                    <div key={r.id_reserva} className="p-4 bg-[#F5F1E9]/40 border border-stone-200 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 hover:bg-[#F5F1E9]/70 transition-colors">
                       <div className="space-y-1 flex-1">
                         <div className="flex items-center gap-2.5">
                           <h4 className="font-extrabold text-stone-900 text-sm tracking-tight">{r.nombre_cliente}</h4>
@@ -715,7 +715,7 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
                   </div>
                 ) : (
                   listaEsperaGlobal.map((r, idx) => (
-                    <div key={r.id_reserva} className="p-3 bg-[#F5F1E9]/40 border border-stone-150 rounded-xl space-y-2">
+                    <div key={r.id_reserva} className="p-3 bg-[#F5F1E9]/40 border border-stone-200 rounded-xl space-y-2">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <span className="w-5 h-5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-black flex items-center justify-center">{idx + 1}</span>

@@ -205,7 +205,7 @@ export default function PromocionesModule({ addLog }: PromocionesModuleProps) {
               <div key={p.id_promo} className={`p-4 rounded-2xl border transition-colors flex flex-col justify-between ${
                 p.activo 
                   ? 'border-stone-200 bg-[#F5F1E9]/30' 
-                  : 'border-stone-150 bg-stone-50/50 opacity-60'
+                  : 'border-stone-200 bg-stone-50/50 opacity-60'
               }`}>
                 <div className="space-y-1.5">
                   <div className="flex justify-between items-start gap-2">

@@ -216,7 +216,7 @@ export default function ProveedoresModule({ addLog }: ProveedoresModuleProps) {
               const isOrdering = orderedId === p.id_proveedor;
 
               return (
-                <div key={p.id_proveedor} className="p-4 bg-[#F5F1E9]/40 border border-stone-150 rounded-2xl flex flex-col justify-between hover:bg-[#F5F1E9]/70 transition-colors">
+                <div key={p.id_proveedor} className="p-4 bg-[#F5F1E9]/40 border border-stone-200 rounded-2xl flex flex-col justify-between hover:bg-[#F5F1E9]/70 transition-colors">
                   <div className="space-y-2">
                     <div className="flex justify-between items-start">
                       <h4 className="font-extrabold text-[#624A3E] text-sm tracking-tight leading-none">{p.nombre}</h4>

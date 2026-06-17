@@ -964,9 +964,9 @@ ALTER TABLE public.pedido_detalle DISABLE ROW LEVEL SECURITY;`;
                         <div className="overflow-x-auto w-full border border-slate-800 rounded bg-slate-950/80 max-h-56 scrollbar-thin">
                           <table className="w-full text-left font-mono text-[10px] border-collapse">
                             <thead>
-                              <tr className="bg-slate-900/60 text-slate-400 border-b border-slate-850">
+                              <tr className="bg-slate-900/60 text-slate-400 border-b border-slate-800">
                                 {inspectColumns.map((col, idx) => (
-                                  <th key={idx} className="py-2 px-3 font-semibold whitespace-nowrap border-r border-slate-850">
+                                  <th key={idx} className="py-2 px-3 font-semibold whitespace-nowrap border-r border-slate-800">
                                     {col}
                                   </th>
                                 ))}
@@ -974,7 +974,7 @@ ALTER TABLE public.pedido_detalle DISABLE ROW LEVEL SECURITY;`;
                             </thead>
                             <tbody>
                               {displayed.map((row, rIdx) => (
-                                <tr key={rIdx} className="border-b border-slate-850 hover:bg-slate-900/45 text-slate-300">
+                                <tr key={rIdx} className="border-b border-slate-800 hover:bg-slate-900/45 text-slate-300">
                                   {inspectColumns.map((col, cIdx) => {
                                     const val = row[col];
                                     let strVal = '';
@@ -986,7 +986,7 @@ ALTER TABLE public.pedido_detalle DISABLE ROW LEVEL SECURITY;`;
                                       strVal = String(val);
                                     }
                                     return (
-                                      <td key={cIdx} className="py-1.5 px-3 border-r border-slate-850 max-w-xs truncate" title={strVal}>
+                                      <td key={cIdx} className="py-1.5 px-3 border-r border-slate-800 max-w-xs truncate" title={strVal}>
                                         {strVal === 'null' ? (
                                           <span className="text-slate-600 italic">null</span>
                                         ) : (
