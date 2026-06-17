@@ -135,10 +135,12 @@ export const reservasService = {
 
   async remove(id: string): Promise<boolean> {
     const supabase = getActiveSupabaseClient();
-    const { error } = await supabase.from('reservas').delete().eq('id_reserva', id);
+    console.log('[reservasService.remove] Intentando eliminar id_reserva:', id);
+    const { data, error, status, statusText } = await supabase.from('reservas').delete().eq('id_reserva', id).select();
+    console.log('[reservasService.remove] Respuesta:', { status, statusText, data, error });
     if (error) {
       console.error('Error deleting reserva:', error);
-      return false;
+      throw error;
     }
     return true;
   }
