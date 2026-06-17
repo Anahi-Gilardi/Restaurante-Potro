@@ -3,6 +3,14 @@ import { ChefHat, Hammer, Tag, Plus, Scale, Search, Trash, Edit2, Check, X } fro
 import { RecetaEscandallo, ProductoMenu, Insumo, EventoLog } from '../types';
 import { recetasService } from '../services/recetasService';
 import { useToast, ToastContainer } from './ToastContainer';
+import {
+  buildRecipeDraft,
+  calculateMarginPct,
+  calculateRecipeCost,
+  getRecipeItemsForProduct,
+  parsePositiveQuantity,
+  recipeContainsIngredient,
+} from '../lib/recetas';
 
 interface RecetasModuleProps {
     recetas: RecetaEscandallo[];
@@ -49,21 +57,18 @@ export default function RecetasModule({
       );
 
   const selectedProduct    = filteredProducts.find(p => p.id_producto === activeTabRecipe);
-    const currentRecipeItems = localRecetas.filter(r => r.id_producto === activeTabRecipe);
+    const currentRecipeItems = getRecipeItemsForProduct(localRecetas, activeTabRecipe);
 
   // Costo total calculado desde costo_unitario real del insumo
   const calculatedCost = useMemo(
-        () => currentRecipeItems.reduce((acc, recipe) => {
-                const ins = insumos.find(i => i.id_insumo === recipe.id_insumo);
-                return acc + recipe.cantidad_a_descontar * (ins?.costo_unitario ?? 0);
-        }, 0),
+        () => calculateRecipeCost(currentRecipeItems, insumos),
         [currentRecipeItems, insumos]
       );
 
   // Margen estimado del plato seleccionado
   const marginPct = useMemo(() => {
-        if (!selectedProduct || calculatedCost === 0) return null;
-        return ((selectedProduct.precio_venta - calculatedCost) / selectedProduct.precio_venta * 100).toFixed(1);
+        const margin = calculateMarginPct(selectedProduct, calculatedCost);
+        return margin === null ? null : margin.toFixed(1);
   }, [selectedProduct, calculatedCost]);
 
   // ── Agregar ingrediente ───────────────────────────────────────────────────
@@ -71,8 +76,8 @@ export default function RecetasModule({
         e.preventDefault();
         if (pendingAction || !selectedInsumoId || !cantidadUsar || !activeTabRecipe) return;
 
-                                              const parsedCantidad = parseFloat(cantidadUsar);
-        if (!Number.isFinite(parsedCantidad) || parsedCantidad <= 0) {
+                                              const parsedCantidad = parsePositiveQuantity(cantidadUsar);
+        if (parsedCantidad === null) {
                 toast.error('La cantidad debe ser un número positivo.');
                 return;
         }
@@ -81,18 +86,12 @@ export default function RecetasModule({
         if (!matchedIn) return;
 
                                               // No permitir duplicar el mismo insumo en la misma receta
-                                              if (currentRecipeItems.some(r => r.id_insumo === selectedInsumoId)) {
+                                              if (recipeContainsIngredient(localRecetas, activeTabRecipe, selectedInsumoId)) {
                                                       toast.warning(`"${matchedIn.nombre}" ya está en esta receta. Editá la cantidad existente.`);
                                                       return;
                                               }
 
-                                              const newRec: RecetaEscandallo = {
-                                                      id_receta: `rec_new_${Date.now()}`,
-                                                      id_producto: activeTabRecipe,
-                                                      id_insumo: selectedInsumoId,
-                                                      cantidad_a_descontar: parsedCantidad,
-                                                      unidad_medida: matchedIn.unidad_medida,
-                                              };
+                                              const newRec = buildRecipeDraft(activeTabRecipe, matchedIn, parsedCantidad);
 
                                               const previous = localRecetas;
         setPendingAction('add');
@@ -113,7 +112,7 @@ export default function RecetasModule({
                                               } finally {
                                                       setPendingAction(null);
                                               }
-  }, [pendingAction, selectedInsumoId, cantidadUsar, activeTabRecipe, insumos, currentRecipeItems, localRecetas, onRecetasChange, selectedProduct, addLog, toast]);
+  }, [pendingAction, selectedInsumoId, cantidadUsar, activeTabRecipe, insumos, localRecetas, onRecetasChange, selectedProduct, addLog, toast]);
 
   // ── Iniciar edición de cantidad ───────────────────────────────────────────
   const handleStartEditCantidad = (rec: RecetaEscandallo) => {
@@ -124,8 +123,8 @@ export default function RecetasModule({
   // ── Guardar edición de cantidad ───────────────────────────────────────────
   const handleSaveEditCantidad = useCallback(async (rec: RecetaEscandallo) => {
         if (pendingAction) return;
-        const parsed = parseFloat(editCantidadValue);
-        if (!Number.isFinite(parsed) || parsed <= 0) {
+        const parsed = parsePositiveQuantity(editCantidadValue);
+        if (parsed === null) {
                 toast.error('Ingresá una cantidad válida mayor a 0.');
                 return;
         }

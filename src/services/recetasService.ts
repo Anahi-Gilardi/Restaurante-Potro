@@ -47,7 +47,7 @@ export const recetasService = {
     const { error } = await supabase.from('recetas_escandallo').delete().eq('id_receta', id);
     if (error) {
       console.error('Error deleting receta:', error);
-      return false;
+      throw error;
     }
     return true;
   }
