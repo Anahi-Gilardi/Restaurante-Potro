@@ -711,7 +711,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
           <div className="overflow-x-auto w-full">
             <table className="w-full text-left text-xs border-collapse responsive-table">
               <thead>
-                <tr className="border-b border-stone-200 text-stone-400 uppercase text-[9px] font-black tracking-wider">
+                <tr className="border-b border-stone-150 text-stone-400 uppercase text-[9px] font-black tracking-wider">
                   <th className="py-2.5 px-3">Nro</th>
                   <th className="py-2.5 px-3">Fecha</th>
                   <th className="py-2.5 px-3">Cliente / CUIT</th>
@@ -737,7 +737,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
                         <span className="font-extrabold text-stone-900 block">{f.cliente}</span>
                         <span className="text-[10px] text-stone-400 font-mono">{f.cuit}</span>
                       </td>
-                      <td data-label="Neto" className="py-3 px-3 text-right font-mono text-stone-500">{money(neto)}</td>
+                      <td data-label="Neto" className="py-3 px-3 text-right font-mono text-stone-550">{money(neto)}</td>
                       <td data-label="IVA" className="py-3 px-3 text-right font-mono text-stone-400">{money(f.iva_veintiuno)}</td>
                       <td data-label="Total" className={`py-3 px-3 text-right font-mono font-extrabold ${isNCD ? 'text-red-500 line-through' : 'text-stone-900'}`}>{money(f.total)}</td>
                       <td data-label="Estado" className="py-3 px-3 text-center">

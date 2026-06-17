@@ -6,7 +6,6 @@ import { CardSkeleton } from './Skeleton';
 import { ProductoMenu, EventoLog } from '../types';
 import { menuService } from '../services/menuService';
 import { menuItemSchema } from '../lib/validations';
-import { DEFAULT_PRODUCT_IMAGE, getSafeImageSrc } from '../lib/imageFallbacks';
 
 interface MenuModuleProps {
   productosMenu: ProductoMenu[];
@@ -306,15 +305,14 @@ export default function MenuModule({ productosMenu, onProductosChange, addLog }:
               <div 
                 key={item.id_producto} 
                 className={`p-3 bg-[#F5F1E9]/30 border rounded-2xl flex gap-3 transition-colors hover:bg-[#F5F1E9]/60 ${
-                  item.activo ? 'border-stone-200' : 'border-rose-100 bg-rose-50/10 opacity-70'
+                  item.activo ? 'border-stone-150' : 'border-rose-105 bg-rose-50/10 opacity-70'
                 }`}
               >
                 <img 
-                  src={getSafeImageSrc(item.imagen)}
+                  src={item.imagen} 
                   alt={item.nombre} 
                   loading="lazy" decoding="async"
                   referrerPolicy="no-referrer"
-                  onError={(event) => { event.currentTarget.src = DEFAULT_PRODUCT_IMAGE; }}
                   className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-cover shrink-0 bg-stone-100 border border-stone-200"
                 />
                 <div className="flex-1 flex flex-col justify-between min-w-0">

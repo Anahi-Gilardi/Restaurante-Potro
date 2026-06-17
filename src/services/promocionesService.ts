@@ -10,42 +10,6 @@ export interface Promocion {
   descripcion: string;
 }
 
-const toDbPromocion = (promo: Partial<Promocion>) => ({
-  ...(promo.id_promo !== undefined ? { id_promo: promo.id_promo } : {}),
-  ...(promo.nombre !== undefined ? { nombre: promo.nombre } : {}),
-  ...(promo.descuento_porcentaje !== undefined ? { descuento: promo.descuento_porcentaje } : {}),
-  ...(promo.tipo !== undefined ? { tipo: promo.tipo } : {}),
-  ...(promo.dias_vigentes !== undefined ? { dias_vigentes: promo.dias_vigentes } : {}),
-  ...(promo.activo !== undefined ? { activa: promo.activo } : {}),
-  ...(promo.descripcion !== undefined ? { descripcion: promo.descripcion } : {})
-});
-
-type DbPromocion = Record<string, unknown>;
-
-const readString = (value: unknown, fallback = ''): string => (
-  typeof value === 'string' && value.trim().length > 0 ? value : fallback
-);
-
-const readNumber = (value: unknown, fallback = 0): number => (
-  typeof value === 'number' && Number.isFinite(value) ? value : fallback
-);
-
-const readTipo = (value: unknown): Promocion['tipo'] => (
-  value === 'happy_hour' || value === 'combo' || value === 'descuento_directo'
-    ? value
-    : 'descuento_directo'
-);
-
-const fromDbPromocion = (promo: DbPromocion): Promocion => ({
-  id_promo: readString(promo.id_promo, `p_${Date.now()}`),
-  nombre: readString(promo.nombre, 'Promocion sin nombre'),
-  descuento_porcentaje: readNumber(promo.descuento, readNumber(promo.descuento_porcentaje)),
-  tipo: readTipo(promo.tipo),
-  dias_vigentes: readString(promo.dias_vigentes, readString(promo.vigencia, 'Todos los dias')),
-  activo: typeof promo.activa === 'boolean' ? promo.activa : (typeof promo.activo === 'boolean' ? promo.activo : true),
-  descripcion: readString(promo.descripcion)
-});
-
 export const promocionesService = {
   async list(): Promise<Promocion[]> {
     const supabase = getActiveSupabaseClient();
@@ -54,22 +18,51 @@ export const promocionesService = {
       console.error('Error fetching promociones:', error);
       throw error;
     }
-    return (data || []).map(fromDbPromocion);
+    return (data || []).map(p => ({
+      id_promo: p.id_promo,
+      nombre: p.nombre,
+      descuento_porcentaje: p.descuento || p.descuento_porcentaje || 0,
+      tipo: p.tipo || 'descuento_directo',
+      dias_vigentes: p.dias_vigentes || p.días_vigentes || 'Todos los días',
+      activo: p.activa !== undefined ? p.activa : (p.activo !== undefined ? p.activo : true),
+      descripcion: p.descripcion || ''
+    }));
   },
 
   async create(promo: Promocion): Promise<Promocion> {
     const supabase = getActiveSupabaseClient();
-    const { data, error } = await supabase.from('promociones').insert([toDbPromocion(promo)]).select().single();
+    const dbPayload = {
+      id_promo: promo.id_promo,
+      nombre: promo.nombre,
+      descuento: promo.descuento_porcentaje,
+      activa: promo.activo,
+      descripcion: promo.descripcion
+    };
+    const { data, error } = await supabase.from('promociones').insert([dbPayload]).select().single();
     if (error) {
       console.error('Error creating promocion:', error);
       throw error;
     }
-    return fromDbPromocion(data);
+    return {
+      id_promo: data.id_promo,
+      nombre: data.nombre,
+      descuento_porcentaje: data.descuento,
+      tipo: 'descuento_directo',
+      dias_vigentes: 'Todos los dias',
+      activo: data.activa,
+      descripcion: data.descripcion
+    };
   },
 
   async update(id: string, fields: Partial<Promocion>): Promise<void> {
     const supabase = getActiveSupabaseClient();
-    const { error } = await supabase.from('promociones').update(toDbPromocion(fields)).eq('id_promo', id);
+    const dbPayload: any = {};
+    if (fields.nombre !== undefined) dbPayload.nombre = fields.nombre;
+    if (fields.descuento_porcentaje !== undefined) dbPayload.descuento = fields.descuento_porcentaje;
+    if (fields.activo !== undefined) dbPayload.activa = fields.activo;
+    if (fields.descripcion !== undefined) dbPayload.descripcion = fields.descripcion;
+
+    const { error } = await supabase.from('promociones').update(dbPayload).eq('id_promo', id);
     if (error) {
       console.error('Error updating promocion:', error);
       throw error;
@@ -78,7 +71,14 @@ export const promocionesService = {
 
   async upsert(promos: Promocion[]): Promise<void> {
     const supabase = getActiveSupabaseClient();
-    const { error } = await supabase.from('promociones').upsert(promos.map(toDbPromocion));
+    const dbPayloads = promos.map(p => ({
+      id_promo: p.id_promo,
+      nombre: p.nombre,
+      descuento: p.descuento_porcentaje,
+      activa: p.activo,
+      descripcion: p.descripcion
+    }));
+    const { error } = await supabase.from('promociones').upsert(dbPayloads);
     if (error) {
       console.error('Error upserting promociones:', error);
       throw error;

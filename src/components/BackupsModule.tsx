@@ -251,7 +251,7 @@ export default function BackupsModule({
           {filteredBackups.map(cp => {
             const isLoading = loadingId === cp.id_cp;
             return (
-              <div key={cp.id_cp} className="p-4 bg-[#F5F1E9]/40 border border-stone-200 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 hover:bg-[#F5F1E9]/70 transition-all">
+              <div key={cp.id_cp} className="p-4 bg-[#F5F1E9]/40 border border-stone-150 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 hover:bg-[#F5F1E9]/70 transition-all">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2.5">
                     <h4 className="font-extrabold text-stone-900 text-sm tracking-tight">{cp.nombre}</h4>

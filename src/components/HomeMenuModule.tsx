@@ -396,7 +396,7 @@ export default function HomeMenuModule({
               </button>
               <button
                 onClick={() => onAdvanceTime(15)}
-                className="text-[10px] px-2 py-1 font-bold bg-white border border-stone-200 rounded hover:bg-stone-100"
+                className="text-[10px] px-2 py-1 font-bold bg-white border border-stone-250 rounded hover:bg-stone-100"
               >
                 +15m
               </button>
@@ -447,7 +447,7 @@ export default function HomeMenuModule({
               >
                 {/* Module Top Row */}
                 <div className="w-full flex items-center justify-between gap-4">
-                  <div className={`p-2.5 rounded-xl bg-white shadow-xs border border-stone-200 ${item.iconColor}`}>
+                  <div className={`p-2.5 rounded-xl bg-white shadow-xs border border-stone-150 ${item.iconColor}`}>
                     <Icon className="w-6 h-6 shrink-0" />
                   </div>
                   

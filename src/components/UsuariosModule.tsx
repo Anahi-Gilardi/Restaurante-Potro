@@ -13,22 +13,10 @@ interface UsuariosModuleProps {
   addLog: (tipo: EventoLog['tipo'], mensaje: string) => void;
 }
 
-const isAdminRole = (rol: Usuario['rol']) => rol === 'superadmin' || rol === 'administrador';
-
-const buildUsername = (nombre: string, apellido: string) => (
-  `${nombre}.${apellido}`
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, '.')
-    .replace(/(^\.|\.$)/g, '')
-);
-
 export default function UsuariosModule({ usuarios, onUsuariosChange, addLog }: UsuariosModuleProps) {
   const { toast, toasts, removeToast } = useToast();
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
-  const [pendingAction, setPendingAction] = useState<string | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setLoading(false), 400);
@@ -53,32 +41,16 @@ export default function UsuariosModule({ usuarios, onUsuariosChange, addLog }: U
     `${u.nombre} ${u.apellido}`.toLowerCase().includes(debouncedSearch.toLowerCase())
   ), [usuarios, debouncedSearch]);
 
-  const activeAdminCount = useMemo(
-    () => usuarios.filter(u => isAdminRole(u.rol) && u.activo !== false).length,
-    [usuarios]
-  );
-
   const handleCreateUsuario = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (pendingAction) return;
-
     const validation = usuarioSchema.safeParse({ nombre, apellido, rol });
     if (!validation.success) {
       const msgs = validation.error.issues.map(i => i.message).join('. ');
       toast.error(msgs);
       return;
     }
-
     const { nombre: normalizedNombre, apellido: normalizedApellido } = validation.data;
-    const username = buildUsername(normalizedNombre, normalizedApellido);
-    const fullName = `${normalizedNombre} ${normalizedApellido}`.trim().toLowerCase();
-
-    const duplicate = usuarios.some(usuario => (
-      usuario.username?.toLowerCase() === username
-      || `${usuario.nombre} ${usuario.apellido}`.trim().toLowerCase() === fullName
-    ));
-
-    if (duplicate) {
+    if (usuarios.some(usuario => usuario.nombre.toLowerCase() === normalizedNombre.toLowerCase())) {
       toast.warning('Ya existe un usuario con ese nombre operativo.');
       return;
     }
@@ -87,27 +59,22 @@ export default function UsuariosModule({ usuarios, onUsuariosChange, addLog }: U
       id_usuario: Math.max(0, ...usuarios.map(u => u.id_usuario)) + 1,
       nombre: normalizedNombre,
       apellido: normalizedApellido,
-      username,
+      username: normalizedNombre.trim().toLowerCase(),
       password: '1234',
       rol,
       activo: true
     };
 
-    const previous = usuarios;
-    setPendingAction('create');
-    onUsuariosChange([...previous, newUs]);
+    onUsuariosChange([...usuarios, newUs]);
     try {
       await usuariosService.create(newUs);
       toast.success('Usuario creado y sincronizado.');
-      addLog('sistema', `USUARIOS: Registrado nuevo usuario '${normalizedNombre} ${normalizedApellido}' con rol: ${rol.toUpperCase()}`);
-      setNombre('');
-      setApellido('');
     } catch {
-      onUsuariosChange(previous);
-      toast.error('No se pudo crear el usuario. Se revirtio el cambio.');
-    } finally {
-      setPendingAction(null);
+      toast.warning('Usuario creado en la sesión actual, pero no pudo sincronizarse.');
     }
+    addLog('sistema', `USUARIOS: Registrado nuevo usuario '${normalizedNombre} ${normalizedApellido}' con rol: ${rol.toUpperCase()}`);
+    setNombre('');
+    setApellido('');
   };
 
   const handleStartEdit = (u: Usuario) => {
@@ -118,116 +85,49 @@ export default function UsuariosModule({ usuarios, onUsuariosChange, addLog }: U
   };
 
   const handleSaveEdit = async (id: number) => {
-    if (pendingAction) return;
-
-    const target = usuarios.find(u => u.id_usuario === id);
-    if (!target) return;
-
-    const validation = usuarioSchema.safeParse({ nombre: editNombre, apellido: editApellido, rol: editRol });
-    if (!validation.success) {
-      toast.error(validation.error.issues.map(i => i.message).join('. '));
-      return;
-    }
-
-    const { nombre: normalizedNombre, apellido: normalizedApellido } = validation.data;
-    const username = buildUsername(normalizedNombre, normalizedApellido);
-    const fullName = `${normalizedNombre} ${normalizedApellido}`.trim().toLowerCase();
-    const duplicate = usuarios.some(usuario => (
-      usuario.id_usuario !== id
-      && (
-        usuario.username?.toLowerCase() === username
-        || `${usuario.nombre} ${usuario.apellido}`.trim().toLowerCase() === fullName
-      )
-    ));
-
-    if (duplicate) {
-      toast.warning('Ya existe otro usuario con ese nombre operativo.');
-      return;
-    }
-
-    if (target.activo !== false && isAdminRole(target.rol) && !isAdminRole(editRol) && activeAdminCount <= 1) {
-      toast.error('No se puede quitar el ultimo administrador activo.');
-      return;
-    }
-
-    const previous = usuarios;
-    const updated = previous.map(u => (
-      u.id_usuario === id
-        ? { ...u, nombre: normalizedNombre, apellido: normalizedApellido, username, rol: editRol }
-        : u
-    ));
-
-    setPendingAction(`edit-${id}`);
+    if (!editNombre.trim() || !editApellido.trim()) return;
+    const updated = usuarios.map(u => {
+      if (u.id_usuario === id) {
+        const changed = { ...u, nombre: editNombre.trim(), apellido: editApellido.trim(), rol: editRol };
+        usuariosService.update(id, { nombre: editNombre.trim(), apellido: editApellido.trim(), rol: editRol }).catch(() => {});
+        addLog('sistema', `USUARIOS: Modificado usuario '${u.nombre} ${u.apellido}' → '${editNombre} ${editApellido}' (${editRol})`);
+        return changed;
+      }
+      return u;
+    });
     onUsuariosChange(updated);
-    try {
-      await usuariosService.update(id, { nombre: normalizedNombre, apellido: normalizedApellido, username, rol: editRol });
-      addLog('sistema', `USUARIOS: Modificado usuario '${target.nombre} ${target.apellido}' -> '${normalizedNombre} ${normalizedApellido}' (${editRol})`);
-      setEditingId(null);
-      toast.success('Usuario actualizado correctamente.');
-    } catch {
-      onUsuariosChange(previous);
-      toast.error('No se pudo guardar el usuario. Se revirtio el cambio.');
-    } finally {
-      setPendingAction(null);
-    }
+    setEditingId(null);
+    toast.success('Usuario actualizado correctamente.');
   };
 
-  const handleToggleActivo = async (id: number) => {
-    if (pendingAction) return;
-
+  const handleToggleActivo = (id: number) => {
     const target = usuarios.find(u => u.id_usuario === id);
     if (!target) return;
-
-    const nextActivo = target.activo === false;
-    if (!nextActivo && isAdminRole(target.rol) && activeAdminCount <= 1) {
-      toast.error('No se puede deshabilitar el ultimo administrador activo.');
-      return;
-    }
-
-    const previous = usuarios;
-    const updated = previous.map(u => (
-      u.id_usuario === id ? { ...u, activo: nextActivo } : u
-    ));
-
-    setPendingAction(`toggle-${id}`);
+    const nextActivo = target.activo === false ? true : false;
+    const updated = usuarios.map(u => {
+      if (u.id_usuario === id) {
+        usuariosService.update(id, { activo: nextActivo }).catch(() => {});
+        addLog('sistema', `USUARIOS: Usuario '${u.nombre} ${u.apellido}' ${nextActivo ? 'habilitado' : 'deshabilitado'}`);
+        return { ...u, activo: nextActivo };
+      }
+      return u;
+    });
     onUsuariosChange(updated);
-    try {
-      await usuariosService.update(id, { activo: nextActivo });
-      addLog('sistema', `USUARIOS: Usuario '${target.nombre} ${target.apellido}' ${nextActivo ? 'habilitado' : 'deshabilitado'}`);
-      toast.success(nextActivo ? 'Usuario habilitado.' : 'Usuario deshabilitado.');
-    } catch {
-      onUsuariosChange(previous);
-      toast.error('No se pudo actualizar el estado. Se revirtio el cambio.');
-    } finally {
-      setPendingAction(null);
-    }
   };
 
   const handleDeleteUsuario = async (id: number) => {
-    if (pendingAction) return;
-
     setDeleteConfirm(null);
     const target = usuarios.find(u => u.id_usuario === id);
     if (!target) return;
-
-    if (isAdminRole(target.rol) && target.activo !== false && activeAdminCount <= 1) {
-      toast.error('No se puede eliminar el ultimo administrador activo.');
+    const activeAdmins = usuarios.filter(u => (u.rol === 'superadmin' || u.rol === 'administrador') && u.activo !== false);
+    if ((target.rol === 'superadmin' || target.rol === 'administrador') && activeAdmins.length <= 1) {
+      toast.error('No se puede eliminar el último administrador activo.');
       return;
     }
-
-    const previous = usuarios;
-    setPendingAction(`delete-${id}`);
-    onUsuariosChange(previous.filter(u => u.id_usuario !== id));
-    try {
-      const removed = await usuariosService.remove(id);
-      if (!removed) toast.warning('El usuario se quito localmente, pero no pudo sincronizarse.');
-      addLog('sistema', `USUARIOS: Removido usuario '${target.nombre} ${target.apellido}' del sistema`);
-    } catch {
-      onUsuariosChange(previous);
-      toast.error('No se pudo eliminar el usuario. Se revirtio el cambio.');
-    } finally {
-      setPendingAction(null);
-    }
+    onUsuariosChange(usuarios.filter(u => u.id_usuario !== id));
+    const removed = await usuariosService.remove(id);
+    if (!removed) toast.warning('El usuario se quitó localmente, pero no pudo sincronizarse.');
+    addLog('sistema', `USUARIOS: Removido usuario '${target.nombre} ${target.apellido}' del sistema`);
   };
 
   return (
@@ -261,12 +161,12 @@ export default function UsuariosModule({ usuarios, onUsuariosChange, addLog }: U
             <div>
               <label className="text-[10px] font-black text-stone-500 uppercase tracking-wider block mb-1">Apellido</label>
               <input type="text" value={apellido} onChange={e => setApellido(e.target.value)}
-                placeholder="Ej. Perez"
+                placeholder="Ej. Pérez"
                 className="w-full text-xs p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none focus:ring-1 focus:ring-[#624A3E]" required />
             </div>
             <div>
               <label className="text-[10px] font-black text-stone-500 uppercase tracking-wider block mb-1">Rol Operativo</label>
-              <select value={rol} onChange={e => setRol(e.target.value as Usuario['rol'])}
+              <select value={rol} onChange={e => setRol(e.target.value as any)}
                 className="w-full text-xs p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none focus:ring-1 focus:ring-[#624A3E] cursor-pointer font-bold text-stone-700">
                 <option value="administrador">Administrador</option>
                 <option value="superadmin">Super Admin</option>
@@ -275,9 +175,8 @@ export default function UsuariosModule({ usuarios, onUsuariosChange, addLog }: U
               </select>
             </div>
             <button type="submit"
-              disabled={pendingAction !== null}
-              className="w-full py-2.5 bg-[#624A3E] hover:bg-[#503C32] disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs font-extrabold rounded-xl transition-all shadow-md shadow-[#624A3E]/10 cursor-pointer">
-              {pendingAction === 'create' ? 'Registrando...' : 'Dar de alta en consola'}
+              className="w-full py-2.5 bg-[#624A3E] hover:bg-[#503C32] text-white text-xs font-extrabold rounded-xl transition-all shadow-md shadow-[#624A3E]/10 cursor-pointer">
+              Dar de Alta en Consola
             </button>
           </form>
         </div>
@@ -295,15 +194,15 @@ export default function UsuariosModule({ usuarios, onUsuariosChange, addLog }: U
             {loading ? (
               <div className="col-span-2"><ListSkeleton count={4} /></div>
             ) : filtered.map(u => {
-              let badgeColor = 'bg-stone-100 text-stone-700 border-stone-200';
-              let desc = 'Soporte de salon y comandas tactiles';
+              let badgeColor = 'bg-stone-100 text-stone-700 border-stone-205';
+              let desc = 'Soporte de salón y comandas táctiles';
               if (u.rol === 'superadmin') { badgeColor = 'bg-purple-50 text-purple-800 border-purple-100'; desc = 'Acceso total al sistema'; }
               else if (u.rol === 'administrador') { badgeColor = 'bg-emerald-50 text-emerald-800 border-emerald-100'; desc = 'Operaciones del negocio'; }
 
               const isEditing = editingId === u.id_usuario;
 
               return (
-                <div key={u.id_usuario} className={`p-4 bg-[#F5F1E9]/40 border rounded-2xl flex flex-col justify-between transition-colors ${u.activo === false ? 'border-rose-200 opacity-70' : 'border-stone-200 hover:bg-[#F5F1E9]/70'}`}>
+                <div key={u.id_usuario} className={`p-4 bg-[#F5F1E9]/40 border rounded-2xl flex flex-col justify-between transition-colors ${u.activo === false ? 'border-rose-200 opacity-70' : 'border-stone-150 hover:bg-[#F5F1E9]/70'}`}>
                   <div className="space-y-1">
                     {isEditing ? (
                       <div className="space-y-2">
@@ -311,7 +210,7 @@ export default function UsuariosModule({ usuarios, onUsuariosChange, addLog }: U
                           className="w-full text-xs p-2 rounded-xl border border-stone-200 bg-white focus:outline-none focus:ring-1 focus:ring-[#624A3E]" />
                         <input type="text" value={editApellido} onChange={e => setEditApellido(e.target.value)}
                           className="w-full text-xs p-2 rounded-xl border border-stone-200 bg-white focus:outline-none focus:ring-1 focus:ring-[#624A3E]" />
-                        <select value={editRol} onChange={e => setEditRol(e.target.value as Usuario['rol'])}
+                        <select value={editRol} onChange={e => setEditRol(e.target.value as any)}
                           className="w-full text-xs p-2 rounded-xl border border-stone-200 bg-white focus:outline-none focus:ring-1 focus:ring-[#624A3E]">
                           <option value="administrador">Administrador</option>
                           <option value="superadmin">Super Admin</option>
@@ -320,13 +219,9 @@ export default function UsuariosModule({ usuarios, onUsuariosChange, addLog }: U
                         </select>
                         <div className="flex gap-2">
                           <button onClick={() => handleSaveEdit(u.id_usuario)}
-                            disabled={pendingAction !== null}
-                            className="flex-1 py-1.5 bg-emerald-600 text-white text-xs font-bold rounded-xl hover:bg-emerald-500 disabled:opacity-60 disabled:cursor-not-allowed transition-colors cursor-pointer">
-                            {pendingAction === `edit-${u.id_usuario}` ? 'Guardando...' : 'Guardar'}
-                          </button>
+                            className="flex-1 py-1.5 bg-emerald-600 text-white text-xs font-bold rounded-xl hover:bg-emerald-500 transition-colors cursor-pointer">Guardar</button>
                           <button onClick={() => setEditingId(null)}
-                            disabled={pendingAction !== null}
-                            className="py-1.5 px-3 bg-stone-200 text-stone-600 text-xs font-bold rounded-xl hover:bg-stone-300 disabled:opacity-60 disabled:cursor-not-allowed transition-colors cursor-pointer">Cancelar</button>
+                            className="py-1.5 px-3 bg-stone-200 text-stone-600 text-xs font-bold rounded-xl hover:bg-stone-300 transition-colors cursor-pointer">Cancelar</button>
                         </div>
                       </div>
                     ) : (
@@ -344,29 +239,24 @@ export default function UsuariosModule({ usuarios, onUsuariosChange, addLog }: U
                     <div className="flex justify-between items-center mt-4 pt-3 border-t border-stone-200/50">
                       <div className="flex items-center gap-2">
                         <button onClick={() => handleToggleActivo(u.id_usuario)}
-                          disabled={pendingAction !== null}
-                          className={`text-[9px] font-bold px-2 py-0.5 rounded-lg transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${u.activo === false ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' : 'bg-amber-50 text-amber-600 hover:bg-amber-100'}`}>
-                          {pendingAction === `toggle-${u.id_usuario}` ? 'Actualizando...' : u.activo === false ? 'Habilitar' : 'Deshabilitar'}
+                          className={`text-[9px] font-bold px-2 py-0.5 rounded-lg transition-colors cursor-pointer ${u.activo === false ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' : 'bg-amber-50 text-amber-600 hover:bg-amber-100'}`}>
+                          {u.activo === false ? 'Habilitar' : 'Deshabilitar'}
                         </button>
                         <button onClick={() => handleStartEdit(u)}
-                          disabled={pendingAction !== null}
-                          className="p-1 text-stone-400 hover:text-blue-500 rounded hover:bg-stone-200 disabled:opacity-60 disabled:cursor-not-allowed transition-colors cursor-pointer">
+                          className="p-1 text-stone-400 hover:text-blue-500 rounded hover:bg-stone-150 transition-colors cursor-pointer">
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                       {deleteConfirm === u.id_usuario ? (
                         <div className="flex items-center gap-1">
                           <button onClick={() => handleDeleteUsuario(u.id_usuario)}
-                            disabled={pendingAction !== null}
-                            className="p-1 text-red-500 hover:text-red-700 bg-red-50 rounded-lg disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"><Check className="w-3.5 h-3.5" /></button>
+                            className="p-1 text-red-500 hover:text-red-700 bg-red-50 rounded-lg cursor-pointer"><Check className="w-3.5 h-3.5" /></button>
                           <button onClick={() => setDeleteConfirm(null)}
-                            disabled={pendingAction !== null}
-                            className="p-1 text-stone-400 hover:text-stone-600 rounded-lg disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"><X className="w-3.5 h-3.5" /></button>
+                            className="p-1 text-stone-400 hover:text-stone-600 rounded-lg cursor-pointer"><X className="w-3.5 h-3.5" /></button>
                         </div>
                       ) : (
                         <button onClick={() => setDeleteConfirm(u.id_usuario)}
-                          disabled={pendingAction !== null}
-                          className="p-1 text-stone-400 hover:text-red-500 rounded hover:bg-stone-200 disabled:opacity-60 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                          className="p-1 text-stone-400 hover:text-red-500 rounded hover:bg-stone-150 transition-colors cursor-pointer"
                           title="Eliminar usuario">
                           <Trash className="w-3.5 h-3.5" />
                         </button>

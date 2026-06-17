@@ -394,23 +394,17 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
   };
 
   // --- Handlers for Kitchen View ---
-  const handleCambiarEstadoPedido = (idPedido: number, nuevoEstado: Pedido['estado_comanda']): boolean => {
+  const handleCambiarEstadoPedido = (idPedido: number, nuevoEstado: Pedido['estado_comanda']) => {
     let updatedPedido: Pedido | null = null;
     let errorMsg = '';
 
     const pObj = pedidos.find(p => p.id_pedido === idPedido);
-    if (!pObj) return false;
-    if (pObj.estado_comanda === 'entregado_cobrado' || pObj.estado_comanda === 'cancelado') {
-      toast.warning('Esta comanda ya está cerrada y no puede modificarse.');
-      return false;
-    }
-    if (pObj.estado_comanda === nuevoEstado) return true;
 
     if (nuevoEstado === 'en_cocina' && pObj) {
       if (!pObj.items || pObj.items.length === 0) {
         toast.error("Error: No se puede enviar a cocina un pedido vacío (sin productos).");
         addLog('sistema', `RECHAZADO: Intento de enviar a cocina el pedido vacío #${idPedido}`);
-        return false;
+        return;
       }
 
       if (pObj.stock_descontado) {
@@ -450,7 +444,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
         if (!canDeduct) {
           toast.error(`No es posible iniciar cocción: ${errorMsg}`);
           addLog('alerta_stock', `RECHAZADO FUEGO: Pedido #${idPedido} bloqueado por falta de stock. ${errorMsg}`);
-          return false;
+          return;
         }
 
         let updatedInsumos: Insumo[] = [];
@@ -585,14 +579,10 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     }, 50);
 
     if ((nuevoEstado === 'entregado_cobrado' || nuevoEstado === 'cancelado') && pObj) {
-      const updatedMesas = mesas.map(m => m.id_mesa === pObj.id_mesa
-        ? { ...m, estado: 'libre' as const, comensales: undefined, reserva_cliente: undefined, reserva_hora: undefined }
-        : m
-      );
+      const updatedMesas = mesas.map(m => m.id_mesa === pObj.id_mesa ? { ...m, estado: 'libre' as const, comensales: undefined } : m);
       setMesas(updatedMesas);
       dbUpsertMesas(updatedMesas);
     }
-    return true;
   };
 
   const handleProducirPedidoConEscandallo = (idPedido: number) => {
@@ -603,14 +593,10 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
   const handleFacturarMesa = useCallback((idPedido: number) => {
     const target = pedidos.find(p => p.id_pedido === idPedido);
     if (!target) return;
-    if (target.estado_comanda === 'entregado_cobrado') return;
 
     setPedidos(prev => prev.map(p => p.id_pedido === idPedido ? { ...p, estado_comanda: 'entregado_cobrado' } : p));
 
-    const updatedMesas = mesas.map(m => m.id_mesa === target.id_mesa
-      ? { ...m, estado: 'libre' as const, comensales: undefined, reserva_cliente: undefined, reserva_hora: undefined }
-      : m
-    );
+    const updatedMesas = mesas.map(m => m.id_mesa === target.id_mesa ? { ...m, estado: 'libre' as const, comensales: undefined } : m);
     setMesas(updatedMesas);
 
     addLog('sistema', `CAJA: Facturación completa cobrada correctamente de la mesa ${target.numero_mesa} por Pedido #${idPedido}`);
@@ -623,11 +609,6 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
   const handleRegistrarMerma = (idInsumo: string, cantidad: number, motivo: Merma['motivo']) => {
     const insObj = insumos.find(i => i.id_insumo === idInsumo);
     if (!insObj) return;
-    if (!Number.isFinite(cantidad) || cantidad <= 0) return;
-    if (insObj.stock_actual < cantidad) {
-      addLog('alerta_stock', `MERMA RECHAZADA: stock insuficiente para ${insObj.nombre}. Disponible: ${insObj.stock_actual}${insObj.unidad_medida}.`);
-      return;
-    }
 
     const newMerma: Merma = {
       id_merma: `mrm_${Date.now()}`,
@@ -662,14 +643,13 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
 
   const handleRestockInsumo = useCallback((idInsumo: string, cantidad: number) => {
     const item = insumos.find(i => i.id_insumo === idInsumo);
-    if (!item || !Number.isFinite(cantidad) || cantidad <= 0) return;
     const updatedInsumos = insumos.map(i => i.id_insumo === idInsumo ? {
       ...i,
       stock_actual: parseFloat((i.stock_actual + cantidad).toFixed(2))
     } : i);
     setInsumos(updatedInsumos);
 
-    addLog('sistema', `REPOSICION: Incrementado stock de '${item.nombre}' en +${cantidad}`);
+    addLog('sistema', `REPOSICIÓN: Incremetado stock de '${item ? item.nombre : idInsumo}' en +${cantidad}`);
 
     dbUpsertInsumos(updatedInsumos);
     if (item) {
@@ -709,31 +689,13 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     const updatedMesas = mesas.map(mesa => {
       if (mesa.id_mesa !== reserva.id_mesa) return mesa;
       if (estado === 'confirmada') {
-        return {
-          ...mesa,
-          estado: 'reservada' as const,
-          comensales: reserva.pax,
-          reserva_cliente: reserva.nombre_cliente,
-          reserva_hora: reserva.hora
-        };
+        return { ...mesa, estado: 'reservada' as const, comensales: reserva.pax };
       }
       if (estado === 'sentada') {
-        return {
-          ...mesa,
-          estado: 'ocupada' as const,
-          comensales: reserva.pax,
-          reserva_cliente: undefined,
-          reserva_hora: undefined
-        };
+        return { ...mesa, estado: 'ocupada' as const, comensales: reserva.pax };
       }
       if (!hasActiveOrder && (estado === 'cancelada' || estado === 'completada' || estado === 'pendiente')) {
-        return {
-          ...mesa,
-          estado: 'libre' as const,
-          comensales: undefined,
-          reserva_cliente: undefined,
-          reserva_hora: undefined
-        };
+        return { ...mesa, estado: 'libre' as const, comensales: undefined };
       }
       return mesa;
     });

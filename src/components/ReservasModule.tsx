@@ -98,7 +98,6 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
     return d;
   });
   const [tab, setTab] = useState<'reservas' | 'espera'>('reservas');
-  const [pendingActionId, setPendingActionId] = useState<string | null>(null);
 
   // ── Formulario ─────────────────────────────────────────────────────────────
   const [nombre, setNombre] = useState('');
@@ -129,8 +128,10 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
     return mesas.filter(m => {
       if (m.estado === 'ocupada') return false;
       if (ocupadosIds.has(m.id_mesa)) return false;
-      const capacidadMesa = m.capacidad ?? m.comensales ?? 0;
-      if (capacidadMesa > 0 && capacidadMesa < paxReq) return false;
+      if (m.comensales && m.comensales < paxReq) {
+        const capOk = (m.comensales ?? 0) >= paxReq || paxReq <= (m.comensales ?? 0) + 2;
+        if (!capOk) return false;
+      }
       return true;
     });
   }, [mesas, reservasEnFecha]);
@@ -193,9 +194,6 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
           };
           addLog('sistema', `RESERVAS: Modificada reserva de '${nombre}'`);
           reservasService.update(editingId, updated).catch(err => console.error(err));
-          if (r.id_mesa && r.id_mesa !== updated.id_mesa) {
-            onEstadoChange(r, 'cancelada');
-          }
           if (!enviarEspera && updated.id_mesa) onEstadoChange(updated, updated.estado);
           return updated;
         }
@@ -243,30 +241,16 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
     setTab('reservas');
   };
 
-  const handleChangeEstado = async (id: string, nuevoEstado: Reserva['estado']) => {
-    if (pendingActionId) return;
-
-    const target = reservas.find(r => r.id_reserva === id);
-    if (!target) return;
-
-    setPendingActionId(id);
-    const previous = reservas;
-    const updatedTarget: Reserva = { ...target, estado: nuevoEstado };
-    setReservas(prev => prev.map(r => (r.id_reserva === id ? updatedTarget : r)));
-    onEstadoChange(target, nuevoEstado);
-
-    try {
-      await reservasService.update(id, { estado: nuevoEstado });
-      addLog('sistema', `RESERVAS: Reserva de '${target.nombre_cliente}' cambió a ${nuevoEstado.toUpperCase()}`);
-      toast.success(`Reserva ${nuevoEstado === 'cancelada' ? 'anulada' : 'actualizada'}.`);
-    } catch (error) {
-      setReservas(previous);
-      onEstadoChange(target, target.estado);
-      toast.error('No se pudo sincronizar el cambio de reserva. Se restauró el estado anterior.');
-      console.error('Error actualizando reserva:', error);
-    } finally {
-      setPendingActionId(null);
-    }
+  const handleChangeEstado = (id: string, nuevoEstado: Reserva['estado']) => {
+    setReservas(prev => prev.map(r => {
+      if (r.id_reserva === id) {
+        reservasService.update(id, { estado: nuevoEstado }).catch(err => console.error(err));
+        onEstadoChange(r, nuevoEstado);
+        addLog('sistema', `RESERVAS: Reserva de '${r.nombre_cliente}' cambio a ${nuevoEstado.toUpperCase()}`);
+        return { ...r, estado: nuevoEstado };
+      }
+      return r;
+    }));
   };
 
   const handleDeleteReserva = (id: string) => {
@@ -646,10 +630,9 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
                   if (r.estado === 'confirmada') statusBg = 'bg-blue-50 text-blue-800 border-blue-100';
                   if (r.estado === 'pendiente') statusBg = 'bg-amber-50 text-amber-800 border-amber-100';
                   if (r.estado === 'completada') statusBg = 'bg-stone-100 text-stone-500 border-stone-200';
-                  const isBusy = pendingActionId === r.id_reserva;
 
                   return (
-                    <div key={r.id_reserva} className="p-4 bg-[#F5F1E9]/40 border border-stone-200 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 hover:bg-[#F5F1E9]/70 transition-colors">
+                    <div key={r.id_reserva} className="p-4 bg-[#F5F1E9]/40 border border-stone-150 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 hover:bg-[#F5F1E9]/70 transition-colors">
                       <div className="space-y-1 flex-1">
                         <div className="flex items-center gap-2.5">
                           <h4 className="font-extrabold text-stone-900 text-sm tracking-tight">{r.nombre_cliente}</h4>
@@ -669,34 +652,23 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
 
                       <div className="flex items-center gap-2 shrink-0">
                         <button onClick={() => handleEdit(r)} title="Editar"
-                          disabled={isBusy}
                           className="p-1.5 rounded-lg bg-stone-50 hover:bg-blue-50 text-stone-400 hover:text-blue-500 transition-colors cursor-pointer">
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
                         {r.estado === 'confirmada' && (
-                          <>
-                            <button onClick={() => handleChangeEstado(r.id_reserva, 'cancelada')}
-                              disabled={isBusy}
-                              className="py-1 px-2.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 text-[10px] font-black cursor-pointer transition-colors disabled:opacity-50">
-                              Quitar reserva
-                            </button>
-                            <button onClick={() => handleChangeEstado(r.id_reserva, 'sentada')}
-                              disabled={isBusy}
-                              className="py-1 px-2.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[10px] font-black cursor-pointer transition-colors disabled:opacity-50">
-                              {isBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Sentar'}
-                            </button>
-                          </>
+                          <button onClick={() => handleChangeEstado(r.id_reserva, 'sentada')}
+                            className="py-1 px-2.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[10px] font-black cursor-pointer transition-colors">
+                            Sentar
+                          </button>
                         )}
                         {r.estado === 'sentada' && (
                           <button onClick={() => handleChangeEstado(r.id_reserva, 'completada')}
-                            disabled={isBusy}
-                            className="py-1 px-2.5 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-600 text-[10px] font-black cursor-pointer transition-colors disabled:opacity-50">
-                            {isBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Completar'}
+                            className="py-1 px-2.5 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-600 text-[10px] font-black cursor-pointer transition-colors">
+                            Completar
                           </button>
                         )}
                         <button onClick={() => handleDeleteReserva(r.id_reserva)} title="Anular"
-                          disabled={isBusy}
-                          className="p-1.5 rounded-lg bg-stone-50 hover:bg-rose-50 text-stone-400 hover:text-rose-500 transition-colors cursor-pointer disabled:opacity-50">
+                          className="p-1.5 rounded-lg bg-stone-50 hover:bg-rose-50 text-stone-400 hover:text-rose-500 transition-colors cursor-pointer">
                           <Trash className="w-3.5 h-3.5" />
                         </button>
                       </div>
@@ -743,7 +715,7 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
                   </div>
                 ) : (
                   listaEsperaGlobal.map((r, idx) => (
-                    <div key={r.id_reserva} className="p-3 bg-[#F5F1E9]/40 border border-stone-200 rounded-xl space-y-2">
+                    <div key={r.id_reserva} className="p-3 bg-[#F5F1E9]/40 border border-stone-150 rounded-xl space-y-2">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <span className="w-5 h-5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-black flex items-center justify-center">{idx + 1}</span>

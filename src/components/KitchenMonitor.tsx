@@ -1,27 +1,28 @@
 import React, { useMemo, useState } from 'react';
 import { useDebounce } from '../hooks/useDebounce';
-import { 
+import {
   AlertTriangle,
-  Flame, 
-  Clock, 
-  CheckCircle, 
-  ChevronRight, 
-  ChefHat, 
-  Grid, 
-  Snowflake, 
+  Flame,
+  Clock,
+  CheckCircle,
+  ChefHat,
+  Snowflake,
   X,
   Utensils,
   Search,
   Filter,
-  RefreshCw
+  RefreshCw,
+  Pencil,
+  LayoutGrid,
+  CircleDot
 } from 'lucide-react';
 import { Pedido, PedidoItem } from '../types';
 
 interface KitchenMonitorProps {
   pedidos: Pedido[];
-  onCambiarEstadoPedido: (idPedido: number, nuevoEstado: Pedido['estado_comanda']) => boolean | void;
+  onCambiarEstadoPedido: (idPedido: number, nuevoEstado: Pedido['estado_comanda']) => void;
   onProducirPedidoConEscandallo: (idPedido: number) => void;
-  minutosGlobal: number; // reference clock
+  minutosGlobal: number;
 }
 
 const isBarItem = (item: PedidoItem) => {
@@ -58,7 +59,6 @@ export default function KitchenMonitor({
   const [showOnlyKitchen, setShowOnlyKitchen] = useState(false);
   const [optimisticUpdates, setOptimisticUpdates] = useState<Map<number, { estado: Pedido['estado_comanda']; updating: boolean }>>(new Map());
 
-  // Filter active orders inside the kitchen workflow
   const activeKitchenOrders = useMemo(() => {
     let filtered = pedidos.filter(p => {
       const effective = optimisticUpdates.get(p.id_pedido)?.estado || p.estado_comanda;
@@ -81,10 +81,9 @@ export default function KitchenMonitor({
     return filtered;
   }, [pedidos, debouncedKitchenSearch, showOnlyKitchen, optimisticUpdates]);
 
-  // Aggregate Batch Production (Modo Batch)
   const batchProduction = useMemo(() => {
     const totals: { [nombre: string]: { cantidad: number; categoria: string } } = {};
-    
+
     activeKitchenOrders.forEach(p => {
       if (p.estado_comanda === 'pendiente' || p.estado_comanda === 'en_cocina') {
         p.items.forEach(item => {
@@ -108,24 +107,21 @@ export default function KitchenMonitor({
   const getSemaforoInfo = (minutosTranscurridos: number) => {
     if (minutosTranscurridos <= 10) {
       return {
-        bg: 'border-l-4 border-l-[#22C55E]/85 bg-white text-stone-800',
-        badge: 'bg-[#22C55E] text-white',
-        text: 'Óptimo',
-        dot: 'bg-[#22C55E]'
+        border: 'border-l-[#2e8b57]',
+        timeDot: 'bg-[#2e8b57]',
+        timeText: 'text-[#2e8b57]'
       };
     } else if (minutosTranscurridos <= 18) {
       return {
-        bg: 'border-l-4 border-l-[#F59E0B]/85 bg-white text-stone-800',
-        badge: 'bg-[#F59E0B] text-white',
-        text: 'Precaución',
-        dot: 'bg-[#F59E0B]'
+        border: 'border-l-[#a0522d]',
+        timeDot: 'bg-[#a0522d]',
+        timeText: 'text-[#a0522d]'
       };
     } else {
       return {
-        bg: 'border-l-4 border-l-[#EF4444] bg-red-50/40 text-stone-900 animate-pulse',
-        badge: 'bg-[#EF4444] text-white animate-bounce',
-        text: 'Crítico (prioridad absoluta)',
-        dot: 'bg-[#EF4444]'
+        border: 'border-l-[#c0392b]',
+        timeDot: 'bg-[#c0392b] animate-pulse',
+        timeText: 'text-[#c0392b]'
       };
     }
   };
@@ -136,11 +132,8 @@ export default function KitchenMonitor({
   };
 
   const handleOptimisticStatus = (idPedido: number, nuevoEstado: Pedido['estado_comanda']) => {
-    if (optimisticUpdates.get(idPedido)?.updating) return;
-    const accepted = onCambiarEstadoPedido(idPedido, nuevoEstado);
-    if (accepted === false) return;
-
     setOptimisticUpdates(prev => new Map(prev).set(idPedido, { estado: nuevoEstado, updating: true }));
+    onCambiarEstadoPedido(idPedido, nuevoEstado);
     setTimeout(() => {
       setOptimisticUpdates(prev => {
         const next = new Map(prev);
@@ -157,75 +150,86 @@ export default function KitchenMonitor({
 
   const confirmCancel = () => {
     if (!cancelRequest) return;
-    const accepted = onCambiarEstadoPedido(cancelRequest.pedido.id_pedido, 'cancelado');
-    if (accepted === false) return;
+    onCambiarEstadoPedido(cancelRequest.pedido.id_pedido, 'cancelado');
     setCancelRequest(null);
   };
 
-  const renderOrderCard = (p: Pedido, estado: Pedido['estado_comanda']) => {
+  const renderTicket = (p: Pedido, estado: Pedido['estado_comanda']) => {
     const sem = estado === 'pendiente' || estado === 'en_cocina' ? getSemaforoInfo(p.minutos_transcurridos) : null;
     const cold = estado === 'listo' && isColdPlate(p);
     const holdMinutes = estado === 'listo' ? Math.floor((p.segundos_en_listo ?? 0) / 60) : 0;
-    const isUpdating = optimisticUpdates.get(p.id_pedido)?.updating === true;
 
-    const headerBg = {
-      pendiente: 'bg-[#1E1E1E] text-[#E2E8F0] border-[#624A3E]/30',
-      en_cocina: 'bg-[#624A3E] text-white border-[#624A3E]/30',
-      listo: 'bg-[#1E1E1E] text-white border-emerald-900/30'
+    const headerTheme = {
+      pendiente: 'bg-[#4b3621] text-[#f4ecd8]',
+      en_cocina: 'bg-[#a0522d] text-[#f4ecd8]',
+      listo: 'bg-[#2e8b57] text-[#f4ecd8]'
+    }[estado];
+
+    const btnTheme = {
+      pendiente: 'bg-[#4b3621] hover:bg-[#3a2a19] text-[#f4ecd8] border-[#4b3621]',
+      en_cocina: 'bg-[#a0522d] hover:bg-[#8a4626] text-[#f4ecd8] border-[#a0522d]',
+      listo: 'bg-[#2e8b57] hover:bg-[#247a4b] text-[#f4ecd8] border-[#2e8b57]'
     }[estado];
 
     return (
       <div
         key={p.id_pedido}
-        id={`kds-card-${estado}-${p.id_pedido}`}
-        className={`rounded-2xl border shadow-md overflow-hidden relative ${
-          estado === 'pendiente' ? 'border-stone-200/80 bg-white ' + (sem?.bg || '') :
-          estado === 'en_cocina' ? 'border-amber-200 bg-white ring-1 ring-amber-400/10 ' + (sem?.bg || '') :
-          `border-emerald-200 bg-white ring-1 ring-emerald-400/10 ${cold ? 'bg-blue-50/85 border-blue-200 animate-pulse text-blue-900' : ''}`
-        }`}
+        className={`rounded-[20px] border border-[#d4b89a] bg-[#f4ecd8] shadow-[0_8px_15px_rgba(0,0,0,0.1)] overflow-hidden relative ${sem?.border || ''} border-l-4`}
       >
         {cold && (
-          <div className="bg-blue-600 text-white text-[9px] uppercase font-bold tracking-wider rounded-none px-3 py-1 flex items-center gap-1 shadow">
-            <Snowflake className="w-3.5 h-3.5 text-white animate-spin" />
-            <span>Alerta: plato frío - {holdMinutes}m sin retirar</span>
+          <div className="bg-[#c0392b] text-[#f4ecd8] text-[9px] uppercase font-black tracking-wider px-4 py-1.5 flex items-center gap-1.5 shadow">
+            <Snowflake className="w-3.5 h-3.5 animate-spin" />
+            <span>Alerta: Plato Frío • {holdMinutes}m sin retirar</span>
           </div>
         )}
 
-        <div className={`p-3 sm:p-3.5 flex justify-between items-center border-b shadow-inner ${headerBg}`}>
+        <div className={`p-4 flex justify-between items-start ${headerTheme} shadow-inner`}>
           <div className="flex flex-col min-w-0">
-            <span className="text-[1.75rem] sm:text-[2.2rem] font-black leading-none tracking-tighter text-white font-mono truncate">
-              {p.numero_mesa.toUpperCase()}
+            <span className="text-[1.6rem] sm:text-[2rem] font-black leading-none tracking-tight uppercase font-serif truncate">
+              {p.numero_mesa}
             </span>
-            <span className="text-[9px] uppercase font-bold text-amber-500 tracking-wider font-mono mt-1 truncate">Orden #{p.id_pedido}</span>
+            <span className="text-[10px] uppercase font-black tracking-widest opacity-70 font-mono mt-1 truncate">
+              Orden #{p.id_pedido}
+            </span>
           </div>
-          
-          <div className="text-right flex flex-col items-end shrink-0">
-            <span className="text-[9px] font-mono font-black uppercase text-stone-400 bg-stone-900 px-2 py-0.5 rounded-full">{p.origen}</span>
-            <div className="flex items-center gap-1 mt-1 text-xs text-white font-mono bg-black/30 border border-stone-800 px-2 py-0.5 rounded-full">
-              <Clock className="w-3 h-3 text-stone-300" />
-              <span className="text-sm font-bold">{p.minutos_transcurridos}m</span>
+
+          <div className="text-right flex flex-col items-end shrink-0 gap-1">
+            <span className="text-[9px] font-black uppercase text-[#f4ecd8] bg-black/30 px-2 py-0.5 rounded-full">
+              {p.origen || 'MOZO'}
+            </span>
+            <div className="flex items-center gap-1.5 text-xs font-mono bg-black/20 border border-black/10 px-2 py-0.5 rounded-full">
+              <Clock className="w-3 h-3 text-[#e2dabf]" />
+              <span className={`text-sm font-black ${sem?.timeText || 'text-[#f4ecd8]'}`}>{p.minutos_transcurridos}m</span>
+              {sem && <span className={`w-1.5 h-1.5 rounded-full ${sem.timeDot}`} />}
             </div>
           </div>
         </div>
 
-        <div className="p-3 sm:p-4 space-y-3">
+        <div className="p-4 space-y-3">
           <div className="space-y-2">
             {p.items.map((it, idx) => (
-              <div key={idx} className="flex justify-between items-center text-sm font-sans text-stone-800 py-1.5 border-b border-stone-100 last:border-0">
-                <span className="flex items-center gap-2 min-w-0">
-                  <strong className="text-[1.1rem] sm:text-[1.3rem] font-black text-[#F97316] font-mono tracking-tight shrink-0">{it.cantidad}x</strong>
-                  <span className="font-extrabold text-stone-900 text-sm sm:text-base leading-snug truncate">{it.nombre}</span>
+              <div
+                key={idx}
+                className="flex items-center gap-3 py-2.5 border-b border-dashed border-[#d4b89a] last:border-0"
+              >
+                <span className="text-lg font-black text-[#a0522d] font-mono shrink-0">
+                  {it.cantidad}x
                 </span>
-                <span className="text-[8px] uppercase tracking-wider font-extrabold font-mono text-stone-400 bg-stone-100 px-2 py-0.5 rounded-md self-center shrink-0">
-                  {isBarItem(it) ? 'Bar' : 'Fuego'}
+                <span className="flex-1 font-bold text-[#4b3621] text-sm leading-snug truncate">
+                  {it.nombre}
+                </span>
+                <span className="text-[9px] uppercase font-black tracking-wider text-[#4b3621]/60 bg-[#e2dabf] px-2 py-0.5 rounded-md shrink-0">
+                  {isBarItem(it) ? 'BAR' : 'FUEGO'}
                 </span>
               </div>
             ))}
           </div>
 
           {p.observaciones && (
-            <div className="bg-[#FEF3C7] text-amber-950 text-xs sm:text-sm p-3 rounded-xl border border-amber-300 italic font-medium leading-relaxed">
-              <strong className="text-[10px] uppercase font-mono tracking-wider text-amber-800 not-italic block mb-0.5">Observación:</strong>
+            <div className="bg-[#e2dabf] text-[#4b3621] text-xs p-3 rounded-xl border border-[#d4b89a] italic font-medium leading-relaxed">
+              <strong className="text-[10px] uppercase font-black tracking-wider text-[#a0522d] not-italic block mb-0.5">
+                ⚠️ Observación:
+              </strong>
               "{p.observaciones}"
             </div>
           )}
@@ -233,13 +237,12 @@ export default function KitchenMonitor({
           {estado === 'pendiente' && (
             <button
               onClick={() => handleOptimisticStatus(p.id_pedido, 'en_cocina')}
-              disabled={isUpdating}
-              className="w-full min-h-11 mt-2 py-2.5 px-3 bg-[#624A3E] hover:bg-[#503C32] active:scale-95 text-white rounded-xl text-sm font-black flex items-center justify-center gap-1.5 transition-all shadow-md shadow-[#624A3E]/10 cursor-pointer border border-amber-950/20 animate-pulse disabled:opacity-60 disabled:cursor-wait"
+              className={`w-full min-h-12 mt-2 py-3 px-3 ${btnTheme} rounded-xl text-sm font-black flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer shadow-md`}
             >
-              {isUpdating ? (
+              {optimisticUpdates.get(p.id_pedido)?.updating ? (
                 <><RefreshCw className="w-4 h-4 animate-spin" /> Actualizando...</>
               ) : (
-                <><Flame className="w-4 h-4 text-[#F97316]" /> Iniciar fuego</>
+                <><Flame className="w-4 h-4" /> Iniciar Fuego</>
               )}
             </button>
           )}
@@ -247,13 +250,12 @@ export default function KitchenMonitor({
           {estado === 'en_cocina' && (
             <button
               onClick={() => handleOptimisticStatus(p.id_pedido, 'listo')}
-              disabled={isUpdating}
-              className="w-full min-h-11 mt-2 py-2.5 px-3 bg-[#F97316] hover:bg-[#EA580C] active:scale-95 text-white rounded-xl text-sm font-black flex items-center justify-center gap-1.5 transition-all shadow-md shadow-[#F97316]/10 cursor-pointer border border-[#F97316]/20 disabled:opacity-60 disabled:cursor-wait"
+              className={`w-full min-h-12 mt-2 py-3 px-3 ${btnTheme} rounded-xl text-sm font-black flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer shadow-md`}
             >
-              {isUpdating ? (
+              {optimisticUpdates.get(p.id_pedido)?.updating ? (
                 <><RefreshCw className="w-4 h-4 animate-spin" /> Actualizando...</>
               ) : (
-                <><ChevronRight className="w-4 h-4" /> Terminado</>
+                <><CheckCircle className="w-4 h-4" /> Terminado</>
               )}
             </button>
           )}
@@ -261,10 +263,9 @@ export default function KitchenMonitor({
           {estado === 'listo' && (
             <button
               onClick={() => handleOptimisticStatus(p.id_pedido, 'entregado_cobrado')}
-              disabled={isUpdating}
-              className="w-full min-h-11 mt-2 py-2.5 px-3 bg-[#22C55E] hover:bg-[#16A34A] active:scale-95 text-white rounded-xl text-sm font-black flex items-center justify-center gap-1.5 transition-all shadow-md shadow-[#22C55E]/10 cursor-pointer border border-[#22C55E]/20 disabled:opacity-60 disabled:cursor-wait"
+              className={`w-full min-h-12 mt-2 py-3 px-3 ${btnTheme} rounded-xl text-sm font-black flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer shadow-md`}
             >
-              {isUpdating ? (
+              {optimisticUpdates.get(p.id_pedido)?.updating ? (
                 <><RefreshCw className="w-4 h-4 animate-spin" /> Actualizando...</>
               ) : (
                 <><CheckCircle className="w-4 h-4" /> Entregar y finalizar</>
@@ -272,121 +273,118 @@ export default function KitchenMonitor({
             </button>
           )}
 
-          <button
-            onClick={() => setCancelRequest({
-              pedido: p,
-              title: estado === 'pendiente' ? 'Cancelar comanda pendiente' : 'Cancelar preparación en curso',
-              detail: 'La orden saldrá de la cola de cocina y quedará marcada como cancelada.'
-            })}
-            disabled={isUpdating}
-            className="w-full min-h-10 mt-2 py-2 px-3 bg-red-50 hover:bg-red-100 text-red-700 hover:text-red-800 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer border border-red-200 shadow-sm disabled:opacity-60 disabled:cursor-wait"
-          >
-            Cancelar comanda
-          </button>
+          <div className="grid grid-cols-2 gap-3 mt-2">
+            <button className="min-h-10 py-2 px-3 bg-[#f4ecd8] hover:bg-[#e2dabf] text-[#4b3621] rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer border border-[#d4b89a]">
+              <Pencil className="w-3.5 h-3.5" /> Editar
+            </button>
+            <button
+              onClick={() => setCancelRequest({
+                pedido: p,
+                title: estado === 'pendiente' ? 'Cancelar comanda pendiente' : 'Cancelar preparación en curso',
+                detail: 'La orden saldrá de la cola de cocina y quedará marcada como cancelada.'
+              })}
+              className="min-h-10 py-2 px-3 bg-transparent hover:bg-red-50 text-[#c0392b] rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer border border-[#fab1a0]"
+            >
+              Cancelar
+            </button>
+          </div>
         </div>
       </div>
     );
   };
 
-  const renderColumn = (estado: Pedido['estado_comanda'], title: string, icon: React.ReactNode, colorClass: string, orders: Pedido[]) => (
-    <div className={`space-y-3 sm:space-y-4 ${colorClass} p-3 sm:p-4 rounded-2xl border shadow-inner`}>
-      <div className={`flex justify-between items-center p-2.5 sm:p-3 rounded-xl border shadow-sm ${
-        estado === 'pendiente' ? 'bg-[#F59E0B]/10 border-[#F59E0B]/20' :
-        estado === 'en_cocina' ? 'bg-[#F97316]/10 border-[#F97316]/20' :
-        'bg-[#22C55E]/10 border-[#22C55E]/20'
-      }`}>
-        <h4 className={`font-black text-xs sm:text-sm tracking-tight flex items-center gap-1.5 font-sans ${
-          estado === 'pendiente' ? 'text-amber-800' :
-          estado === 'en_cocina' ? 'text-orange-800' :
-          'text-emerald-800'
-        }`}>
-          {icon}
-          {title}
-        </h4>
-        <span className={`${
-          estado === 'pendiente' ? 'bg-[#F59E0B]' :
-          estado === 'en_cocina' ? 'bg-[#F97316]' :
-          'bg-[#22C55E]'
-        } text-white text-[10px] sm:text-xs font-bold font-mono px-2 py-0.5 rounded-full`}>
-          {orders.length}
-        </span>
-      </div>
+  const renderColumn = (estado: Pedido['estado_comanda'], title: string, icon: React.ReactNode, headerClass: string, orders: Pedido[]) => {
+    const emptyMessages = {
+      pendiente: { text: 'Sin comandas pendientes', icon: <ChefHat className="w-8 h-8 text-[#d4b89a] mb-2" /> },
+      en_cocina: { text: 'Sin comandas activas en la hornalla', icon: <Flame className="w-8 h-8 text-[#e2dabf] mb-2" /> },
+      listo: { text: 'Sin comandas listas para servir', icon: <Utensils className="w-8 h-8 text-[#d4b89a] mb-2" /> }
+    };
 
-      <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
-        {orders.length === 0 ? (
-          <div className={`h-32 sm:h-40 border-2 border-dashed rounded-2xl flex flex-col justify-center items-center text-center p-3 ${
-            estado === 'pendiente' ? 'border-slate-100' :
-            estado === 'en_cocina' ? 'border-amber-100 bg-amber-50/10' :
-            'border-emerald-100 bg-emerald-50/10'
-          }`}>
-            {estado === 'pendiente' ? (
-              <><ChefHat className="w-8 h-8 text-slate-300 mb-2" /><p className="text-[11px] text-slate-400">Sin comandas pendientes</p></>
-            ) : estado === 'en_cocina' ? (
-              <><Flame className="w-8 h-8 text-amber-200 mb-2" /><p className="text-[11px] text-slate-400">Sin comandas activas en la hornalla</p></>
-            ) : (
-              <><Utensils className="w-8 h-8 text-emerald-200 mb-2" /><p className="text-[11px] text-slate-400">Sin comandas listas para servir</p></>
-            )}
-          </div>
-        ) : (
-          orders.map(p => renderOrderCard(p, estado))
-        )}
+    return (
+      <div className="space-y-4">
+        <div className={`flex justify-between items-center p-4 rounded-t-xl border-b-[3px] ${headerClass}`}>
+          <h4 className="font-black text-xs sm:text-sm tracking-tight flex items-center gap-2 uppercase font-serif text-[#4b3621]">
+            {icon}
+            {title}
+          </h4>
+          <span className="bg-[#3e2723] text-[#f4ecd8] text-[11px] font-black font-mono w-6 h-6 rounded-full flex items-center justify-center shadow-sm">
+            {orders.length}
+          </span>
+        </div>
+
+        <div className="space-y-4 max-h-[700px] overflow-y-auto pr-1">
+          {orders.length === 0 ? (
+            <div className="h-36 border-2 border-dashed border-[#d4b89a] rounded-[20px] flex flex-col justify-center items-center text-center p-4 opacity-60 bg-[#f4ecd8]/40">
+              {emptyMessages[estado].icon}
+              <p className="text-[11px] text-[#4b3621]/70 font-semibold">{emptyMessages[estado].text}</p>
+            </div>
+          ) : (
+            orders.map(p => renderTicket(p, estado))
+          )}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
-    <div className="space-y-4 md:space-y-6" id="kitchen-monitor-container">
-      
-      <div className="bg-white rounded-2xl p-3 sm:p-4 border border-slate-100 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3 pb-3 border-b border-slate-50">
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 bg-slate-900 text-white rounded-lg shrink-0">
-              <Grid className="w-4 h-4" />
+    <div className="space-y-5" id="kitchen-monitor-container">
+
+      {/* Producción agrupada */}
+      <div className="bg-[#f4ecd8] rounded-[20px] p-5 border border-[#d4b89a] shadow-[0_4px_6px_rgba(0,0,0,0.05)]">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-4 border-b border-[#d4b89a]/50">
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-xl bg-[#4b3621] text-[#f4ecd8] flex items-center justify-center text-xl shadow-sm">
+              📋
             </div>
             <div className="min-w-0">
-              <h3 className="font-extrabold text-sm md:text-base text-slate-800 font-sans tracking-tight">Producción agrupada</h3>
-              <p className="text-[10px] sm:text-[11px] text-slate-400 font-sans truncate">Consolidado de preparaciones activas en fuegos.</p>
+              <h3 className="font-black text-lg text-[#4b3621] font-serif">Producción agrupada</h3>
+              <p className="text-xs text-[#4b3621]/70 font-semibold">Consolidado de preparaciones activas en fuegos.</p>
             </div>
           </div>
-          <span className="text-[10px] bg-slate-900 text-white font-mono font-extrabold py-0.5 px-2 rounded-full shadow-sm w-fit">
-            {batchProduction.reduce((sum, item) => sum + item.cantidad, 0)} unidades
+          <span className="bg-[#3e2723] text-[#f4ecd8] text-xs font-black py-1 px-3 rounded-full shadow-sm w-fit">
+            {batchProduction.reduce((sum, item) => sum + item.cantidad, 0)} UNIDADES
           </span>
         </div>
 
         {batchProduction.length === 0 ? (
-          <p className="text-xs text-slate-400 italic text-center py-2 bg-slate-50/55 rounded-xl">No hay comida activa en la línea de fuegos.</p>
+          <p className="text-xs text-[#4b3621]/60 italic text-center py-3 bg-[#e2dabf]/50 rounded-xl">
+            No hay comida activa en la línea de fuegos.
+          </p>
         ) : (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-3">
             {batchProduction.map((item, idx) => (
-              <div 
+              <div
                 key={idx}
-                className="bg-slate-50 border border-slate-100 rounded-xl px-3.5 py-2 flex items-center gap-2 text-xs font-sans shadow-sm transition-all hover:border-slate-350"
+                className="bg-[#e2dabf] border border-[#d4b89a] rounded-xl px-4 py-2.5 flex items-center gap-3 text-sm font-black text-[#4b3621] shadow-sm hover:border-[#a0522d] transition-colors"
               >
-                <span className="bg-slate-900 text-white text-[10px] font-extrabold font-mono w-6 h-6 rounded-full flex items-center justify-center">{item.cantidad}</span>
-                <span className="font-semibold text-slate-700">{item.nombre}</span>
+                <span className="bg-[#3e2723] text-[#f4ecd8] text-[11px] font-black w-7 h-7 rounded-full flex items-center justify-center">
+                  {item.cantidad}
+                </span>
+                <span>{item.nombre}</span>
               </div>
             ))}
           </div>
         )}
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between bg-white rounded-2xl p-3 border border-slate-100 shadow-sm">
-        <div className="relative w-full sm:w-64">
-          <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+      {/* Filtros */}
+      <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between bg-[#f4ecd8] rounded-[20px] p-4 border border-[#d4b89a] shadow-[0_4px_6px_rgba(0,0,0,0.05)]">
+        <div className="relative w-full sm:w-72">
+          <Search className="w-4 h-4 text-[#4b3621]/40 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             placeholder="Buscar mesa, mozo o plato..."
             value={kitchenSearch}
             onChange={e => setKitchenSearch(e.target.value)}
-            className="w-full min-h-11 pl-9 pr-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#624A3E]"
+            className="w-full min-h-11 pl-9 pr-3 py-2 bg-white border border-[#d4b89a] rounded-xl text-sm text-[#4b3621] placeholder:text-[#4b3621]/40 focus:outline-none focus:ring-2 focus:ring-[#a0522d]/30"
           />
         </div>
         <button
           onClick={() => setShowOnlyKitchen(!showOnlyKitchen)}
-          className={`min-h-11 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-sm font-bold transition-all cursor-pointer border ${
+          className={`min-h-11 flex items-center justify-center gap-1.5 py-2 px-4 rounded-xl text-sm font-black transition-all cursor-pointer border ${
             showOnlyKitchen
-              ? 'bg-[#624A3E] text-white border-[#624A3E]'
-              : 'bg-stone-50 text-stone-600 border-stone-200 hover:bg-stone-100'
+              ? 'bg-[#4b3621] text-[#f4ecd8] border-[#4b3621]'
+              : 'bg-white text-[#4b3621] border-[#d4b89a] hover:bg-[#e2dabf]'
           }`}
         >
           <Filter className="w-3.5 h-3.5" />
@@ -394,54 +392,55 @@ export default function KitchenMonitor({
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+      {/* Columnas */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {renderColumn(
           'pendiente',
           'Pendientes (Ingresos)',
-          <span className="w-2.5 h-2.5 rounded-full bg-[#F59E0B] animate-ping" />,
-          'bg-[#F59E0B]/5 border-[#F59E0B]/20',
-          activeKitchenOrders.filter(p => getEffectiveStatus(p) === 'pendiente')
+          <CircleDot className="w-4 h-4 text-[#a0522d]" />,
+          'bg-[#e2dabf] border-[#a0522d]',
+          activeKitchenOrders.filter(p => p.estado_comanda === 'pendiente')
         )}
         {renderColumn(
           'en_cocina',
-          'En preparación (fuegos)',
-          <Flame className="w-4 h-4 text-[#F97316] animate-pulse" />,
-          'bg-[#F97316]/5 border-[#F97316]/20',
-          activeKitchenOrders.filter(p => getEffectiveStatus(p) === 'en_cocina')
+          'En Preparación (Fuegos)',
+          <Flame className="w-4 h-4 text-[#a0522d]" />,
+          'bg-[#f3e5ab] border-[#a0522d]',
+          activeKitchenOrders.filter(p => p.estado_comanda === 'en_cocina')
         )}
         {renderColumn(
           'listo',
           'Listos (A Servir)',
-          <CheckCircle className="w-4 h-4 text-[#22C55E]" />,
-          'bg-[#22C55E]/5 border-[#22C55E]/20',
-          activeKitchenOrders.filter(p => getEffectiveStatus(p) === 'listo')
+          <CheckCircle className="w-4 h-4 text-[#2e8b57]" />,
+          'bg-[#d0f0c0] border-[#2e8b57]',
+          activeKitchenOrders.filter(p => p.estado_comanda === 'listo')
         )}
       </div>
 
       {cancelRequest && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 z-50">
-          <div className="bg-white rounded-t-2xl sm:rounded-2xl p-5 sm:p-6 w-full max-w-md shadow-2xl border border-slate-100">
-            <div className="flex items-start gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-red-50 text-red-600 flex items-center justify-center shrink-0">
+          <div className="bg-[#f4ecd8] rounded-t-[20px] sm:rounded-[20px] p-6 w-full max-w-md shadow-2xl border border-[#d4b89a]">
+            <div className="flex items-start gap-3 mb-5">
+              <div className="w-11 h-11 rounded-full bg-red-50 text-[#c0392b] flex items-center justify-center shrink-0 border border-[#fab1a0]">
                 <AlertTriangle className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-extrabold text-base text-slate-900">{cancelRequest.title}</h3>
-                <p className="text-xs text-slate-500 mt-1">{cancelRequest.detail}</p>
+                <h3 className="font-black text-base text-[#4b3621] font-serif">{cancelRequest.title}</h3>
+                <p className="text-xs text-[#4b3621]/70 mt-1">{cancelRequest.detail}</p>
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-3">
               <button
                 onClick={() => setCancelRequest(null)}
-                className="flex-1 min-h-11 py-2.5 rounded-xl bg-stone-100 text-stone-700 text-sm font-bold cursor-pointer hover:bg-stone-200"
+                className="flex-1 min-h-11 py-2.5 rounded-xl bg-[#e2dabf] text-[#4b3621] text-sm font-black cursor-pointer hover:bg-[#d4b89a] transition-colors border border-[#d4b89a]"
               >
                 Volver
               </button>
               <button
                 onClick={confirmCancel}
-                className="flex-1 min-h-11 py-2.5 rounded-xl bg-red-600 text-white text-sm font-bold cursor-pointer hover:bg-red-700"
+                className="flex-1 min-h-11 py-2.5 rounded-xl bg-[#c0392b] text-[#f4ecd8] text-sm font-black cursor-pointer hover:bg-[#a93226] transition-colors shadow-md"
               >
-                Confirmar cancelación
+                Confirmar Cancelación
               </button>
             </div>
           </div>

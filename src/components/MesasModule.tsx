@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useToast, ToastContainer } from './ToastContainer';
 import {
   Sofa, List, Link2, Unlink, Plus, Check, Trash, Edit2, X,
-  MapPin, Users, AlertCircle, Search, LayoutGrid, Unlock
+  MapPin, Users, AlertCircle, Search, LayoutGrid, Armchair
 } from 'lucide-react';
 import { Mesa, EventoLog } from '../types';
 import { mesasService } from '../services/mesasService';
@@ -13,16 +13,15 @@ interface MesasModuleProps {
   addLog: (tipo: EventoLog['tipo'], mensaje: string) => void;
 }
 
-const ESTADOS: { key: Mesa['estado']; label: string; color: string; bg: string; border: string }[] = [
-  { key: 'libre', label: 'Libre', color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200' },
-  { key: 'ocupada', label: 'Ocupada', color: 'text-[#624A3E]', bg: 'bg-[#624A3E]/10', border: 'border-[#624A3E]/40' },
-  { key: 'esperando_cuenta', label: 'Espera cuenta', color: 'text-emerald-800', bg: 'bg-emerald-100', border: 'border-emerald-400' },
-  { key: 'reservada', label: 'Reservada', color: 'text-amber-800', bg: 'bg-amber-100', border: 'border-amber-300' },
-  { key: 'limpiando', label: 'Limpieza', color: 'text-blue-800', bg: 'bg-blue-100', border: 'border-blue-300' },
+const ESTADOS: { key: Mesa['estado']; label: string; color: string; bg: string; border: string; shadow: string; ring: string; dot: string }[] = [
+  { key: 'libre', label: 'Libre', color: 'text-emerald-800', bg: 'bg-emerald-50', border: 'border-emerald-200', shadow: 'shadow-emerald-100', ring: 'ring-emerald-300', dot: 'bg-emerald-500' },
+  { key: 'ocupada', label: 'Ocupada', color: 'text-[#4A2D1B]', bg: 'bg-[#FFF8F0]', border: 'border-[#C8956A]', shadow: 'shadow-[#C8956A]/25', ring: 'ring-[#C8956A]', dot: 'bg-[#624A3E]' },
+  { key: 'esperando_cuenta', label: 'Espera cuenta', color: 'text-emerald-900', bg: 'bg-emerald-100', border: 'border-emerald-400', shadow: 'shadow-emerald-200', ring: 'ring-emerald-400', dot: 'bg-emerald-600' },
+  { key: 'reservada', label: 'Reservada', color: 'text-amber-900', bg: 'bg-amber-50', border: 'border-amber-300', shadow: 'shadow-amber-100', ring: 'ring-amber-300', dot: 'bg-amber-500' },
+  { key: 'limpiando', label: 'Limpieza', color: 'text-blue-900', bg: 'bg-blue-50', border: 'border-blue-300', shadow: 'shadow-blue-100', ring: 'ring-blue-300', dot: 'bg-blue-500' },
 ];
 
 const ESTADO_POR_KEY = Object.fromEntries(ESTADOS.map(e => [e.key, e]));
-const ESTADO_ORDER: Mesa['estado'][] = ['libre', 'ocupada', 'esperando_cuenta', 'reservada', 'limpiando'];
 
 /** Posiciones aproximadas basadas en el plano enviado. El plano es vertical; 0,0 = arriba-izquierda. */
 const MESAS_INICIALES_PLANO: Partial<Mesa>[] = [
@@ -44,7 +43,6 @@ const MESAS_INICIALES_PLANO: Partial<Mesa>[] = [
 export default function MesasModule({ mesas, onMesasChange, addLog }: MesasModuleProps) {
   const { toast, toasts, removeToast } = useToast();
 
-  // Normalizar mesas entrantes: si no tienen plano, les asignamos las posiciones iniciales.
   const normalizedMesas = useMemo(() => {
     return mesas.map(m => {
       const plano = MESAS_INICIALES_PLANO.find(p => p.id_mesa === m.id_mesa);
@@ -85,8 +83,6 @@ export default function MesasModule({ mesas, onMesasChange, addLog }: MesasModul
   // Unión
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [unionMode, setUnionMode] = useState(false);
-  const [activeMesaId, setActiveMesaId] = useState<number | null>(null);
-  const [busyMesaId, setBusyMesaId] = useState<number | null>(null);
 
   // Confirmación eliminación
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
@@ -94,12 +90,6 @@ export default function MesasModule({ mesas, onMesasChange, addLog }: MesasModul
   useEffect(() => {
     setLocalMesas(normalizedMesas);
   }, [normalizedMesas]);
-
-  useEffect(() => {
-    if (activeMesaId && !localMesas.some(m => m.id_mesa === activeMesaId)) {
-      setActiveMesaId(null);
-    }
-  }, [activeMesaId, localMesas]);
 
   const persist = (next: Mesa[]) => {
     setLocalMesas(next);
@@ -139,65 +129,38 @@ export default function MesasModule({ mesas, onMesasChange, addLog }: MesasModul
     setCapacidad(4);
   };
 
-  const getComensalesForEstado = (m: Mesa, estado: Mesa['estado']) => {
-    if (estado === 'ocupada' || estado === 'esperando_cuenta') {
-      return m.comensales || Math.min(m.capacidad || 2, 2);
-    }
-    return undefined;
-  };
-
-  const buildMesaEstado = (m: Mesa, estado: Mesa['estado']): Mesa => ({
-    ...m,
-    estado,
-    comensales: getComensalesForEstado(m, estado),
-    reserva_cliente: estado === 'reservada' ? m.reserva_cliente : undefined,
-    reserva_hora: estado === 'reservada' ? m.reserva_hora : undefined,
-  });
-
-  const handleSetEstadoMesa = async (id: number, nextEstado: Mesa['estado']) => {
-    const mesa = localMesas.find(m => m.id_mesa === id);
-    if (!mesa) return;
-    if (mesa.parent_id) {
-      toast.error('No se puede editar una mesa que está unida a otra. Separala primero.');
-      return;
-    }
-
-    const changedIds = new Set([id, ...(mesa.mesas_unidas || [])]);
-    const changedMesas: Mesa[] = [];
-    const next = localMesas.map(m => {
-      if (!changedIds.has(m.id_mesa)) return m;
-      const updated = buildMesaEstado(m, nextEstado);
-      changedMesas.push(updated);
-      return updated;
-    });
-
-    persist(next);
-    setBusyMesaId(id);
-    setActiveMesaId(id);
-
-    try {
-      await Promise.all(changedMesas.map(m => mesasService.update(m.id_mesa, m)));
-      const label = getEstadoStyle(nextEstado).label;
-      toast.success(`${mesa.numero_mesa}: ${label}.`);
-      addLog('sistema', `MESAS: '${mesa.numero_mesa}' a ${nextEstado.toUpperCase()}`);
-    } catch (error) {
-      toast.warning('El estado cambió localmente, pero no pudo sincronizarse.');
-      console.error('Error sincronizando mesa:', error);
-    } finally {
-      setBusyMesaId(null);
-    }
-  };
-
   const handleToggleEstadoMesa = (id: number) => {
-    const mesa = localMesas.find(m => m.id_mesa === id);
-    if (!mesa) return;
-    const currentIdx = ESTADO_ORDER.indexOf(mesa.estado);
-    const nextEstado = ESTADO_ORDER[(currentIdx + 1) % ESTADO_ORDER.length];
-    handleSetEstadoMesa(id, nextEstado);
-  };
-
-  const handleLiberarMesa = (id: number) => {
-    handleSetEstadoMesa(id, 'libre');
+    setLocalMesas(prev => {
+      const idx = prev.findIndex(m => m.id_mesa === id);
+      if (idx === -1) return prev;
+      const m = prev[idx];
+      if (m.parent_id) {
+        toast.error('No se puede editar una mesa que está unida a otra. Sepárela primero.');
+        return prev;
+      }
+      const order: Mesa['estado'][] = ['libre', 'ocupada', 'esperando_cuenta', 'reservada', 'limpiando'];
+      const currentIdx = order.indexOf(m.estado);
+      const nextEstado = order[(currentIdx + 1) % order.length];
+      const updated: Mesa = {
+        ...m,
+        estado: nextEstado,
+        comensales: nextEstado === 'ocupada' ? Math.min(m.capacidad || 2, 2) : undefined,
+      };
+      const next = [...prev];
+      next[idx] = updated;
+      if (m.mesas_unidas?.length) {
+        m.mesas_unidas.forEach(childId => {
+          const cIdx = next.findIndex(c => c.id_mesa === childId);
+          if (cIdx !== -1) next[cIdx] = { ...next[cIdx], estado: nextEstado };
+        });
+      }
+      persist(next);
+      mesasService.update(id, updated).catch(() => {
+        toast.warning('El estado cambió localmente, pero no pudo sincronizarse.');
+      });
+      addLog('sistema', `MESAS: '${m.numero_mesa}' a ${nextEstado.toUpperCase()}`);
+      return next;
+    });
   };
 
   const handleStartEdit = (m: Mesa) => {
@@ -338,10 +301,6 @@ export default function MesasModule({ mesas, onMesasChange, addLog }: MesasModul
   const paxOcupados = localMesas.filter(m => m.estado === 'ocupada' && !m.parent_id).reduce((s, m) => s + (m.comensales || m.capacidad || 0), 0);
 
   const getEstadoStyle = (estado: Mesa['estado']) => ESTADO_POR_KEY[estado] || ESTADO_POR_KEY['libre'];
-  const activeMesa = useMemo(
-    () => localMesas.find(m => m.id_mesa === activeMesaId) || null,
-    [activeMesaId, localMesas]
-  );
 
   return (
     <div className="space-y-5">
@@ -387,6 +346,7 @@ export default function MesasModule({ mesas, onMesasChange, addLog }: MesasModul
                 required
               />
             </div>
+
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Sector</label>
@@ -402,18 +362,22 @@ export default function MesasModule({ mesas, onMesasChange, addLog }: MesasModul
                 </select>
               </div>
               <div>
-                <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Capacidad</label>
-                <input
-                  type="number"
-                  min={1}
-                  max={20}
-                  value={capacidad}
-                  onChange={e => setCapacidad(parseInt(e.target.value) || 1)}
-                  className="w-full text-xs min-h-11 px-3 py-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none focus:ring-1 focus:ring-[#624A3E]"
-                  required
-                />
+                <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Capacidad (pax)</label>
+                <div className="relative">
+                  <Users className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="number"
+                    min={1}
+                    max={20}
+                    value={capacidad}
+                    onChange={e => setCapacidad(parseInt(e.target.value) || 1)}
+                    className="w-full text-xs min-h-11 pl-8 pr-3 py-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none focus:ring-1 focus:ring-[#624A3E]"
+                    required
+                  />
+                </div>
               </div>
             </div>
+
             <div>
               <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Forma en plano</label>
               <select
@@ -525,23 +489,23 @@ export default function MesasModule({ mesas, onMesasChange, addLog }: MesasModul
           {/* Leyenda de estados */}
           <div className="flex flex-wrap gap-2">
             {ESTADOS.map(e => (
-              <div key={e.key} className="flex items-center gap-1.5 text-[10px] font-bold text-stone-500">
-                <span className={`w-2.5 h-2.5 rounded-full ${e.bg} ${e.border} border`} />
-                {e.label}
+              <div key={e.key} className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white border border-stone-200 shadow-xs">
+                <span className={`w-2 h-2 rounded-full ${e.dot} ring-2 ring-white shadow-sm`} />
+                <span className="text-[10px] font-bold text-stone-600">{e.label}</span>
               </div>
             ))}
           </div>
 
           {viewMode === 'plano' ? (
-            <div className="relative w-full aspect-[3/5] sm:aspect-[4/5] md:aspect-[3/4] bg-[#F5F1E9] rounded-2xl border-2 border-stone-200 overflow-hidden shadow-inner">
+            <div className="relative w-full aspect-[3/5] sm:aspect-[4/5] md:aspect-[3/4] bg-gradient-to-br from-[#FAF8F3] to-[#F2EEE6] rounded-3xl border-2 border-stone-200 overflow-hidden shadow-inner">
               {/* Fondo con sectores aproximados */}
               <div className="absolute inset-0 pointer-events-none">
-                <div className="absolute top-[2%] left-[5%] right-[5%] h-[34%] border-2 border-dashed border-stone-300/60 rounded-xl bg-stone-100/40" />
-                <span className="absolute top-[4%] left-[8%] text-[10px] font-black text-stone-400 uppercase tracking-widest">Comedor</span>
-                <div className="absolute top-[44%] left-[5%] right-[5%] h-[50%] border-2 border-dashed border-stone-300/60 rounded-xl bg-stone-100/40" />
-                <span className="absolute top-[46%] left-[8%] text-[10px] font-black text-stone-400 uppercase tracking-widest">Salón</span>
-                <div className="absolute top-[84%] left-[62%] right-[5%] h-[14%] border-2 border-dashed border-stone-300/60 rounded-xl bg-stone-100/40 flex items-center justify-center">
-                  <span className="text-[10px] font-black text-stone-400 uppercase tracking-widest">Barra</span>
+                <div className="absolute top-[2%] left-[5%] right-[5%] h-[34%] border-2 border-dashed border-stone-300/70 rounded-2xl bg-white/60" />
+                <span className="absolute top-[4%] left-[8%] text-[11px] font-black text-stone-400 uppercase tracking-widest bg-white/80 px-2 py-0.5 rounded-lg">Comedor</span>
+                <div className="absolute top-[44%] left-[5%] right-[5%] h-[50%] border-2 border-dashed border-stone-300/70 rounded-2xl bg-white/60" />
+                <span className="absolute top-[46%] left-[8%] text-[11px] font-black text-stone-400 uppercase tracking-widest bg-white/80 px-2 py-0.5 rounded-lg">Salón</span>
+                <div className="absolute top-[84%] left-[62%] right-[5%] h-[14%] border-2 border-dashed border-stone-300/70 rounded-2xl bg-white/60 flex items-center justify-center">
+                  <span className="text-[11px] font-black text-stone-400 uppercase tracking-widest bg-white/80 px-2 py-0.5 rounded-lg">Barra</span>
                 </div>
               </div>
 
@@ -549,9 +513,7 @@ export default function MesasModule({ mesas, onMesasChange, addLog }: MesasModul
               {mesasVisiblesEnPlano.map(m => {
                 const estilo = getEstadoStyle(m.estado);
                 const isSelected = selectedIds.includes(m.id_mesa);
-                const isActive = activeMesaId === m.id_mesa;
                 const isParent = (m.mesas_unidas?.length ?? 0) > 0;
-                const isBusy = busyMesaId === m.id_mesa;
                 return (
                   <div
                     key={m.id_mesa}
@@ -560,25 +522,24 @@ export default function MesasModule({ mesas, onMesasChange, addLog }: MesasModul
                         if (!m.parent_id) toggleSelectForUnion(m.id_mesa);
                         else toast.error('No podés unir una mesa que ya pertenece a otra unión.');
                       } else {
-                        setActiveMesaId(m.id_mesa);
+                        handleToggleEstadoMesa(m.id_mesa);
                       }
                     }}
                     style={{ left: `${m.x}%`, top: `${m.y}%` }}
-                    className={`absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center cursor-pointer transition-all select-none ${
-                      m.forma === 'rectangular' ? 'w-16 h-10 sm:w-20 sm:h-12 rounded-lg' : 'w-12 h-12 sm:w-14 sm:h-14 rounded-full'
-                    } ${estilo.bg} ${estilo.border} border-2 ${estilo.color} ${
-                      isSelected || isActive ? 'ring-2 ring-offset-2 ring-[#624A3E] z-20 scale-105' : 'hover:scale-105 z-10'
+                    className={`absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center cursor-pointer transition-all duration-200 select-none ${
+                      m.forma === 'rectangular' ? 'w-[4.5rem] h-[3rem] sm:w-24 sm:h-14 rounded-2xl' : 'w-14 h-14 sm:w-16 sm:h-16 rounded-full'
+                    } ${estilo.bg} ${estilo.border} border-2 ${estilo.color} ${estilo.shadow} shadow-sm hover:shadow-md ${
+                      isSelected ? `ring-2 ring-offset-2 ${estilo.ring} z-20 scale-110` : 'hover:scale-105 z-10'
                     }`}
                   >
-                    <span className="text-[9px] sm:text-[10px] font-black leading-none">{m.numero_mesa}</span>
-                    <span className="text-[8px] sm:text-[9px] font-semibold opacity-90 leading-none">{m.capacidad} pax</span>
-                    {isBusy && (
-                      <span className="absolute inset-0 rounded-[inherit] bg-white/70 text-[#624A3E] text-[9px] font-black flex items-center justify-center">
-                        Guardando
-                      </span>
-                    )}
+                    <span className="text-[10px] sm:text-[11px] font-black leading-tight">{m.numero_mesa}</span>
+                    <div className="flex items-center gap-0.5 mt-0.5">
+                      <Users className="w-2.5 h-2.5 opacity-70" />
+                      <span className="text-[9px] sm:text-[10px] font-bold opacity-90 leading-none">{m.capacidad}</span>
+                    </div>
+                    <span className={`absolute -top-1.5 -right-1.5 w-2.5 h-2.5 rounded-full border-2 border-white ${estilo.dot} shadow-sm`} />
                     {isParent && (
-                      <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-[#624A3E] text-white rounded-full text-[8px] font-black flex items-center justify-center">
+                      <span className="absolute -bottom-2 -right-2 min-w-[1.25rem] h-5 px-1 bg-[#624A3E] text-white rounded-full text-[8px] font-black flex items-center justify-center shadow-md border-2 border-white">
                         +{m.mesas_unidas?.length}
                       </span>
                     )}
@@ -594,100 +555,85 @@ export default function MesasModule({ mesas, onMesasChange, addLog }: MesasModul
               )}
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredMesas.map(m => {
                 const estilo = getEstadoStyle(m.estado);
                 const isParent = (m.mesas_unidas?.length ?? 0) > 0;
                 const isChild = !!m.parent_id;
                 return (
-                  <div
-                    key={m.id_mesa}
-                    onClick={() => setActiveMesaId(m.id_mesa)}
-                    className={`relative group bg-white border rounded-xl p-3 shadow-xs hover:shadow-sm transition-all cursor-pointer ${
-                      activeMesaId === m.id_mesa ? 'border-[#624A3E] ring-2 ring-[#624A3E]/15' : 'border-stone-200'
-                    }`}
-                  >
+                  <div key={m.id_mesa} className={`relative group bg-white rounded-2xl p-4 shadow-sm hover:shadow-lg transition-all duration-200 border-l-4 ${estilo.border} ${estilo.shadow}`}>
                     {editingMesaId === m.id_mesa ? (
                       <div className="space-y-2">
                         <input
                           type="text"
                           value={editNumero}
                           onChange={e => setEditNumero(e.target.value)}
-                          className="w-full text-xs p-1.5 border border-stone-300 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-[#624A3E]"
+                          className="w-full text-xs p-2 border border-stone-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#624A3E]/30"
                         />
-                        <div className="grid grid-cols-3 gap-1">
-                          <select value={editSector} onChange={e => setEditSector(e.target.value as NonNullable<Mesa['sector']>)} className="text-[10px] p-1 border border-stone-300 rounded-lg">
+                        <div className="grid grid-cols-3 gap-1.5">
+                          <select value={editSector} onChange={e => setEditSector(e.target.value as NonNullable<Mesa['sector']>)} className="text-[10px] p-1.5 border border-stone-300 rounded-lg bg-stone-50">
                             <option value="comedor">Comedor</option>
                             <option value="salon">Salón</option>
                             <option value="terraza">Terraza</option>
                             <option value="vip">VIP</option>
                           </select>
-                          <input type="number" min={1} value={editCapacidad} onChange={e => setEditCapacidad(parseInt(e.target.value) || 1)} className="text-[10px] p-1 border border-stone-300 rounded-lg" />
-                          <select value={editForma} onChange={e => setEditForma(e.target.value as NonNullable<Mesa['forma']>)} className="text-[10px] p-1 border border-stone-300 rounded-lg">
+                          <input type="number" min={1} max={20} value={editCapacidad} onChange={e => setEditCapacidad(parseInt(e.target.value) || 1)} className="text-[10px] p-1.5 border border-stone-300 rounded-lg bg-stone-50" placeholder="Pax" />
+                          <select value={editForma} onChange={e => setEditForma(e.target.value as NonNullable<Mesa['forma']>)} className="text-[10px] p-1.5 border border-stone-300 rounded-lg bg-stone-50">
                             <option value="redonda">Redonda</option>
                             <option value="rectangular">Rect.</option>
                           </select>
                         </div>
-                        <div className="flex gap-1">
-                          <button onClick={handleSaveEdit} className="flex-1 min-h-8 py-1 bg-emerald-600 text-white text-[10px] font-bold rounded-lg cursor-pointer">Guardar</button>
-                          <button onClick={() => setEditingMesaId(null)} className="min-h-8 py-1 px-2 bg-stone-200 text-stone-600 text-[10px] rounded-lg cursor-pointer">X</button>
+                        <div className="flex gap-1.5">
+                          <button onClick={handleSaveEdit} className="flex-1 min-h-9 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-xl cursor-pointer transition-colors">Guardar</button>
+                          <button onClick={() => setEditingMesaId(null)} className="min-h-9 py-1.5 px-3 bg-stone-200 hover:bg-stone-300 text-stone-600 text-[11px] font-bold rounded-xl cursor-pointer transition-colors">X</button>
                         </div>
                       </div>
                     ) : (
                       <>
                         <div className="flex items-start justify-between">
-                          <div className="flex items-center gap-2">
-                            <div className={`p-1.5 rounded-lg ${estilo.bg} ${estilo.color}`}>
-                              <Sofa className="w-4 h-4" />
+                          <div className="flex items-center gap-3">
+                            <div className={`p-2.5 rounded-xl ${estilo.bg} ${estilo.color} shadow-sm border ${estilo.border}`}>
+                              <Armchair className="w-5 h-5" />
                             </div>
                             <div>
-                              <strong className="text-sm font-black text-stone-800 block">{m.numero_mesa}</strong>
-                              <span className="text-[10px] text-stone-500 font-semibold uppercase">{m.sector}</span>
+                              <strong className="text-base font-black text-stone-800 block">{m.numero_mesa}</strong>
+                              <span className="text-[10px] text-stone-500 font-bold uppercase tracking-wider">{m.sector}</span>
                             </div>
                           </div>
-                          <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${estilo.bg} ${estilo.color} border ${estilo.border}`}>
+                          <span className={`text-[10px] font-black px-2.5 py-1 rounded-full ${estilo.bg} ${estilo.color} border ${estilo.border} shadow-xs`}>
                             {estilo.label}
                           </span>
                         </div>
 
-                        <div className="mt-3 flex items-center justify-between">
-                          <div className="flex items-center gap-1 text-xs text-stone-600">
-                            <Users className="w-3.5 h-3.5" />
-                            <span className="font-semibold">{m.capacidad} pax</span>
-                            {isParent && <span className="text-[9px] text-[#624A3E] font-bold ml-1">(+{m.mesas_unidas?.length})</span>}
-                            {isChild && <span className="text-[9px] text-stone-400 font-bold ml-1">(unida)</span>}
+                        <div className="mt-4 flex items-center justify-between">
+                          <div className="flex items-center gap-2 bg-stone-50 px-3 py-1.5 rounded-xl border border-stone-100">
+                            <Users className="w-4 h-4 text-stone-500" />
+                            <span className="text-sm font-black text-stone-700">{m.capacidad} pax</span>
+                            {isParent && <span className="text-[10px] text-[#624A3E] font-black ml-1">(+{m.mesas_unidas?.length})</span>}
+                            {isChild && <span className="text-[10px] text-stone-400 font-black ml-1">(unida)</span>}
                           </div>
                           {!isChild && (
-                            <div className="flex items-center gap-1">
-                              <button
-                                onClick={(e) => { e.stopPropagation(); handleLiberarMesa(m.id_mesa); }}
-                                disabled={m.estado === 'libre' || busyMesaId === m.id_mesa}
-                                className="text-[10px] font-bold px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-40 cursor-pointer"
-                              >
-                                Liberar
-                              </button>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); handleToggleEstadoMesa(m.id_mesa); }}
-                                disabled={busyMesaId === m.id_mesa}
-                                className="text-[10px] font-bold px-2 py-1 rounded-lg bg-stone-100 text-stone-600 hover:bg-stone-200 disabled:opacity-40 cursor-pointer"
-                              >
-                                Cambiar
-                              </button>
-                            </div>
+                            <button
+                              onClick={() => handleToggleEstadoMesa(m.id_mesa)}
+                              className="text-[11px] font-bold px-3 py-1.5 rounded-xl bg-stone-100 text-stone-600 hover:bg-stone-200 cursor-pointer transition-colors"
+                            >
+                              Cambiar
+                            </button>
                           )}
                         </div>
 
-                        <div className="mt-2 flex items-center gap-1">
+                        <div className="mt-3 flex items-center gap-1.5 pt-3 border-t border-stone-100">
                           <button
                             onClick={(e) => { e.stopPropagation(); handleStartEdit(m); }}
-                            className="p-1.5 rounded-lg bg-stone-100 text-stone-500 hover:text-blue-600 hover:bg-blue-50 cursor-pointer"
+                            className="p-2 rounded-xl bg-stone-100 text-stone-500 hover:text-blue-600 hover:bg-blue-50 cursor-pointer transition-colors"
+                            title="Editar mesa"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
                           {isParent ? (
                             <button
                               onClick={(e) => { e.stopPropagation(); handleSepararMesas(m.id_mesa); }}
-                              className="p-1.5 rounded-lg bg-amber-100 text-amber-700 hover:bg-amber-200 cursor-pointer"
+                              className="p-2 rounded-xl bg-amber-100 text-amber-700 hover:bg-amber-200 cursor-pointer transition-colors"
                               title="Separar mesas"
                             >
                               <Unlink className="w-3.5 h-3.5" />
@@ -696,13 +642,14 @@ export default function MesasModule({ mesas, onMesasChange, addLog }: MesasModul
                             <>
                               {deleteConfirmId === m.id_mesa ? (
                                 <>
-                                  <button onClick={(e) => { e.stopPropagation(); handleDeleteMesa(m.id_mesa); }} className="p-1.5 rounded-lg bg-red-500 text-white cursor-pointer"><Check className="w-3.5 h-3.5" /></button>
-                                  <button onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(null); }} className="p-1.5 rounded-lg bg-stone-200 text-stone-600 cursor-pointer"><X className="w-3.5 h-3.5" /></button>
+                                  <button onClick={(e) => { e.stopPropagation(); handleDeleteMesa(m.id_mesa); }} className="p-2 rounded-xl bg-red-500 hover:bg-red-600 text-white cursor-pointer transition-colors"><Check className="w-3.5 h-3.5" /></button>
+                                  <button onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(null); }} className="p-2 rounded-xl bg-stone-200 hover:bg-stone-300 text-stone-600 cursor-pointer transition-colors"><X className="w-3.5 h-3.5" /></button>
                                 </>
                               ) : (
                                 <button
                                   onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(m.id_mesa); }}
-                                  className="p-1.5 rounded-lg bg-stone-100 text-stone-500 hover:text-red-600 hover:bg-red-50 cursor-pointer"
+                                  className="p-2 rounded-xl bg-stone-100 text-stone-500 hover:text-red-600 hover:bg-red-50 cursor-pointer transition-colors"
+                                  title="Eliminar mesa"
                                 >
                                   <Trash className="w-3.5 h-3.5" />
                                 </button>
@@ -715,55 +662,6 @@ export default function MesasModule({ mesas, onMesasChange, addLog }: MesasModul
                   </div>
                 );
               })}
-            </div>
-          )}
-
-          {activeMesa && !unionMode && (
-            <div className="rounded-2xl border border-stone-200 bg-[#F5F1E9]/60 p-4 shadow-inner">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-wider text-stone-500">Mesa seleccionada</p>
-                  <div className="mt-1 flex flex-wrap items-center gap-2">
-                    <h4 className="text-base font-black text-stone-900">{activeMesa.numero_mesa}</h4>
-                    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-black ${getEstadoStyle(activeMesa.estado).bg} ${getEstadoStyle(activeMesa.estado).border} ${getEstadoStyle(activeMesa.estado).color}`}>
-                      {getEstadoStyle(activeMesa.estado).label}
-                    </span>
-                    <span className="text-xs font-semibold text-stone-500">{activeMesa.capacidad || 0} pax</span>
-                    {busyMesaId === activeMesa.id_mesa && (
-                      <span className="text-[10px] font-black uppercase text-amber-700">Guardando...</span>
-                    )}
-                  </div>
-                  {activeMesa.estado === 'reservada' && (
-                    <p className="mt-1 text-xs text-amber-800">
-                      Reserva activa{activeMesa.reserva_cliente ? ` de ${activeMesa.reserva_cliente}` : ''}{activeMesa.reserva_hora ? ` a las ${activeMesa.reserva_hora}` : ''}.
-                    </p>
-                  )}
-                  {activeMesa.parent_id && (
-                    <p className="mt-1 text-xs text-stone-500">Esta mesa está unida a otra. Separala antes de editar su estado.</p>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
-                  <button
-                    onClick={() => handleLiberarMesa(activeMesa.id_mesa)}
-                    disabled={activeMesa.estado === 'libre' || !!activeMesa.parent_id || busyMesaId === activeMesa.id_mesa}
-                    className="min-h-10 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-black text-white shadow-sm transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-45"
-                  >
-                    <Unlock className="mr-1 inline h-3.5 w-3.5" />
-                    Liberar mesa
-                  </button>
-                  {ESTADOS.filter(e => e.key !== activeMesa.estado && e.key !== 'libre').map(e => (
-                    <button
-                      key={e.key}
-                      onClick={() => handleSetEstadoMesa(activeMesa.id_mesa, e.key)}
-                      disabled={!!activeMesa.parent_id || busyMesaId === activeMesa.id_mesa}
-                      className={`min-h-10 rounded-xl border px-3 py-2 text-xs font-black transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-45 ${e.bg} ${e.border} ${e.color}`}
-                    >
-                      {e.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
             </div>
           )}
         </div>

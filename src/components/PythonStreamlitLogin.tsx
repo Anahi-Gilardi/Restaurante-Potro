@@ -137,7 +137,7 @@ export default function PythonStreamlitLogin({ onLoginSuccess }: PythonStreamlit
       <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-[#6B4A35]/5 blur-3xl" />
       <div className="absolute bottom-[-25%] right-[-10%] w-[60%] h-[60%] rounded-full bg-[#4A2D1B]/5 blur-3xl" />
 
-      <div className="max-w-md w-full bg-[#FFFDF8] rounded-3xl border border-stone-200 shadow-xl shadow-stone-200/40 p-8 md:p-10 space-y-8 relative z-10">
+      <div className="max-w-md w-full bg-[#FFFDF8] rounded-3xl border border-stone-150 shadow-xl shadow-stone-200/40 p-8 md:p-10 space-y-8 relative z-10">
         
         <div className="text-center space-y-4 flex flex-col items-center">
           <ElPatronLogo className="w-36 h-36 drop-shadow-md" variant="badge" />
