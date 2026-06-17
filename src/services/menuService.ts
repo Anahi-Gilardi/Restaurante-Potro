@@ -1,6 +1,8 @@
 import { getActiveSupabaseClient } from '../lib/supabaseClient';
 import { ProductoMenu } from '../types';
 
+type DbProductoMenu = Record<string, unknown>;
+
 const inferTipo = (categoria: string): ProductoMenu['tipo'] => {
   const normalized = categoria.trim().toLowerCase();
   if (normalized.includes('bodega') || normalized.includes('vino')) return 'vino';
@@ -9,22 +11,33 @@ const inferTipo = (categoria: string): ProductoMenu['tipo'] => {
   return 'plato';
 };
 
-const normalizeProductoMenu = (prod: any): ProductoMenu => {
-  const categoria = String(prod.categoria || 'Menú');
-  const tipo = prod.tipo || inferTipo(categoria);
+const readString = (value: unknown, fallback = '') => (
+  typeof value === 'string' && value.trim().length > 0 ? value : fallback
+);
+
+const readNumber = (value: unknown, fallback = 0) => {
+  const parsed = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const normalizeProductoMenu = (prod: DbProductoMenu): ProductoMenu => {
+  const categoria = readString(prod.categoria, 'Menu');
+  const tipo = readString(prod.tipo) || inferTipo(categoria);
 
   return {
-    id_producto: String(prod.id_producto),
-    nombre: String(prod.nombre || ''),
-    descripcion: prod.descripcion || '',
-    precio_venta: Number(prod.precio_venta || 0),
+    id_producto: readString(prod.id_producto, `prod_${Date.now()}`),
+    nombre: readString(prod.nombre),
+    descripcion: readString(prod.descripcion),
+    precio_venta: readNumber(prod.precio_venta),
     categoria,
-    subcategoria: prod.subcategoria || undefined,
-    activo: Boolean(prod.activo),
-    imagen: prod.imagen || '/logo-el-patron.jpeg',
+    subcategoria: readString(prod.subcategoria) || undefined,
+    activo: prod.activo !== false,
+    imagen: readString(prod.imagen, '/logo-el-patron.jpeg'),
     tipo,
-    tiempo_preparacion_estimado: prod.tiempo_preparacion_estimado || undefined,
-    requiere_cocina: prod.requiere_cocina ?? (tipo === 'plato' || tipo === 'postre')
+    tiempo_preparacion_estimado: readNumber(prod.tiempo_preparacion_estimado) || undefined,
+    requiere_cocina: typeof prod.requiere_cocina === 'boolean'
+      ? prod.requiere_cocina
+      : (tipo === 'plato' || tipo === 'postre')
   };
 };
 
