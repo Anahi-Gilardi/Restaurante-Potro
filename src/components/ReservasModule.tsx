@@ -50,8 +50,10 @@ function weekRangeLabel(start: Date): string {
   const end = addDays(start, 6);
   const s = start.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
   const e = end.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
-  return `${s} – ${e}`;
+  return `${s} - ${e}`;
 }
+
+type PendingAction = 'create' | `edit_${string}` | `status_${string}` | `delete_${string}` | `assign_${string}`;
 
 export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {} }: ReservasModuleProps) {
   const { toast, toasts, removeToast } = useToast();
@@ -65,9 +67,11 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
     try {
       const data = await reservasService.list();
       const filtradas = data.filter(r => r.fecha === fecha && r.estado !== 'cancelada' && !r.lista_espera);
+      setReservas(data);
       setReservasDelDia(filtradas);
+      setInitialLoaded(true);
     } catch (err) {
-      console.error('Error cargando reservas del día:', err);
+      console.error('Error cargando reservas del dia:', err);
     } finally {
       setLoadingReservas(false);
     }
@@ -83,6 +87,8 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 300);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [calendarView, setCalendarView] = useState<'month' | 'week'>('month');
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [weekStart, setWeekStart] = useState(() => {
@@ -134,19 +140,22 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
     setNombre(''); setTelefono(''); setObservaciones('');
     setPax('2'); setHora('21:00'); setForceEspera(false);
     setEditingId(null);
+    setDeleteConfirmId(null);
   };
 
-  const handleCreateReserva = (e: React.FormEvent) => {
+  const handleCreateReserva = async (e: React.FormEvent) => {
     e.preventDefault();
-    const validation = reservaSchema.safeParse({ nombre_cliente: nombre, telefono, pax: parseInt(pax) || 2, hora, observaciones });
+    if (pendingAction) return;
+
+    const validation = reservaSchema.safeParse({ nombre_cliente: nombre, telefono, pax: parseInt(pax, 10) || 2, hora, observaciones });
     if (!validation.success) {
       const msgs = validation.error.issues.map(i => i.message).join('. ');
-      addLog('sistema', `RESERVAS: Error de validacion: ${msgs}`);
+      addLog('sistema', 'RESERVAS: Error de validacion: ' + msgs);
       toast.error(msgs);
       return;
     }
 
-    const capPax = parseInt(pax) || 2;
+    const capPax = parseInt(pax, 10) || 2;
     const selectedMesa = mesas.find(m => m.numero_mesa === nombreMesa);
     let idMesaAsignada = selectedMesa?.id_mesa;
     let nombreMesaAsignada = nombreMesa;
@@ -170,37 +179,49 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
     }
 
     if (editingId) {
-      setReservas(prev => prev.map(r => {
-        if (r.id_reserva === editingId) {
-          const updated: Reserva = {
-            ...r,
-            nombre_cliente: nombre, telefono,
-            pax: capPax,
-            nombre_mesa: enviarEspera ? 'En espera' : nombreMesaAsignada,
-            id_mesa: enviarEspera ? undefined : idMesaAsignada,
-            hora: `${hora} hs`,
-            observaciones: observaciones.trim() || undefined,
-            fecha: formularioDate,
-            estado: enviarEspera ? 'pendiente' : (r.estado === 'pendiente' ? 'confirmada' : r.estado),
-            lista_espera: enviarEspera,
-            prioridad_espera: enviarEspera ? (r.prioridad_espera ?? Date.now()) : undefined,
-          };
-          addLog('sistema', `RESERVAS: Modificada reserva de '${nombre}'`);
-          reservasService.update(editingId, updated).then(() => fetchReservasDelDia(selectedDate)).catch(err => console.error(err));
-          if (!enviarEspera && updated.id_mesa) onEstadoChange(updated, updated.estado);
-          return updated;
-        }
-        return r;
-      }));
-      setEditingId(null);
-      resetForm();
-      toast.success('Reserva actualizada correctamente.');
+      const current = reservas.find(r => r.id_reserva === editingId);
+      if (!current) return;
+
+      const updated: Reserva = {
+        ...current,
+        nombre_cliente: nombre,
+        telefono,
+        pax: capPax,
+        nombre_mesa: enviarEspera ? 'En espera' : nombreMesaAsignada,
+        id_mesa: enviarEspera ? undefined : idMesaAsignada,
+        hora: `${hora} hs`,
+        observaciones: observaciones.trim() || undefined,
+        fecha: formularioDate,
+        estado: enviarEspera ? 'pendiente' : (current.estado === 'pendiente' ? 'confirmada' : current.estado),
+        lista_espera: enviarEspera,
+        prioridad_espera: enviarEspera ? (current.prioridad_espera ?? Date.now()) : undefined,
+      };
+
+      const previous = reservas;
+      setPendingAction(`edit_${editingId}`);
+      setReservas(prev => prev.map(r => r.id_reserva === editingId ? updated : r));
+
+      try {
+        await reservasService.update(editingId, updated);
+        await fetchReservasDelDia(selectedDate);
+        if (!enviarEspera && updated.id_mesa) onEstadoChange(updated, updated.estado);
+        addLog('sistema', `RESERVAS: Modificada reserva de '${updated.nombre_cliente}'`);
+        toast.success('Reserva actualizada correctamente.');
+        resetForm();
+      } catch {
+        setReservas(previous);
+        addLog('sistema', `RESERVAS: Error al actualizar reserva de '${updated.nombre_cliente}'`);
+        toast.error('No se pudo guardar la reserva. Se revirtio el cambio.');
+      } finally {
+        setPendingAction(null);
+      }
       return;
     }
 
     const newRes: Reserva = {
       id_reserva: `r_${Date.now()}`,
-      nombre_cliente: nombre, telefono,
+      nombre_cliente: nombre,
+      telefono,
       pax: capPax,
       nombre_mesa: enviarEspera ? 'En espera' : nombreMesaAsignada,
       id_mesa: enviarEspera ? undefined : idMesaAsignada,
@@ -212,16 +233,31 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
       prioridad_espera: enviarEspera ? Date.now() : undefined,
       entrada_lista_espera: enviarEspera ? new Date().toISOString() : undefined,
     };
+
+    const previous = reservas;
+    setPendingAction('create');
     setReservas(prev => [...prev, newRes]);
-    reservasService.create(newRes).then(() => fetchReservasDelDia(formularioDate)).catch(err => console.error(err));
-    addLog('sistema', `RESERVAS: Registrada nueva reserva para '${nombre}' para ${capPax} personas el ${formularioDate} a las ${hora}hs`);
-    if (!enviarEspera && newRes.id_mesa) onEstadoChange(newRes, 'confirmada');
-    resetForm();
-    toast.success(enviarEspera ? 'Cliente agregado a la lista de espera.' : 'Reserva confirmada exitosamente.');
+
+    try {
+      const saved = await reservasService.create(newRes);
+      setReservas(prev => prev.map(r => r.id_reserva === newRes.id_reserva ? saved : r));
+      await fetchReservasDelDia(formularioDate);
+      addLog('sistema', `RESERVAS: Registrada nueva reserva para '${saved.nombre_cliente}' para ${saved.pax} personas el ${saved.fecha} a las ${saved.hora}`);
+      if (!enviarEspera && saved.id_mesa) onEstadoChange(saved, 'confirmada');
+      resetForm();
+      toast.success(enviarEspera ? 'Cliente agregado a la lista de espera.' : 'Reserva confirmada exitosamente.');
+    } catch {
+      setReservas(previous);
+      toast.error('No se pudo crear la reserva. Se revirtio el cambio.');
+    } finally {
+      setPendingAction(null);
+    }
   };
 
   const handleEdit = (r: Reserva) => {
+    if (pendingAction) return;
     setEditingId(r.id_reserva);
+    setDeleteConfirmId(null);
     setNombre(r.nombre_cliente);
     setTelefono(r.telefono);
     setPax(String(r.pax));
@@ -230,67 +266,98 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
     setObservaciones(r.observaciones || '');
     setFormularioDate(r.fecha || formatDate(new Date()));
     setForceEspera(r.lista_espera ?? false);
-    // Scroll hacia el formulario
     setTab('reservas');
   };
 
-  const handleChangeEstado = (id: string, nuevoEstado: Reserva['estado']) => {
-    setReservas(prev => prev.map(r => {
-      if (r.id_reserva === id) {
-        reservasService.update(id, { estado: nuevoEstado }).then(() => fetchReservasDelDia(selectedDate)).catch(err => console.error(err));
-        onEstadoChange(r, nuevoEstado);
-        addLog('sistema', `RESERVAS: Reserva de '${r.nombre_cliente}' cambio a ${nuevoEstado.toUpperCase()}`);
-        return { ...r, estado: nuevoEstado };
-      }
-      return r;
-    }));
+  const handleChangeEstado = async (id: string, nuevoEstado: Reserva['estado']) => {
+    if (pendingAction) return;
+    const target = reservas.find(r => r.id_reserva === id);
+    if (!target) return;
+
+    const previous = reservas;
+    const updated = { ...target, estado: nuevoEstado };
+    setPendingAction(`status_${id}`);
+    setReservas(prev => prev.map(r => r.id_reserva === id ? updated : r));
+
+    try {
+      await reservasService.update(id, { estado: nuevoEstado });
+      await fetchReservasDelDia(selectedDate);
+      onEstadoChange(updated, nuevoEstado);
+      addLog('sistema', `RESERVAS: Reserva de '${target.nombre_cliente}' cambio a ${nuevoEstado.toUpperCase()}`);
+      toast.success('Estado de reserva actualizado.');
+    } catch {
+      setReservas(previous);
+      toast.error('No se pudo cambiar el estado. Se revirtio el cambio.');
+    } finally {
+      setPendingAction(null);
+    }
   };
 
   const handleDeleteReserva = async (id: string) => {
+    if (pendingAction) return;
     const target = reservas.find(r => r.id_reserva === id);
     if (!target) return;
-    const confirmar = window.confirm(`¿Eliminar la reserva de ${target.nombre_cliente} para el ${target.fecha} a las ${target.hora}?`);
-    if (!confirmar) return;
+
+    if (deleteConfirmId !== id) {
+      setDeleteConfirmId(id);
+      toast.info(`Pulse nuevamente para eliminar la reserva de ${target.nombre_cliente}.`);
+      return;
+    }
+
+    const previous = reservas;
+    setPendingAction(`delete_${id}`);
+    setReservas(prev => prev.filter(r => r.id_reserva !== id));
 
     try {
       const ok = await reservasService.remove(id);
       if (!ok) throw new Error('No se pudo eliminar la reserva');
       if (target.id_mesa) onEstadoChange(target, 'cancelada');
-      setReservas(prev => prev.filter(r => r.id_reserva !== id));
       await fetchReservasDelDia(selectedDate);
       addLog('sistema', `RESERVAS: Anulada la reserva de '${target.nombre_cliente}' de las ${target.hora}`);
-      toast.success('Reserva eliminada de Supabase.');
-    } catch (err: any) {
-      console.error(err);
-      addLog('sistema', `RESERVAS: Error al eliminar reserva: ${err.message || err}`);
-      toast.error(err.message || 'Error al eliminar la reserva.');
+      toast.success('Reserva eliminada.');
+      setDeleteConfirmId(null);
+    } catch (err) {
+      setReservas(previous);
+      addLog('sistema', `RESERVAS: Error al eliminar reserva de '${target.nombre_cliente}'`);
+      toast.error(err instanceof Error ? err.message : 'Error al eliminar la reserva.');
+    } finally {
+      setPendingAction(null);
     }
   };
 
-  const handleAsignarMesa = (reservaId: string, mesaId: number) => {
+  const handleAsignarMesa = async (reservaId: string, mesaId: number) => {
+    if (pendingAction) return;
     const mesa = mesas.find(m => m.id_mesa === mesaId);
-    if (!mesa) return;
-    setReservas(prev => prev.map(r => {
-      if (r.id_reserva === reservaId) {
-        const updated: Reserva = {
-          ...r,
-          id_mesa: mesa.id_mesa,
-          nombre_mesa: mesa.numero_mesa,
-          estado: 'confirmada',
-          lista_espera: false,
-          prioridad_espera: undefined,
-          entrada_lista_espera: undefined,
-        };
-        reservasService.update(reservaId, updated).then(() => fetchReservasDelDia(selectedDate)).catch(err => console.error(err));
-        onEstadoChange(updated, 'confirmada');
-        addLog('sistema', `RESERVAS: '${r.nombre_cliente}' asignado a ${mesa.numero_mesa} desde lista de espera.`);
-        toast.success(`Mesa ${mesa.numero_mesa} asignada.`);
-        return updated;
-      }
-      return r;
-    }));
-  };
+    const target = reservas.find(r => r.id_reserva === reservaId);
+    if (!mesa || !target) return;
 
+    const updated: Reserva = {
+      ...target,
+      id_mesa: mesa.id_mesa,
+      nombre_mesa: mesa.numero_mesa,
+      estado: 'confirmada',
+      lista_espera: false,
+      prioridad_espera: undefined,
+      entrada_lista_espera: undefined,
+    };
+
+    const previous = reservas;
+    setPendingAction(`assign_${reservaId}`);
+    setReservas(prev => prev.map(r => r.id_reserva === reservaId ? updated : r));
+
+    try {
+      await reservasService.update(reservaId, updated);
+      await fetchReservasDelDia(selectedDate);
+      onEstadoChange(updated, 'confirmada');
+      addLog('sistema', `RESERVAS: '${target.nombre_cliente}' asignado a ${mesa.numero_mesa} desde lista de espera.`);
+      toast.success(`Mesa ${mesa.numero_mesa} asignada.`);
+    } catch {
+      setReservas(previous);
+      toast.error('No se pudo asignar la mesa. Se revirtio el cambio.');
+    } finally {
+      setPendingAction(null);
+    }
+  };
   // ── Filtros ────────────────────────────────────────────────────────────────
   const filtered = useMemo(() => reservasDelDia.filter(
     r => r.nombre_cliente.toLowerCase().includes(debouncedSearch.toLowerCase()) || r.telefono.includes(debouncedSearch)
@@ -326,6 +393,7 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   const todayStr = formatDate(new Date());
+  const formBusy = pendingAction === 'create' || (editingId ? pendingAction === `edit_${editingId}` : false);
 
   const weekDays = useMemo(() => {
     const days: Date[] = [];
@@ -399,13 +467,13 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
                 <input id="forceEspera" type="checkbox" checked={forceEspera} onChange={e => setForceEspera(e.target.checked)} className="rounded border-stone-300 text-[#624A3E] focus:ring-1 focus:ring-[#624A3E]" />
                 <label htmlFor="forceEspera" className="text-[10px] font-bold text-stone-600">Enviar a lista de espera</label>
               </div>
-              <button type="submit"
-                className="w-full py-2.5 bg-[#624A3E] hover:bg-[#503C32] text-white text-xs font-extrabold rounded-xl transition-all cursor-pointer">
-                {editingId ? 'Guardar Cambios' : 'Confirmar Reserva'}
+              <button type="submit" disabled={pendingAction !== null}
+                className="w-full py-2.5 bg-[#624A3E] hover:bg-[#503C32] disabled:bg-stone-300 disabled:cursor-not-allowed text-white text-xs font-extrabold rounded-xl transition-all cursor-pointer active:scale-[0.98]">
+                {formBusy ? 'Sincronizando...' : editingId ? 'Guardar Cambios' : 'Confirmar Reserva'}
               </button>
               {editingId && (
-                <button type="button" onClick={resetForm}
-                  className="w-full py-2 text-xs font-bold text-stone-500 hover:text-stone-700 transition-colors cursor-pointer">
+                <button type="button" onClick={resetForm} disabled={pendingAction !== null}
+                  className="w-full py-2 text-xs font-bold text-stone-500 hover:text-stone-700 disabled:text-stone-300 transition-colors cursor-pointer">
                   Cancelar edicion
                 </button>
               )}
@@ -657,25 +725,27 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
                       </div>
 
                       <div className="flex items-center gap-2 shrink-0" onClick={e => e.stopPropagation()}>
-                        <button onClick={() => handleEdit(r)} title="Editar"
-                          className="p-1.5 rounded-lg bg-stone-50 hover:bg-blue-50 text-stone-400 hover:text-blue-500 transition-colors cursor-pointer">
+                        <button onClick={() => handleEdit(r)} title="Editar" disabled={pendingAction !== null}
+                          className="p-1.5 rounded-lg bg-stone-50 hover:bg-blue-50 text-stone-400 hover:text-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer">
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
                         {r.estado === 'confirmada' && (
-                          <button onClick={() => handleChangeEstado(r.id_reserva, 'sentada')}
-                            className="py-1 px-2.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[10px] font-black cursor-pointer transition-colors">
-                            Sentar
+                          <button onClick={() => handleChangeEstado(r.id_reserva, 'sentada')} disabled={pendingAction !== null}
+                            className="py-1 px-2.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-[10px] font-black cursor-pointer transition-colors">
+                            {pendingAction === `status_${r.id_reserva}` ? 'Guardando...' : 'Sentar'}
                           </button>
                         )}
                         {r.estado === 'sentada' && (
-                          <button onClick={() => handleChangeEstado(r.id_reserva, 'completada')}
-                            className="py-1 px-2.5 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-600 text-[10px] font-black cursor-pointer transition-colors">
-                            Completar
+                          <button onClick={() => handleChangeEstado(r.id_reserva, 'completada')} disabled={pendingAction !== null}
+                            className="py-1 px-2.5 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-600 disabled:opacity-40 disabled:cursor-not-allowed text-[10px] font-black cursor-pointer transition-colors">
+                            {pendingAction === `status_${r.id_reserva}` ? 'Guardando...' : 'Completar'}
                           </button>
                         )}
-                        <button onClick={() => handleDeleteReserva(r.id_reserva)} title="Anular"
-                          className="p-1.5 rounded-lg bg-stone-50 hover:bg-rose-50 text-stone-400 hover:text-rose-500 transition-colors cursor-pointer">
-                          <Trash className="w-3.5 h-3.5" />
+                        <button onClick={() => handleDeleteReserva(r.id_reserva)} title="Anular" disabled={pendingAction !== null}
+                          className={`p-1.5 rounded-lg transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
+                            deleteConfirmId === r.id_reserva ? 'bg-rose-100 text-rose-700' : 'bg-stone-50 hover:bg-rose-50 text-stone-400 hover:text-rose-500'
+                          }`}>
+                          {pendingAction === `delete_${r.id_reserva}` ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash className="w-3.5 h-3.5" />}
                         </button>
                       </div>
                     </div>
@@ -742,9 +812,9 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
                               <span className="text-[10px] text-rose-600 font-medium flex items-center gap-1"><AlertCircle className="w-3 h-3" />Sin mesas libres</span>
                             ) : (
                               disp.map(m => (
-                                <button key={m.id_mesa} onClick={() => handleAsignarMesa(r.id_reserva, m.id_mesa)}
-                                  className="text-[9px] font-extrabold px-2 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 transition-colors cursor-pointer">
-                                  {m.numero_mesa}
+                                <button key={m.id_mesa} onClick={() => handleAsignarMesa(r.id_reserva, m.id_mesa)} disabled={pendingAction !== null}
+                                  className="text-[9px] font-extrabold px-2 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer">
+                                  {pendingAction === `assign_${r.id_reserva}` ? '...' : m.numero_mesa}
                                 </button>
                               ))
                             );
@@ -752,10 +822,12 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <button onClick={() => handleEdit(r)}
-                          className="text-[9px] font-bold text-stone-500 hover:text-stone-700 underline cursor-pointer">Editar</button>
-                        <button onClick={() => handleDeleteReserva(r.id_reserva)}
-                          className="text-[9px] font-bold text-rose-500 hover:text-rose-700 underline cursor-pointer">Eliminar</button>
+                        <button onClick={() => handleEdit(r)} disabled={pendingAction !== null}
+                          className="text-[9px] font-bold text-stone-500 hover:text-stone-700 disabled:text-stone-300 underline cursor-pointer">Editar</button>
+                        <button onClick={() => handleDeleteReserva(r.id_reserva)} disabled={pendingAction !== null}
+                          className={`text-[9px] font-bold underline cursor-pointer disabled:text-stone-300 ${
+                            deleteConfirmId === r.id_reserva ? 'text-rose-700' : 'text-rose-500 hover:text-rose-700'
+                          }`}>{deleteConfirmId === r.id_reserva ? 'Confirmar eliminar' : 'Eliminar'}</button>
                       </div>
                     </div>
                   ))
