@@ -178,6 +178,11 @@ export function InventarioProvider({ children }: { children: ReactNode }) {
         (idInsumo: string, cantidad: number, motivo: Merma['motivo']) => {
                 const insumo = insumos.find(i => i.id_insumo === idInsumo);
                 if (!insumo) return;
+                if (!Number.isFinite(cantidad) || cantidad <= 0) return;
+                if (insumo.stock_actual < cantidad) {
+                        addLog('alerta_stock', `Merma rechazada: stock insuficiente para ${insumo.nombre}.`);
+                        return;
+                }
 
           const nueva: Merma = {
                     id_merma: makeId(),
@@ -203,6 +208,7 @@ export function InventarioProvider({ children }: { children: ReactNode }) {
       );
 
   const handleRestockInsumo = useCallback((idInsumo: string, cantidad: number) => {
+        if (!Number.isFinite(cantidad) || cantidad <= 0) return;
         setInsumos(prev =>
                 prev.map(i =>
                           i.id_insumo === idInsumo ? { ...i, stock_actual: i.stock_actual + cantidad } : i

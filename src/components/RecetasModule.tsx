@@ -3,6 +3,7 @@ import { ChefHat, Hammer, Tag, AlertTriangle, Plus, Scale, Search, Trash, Edit2,
 import { RecetaEscandallo, ProductoMenu, Insumo, EventoLog } from '../types';
 import { recetasService } from '../services/recetasService';
 import { DEFAULT_PRODUCT_IMAGE, getSafeImageSrc } from '../lib/imageFallbacks';
+import { useToast, ToastContainer } from './ToastContainer';
 
 interface RecetasModuleProps {
   recetas: RecetaEscandallo[];
@@ -19,6 +20,7 @@ export default function RecetasModule({
   onRecetasChange,
   addLog
 }: RecetasModuleProps) {
+  const { toast, toasts, dismissToast } = useToast();
   const [activeTabRecipe, setActiveTabRecipe] = useState<string>(productosMenu[0]?.id_producto || '');
   const [searchProduct, setSearchProduct] = useState('');
   const [editCantidad, setEditCantidad] = useState<string | null>(null);
@@ -48,40 +50,88 @@ export default function RecetasModule({
 
   const handleAddIngredient = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedInsumoId || !cantidadUsar || !activeTabRecipe) return;
+    const cantidad = Number.parseFloat(cantidadUsar);
+
+    if (!selectedInsumoId || !activeTabRecipe || !Number.isFinite(cantidad) || cantidad <= 0) {
+      toast.warning('Seleccioná un insumo y una cantidad válida.');
+      return;
+    }
 
     const matchedIn = insumos.find(i => i.id_insumo === selectedInsumoId);
-    if (!matchedIn) return;
+    if (!matchedIn) {
+      toast.error('No se encontró el insumo seleccionado.');
+      return;
+    }
+
+    const alreadyExists = localRecetas.some(r => r.id_producto === activeTabRecipe && r.id_insumo === selectedInsumoId);
+    if (alreadyExists) {
+      toast.warning('Ese insumo ya está en la receta. Editá la cantidad existente.');
+      return;
+    }
 
     const newRec: RecetaEscandallo = {
       id_receta: `rec_new_${Date.now()}`,
       id_producto: activeTabRecipe,
       id_insumo: selectedInsumoId,
-      cantidad_a_descontar: parseFloat(cantidadUsar)
+      cantidad_a_descontar: cantidad
     };
 
-    setLocalRecetas(prev => {
-      const next = [...prev, newRec];
-      onRecetasChange(next);
-      return next;
+    const previous = localRecetas;
+    const next = [...previous, newRec];
+    setLocalRecetas(next);
+    onRecetasChange(next);
+
+    recetasService.create(newRec).catch(err => {
+      console.error(err);
+      setLocalRecetas(previous);
+      onRecetasChange(previous);
+      toast.error('No se pudo guardar el ingrediente. Se revirtió el cambio.');
     });
-    recetasService.create(newRec).catch(err => console.error(err));
     addLog('sistema', `ESCANDALLO: Agregado insumo ${matchedIn.nombre} (${cantidadUsar} ${matchedIn.unidad_medida}) a la receta de ${selectedProduct?.nombre}`);
     setCantidadUsar('');
     setSelectedInsumoId('');
+    toast.success('Ingrediente vinculado a la receta.');
   };
 
   const handleRemoveRecipeItem = (id: string) => {
     const targetItem = localRecetas.find(r => r.id_receta === id);
     if (!targetItem) return;
     const matchedIn = insumos.find(i => i.id_insumo === targetItem.id_insumo);
-    setLocalRecetas(prev => {
-      const next = prev.filter(r => r.id_receta !== id);
-      onRecetasChange(next);
-      return next;
+
+    const previous = localRecetas;
+    const next = previous.filter(r => r.id_receta !== id);
+    setLocalRecetas(next);
+    onRecetasChange(next);
+
+    recetasService.remove(id).catch(err => {
+      console.error(err);
+      setLocalRecetas(previous);
+      onRecetasChange(previous);
+      toast.error('No se pudo eliminar el ingrediente. Se restauró la receta.');
     });
-    recetasService.remove(id).catch(err => console.error(err));
     addLog('sistema', `ESCANDALLO: Removido insumo ${matchedIn ? matchedIn.nombre : targetItem.id_insumo} de la receta de ${selectedProduct?.nombre}`);
+    toast.success('Ingrediente eliminado de la receta.');
+  };
+
+  const handleUpdateRecipeQuantity = (id: string) => {
+    const cantidad = Number.parseFloat(editCantidadValue);
+    if (!Number.isFinite(cantidad) || cantidad <= 0) {
+      toast.warning('Ingresá una cantidad válida mayor a cero.');
+      return;
+    }
+
+    const previous = localRecetas;
+    const next = previous.map(r => r.id_receta === id ? { ...r, cantidad_a_descontar: cantidad } : r);
+    setLocalRecetas(next);
+    onRecetasChange(next);
+    setEditCantidad(null);
+
+    recetasService.update(id, { cantidad_a_descontar: cantidad }).catch(err => {
+      console.error(err);
+      setLocalRecetas(previous);
+      onRecetasChange(previous);
+      toast.error('No se pudo actualizar la cantidad. Se revirtió el cambio.');
+    });
   };
 
   return (
@@ -197,14 +247,7 @@ export default function RecetasModule({
                                 <div className="flex items-center gap-1">
                                   <input type="number" step="0.01" value={editCantidadValue} onChange={e => setEditCantidadValue(e.target.value)}
                                     className="w-16 text-xs p-1 border border-stone-300 rounded bg-white text-center font-mono font-bold focus:outline-none focus:ring-1 focus:ring-[#624A3E]" />
-                                  <button onClick={() => {
-                                    const val = parseFloat(editCantidadValue);
-                                    if (val > 0) {
-                                      setLocalRecetas(prev => prev.map(r => r.id_receta === rec.id_receta ? { ...r, cantidad_a_descontar: val } : r));
-                                      recetasService.update(rec.id_receta, { cantidad_a_descontar: val }).catch(() => {});
-                                      setEditCantidad(null);
-                                    }
-                                  }} className="p-1 rounded bg-emerald-50 text-emerald-600 cursor-pointer"><Check className="w-3 h-3" /></button>
+                                  <button onClick={() => handleUpdateRecipeQuantity(rec.id_receta)} className="p-1 rounded bg-emerald-50 text-emerald-600 cursor-pointer"><Check className="w-3 h-3" /></button>
                                   <button onClick={() => setEditCantidad(null)} className="p-1 rounded bg-stone-100 text-stone-500 cursor-pointer"><X className="w-3 h-3" /></button>
                                 </div>
                               ) : (
@@ -277,6 +320,7 @@ export default function RecetasModule({
         )}
 
       </div>
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 }

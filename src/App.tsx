@@ -623,6 +623,11 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
   const handleRegistrarMerma = (idInsumo: string, cantidad: number, motivo: Merma['motivo']) => {
     const insObj = insumos.find(i => i.id_insumo === idInsumo);
     if (!insObj) return;
+    if (!Number.isFinite(cantidad) || cantidad <= 0) return;
+    if (insObj.stock_actual < cantidad) {
+      addLog('alerta_stock', `MERMA RECHAZADA: stock insuficiente para ${insObj.nombre}. Disponible: ${insObj.stock_actual}${insObj.unidad_medida}.`);
+      return;
+    }
 
     const newMerma: Merma = {
       id_merma: `mrm_${Date.now()}`,
@@ -657,13 +662,14 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
 
   const handleRestockInsumo = useCallback((idInsumo: string, cantidad: number) => {
     const item = insumos.find(i => i.id_insumo === idInsumo);
+    if (!item || !Number.isFinite(cantidad) || cantidad <= 0) return;
     const updatedInsumos = insumos.map(i => i.id_insumo === idInsumo ? {
       ...i,
       stock_actual: parseFloat((i.stock_actual + cantidad).toFixed(2))
     } : i);
     setInsumos(updatedInsumos);
 
-    addLog('sistema', `REPOSICIÓN: Incremetado stock de '${item ? item.nombre : idInsumo}' en +${cantidad}`);
+    addLog('sistema', `REPOSICION: Incrementado stock de '${item.nombre}' en +${cantidad}`);
 
     dbUpsertInsumos(updatedInsumos);
     if (item) {

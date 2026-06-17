@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useToast, ToastContainer } from './ToastContainer';
 import { 
   Database, 
@@ -53,8 +53,9 @@ export default function InventoryModule({
   const [inventorySearch, setInventorySearch] = useState('');
 
   // Selected dish for escandallo simulator
-  const [selectedEscandalloDishId, setSelectedEscandalloDishId] = useState<string>('prod_bife');
+  const [selectedEscandalloDishId, setSelectedEscandalloDishId] = useState<string>(productosMenu[0]?.id_producto || '');
   const [simulatePortions, setSimulatePortions] = useState<number>(1);
+  const [busyAction, setBusyAction] = useState<'merma' | 'ajuste' | 'compra' | 'restock-todo' | null>(null);
 
   // Waste (Merma) form states
   const [mermaInsumoId, setMermaInsumoId] = useState<string>('');
@@ -65,15 +66,15 @@ export default function InventoryModule({
   const [ajusteInsumoId, setAjusteInsumoId] = useState<string>('');
   const [ajusteCantidad, setAjusteCantidad] = useState<number>(0);
   const [ajusteOperacion, setAjusteOperacion] = useState<'sumar' | 'restar'>('sumar');
-  const [ajusteMotivo, setAjusteMotivo] = useState<string>('Ajuste de Arqueo Físico');
+  const [ajusteMotivo, setAjusteMotivo] = useState<string>('Ajuste de arqueo fisico');
 
   // Supplier Purchase orders state simulator
   const [selectedProveedor, setSelectedProveedor] = useState<string>('Distribuidora Alvear S.A. (Bebidas)');
   const [compraInsumoId, setCompraInsumoId] = useState<string>('ins_vin_malbec');
   const [compraCantidad, setCompraCantidad] = useState<number>(10);
   const [comprasHistorial, setComprasHistorial] = useState([
-    { id: 'OC-2512', proveedor: 'Frigorífico Pampeano Premium', insumo: 'Corte de Carne Vacuna (Bife)', cantidad: '15000g', costo: 180000, fecha: '04/06/2026', estado: 'Entregado ✓' },
-    { id: 'OC-2513', proveedor: 'Distribuidora Alvear S.A. (Bebidas)', insumo: 'Vino Rutini Cabernet 750ml', cantidad: '12 uds', costo: 156000, fecha: '05/06/2026', estado: 'Entregado ✓' },
+    { id: 'OC-2512', proveedor: 'Frigorifico Pampeano Premium', insumo: 'Corte de Carne Vacuna (Bife)', cantidad: '15000g', costo: 180000, fecha: '04/06/2026', estado: 'Entregado' },
+    { id: 'OC-2513', proveedor: 'Distribuidora Alvear S.A. (Bebidas)', insumo: 'Vino Rutini Cabernet 750ml', cantidad: '12 uds', costo: 156000, fecha: '05/06/2026', estado: 'Entregado' },
   ]);
 
   const proveedores = [
@@ -91,6 +92,12 @@ export default function InventoryModule({
     { id: 'MOV-013', insumo: 'Lechuga Romana Orgánica', cantidad: '500g', operacion: 'Descarte/Merma', motivo: 'Desperdicio Manual Vencido', fecha: '2026-06-05 16:30hs' }
   ]);
 
+  useEffect(() => {
+    if (!productosMenu.some(p => p.id_producto === selectedEscandalloDishId)) {
+      setSelectedEscandalloDishId(productosMenu[0]?.id_producto || '');
+    }
+  }, [productosMenu, selectedEscandalloDishId]);
+
   // Filtered insumos
   const filteredInsumos = useMemo(() => {
     return insumos.filter(ins => {
@@ -103,7 +110,8 @@ export default function InventoryModule({
   // Handle merma register
   const submitMermaForm = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!mermaInsumoId || mermaCantidad <= 0) {
+    if (busyAction) return;
+    if (!mermaInsumoId || !Number.isFinite(mermaCantidad) || mermaCantidad <= 0) {
       toast.warning("Complete todos los campos requeridos");
       return;
     }
@@ -116,6 +124,7 @@ export default function InventoryModule({
       return;
     }
 
+    setBusyAction('merma');
     onRegistrarMerma(mermaInsumoId, mermaCantidad, mermaMotivo);
     addLog('merma_registrada', `Merma manual registrada: ${mermaCantidad}${insSelected.unidad_medida} de ${insSelected.nombre} por motivo de ${mermaMotivo}`);
     
@@ -130,12 +139,14 @@ export default function InventoryModule({
     setMermaCantidad(0);
     setMermaInsumoId('');
     toast.success("Merma registrada correctamente");
+    setBusyAction(null);
   };
 
   // Process manual adjustments (plus/minus)
   const submitAjusteForm = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!ajusteInsumoId || ajusteCantidad <= 0) {
+    if (busyAction) return;
+    if (!ajusteInsumoId || !Number.isFinite(ajusteCantidad) || ajusteCantidad <= 0) {
       toast.warning("Complete los datos del ajuste de stock");
       return;
     }
@@ -144,9 +155,11 @@ export default function InventoryModule({
     if (!insSelected) return;
 
     if (ajusteOperacion === 'restar' && insSelected.stock_actual < ajusteCantidad) {
-      toast.error("No puede restar más que el stock disponible");
+      toast.error("No puede restar mas que el stock disponible");
       return;
     }
+
+    setBusyAction('ajuste');
 
     // Adjust immediately via parent helper or local mermas
     if (ajusteOperacion === 'sumar') {
@@ -167,12 +180,14 @@ export default function InventoryModule({
     setAjusteCantidad(0);
     setAjusteInsumoId('');
     toast.success("Ajuste de stock aplicado correctamente");
+    setBusyAction(null);
   };
 
   // Submit Simulated Purchase Order to supplier
   const handleIngresarCompraProveedor = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!compraInsumoId || compraCantidad <= 0) {
+    if (busyAction) return;
+    if (!compraInsumoId || !Number.isFinite(compraCantidad) || compraCantidad <= 0) {
       toast.warning("Seleccione el insumo y cantidad para la compra");
       return;
     }
@@ -182,6 +197,8 @@ export default function InventoryModule({
 
     // Standardize mock units price
     const calculatedCost = compraCantidad * (insSelected.unidad_medida === 'g' ? 12 : (insSelected.unidad_medida === 'ml' ? 9 : 8500));
+
+    setBusyAction('compra');
 
     // Increase stock immediately
     onRestockInsumo(compraInsumoId, compraCantidad);
@@ -196,7 +213,7 @@ export default function InventoryModule({
       cantidad: `${compraCantidad} ${insSelected.unidad_medida}`,
       costo: calculatedCost,
       fecha: new Date().toLocaleDateString('es-AR'),
-      estado: 'Entregado ✓'
+      estado: 'Entregado'
     };
 
     setComprasHistorial(prev => [newOC, ...prev]);
@@ -211,6 +228,7 @@ export default function InventoryModule({
     // Reset Form
     setCompraCantidad(10);
     toast.success(`Orden de compra enviada a ${selectedProveedor}. Stock acreditado.`);
+    setBusyAction(null);
   };
 
   // Recipe specs for the selected dish
@@ -352,8 +370,14 @@ export default function InventoryModule({
             Operaciones Rápidas
           </h5>
           <button
-            onClick={onRestockTodo}
-            className="w-full py-2 px-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 hover:text-slate-900 font-semibold text-xs rounded-xl flex items-center justify-center gap-2 transition-all"
+            onClick={() => {
+              if (busyAction) return;
+              setBusyAction('restock-todo');
+              onRestockTodo();
+              setBusyAction(null);
+            }}
+            disabled={busyAction !== null}
+            className="w-full py-2 px-3 bg-slate-50 hover:bg-slate-100 disabled:opacity-60 disabled:cursor-not-allowed border border-slate-200 text-slate-700 hover:text-slate-900 font-semibold text-xs rounded-xl flex items-center justify-center gap-2 transition-all"
           >
             <RefreshCw className="w-3.5 h-3.5" />
             Reabastecer todo (Demo)
@@ -383,7 +407,7 @@ export default function InventoryModule({
                     placeholder="Filtrar ingredientes..."
                     value={inventorySearch}
                     onChange={(e) => setInventorySearch(e.target.value)}
-                    className="w-full pl-9 pr-3 py-1.5 bg-slate-50 rounded-xl text-xs text-slate-755 text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-900 transition-colors"
+                    className="w-full pl-9 pr-3 py-1.5 bg-slate-50 rounded-xl text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-900 transition-colors"
                   />
                 </div>
                 
@@ -502,7 +526,7 @@ export default function InventoryModule({
                   // ADJUSTMENT FORM
                   <form onSubmit={submitAjusteForm} className="space-y-3">
                     <div>
-                      <label className="text-[10px] font-bold text-slate-505 text-slate-500 uppercase font-sans">Insumo a Ajustar</label>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase font-sans">Insumo a Ajustar</label>
                       <select
                         value={ajusteInsumoId}
                         onChange={(e) => setAjusteInsumoId(e.target.value)}
@@ -554,9 +578,10 @@ export default function InventoryModule({
 
                     <button
                       type="submit"
-                      className="w-full py-2 bg-[#624A3E] hover:bg-[#503C32] text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm shadow-[#624A3E]/10"
+                      disabled={busyAction !== null}
+                      className="w-full py-2 bg-[#624A3E] hover:bg-[#503C32] disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm shadow-[#624A3E]/10"
                     >
-                      Procesar Ajuste Físico
+                      {busyAction === 'ajuste' ? 'Procesando ajuste...' : 'Procesar ajuste fisico'}
                     </button>
                   </form>
                 ) : (
@@ -612,16 +637,17 @@ export default function InventoryModule({
 
                     <button
                       type="submit"
-                      className="w-full py-2 bg-[#EF4444] hover:bg-[#d83a3a] text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm shadow-[#EF4444]/10"
+                      disabled={busyAction !== null}
+                      className="w-full py-2 bg-[#EF4444] hover:bg-[#d83a3a] disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm shadow-[#EF4444]/10"
                     >
-                      Baja de Desperdicio
+                      {busyAction === 'merma' ? 'Registrando merma...' : 'Baja de desperdicio'}
                     </button>
                   </form>
                 )}
               </div>
 
               {/* RECENT HISTORIC LOST LOGS */}
-              <div className="mt-4 pt-4 border-t border-slate-55 border-slate-100">
+              <div className="mt-4 pt-4 border-t border-slate-100">
                 <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Últimas pérdidas registradas</h5>
                 {mermas.length === 0 ? (
                   <p className="text-[10px] italic text-slate-400">Ningún desperdicio registrado hoy.</p>
@@ -629,7 +655,7 @@ export default function InventoryModule({
                   <div className="space-y-1.5 max-h-24 overflow-y-auto pr-1">
                     {mermas.slice(-3).reverse().map((m, idx) => (
                       <div key={idx} className="flex justify-between items-center text-[10px] bg-slate-50 p-1.5 border border-slate-100 rounded-lg">
-                        <span className="text-slate-650 font-sans line-clamp-1">-{m.cantidad} {m.unidad_medida} de {m.nombre_insumo}</span>
+                        <span className="text-slate-600 font-sans line-clamp-1">-{m.cantidad} {m.unidad_medida} de {m.nombre_insumo}</span>
                         <span className="text-rose-600 uppercase font-bold text-[8px] font-mono">{m.motivo}</span>
                       </div>
                     ))}
@@ -711,7 +737,7 @@ export default function InventoryModule({
                 )}
 
                 <div className="space-y-2">
-                  <h5 className="text-[11px] font-bold text-slate-505 text-slate-500 uppercase tracking-wider font-sans">Ingredientes de la Receta</h5>
+                  <h5 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider font-sans">Ingredientes de la Receta</h5>
                   
                   <div className="space-y-2">
                     {selectedProductIngredients.map((ing, index) => {
@@ -729,7 +755,7 @@ export default function InventoryModule({
                           </div>
 
                           <div className="text-right space-y-1">
-                            <div className="font-semibold text-slate-750 text-slate-700">
+                            <div className="font-semibold text-slate-700">
                               Simulado: <span className="font-bold font-mono text-slate-900">-{totalSimulatedReduction}{ing.unidad_medida}</span>
                             </div>
                             <div className="text-[10px] leading-none text-slate-500">
@@ -811,7 +837,7 @@ export default function InventoryModule({
                 <div>
                   <label className="text-[10px] font-bold text-slate-500 uppercase">Seleccionar Proveedor</label>
                   <select
-                    className="w-full text-xs text-slate-700 bg-slate-50 p-2.5 border border-slate-150 rounded-lg"
+                    className="w-full text-xs text-slate-700 bg-slate-50 p-2.5 border border-slate-200 rounded-lg"
                     value={selectedProveedor}
                     onChange={(e) => setSelectedProveedor(e.target.value)}
                   >
@@ -824,7 +850,7 @@ export default function InventoryModule({
                 <div>
                   <label className="text-[10px] font-bold text-slate-500 uppercase">Material a Abastecer</label>
                   <select
-                    className="w-full text-xs text-slate-700 bg-slate-50 p-2.5 border border-slate-150 rounded-lg"
+                    className="w-full text-xs text-slate-700 bg-slate-50 p-2.5 border border-slate-200 rounded-lg"
                     value={compraInsumoId}
                     onChange={(e) => setCompraInsumoId(e.target.value)}
                   >
@@ -841,7 +867,7 @@ export default function InventoryModule({
                   <div className="relative">
                     <input
                       type="number"
-                      className="w-full text-xs p-2.5 bg-slate-50 border border-slate-150 rounded-lg text-slate-800"
+                      className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800"
                       value={compraCantidad || ''}
                       onChange={(e) => setCompraCantidad(Math.max(1, parseFloat(e.target.value)))}
                       placeholder="Ej: 2000"
@@ -854,10 +880,11 @@ export default function InventoryModule({
 
                 <button
                   type="submit"
-                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl shadow transition-colors flex items-center justify-center gap-1.5"
+                  disabled={busyAction !== null}
+                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-extrabold text-xs rounded-xl shadow transition-colors flex items-center justify-center gap-1.5"
                 >
                   <Sparkles className="w-4 h-4" />
-                  Enviar Órden de Restock Digital
+                  {busyAction === 'compra' ? 'Registrando compra...' : 'Enviar orden de restock digital'}
                 </button>
 
               </form>
@@ -883,7 +910,7 @@ export default function InventoryModule({
                 Historial de Compras de Bodega & Insumos
               </h4>
 
-              <div className="border rounded-xl bg-slate-50/50 p-2 text-[11px] text-indigo-750 flex items-center gap-2">
+              <div className="border rounded-xl bg-slate-50/50 p-2 text-[11px] text-indigo-700 flex items-center gap-2">
                 <Info className="w-5 h-5 text-indigo-600" />
                 <span>Simulación de cadena de frío y recepción de remitos para restaurante en tiempo real.</span>
               </div>
@@ -894,7 +921,7 @@ export default function InventoryModule({
                     <div>
                       <div className="flex items-center gap-1.5">
                         <span className="font-bold text-slate-800 font-sans">{oc.proveedor}</span>
-                        <span className="bg-slate-150 text-slate-650 text-[8px] font-bold px-1.5 rounded-full uppercase">
+                        <span className="bg-slate-100 text-slate-600 text-[8px] font-bold px-1.5 rounded-full uppercase">
                           {oc.id}
                         </span>
                       </div>
@@ -966,7 +993,7 @@ export default function InventoryModule({
                         </td>
                         <td className="p-3">
                           <span className={`px-2 py-0.5 text-[9px] font-bold rounded-full ${
-                            m.operacion === 'Descuneto' || m.operacion === 'Descuento'
+                            m.operacion === 'Descuento'
                               ? 'bg-amber-100 text-amber-800'
                               : m.operacion === 'Abastecimiento'
                               ? 'bg-emerald-100 text-emerald-800'
@@ -975,7 +1002,7 @@ export default function InventoryModule({
                             {m.operacion}
                           </span>
                         </td>
-                        <td className="p-3 font-sans text-slate-550 text-slate-600">{m.motivo}</td>
+                        <td className="p-3 font-sans text-slate-600">{m.motivo}</td>
                         <td className="p-3 text-slate-400 font-mono text-[10px]">{m.fecha}</td>
                       </tr>
                     );
