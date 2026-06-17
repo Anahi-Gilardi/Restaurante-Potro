@@ -689,13 +689,31 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     const updatedMesas = mesas.map(mesa => {
       if (mesa.id_mesa !== reserva.id_mesa) return mesa;
       if (estado === 'confirmada') {
-        return { ...mesa, estado: 'reservada' as const, comensales: reserva.pax };
+        return {
+          ...mesa,
+          estado: 'reservada' as const,
+          comensales: reserva.pax,
+          reserva_cliente: reserva.nombre_cliente,
+          reserva_hora: reserva.hora
+        };
       }
       if (estado === 'sentada') {
-        return { ...mesa, estado: 'ocupada' as const, comensales: reserva.pax };
+        return {
+          ...mesa,
+          estado: 'ocupada' as const,
+          comensales: reserva.pax,
+          reserva_cliente: undefined,
+          reserva_hora: undefined
+        };
       }
       if (!hasActiveOrder && (estado === 'cancelada' || estado === 'completada' || estado === 'pendiente')) {
-        return { ...mesa, estado: 'libre' as const, comensales: undefined };
+        return {
+          ...mesa,
+          estado: 'libre' as const,
+          comensales: undefined,
+          reserva_cliente: undefined,
+          reserva_hora: undefined
+        };
       }
       return mesa;
     });
