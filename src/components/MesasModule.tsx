@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useToast, ToastContainer } from './ToastContainer';
 import {
   Sofa, List, Link2, Unlink, Plus, Check, Trash, Edit2, X,
-  MapPin, Users, AlertCircle, Search, LayoutGrid
+  MapPin, Users, AlertCircle, Search, LayoutGrid, Unlock
 } from 'lucide-react';
 import { Mesa, EventoLog } from '../types';
 import { mesasService } from '../services/mesasService';
@@ -22,6 +22,7 @@ const ESTADOS: { key: Mesa['estado']; label: string; color: string; bg: string; 
 ];
 
 const ESTADO_POR_KEY = Object.fromEntries(ESTADOS.map(e => [e.key, e]));
+const ESTADO_ORDER: Mesa['estado'][] = ['libre', 'ocupada', 'esperando_cuenta', 'reservada', 'limpiando'];
 
 /** Posiciones aproximadas basadas en el plano enviado. El plano es vertical; 0,0 = arriba-izquierda. */
 const MESAS_INICIALES_PLANO: Partial<Mesa>[] = [
@@ -84,6 +85,8 @@ export default function MesasModule({ mesas, onMesasChange, addLog }: MesasModul
   // Unión
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [unionMode, setUnionMode] = useState(false);
+  const [activeMesaId, setActiveMesaId] = useState<number | null>(null);
+  const [busyMesaId, setBusyMesaId] = useState<number | null>(null);
 
   // Confirmación eliminación
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
@@ -91,6 +94,12 @@ export default function MesasModule({ mesas, onMesasChange, addLog }: MesasModul
   useEffect(() => {
     setLocalMesas(normalizedMesas);
   }, [normalizedMesas]);
+
+  useEffect(() => {
+    if (activeMesaId && !localMesas.some(m => m.id_mesa === activeMesaId)) {
+      setActiveMesaId(null);
+    }
+  }, [activeMesaId, localMesas]);
 
   const persist = (next: Mesa[]) => {
     setLocalMesas(next);
@@ -130,38 +139,65 @@ export default function MesasModule({ mesas, onMesasChange, addLog }: MesasModul
     setCapacidad(4);
   };
 
-  const handleToggleEstadoMesa = (id: number) => {
-    setLocalMesas(prev => {
-      const idx = prev.findIndex(m => m.id_mesa === id);
-      if (idx === -1) return prev;
-      const m = prev[idx];
-      if (m.parent_id) {
-        toast.error('No se puede editar una mesa que está unida a otra. Sepárela primero.');
-        return prev;
-      }
-      const order: Mesa['estado'][] = ['libre', 'ocupada', 'esperando_cuenta', 'reservada', 'limpiando'];
-      const currentIdx = order.indexOf(m.estado);
-      const nextEstado = order[(currentIdx + 1) % order.length];
-      const updated: Mesa = {
-        ...m,
-        estado: nextEstado,
-        comensales: nextEstado === 'ocupada' ? Math.min(m.capacidad || 2, 2) : undefined,
-      };
-      const next = [...prev];
-      next[idx] = updated;
-      if (m.mesas_unidas?.length) {
-        m.mesas_unidas.forEach(childId => {
-          const cIdx = next.findIndex(c => c.id_mesa === childId);
-          if (cIdx !== -1) next[cIdx] = { ...next[cIdx], estado: nextEstado };
-        });
-      }
-      persist(next);
-      mesasService.update(id, updated).catch(() => {
-        toast.warning('El estado cambió localmente, pero no pudo sincronizarse.');
-      });
-      addLog('sistema', `MESAS: '${m.numero_mesa}' a ${nextEstado.toUpperCase()}`);
-      return next;
+  const getComensalesForEstado = (m: Mesa, estado: Mesa['estado']) => {
+    if (estado === 'ocupada' || estado === 'esperando_cuenta') {
+      return m.comensales || Math.min(m.capacidad || 2, 2);
+    }
+    return undefined;
+  };
+
+  const buildMesaEstado = (m: Mesa, estado: Mesa['estado']): Mesa => ({
+    ...m,
+    estado,
+    comensales: getComensalesForEstado(m, estado),
+    reserva_cliente: estado === 'reservada' ? m.reserva_cliente : undefined,
+    reserva_hora: estado === 'reservada' ? m.reserva_hora : undefined,
+  });
+
+  const handleSetEstadoMesa = async (id: number, nextEstado: Mesa['estado']) => {
+    const mesa = localMesas.find(m => m.id_mesa === id);
+    if (!mesa) return;
+    if (mesa.parent_id) {
+      toast.error('No se puede editar una mesa que está unida a otra. Separala primero.');
+      return;
+    }
+
+    const changedIds = new Set([id, ...(mesa.mesas_unidas || [])]);
+    const changedMesas: Mesa[] = [];
+    const next = localMesas.map(m => {
+      if (!changedIds.has(m.id_mesa)) return m;
+      const updated = buildMesaEstado(m, nextEstado);
+      changedMesas.push(updated);
+      return updated;
     });
+
+    persist(next);
+    setBusyMesaId(id);
+    setActiveMesaId(id);
+
+    try {
+      await Promise.all(changedMesas.map(m => mesasService.update(m.id_mesa, m)));
+      const label = getEstadoStyle(nextEstado).label;
+      toast.success(`${mesa.numero_mesa}: ${label}.`);
+      addLog('sistema', `MESAS: '${mesa.numero_mesa}' a ${nextEstado.toUpperCase()}`);
+    } catch (error) {
+      toast.warning('El estado cambió localmente, pero no pudo sincronizarse.');
+      console.error('Error sincronizando mesa:', error);
+    } finally {
+      setBusyMesaId(null);
+    }
+  };
+
+  const handleToggleEstadoMesa = (id: number) => {
+    const mesa = localMesas.find(m => m.id_mesa === id);
+    if (!mesa) return;
+    const currentIdx = ESTADO_ORDER.indexOf(mesa.estado);
+    const nextEstado = ESTADO_ORDER[(currentIdx + 1) % ESTADO_ORDER.length];
+    handleSetEstadoMesa(id, nextEstado);
+  };
+
+  const handleLiberarMesa = (id: number) => {
+    handleSetEstadoMesa(id, 'libre');
   };
 
   const handleStartEdit = (m: Mesa) => {
@@ -302,6 +338,10 @@ export default function MesasModule({ mesas, onMesasChange, addLog }: MesasModul
   const paxOcupados = localMesas.filter(m => m.estado === 'ocupada' && !m.parent_id).reduce((s, m) => s + (m.comensales || m.capacidad || 0), 0);
 
   const getEstadoStyle = (estado: Mesa['estado']) => ESTADO_POR_KEY[estado] || ESTADO_POR_KEY['libre'];
+  const activeMesa = useMemo(
+    () => localMesas.find(m => m.id_mesa === activeMesaId) || null,
+    [activeMesaId, localMesas]
+  );
 
   return (
     <div className="space-y-5">
@@ -509,7 +549,9 @@ export default function MesasModule({ mesas, onMesasChange, addLog }: MesasModul
               {mesasVisiblesEnPlano.map(m => {
                 const estilo = getEstadoStyle(m.estado);
                 const isSelected = selectedIds.includes(m.id_mesa);
+                const isActive = activeMesaId === m.id_mesa;
                 const isParent = (m.mesas_unidas?.length ?? 0) > 0;
+                const isBusy = busyMesaId === m.id_mesa;
                 return (
                   <div
                     key={m.id_mesa}
@@ -518,18 +560,23 @@ export default function MesasModule({ mesas, onMesasChange, addLog }: MesasModul
                         if (!m.parent_id) toggleSelectForUnion(m.id_mesa);
                         else toast.error('No podés unir una mesa que ya pertenece a otra unión.');
                       } else {
-                        handleToggleEstadoMesa(m.id_mesa);
+                        setActiveMesaId(m.id_mesa);
                       }
                     }}
                     style={{ left: `${m.x}%`, top: `${m.y}%` }}
                     className={`absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center cursor-pointer transition-all select-none ${
                       m.forma === 'rectangular' ? 'w-16 h-10 sm:w-20 sm:h-12 rounded-lg' : 'w-12 h-12 sm:w-14 sm:h-14 rounded-full'
                     } ${estilo.bg} ${estilo.border} border-2 ${estilo.color} ${
-                      isSelected ? 'ring-2 ring-offset-2 ring-[#624A3E] z-20' : 'hover:scale-105 z-10'
+                      isSelected || isActive ? 'ring-2 ring-offset-2 ring-[#624A3E] z-20 scale-105' : 'hover:scale-105 z-10'
                     }`}
                   >
                     <span className="text-[9px] sm:text-[10px] font-black leading-none">{m.numero_mesa}</span>
                     <span className="text-[8px] sm:text-[9px] font-semibold opacity-90 leading-none">{m.capacidad} pax</span>
+                    {isBusy && (
+                      <span className="absolute inset-0 rounded-[inherit] bg-white/70 text-[#624A3E] text-[9px] font-black flex items-center justify-center">
+                        Guardando
+                      </span>
+                    )}
                     {isParent && (
                       <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-[#624A3E] text-white rounded-full text-[8px] font-black flex items-center justify-center">
                         +{m.mesas_unidas?.length}
@@ -553,7 +600,13 @@ export default function MesasModule({ mesas, onMesasChange, addLog }: MesasModul
                 const isParent = (m.mesas_unidas?.length ?? 0) > 0;
                 const isChild = !!m.parent_id;
                 return (
-                  <div key={m.id_mesa} className="relative group bg-white border border-stone-200 rounded-xl p-3 shadow-xs hover:shadow-sm transition-all">
+                  <div
+                    key={m.id_mesa}
+                    onClick={() => setActiveMesaId(m.id_mesa)}
+                    className={`relative group bg-white border rounded-xl p-3 shadow-xs hover:shadow-sm transition-all cursor-pointer ${
+                      activeMesaId === m.id_mesa ? 'border-[#624A3E] ring-2 ring-[#624A3E]/15' : 'border-stone-200'
+                    }`}
+                  >
                     {editingMesaId === m.id_mesa ? (
                       <div className="space-y-2">
                         <input
@@ -605,12 +658,22 @@ export default function MesasModule({ mesas, onMesasChange, addLog }: MesasModul
                             {isChild && <span className="text-[9px] text-stone-400 font-bold ml-1">(unida)</span>}
                           </div>
                           {!isChild && (
-                            <button
-                              onClick={() => handleToggleEstadoMesa(m.id_mesa)}
-                              className="text-[10px] font-bold px-2 py-1 rounded-lg bg-stone-100 text-stone-600 hover:bg-stone-200 cursor-pointer"
-                            >
-                              Cambiar
-                            </button>
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleLiberarMesa(m.id_mesa); }}
+                                disabled={m.estado === 'libre' || busyMesaId === m.id_mesa}
+                                className="text-[10px] font-bold px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-40 cursor-pointer"
+                              >
+                                Liberar
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleToggleEstadoMesa(m.id_mesa); }}
+                                disabled={busyMesaId === m.id_mesa}
+                                className="text-[10px] font-bold px-2 py-1 rounded-lg bg-stone-100 text-stone-600 hover:bg-stone-200 disabled:opacity-40 cursor-pointer"
+                              >
+                                Cambiar
+                              </button>
+                            </div>
                           )}
                         </div>
 
@@ -652,6 +715,55 @@ export default function MesasModule({ mesas, onMesasChange, addLog }: MesasModul
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {activeMesa && !unionMode && (
+            <div className="rounded-2xl border border-stone-200 bg-[#F5F1E9]/60 p-4 shadow-inner">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-wider text-stone-500">Mesa seleccionada</p>
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    <h4 className="text-base font-black text-stone-900">{activeMesa.numero_mesa}</h4>
+                    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-black ${getEstadoStyle(activeMesa.estado).bg} ${getEstadoStyle(activeMesa.estado).border} ${getEstadoStyle(activeMesa.estado).color}`}>
+                      {getEstadoStyle(activeMesa.estado).label}
+                    </span>
+                    <span className="text-xs font-semibold text-stone-500">{activeMesa.capacidad || 0} pax</span>
+                    {busyMesaId === activeMesa.id_mesa && (
+                      <span className="text-[10px] font-black uppercase text-amber-700">Guardando...</span>
+                    )}
+                  </div>
+                  {activeMesa.estado === 'reservada' && (
+                    <p className="mt-1 text-xs text-amber-800">
+                      Reserva activa{activeMesa.reserva_cliente ? ` de ${activeMesa.reserva_cliente}` : ''}{activeMesa.reserva_hora ? ` a las ${activeMesa.reserva_hora}` : ''}.
+                    </p>
+                  )}
+                  {activeMesa.parent_id && (
+                    <p className="mt-1 text-xs text-stone-500">Esta mesa está unida a otra. Separala antes de editar su estado.</p>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
+                  <button
+                    onClick={() => handleLiberarMesa(activeMesa.id_mesa)}
+                    disabled={activeMesa.estado === 'libre' || !!activeMesa.parent_id || busyMesaId === activeMesa.id_mesa}
+                    className="min-h-10 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-black text-white shadow-sm transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-45"
+                  >
+                    <Unlock className="mr-1 inline h-3.5 w-3.5" />
+                    Liberar mesa
+                  </button>
+                  {ESTADOS.filter(e => e.key !== activeMesa.estado && e.key !== 'libre').map(e => (
+                    <button
+                      key={e.key}
+                      onClick={() => handleSetEstadoMesa(activeMesa.id_mesa, e.key)}
+                      disabled={!!activeMesa.parent_id || busyMesaId === activeMesa.id_mesa}
+                      className={`min-h-10 rounded-xl border px-3 py-2 text-xs font-black transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-45 ${e.bg} ${e.border} ${e.color}`}
+                    >
+                      {e.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
         </div>
