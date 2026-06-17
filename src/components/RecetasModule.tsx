@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import { ChefHat, Hammer, Tag, AlertTriangle, Plus, Scale, Search, Trash, Edit2, Check, X, DollarSign } from 'lucide-react';
+import { ChefHat, Hammer, Tag, Plus, Scale, Search, Trash, Edit2, Check, X } from 'lucide-react';
 import { RecetaEscandallo, ProductoMenu, Insumo, EventoLog } from '../types';
 import { recetasService } from '../services/recetasService';
 import { useToast, ToastContainer } from './ToastContainer';
@@ -183,7 +183,7 @@ export default function RecetasModule({
 
   return (
         <div className="space-y-6">
-              <ToastContainer toasts={toasts} onRemove={removeToast} />
+              <ToastContainer toasts={toasts} onDismiss={removeToast} />
         
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               
