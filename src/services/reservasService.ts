@@ -1,6 +1,22 @@
 import { getActiveSupabaseClient } from '../lib/supabaseClient';
 import { Reserva } from '../types';
 
+function normalizarFecha(valor: string | null | undefined): string {
+  if (!valor) return new Date().toISOString().split('T')[0];
+  // Si ya viene en ISO YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(valor)) return valor;
+  // Si viene en formato DD/MM/YYYY o DD-MM-YYYY
+  const parts = valor.split(/[-\/]/);
+  if (parts.length === 3) {
+    const [d, m, y] = parts;
+    const dia = d.padStart(2, '0');
+    const mes = m.padStart(2, '0');
+    const anio = y.length === 2 ? `20${y}` : y;
+    return `${anio}-${mes}-${dia}`;
+  }
+  return valor;
+}
+
 export const reservasService = {
   async list(): Promise<Reserva[]> {
     const supabase = getActiveSupabaseClient();
@@ -18,7 +34,7 @@ export const reservasService = {
       nombre_mesa: r.nombre_mesa || `Mesa ${r.id_mesa || ''}`,
       hora: r.hora,
       estado: r.estado === 'sentada' ? 'sentada' : r.estado === 'cancelada' ? 'cancelada' : r.estado === 'pendiente' ? 'pendiente' : r.estado === 'completada' ? 'completada' : 'confirmada',
-      fecha: r.fecha || new Date().toISOString().split('T')[0],
+      fecha: normalizarFecha(r.fecha),
       email: r.email || undefined,
       observaciones: r.observaciones || r.notas || undefined,
       lista_espera: r.lista_espera ?? false,
@@ -30,28 +46,29 @@ export const reservasService = {
     const supabase = getActiveSupabaseClient();
     const { data, error } = await supabase
       .from('reservas')
-      .select('*')
-      .eq('fecha', fecha)
-      .order('hora', { ascending: true });
+      .select('*');
     if (error) {
       console.error('Error fetching reservas por fecha:', error);
       throw error;
     }
-    return (data || []).map(r => ({
-      id_reserva: r.id_reserva,
-      nombre_cliente: r.cliente,
-      telefono: r.telefono || '',
-      pax: r.personas || 1,
-      id_mesa: r.id_mesa || undefined,
-      nombre_mesa: r.nombre_mesa || `Mesa ${r.id_mesa || ''}`,
-      hora: r.hora,
-      estado: r.estado === 'sentada' ? 'sentada' : r.estado === 'cancelada' ? 'cancelada' : r.estado === 'pendiente' ? 'pendiente' : r.estado === 'completada' ? 'completada' : 'confirmada',
-      fecha: r.fecha || fecha,
-      email: r.email || undefined,
-      observaciones: r.observaciones || r.notas || undefined,
-      lista_espera: r.lista_espera ?? false,
-      prioridad_espera: r.prioridad_espera ?? 0
-    }));
+    return (data || [])
+      .map((r: any): Reserva => ({
+        id_reserva: r.id_reserva,
+        nombre_cliente: r.cliente,
+        telefono: r.telefono || '',
+        pax: r.personas || 1,
+        id_mesa: r.id_mesa || undefined,
+        nombre_mesa: r.nombre_mesa || `Mesa ${r.id_mesa || ''}`,
+        hora: r.hora,
+        estado: r.estado === 'sentada' ? 'sentada' : r.estado === 'cancelada' ? 'cancelada' : r.estado === 'pendiente' ? 'pendiente' : r.estado === 'completada' ? 'completada' : 'confirmada',
+        fecha: normalizarFecha(r.fecha),
+        email: r.email || undefined,
+        observaciones: r.observaciones || r.notas || undefined,
+        lista_espera: r.lista_espera ?? false,
+        prioridad_espera: r.prioridad_espera ?? 0
+      }))
+      .filter(r => r.fecha === fecha)
+      .sort((a, b) => a.hora.localeCompare(b.hora));
   },
 
   async create(res: Reserva): Promise<Reserva> {
