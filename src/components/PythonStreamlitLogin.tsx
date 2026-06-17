@@ -11,6 +11,11 @@ import {
 import ElPatronLogo from './ElPatronLogo';
 import { Usuario } from '../types';
 import { tryGetActiveSupabaseClient } from '../lib/supabaseClient';
+import {
+  findDemoLoginUser,
+  getConfiguredDemoCredentials,
+  isDemoLoginEnabled,
+} from '../lib/demoLogin';
 
 interface PythonStreamlitLoginProps {
   onLoginSuccess: (user: Usuario) => void;
@@ -42,6 +47,23 @@ const LOCAL_USERS: LoginUser[] = [
   { id_usuario: 9, nombre: 'Admin', apellido: '', username: 'admin', password: '1998', rol: 'superadmin' },
 ];
 
+const getRuntimeEnv = () => ((import.meta as any).env || {});
+
+const getDemoUsers = (): LoginUser[] => {
+  const configuredCredentials = getConfiguredDemoCredentials(getRuntimeEnv());
+  if (!configuredCredentials) return LOCAL_USERS;
+
+  return [
+    {
+      ...LOCAL_USERS[0],
+      nombre: 'Demo',
+      apellido: 'Admin',
+      username: configuredCredentials.username,
+      password: configuredCredentials.password,
+    },
+  ];
+};
+
 export default function PythonStreamlitLogin({ onLoginSuccess }: PythonStreamlitLoginProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -61,6 +83,7 @@ export default function PythonStreamlitLogin({ onLoginSuccess }: PythonStreamlit
 
     try {
       const supabase = tryGetActiveSupabaseClient();
+      const demoEnabled = isDemoLoginEnabled(getRuntimeEnv());
 
       if (supabase) {
         const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
@@ -84,12 +107,10 @@ export default function PythonStreamlitLogin({ onLoginSuccess }: PythonStreamlit
         }
       }
 
-      const localUser = LOCAL_USERS.find(
-        u => u.username === email.trim().toLowerCase() && u.password === password
-      );
+      const localUser = findDemoLoginUser(getDemoUsers(), email, password, demoEnabled);
 
       if (!localUser) {
-        setError('Email o contraseña incorrectos');
+        setError(demoEnabled ? 'Email o contraseña incorrectos' : 'Acceso demo desactivado. Iniciá con Supabase Auth.');
         setIsLoggingIn(false);
         return;
       }
@@ -105,9 +126,8 @@ export default function PythonStreamlitLogin({ onLoginSuccess }: PythonStreamlit
       }, 500);
 
     } catch (err: any) {
-      const localUser = LOCAL_USERS.find(
-        u => u.username === email.trim().toLowerCase() && u.password === password
-      );
+      const demoEnabled = isDemoLoginEnabled(getRuntimeEnv());
+      const localUser = findDemoLoginUser(getDemoUsers(), email, password, demoEnabled);
 
       if (localUser) {
         if (localUser.activo === false) {
