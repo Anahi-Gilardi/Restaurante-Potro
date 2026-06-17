@@ -90,7 +90,7 @@ export const promocionesService = {
     const { error } = await supabase.from('promociones').delete().eq('id_promo', id);
     if (error) {
       console.error('Error deleting promocion:', error);
-      return false;
+      throw error;
     }
     return true;
   }
