@@ -28,22 +28,56 @@ function normalizarFecha(valor: string | null | undefined): string {
 // Mapeo DB → Reserva
 // Centralizado para no duplicar la lógica en list() y listByFecha().
 // ---------------------------------------------------------------------------
-function mapRowToReserva(r: Record<string, any>): Reserva {
+function asString(value: unknown, fallback = ''): string {
+    return typeof value === 'string' ? value : fallback;
+}
+
+function asOptionalString(value: unknown): string | undefined {
+    return typeof value === 'string' && value.trim() ? value : undefined;
+}
+
+function asNumber(value: unknown, fallback: number): number {
+    const parsed = typeof value === 'number' ? value : Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function asOptionalNumber(value: unknown): number | undefined {
+    if (value === null || value === undefined || value === '') return undefined;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function normalizarHora(value: unknown): string {
+    const raw = asString(value, '21:00 hs').trim();
+    if (/^\d{1,2}:\d{2}$/.test(raw)) return `${raw.padStart(5, '0')} hs`;
+    if (/^\d{1,2}:\d{2}\s*hs$/i.test(raw)) return raw.replace(/\s*hs$/i, ' hs').padStart(8, '0');
+    return '21:00 hs';
+}
+
+function normalizarEstado(value: unknown): Reserva['estado'] {
+    const estados: Reserva['estado'][] = ['confirmada','sentada','cancelada','pendiente','completada'];
+    return typeof value === 'string' && estados.includes(value as Reserva['estado'])
+      ? value as Reserva['estado']
+      : 'confirmada';
+}
+
+function mapRowToReserva(r: Record<string, unknown>): Reserva {
+    const idMesa = asOptionalNumber(r.id_mesa);
+    const listaEspera = Boolean(r.lista_espera);
     return {
-          id_reserva:     r.id_reserva,
-          nombre_cliente: r.cliente ?? r.nombre_cliente ?? '',
-          telefono:       r.telefono ?? '',
-          pax:            r.personas  ?? r.pax ?? 1,
-          id_mesa:        r.id_mesa   ?? undefined,
-          nombre_mesa:    r.nombre_mesa ?? (r.id_mesa ? `Mesa ${r.id_mesa}` : 'Sin mesa'),
-          hora:           r.hora,
-          estado:         (['confirmada','sentada','cancelada','pendiente','completada'] as const)
-                            .includes(r.estado) ? r.estado : 'confirmada',
-          fecha:          normalizarFecha(r.fecha),
-          email:          r.email     ?? undefined,
-          observaciones:  r.observaciones ?? r.notas ?? undefined,
-          lista_espera:   r.lista_espera   ?? false,
-          prioridad_espera: r.prioridad_espera ?? 0,
+          id_reserva:     asString(r.id_reserva, `r_${Date.now()}`),
+          nombre_cliente: asString(r.cliente ?? r.nombre_cliente),
+          telefono:       asString(r.telefono),
+          pax:            asNumber(r.personas ?? r.pax, 1),
+          id_mesa:        idMesa,
+          nombre_mesa:    asString(r.nombre_mesa, idMesa ? `Mesa ${idMesa}` : 'Sin mesa'),
+          hora:           normalizarHora(r.hora),
+          estado:         normalizarEstado(r.estado),
+          fecha:          normalizarFecha(asOptionalString(r.fecha)),
+          email:          asOptionalString(r.email),
+          observaciones:  asOptionalString(r.observaciones ?? r.notas),
+          lista_espera:   listaEspera,
+          prioridad_espera: listaEspera ? asOptionalNumber(r.prioridad_espera) ?? 0 : undefined,
     };
 }
 
@@ -58,7 +92,8 @@ function toDbPayload(res: Partial<Reserva> & { id_reserva?: string }) {
     if (res.nombre_cliente !== undefined) payload.cliente       = res.nombre_cliente;
     if (res.telefono       !== undefined) payload.telefono      = res.telefono;
     if (res.pax            !== undefined) payload.personas      = res.pax;
-    if (res.id_mesa        !== undefined) payload.id_mesa       = res.id_mesa ?? null;
+    if (res.lista_espera === true && res.id_mesa === undefined) payload.id_mesa = null;
+    else if (res.id_mesa   !== undefined) payload.id_mesa       = res.id_mesa ?? null;
     if (res.nombre_mesa    !== undefined) payload.nombre_mesa   = res.nombre_mesa;
     if (res.hora           !== undefined) payload.hora          = res.hora;
     if (res.estado         !== undefined) payload.estado        = res.estado;
@@ -69,6 +104,12 @@ function toDbPayload(res: Partial<Reserva> & { id_reserva?: string }) {
     if (res.prioridad_espera !== undefined) payload.prioridad_espera = res.prioridad_espera;
     return payload;
 }
+
+export const __reservasServiceTestables = {
+    normalizarFecha,
+    mapRowToReserva,
+    toDbPayload,
+};
 
 // ---------------------------------------------------------------------------
 // Service

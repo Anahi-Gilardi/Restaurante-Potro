@@ -279,7 +279,7 @@ export interface Reserva {
     /** Estado de la reserva */
     estado: 'confirmada' | 'sentada' | 'cancelada' | 'pendiente' | 'completada';
     /** ID de la mesa (FK numérica, opcional) */
-    id_mesa?: number;
+    id_mesa?: number | null;
     /** Fecha en formato ISO YYYY-MM-DD (opcional) */
     fecha?: string;
     /** Número de comensales (alias de pax) */

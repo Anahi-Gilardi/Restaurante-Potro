@@ -9,7 +9,7 @@
  *   <ToastContainer toasts={toasts} onDismiss={dismissToast} />
  */
 
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { CheckCircle, XCircle, AlertTriangle, Info, X } from 'lucide-react';
 import { ToastMessage, ToastType } from '../types';
 
@@ -29,12 +29,12 @@ export function useToast() {
         setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
 
-  const toast = {
+  const toast = useMemo(() => ({
         success: (msg: string, dur?: number) => addToast('success', msg, dur),
         error:   (msg: string, dur?: number) => addToast('error',   msg, dur),
         warning: (msg: string, dur?: number) => addToast('warning', msg, dur),
         info:    (msg: string, dur?: number) => addToast('info',    msg, dur),
-  };
+  }), [addToast]);
 
   return { toasts, toast, dismissToast, removeToast: dismissToast };
 }

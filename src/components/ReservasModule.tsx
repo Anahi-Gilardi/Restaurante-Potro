@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Calendar, Phone, Plus, Check, Clock, User, Trash, Edit2, X, Search,
   ChevronLeft, ChevronRight, CalendarDays, List, AlertCircle, ArrowRight,
@@ -19,9 +19,12 @@ interface ReservasModuleProps {
 function formatDate(d: Date): string {
   return d.toISOString().split('T')[0];
 }
-function parseTimeToMin(t: string): number {
-  const [h, m] = t.replace(' hs', '').split(':').map(Number);
-  return h * 60 + m;
+function parseTimeToMin(t?: string | null): number {
+  const match = String(t ?? '').match(/(\d{1,2}):(\d{2})/);
+  if (!match) return 0;
+  const h = Number(match[1]);
+  const m = Number(match[2]);
+  return Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : 0;
 }
 function sameDay(a: string, b: string): boolean {
   return a === b;
@@ -54,36 +57,66 @@ function weekRangeLabel(start: Date): string {
 }
 
 type PendingAction = 'create' | `edit_${string}` | `status_${string}` | `delete_${string}` | `assign_${string}`;
+const SUPABASE_TIMEOUT_MS = 12000;
+
+function withTimeout<T>(promise: Promise<T>, message = 'La operacion tardo demasiado. Revisa la conexion e intenta nuevamente.'): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(message)), SUPABASE_TIMEOUT_MS);
+  });
+
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timeoutId));
+}
+
+function sortReservas(a: Reserva, b: Reserva): number {
+  return (a.fecha || '').localeCompare(b.fecha || '') || parseTimeToMin(a.hora) - parseTimeToMin(b.hora);
+}
 
 export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {} }: ReservasModuleProps) {
   const { toast, toasts, removeToast } = useToast();
 
   const [selectedDate, setSelectedDate] = useState(formatDate(new Date()));
-  const [reservasDelDia, setReservasDelDia] = useState<Reserva[]>([]);
+  const [reservas, setReservas] = useState<Reserva[]>([]);
   const [loadingReservas, setLoadingReservas] = useState(false);
+  const fetchRequestRef = useRef(0);
+  const pendingActionRef = useRef<PendingAction | null>(null);
 
-  const fetchReservasDelDia = useCallback(async (fecha: string) => {
+  const beginAction = useCallback((action: PendingAction): boolean => {
+    if (pendingActionRef.current) return false;
+    pendingActionRef.current = action;
+    setPendingAction(action);
+    return true;
+  }, []);
+
+  const finishAction = useCallback(() => {
+    pendingActionRef.current = null;
+    setPendingAction(null);
+  }, []);
+
+  const fetchReservasDelDia = useCallback(async (fecha: string): Promise<boolean> => {
+    const requestId = ++fetchRequestRef.current;
     setLoadingReservas(true);
     try {
-      const data = await reservasService.list();
-      const filtradas = data.filter(r => r.fecha === fecha && r.estado !== 'cancelada' && !r.lista_espera);
+      const data = await withTimeout(reservasService.list(), 'No pudimos actualizar las reservas. La conexion esta lenta.');
+      if (requestId !== fetchRequestRef.current) return false;
       setReservas(data);
-      setReservasDelDia(filtradas);
-      setInitialLoaded(true);
+      return true;
     } catch (err) {
-      console.error('Error cargando reservas del dia:', err);
+      if (requestId === fetchRequestRef.current) {
+        console.error('Error cargando reservas del dia:', err);
+        toast.error('No pudimos actualizar las reservas. Conservamos la informacion local.');
+      }
+      return false;
     } finally {
-      setLoadingReservas(false);
+      if (requestId === fetchRequestRef.current) setLoadingReservas(false);
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
     fetchReservasDelDia(selectedDate);
   }, [selectedDate, fetchReservasDelDia]);
 
   // ── Base de datos local ────────────────────────────────────────────────────
-  const [reservas, setReservas] = useState<Reserva[]>([]);
-  const [initialLoaded, setInitialLoaded] = useState(false);
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 300);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -97,6 +130,10 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
     return d;
   });
   const [tab, setTab] = useState<'reservas' | 'espera'>('reservas');
+
+  const reservasDelDia = useMemo(() => (
+    reservas.filter(r => r.fecha === selectedDate && r.estado !== 'cancelada' && !r.lista_espera)
+  ), [reservas, selectedDate]);
 
   // ── Formulario ─────────────────────────────────────────────────────────────
   const [nombre, setNombre] = useState('');
@@ -145,7 +182,7 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
 
   const handleCreateReserva = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (pendingAction) return;
+    if (pendingActionRef.current) return;
 
     const validation = reservaSchema.safeParse({ nombre_cliente: nombre, telefono, pax: parseInt(pax, 10) || 2, hora, observaciones });
     if (!validation.success) {
@@ -188,7 +225,7 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
         telefono,
         pax: capPax,
         nombre_mesa: enviarEspera ? 'En espera' : nombreMesaAsignada,
-        id_mesa: enviarEspera ? undefined : idMesaAsignada,
+        id_mesa: enviarEspera ? null : idMesaAsignada,
         hora: `${hora} hs`,
         observaciones: observaciones.trim() || undefined,
         fecha: formularioDate,
@@ -197,23 +234,22 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
         prioridad_espera: enviarEspera ? (current.prioridad_espera ?? Date.now()) : undefined,
       };
 
-      const previous = reservas;
-      setPendingAction(`edit_${editingId}`);
+      if (!beginAction(`edit_${editingId}`)) return;
       setReservas(prev => prev.map(r => r.id_reserva === editingId ? updated : r));
 
       try {
-        await reservasService.update(editingId, updated);
-        await fetchReservasDelDia(selectedDate);
+        await withTimeout(reservasService.update(editingId, updated));
+        void fetchReservasDelDia(selectedDate);
         if (!enviarEspera && updated.id_mesa) onEstadoChange(updated, updated.estado);
         addLog('sistema', `RESERVAS: Modificada reserva de '${updated.nombre_cliente}'`);
         toast.success('Reserva actualizada correctamente.');
         resetForm();
       } catch {
-        setReservas(previous);
+        setReservas(prev => prev.map(r => r.id_reserva === editingId ? current : r));
         addLog('sistema', `RESERVAS: Error al actualizar reserva de '${updated.nombre_cliente}'`);
         toast.error('No se pudo guardar la reserva. Se revirtio el cambio.');
       } finally {
-        setPendingAction(null);
+        finishAction();
       }
       return;
     }
@@ -224,7 +260,7 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
       telefono,
       pax: capPax,
       nombre_mesa: enviarEspera ? 'En espera' : nombreMesaAsignada,
-      id_mesa: enviarEspera ? undefined : idMesaAsignada,
+      id_mesa: enviarEspera ? null : idMesaAsignada,
       hora: `${hora} hs`,
       estado: enviarEspera ? 'pendiente' : 'confirmada',
       fecha: formularioDate,
@@ -234,28 +270,27 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
       entrada_lista_espera: enviarEspera ? new Date().toISOString() : undefined,
     };
 
-    const previous = reservas;
-    setPendingAction('create');
+    if (!beginAction('create')) return;
     setReservas(prev => [...prev, newRes]);
 
     try {
-      const saved = await reservasService.create(newRes);
+      const saved = await withTimeout(reservasService.create(newRes));
       setReservas(prev => prev.map(r => r.id_reserva === newRes.id_reserva ? saved : r));
-      await fetchReservasDelDia(formularioDate);
+      void fetchReservasDelDia(formularioDate);
       addLog('sistema', `RESERVAS: Registrada nueva reserva para '${saved.nombre_cliente}' para ${saved.pax} personas el ${saved.fecha} a las ${saved.hora}`);
       if (!enviarEspera && saved.id_mesa) onEstadoChange(saved, 'confirmada');
       resetForm();
       toast.success(enviarEspera ? 'Cliente agregado a la lista de espera.' : 'Reserva confirmada exitosamente.');
     } catch {
-      setReservas(previous);
+      setReservas(prev => prev.filter(r => r.id_reserva !== newRes.id_reserva));
       toast.error('No se pudo crear la reserva. Se revirtio el cambio.');
     } finally {
-      setPendingAction(null);
+      finishAction();
     }
   };
 
   const handleEdit = (r: Reserva) => {
-    if (pendingAction) return;
+    if (pendingActionRef.current) return;
     setEditingId(r.id_reserva);
     setDeleteConfirmId(null);
     setNombre(r.nombre_cliente);
@@ -270,31 +305,30 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
   };
 
   const handleChangeEstado = async (id: string, nuevoEstado: Reserva['estado']) => {
-    if (pendingAction) return;
+    if (pendingActionRef.current) return;
     const target = reservas.find(r => r.id_reserva === id);
     if (!target) return;
 
-    const previous = reservas;
     const updated = { ...target, estado: nuevoEstado };
-    setPendingAction(`status_${id}`);
+    if (!beginAction(`status_${id}`)) return;
     setReservas(prev => prev.map(r => r.id_reserva === id ? updated : r));
 
     try {
-      await reservasService.update(id, { estado: nuevoEstado });
-      await fetchReservasDelDia(selectedDate);
+      await withTimeout(reservasService.update(id, { estado: nuevoEstado }));
+      void fetchReservasDelDia(selectedDate);
       onEstadoChange(updated, nuevoEstado);
       addLog('sistema', `RESERVAS: Reserva de '${target.nombre_cliente}' cambio a ${nuevoEstado.toUpperCase()}`);
       toast.success('Estado de reserva actualizado.');
     } catch {
-      setReservas(previous);
+      setReservas(prev => prev.map(r => r.id_reserva === id ? target : r));
       toast.error('No se pudo cambiar el estado. Se revirtio el cambio.');
     } finally {
-      setPendingAction(null);
+      finishAction();
     }
   };
 
   const handleDeleteReserva = async (id: string) => {
-    if (pendingAction) return;
+    if (pendingActionRef.current) return;
     const target = reservas.find(r => r.id_reserva === id);
     if (!target) return;
 
@@ -304,29 +338,28 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
       return;
     }
 
-    const previous = reservas;
-    setPendingAction(`delete_${id}`);
+    if (!beginAction(`delete_${id}`)) return;
     setReservas(prev => prev.filter(r => r.id_reserva !== id));
 
     try {
-      const ok = await reservasService.remove(id);
+      const ok = await withTimeout(reservasService.remove(id));
       if (!ok) throw new Error('No se pudo eliminar la reserva');
       if (target.id_mesa) onEstadoChange(target, 'cancelada');
-      await fetchReservasDelDia(selectedDate);
+      void fetchReservasDelDia(selectedDate);
       addLog('sistema', `RESERVAS: Anulada la reserva de '${target.nombre_cliente}' de las ${target.hora}`);
       toast.success('Reserva eliminada.');
       setDeleteConfirmId(null);
     } catch (err) {
-      setReservas(previous);
+      setReservas(prev => prev.some(r => r.id_reserva === id) ? prev : [...prev, target].sort(sortReservas));
       addLog('sistema', `RESERVAS: Error al eliminar reserva de '${target.nombre_cliente}'`);
       toast.error(err instanceof Error ? err.message : 'Error al eliminar la reserva.');
     } finally {
-      setPendingAction(null);
+      finishAction();
     }
   };
 
   const handleAsignarMesa = async (reservaId: string, mesaId: number) => {
-    if (pendingAction) return;
+    if (pendingActionRef.current) return;
     const mesa = mesas.find(m => m.id_mesa === mesaId);
     const target = reservas.find(r => r.id_reserva === reservaId);
     if (!mesa || !target) return;
@@ -341,21 +374,20 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
       entrada_lista_espera: undefined,
     };
 
-    const previous = reservas;
-    setPendingAction(`assign_${reservaId}`);
+    if (!beginAction(`assign_${reservaId}`)) return;
     setReservas(prev => prev.map(r => r.id_reserva === reservaId ? updated : r));
 
     try {
-      await reservasService.update(reservaId, updated);
-      await fetchReservasDelDia(selectedDate);
+      await withTimeout(reservasService.update(reservaId, updated));
+      void fetchReservasDelDia(selectedDate);
       onEstadoChange(updated, 'confirmada');
       addLog('sistema', `RESERVAS: '${target.nombre_cliente}' asignado a ${mesa.numero_mesa} desde lista de espera.`);
       toast.success(`Mesa ${mesa.numero_mesa} asignada.`);
     } catch {
-      setReservas(previous);
+      setReservas(prev => prev.map(r => r.id_reserva === reservaId ? target : r));
       toast.error('No se pudo asignar la mesa. Se revirtio el cambio.');
     } finally {
-      setPendingAction(null);
+      finishAction();
     }
   };
   // ── Filtros ────────────────────────────────────────────────────────────────
