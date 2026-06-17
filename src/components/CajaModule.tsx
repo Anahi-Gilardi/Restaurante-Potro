@@ -48,7 +48,7 @@ interface CajaModuleProps {
   pedidos: Pedido[];
   productosMenu: ProductoMenu[];
   onFacturarMesa: (idPedido: number) => void;
-  onCambiarEstadoPedido: (idPedido: number, nuevoEstado: Pedido['estado_comanda']) => void;
+  onCambiarEstadoPedido: (idPedido: number, nuevoEstado: Pedido['estado_comanda']) => boolean | void;
   addLog: (tipo: 'pedido_creado' | 'descuento_stock' | 'alerta_stock' | 'comanda_estado' | 'merma_registrada' | 'sistema', mensaje: string) => void;
 }
 

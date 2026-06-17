@@ -394,17 +394,23 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
   };
 
   // --- Handlers for Kitchen View ---
-  const handleCambiarEstadoPedido = (idPedido: number, nuevoEstado: Pedido['estado_comanda']) => {
+  const handleCambiarEstadoPedido = (idPedido: number, nuevoEstado: Pedido['estado_comanda']): boolean => {
     let updatedPedido: Pedido | null = null;
     let errorMsg = '';
 
     const pObj = pedidos.find(p => p.id_pedido === idPedido);
+    if (!pObj) return false;
+    if (pObj.estado_comanda === 'entregado_cobrado' || pObj.estado_comanda === 'cancelado') {
+      toast.warning('Esta comanda ya está cerrada y no puede modificarse.');
+      return false;
+    }
+    if (pObj.estado_comanda === nuevoEstado) return true;
 
     if (nuevoEstado === 'en_cocina' && pObj) {
       if (!pObj.items || pObj.items.length === 0) {
         toast.error("Error: No se puede enviar a cocina un pedido vacío (sin productos).");
         addLog('sistema', `RECHAZADO: Intento de enviar a cocina el pedido vacío #${idPedido}`);
-        return;
+        return false;
       }
 
       if (pObj.stock_descontado) {
@@ -444,7 +450,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
         if (!canDeduct) {
           toast.error(`No es posible iniciar cocción: ${errorMsg}`);
           addLog('alerta_stock', `RECHAZADO FUEGO: Pedido #${idPedido} bloqueado por falta de stock. ${errorMsg}`);
-          return;
+          return false;
         }
 
         let updatedInsumos: Insumo[] = [];
@@ -586,6 +592,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
       setMesas(updatedMesas);
       dbUpsertMesas(updatedMesas);
     }
+    return true;
   };
 
   const handleProducirPedidoConEscandallo = (idPedido: number) => {

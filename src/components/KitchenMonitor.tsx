@@ -19,7 +19,7 @@ import { Pedido, PedidoItem } from '../types';
 
 interface KitchenMonitorProps {
   pedidos: Pedido[];
-  onCambiarEstadoPedido: (idPedido: number, nuevoEstado: Pedido['estado_comanda']) => void;
+  onCambiarEstadoPedido: (idPedido: number, nuevoEstado: Pedido['estado_comanda']) => boolean | void;
   onProducirPedidoConEscandallo: (idPedido: number) => void;
   minutosGlobal: number; // reference clock
 }
@@ -124,7 +124,7 @@ export default function KitchenMonitor({
       return {
         bg: 'border-l-4 border-l-[#EF4444] bg-red-50/40 text-stone-900 animate-pulse',
         badge: 'bg-[#EF4444] text-white animate-bounce',
-        text: 'Crítico (Prioridad Absoluta)',
+        text: 'Crítico (prioridad absoluta)',
         dot: 'bg-[#EF4444]'
       };
     }
@@ -136,8 +136,11 @@ export default function KitchenMonitor({
   };
 
   const handleOptimisticStatus = (idPedido: number, nuevoEstado: Pedido['estado_comanda']) => {
+    if (optimisticUpdates.get(idPedido)?.updating) return;
+    const accepted = onCambiarEstadoPedido(idPedido, nuevoEstado);
+    if (accepted === false) return;
+
     setOptimisticUpdates(prev => new Map(prev).set(idPedido, { estado: nuevoEstado, updating: true }));
-    onCambiarEstadoPedido(idPedido, nuevoEstado);
     setTimeout(() => {
       setOptimisticUpdates(prev => {
         const next = new Map(prev);
@@ -154,7 +157,8 @@ export default function KitchenMonitor({
 
   const confirmCancel = () => {
     if (!cancelRequest) return;
-    onCambiarEstadoPedido(cancelRequest.pedido.id_pedido, 'cancelado');
+    const accepted = onCambiarEstadoPedido(cancelRequest.pedido.id_pedido, 'cancelado');
+    if (accepted === false) return;
     setCancelRequest(null);
   };
 
@@ -162,6 +166,7 @@ export default function KitchenMonitor({
     const sem = estado === 'pendiente' || estado === 'en_cocina' ? getSemaforoInfo(p.minutos_transcurridos) : null;
     const cold = estado === 'listo' && isColdPlate(p);
     const holdMinutes = estado === 'listo' ? Math.floor((p.segundos_en_listo ?? 0) / 60) : 0;
+    const isUpdating = optimisticUpdates.get(p.id_pedido)?.updating === true;
 
     const headerBg = {
       pendiente: 'bg-[#1E1E1E] text-[#E2E8F0] border-[#624A3E]/30',
@@ -182,7 +187,7 @@ export default function KitchenMonitor({
         {cold && (
           <div className="bg-blue-600 text-white text-[9px] uppercase font-bold tracking-wider rounded-none px-3 py-1 flex items-center gap-1 shadow">
             <Snowflake className="w-3.5 h-3.5 text-white animate-spin" />
-            <span>Alerta: Plato Frío • {holdMinutes}m sin retirar!</span>
+            <span>Alerta: plato frío - {holdMinutes}m sin retirar</span>
           </div>
         )}
 
@@ -220,7 +225,7 @@ export default function KitchenMonitor({
 
           {p.observaciones && (
             <div className="bg-[#FEF3C7] text-amber-950 text-xs sm:text-sm p-3 rounded-xl border border-amber-300 italic font-medium leading-relaxed">
-              <strong className="text-[10px] uppercase font-mono tracking-wider text-amber-800 not-italic block mb-0.5">⚠️ Observación:</strong>
+              <strong className="text-[10px] uppercase font-mono tracking-wider text-amber-800 not-italic block mb-0.5">Observación:</strong>
               "{p.observaciones}"
             </div>
           )}
@@ -228,12 +233,13 @@ export default function KitchenMonitor({
           {estado === 'pendiente' && (
             <button
               onClick={() => handleOptimisticStatus(p.id_pedido, 'en_cocina')}
-              className="w-full min-h-11 mt-2 py-2.5 px-3 bg-[#624A3E] hover:bg-[#503C32] active:scale-95 text-white rounded-xl text-sm font-black flex items-center justify-center gap-1.5 transition-all shadow-md shadow-[#624A3E]/10 cursor-pointer border border-amber-950/20 animate-pulse"
+              disabled={isUpdating}
+              className="w-full min-h-11 mt-2 py-2.5 px-3 bg-[#624A3E] hover:bg-[#503C32] active:scale-95 text-white rounded-xl text-sm font-black flex items-center justify-center gap-1.5 transition-all shadow-md shadow-[#624A3E]/10 cursor-pointer border border-amber-950/20 animate-pulse disabled:opacity-60 disabled:cursor-wait"
             >
-              {optimisticUpdates.get(p.id_pedido)?.updating ? (
+              {isUpdating ? (
                 <><RefreshCw className="w-4 h-4 animate-spin" /> Actualizando...</>
               ) : (
-                <><Flame className="w-4 h-4 text-[#F97316]" /> Iniciar Fuego 🔥</>
+                <><Flame className="w-4 h-4 text-[#F97316]" /> Iniciar fuego</>
               )}
             </button>
           )}
@@ -241,12 +247,13 @@ export default function KitchenMonitor({
           {estado === 'en_cocina' && (
             <button
               onClick={() => handleOptimisticStatus(p.id_pedido, 'listo')}
-              className="w-full min-h-11 mt-2 py-2.5 px-3 bg-[#F97316] hover:bg-[#EA580C] active:scale-95 text-white rounded-xl text-sm font-black flex items-center justify-center gap-1.5 transition-all shadow-md shadow-[#F97316]/10 cursor-pointer border border-[#F97316]/20"
+              disabled={isUpdating}
+              className="w-full min-h-11 mt-2 py-2.5 px-3 bg-[#F97316] hover:bg-[#EA580C] active:scale-95 text-white rounded-xl text-sm font-black flex items-center justify-center gap-1.5 transition-all shadow-md shadow-[#F97316]/10 cursor-pointer border border-[#F97316]/20 disabled:opacity-60 disabled:cursor-wait"
             >
-              {optimisticUpdates.get(p.id_pedido)?.updating ? (
+              {isUpdating ? (
                 <><RefreshCw className="w-4 h-4 animate-spin" /> Actualizando...</>
               ) : (
-                <><ChevronRight className="w-4 h-4" /> ¡Terminado! 🍽️</>
+                <><ChevronRight className="w-4 h-4" /> Terminado</>
               )}
             </button>
           )}
@@ -254,12 +261,13 @@ export default function KitchenMonitor({
           {estado === 'listo' && (
             <button
               onClick={() => handleOptimisticStatus(p.id_pedido, 'entregado_cobrado')}
-              className="w-full min-h-11 mt-2 py-2.5 px-3 bg-[#22C55E] hover:bg-[#16A34A] active:scale-95 text-white rounded-xl text-sm font-black flex items-center justify-center gap-1.5 transition-all shadow-md shadow-[#22C55E]/10 cursor-pointer border border-[#22C55E]/20"
+              disabled={isUpdating}
+              className="w-full min-h-11 mt-2 py-2.5 px-3 bg-[#22C55E] hover:bg-[#16A34A] active:scale-95 text-white rounded-xl text-sm font-black flex items-center justify-center gap-1.5 transition-all shadow-md shadow-[#22C55E]/10 cursor-pointer border border-[#22C55E]/20 disabled:opacity-60 disabled:cursor-wait"
             >
-              {optimisticUpdates.get(p.id_pedido)?.updating ? (
+              {isUpdating ? (
                 <><RefreshCw className="w-4 h-4 animate-spin" /> Actualizando...</>
               ) : (
-                <><CheckCircle className="w-4 h-4" /> Entregar & Finalizar 🚀</>
+                <><CheckCircle className="w-4 h-4" /> Entregar y finalizar</>
               )}
             </button>
           )}
@@ -270,9 +278,10 @@ export default function KitchenMonitor({
               title: estado === 'pendiente' ? 'Cancelar comanda pendiente' : 'Cancelar preparación en curso',
               detail: 'La orden saldrá de la cola de cocina y quedará marcada como cancelada.'
             })}
-            className="w-full min-h-10 mt-2 py-2 px-3 bg-red-50 hover:bg-red-100 text-red-700 hover:text-red-800 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer border border-red-200 shadow-sm"
+            disabled={isUpdating}
+            className="w-full min-h-10 mt-2 py-2 px-3 bg-red-50 hover:bg-red-100 text-red-700 hover:text-red-800 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer border border-red-200 shadow-sm disabled:opacity-60 disabled:cursor-wait"
           >
-            Cancelar Comanda ❌
+            Cancelar comanda
           </button>
         </div>
       </div>
@@ -335,7 +344,7 @@ export default function KitchenMonitor({
               <Grid className="w-4 h-4" />
             </div>
             <div className="min-w-0">
-              <h3 className="font-extrabold text-sm md:text-base text-slate-800 font-sans tracking-tight">Producción Agrupada</h3>
+              <h3 className="font-extrabold text-sm md:text-base text-slate-800 font-sans tracking-tight">Producción agrupada</h3>
               <p className="text-[10px] sm:text-[11px] text-slate-400 font-sans truncate">Consolidado de preparaciones activas en fuegos.</p>
             </div>
           </div>
@@ -391,21 +400,21 @@ export default function KitchenMonitor({
           'Pendientes (Ingresos)',
           <span className="w-2.5 h-2.5 rounded-full bg-[#F59E0B] animate-ping" />,
           'bg-[#F59E0B]/5 border-[#F59E0B]/20',
-          activeKitchenOrders.filter(p => p.estado_comanda === 'pendiente')
+          activeKitchenOrders.filter(p => getEffectiveStatus(p) === 'pendiente')
         )}
         {renderColumn(
           'en_cocina',
-          'En Preparación (Fuegos)',
+          'En preparación (fuegos)',
           <Flame className="w-4 h-4 text-[#F97316] animate-pulse" />,
           'bg-[#F97316]/5 border-[#F97316]/20',
-          activeKitchenOrders.filter(p => p.estado_comanda === 'en_cocina')
+          activeKitchenOrders.filter(p => getEffectiveStatus(p) === 'en_cocina')
         )}
         {renderColumn(
           'listo',
           'Listos (A Servir)',
           <CheckCircle className="w-4 h-4 text-[#22C55E]" />,
           'bg-[#22C55E]/5 border-[#22C55E]/20',
-          activeKitchenOrders.filter(p => p.estado_comanda === 'listo')
+          activeKitchenOrders.filter(p => getEffectiveStatus(p) === 'listo')
         )}
       </div>
 
@@ -432,7 +441,7 @@ export default function KitchenMonitor({
                 onClick={confirmCancel}
                 className="flex-1 min-h-11 py-2.5 rounded-xl bg-red-600 text-white text-sm font-bold cursor-pointer hover:bg-red-700"
               >
-                Confirmar Cancelación
+                Confirmar cancelación
               </button>
             </div>
           </div>
