@@ -63,8 +63,9 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
   const fetchReservasDelDia = useCallback(async (fecha: string) => {
     setLoadingReservas(true);
     try {
-      const data = await reservasService.listByFecha(fecha);
-      setReservasDelDia(data);
+      const data = await reservasService.list();
+      const filtradas = data.filter(r => r.fecha === fecha && r.estado !== 'cancelada' && !r.lista_espera);
+      setReservasDelDia(filtradas);
     } catch (err) {
       console.error('Error cargando reservas del día:', err);
     } finally {
