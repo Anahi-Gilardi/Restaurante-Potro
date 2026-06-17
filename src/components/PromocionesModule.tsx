@@ -1,258 +1,434 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Tag, Calendar, Plus, ToggleLeft, ToggleRight, Sparkles, Search, Edit2, Trash, Check, X } from 'lucide-react';
+import { useDebounce } from '../hooks/useDebounce';
 import { promocionesService, Promocion } from '../services/promocionesService';
+import { promocionSchema } from '../lib/validations';
+import { ToastContainer, useToast } from './ToastContainer';
 import { EventoLog } from '../types';
 
 interface PromocionesModuleProps {
-  addLog: (tipo: EventoLog['tipo'], mensaje: string) => void;
+    addLog: (tipo: EventoLog['tipo'], mensaje: string) => void;
 }
 
+const TIPO_LABELS: Record<Promocion['tipo'], string> = {
+    happy_hour: 'Happy Hour',
+    combo: 'Combo',
+    descuento_directo: 'Descuento Directo',
+};
+
+const DEFAULT_PROMOS: Promocion[] = [
+  { id_promo: 'p_1', nombre: 'Happy Hour 2x1 Tragos & Cervezas', descuento_porcentaje: 50, tipo: 'happy_hour', dias_vigentes: 'Lun a Vie - 18 a 21hs', activo: true, descripcion: 'Aplica a vinos seleccionados y bebidas de línea comercial' },
+  { id_promo: 'p_2', nombre: 'Combo Ejecutivo El Patrón', descuento_porcentaje: 20, tipo: 'combo', dias_vigentes: 'Lun a Sab - Almuerzo', activo: true, descripcion: 'Bife de chorizo completo + bebida sin alcohol con descuento integrado' },
+  { id_promo: 'p_3', nombre: '15% Off Pago Efectivo / Arqueo', descuento_porcentaje: 15, tipo: 'descuento_directo', dias_vigentes: 'Todos los días - Completo', activo: true, descripcion: 'Descuento directo que aplica el cajero al cobrar en mostrador' },
+  { id_promo: 'p_4', nombre: '25% Especial Cumpleañeros', descuento_porcentaje: 25, tipo: 'descuento_directo', dias_vigentes: 'Todos los días', activo: false, descripcion: 'Presentando documentación al mesero encargado' },
+  ];
+
 export default function PromocionesModule({ addLog }: PromocionesModuleProps) {
-  const [promos, setPromos] = useState<Promocion[]>([]);
+    const { toast, toasts, removeToast } = useToast();
+    const [promos, setPromos] = useState<Promocion[]>([]);
+    const [pendingAction, setPendingAction] = useState<string | null>(null);
 
   useEffect(() => {
-    promocionesService.list().then(data => {
-      if (data && data.length > 0) {
-        setPromos(data);
-      } else {
-        const defaults: Promocion[] = [
-          { id_promo: 'p_1', nombre: 'Happy Hour 2x1 Tragos & Cervezas', descuento_porcentaje: 50, tipo: 'happy_hour', dias_vigentes: 'Lun a Vie - 18 a 21hs', activo: true, descripcion: 'Aplica a vinos seleccionados y bebidas de línea comercial' },
-          { id_promo: 'p_2', nombre: 'Combo Ejecutivo El Patrón', descuento_porcentaje: 20, tipo: 'combo', dias_vigentes: 'Lun a Sab - Almuerzo', activo: true, descripcion: 'Bife de chorizo completo + bebida sin alcohol con descuento integrado' },
-          { id_promo: 'p_3', nombre: '15% Off Pago Efectivo / Arqueo', descuento_porcentaje: 15, tipo: 'descuento_directo', dias_vigentes: 'Todos los días - Completo', activo: true, descripcion: 'Descuento directo que aplica el cajero al cobrar en mostrador' },
-          { id_promo: 'p_4', nombre: '25% Especial Cumpleañeros', descuento_porcentaje: 25, tipo: 'descuento_directo', dias_vigentes: 'Todos los días', activo: false, descripcion: 'Presentando documentación al mesero encargado' },
-        ];
-        setPromos(defaults);
-      }
-    }).catch(() => {});
+        promocionesService.list()
+          .then(data => setPromos(data && data.length > 0 ? data : DEFAULT_PROMOS))
+          .catch(() => {
+                    setPromos(DEFAULT_PROMOS);
+                    toast.warning('No se pudieron cargar las promociones remotas. Mostrando datos locales.');
+          });
   }, []);
 
-
+  // ── Búsqueda con debounce ────────────────────────────────────────────────
   const [searchPromo, setSearchPromo] = useState('');
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
-  const [nombre, setNombre] = useState('');
-  const [descuento, setDescuento] = useState('');
-  const [tipo, setTipo] = useState<'happy_hour' | 'combo' | 'descuento_directo'>('descuento_directo');
-  const [vigencia, setVigencia] = useState('');
-  const [desc, setDesc] = useState('');
+    const debouncedSearch = useDebounce(searchPromo, 300);
 
-  const filteredPromos = promos.filter(p => p.nombre.toLowerCase().includes(searchPromo.toLowerCase()));
+  const filteredPromos = useMemo(
+        () => promos.filter(p =>
+                p.nombre.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+                p.descripcion?.toLowerCase().includes(debouncedSearch.toLowerCase())
+                                ),
+        [promos, debouncedSearch]
+      );
 
-  const handleCreatePromo = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!nombre || !descuento) return;
+  // ── Estado del formulario ────────────────────────────────────────────────
+  const [editingId, setEditingId]         = useState<string | null>(null);
+    const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+    const [nombre, setNombre]               = useState('');
+    const [descuento, setDescuento]         = useState('');
+    const [tipo, setTipo]                   = useState<Promocion['tipo']>('descuento_directo');
+    const [vigencia, setVigencia]           = useState('');
+    const [desc, setDesc]                   = useState('');
+    const [formErrors, setFormErrors]       = useState<string[]>([]);
 
-    const newPr: Promocion = {
-      id_promo: `p_${Date.now()}`,
-      nombre,
-      descuento_porcentaje: parseInt(descuento),
-      tipo,
-      dias_vigentes: vigencia || 'Todos los días',
-      activo: true,
-      descripcion: desc || 'Precios promocionales y combos especiales'
-    };
-
-    setPromos(prev => [newPr, ...prev]);
-    promocionesService.create(newPr).catch(err => console.error(err));
-    addLog('sistema', `SISTEMA: Habilitada nueva campaña promocional comercial '${nombre}' con descuento del ${descuento}%`);
-    setNombre('');
-    setDescuento('');
-    setVigencia('');
-    setDesc('');
+  const resetForm = () => {
+        setNombre(''); setDescuento(''); setTipo('descuento_directo');
+        setVigencia(''); setDesc(''); setFormErrors([]); setEditingId(null);
   };
 
+  // ── Validar con Zod ──────────────────────────────────────────────────────
+  const validateForm = (): boolean => {
+        const result = promocionSchema.safeParse({
+                nombre,
+                descuento_porcentaje: parseInt(descuento, 10) || 0,
+                tipo,
+                vigencia: vigencia || undefined,
+                descripcion: desc || undefined,
+        });
+        if (!result.success) {
+                setFormErrors(result.error.issues.map(i => i.message));
+                return false;
+        }
+        setFormErrors([]);
+        return true;
+  };
+
+  // ── Crear ────────────────────────────────────────────────────────────────
+  const handleCreatePromo = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (pendingAction) return;
+        if (!validateForm()) return;
+
+        const newPr: Promocion = {
+                id_promo: `p_${Date.now()}`,
+                nombre: nombre.trim(),
+                descuento_porcentaje: parseInt(descuento, 10),
+                tipo,
+                dias_vigentes: vigencia.trim() || 'Todos los días',
+                activo: true,
+                descripcion: desc.trim() || 'Precios promocionales y combos especiales',
+        };
+
+        const previous = promos;
+        setPendingAction('create');
+        setPromos(prev => [newPr, ...prev]);
+        resetForm();
+
+        try {
+                await promocionesService.create(newPr);
+                toast.success(`Promoción "${newPr.nombre}" creada y sincronizada.`);
+                addLog('sistema', `PROMOS: Nueva campaña "${newPr.nombre}" con ${newPr.descuento_porcentaje}% de descuento.`);
+        } catch {
+                setPromos(previous);
+                toast.error('No se pudo crear la promoción. Se revirtió el cambio.');
+        } finally {
+                setPendingAction(null);
+        }
+  };
+
+  // ── Iniciar edición ──────────────────────────────────────────────────────
   const handleEditPromo = (p: Promocion) => {
-    setEditingId(p.id_promo);
-    setNombre(p.nombre); setDescuento(String(p.descuento_porcentaje));
-    setTipo(p.tipo); setVigencia(p.dias_vigentes || ''); setDesc(p.descripcion || '');
+        setEditingId(p.id_promo);
+        setNombre(p.nombre);
+        setDescuento(String(p.descuento_porcentaje));
+        setTipo(p.tipo);
+        setVigencia(p.dias_vigentes ?? '');
+        setDesc(p.descripcion ?? '');
+        setFormErrors([]);
   };
 
-  const handleSaveEdit = () => {
-    if (!editingId || !nombre || !descuento) return;
-    setPromos(prev => prev.map(p => {
-      if (p.id_promo === editingId) {
-        const updated = { ...p, nombre, descuento_porcentaje: parseInt(descuento), tipo, dias_vigentes: vigencia || 'Todos los días', descripcion: desc || p.descripcion };
-        promocionesService.update(editingId, updated).catch(() => {});
-        addLog('sistema', `PROMOS: Modificada promoción '${nombre}'`);
-        return updated;
-      }
-      return p;
-    }));
-    setEditingId(null); setNombre(''); setDescuento(''); setVigencia(''); setDesc('');
+  // ── Guardar edición ──────────────────────────────────────────────────────
+  const handleSaveEdit = async () => {
+        if (!editingId || pendingAction) return;
+        if (!validateForm()) return;
+
+        const updated: Promocion = {
+                id_promo: editingId,
+                nombre:               nombre.trim(),
+                descuento_porcentaje: parseInt(descuento, 10),
+                tipo,
+                dias_vigentes: vigencia.trim() || 'Todos los días',
+                activo: promos.find(p => p.id_promo === editingId)?.activo ?? true,
+                descripcion: desc.trim(),
+        };
+
+        const previous = promos;
+        setPendingAction(`edit-${editingId}`);
+        setPromos(prev => prev.map(p => p.id_promo === editingId ? updated : p));
+        resetForm();
+
+        try {
+                await promocionesService.update(editingId, updated);
+                toast.success(`Promoción "${updated.nombre}" actualizada.`);
+                addLog('sistema', `PROMOS: Modificada promoción "${updated.nombre}".`);
+        } catch {
+                setPromos(previous);
+                toast.error('No se pudo guardar la edición. Se revirtió el cambio.');
+        } finally {
+                setPendingAction(null);
+        }
   };
 
-  const handleDeletePromo = (id: string) => {
-    const target = promos.find(p => p.id_promo === id);
-    if (!target) return;
-    setPromos(prev => prev.filter(p => p.id_promo !== id));
-    promocionesService.remove(id).catch(() => {});
-    addLog('sistema', `PROMOS: Eliminada promoción '${target.nombre}'`);
-    setDeleteConfirmId(null);
+  // ── Eliminar ─────────────────────────────────────────────────────────────
+  const handleDeletePromo = async (id: string) => {
+        if (pendingAction) return;
+        const target = promos.find(p => p.id_promo === id);
+        if (!target) return;
+
+        const previous = promos;
+        setPendingAction(`delete-${id}`);
+        setPromos(prev => prev.filter(p => p.id_promo !== id));
+        setDeleteConfirmId(null);
+
+        try {
+                await promocionesService.remove(id);
+                toast.success(`Promoción "${target.nombre}" eliminada.`);
+                addLog('sistema', `PROMOS: Eliminada promoción "${target.nombre}".`);
+        } catch {
+                setPromos(previous);
+                toast.error('No se pudo eliminar la promoción. Se revirtió el cambio.');
+        } finally {
+                setPendingAction(null);
+        }
   };
 
-  const handleTogglePromo = (id: string) => {
-    setPromos(prev => prev.map(p => {
-      if (p.id_promo === id) {
-        const nextState = !p.activo;
-        promocionesService.update(id, { activo: nextState }).catch(err => console.error(err));
-        addLog('sistema', `SISTEMA: Campaña '${p.nombre}' cambiada a: ${nextState ? 'ACTIVA' : 'INACTIVA'}`);
-        return { ...p, activo: nextState };
-      }
-      return p;
-    }));
+  // ── Toggle activo/inactivo ───────────────────────────────────────────────
+  const handleTogglePromo = async (id: string) => {
+        if (pendingAction) return;
+        const target = promos.find(p => p.id_promo === id);
+        if (!target) return;
+
+        const nextState = !target.activo;
+        const previous = promos;
+        setPendingAction(`toggle-${id}`);
+        setPromos(prev => prev.map(p => p.id_promo === id ? { ...p, activo: nextState } : p));
+
+        try {
+                await promocionesService.update(id, { activo: nextState });
+                addLog('sistema', `PROMOS: Campaña "${target.nombre}" → ${nextState ? 'ACTIVA' : 'INACTIVA'}.`);
+        } catch {
+                setPromos(previous);
+                toast.error('No se pudo cambiar el estado. Se revirtió el cambio.');
+        } finally {
+                setPendingAction(null);
+        }
   };
 
   return (
-    <div className="space-y-6">
-      
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className="space-y-6">
+              <ToastContainer toasts={toasts} onRemove={removeToast} />
         
-        {/* Left col: Add Promo campaign */}
-        <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-xs h-fit space-y-4">
-          <h3 className="text-sm font-black text-stone-800 uppercase tracking-tight flex items-center gap-2">
-            <Plus className="w-4 h-4 text-[#624A3E]" />
-            {editingId ? 'Editar Promoción' : 'Nueva Campaña'}
-          </h3>
-          <form onSubmit={editingId ? (e => { e.preventDefault(); handleSaveEdit(); }) : handleCreatePromo} className="space-y-3">
-            <div>
-              <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Nombre Promoción</label>
-              <input 
-                type="text" 
-                value={nombre} 
-                onChange={e => setNombre(e.target.value)}
-                placeholder="Ej. Promo Viernes de Amigos"
-                className="w-full text-xs p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none focus:ring-1 focus:ring-[#624A3E]"
-                required
-              />
-            </div>
-            <div>
-              <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Descuento (%)</label>
-              <input 
-                type="number" 
-                value={descuento} 
-                onChange={e => setDescuento(e.target.value)}
-                placeholder="Ej. 15"
-                min="1"
-                max="100"
-                className="w-full text-xs p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none focus:ring-1 focus:ring-[#624A3E]"
-                required
-              />
-            </div>
-            <div>
-              <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Tipo de Descuento</label>
-              <select 
-                value={tipo} 
-                onChange={e => setTipo(e.target.value as any)}
-                className="w-full text-xs p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none focus:ring-1 focus:ring-[#624A3E] cursor-pointer font-semibold text-stone-700"
-              >
-                <option value="descuento_directo">Descuento Directo %</option>
-                <option value="happy_hour">Happy Hour 2x1 / Tragos</option>
-                <option value="combo">Combo Ejecutivo Combinado</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Vigencia Temporal</label>
-              <input 
-                type="text" 
-                value={vigencia} 
-                onChange={e => setVigencia(e.target.value)}
-                placeholder="Ej. Viernes de 18 a 22hs"
-                className="w-full text-xs p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none focus:ring-1 focus:ring-[#624A3E]"
-              />
-            </div>
-            <div>
-              <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Descripción Breve</label>
-              <textarea 
-                value={desc} 
-                onChange={e => setDesc(e.target.value)}
-                placeholder="Detalle de platos cubiertos..."
-                rows={2}
-                className="w-full text-xs p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none focus:ring-1 focus:ring-[#624A3E]"
-              />
-            </div>
-
-            <button type="submit"
-              className="w-full py-2.5 bg-[#624A3E] hover:bg-[#503C32] text-white text-xs font-extrabold rounded-xl transition-all cursor-pointer">
-              {editingId ? 'Guardar Cambios' : 'Publicar Descuento'}
-            </button>
-            {editingId && (
-              <button type="button" onClick={() => { setEditingId(null); setNombre(''); setDescuento(''); setVigencia(''); setDesc(''); }}
-                className="w-full py-2 text-xs font-bold text-stone-500 hover:text-stone-700 cursor-pointer">
-                Cancelar edición
-              </button>
-            )}
-          </form>
-        </div>
-
-        {/* Right 3 cols: active campaign cards */}
-        <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-xs lg:col-span-3 space-y-4">
-          <div className="flex justify-between items-center pb-2 border-b border-stone-100">
-            <h3 className="text-sm font-black text-stone-800 uppercase tracking-tight flex items-center gap-2">
-              <Tag className="w-5 h-5 text-[#624A3E]" />
-              Campañas de Descuentos & Promociones ({promos.length})
-            </h3>
-            <span className="text-[9px] bg-stone-100 text-stone-500 font-bold px-2 py-0.5 rounded-full">Políticas de Incentivo de Consumo</span>
-          </div>
-
-          <div className="relative max-w-xs">
-            <Search className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-            <input type="text" value={searchPromo} onChange={e => setSearchPromo(e.target.value)}
-              placeholder="Buscar promoción..."
-              className="w-full pl-8 pr-2 py-1.5 text-xs border border-stone-200 rounded-lg bg-stone-50 focus:outline-none focus:ring-1 focus:ring-[#624A3E]" />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filteredPromos.map(p => (
-              <div key={p.id_promo} className={`p-4 rounded-2xl border transition-colors flex flex-col justify-between ${
-                p.activo 
-                  ? 'border-stone-200 bg-[#F5F1E9]/30' 
-                  : 'border-stone-150 bg-stone-50/50 opacity-60'
-              }`}>
-                <div className="space-y-1.5">
-                  <div className="flex justify-between items-start gap-2">
-                    <h4 className="font-extrabold text-stone-900 text-sm tracking-tight leading-snug">{p.nombre}</h4>
-                    <span className="text-xs font-black text-[#624A3E] font-mono tracking-tight bg-[#624A3E]/10 px-2 py-1 rounded-lg shrink-0">
-                      -{p.descuento_porcentaje}%
-                    </span>
-                  </div>
-                  <p className="text-[11px] font-medium text-stone-500 leading-normal">{p.descripcion}</p>
-                </div>
-
-                <div className="flex justify-between items-center mt-6 pt-3 border-t border-stone-200/50">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[9px] text-stone-500 font-bold flex items-center gap-1 font-mono">
-                      <Calendar className="w-3.5 h-3.5 text-stone-400" />
-                      {p.dias_vigentes}
-                    </span>
-                    <button onClick={() => handleEditPromo(p)}
-                      className="p-1 text-stone-400 hover:text-blue-500 rounded hover:bg-stone-200 cursor-pointer"><Edit2 className="w-3 h-3" /></button>
-                    {deleteConfirmId === p.id_promo ? (
-                      <div className="flex items-center gap-0.5">
-                        <button onClick={() => handleDeletePromo(p.id_promo)} className="p-1 text-red-500 bg-red-50 rounded cursor-pointer"><Check className="w-3 h-3" /></button>
-                        <button onClick={() => setDeleteConfirmId(null)} className="p-1 text-stone-400 rounded cursor-pointer"><X className="w-3 h-3" /></button>
-                      </div>
-                    ) : (
-                      <button onClick={() => setDeleteConfirmId(p.id_promo)}
-                        className="p-1 text-stone-400 hover:text-red-500 rounded hover:bg-stone-200 cursor-pointer"><Trash className="w-3 h-3" /></button>
-                    )}
-                  </div>
-                  
-                  <button onClick={() => handleTogglePromo(p.id_promo)}
-                    className="flex items-center gap-1.5 text-stone-500 hover:text-stone-900 transition-colors cursor-pointer">
-                    {p.activo ? (
-                      <span className="text-[9px] font-black text-emerald-600 uppercase flex items-center gap-1">● Activo <ToggleRight className="w-5 h-5" /></span>
-                    ) : (
-                      <span className="text-[9px] font-black text-stone-400 uppercase flex items-center gap-1">Pausado <ToggleLeft className="w-5 h-5" /></span>
-                    )}
-                  </button>
-                </div>
-
-              </div>
-            ))}
-          </div>
-
-        </div>
-
-      </div>
-    </div>
-  );
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+              
+                {/* ── Formulario ── */}
+                      <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-xs h-fit space-y-4">
+                                <h3 className="text-sm font-black text-stone-800 uppercase tracking-tight flex items-center gap-2">
+                                            <Plus className="w-4 h-4 text-[#624A3E]" />
+                                  {editingId ? 'Editar Promoción' : 'Nueva Campaña'}
+                                </h3>h3>
+                      
+                                <form
+                                              onSubmit={editingId ? (e => { e.preventDefault(); handleSaveEdit(); }) : handleCreatePromo}
+                                              className="space-y-3"
+                                            >
+                                  {/* Errores de validación */}
+                                  {formErrors.length > 0 && (
+                                                            <div className="bg-red-50 border border-red-200 rounded-lg p-3 space-y-1">
+                                                              {formErrors.map((err, i) => (
+                                                                                <p key={i} className="text-xs text-red-700">{err}</p>p>
+                                                                              ))}
+                                                            </div>div>
+                                            )}
+                                
+                                            <div>
+                                                          <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Nombre Promoción *</label>label>
+                                                          <input
+                                                                            type="text"
+                                                                            value={nombre}
+                                                                            onChange={e => setNombre(e.target.value)}
+                                                                            className="w-full border border-stone-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#624A3E]/30"
+                                                                            placeholder="Ej: Happy Hour 2x1"
+                                                                          />
+                                            </div>div>
+                                
+                                            <div>
+                                                          <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Descuento % *</label>label>
+                                                          <input
+                                                                            type="number"
+                                                                            min={1}
+                                                                            max={100}
+                                                                            value={descuento}
+                                                                            onChange={e => setDescuento(e.target.value)}
+                                                                            className="w-full border border-stone-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#624A3E]/30"
+                                                                            placeholder="Ej: 20"
+                                                                          />
+                                            </div>div>
+                                
+                                            <div>
+                                                          <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Tipo</label>label>
+                                                          <select
+                                                                            value={tipo}
+                                                                            onChange={e => setTipo(e.target.value as Promocion['tipo'])}
+                                                                            className="w-full border border-stone-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#624A3E]/30 bg-white"
+                                                                          >
+                                                            {(Object.keys(TIPO_LABELS) as Promocion['tipo'][]).map(t => (
+                                                                                              <option key={t} value={t}>{TIPO_LABELS[t]}</option>option>
+                                                                                            ))}
+                                                          </select>select>
+                                            </div>div>
+                                
+                                            <div>
+                                                          <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Vigencia</label>label>
+                                                          <input
+                                                                            type="text"
+                                                                            value={vigencia}
+                                                                            onChange={e => setVigencia(e.target.value)}
+                                                                            className="w-full border border-stone-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#624A3E]/30"
+                                                                            placeholder="Ej: Lun a Vie 18-21hs"
+                                                                          />
+                                            </div>div>
+                                
+                                            <div>
+                                                          <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Descripción</label>label>
+                                                          <textarea
+                                                                            value={desc}
+                                                                            onChange={e => setDesc(e.target.value)}
+                                                                            rows={2}
+                                                                            className="w-full border border-stone-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#624A3E]/30 resize-none"
+                                                                            placeholder="Condiciones y alcance..."
+                                                                          />
+                                            </div>div>
+                                
+                                            <div className="flex gap-2">
+                                                          <button
+                                                                            type="submit"
+                                                                            disabled={!!pendingAction}
+                                                                            className="flex-1 bg-[#624A3E] text-white text-sm font-bold py-2 rounded-xl hover:bg-[#4e3a30] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                                                                            aria-label={editingId ? 'Guardar cambios de la promoción' : 'Crear nueva promoción'}
+                                                                          >
+                                                            {editingId ? <><Check className="w-3.5 h-3.5" /> Guardar</>> : <><Plus className="w-3.5 h-3.5" /> Crear</>>}
+                                                          </button>button>
+                                              {editingId && (
+                                                              <button
+                                                                                  type="button"
+                                                                                  onClick={resetForm}
+                                                                                  className="px-3 py-2 text-stone-500 border border-stone-200 rounded-xl hover:bg-stone-50 transition-colors"
+                                                                                  aria-label="Cancelar edición"
+                                                                                >
+                                                                                <X className="w-4 h-4" />
+                                                              </button>button>
+                                                          )}
+                                            </div>div>
+                                </form>form>
+                      </div>div>
+              
+                {/* ── Lista de promociones ── */}
+                      <div className="lg:col-span-3 space-y-4">
+                        {/* Barra de búsqueda */}
+                                <div className="relative">
+                                            <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                                            <input
+                                                            type="text"
+                                                            value={searchPromo}
+                                                            onChange={e => setSearchPromo(e.target.value)}
+                                                            placeholder="Buscar por nombre o descripción..."
+                                                            className="w-full pl-9 pr-4 py-2.5 text-sm border border-stone-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#624A3E]/30"
+                                                            aria-label="Buscar promociones"
+                                                          />
+                                </div>div>
+                      
+                        {filteredPromos.length === 0 && (
+                      <div className="text-center py-12 text-stone-400">
+                                    <Sparkles className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                                    <p className="text-sm">{debouncedSearch ? 'Sin resultados para esa búsqueda.' : 'No hay promociones creadas aún.'}</p>p>
+                      </div>div>
+                                )}
+                      
+                                <div className="space-y-3">
+                                  {filteredPromos.map(p => {
+                        const isBusy = !!pendingAction;
+                        return (
+                                          <div
+                                                              key={p.id_promo}
+                                                              className={`bg-white border rounded-2xl p-4 flex items-start gap-4 transition-all ${p.activo ? 'border-stone-200 shadow-xs' : 'border-stone-100 opacity-60'}`}
+                                                            >
+                                            {/* Badge tipo */}
+                                                            <div className="shrink-0 mt-0.5">
+                                                                                <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-lg ${
+                                                                                    p.tipo === 'happy_hour'       ? 'bg-amber-100 text-amber-800'  :
+                                                                                    p.tipo === 'combo'            ? 'bg-blue-100 text-blue-800'    :
+                                                                                    'bg-emerald-100 text-emerald-800'
+                                                            }`}>
+                                                                                  {TIPO_LABELS[p.tipo]}
+                                                                                  </span>span>
+                                                            </div>div>
+                                          
+                                            {/* Info */}
+                                                            <div className="flex-1 min-w-0">
+                                                                                <div className="flex items-center gap-2 flex-wrap">
+                                                                                                      <span className="font-bold text-stone-800 text-sm">{p.nombre}</span>span>
+                                                                                                      <span className="bg-[#624A3E]/10 text-[#624A3E] font-black text-xs px-2 py-0.5 rounded-full">
+                                                                                                                              -{p.descuento_porcentaje}%
+                                                                                                        </span>span>
+                                                                                  </div>div>
+                                                              {p.descripcion && (
+                                                                                    <p className="text-xs text-stone-500 mt-0.5 line-clamp-2">{p.descripcion}</p>p>
+                                                                                )}
+                                                              {p.dias_vigentes && (
+                                                                                    <div className="flex items-center gap-1 mt-1">
+                                                                                                            <Calendar className="w-3 h-3 text-stone-400" />
+                                                                                                            <span className="text-[11px] text-stone-400">{p.dias_vigentes}</span>span>
+                                                                                      </div>div>
+                                                                                )}
+                                                            </div>div>
+                                          
+                                            {/* Acciones */}
+                                                            <div className="shrink-0 flex items-center gap-1">
+                                                                                <button
+                                                                                                        onClick={() => handleTogglePromo(p.id_promo)}
+                                                                                                        disabled={isBusy}
+                                                                                                        className="p-1.5 rounded-lg hover:bg-stone-100 transition-colors disabled:opacity-40"
+                                                                                                        aria-label={p.activo ? 'Desactivar promoción' : 'Activar promoción'}
+                                                                                                        title={p.activo ? 'Desactivar' : 'Activar'}
+                                                                                                      >
+                                                                                  {p.activo
+                                                                                                            ? <ToggleRight className="w-5 h-5 text-emerald-600" />
+                                                                                                            : <ToggleLeft  className="w-5 h-5 text-stone-400" />}
+                                                                                  </button>button>
+                                                                                <button
+                                                                                                        onClick={() => handleEditPromo(p)}
+                                                                                                        disabled={isBusy}
+                                                                                                        className="p-1.5 rounded-lg hover:bg-stone-100 transition-colors disabled:opacity-40"
+                                                                                                        aria-label={`Editar promoción ${p.nombre}`}
+                                                                                                        title="Editar"
+                                                                                                      >
+                                                                                                      <Edit2 className="w-4 h-4 text-stone-500" />
+                                                                                  </button>button>
+                                                              {deleteConfirmId === p.id_promo ? (
+                                                                                    <div className="flex items-center gap-1">
+                                                                                                            <button
+                                                                                                                                        onClick={() => handleDeletePromo(p.id_promo)}
+                                                                                                                                        disabled={isBusy}
+                                                                                                                                        className="px-2 py-1 text-xs bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-40"
+                                                                                                                                        aria-label="Confirmar eliminación"
+                                                                                                                                      >
+                                                                                                                                      Confirmar
+                                                                                                              </button>button>
+                                                                                                            <button
+                                                                                                                                        onClick={() => setDeleteConfirmId(null)}
+                                                                                                                                        className="px-2 py-1 text-xs border border-stone-200 rounded-lg hover:bg-stone-50 transition-colors"
+                                                                                                                                        aria-label="Cancelar eliminación"
+                                                                                                                                      >
+                                                                                                                                      Cancelar
+                                                                                                              </button>button>
+                                                                                      </div>div>
+                                                                                  ) : (
+                                                                                    <button
+                                                                                                              onClick={() => setDeleteConfirmId(p.id_promo)}
+                                                                                                              disabled={isBusy}
+                                                                                                              className="p-1.5 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-40"
+                                                                                                              aria-label={`Eliminar promoción ${p.nombre}`}
+                                                                                                              title="Eliminar"
+                                                                                                            >
+                                                                                                            <Trash className="w-4 h-4 text-red-400" />
+                                                                                      </button>button>
+                                                                                )}
+                                                            </div>div>
+                                          </div>div>
+                                        );
+        })}
+                                </div>div>
+                      </div>div>
+              </div>div>
+        </div>div>
+      );
 }
+</></></div>
