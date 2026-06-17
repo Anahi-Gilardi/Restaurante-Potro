@@ -245,14 +245,25 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
     }));
   };
 
-  const handleDeleteReserva = (id: string) => {
+  const handleDeleteReserva = async (id: string) => {
     const target = reservas.find(r => r.id_reserva === id);
     if (!target) return;
-    if (target.id_mesa) onEstadoChange(target, 'cancelada');
-    setReservas(prev => prev.filter(r => r.id_reserva !== id));
-    reservasService.remove(id).then(() => fetchReservasDelDia(selectedDate)).catch(err => console.error(err));
-    addLog('sistema', `RESERVAS: Anulada la reserva de '${target.nombre_cliente}' de las ${target.hora}`);
-    toast.success('Reserva eliminada.');
+    const confirmar = window.confirm(`¿Eliminar la reserva de ${target.nombre_cliente} para el ${target.fecha} a las ${target.hora}?`);
+    if (!confirmar) return;
+
+    try {
+      const ok = await reservasService.remove(id);
+      if (!ok) throw new Error('No se pudo eliminar la reserva');
+      if (target.id_mesa) onEstadoChange(target, 'cancelada');
+      setReservas(prev => prev.filter(r => r.id_reserva !== id));
+      await fetchReservasDelDia(selectedDate);
+      addLog('sistema', `RESERVAS: Anulada la reserva de '${target.nombre_cliente}' de las ${target.hora}`);
+      toast.success('Reserva eliminada de Supabase.');
+    } catch (err: any) {
+      console.error(err);
+      addLog('sistema', `RESERVAS: Error al eliminar reserva: ${err.message || err}`);
+      toast.error(err.message || 'Error al eliminar la reserva.');
+    }
   };
 
   const handleAsignarMesa = (reservaId: string, mesaId: number) => {
