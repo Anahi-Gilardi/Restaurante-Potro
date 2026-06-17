@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Users, 
   Plus, 
@@ -36,12 +36,21 @@ interface MozoTerminalProps {
   usuarios: Usuario[];
   activeMozo: string;
   onMozoChange: (mozo: string) => void;
-  onCrearPedido: (pedido: Omit<Pedido, 'id_pedido' | 'fecha_hora' | 'minutos_transcurridos' | 'origen'> & { origen?: 'Mozo' }) => void;
+  onCrearPedido: (pedido: Omit<Pedido, 'id_pedido' | 'fecha_hora' | 'minutos_transcurridos' | 'origen'> & { origen?: 'Mozo'; comensales?: number }) => void | Promise<void>;
   pedidos: Pedido[];
   onFacturarMesa: (idPedido: number) => void;
   addLog: (tipo: any, mensaje: string) => void;
   permitirVentaSinStock?: boolean;
 }
+
+type MozoCartDraft = {
+  cart: { [id_producto: string]: number };
+  observaciones: string;
+  comensales: number;
+  updatedAt: string;
+};
+
+const CART_STORAGE_PREFIX = 'el_patron_mozo_cart_v2';
 
 export default function MozoTerminal({
   mesas: propMesas,
@@ -88,6 +97,7 @@ export default function MozoTerminal({
   const [observaciones, setObservaciones] = useState('');
   const [lastCheckoutTime, setLastCheckoutTime] = useState<number | null>(null);
   const [checkoutStatus, setCheckoutStatus] = useState<'idle' | 'sending' | 'done'>('idle');
+  const hydratedCartKeyRef = useRef<string | null>(null);
 
   // Admin menu state
   const [adminMenuProduct, setAdminMenuProduct] = useState<string | null>(null);
@@ -101,6 +111,11 @@ export default function MozoTerminal({
   const [splitCount, setSplitCount] = useState<number>(2);
   const [splitItemsChecked, setSplitItemsChecked] = useState<{ [itemIdx: number]: boolean }>({});
 
+  const cartStorageKey = useMemo(() => {
+    if (!selectedMesaId) return null;
+    return `${CART_STORAGE_PREFIX}:${activeMozo || 'sin-mozo'}:${selectedMesaId}`;
+  }, [activeMozo, selectedMesaId]);
+
   const selectedMesa = useMemo(() => {
     return mesas.find(m => m.id_mesa === selectedMesaId) || null;
   }, [selectedMesaId, mesas]);
@@ -110,6 +125,63 @@ export default function MozoTerminal({
     if (!selectedMesaId) return null;
     return pedidos.find(p => p.id_mesa === selectedMesaId && p.estado_comanda !== 'entregado_cobrado') || null;
   }, [selectedMesaId, pedidos]);
+
+  useEffect(() => {
+    if (!cartStorageKey) {
+      hydratedCartKeyRef.current = null;
+      return;
+    }
+
+    hydratedCartKeyRef.current = null;
+
+    try {
+      const rawDraft = window.localStorage.getItem(cartStorageKey);
+      if (!rawDraft) {
+        setCart({});
+        setObservaciones('');
+        hydratedCartKeyRef.current = cartStorageKey;
+        return;
+      }
+
+      const parsed = JSON.parse(rawDraft) as Partial<MozoCartDraft>;
+      setCart(parsed.cart && typeof parsed.cart === 'object' ? parsed.cart : {});
+      setObservaciones(typeof parsed.observaciones === 'string' ? parsed.observaciones : '');
+
+      if (typeof parsed.comensales === 'number' && Number.isFinite(parsed.comensales)) {
+        setComensales(Math.max(1, Math.round(parsed.comensales)));
+      }
+    } catch (error) {
+      console.warn('No se pudo recuperar el borrador de comanda:', error);
+      setCart({});
+      setObservaciones('');
+      window.localStorage.removeItem(cartStorageKey);
+    } finally {
+      hydratedCartKeyRef.current = cartStorageKey;
+    }
+  }, [cartStorageKey]);
+
+  useEffect(() => {
+    if (!cartStorageKey || hydratedCartKeyRef.current !== cartStorageKey) return;
+
+    const hasDraft = Object.keys(cart).length > 0 || observaciones.trim().length > 0;
+
+    try {
+      if (!hasDraft) {
+        window.localStorage.removeItem(cartStorageKey);
+        return;
+      }
+
+      const draft: MozoCartDraft = {
+        cart,
+        observaciones,
+        comensales,
+        updatedAt: new Date().toISOString()
+      };
+      window.localStorage.setItem(cartStorageKey, JSON.stringify(draft));
+    } catch (error) {
+      console.warn('No se pudo guardar el borrador de comanda:', error);
+    }
+  }, [cartStorageKey, cart, observaciones, comensales]);
 
   // Filter products by category and search
   const filteredProducts = useMemo(() => {
@@ -141,9 +213,13 @@ export default function MozoTerminal({
     return requirements;
   };
 
-  // Helper: evaluate if adding 1 unit of a product breaches current stock
-  const evaluateStockAdd = (productoId: string): { allowed: boolean; warning?: string; isCritical: boolean } => {
-    const nextCart = { ...cart, [productoId]: (cart[productoId] || 0) + 1 };
+  // Helper: evaluate if adding units of a product breaches current stock
+  const evaluateStockAdd = (
+    productoId: string,
+    quantity = 1,
+    baseCart: { [id_producto: string]: number } = cart
+  ): { allowed: boolean; warning?: string; isCritical: boolean } => {
+    const nextCart = { ...baseCart, [productoId]: (baseCart[productoId] || 0) + quantity };
     const requirements = calculateCartInsumoRequirements(nextCart);
 
     for (const [insumoId, reqAmount] of Object.entries(requirements)) {
@@ -170,7 +246,7 @@ export default function MozoTerminal({
         return { 
           allowed: true, 
           isCritical: false, 
-          warning: `Existencia cercana al Stock Mínimo de Seguridad para "${insumo.nombre}" (${insumo.stock_actual}${insumo.unidad_medida} disponibles).` 
+          warning: `Existencia cercana al stock mínimo de seguridad para "${insumo.nombre}" (${insumo.stock_actual}${insumo.unidad_medida} disponibles).`
         };
       }
     }
@@ -196,24 +272,37 @@ export default function MozoTerminal({
   };
 
   // Cart operations
-  const handleAddToCart = (productoId: string) => {
+  const handleAddToCart = (productoId: string, quantity = 1) => {
+    if (checkoutStatus === 'sending') {
+      toast.warning('La comanda se está enviando. Esperá un instante antes de modificarla.');
+      return;
+    }
+
     if (!selectedMesaId) {
       toast.error("Por favor seleccione primero una mesa.");
       return;
     }
-    const evalResult = evaluateStockAdd(productoId);
+
+    const evalResult = evaluateStockAdd(productoId, quantity);
     if (!evalResult.allowed) {
       addLog('alerta_stock', `Cancelado intento de pedido: ${evalResult.warning}`);
+      toast.error(evalResult.warning || 'No hay stock suficiente para agregar ese producto.');
       return;
     }
     
     setCart(prev => ({
       ...prev,
-      [productoId]: (prev[productoId] || 0) + 1
+      [productoId]: (prev[productoId] || 0) + quantity
     }));
+
+    if (evalResult.warning) {
+      toast.warning(evalResult.warning);
+    }
   };
 
   const handleRemoveFromCart = (productoId: string) => {
+    if (checkoutStatus === 'sending') return;
+
     setCart(prev => {
       const updated = { ...prev };
       if (updated[productoId] > 1) {
@@ -225,7 +314,18 @@ export default function MozoTerminal({
     });
   };
 
-  const checkoutCart = () => {
+  const clearCartDraft = () => {
+    if (checkoutStatus === 'sending') return;
+
+    setCart({});
+    setObservaciones('');
+    if (cartStorageKey) {
+      window.localStorage.removeItem(cartStorageKey);
+    }
+  };
+
+  const checkoutCart = async () => {
+    if (checkoutStatus === 'sending') return;
     if (!selectedMesaId) return;
     if (Object.keys(cart).length === 0) return;
 
@@ -255,23 +355,38 @@ export default function MozoTerminal({
     setCheckoutStatus('sending');
     setLastCheckoutTime(Date.now());
 
-    onCrearPedido({
+    const pedidoPayload = {
       id_mesa: selectedMesaId,
       numero_mesa: selectedMesa ? selectedMesa.numero_mesa : `Mesa ${selectedMesaId}`,
       mozo: activeMozo,
-      estado_comanda: 'pendiente',
+      estado_comanda: 'pendiente' as const,
       items,
       observaciones: observaciones.trim() || undefined,
-    });
+      comensales
+    };
 
-    // Optimistic: reset immediately, then show success
+    const cartSnapshot = cart;
+    const observacionesSnapshot = observaciones;
     setCart({});
     setObservaciones('');
-    setTimeout(() => {
+
+    try {
+      await Promise.resolve(onCrearPedido(pedidoPayload));
+      if (cartStorageKey) {
+        window.localStorage.removeItem(cartStorageKey);
+      }
       setCheckoutStatus('done');
       setTimeout(() => setCheckoutStatus('idle'), 1500);
-    }, 200);
-    addLog('pedido_creado', `Mozo ${activeMozo} inyectó pedido para ${selectedMesa?.numero_mesa} con ${items.length} platos.`);
+      toast.success(`Comanda enviada a cocina para ${pedidoPayload.numero_mesa}.`);
+      addLog('pedido_creado', `Mozo ${activeMozo} envió pedido para ${selectedMesa?.numero_mesa} con ${items.length} platos.`);
+    } catch (error) {
+      setCart(cartSnapshot);
+      setObservaciones(observacionesSnapshot);
+      setCheckoutStatus('idle');
+      toast.error('No se pudo enviar la comanda. El carrito quedó guardado para reintentar.');
+      addLog('sistema', `ERROR COMANDA: No se pudo enviar pedido para ${selectedMesa?.numero_mesa}.`);
+      console.error('Error enviando comanda:', error);
+    }
   };
 
   // Calculating totals
@@ -437,7 +552,7 @@ export default function MozoTerminal({
                         ? 'bg-amber-100 text-amber-800'
                         : 'bg-slate-100 text-slate-800'
                     }`}>
-                      {activePedidoDeMesa.estado_comanda === 'en_cocina' ? 'En Fuego 🔥' : activePedidoDeMesa.estado_comanda}
+                      {activePedidoDeMesa.estado_comanda === 'en_cocina' ? 'En cocina' : activePedidoDeMesa.estado_comanda}
                     </span>
                   </div>
                   
@@ -470,7 +585,7 @@ export default function MozoTerminal({
                 </div>
               ) : (
                 <p className="text-xs text-slate-400 italic bg-amber-50/50 border border-amber-100/30 p-2 text-center rounded-lg">
-                  🍳 Mesa lista para recibir comandas. Agrega ítems a la canasta de la derecha.
+                  Mesa lista para recibir comandas. Agregá ítems a la canasta de la derecha.
                 </p>
               )}
             </div>
@@ -538,9 +653,11 @@ export default function MozoTerminal({
             return (
               <div
                 key={p.id_producto}
-                onClick={() => !isOutOfStock && handleAddToCart(p.id_producto)}
+                onClick={() => !isOutOfStock && checkoutStatus !== 'sending' && handleAddToCart(p.id_producto)}
                 className={`group cursor-pointer rounded-2xl bg-white border overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 relative ${
-                  isOutOfStock 
+                  checkoutStatus === 'sending'
+                    ? 'opacity-70 border-stone-200 pointer-events-none bg-stone-50'
+                  : isOutOfStock
                     ? 'opacity-60 border-rose-100 pointer-events-none bg-stone-50' 
                     : currentInCart > 0 
                       ? 'border-[#624A3E] bg-[#F5F1E9]/40 ring-1 ring-[#624A3E]/20' 
@@ -573,7 +690,7 @@ export default function MozoTerminal({
                     <div className="absolute inset-0 bg-red-950/60 flex items-center justify-center text-center p-2">
                       <span className="bg-[#EF4444] text-white text-[10px] uppercase font-extrabold tracking-wider px-2 py-1 rounded-md shadow flex items-center gap-1">
                         <AlertTriangle className="w-3 h-3 text-white" />
-                        Sin Stock (Fórmulas 0)
+                        Sin stock (fórmulas 0)
                       </span>
                     </div>
                   ) : isLowStock ? (
@@ -628,9 +745,10 @@ export default function MozoTerminal({
                           key={n}
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (!isOutOfStock) for (let i = 0; i < n; i++) handleAddToCart(p.id_producto);
+                            if (!isOutOfStock) handleAddToCart(p.id_producto, n);
                           }}
-                          className="touch-target w-10 h-10 sm:w-11 sm:h-11 rounded-lg bg-[#624A3E]/10 text-[#624A3E] hover:bg-[#624A3E] hover:text-white active:scale-90 transition-all text-xs font-extrabold cursor-pointer flex items-center justify-center"
+                          disabled={isOutOfStock || checkoutStatus === 'sending'}
+                          className="touch-target w-10 h-10 sm:w-11 sm:h-11 rounded-lg bg-[#624A3E]/10 text-[#624A3E] hover:bg-[#624A3E] hover:text-white active:scale-90 disabled:opacity-50 disabled:pointer-events-none transition-all text-xs font-extrabold cursor-pointer flex items-center justify-center"
                           title={`Agregar ${n}`}
                         >
                           +{n}
@@ -699,7 +817,7 @@ export default function MozoTerminal({
               <div className="w-12 h-12 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mb-3">
                 <Sparkles className="w-5 h-5" />
               </div>
-              <h4 className="font-bold text-slate-700 text-sm">Comanda Vacía</h4>
+              <h4 className="font-bold text-slate-700 text-sm">Comanda vacía</h4>
               <p className="text-slate-400 text-xs mt-1 max-w-[180px]">
                 Toque los platos de la carta central para cargarlos a la mesa de forma interactiva.
               </p>
@@ -720,14 +838,16 @@ export default function MozoTerminal({
                        <div className="flex items-center gap-1.5">
                         <button
                           onClick={() => handleRemoveFromCart(prodId)}
-                          className="touch-target w-8 h-8 bg-white hover:bg-slate-100 rounded border border-slate-200 flex items-center justify-center text-slate-600 transition-colors"
+                          disabled={checkoutStatus === 'sending'}
+                          className="touch-target w-8 h-8 bg-white hover:bg-slate-100 rounded border border-slate-200 flex items-center justify-center text-slate-600 disabled:opacity-50 disabled:pointer-events-none transition-colors"
                         >
                           <Minus className="w-3.5 h-3.5" />
                         </button>
                         <span className="font-mono text-sm font-bold w-5 text-center">{qty}</span>
                         <button
                           onClick={() => handleAddToCart(prodId)}
-                          className="touch-target w-8 h-8 bg-white hover:bg-slate-100 rounded border border-slate-200 flex items-center justify-center text-slate-600 transition-colors"
+                          disabled={checkoutStatus === 'sending'}
+                          className="touch-target w-8 h-8 bg-white hover:bg-slate-100 rounded border border-slate-200 flex items-center justify-center text-slate-600 disabled:opacity-50 disabled:pointer-events-none transition-colors"
                         >
                           <Plus className="w-3.5 h-3.5" />
                         </button>
@@ -755,8 +875,9 @@ export default function MozoTerminal({
               <div className="flex items-center justify-between text-[10px] text-stone-500 font-medium pb-1">
                 <span>{Object.keys(cart).length} productos distintos</span>
                 <button
-                  onClick={() => setCart({})}
-                  className="touch-target text-rose-500 hover:text-rose-700 font-bold uppercase tracking-wider cursor-pointer text-xs"
+                  onClick={clearCartDraft}
+                  disabled={checkoutStatus === 'sending'}
+                  className="touch-target text-rose-500 hover:text-rose-700 font-bold uppercase tracking-wider cursor-pointer text-xs disabled:opacity-50 disabled:pointer-events-none"
                 >
                   Vaciar Carrito
                 </button>
@@ -783,11 +904,11 @@ export default function MozoTerminal({
                   }`}
                 >
                   {checkoutStatus === 'done' ? (
-                    <><CheckCircle className="w-3.5 h-3.5" /> Pedido Enviado ✓</>
+                    <><CheckCircle className="w-3.5 h-3.5" /> Pedido enviado</>
                   ) : checkoutStatus === 'sending' ? (
                     <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Enviando...</>
                   ) : (
-                    <><Sparkles className="w-3.5 h-3.5 text-amber-300" /> Enviar a Cocina 🚀</>
+                    <><Sparkles className="w-3.5 h-3.5 text-amber-300" /> Enviar a cocina</>
                   )}
                 </button>
               </div>
@@ -804,10 +925,10 @@ export default function MozoTerminal({
               <div>
                 <h3 className="font-extrabold text-base text-slate-900 font-sans tracking-tight flex items-center gap-2">
                   <Receipt className="w-5 h-5 text-emerald-600" />
-                  Divisor de Cuentas Gastronómico
+                  Divisor de cuentas gastronómico
                 </h3>
                 <p className="text-xs text-slate-500 font-sans mt-0.5">
-                  Mesa {pedidos.find(p => p.id_pedido === splittingPedidoId)?.numero_mesa} • Orden #{splittingPedidoId}
+                  Mesa {pedidos.find(p => p.id_pedido === splittingPedidoId)?.numero_mesa} - Orden #{splittingPedidoId}
                 </p>
               </div>
               <button
@@ -817,7 +938,7 @@ export default function MozoTerminal({
                 }}
                 className="text-slate-400 hover:text-slate-600 text-sm font-bold p-1"
               >
-                ✕
+                Cerrar
               </button>
             </div>
 
@@ -854,7 +975,7 @@ export default function MozoTerminal({
                   <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
                     <h4 className="text-xs font-bold text-slate-700 mb-2 flex items-center gap-1">
                       <Users className="w-3.5 h-3.5 text-slate-500" />
-                      A. División Equitativa (Por Comensales)
+                      A. División equitativa (por comensales)
                     </h4>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center bg-white border border-slate-200 rounded-lg p-1.5 gap-2.5">
@@ -886,11 +1007,11 @@ export default function MozoTerminal({
                   <div className="space-y-2">
                     <h4 className="text-xs font-bold text-slate-700 flex items-center gap-1">
                       <Receipt className="w-3.5 h-3.5 text-slate-500" />
-                      B. Desglose Específico (Silla / Consumo Unitario)
+                      B. Desglose específico (silla / consumo unitario)
                     </h4>
                     
                     <p className="text-[10px] text-slate-400 italic">
-                      Tilde los platos que pagará este comensal de manera individual:
+                      Marcá los platos que pagará este comensal de manera individual:
                     </p>
 
                     <div className="space-y-1.5 max-h-36 overflow-y-auto border border-slate-100 rounded-xl p-2 bg-slate-50">

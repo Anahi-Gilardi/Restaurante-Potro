@@ -275,7 +275,7 @@ interface PedidosContextValue {
     pedidos: Pedido[];
     setPedidos: React.Dispatch<React.SetStateAction<Pedido[]>>;
     handleCrearPedido: (
-          data: Omit<Pedido, 'id_pedido' | 'fecha_hora' | 'minutos_transcurridos' | 'origen'> & { origen?: 'Mozo' }
+          data: Omit<Pedido, 'id_pedido' | 'fecha_hora' | 'minutos_transcurridos' | 'origen'> & { origen?: 'Mozo'; comensales?: number }
         ) => void;
     handleCambiarEstadoPedido: (idPedido: number, nuevoEstado: Pedido['estado_comanda']) => void;
     handleFacturarMesa: (idPedido: number) => void;
