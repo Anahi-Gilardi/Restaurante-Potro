@@ -12,12 +12,45 @@ export const reservasService = {
     return (data || []).map(r => ({
       id_reserva: r.id_reserva,
       nombre_cliente: r.cliente,
-      telefono: '',
+      telefono: r.telefono || '',
       pax: r.personas || 1,
       id_mesa: r.id_mesa || undefined,
-      nombre_mesa: `Mesa ${r.id_mesa || ''}`,
+      nombre_mesa: r.nombre_mesa || `Mesa ${r.id_mesa || ''}`,
       hora: r.hora,
-      estado: r.estado === 'sentada' ? 'sentada' : r.estado === 'cancelada' ? 'cancelada' : 'confirmada'
+      estado: r.estado === 'sentada' ? 'sentada' : r.estado === 'cancelada' ? 'cancelada' : r.estado === 'pendiente' ? 'pendiente' : r.estado === 'completada' ? 'completada' : 'confirmada',
+      fecha: r.fecha || new Date().toISOString().split('T')[0],
+      email: r.email || undefined,
+      observaciones: r.observaciones || r.notas || undefined,
+      lista_espera: r.lista_espera ?? false,
+      prioridad_espera: r.prioridad_espera ?? 0
+    }));
+  },
+
+  async listByFecha(fecha: string): Promise<Reserva[]> {
+    const supabase = getActiveSupabaseClient();
+    const { data, error } = await supabase
+      .from('reservas')
+      .select('*')
+      .eq('fecha', fecha)
+      .order('hora', { ascending: true });
+    if (error) {
+      console.error('Error fetching reservas por fecha:', error);
+      throw error;
+    }
+    return (data || []).map(r => ({
+      id_reserva: r.id_reserva,
+      nombre_cliente: r.cliente,
+      telefono: r.telefono || '',
+      pax: r.personas || 1,
+      id_mesa: r.id_mesa || undefined,
+      nombre_mesa: r.nombre_mesa || `Mesa ${r.id_mesa || ''}`,
+      hora: r.hora,
+      estado: r.estado === 'sentada' ? 'sentada' : r.estado === 'cancelada' ? 'cancelada' : r.estado === 'pendiente' ? 'pendiente' : r.estado === 'completada' ? 'completada' : 'confirmada',
+      fecha: r.fecha || fecha,
+      email: r.email || undefined,
+      observaciones: r.observaciones || r.notas || undefined,
+      lista_espera: r.lista_espera ?? false,
+      prioridad_espera: r.prioridad_espera ?? 0
     }));
   },
 

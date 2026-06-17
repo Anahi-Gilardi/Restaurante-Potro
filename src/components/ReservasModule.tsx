@@ -56,37 +56,29 @@ function weekRangeLabel(start: Date): string {
 export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {} }: ReservasModuleProps) {
   const { toast, toasts, removeToast } = useToast();
 
+  const [selectedDate, setSelectedDate] = useState(formatDate(new Date()));
+  const [reservasDelDia, setReservasDelDia] = useState<Reserva[]>([]);
+  const [loadingReservas, setLoadingReservas] = useState(false);
+
+  const fetchReservasDelDia = useCallback(async (fecha: string) => {
+    setLoadingReservas(true);
+    try {
+      const data = await reservasService.listByFecha(fecha);
+      setReservasDelDia(data);
+    } catch (err) {
+      console.error('Error cargando reservas del día:', err);
+    } finally {
+      setLoadingReservas(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchReservasDelDia(selectedDate);
+  }, [selectedDate, fetchReservasDelDia]);
+
   // ── Base de datos local ────────────────────────────────────────────────────
   const [reservas, setReservas] = useState<Reserva[]>([]);
   const [initialLoaded, setInitialLoaded] = useState(false);
-
-  useEffect(() => {
-    reservasService.list().then(data => {
-      if (data && data.length > 0) {
-        setReservas(
-          data.map((d: any) => ({
-            ...d,
-            lista_espera: d.lista_espera ?? false,
-            prioridad_espera: d.prioridad_espera ?? 0,
-          }))
-        );
-      } else {
-        const today = formatDate(new Date());
-        setReservas([
-          { id_reserva: 'r_1', nombre_cliente: 'Gisela Scaglia', telefono: '+54 11 9382-3844', pax: 4, nombre_mesa: 'VIP-1', hora: '21:00 hs', estado: 'confirmada', fecha: today, id_mesa: 101 },
-          { id_reserva: 'r_2', nombre_cliente: 'Mariano Closs', telefono: '+54 9 11 3881-2993', pax: 2, nombre_mesa: 'Mesa 1', hora: '21:30 hs', estado: 'confirmada', fecha: today, id_mesa: 1 },
-          { id_reserva: 'r_3', nombre_cliente: 'Romina Pereyra', telefono: '+54 11 6005-2810', pax: 3, nombre_mesa: 'Mesa 5', hora: '22:00 hs', estado: 'confirmada', fecha: today, id_mesa: 5 },
-          { id_reserva: 'r_4', nombre_cliente: 'Juan Roman Riquelme', telefono: '+54 9 11 5010-1010', pax: 6, nombre_mesa: 'Terraza-3', hora: '22:30 hs', estado: 'confirmada', fecha: today, id_mesa: 13 },
-        ]);
-      }
-      setInitialLoaded(true);
-    }).catch(() => {
-      setInitialLoaded(true);
-    });
-  }, []);
-
-  // ── Estados UI ─────────────────────────────────────────────────────────────
-  const [selectedDate, setSelectedDate] = useState(formatDate(new Date()));
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 300);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -193,7 +185,7 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
             prioridad_espera: enviarEspera ? (r.prioridad_espera ?? Date.now()) : undefined,
           };
           addLog('sistema', `RESERVAS: Modificada reserva de '${nombre}'`);
-          reservasService.update(editingId, updated).catch(err => console.error(err));
+          reservasService.update(editingId, updated).then(() => fetchReservasDelDia(selectedDate)).catch(err => console.error(err));
           if (!enviarEspera && updated.id_mesa) onEstadoChange(updated, updated.estado);
           return updated;
         }
@@ -220,7 +212,7 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
       entrada_lista_espera: enviarEspera ? new Date().toISOString() : undefined,
     };
     setReservas(prev => [...prev, newRes]);
-    reservasService.create(newRes).catch(err => console.error(err));
+    reservasService.create(newRes).then(() => fetchReservasDelDia(formularioDate)).catch(err => console.error(err));
     addLog('sistema', `RESERVAS: Registrada nueva reserva para '${nombre}' para ${capPax} personas el ${formularioDate} a las ${hora}hs`);
     if (!enviarEspera && newRes.id_mesa) onEstadoChange(newRes, 'confirmada');
     resetForm();
@@ -244,7 +236,7 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
   const handleChangeEstado = (id: string, nuevoEstado: Reserva['estado']) => {
     setReservas(prev => prev.map(r => {
       if (r.id_reserva === id) {
-        reservasService.update(id, { estado: nuevoEstado }).catch(err => console.error(err));
+        reservasService.update(id, { estado: nuevoEstado }).then(() => fetchReservasDelDia(selectedDate)).catch(err => console.error(err));
         onEstadoChange(r, nuevoEstado);
         addLog('sistema', `RESERVAS: Reserva de '${r.nombre_cliente}' cambio a ${nuevoEstado.toUpperCase()}`);
         return { ...r, estado: nuevoEstado };
@@ -258,7 +250,7 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
     if (!target) return;
     if (target.id_mesa) onEstadoChange(target, 'cancelada');
     setReservas(prev => prev.filter(r => r.id_reserva !== id));
-    reservasService.remove(id).catch(err => console.error(err));
+    reservasService.remove(id).then(() => fetchReservasDelDia(selectedDate)).catch(err => console.error(err));
     addLog('sistema', `RESERVAS: Anulada la reserva de '${target.nombre_cliente}' de las ${target.hora}`);
     toast.success('Reserva eliminada.');
   };
@@ -277,7 +269,7 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
           prioridad_espera: undefined,
           entrada_lista_espera: undefined,
         };
-        reservasService.update(reservaId, updated).catch(err => console.error(err));
+        reservasService.update(reservaId, updated).then(() => fetchReservasDelDia(selectedDate)).catch(err => console.error(err));
         onEstadoChange(updated, 'confirmada');
         addLog('sistema', `RESERVAS: '${r.nombre_cliente}' asignado a ${mesa.numero_mesa} desde lista de espera.`);
         toast.success(`Mesa ${mesa.numero_mesa} asignada.`);
@@ -288,21 +280,15 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
   };
 
   // ── Filtros ────────────────────────────────────────────────────────────────
-  const reservasDelDia = useMemo(() =>
-    reservas.filter(
-      r => !r.lista_espera && r.fecha === selectedDate && r.estado !== 'cancelada'
-    ),
-    [reservas, selectedDate]
-  );
+  const filtered = useMemo(() => reservasDelDia.filter(
+    r => r.nombre_cliente.toLowerCase().includes(debouncedSearch.toLowerCase()) || r.telefono.includes(debouncedSearch)
+  ), [reservasDelDia, debouncedSearch]);
   const listaEsperaGlobal = useMemo(() =>
     reservas.filter(r => r.lista_espera && r.estado === 'pendiente').sort(
       (a, b) => (a.prioridad_espera ?? 0) - (b.prioridad_espera ?? 0)
     ),
     [reservas]
   );
-  const filtered = useMemo(() => reservasDelDia.filter(
-    r => r.nombre_cliente.toLowerCase().includes(debouncedSearch.toLowerCase()) || r.telefono.includes(debouncedSearch)
-  ), [reservasDelDia, debouncedSearch]);
 
   // ── Calendario mensual helpers ─────────────────────────────────────────────
   const mesasOcupadasEnFecha = (fechaStr: string): number => {
@@ -605,7 +591,7 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-stone-100">
               <h3 className="text-sm font-black text-stone-800 uppercase tracking-tight flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-[#624A3E]" />
-                Reservas {selectedDate} ({filtered.length})
+                Reservas {new Date(selectedDate + 'T00:00:00').toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })} ({reservasDelDia.length})
               </h3>
               <div className="flex items-center gap-3">
                 <div className="relative">
@@ -617,8 +603,13 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
               </div>
             </div>
 
-            <div className="space-y-2.5 mt-3">
-              {filtered.length === 0 ? (
+            <div className="space-y-2.5 mt-3 min-h-[120px]">
+              {loadingReservas ? (
+                <div className="flex items-center justify-center py-10 gap-2 text-stone-500">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span className="text-xs font-semibold">Cargando reservas...</span>
+                </div>
+              ) : filtered.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 gap-2">
                   <Calendar className="w-8 h-8 text-stone-300" />
                   <p className="text-xs text-stone-400 italic">Sin reservas para esta fecha.</p>
@@ -632,25 +623,28 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
                   if (r.estado === 'completada') statusBg = 'bg-stone-100 text-stone-500 border-stone-200';
 
                   return (
-                    <div key={r.id_reserva} className="p-4 bg-[#F5F1E9]/40 border border-stone-150 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 hover:bg-[#F5F1E9]/70 transition-colors">
+                    <div key={r.id_reserva} onClick={() => handleEdit(r)}
+                      className="p-4 bg-[#F5F1E9]/40 border border-stone-150 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 hover:bg-[#F5F1E9]/70 transition-colors cursor-pointer">
                       <div className="space-y-1 flex-1">
                         <div className="flex items-center gap-2.5">
                           <h4 className="font-extrabold text-stone-900 text-sm tracking-tight">{r.nombre_cliente}</h4>
                           <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full border ${statusBg}`}>{r.estado}</span>
                         </div>
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-stone-500 font-medium">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1 text-xs text-stone-500 font-medium">
                           <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5 text-stone-400" />{r.hora}</span>
-                          <span>&middot;</span>
-                          <span className="flex items-center gap-1"><Phone className="w-3.5 h-3.5 text-stone-400" />{r.telefono}</span>
-                          <span>&middot;</span>
-                          <span>{r.nombre_mesa} ({r.pax} pax)</span>
+                          <span className="flex items-center gap-1"><Phone className="w-3.5 h-3.5 text-stone-400" />{r.telefono || '-'}</span>
+                          <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5 text-stone-400" />{r.pax} personas</span>
+                          <span className="flex items-center gap-1"><Armchair className="w-3.5 h-3.5 text-stone-400" />{r.nombre_mesa}</span>
                         </div>
+                        {r.email && (
+                          <p className="text-[10px] text-stone-500 mt-1">{r.email}</p>
+                        )}
                         {r.observaciones && (
                           <p className="text-[10px] text-amber-700 italic mt-1">{r.observaciones}</p>
                         )}
                       </div>
 
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex items-center gap-2 shrink-0" onClick={e => e.stopPropagation()}>
                         <button onClick={() => handleEdit(r)} title="Editar"
                           className="p-1.5 rounded-lg bg-stone-50 hover:bg-blue-50 text-stone-400 hover:text-blue-500 transition-colors cursor-pointer">
                           <Edit2 className="w-3.5 h-3.5" />

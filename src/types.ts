@@ -287,6 +287,8 @@ export interface Reserva {
     /** Mesa asignada (alias de nombre_mesa) */
     mesa_asignada?: string;
     observaciones?: string;
+    /** Email del cliente */
+    email?: string;
     /** Determina si la reserva es parte de la lista de espera */
     lista_espera?: boolean;
     /** Momento en que la reserva entro a lista de espera */
