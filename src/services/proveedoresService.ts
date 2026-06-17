@@ -6,7 +6,10 @@ const toDbProveedor = (prov: Partial<Proveedor>) => ({
   ...(prov.nombre !== undefined ? { nombre: prov.nombre } : {}),
   ...(prov.contacto !== undefined ? { contacto: prov.contacto } : {}),
   ...(prov.telefono !== undefined ? { telefono: prov.telefono } : {}),
-  ...(prov.categoria !== undefined ? { categoria: prov.categoria } : {})
+  ...(prov.categoria !== undefined ? { categoria: prov.categoria } : {}),
+  ...(prov.correo !== undefined ? { correo: prov.correo } : {}),
+  ...(prov.email !== undefined ? { correo: prov.email } : {}),
+  ...(prov.tiempo_entrega_dias !== undefined ? { tiempo_entrega_dias: prov.tiempo_entrega_dias } : {})
 });
 
 export const proveedoresService = {
