@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { 
   Users, 
   Plus, 
@@ -22,9 +22,10 @@ import {
   EyeOff,
   X
 } from 'lucide-react';
-import { Mesa, Insumo, ProductoMenu, RecetaEscandallo, Pedido, PedidoItem, Usuario } from '../types';
+import { Mesa, Insumo, ProductoMenu, RecetaEscandallo, Pedido, PedidoItem, Usuario, EventoLog } from '../types';
 import { useMenu, useSalon, useInventario, usePedidos } from '../context/AppContext';
 import { useToast, ToastContainer } from './ToastContainer';
+import { clearMozoCartDraft, MozoCart, readMozoCartDraft, writeMozoCartDraft } from '../lib/mozoCartDraft';
 
 interface MozoTerminalProps {
   mesas: Mesa[];
@@ -38,7 +39,7 @@ interface MozoTerminalProps {
   onCrearPedido: (pedido: Omit<Pedido, 'id_pedido' | 'fecha_hora' | 'minutos_transcurridos' | 'origen'> & { origen?: 'Mozo' }) => void;
   pedidos: Pedido[];
   onFacturarMesa: (idPedido: number) => void;
-  addLog: (tipo: any, mensaje: string) => void;
+  addLog: (tipo: EventoLog['tipo'], mensaje: string) => void;
   permitirVentaSinStock?: boolean;
 }
 
@@ -74,8 +75,9 @@ export default function MozoTerminal({
   const onMozoChange = propOnMozoChange ?? ctxSalon.setActiveMozo;
   const onCrearPedido = propOnCrearPedido ?? ctxPedidos.handleCrearPedido;
   const onFacturarMesa = propOnFacturarMesa ?? ctxPedidos.handleFacturarMesa;
-  const addLog = propAddLog ?? ((...args: any[]) => {});
+  const addLog = propAddLog ?? (() => {});
   const { toast, toasts, removeToast } = useToast();
+  const checkoutInFlightRef = useRef(false);
   // Waiter selections
   const [selectedMesaId, setSelectedMesaId] = useState<number | null>(null);
   const [comensales, setComensales] = useState<number>(2);
@@ -83,7 +85,7 @@ export default function MozoTerminal({
   const [selectedCategoria, setSelectedCategoria] = useState<string>('todo');
   
   // Current order cart
-  const [cart, setCart] = useState<{ [id_producto: string]: number }>({});
+  const [cart, setCart] = useState<MozoCart>({});
   const [observaciones, setObservaciones] = useState('');
   const [lastCheckoutTime, setLastCheckoutTime] = useState<number | null>(null);
   const [checkoutStatus, setCheckoutStatus] = useState<'idle' | 'sending' | 'done'>('idle');
@@ -104,6 +106,30 @@ export default function MozoTerminal({
     return mesas.find(m => m.id_mesa === selectedMesaId) || null;
   }, [selectedMesaId, mesas]);
 
+  useEffect(() => {
+    if (!selectedMesaId) return;
+    writeMozoCartDraft(selectedMesaId, { cart, observaciones });
+  }, [selectedMesaId, cart, observaciones]);
+
+  const handleSelectMesa = useCallback((mesa: Mesa) => {
+    if (checkoutInFlightRef.current) return;
+    if (selectedMesaId) writeMozoCartDraft(selectedMesaId, { cart, observaciones });
+
+    const draft = readMozoCartDraft(mesa.id_mesa);
+    setSelectedMesaId(mesa.id_mesa);
+    setCart(draft.cart);
+    setObservaciones(draft.observaciones);
+    setCheckoutStatus('idle');
+
+    if (mesa.estado === 'ocupada' && mesa.comensales) {
+      setComensales(mesa.comensales);
+    }
+
+    if (Object.keys(draft.cart).length > 0) {
+      toast.info(`Recuperamos la comanda pendiente de ${mesa.numero_mesa}.`);
+    }
+  }, [cart, observaciones, selectedMesaId, toast]);
+
   // Find active order of the selected table if any (to split or pay)
   const activePedidoDeMesa = useMemo(() => {
     if (!selectedMesaId) return null;
@@ -120,7 +146,7 @@ export default function MozoTerminal({
   }, [productosMenu, selectedCategoria, searchQuery]);
 
   // Helper: check how much of an insumo would be required by the current cart
-  const calculateCartInsumoRequirements = (tempCart: { [id_producto: string]: number }) => {
+  const calculateCartInsumoRequirements = (tempCart: MozoCart) => {
     const requirements: { [id_insumo: string]: number } = {};
     
     Object.keys(tempCart).forEach(prodId => {
@@ -141,8 +167,8 @@ export default function MozoTerminal({
   };
 
   // Helper: evaluate if adding 1 unit of a product breaches current stock
-  const evaluateStockAdd = (productoId: string): { allowed: boolean; warning?: string; isCritical: boolean } => {
-    const nextCart = { ...cart, [productoId]: (cart[productoId] || 0) + 1 };
+  const evaluateStockAdd = (productoId: string, quantity = 1): { allowed: boolean; warning?: string; isCritical: boolean } => {
+    const nextCart = { ...cart, [productoId]: (cart[productoId] || 0) + quantity };
     const requirements = calculateCartInsumoRequirements(nextCart);
 
     for (const [insumoId, reqAmount] of Object.entries(requirements)) {
@@ -195,24 +221,28 @@ export default function MozoTerminal({
   };
 
   // Cart operations
-  const handleAddToCart = (productoId: string) => {
+  const handleAddToCart = (productoId: string, quantity = 1) => {
+    if (checkoutInFlightRef.current || checkoutStatus === 'sending') return;
     if (!selectedMesaId) {
-      toast.error("Por favor seleccione primero una mesa.");
+      toast.error('Seleccioná una mesa antes de cargar productos.');
       return;
     }
-    const evalResult = evaluateStockAdd(productoId);
+    const evalResult = evaluateStockAdd(productoId, quantity);
     if (!evalResult.allowed) {
       addLog('alerta_stock', `Cancelado intento de pedido: ${evalResult.warning}`);
+      toast.error(evalResult.warning || 'No hay stock suficiente para este producto.');
       return;
     }
+    if (evalResult.warning) toast.warning(evalResult.warning);
     
     setCart(prev => ({
       ...prev,
-      [productoId]: (prev[productoId] || 0) + 1
+      [productoId]: (prev[productoId] || 0) + quantity
     }));
   };
 
   const handleRemoveFromCart = (productoId: string) => {
+    if (checkoutInFlightRef.current || checkoutStatus === 'sending') return;
     setCart(prev => {
       const updated = { ...prev };
       if (updated[productoId] > 1) {
@@ -224,7 +254,14 @@ export default function MozoTerminal({
     });
   };
 
+  const handleClearCart = () => {
+    setCart({});
+    setObservaciones('');
+    if (selectedMesaId) clearMozoCartDraft(selectedMesaId);
+  };
+
   const checkoutCart = () => {
+    if (checkoutInFlightRef.current || checkoutStatus === 'sending') return;
     if (!selectedMesaId) return;
     if (Object.keys(cart).length === 0) return;
 
@@ -239,38 +276,53 @@ export default function MozoTerminal({
     }
 
     // Build items list
-    const items: PedidoItem[] = Object.entries(cart).map(([prodId, qty]) => {
-      const p = productosMenu.find(item => item.id_producto === prodId)!;
-      return {
+    const items: PedidoItem[] = [];
+    for (const [prodId, qty] of Object.entries(cart)) {
+      const p = productosMenu.find(item => item.id_producto === prodId);
+      if (!p) {
+        toast.error('Hay un producto que ya no existe en la carta. Quitalo del carrito e intentá nuevamente.');
+        return;
+      }
+      items.push({
         id_producto: prodId,
         nombre: p.nombre,
         cantidad: Number(qty),
         categoria: p.categoria,
         precio_unitario: p.precio_venta
-      };
-    });
+      });
+    }
 
     // Optimistic UI update: show feedback immediately
+    checkoutInFlightRef.current = true;
     setCheckoutStatus('sending');
     setLastCheckoutTime(Date.now());
 
-    onCrearPedido({
-      id_mesa: selectedMesaId,
-      numero_mesa: selectedMesa ? selectedMesa.numero_mesa : `Mesa ${selectedMesaId}`,
-      mozo: activeMozo,
-      estado_comanda: 'pendiente',
-      items,
-      observaciones: observaciones.trim() || undefined,
-    });
+    try {
+      onCrearPedido({
+        id_mesa: selectedMesaId,
+        numero_mesa: selectedMesa ? selectedMesa.numero_mesa : `Mesa ${selectedMesaId}`,
+        mozo: activeMozo,
+        estado_comanda: 'pendiente',
+        items,
+        observaciones: observaciones.trim() || undefined,
+      });
 
-    // Optimistic: reset immediately, then show success
-    setCart({});
-    setObservaciones('');
-    setTimeout(() => {
-      setCheckoutStatus('done');
-      setTimeout(() => setCheckoutStatus('idle'), 1500);
-    }, 200);
-    addLog('pedido_creado', `Mozo ${activeMozo} inyectó pedido para ${selectedMesa?.numero_mesa} con ${items.length} platos.`);
+      setCart({});
+      setObservaciones('');
+      clearMozoCartDraft(selectedMesaId);
+      setTimeout(() => {
+        setCheckoutStatus('done');
+        setTimeout(() => {
+          setCheckoutStatus('idle');
+          checkoutInFlightRef.current = false;
+        }, 1500);
+      }, 200);
+      addLog('pedido_creado', `Mozo ${activeMozo} envió pedido para ${selectedMesa?.numero_mesa} con ${items.length} platos.`);
+    } catch {
+      checkoutInFlightRef.current = false;
+      setCheckoutStatus('idle');
+      toast.error('No se pudo enviar la comanda. El carrito quedó guardado para reintentar.');
+    }
   };
 
   // Calculating totals
@@ -368,13 +420,7 @@ export default function MozoTerminal({
                 <button
                   key={m.id_mesa}
                   id={`mesa-btn-${m.id_mesa}`}
-                  onClick={() => {
-                    setSelectedMesaId(m.id_mesa);
-                    // Prepopulate comensales if occupied
-                    if (m.estado === 'ocupada' && m.comensales) {
-                      setComensales(m.comensales);
-                    }
-                  }}
+                  onClick={() => handleSelectMesa(m)}
                   className={`min-h-[72px] p-2.5 rounded-xl flex flex-col justify-between items-center transition-all aspect-square sm:aspect-auto sm:h-24 border cursor-pointer ${stateClasses}`}
                 >
                   <span className="text-xs sm:text-sm font-black font-sans">{m.numero_mesa}</span>
@@ -626,7 +672,7 @@ export default function MozoTerminal({
                           key={n}
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (!isOutOfStock) for (let i = 0; i < n; i++) handleAddToCart(p.id_producto);
+                            if (!isOutOfStock) handleAddToCart(p.id_producto, n);
                           }}
                           className="touch-target w-10 h-10 sm:w-11 sm:h-11 rounded-lg bg-[#624A3E]/10 text-[#624A3E] hover:bg-[#624A3E] hover:text-white active:scale-90 transition-all text-xs font-extrabold cursor-pointer flex items-center justify-center"
                           title={`Agregar ${n}`}
@@ -753,7 +799,7 @@ export default function MozoTerminal({
               <div className="flex items-center justify-between text-[10px] text-stone-500 font-medium pb-1">
                 <span>{Object.keys(cart).length} productos distintos</span>
                 <button
-                  onClick={() => setCart({})}
+                  onClick={handleClearCart}
                   className="touch-target text-rose-500 hover:text-rose-700 font-bold uppercase tracking-wider cursor-pointer text-xs"
                 >
                   Vaciar Carrito
