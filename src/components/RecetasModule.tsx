@@ -189,7 +189,7 @@ export default function RecetasModule({
               
                 {/* ── Selector de producto ── */}
                       <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs space-y-3">
-                                <h3 className="text-xs font-black text-stone-500 uppercase tracking-wider">Recetarios Habilitados</h3>h3>
+                                <h3 className="text-xs font-black text-stone-500 uppercase tracking-wider">Recetarios Habilitados</h3>
                                 <div className="relative mb-2">
                                             <Search className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                                             <input
@@ -200,7 +200,7 @@ export default function RecetasModule({
                                                             className="w-full pl-8 pr-2 py-1.5 text-xs border border-stone-200 rounded-lg bg-stone-50 focus:outline-none focus:ring-1 focus:ring-[#624A3E]"
                                                             aria-label="Buscar producto en recetario"
                                                           />
-                                </div>div>
+                                </div>
                                 <div className="space-y-1.5 max-h-[360px] overflow-y-auto pr-1">
                                   {filteredProducts.map(p => {
                         const isSelected = activeTabRecipe === p.id_producto;
@@ -224,18 +224,18 @@ export default function RecetasModule({
                                                                                                         className="w-8 h-8 rounded-lg object-cover shrink-0 border border-stone-200/50"
                                                                                                         onError={e => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1544025162-d76694265947?w=80&q=60'; }}
                                                                                                       />
-                                                                                <span className="text-xs font-semibold truncate">{p.nombre}</span>span>
-                                                            </div>div>
+                                                                                <span className="text-xs font-semibold truncate">{p.nombre}</span>
+                                                            </div>
                                                             <span className={`text-[10px] font-black shrink-0 ml-2 px-1.5 py-0.5 rounded-full ${
                                                                                   isSelected ? 'bg-white/20 text-white' : 'bg-stone-200 text-stone-600'
                                                             }`}>
                                                               {count}
-                                                            </span>span>
-                                          </button>button>
+                                                            </span>
+                                          </button>
                                         );
         })}
-                                </div>div>
-                      </div>div>
+                                </div>
+                      </div>
               
                 {/* ── Panel derecho: receta + formulario ── */}
                       <div className="lg:col-span-2 space-y-4">
@@ -250,25 +250,25 @@ export default function RecetasModule({
                                                       onError={e => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1544025162-d76694265947?w=80&q=60'; }}
                                                     />
                                     <div className="flex-1 min-w-0">
-                                                    <h2 className="font-black text-stone-900 text-base">{selectedProduct.nombre}</h2>h2>
-                                                    <p className="text-xs text-stone-500">{selectedProduct.categoria}</p>p>
-                                    </div>div>
+                                                    <h2 className="font-black text-stone-900 text-base">{selectedProduct.nombre}</h2>
+                                                    <p className="text-xs text-stone-500">{selectedProduct.categoria}</p>
+                                    </div>
                                     <div className="text-right shrink-0 space-y-0.5">
-                                                    <div className="text-xs text-stone-400">Precio venta</div>div>
+                                                    <div className="text-xs text-stone-400">Precio venta</div>
                                                     <div className="font-black text-stone-900 font-mono text-sm">
                                                                       ${selectedProduct.precio_venta.toLocaleString('es-AR')}
-                                                    </div>div>
-                                                    <div className="text-xs text-stone-400">Costo estimado</div>div>
+                                                    </div>
+                                                    <div className="text-xs text-stone-400">Costo estimado</div>
                                                     <div className={`font-black font-mono text-sm ${calculatedCost > 0 ? 'text-amber-700' : 'text-stone-400'}`}>
                                                                       ${calculatedCost.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                    </div>div>
+                                                    </div>
                                       {marginPct !== null && (
                                           <div className={`text-xs font-bold ${parseFloat(marginPct) >= 60 ? 'text-emerald-600' : parseFloat(marginPct) >= 40 ? 'text-amber-600' : 'text-red-500'}`}>
                                                               Margen: {marginPct}%
-                                          </div>div>
+                                          </div>
                                                     )}
-                                    </div>div>
-                      </div>div>
+                                    </div>
+                      </div>
                                 )}
                       
                         {/* Lista de ingredientes */}
@@ -276,14 +276,14 @@ export default function RecetasModule({
                                             <div className="px-5 py-3 border-b border-stone-100 flex items-center justify-between">
                                                           <h3 className="text-xs font-black text-stone-600 uppercase tracking-wider flex items-center gap-2">
                                                                           <Scale className="w-3.5 h-3.5" /> Ingredientes ({currentRecipeItems.length})
-                                                          </h3>h3>
-                                            </div>div>
+                                                          </h3>
+                                            </div>
                                 
                                   {currentRecipeItems.length === 0 ? (
                         <div className="py-10 text-center text-stone-400">
                                         <Hammer className="w-7 h-7 mx-auto mb-2 opacity-30" />
-                                        <p className="text-xs">Sin ingredientes. Agregá el primero abajo.</p>p>
-                        </div>div>
+                                        <p className="text-xs">Sin ingredientes. Agregá el primero abajo.</p>
+                        </div>
                       ) : (
                         <div className="divide-y divide-stone-50">
                           {currentRecipeItems.map(rec => {
@@ -299,14 +299,14 @@ export default function RecetasModule({
                                                                                                                      title={ins ? (stockOk ? 'Stock OK' : 'Stock insuficiente') : 'Insumo no encontrado'} />
                                                                   
                                                                                         <div className="flex-1 min-w-0">
-                                                                                                                <p className="text-sm font-semibold text-stone-800 truncate">{ins?.nombre ?? rec.id_insumo}</p>p>
+                                                                                                                <p className="text-sm font-semibold text-stone-800 truncate">{ins?.nombre ?? rec.id_insumo}</p>
                                                                                           {ins && (
                                                                                               <p className="text-[11px] text-stone-400">
                                                                                                                           Stock: {ins.stock_actual} {ins.unidad_medida}
                                                                                                 {ins.costo_unitario ? ` · $${ins.costo_unitario}/u` : ''}
-                                                                                                </p>p>
+                                                                                                </p>
                                                                                                                 )}
-                                                                                          </div>div>
+                                                                                          </div>
                                                                   
                                                                     {/* Cantidad — editable inline */}
                                                                     {isEditing ? (
@@ -325,7 +325,7 @@ export default function RecetasModule({
                                                                                                                                                     className="w-20 px-2 py-1 text-xs border border-[#624A3E]/30 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#624A3E]"
                                                                                                                                                     aria-label={`Editar cantidad de ${ins?.nombre ?? rec.id_insumo}`}
                                                                                                                                                   />
-                                                                                                                      <span className="text-[10px] text-stone-500">{ins?.unidad_medida}</span>span>
+                                                                                                                      <span className="text-[10px] text-stone-500">{ins?.unidad_medida}</span>
                                                                                                                       <button
                                                                                                                                                     onClick={() => handleSaveEditCantidad(rec)}
                                                                                                                                                     disabled={isBusy}
@@ -333,20 +333,20 @@ export default function RecetasModule({
                                                                                                                                                     aria-label="Confirmar cantidad"
                                                                                                                                                   >
                                                                                                                                                   <Check className="w-3.5 h-3.5 text-emerald-700" />
-                                                                                                                        </button>button>
+                                                                                                                        </button>
                                                                                                                       <button
                                                                                                                                                     onClick={() => setEditCantidadId(null)}
                                                                                                                                                     className="p-1 rounded-lg hover:bg-stone-100 transition-colors"
                                                                                                                                                     aria-label="Cancelar edición"
                                                                                                                                                   >
                                                                                                                                                   <X className="w-3.5 h-3.5 text-stone-400" />
-                                                                                                                        </button>button>
-                                                                                              </div>div>
+                                                                                                                        </button>
+                                                                                              </div>
                                                                                           ) : (
                                                                                             <div className="flex items-center gap-2 shrink-0">
                                                                                                                       <span className="text-sm font-mono font-bold text-stone-700">
                                                                                                                         {rec.cantidad_a_descontar} {ins?.unidad_medida ?? rec.unidad_medida ?? ''}
-                                                                                                                        </span>span>
+                                                                                                                        </span>
                                                                                                                       <button
                                                                                                                                                     onClick={() => handleStartEditCantidad(rec)}
                                                                                                                                                     disabled={isBusy}
@@ -355,7 +355,7 @@ export default function RecetasModule({
                                                                                                                                                     title="Editar cantidad"
                                                                                                                                                   >
                                                                                                                                                   <Edit2 className="w-3.5 h-3.5 text-stone-400" />
-                                                                                                                        </button>button>
+                                                                                                                        </button>
                                                                                                                       <button
                                                                                                                                                     onClick={() => handleRemoveRecipeItem(rec.id_receta)}
                                                                                                                                                     disabled={isBusy}
@@ -364,40 +364,40 @@ export default function RecetasModule({
                                                                                                                                                     title="Eliminar ingrediente"
                                                                                                                                                   >
                                                                                                                                                   <Trash className="w-3.5 h-3.5 text-red-400" />
-                                                                                                                        </button>button>
-                                                                                              </div>div>
+                                                                                                                        </button>
+                                                                                              </div>
                                                                                         )}
-                                                                  </div>div>
+                                                                  </div>
                                                                 );
                         })}
-                        </div>div>
+                        </div>
                                             )}
-                                </div>div>
+                                </div>
                       
                         {/* Formulario agregar ingrediente */}
                                 <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs">
                                             <h4 className="text-xs font-black text-stone-600 uppercase tracking-wider mb-3 flex items-center gap-2">
                                                           <Plus className="w-3.5 h-3.5" /> Agregar ingrediente
-                                            </h4>h4>
+                                            </h4>
                                             <form onSubmit={handleAddIngredient} className="flex flex-wrap gap-2 items-end">
                                                           <div className="flex-1 min-w-[160px]">
-                                                                          <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Insumo</label>label>
+                                                                          <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Insumo</label>
                                                                           <select
                                                                                               value={selectedInsumoId}
                                                                                               onChange={e => setSelectedInsumoId(e.target.value)}
                                                                                               className="w-full border border-stone-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#624A3E]/30"
                                                                                               aria-label="Seleccionar insumo"
                                                                                             >
-                                                                                            <option value="">Seleccionar insumo…</option>option>
+                                                                                            <option value="">Seleccionar insumo…</option>
                                                                             {insumos.map(ins => (
                                                                                                                   <option key={ins.id_insumo} value={ins.id_insumo}>
                                                                                                                     {ins.nombre} ({ins.stock_actual} {ins.unidad_medida} disponibles)
-                                                                                                                    </option>option>
+                                                                                                                    </option>
                                                                                                                 ))}
-                                                                          </select>select>
-                                                          </div>div>
+                                                                          </select>
+                                                          </div>
                                                           <div>
-                                                                          <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Cantidad</label>label>
+                                                                          <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Cantidad</label>
                                                                           <input
                                                                                               type="number"
                                                                                               min="0.01"
@@ -408,7 +408,7 @@ export default function RecetasModule({
                                                                                               className="w-28 border border-stone-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#624A3E]/30"
                                                                                               aria-label="Cantidad del insumo"
                                                                                             />
-                                                          </div>div>
+                                                          </div>
                                                           <button
                                                                             type="submit"
                                                                             disabled={!!pendingAction || !selectedInsumoId || !cantidadUsar}
@@ -416,12 +416,11 @@ export default function RecetasModule({
                                                                             aria-label="Agregar ingrediente a la receta"
                                                                           >
                                                                           <Plus className="w-4 h-4" /> Agregar
-                                                          </button>button>
-                                            </form>form>
-                                </div>div>
-                      </div>div>
-              </div>div>
-        </div>div>
+                                                          </button>
+                                            </form>
+                                </div>
+                      </div>
+              </div>
+        </div>
       );
 }
-</div>
