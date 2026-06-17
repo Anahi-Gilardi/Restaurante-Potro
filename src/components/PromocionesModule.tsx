@@ -204,7 +204,7 @@ export default function PromocionesModule({ addLog }: PromocionesModuleProps) {
 
   return (
         <div className="space-y-6">
-              <ToastContainer toasts={toasts} onRemove={removeToast} />
+              <ToastContainer toasts={toasts} onDismiss={removeToast} />
         
               <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
               
