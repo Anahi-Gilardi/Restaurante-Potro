@@ -210,10 +210,10 @@ export default function PromocionesModule({ addLog }: PromocionesModuleProps) {
 
         {/* ── Formulario ── */}
         <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-xs h-fit space-y-4">
-          <h3 className="text-sm font-black text-stone-800 uppercase tracking-tight flex items-center gap-2">
+          <h2 className="text-sm font-black text-stone-800 uppercase tracking-tight flex items-center gap-2">
             <Plus className="w-4 h-4 text-[#624A3E]" />
-            {editingId ? 'Editar Promoción' : 'Nueva Campaña'}
-          </h3>
+            <span>{editingId ? 'Editar Promocion' : 'Nueva Campana'}</span>
+          </h2>
 
           <form
             onSubmit={editingId ? (e => { e.preventDefault(); handleSaveEdit(); }) : handleCreatePromo}
