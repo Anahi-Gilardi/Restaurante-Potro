@@ -7,10 +7,18 @@ import {
   buildRecipeDraft,
   calculateMarginPct,
   calculateRecipeCost,
+  countRecipeItemsByProduct,
+  getMarginLevel,
   getRecipeItemsForProduct,
   parsePositiveQuantity,
   recipeContainsIngredient,
 } from '../lib/recetas';
+
+const marginToneClass = {
+  high: 'text-emerald-600',
+  medium: 'text-amber-600',
+  low: 'text-red-500',
+} as const;
 
 interface RecetasModuleProps {
     recetas: RecetaEscandallo[];
@@ -56,8 +64,18 @@ export default function RecetasModule({
         [productosMenu, searchProduct]
       );
 
-  const selectedProduct    = filteredProducts.find(p => p.id_producto === activeTabRecipe);
-    const currentRecipeItems = getRecipeItemsForProduct(localRecetas, activeTabRecipe);
+  const selectedProduct = useMemo(
+        () => productosMenu.find(p => p.id_producto === activeTabRecipe),
+        [productosMenu, activeTabRecipe]
+      );
+    const currentRecipeItems = useMemo(
+        () => getRecipeItemsForProduct(localRecetas, activeTabRecipe),
+        [localRecetas, activeTabRecipe]
+      );
+    const recipeCountByProduct = useMemo(
+        () => countRecipeItemsByProduct(localRecetas),
+        [localRecetas]
+      );
 
   // Costo total calculado desde costo_unitario real del insumo
   const calculatedCost = useMemo(
@@ -67,9 +85,9 @@ export default function RecetasModule({
 
   // Margen estimado del plato seleccionado
   const marginPct = useMemo(() => {
-        const margin = calculateMarginPct(selectedProduct, calculatedCost);
-        return margin === null ? null : margin.toFixed(1);
+        return calculateMarginPct(selectedProduct, calculatedCost);
   }, [selectedProduct, calculatedCost]);
+  const marginLevel = getMarginLevel(marginPct);
 
   // ── Agregar ingrediente ───────────────────────────────────────────────────
   const handleAddIngredient = useCallback(async (e: React.FormEvent) => {
@@ -203,7 +221,7 @@ export default function RecetasModule({
                                 <div className="space-y-1.5 max-h-[360px] overflow-y-auto pr-1">
                                   {filteredProducts.map(p => {
                         const isSelected = activeTabRecipe === p.id_producto;
-                        const count = localRecetas.filter(r => r.id_producto === p.id_producto).length;
+                        const count = recipeCountByProduct[p.id_producto] ?? 0;
                         return (
                                           <button
                                                               key={p.id_producto}
@@ -261,9 +279,9 @@ export default function RecetasModule({
                                                     <div className={`font-black font-mono text-sm ${calculatedCost > 0 ? 'text-amber-700' : 'text-stone-400'}`}>
                                                                       ${calculatedCost.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                     </div>
-                                      {marginPct !== null && (
-                                          <div className={`text-xs font-bold ${parseFloat(marginPct) >= 60 ? 'text-emerald-600' : parseFloat(marginPct) >= 40 ? 'text-amber-600' : 'text-red-500'}`}>
-                                                              Margen: {marginPct}%
+                                      {marginPct !== null && marginLevel !== null && (
+                                          <div className={`text-xs font-bold ${marginToneClass[marginLevel]}`}>
+                                                              Margen: {marginPct.toFixed(1)}%
                                           </div>
                                                     )}
                                     </div>

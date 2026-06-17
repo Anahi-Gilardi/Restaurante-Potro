@@ -1,7 +1,12 @@
 import type { Insumo, ProductoMenu, RecetaEscandallo } from '../types';
 
+export type MarginLevel = 'high' | 'medium' | 'low';
+
 export function parsePositiveQuantity(value: string): number | null {
-  const parsed = Number.parseFloat(value);
+  const normalized = value.trim().replace(',', '.');
+  if (!/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(normalized)) return null;
+
+  const parsed = Number(normalized);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
@@ -20,6 +25,13 @@ export function recipeContainsIngredient(
   return recetas.some(receta => receta.id_producto === productId && receta.id_insumo === insumoId);
 }
 
+export function countRecipeItemsByProduct(recetas: RecetaEscandallo[]): Record<string, number> {
+  return recetas.reduce<Record<string, number>>((counts, receta) => {
+    counts[receta.id_producto] = (counts[receta.id_producto] ?? 0) + 1;
+    return counts;
+  }, {});
+}
+
 export function calculateRecipeCost(
   recetas: RecetaEscandallo[],
   insumos: Insumo[],
@@ -33,6 +45,13 @@ export function calculateRecipeCost(
 export function calculateMarginPct(product: ProductoMenu | undefined, recipeCost: number): number | null {
   if (!product || recipeCost <= 0 || product.precio_venta <= 0) return null;
   return ((product.precio_venta - recipeCost) / product.precio_venta) * 100;
+}
+
+export function getMarginLevel(marginPct: number | null): MarginLevel | null {
+  if (marginPct === null) return null;
+  if (marginPct >= 60) return 'high';
+  if (marginPct >= 40) return 'medium';
+  return 'low';
 }
 
 export function buildRecipeDraft(

@@ -4,6 +4,8 @@ import {
   buildRecipeDraft,
   calculateMarginPct,
   calculateRecipeCost,
+  countRecipeItemsByProduct,
+  getMarginLevel,
   getRecipeItemsForProduct,
   parsePositiveQuantity,
   recipeContainsIngredient,
@@ -48,8 +50,12 @@ const producto: ProductoMenu = {
 
 test('parsea solo cantidades positivas', () => {
   assert.equal(parsePositiveQuantity('2.5'), 2.5);
+  assert.equal(parsePositiveQuantity('2,5'), 2.5);
+  assert.equal(parsePositiveQuantity('.5'), 0.5);
   assert.equal(parsePositiveQuantity('0'), null);
   assert.equal(parsePositiveQuantity('-1'), null);
+  assert.equal(parsePositiveQuantity('1abc'), null);
+  assert.equal(parsePositiveQuantity('1,2,3'), null);
   assert.equal(parsePositiveQuantity('abc'), null);
 });
 
@@ -57,6 +63,10 @@ test('filtra recetas y detecta ingredientes duplicados por producto', () => {
   assert.deepEqual(getRecipeItemsForProduct(recetas, 'prod-burger').map(r => r.id_receta), ['r1', 'r2']);
   assert.equal(recipeContainsIngredient(recetas, 'prod-burger', 'ins-carne'), true);
   assert.equal(recipeContainsIngredient(recetas, 'prod-pasta', 'ins-pan'), false);
+  assert.deepEqual(countRecipeItemsByProduct(recetas), {
+    'prod-burger': 2,
+    'prod-pasta': 1,
+  });
 });
 
 test('calcula costo y margen estimado de receta', () => {
@@ -65,6 +75,10 @@ test('calcula costo y margen estimado de receta', () => {
 
   assert.equal(cost, 2410);
   assert.equal(calculateMarginPct(producto, cost)?.toFixed(1), '59.8');
+  assert.equal(getMarginLevel(60), 'high');
+  assert.equal(getMarginLevel(40), 'medium');
+  assert.equal(getMarginLevel(39.9), 'low');
+  assert.equal(getMarginLevel(null), null);
   assert.equal(calculateMarginPct(undefined, cost), null);
   assert.equal(calculateMarginPct({ ...producto, precio_venta: 0 }, cost), null);
 });
