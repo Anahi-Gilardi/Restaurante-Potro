@@ -5,12 +5,17 @@ export interface SupabaseConfig {
   key: string;
 }
 
-const DEFAULT_SUPABASE_URL = 'https://sqczmyaoqplrmrgyczjy.supabase.co';
-const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNxY3pteWFvcXBscm1yZ3ljemp5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyNzQ5NzQsImV4cCI6MjA5Njg1MDk3NH0.R5bPwot9KCMJ9OXWcokL705ZD7_0ujH9fGY_GcqxjYY';
+export type SupabaseRuntimeEnv = Record<string, unknown>;
+export type SupabaseLocalConfig = Partial<Record<'SUPABASE_URL' | 'SUPABASE_ANON_KEY', string>>;
 
 const readLocalConfig = (key: string) => {
   if (typeof window === 'undefined') return '';
   return window.localStorage.getItem(key) || '';
+};
+
+const readEnvString = (env: SupabaseRuntimeEnv, key: string) => {
+  const value = env[key];
+  return typeof value === 'string' ? value.trim() : '';
 };
 
 export const normalizeSupabaseUrl = (url: string) => {
@@ -20,15 +25,29 @@ export const normalizeSupabaseUrl = (url: string) => {
     .replace(/\/+$/, '');
 };
 
-export const getSupabaseConfig = (): SupabaseConfig => {
-  const env = (import.meta as any).env || {};
-  const url = env.VITE_SUPABASE_URL || readLocalConfig('SUPABASE_URL') || DEFAULT_SUPABASE_URL;
-  const key = env.VITE_SUPABASE_PUBLISHABLE_KEY || env.VITE_SUPABASE_ANON_KEY || readLocalConfig('SUPABASE_ANON_KEY') || DEFAULT_SUPABASE_ANON_KEY;
+export const resolveSupabaseConfig = (
+  env: SupabaseRuntimeEnv = {},
+  localConfig: SupabaseLocalConfig = {},
+): SupabaseConfig => {
+  const url = readEnvString(env, 'VITE_SUPABASE_URL') || localConfig.SUPABASE_URL || '';
+  const key = readEnvString(env, 'VITE_SUPABASE_PUBLISHABLE_KEY')
+    || readEnvString(env, 'VITE_SUPABASE_ANON_KEY')
+    || localConfig.SUPABASE_ANON_KEY
+    || '';
+
   return { url: normalizeSupabaseUrl(url), key: key.trim() };
 };
 
+export const getSupabaseConfig = (): SupabaseConfig => {
+  const env = (import.meta as any).env || {};
+  return resolveSupabaseConfig(env, {
+    SUPABASE_URL: readLocalConfig('SUPABASE_URL'),
+    SUPABASE_ANON_KEY: readLocalConfig('SUPABASE_ANON_KEY'),
+  });
+};
+
 export const hasSupabaseConfig = (config = getSupabaseConfig()) => {
-  return Boolean(config.url && config.key && !config.key.includes('...'));
+  return Boolean(config.url && config.key && !config.key.includes('...') && !config.key.includes('tu-anon-key'));
 };
 
 let cachedClient: SupabaseClient | null = null;

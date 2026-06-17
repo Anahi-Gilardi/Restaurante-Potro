@@ -23,7 +23,7 @@ npm install
 
 ## Configuración
 
-La app puede ejecutarse sin Supabase usando los datos locales de demostración.
+La app puede ejecutarse sin Supabase usando los datos locales de demostración en desarrollo. En Vercel Production, el build exige variables de Supabase explícitas para evitar desplegar contra una base equivocada.
 
 Para conectar Supabase:
 
@@ -33,6 +33,7 @@ Para conectar Supabase:
 ```env
 VITE_SUPABASE_URL="https://tu-proyecto.supabase.co"
 VITE_SUPABASE_ANON_KEY="tu-anon-key"
+VITE_ENABLE_DEMO_LOGIN="false"
 ```
 
 3. Ejecutar la migración SQL ubicada en `supabase/migrations/20260612000000_create_schema.sql`.
@@ -62,6 +63,7 @@ Contraseña: restaurante
 ```bash
 npm run lint
 npm test
+npm run check:deploy-config
 npm run build
 ```
 
@@ -94,4 +96,5 @@ npm run clean
 - Configurar `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` por separado en Production, Preview y Development.
 - Configurar `VITE_DEMO_USER` y `VITE_DEMO_PASSWORD` en Vercel mientras el acceso demo esté habilitado.
 - Desactivar el acceso demo con `VITE_ENABLE_DEMO_LOGIN=false` cuando Supabase Auth esté operativo.
+- `npm run verify` falla en Vercel Production si faltan variables Supabase o si `VITE_ENABLE_DEMO_LOGIN` no está en `false`.
 - Las políticas RLS de la migración son abiertas para desarrollo/demo. Para producción, restringirlas por usuario, rol y operación.

@@ -14,7 +14,8 @@
     "lint": "tsc --noEmit",
     "test": "tsx --test src/**/*.test.ts",
     "check:recetas": "tsx scripts/check-recetas-module.ts",
-    "verify": "npm run lint && npm test && npm run check:recetas && npm run build"
+    "check:deploy-config": "tsx scripts/check-deploy-config.ts",
+    "verify": "npm run lint && npm test && npm run check:recetas && npm run check:deploy-config && npm run build"
   },
   "dependencies": {
     "@arcasdk/core": "^1.3.1",
