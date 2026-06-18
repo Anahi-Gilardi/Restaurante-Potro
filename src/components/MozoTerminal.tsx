@@ -195,7 +195,8 @@ export default function MozoTerminal({
       if (prev && prev.estado_comanda !== 'listo' && p.estado_comanda === 'listo') {
         // Trigger notification if this order belongs to the active waiter
         if (p.mozo === activeMozo) {
-          toast.info(`🔔 ¡Plato Listo! El Pedido #${p.id_pedido} de la Mesa ${p.numero_mesa} está listo para servir.`);
+          const itemsList = p.items.map(item => `${item.cantidad}x ${item.nombre}`).join(', ');
+          toast.info(`🔔 ¡Pedido Listo! Mesa ${p.numero_mesa}: Entregar (${itemsList}).`);
         }
       }
     });
