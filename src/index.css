@@ -7,14 +7,15 @@
   --font-display-serif: 'Cinzel', serif;
 }
 
-/* Scrollbar delgado pegado al borde */
+/* Scrollbar delgado pegado al borde en color marrón vintage */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #475569 transparent;
+  scrollbar-color: #624A3E transparent;
 }
 
 *::-webkit-scrollbar {
-  width: 4px;
+  width: 5px;
+  height: 5px;
 }
 
 *::-webkit-scrollbar-track {
@@ -22,8 +23,17 @@
 }
 
 *::-webkit-scrollbar-thumb {
-  background-color: #475569;
+  background-color: #624A3E;
   border-radius: 999px;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: #FDFBF7;
+  color: #2D241E;
 }
 
 html,

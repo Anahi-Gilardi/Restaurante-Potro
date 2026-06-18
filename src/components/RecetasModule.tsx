@@ -308,9 +308,9 @@ export default function RecetasModule({
                                           <button
                                                               key={p.id_producto}
                                                               onClick={() => setActiveTabRecipe(p.id_producto)}
-                                                              className={`w-full p-3 rounded-xl border text-left transition-all flex items-center justify-between cursor-pointer ${
+                                                              className={`w-full p-3 rounded-xl border text-left transition-all duration-150 flex items-center justify-between cursor-pointer active:scale-[0.98] ${
                                                                                     isSelected
-                                                                                      ? 'bg-[#624A3E] text-white border-[#5d3a2e] shadow-sm'
+                                                                                      ? 'bg-[#624A3E] text-white border-[#B07A48] shadow-sm'
                                                                                       : 'bg-stone-50 hover:bg-[#F5F1E9]/50 text-stone-700 border-stone-200'
                                                               }`}
                                                               aria-pressed={isSelected}
