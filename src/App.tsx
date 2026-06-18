@@ -66,7 +66,9 @@ import {
   dbFetchMermas,
   dbUpsertMermas,
   dbRecordMovement,
-  dbFetchUsuarios
+  dbFetchUsuarios,
+  dbUpsertProductosMenu,
+  dbUpsertRecetas
 } from './supabase';
 import { AppView, canAccessView, getAllowedViews } from './lib/permissions';
 import { createClientPedidoId } from './lib/pedidoIds';
@@ -147,11 +149,49 @@ export default function App() {
       if (!client) return;
       try {
         const dbMesas = await dbFetchMesas();
-        const dbInsumos = await dbFetchInsumos();
-        const dbProducts = await dbFetchProductosMenu();
-        const dbRecipes = await dbFetchRecetas();
+        let dbInsumos = await dbFetchInsumos();
+        let dbProducts = await dbFetchProductosMenu();
+        let dbRecipes = await dbFetchRecetas();
         const dbPedidos = await dbFetchPedidos();
         const dbMermas = await dbFetchMermas();
+
+        // Auto-seed new Coca-Cola line if they are missing in the Supabase database
+        if (dbProducts && dbProducts.length > 0) {
+          const hasCocaCola = dbProducts.some(p => p.id_producto === 'prod_coca_cola_original');
+          if (!hasCocaCola) {
+            const cocaColaProducts = INITIAL_PRODUCTOS_MENU.filter(p => 
+              p.id_producto.startsWith('prod_coca_cola') || 
+              p.id_producto.startsWith('prod_sprite') || 
+              p.id_producto.startsWith('prod_fanta')
+            );
+            if (cocaColaProducts.length > 0) {
+              await dbUpsertProductosMenu(cocaColaProducts);
+              
+              const relatedInsumos = INITIAL_INSUMOS.filter(i => 
+                i.id_insumo.startsWith('ins_beb_coca_cola') || 
+                i.id_insumo.startsWith('ins_beb_sprite') || 
+                i.id_insumo.startsWith('ins_beb_fanta')
+              );
+              if (relatedInsumos.length > 0) {
+                await dbUpsertInsumos(relatedInsumos);
+              }
+              
+              const relatedRecipes = INITIAL_RECETAS_ESCANDALLO.filter(r => 
+                r.id_producto.startsWith('prod_coca_cola') || 
+                r.id_producto.startsWith('prod_sprite') || 
+                r.id_producto.startsWith('prod_fanta')
+              );
+              if (relatedRecipes.length > 0) {
+                await dbUpsertRecetas(relatedRecipes);
+              }
+              
+              // Refetch updated data from Supabase
+              dbProducts = await dbFetchProductosMenu();
+              dbInsumos = await dbFetchInsumos();
+              dbRecipes = await dbFetchRecetas();
+            }
+          }
+        }
 
         if ((dbMesas ?? []).length > 0) {
           setMesas((dbMesas ?? []).map(m => ({
