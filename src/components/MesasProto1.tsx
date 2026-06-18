@@ -160,7 +160,9 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
 
   const handleSvgClick = (e: React.MouseEvent<SVGSVGElement>) => {
     const target = e.target as HTMLElement;
-    const svgId = target.id || target.closest('[id]')?.id;
+    const group = target.closest('[data-mesa-id]') as HTMLElement | null;
+    if (!group) return;
+    const svgId = group.dataset.mesaId;
     if (!svgId) return;
     const mesa = findMesaBySvgId(svgId);
     if (mesa) openModal(mesa);
@@ -269,7 +271,7 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
       const capacidad = m.capacidad;
 
       return (
-        <g key={m.svgId} id={m.svgId} className="cursor-pointer hover:opacity-90 transition-opacity"
+        <g key={m.svgId} data-mesa-id={m.svgId} className="cursor-pointer hover:opacity-90 transition-opacity"
            onClick={() => mesaState && openModal(mesaState)}
         >
           <rect x={m.x} y={m.y} width={m.width} height={m.height} rx={6}
@@ -281,9 +283,10 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
     });
 
     return (
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 430 620" className="w-full h-auto max-w-[430px] mx-auto drop-shadow-xl"
-           onClick={handleSvgClick}
-      >
+      <div className="w-full overflow-x-auto">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 430 620" preserveAspectRatio="xMidYMid meet" className="w-full h-auto max-h-[calc(100vh-180px)] min-w-[320px] mx-auto drop-shadow-xl"
+             onClick={handleSvgClick}
+        >
         <rect x="10" y="10" width="410" height="600" rx="4" fill="none" stroke="#3D2B1F" strokeWidth="3"/>
         <rect x="10" y="10" width="80" height="600" rx="4" fill="#2C1A0E"/>
         <text x="50" y="200" textAnchor="middle" fontSize="11" fill="#C9A96E" fontFamily="Georgia, serif" fontWeight="700" transform="rotate(-90, 50, 200)" letterSpacing="2">RESTAURANTE</text>
@@ -358,6 +361,7 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
         <rect x="310" y="580" width="14" height="14" rx="3" fill="#FFF3CD" stroke="#FFC107" strokeWidth="2"/>
         <text x="328" y="591" fontSize="9" fill="#2C1A0E" fontFamily="Arial, sans-serif">Reservado</text>
       </svg>
+      </div>
     );
   };
 
