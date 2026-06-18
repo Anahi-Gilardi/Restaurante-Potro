@@ -19,32 +19,41 @@ function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-// Mapa de mesas según el SVG. Cada entrada define el rectángulo del plano y la capacidad.
-interface MesaSvgMap {
-  id_mesa: number;
-  svgId: string;
-  numero: string;
-  capacidad: number;
-  zona: 'Comedor' | 'Salón';
+type Zona = 'comedor' | 'salon';
+
+interface MesaPosicion {
   x: number;
   y: number;
   width: number;
   height: number;
+  rx: number;
 }
 
-const MESAS_SVG: MesaSvgMap[] = [
-  { id_mesa: 8,  svgId: 'mesa-8-comedor-1', numero: 'Mesa 8',  capacidad: 8, zona: 'Comedor', x: 135, y: 60,  width: 80, height: 52 },
-  { id_mesa: 4,  svgId: 'mesa-4-comedor-a', numero: 'Mesa 4',  capacidad: 4, zona: 'Comedor', x: 270, y: 60,  width: 64, height: 52 },
-  { id_mesa: 5,  svgId: 'mesa-5-comedor-1', numero: 'Mesa 5',  capacidad: 5, zona: 'Comedor', x: 140, y: 145, width: 72, height: 52 },
-  { id_mesa: 6,  svgId: 'mesa-4-comedor-b', numero: 'Mesa 6',  capacidad: 4, zona: 'Comedor', x: 270, y: 145, width: 64, height: 52 },
-  { id_mesa: 7,  svgId: 'mesa-4-salon-c',  numero: 'Mesa 7',  capacidad: 4, zona: 'Salón',   x: 155, y: 325, width: 64, height: 52 },
-  { id_mesa: 3,  svgId: 'mesa-3-salon-1',  numero: 'Mesa 3',  capacidad: 3, zona: 'Salón',   x: 285, y: 325, width: 52, height: 52 },
-  { id_mesa: 9,  svgId: 'mesa-5-salon-b',  numero: 'Mesa 9',  capacidad: 5, zona: 'Salón',   x: 135, y: 415, width: 72, height: 52 },
-  { id_mesa: 2,  svgId: 'mesa-2-salon-1',  numero: 'Mesa 2',  capacidad: 2, zona: 'Salón',   x: 285, y: 415, width: 52, height: 52 },
-  { id_mesa: 1,  svgId: 'mesa-1-salon-1',  numero: 'Mesa 1',  capacidad: 1, zona: 'Salón',   x: 108, y: 495, width: 52, height: 52 },
+interface MesaVisual {
+  id: string;
+  id_mesa: number;
+  numero_mesa: string;
+  capacidad: number;
+  zona: Zona;
+  posicion: MesaPosicion;
+  estado: Mesa['estado'];
+  mesas_unidas?: number[];
+  parent_id?: number;
+}
+
+const POSICIONES_INICIALES: MesaVisual[] = [
+  { id: 'mesa-8-comedor-8', id_mesa: 8, numero_mesa: '8', capacidad: 8, zona: 'comedor', posicion: { x: 135, y: 60, width: 80, height: 52, rx: 6 }, estado: 'libre' },
+  { id: 'mesa-4-comedor-4', id_mesa: 4, numero_mesa: '4', capacidad: 4, zona: 'comedor', posicion: { x: 270, y: 60, width: 64, height: 52, rx: 6 }, estado: 'libre' },
+  { id: 'mesa-5-comedor-5', id_mesa: 5, numero_mesa: '5', capacidad: 5, zona: 'comedor', posicion: { x: 140, y: 145, width: 72, height: 52, rx: 6 }, estado: 'libre' },
+  { id: 'mesa-4-comedor-6', id_mesa: 6, numero_mesa: '6', capacidad: 4, zona: 'comedor', posicion: { x: 270, y: 145, width: 64, height: 52, rx: 6 }, estado: 'libre' },
+  { id: 'mesa-4-salon-7',  id_mesa: 7, numero_mesa: '7', capacidad: 4, zona: 'salon',   posicion: { x: 155, y: 325, width: 64, height: 52, rx: 6 }, estado: 'libre' },
+  { id: 'mesa-3-salon-3',  id_mesa: 3, numero_mesa: '3', capacidad: 3, zona: 'salon',   posicion: { x: 285, y: 325, width: 52, height: 52, rx: 6 }, estado: 'libre' },
+  { id: 'mesa-5-salon-9',  id_mesa: 9, numero_mesa: '9', capacidad: 5, zona: 'salon',   posicion: { x: 135, y: 415, width: 72, height: 52, rx: 6 }, estado: 'libre' },
+  { id: 'mesa-2-salon-2',  id_mesa: 2, numero_mesa: '2', capacidad: 2, zona: 'salon',   posicion: { x: 285, y: 415, width: 52, height: 52, rx: 6 }, estado: 'libre' },
+  { id: 'mesa-1-salon-1',  id_mesa: 1, numero_mesa: '1', capacidad: 1, zona: 'salon',   posicion: { x: 108, y: 495, width: 52, height: 52, rx: 6 }, estado: 'libre' },
 ];
 
-const ESTADO_FILL = {
+const ESTADO_FILL: Record<Mesa['estado'], string> = {
   libre: '#D4EDDA',
   ocupada: '#F8D7DA',
   reservada: '#FFF3CD',
@@ -53,7 +62,7 @@ const ESTADO_FILL = {
   unida: '#e5e7eb',
 };
 
-const ESTADO_STROKE = {
+const ESTADO_STROKE: Record<Mesa['estado'], string> = {
   libre: '#28A745',
   ocupada: '#DC3545',
   reservada: '#FFC107',
@@ -62,7 +71,7 @@ const ESTADO_STROKE = {
   unida: '#6B7280',
 };
 
-const ESTADO_TEXT = {
+const ESTADO_TEXT: Record<Mesa['estado'], string> = {
   libre: '#28A745',
   ocupada: '#DC3545',
   reservada: '#B58900',
@@ -71,14 +80,62 @@ const ESTADO_TEXT = {
   unida: '#374151',
 };
 
+function generarIdMesa(numero: string, capacidad: number, zona: Zona): string {
+  return `mesa-${capacidad}-${zona}-${numero}`;
+}
+
+function parseNumeroMesa(valor: string): string {
+  return valor.replace(/\D/g, '').trim();
+}
+
+function siguienteNumeroDisponible(mesas: MesaVisual[]): string {
+  const numeros = mesas.map(m => parseInt(m.numero_mesa) || 0).filter(n => n > 0);
+  let n = 1;
+  while (numeros.includes(n)) n++;
+  return String(n);
+}
+
+function generarPosicionNuevaMesa(zona: Zona, mesas: MesaVisual[]): MesaPosicion {
+  const baseY = zona === 'comedor' ? 90 : 355;
+  const mesasZona = mesas.filter(m => m.zona === zona);
+  const idx = mesasZona.length;
+  const cols = 2;
+  const col = idx % cols;
+  const row = Math.floor(idx / cols);
+  const baseX = zona === 'comedor' ? 135 + col * 110 : 120 + col * 110;
+  return { x: baseX, y: baseY + row * 70, width: 64, height: 52, rx: 6 };
+}
+
+function renderSillas(mesa: MesaVisual): React.ReactNode[] {
+  const { x, y, width, height } = mesa.posicion;
+  const capacidad = mesa.capacidad;
+  const sillas: React.ReactNode[] = [];
+  const radio = 7;
+  const pasoX = width / (Math.min(capacidad, 4) + 1);
+
+  const arriba = Math.min(capacidad, 4);
+  for (let i = 1; i <= arriba; i++) {
+    sillas.push(
+      <circle key={`top-${i}`} cx={x + pasoX * i} cy={y - 12} r={radio} fill="#28A745" opacity="0.55" pointerEvents="none" />
+    );
+  }
+  const abajo = Math.max(0, capacidad - 4);
+  for (let i = 1; i <= abajo; i++) {
+    sillas.push(
+      <circle key={`bottom-${i}`} cx={x + pasoX * i} cy={y + height + 12} r={radio} fill="#28A745" opacity="0.55" pointerEvents="none" />
+    );
+  }
+  return sillas;
+}
+
 export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }: MesasProto1Props) {
   const { toast, toasts, removeToast } = useToast();
-  const [localMesas, setLocalMesas] = useState<Mesa[]>(mesas);
+  const [visualMesas, setVisualMesas] = useState<MesaVisual[]>(POSICIONES_INICIALES);
   const [reservasHoy, setReservasHoy] = useState<Reserva[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Modal reserva
-  const [selectedMesa, setSelectedMesa] = useState<Mesa | null>(null);
+  const [selectedMesa, setSelectedMesa] = useState<MesaVisual | null>(null);
   const [nombre, setNombre] = useState('');
   const [telefono, setTelefono] = useState('');
   const [pax, setPax] = useState('2');
@@ -89,14 +146,14 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
 
   // Modo unir mesas
   const [unionMode, setUnionMode] = useState(false);
-  const [selectedForUnion, setSelectedForUnion] = useState<Mesa[]>([]);
+  const [selectedForUnion, setSelectedForUnion] = useState<MesaVisual[]>([]);
 
   // Formulario agregar/editar mesa
   const [showMesaForm, setShowMesaForm] = useState(false);
-  const [editingMesa, setEditingMesa] = useState<Mesa | null>(null);
+  const [editingMesa, setEditingMesa] = useState<MesaVisual | null>(null);
   const [nuevoNumero, setNuevoNumero] = useState('');
   const [nuevaCapacidad, setNuevaCapacidad] = useState('4');
-  const [nuevaZona, setNuevaZona] = useState<'Comedor' | 'Salón'>('Comedor');
+  const [nuevaZona, setNuevaZona] = useState<Zona>('comedor');
 
   const today = formatDate(new Date());
 
@@ -111,18 +168,25 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
         ]);
         if (!mounted) return;
 
-        // Si Supabase no tiene mesas, usar las del SVG mapeadas
-        if (!mData.length) {
-          const fallback = MESAS_SVG.map(m => ({
-            id_mesa: m.id_mesa,
-            numero_mesa: m.numero,
-            capacidad: m.capacidad,
-            sector: m.zona.toLowerCase() as Mesa['sector'],
-            estado: 'libre' as const,
-          }));
-          setLocalMesas(fallback);
+        if (mData.length > 0) {
+          const merged = mData.map(m => {
+            const existente = POSICIONES_INICIALES.find(p => p.id_mesa === m.id_mesa);
+            const zona = (m.sector as Zona) || 'salon';
+            return {
+              id: generarIdMesa(m.numero_mesa, m.capacidad || 4, zona),
+              id_mesa: m.id_mesa,
+              numero_mesa: m.numero_mesa,
+              capacidad: m.capacidad || 4,
+              zona,
+              posicion: existente?.posicion || generarPosicionNuevaMesa(zona, POSICIONES_INICIALES),
+              estado: m.estado,
+              mesas_unidas: m.mesas_unidas,
+              parent_id: m.parent_id,
+            };
+          });
+          setVisualMesas(merged);
         } else {
-          setLocalMesas(mData);
+          setVisualMesas(POSICIONES_INICIALES);
         }
 
         const reservasFiltradas = (rData || []).filter((r: Reserva) =>
@@ -144,11 +208,21 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
   useEffect(() => {
     const channel = mesasService.subscribe((payload: any) => {
       if (payload.eventType === 'UPDATE' && payload.new) {
-        setLocalMesas(prev => prev.map(m => m.id_mesa === payload.new.id_mesa ? { ...m, ...payload.new } : m));
+        setVisualMesas(prev => prev.map(m => m.id_mesa === payload.new.id_mesa ? { ...m, estado: payload.new.estado, mesas_unidas: payload.new.mesas_unidas, parent_id: payload.new.parent_id } : m));
       } else if (payload.eventType === 'INSERT' && payload.new) {
-        setLocalMesas(prev => [...prev, payload.new as Mesa]);
+        const m = payload.new as Mesa;
+        const zona = (m.sector as Zona) || 'salon';
+        setVisualMesas(prev => [...prev, {
+          id: generarIdMesa(m.numero_mesa, m.capacidad || 4, zona),
+          id_mesa: m.id_mesa,
+          numero_mesa: m.numero_mesa,
+          capacidad: m.capacidad || 4,
+          zona,
+          posicion: generarPosicionNuevaMesa(zona, prev),
+          estado: m.estado,
+        }]);
       } else if (payload.eventType === 'DELETE' && payload.old) {
-        setLocalMesas(prev => prev.filter(m => m.id_mesa !== payload.old.id_mesa));
+        setVisualMesas(prev => prev.filter(m => m.id_mesa !== payload.old.id_mesa));
       }
     });
     return () => {
@@ -157,43 +231,18 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
   }, []);
 
   useEffect(() => {
-    onMesasChange(localMesas);
-  }, [localMesas, onMesasChange]);
+    onMesasChange(visualMesas.map(m => ({
+      id_mesa: m.id_mesa,
+      numero_mesa: m.numero_mesa,
+      capacidad: m.capacidad,
+      sector: m.zona,
+      estado: m.estado,
+      mesas_unidas: m.mesas_unidas,
+      parent_id: m.parent_id,
+    })));
+  }, [visualMesas, onMesasChange]);
 
-  // Estado visual combinando mesa + reservas del día
-  const mesasConEstado = useMemo(() => {
-    return localMesas.map(m => {
-      const reserva = reservasHoy.find(r => r.id_mesa === m.id_mesa && r.estado === 'confirmada');
-      if (m.estado === 'ocupada') return m;
-      if (reserva) return { ...m, estado: 'reservada' as const, reserva_cliente: reserva.nombre_cliente, reserva_hora: reserva.hora };
-      return { ...m, estado: 'libre' as const };
-    });
-  }, [localMesas, reservasHoy]);
-
-  const findMesaBySvgId = (svgId: string): Mesa | undefined => {
-    const map = MESAS_SVG.find(m => m.svgId === svgId);
-    if (!map) return undefined;
-    return mesasConEstado.find(m => m.id_mesa === map.id_mesa && m.numero_mesa === map.numero);
-  };
-
-  const handleSvgClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    e.stopPropagation();
-    const target = e.target as HTMLElement;
-    const group = target.closest('[data-mesa-id]') as SVGGElement | null;
-    if (!group) return;
-    const svgId = group.dataset.mesaId;
-    if (!svgId) return;
-    const mesa = findMesaBySvgId(svgId);
-    if (mesa) {
-      if (unionMode) {
-        toggleUnionSelection(mesa);
-      } else {
-        openModal(mesa);
-      }
-    }
-  };
-
-  const openModal = (mesa: Mesa) => {
+  const openModal = (mesa: MesaVisual) => {
     setSelectedMesa(mesa);
     const reservaExistente = reservasHoy.find(r => r.id_mesa === mesa.id_mesa && r.estado === 'confirmada');
     if (reservaExistente) {
@@ -218,7 +267,7 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
     setSaving(false);
   };
 
-  const toggleUnionSelection = (mesa: Mesa) => {
+  const toggleUnionSelection = (mesa: MesaVisual) => {
     setSelectedForUnion(prev => {
       const exists = prev.some(m => m.id_mesa === mesa.id_mesa);
       if (exists) return prev.filter(m => m.id_mesa !== mesa.id_mesa);
@@ -231,20 +280,20 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
     if (selectedForUnion.length !== 2) return;
     const [m1, m2] = selectedForUnion;
     const capacidadUnida = (m1.capacidad || 0) + (m2.capacidad || 0);
-    const mesaUnida: Mesa = {
-      ...m1,
-      capacidad: capacidadUnida,
-      mesas_unidas: [m1.id_mesa, m2.id_mesa],
+    const mesaUnida: Partial<Mesa> = {
       numero_mesa: `${m1.numero_mesa} + ${m2.numero_mesa}`,
+      capacidad: capacidadUnida,
+      sector: m1.zona,
       estado: m1.estado === 'ocupada' || m2.estado === 'ocupada' ? 'ocupada' : 'libre',
+      mesas_unidas: [m1.id_mesa, m2.id_mesa],
     };
 
     try {
       await mesasService.update(m1.id_mesa, mesaUnida);
-      await mesasService.update(m2.id_mesa, { parent_id: m1.id_mesa, estado: 'unida' as any });
-      setLocalMesas(prev => prev.map(m => {
-        if (m.id_mesa === m1.id_mesa) return mesaUnida;
-        if (m.id_mesa === m2.id_mesa) return { ...m, parent_id: m1.id_mesa, estado: 'unida' as any };
+      await mesasService.update(m2.id_mesa, { parent_id: m1.id_mesa, estado: 'unida' });
+      setVisualMesas(prev => prev.map(m => {
+        if (m.id_mesa === m1.id_mesa) return { ...m, ...mesaUnida, zona: m1.zona, estado: mesaUnida.estado || 'libre' } as MesaVisual;
+        if (m.id_mesa === m2.id_mesa) return { ...m, parent_id: m1.id_mesa, estado: 'unida' };
         return m;
       }));
       setSelectedForUnion([]);
@@ -257,69 +306,91 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
   };
 
   const handleSepararMesas = async () => {
-    if (!selectedMesa || !selectedMesa.mesas_unidas || selectedMesa.mesas_unidas.length < 2) return;
-    const [id1, id2] = selectedMesa.mesas_unidas;
+    if (!selectedMesa) return;
+    const original = POSICIONES_INICIALES.find(p => p.id_mesa === selectedMesa.id_mesa);
     try {
-      await mesasService.update(id1, { capacidad: MESAS_SVG.find(m => m.id_mesa === id1)?.capacidad, mesas_unidas: [], numero_mesa: MESAS_SVG.find(m => m.id_mesa === id1)?.numero, estado: 'libre' as const });
-      await mesasService.update(id2, { parent_id: undefined, estado: 'libre' as const });
-      setLocalMesas(prev => prev.map(m => {
-        if (m.id_mesa === id1) return { ...m, capacidad: MESAS_SVG.find(ms => ms.id_mesa === id1)?.capacidad, mesas_unidas: [], numero_mesa: MESAS_SVG.find(ms => ms.id_mesa === id1)?.numero || m.numero_mesa, estado: 'libre' as const };
-        if (m.id_mesa === id2) return { ...m, parent_id: undefined, estado: 'libre' as const };
-        return m;
-      }));
-      closeModal();
+      await mesasService.update(selectedMesa.id_mesa, {
+        capacidad: original?.capacidad || selectedMesa.capacidad,
+        mesas_unidas: [],
+        numero_mesa: original?.numero_mesa || selectedMesa.numero_mesa,
+        estado: 'libre',
+      });
       addLog('mesa', `Mesas separadas: ${selectedMesa.numero_mesa}`);
       toast.success('Mesas separadas');
+      closeModal();
     } catch (err: any) {
       toast.error(err.message || 'Error al separar mesas');
     }
   };
 
-  const openEditMesa = (mesa: Mesa, e?: React.MouseEvent) => {
+  const openEditMesa = (mesa: MesaVisual, e?: React.MouseEvent) => {
     e?.stopPropagation();
     setEditingMesa(mesa);
     setNuevoNumero(mesa.numero_mesa);
     setNuevaCapacidad(String(mesa.capacidad || 4));
-    setNuevaZona((mesa.sector === 'comedor' ? 'Comedor' : 'Salón') as 'Comedor' | 'Salón');
+    setNuevaZona(mesa.zona);
     setShowMesaForm(true);
   };
 
   const resetMesaForm = () => {
     setEditingMesa(null);
-    setNuevoNumero('');
+    setNuevoNumero(siguienteNumeroDisponible(visualMesas));
     setNuevaCapacidad('4');
-    setNuevaZona('Comedor');
+    setNuevaZona('comedor');
     setShowMesaForm(false);
   };
 
   const handleSaveMesa = async (e: React.FormEvent) => {
     e.preventDefault();
-    const numero = nuevoNumero.trim();
-    const capacidad = parseInt(nuevaCapacidad) || 1;
-    if (!numero) {
-      toast.error('El número de mesa es obligatorio');
+    const numeroRaw = parseNumeroMesa(nuevoNumero);
+    if (!numeroRaw) {
+      toast.error('El número de mesa es obligatorio (solo números)');
       return;
     }
 
+    const numeroExistente = visualMesas.some(m => m.numero_mesa === numeroRaw && m.id_mesa !== editingMesa?.id_mesa);
+    if (numeroExistente) {
+      const sugerido = siguienteNumeroDisponible(visualMesas);
+      toast.error(`Ya existe la Mesa ${numeroRaw}. Siguiente disponible: Mesa ${sugerido}`);
+      return;
+    }
+
+    const capacidad = parseInt(nuevaCapacidad) || 1;
+
     try {
       if (editingMesa) {
-        const updated = { ...editingMesa, numero_mesa: numero, capacidad, sector: nuevaZona.toLowerCase() as Mesa['sector'] };
+        const updated: Partial<Mesa> = {
+          numero_mesa: numeroRaw,
+          capacidad,
+          sector: nuevaZona,
+        };
         await mesasService.update(editingMesa.id_mesa, updated);
-        setLocalMesas(prev => prev.map(m => m.id_mesa === editingMesa.id_mesa ? updated : m));
-        addLog('mesa', `Mesa renombrada a ${numero}`);
+        setVisualMesas(prev => prev.map(m => m.id_mesa === editingMesa.id_mesa
+          ? { ...m, id: generarIdMesa(numeroRaw, capacidad, nuevaZona), numero_mesa: numeroRaw, capacidad, zona: nuevaZona }
+          : m
+        ));
+        addLog('mesa', `Mesa renombrada a ${numeroRaw}`);
         toast.success('Mesa actualizada');
       } else {
-        const newId = Math.max(1, ...localMesas.map(m => m.id_mesa)) + 1;
+        const posicion = generarPosicionNuevaMesa(nuevaZona, visualMesas);
         const newMesa: Mesa = {
-          id_mesa: newId,
-          numero_mesa: numero,
+          id_mesa: Math.max(1, ...visualMesas.map(m => m.id_mesa)) + 1,
+          numero_mesa: numeroRaw,
           capacidad,
-          sector: nuevaZona.toLowerCase() as Mesa['sector'],
+          sector: nuevaZona,
           estado: 'libre',
         };
-        await mesasService.create(newMesa);
-        setLocalMesas(prev => [...prev, newMesa]);
-        addLog('mesa', `Nueva mesa agregada: ${numero}`);
+        const saved = await mesasService.create(newMesa);
+        setVisualMesas(prev => [...prev, {
+          id: generarIdMesa(saved.numero_mesa, saved.capacidad || capacidad, nuevaZona),
+          id_mesa: saved.id_mesa,
+          numero_mesa: saved.numero_mesa,
+          capacidad: saved.capacidad || capacidad,
+          zona: nuevaZona,
+          posicion,
+          estado: saved.estado,
+        }]);
+        addLog('mesa', `Nueva mesa agregada: ${numeroRaw}`);
         toast.success('Mesa agregada');
       }
       resetMesaForm();
@@ -328,12 +399,12 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
     }
   };
 
-  const handleDeleteMesa = async (mesa: Mesa, e?: React.MouseEvent) => {
+  const handleDeleteMesa = async (mesa: MesaVisual, e?: React.MouseEvent) => {
     e?.stopPropagation();
-    if (!window.confirm(`¿Eliminar ${mesa.numero_mesa}?`)) return;
+    if (!window.confirm(`¿Eliminar Mesa ${mesa.numero_mesa}?`)) return;
     try {
       await mesasService.remove(mesa.id_mesa);
-      setLocalMesas(prev => prev.filter(m => m.id_mesa !== mesa.id_mesa));
+      setVisualMesas(prev => prev.filter(m => m.id_mesa !== mesa.id_mesa));
       addLog('mesa', `Mesa eliminada: ${mesa.numero_mesa}`);
       toast.success('Mesa eliminada');
     } catch (err: any) {
@@ -362,7 +433,7 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
 
       if (reservaExistente) {
         await reservasService.update(reservaExistente.id_reserva, payload);
-        addLog('reserva', `Reserva actualizada en ${selectedMesa.numero_mesa}`);
+        addLog('reserva', `Reserva actualizada en Mesa ${selectedMesa.numero_mesa}`);
         toast.success('Reserva actualizada');
       } else {
         const newRes: Reserva = {
@@ -371,7 +442,7 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
         };
         await reservasService.create(newRes);
         await mesasService.update(selectedMesa.id_mesa, { estado: 'reservada' });
-        addLog('reserva', `Nueva reserva en ${selectedMesa.numero_mesa}`);
+        addLog('reserva', `Nueva reserva en Mesa ${selectedMesa.numero_mesa}`);
         toast.success('Reserva creada');
       }
 
@@ -395,7 +466,7 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
       if (reservaExistente) {
         await reservasService.update(reservaExistente.id_reserva, { estado: 'completada' });
       }
-      setLocalMesas(prev => prev.map(m => m.id_mesa === selectedMesa.id_mesa ? { ...m, estado: 'libre', comensales: 0 } : m));
+      setVisualMesas(prev => prev.map(m => m.id_mesa === selectedMesa.id_mesa ? { ...m, estado: 'libre' } : m));
       const updated = reservasService.listByFecha ? await reservasService.listByFecha(today) : await reservasService.list();
       setReservasHoy((updated || []).filter((r: Reserva) =>
         (r.fecha === today || !r.fecha) && r.estado !== 'cancelada' && !r.lista_espera
@@ -408,32 +479,30 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
     }
   };
 
-  // Render del SVG con mesas interactivas y colores dinámicos
+  // Render del SVG con mesas dinámicas
   const renderSvg = () => {
-    const mesaElements = MESAS_SVG.map(m => {
-      const mesaState = mesasConEstado.find(ms => ms.id_mesa === m.id_mesa && ms.numero_mesa === m.numero);
-      const estado = (mesaState?.estado || 'libre') as keyof typeof ESTADO_FILL;
+    const mesaElements = visualMesas.map(m => {
+      const reserva = reservasHoy.find(r => r.id_mesa === m.id_mesa && r.estado === 'confirmada');
+      const estado = m.estado === 'ocupada' ? 'ocupada' : m.estado === 'unida' ? 'unida' : reserva ? 'reservada' : 'libre';
       const fill = ESTADO_FILL[estado];
       const stroke = ESTADO_STROKE[estado];
       const textColor = ESTADO_TEXT[estado];
-      const capacidad = mesaState?.capacidad || m.capacidad;
       const isSelected = unionMode && selectedForUnion.some(s => s.id_mesa === m.id_mesa);
+      const { x, y, width, height, rx } = m.posicion;
 
       return (
-        <g key={m.svgId} data-mesa-id={m.svgId}
-           className={`cursor-pointer transition-opacity ${isSelected ? 'opacity-100' : 'hover:opacity-90'}`}
-           onClick={(e) => {
+        <g key={m.id} data-mesa-id={m.id} className="cursor-pointer hover:opacity-90 transition-opacity"
+           onClick={(e: React.MouseEvent) => {
              e.stopPropagation();
-             if (mesaState) {
-               if (unionMode) toggleUnionSelection(mesaState);
-               else openModal(mesaState);
-             }
+             if (unionMode) toggleUnionSelection(m);
+             else openModal(m);
            }}
         >
-          <rect x={m.x} y={m.y} width={m.width} height={m.height} rx={6}
+          {renderSillas(m)}
+          <rect x={x} y={y} width={width} height={height} rx={rx}
                 fill={fill} stroke={isSelected ? '#3B82F6' : stroke} strokeWidth={isSelected ? 4 : 2.5} pointerEvents="all" />
-          <text x={m.x + m.width / 2} y={m.y + m.height / 2 - 2} textAnchor="middle" fontSize={Math.min(18, m.width / 3.5)} fontWeight={700} fill={textColor} fontFamily="Arial, sans-serif" pointerEvents="none">{capacidad}</text>
-          <text x={m.x + m.width / 2} y={m.y + m.height / 2 + 14} textAnchor="middle" fontSize={9} fill={textColor} fontFamily="Arial, sans-serif" opacity={0.8} pointerEvents="none">Mesa</text>
+          <text x={x + width / 2} y={y + height / 2 - 2} textAnchor="middle" fontSize={Math.min(18, width / 3.5)} fontWeight={700} fill={textColor} fontFamily="Arial, sans-serif" pointerEvents="none">{m.numero_mesa}</text>
+          <text x={x + width / 2} y={y + height / 2 + 14} textAnchor="middle" fontSize={9} fill={textColor} fontFamily="Arial, sans-serif" opacity={0.8} pointerEvents="none">Mesa</text>
         </g>
       );
     });
@@ -441,84 +510,45 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
     return (
       <div className="w-full flex justify-center">
         <div className="w-full max-w-[300px] sm:max-w-[360px] aspect-[430/620]"
-             onClick={handleSvgClick}
         >
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 430 620" preserveAspectRatio="xMidYMid meet" className="w-full h-full drop-shadow-xl"
           >
-        <rect x="10" y="10" width="410" height="600" rx="4" fill="none" stroke="#3D2B1F" strokeWidth="3"/>
-        <rect x="10" y="10" width="80" height="600" rx="4" fill="#2C1A0E"/>
-        <text x="50" y="200" textAnchor="middle" fontSize="11" fill="#C9A96E" fontFamily="Georgia, serif" fontWeight="700" transform="rotate(-90, 50, 200)" letterSpacing="2">RESTAURANTE</text>
-        <rect x="24" y="120" width="32" height="28" rx="6" fill="none" stroke="#C9A96E" strokeWidth="1.5" opacity="0.5"/>
-        <rect x="24" y="175" width="32" height="28" rx="6" fill="none" stroke="#C9A96E" strokeWidth="1.5" opacity="0.5"/>
-        <rect x="24" y="230" width="32" height="28" rx="6" fill="none" stroke="#C9A96E" strokeWidth="1.5" opacity="0.5"/>
+            <rect x="10" y="10" width="410" height="600" rx="4" fill="none" stroke="#3D2B1F" strokeWidth="3"/>
+            <rect x="10" y="10" width="80" height="600" rx="4" fill="#2C1A0E"/>
+            <text x="50" y="200" textAnchor="middle" fontSize="11" fill="#C9A96E" fontFamily="Georgia, serif" fontWeight="700" transform="rotate(-90, 50, 200)" letterSpacing="2">RESTAURANTE</text>
+            <rect x="24" y="120" width="32" height="28" rx="6" fill="none" stroke="#C9A96E" strokeWidth="1.5" opacity="0.5"/>
+            <rect x="24" y="175" width="32" height="28" rx="6" fill="none" stroke="#C9A96E" strokeWidth="1.5" opacity="0.5"/>
+            <rect x="24" y="230" width="32" height="28" rx="6" fill="none" stroke="#C9A96E" strokeWidth="1.5" opacity="0.5"/>
 
-        <rect x="90" y="10" width="330" height="255" fill="#EAE0CC"/>
-        <text x="230" y="32" textAnchor="middle" fontSize="11" fontWeight="700" fill="#7A5C44" fontFamily="Arial, sans-serif" letterSpacing="3">COMEDOR</text>
-        <line x1="90" y1="265" x2="420" y2="265" stroke="#3D2B1F" strokeWidth="2.5"/>
+            <rect x="90" y="10" width="330" height="255" fill="#EAE0CC"/>
+            <text x="230" y="32" textAnchor="middle" fontSize="11" fontWeight="700" fill="#7A5C44" fontFamily="Arial, sans-serif" letterSpacing="3">COMEDOR</text>
+            <line x1="90" y1="265" x2="420" y2="265" stroke="#3D2B1F" strokeWidth="2.5"/>
 
-        <rect x="340" y="18" width="70" height="90" rx="4" fill="#D4C4A0" stroke="#8B6914" strokeWidth="2"/>
-        <text x="375" y="60" textAnchor="middle" fontSize="10" fontWeight="700" fill="#5A3E10" fontFamily="Arial, sans-serif" letterSpacing="1">CAJA</text>
-        <rect x="344" y="72" width="62" height="8" rx="3" fill="#8B6914" opacity="0.4"/>
+            <rect x="340" y="18" width="70" height="90" rx="4" fill="#D4C4A0" stroke="#8B6914" strokeWidth="2"/>
+            <text x="375" y="60" textAnchor="middle" fontSize="10" fontWeight="700" fill="#5A3E10" fontFamily="Arial, sans-serif" letterSpacing="1">CAJA</text>
+            <rect x="344" y="72" width="62" height="8" rx="3" fill="#8B6914" opacity="0.4"/>
 
-        <rect x="90" y="265" width="330" height="345" fill="#EDE4D3"/>
-        <text x="230" y="290" textAnchor="middle" fontSize="11" fontWeight="700" fill="#7A5C44" fontFamily="Arial, sans-serif" letterSpacing="3">SALÓN</text>
+            <rect x="90" y="265" width="330" height="345" fill="#EDE4D3"/>
+            <text x="230" y="290" textAnchor="middle" fontSize="11" fontWeight="700" fill="#7A5C44" fontFamily="Arial, sans-serif" letterSpacing="3">SALÓN</text>
 
-        <text x="50" y="530" textAnchor="middle" fontSize="9" fill="#C9A96E" fontFamily="Arial, sans-serif" letterSpacing="1" transform="rotate(-90, 50, 530)">PASILLO</text>
+            <text x="50" y="530" textAnchor="middle" fontSize="9" fill="#C9A96E" fontFamily="Arial, sans-serif" letterSpacing="1" transform="rotate(-90, 50, 530)">PASILLO</text>
 
-        <rect x="90" y="575" width="80" height="35" fill="#D4C4A0" stroke="#3D2B1F" strokeWidth="1.5"/>
-        <text x="130" y="596" textAnchor="middle" fontSize="7" fill="#5A3E10" fontFamily="Arial, sans-serif" fontWeight="600">INGRESO</text>
-        <text x="130" y="606" textAnchor="middle" fontSize="7" fill="#5A3E10" fontFamily="Arial, sans-serif">VEHICAL</text>
+            <rect x="90" y="575" width="80" height="35" fill="#D4C4A0" stroke="#3D2B1F" strokeWidth="1.5"/>
+            <text x="130" y="596" textAnchor="middle" fontSize="7" fill="#5A3E10" fontFamily="Arial, sans-serif" fontWeight="600">INGRESO</text>
+            <text x="130" y="606" textAnchor="middle" fontSize="7" fill="#5A3E10" fontFamily="Arial, sans-serif">VEHICAL</text>
 
-        <text x="418" y="140" textAnchor="middle" fontSize="9" fill="#7A5C44" fontFamily="Arial, sans-serif" transform="rotate(90, 418, 140)" letterSpacing="2" opacity="0.6">FACHADA</text>
+            <text x="418" y="140" textAnchor="middle" fontSize="9" fill="#7A5C44" fontFamily="Arial, sans-serif" transform="rotate(90, 418, 140)" letterSpacing="2" opacity="0.6">FACHADA</text>
 
-        {mesaElements}
+            {mesaElements}
 
-        {/* Sillas decorativas */}
-        <g opacity="0.55">
-          <circle cx="153" cy="48" r="7" fill="#28A745"/>
-          <circle cx="175" cy="48" r="7" fill="#28A745"/>
-          <circle cx="197" cy="48" r="7" fill="#28A745"/>
-          <circle cx="153" cy="124" r="7" fill="#28A745"/>
-          <circle cx="175" cy="124" r="7" fill="#28A745"/>
-          <circle cx="197" cy="124" r="7" fill="#28A745"/>
-          <circle cx="288" cy="48" r="7" fill="#DC3545"/>
-          <circle cx="310" cy="48" r="7" fill="#DC3545"/>
-          <circle cx="288" cy="124" r="7" fill="#DC3545"/>
-          <circle cx="310" cy="124" r="7" fill="#DC3545"/>
-          <circle cx="158" cy="133" r="7" fill="#28A745"/>
-          <circle cx="180" cy="133" r="7" fill="#28A745"/>
-          <circle cx="202" cy="133" r="7" fill="#28A745"/>
-          <circle cx="158" cy="209" r="7" fill="#28A745"/>
-          <circle cx="180" cy="209" r="7" fill="#28A745"/>
-          <circle cx="288" cy="133" r="7" fill="#FFC107"/>
-          <circle cx="310" cy="133" r="7" fill="#FFC107"/>
-          <circle cx="288" cy="209" r="7" fill="#FFC107"/>
-          <circle cx="310" cy="209" r="7" fill="#FFC107"/>
-          <circle cx="173" cy="313" r="7" fill="#28A745"/>
-          <circle cx="195" cy="313" r="7" fill="#28A745"/>
-          <circle cx="173" cy="389" r="7" fill="#28A745"/>
-          <circle cx="195" cy="389" r="7" fill="#28A745"/>
-          <circle cx="303" cy="313" r="7" fill="#28A745"/>
-          <circle cx="325" cy="313" r="7" fill="#28A745"/>
-          <circle cx="303" cy="389" r="7" fill="#28A745"/>
-          <circle cx="153" cy="403" r="7" fill="#DC3545"/>
-          <circle cx="175" cy="403" r="7" fill="#DC3545"/>
-          <circle cx="197" cy="403" r="7" fill="#DC3545"/>
-          <circle cx="153" cy="479" r="7" fill="#DC3545"/>
-          <circle cx="175" cy="479" r="7" fill="#DC3545"/>
-          <circle cx="303" cy="403" r="7" fill="#28A745"/>
-          <circle cx="325" cy="403" r="7" fill="#28A745"/>
-          <circle cx="126" cy="483" r="7" fill="#28A745"/>
-        </g>
-
-        {/* Leyenda */}
-        <rect x="170" y="580" width="14" height="14" rx="3" fill="#D4EDDA" stroke="#28A745" strokeWidth="2"/>
-        <text x="188" y="591" fontSize="9" fill="#2C1A0E" fontFamily="Arial, sans-serif">Libre</text>
-        <rect x="230" y="580" width="14" height="14" rx="3" fill="#F8D7DA" stroke="#DC3545" strokeWidth="2"/>
-        <text x="248" y="591" fontSize="9" fill="#2C1A0E" fontFamily="Arial, sans-serif">Ocupado</text>
-        <rect x="310" y="580" width="14" height="14" rx="3" fill="#FFF3CD" stroke="#FFC107" strokeWidth="2"/>
-        <text x="328" y="591" fontSize="9" fill="#2C1A0E" fontFamily="Arial, sans-serif">Reservado</text>
-      </svg>
+            {/* Leyenda */}
+            <rect x="170" y="580" width="14" height="14" rx="3" fill="#D4EDDA" stroke="#28A745" strokeWidth="2"/>
+            <text x="188" y="591" fontSize="9" fill="#2C1A0E" fontFamily="Arial, sans-serif">Libre</text>
+            <rect x="230" y="580" width="14" height="14" rx="3" fill="#F8D7DA" stroke="#DC3545" strokeWidth="2"/>
+            <text x="248" y="591" fontSize="9" fill="#2C1A0E" fontFamily="Arial, sans-serif">Ocupado</text>
+            <rect x="310" y="580" width="14" height="14" rx="3" fill="#FFF3CD" stroke="#FFC107" strokeWidth="2"/>
+            <text x="328" y="591" fontSize="9" fill="#2C1A0E" fontFamily="Arial, sans-serif">Reservado</text>
+          </svg>
         </div>
       </div>
     );
@@ -596,9 +626,9 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
               </div>
               <div className="col-span-1">
                 <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Zona</label>
-                <select value={nuevaZona} onChange={e => setNuevaZona(e.target.value as 'Comedor' | 'Salón')} className="w-full px-3 py-2.5 text-xs border border-stone-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#624A3E]">
-                  <option value="Comedor">Comedor</option>
-                  <option value="Salón">Salón</option>
+                <select value={nuevaZona} onChange={e => setNuevaZona(e.target.value as Zona)} className="w-full px-3 py-2.5 text-xs border border-stone-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#624A3E]">
+                  <option value="comedor">Comedor</option>
+                  <option value="salon">Salón</option>
                 </select>
               </div>
             </div>
@@ -610,13 +640,13 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
         )}
 
         <div className="space-y-2 max-h-48 overflow-y-auto">
-          {localMesas.map(m => (
-            <div key={m.id_mesa} className="flex items-center justify-between p-3 bg-stone-50 rounded-xl border border-stone-100">
+          {visualMesas.map(m => (
+            <div key={m.id} className="flex items-center justify-between p-3 bg-stone-50 rounded-xl border border-stone-100">
               <div className="flex items-center gap-3">
                 <span className={`w-2.5 h-2.5 rounded-full ${m.estado === 'ocupada' ? 'bg-red-500' : m.estado === 'reservada' ? 'bg-amber-400' : m.estado === 'unida' ? 'bg-gray-400' : 'bg-green-500'}`} />
                 <div>
-                  <p className="text-xs font-bold text-stone-800">{m.numero_mesa}</p>
-                  <p className="text-[10px] text-stone-500">{capitalize(m.sector || 'salon')} · {m.capacidad} pax · {m.estado}</p>
+                  <p className="text-xs font-bold text-stone-800">Mesa {m.numero_mesa}</p>
+                  <p className="text-[10px] text-stone-500">{capitalize(m.zona)} · {m.capacidad} pax · {m.estado}</p>
                 </div>
               </div>
               <div className="flex items-center gap-1">
@@ -638,8 +668,8 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
           <div className="bg-white rounded-t-[20px] sm:rounded-[20px] w-full max-w-md p-6 shadow-2xl border border-stone-200 animate-in slide-in-from-bottom-10">
             <div className="flex justify-between items-center mb-4">
               <div>
-                <h3 className="text-lg font-black text-stone-800">{selectedMesa.numero_mesa}</h3>
-                <p className="text-xs text-stone-500 font-medium">{selectedMesa.sector} · Capacidad {selectedMesa.capacidad} pax · Estado: <span className="font-bold capitalize">{selectedMesa.estado}</span></p>
+                <h3 className="text-lg font-black text-stone-800">Mesa {selectedMesa.numero_mesa}</h3>
+                <p className="text-xs text-stone-500 font-medium">{capitalize(selectedMesa.zona)} · Capacidad {selectedMesa.capacidad} pax · Estado: <span className="font-bold capitalize">{selectedMesa.estado}</span></p>
               </div>
               <button onClick={closeModal} className="p-2 hover:bg-stone-100 rounded-full cursor-pointer"><X className="w-5 h-5 text-stone-500" /></button>
             </div>
@@ -655,7 +685,7 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
               </div>
             ) : selectedMesa.mesas_unidas && selectedMesa.mesas_unidas.length >= 2 ? (
               <div className="space-y-4">
-                <p className="text-sm text-stone-600">Mesa unida: {selectedMesa.numero_mesa} · Capacidad {selectedMesa.capacidad} pax</p>
+                <p className="text-sm text-stone-600">Mesa unida: Mesa {selectedMesa.numero_mesa} · Capacidad {selectedMesa.capacidad} pax</p>
                 <button onClick={handleSepararMesas} className="w-full py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold cursor-pointer">Separar mesas</button>
               </div>
             ) : (
