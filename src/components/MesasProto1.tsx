@@ -30,12 +30,12 @@ interface MesaSvgMap {
 
 const MESAS_SVG: MesaSvgMap[] = [
   { id_mesa: 8,  svgId: 'mesa-8-comedor-1', numero: 'Mesa 8',  capacidad: 8, zona: 'Comedor', x: 135, y: 60,  width: 80, height: 52 },
-  { id_mesa: 4,  svgId: 'mesa-4-comedor-a', numero: 'Mesa 4A', capacidad: 4, zona: 'Comedor', x: 270, y: 60,  width: 64, height: 52 },
+  { id_mesa: 4,  svgId: 'mesa-4-comedor-a', numero: 'Mesa 4',  capacidad: 4, zona: 'Comedor', x: 270, y: 60,  width: 64, height: 52 },
   { id_mesa: 5,  svgId: 'mesa-5-comedor-1', numero: 'Mesa 5',  capacidad: 5, zona: 'Comedor', x: 140, y: 145, width: 72, height: 52 },
-  { id_mesa: 4,  svgId: 'mesa-4-comedor-b', numero: 'Mesa 4B', capacidad: 4, zona: 'Comedor', x: 270, y: 145, width: 64, height: 52 },
-  { id_mesa: 4,  svgId: 'mesa-4-salon-c',  numero: 'Mesa 4C', capacidad: 4, zona: 'Salón',   x: 155, y: 325, width: 64, height: 52 },
+  { id_mesa: 6,  svgId: 'mesa-4-comedor-b', numero: 'Mesa 6',  capacidad: 4, zona: 'Comedor', x: 270, y: 145, width: 64, height: 52 },
+  { id_mesa: 7,  svgId: 'mesa-4-salon-c',  numero: 'Mesa 7',  capacidad: 4, zona: 'Salón',   x: 155, y: 325, width: 64, height: 52 },
   { id_mesa: 3,  svgId: 'mesa-3-salon-1',  numero: 'Mesa 3',  capacidad: 3, zona: 'Salón',   x: 285, y: 325, width: 52, height: 52 },
-  { id_mesa: 5,  svgId: 'mesa-5-salon-b',  numero: 'Mesa 5B', capacidad: 5, zona: 'Salón',   x: 135, y: 415, width: 72, height: 52 },
+  { id_mesa: 9,  svgId: 'mesa-5-salon-b',  numero: 'Mesa 9',  capacidad: 5, zona: 'Salón',   x: 135, y: 415, width: 72, height: 52 },
   { id_mesa: 2,  svgId: 'mesa-2-salon-1',  numero: 'Mesa 2',  capacidad: 2, zona: 'Salón',   x: 285, y: 415, width: 52, height: 52 },
   { id_mesa: 1,  svgId: 'mesa-1-salon-1',  numero: 'Mesa 1',  capacidad: 1, zona: 'Salón',   x: 108, y: 495, width: 52, height: 52 },
 ];
