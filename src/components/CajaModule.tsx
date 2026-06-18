@@ -1084,7 +1084,7 @@ export default function CajaModule({
                   }, 0);
 
                   const isSelected = b.id_pedido === selectedPedidoId;
-                  const isReady = b.estado_comanda === 'listo';
+                  const isReady = b.estado_comanda === 'listo' || b.estado_comanda === 'entregado';
 
                   return (
                     <button

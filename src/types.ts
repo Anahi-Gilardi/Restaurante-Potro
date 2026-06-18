@@ -100,7 +100,7 @@ export interface Pedido {
     id_mesa: number;
     numero_mesa: string;
     mozo: string;
-    estado_comanda: 'pendiente' | 'en_cocina' | 'listo' | 'entregado_cobrado' | 'cancelado';
+    estado_comanda: 'pendiente' | 'en_cocina' | 'listo' | 'entregado' | 'entregado_cobrado' | 'cancelado';
     items: PedidoItem[];
     observaciones?: string;
     fecha_hora: Date;

@@ -62,7 +62,7 @@ export default function KitchenMonitor({
   const activeKitchenOrders = useMemo(() => {
     let filtered = pedidos.filter(p => {
       const effective = optimisticUpdates.get(p.id_pedido)?.estado || p.estado_comanda;
-      return effective !== 'entregado_cobrado' && effective !== 'cancelado';
+      return effective !== 'entregado_cobrado' && effective !== 'entregado' && effective !== 'cancelado';
     });
     if (showOnlyKitchen) {
       filtered = filtered.map(p => ({
@@ -262,13 +262,13 @@ export default function KitchenMonitor({
 
           {estado === 'listo' && (
             <button
-              onClick={() => handleOptimisticStatus(p.id_pedido, 'entregado_cobrado')}
+              onClick={() => handleOptimisticStatus(p.id_pedido, 'entregado')}
               className={`w-full min-h-12 mt-2 py-3 px-3 ${btnTheme} rounded-xl text-sm font-black flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer shadow-md`}
             >
               {optimisticUpdates.get(p.id_pedido)?.updating ? (
                 <><RefreshCw className="w-4 h-4 animate-spin" /> Actualizando...</>
               ) : (
-                <><CheckCircle className="w-4 h-4" /> Entregar y finalizar</>
+                <><CheckCircle className="w-4 h-4" /> Entregar a Mesa</>
               )}
             </button>
           )}

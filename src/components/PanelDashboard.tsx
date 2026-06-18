@@ -245,6 +245,7 @@ export default function PanelDashboard({
                                                                                         pendiente:        'bg-yellow-100 text-yellow-700',
                                                                                         en_cocina:        'bg-orange-100 text-orange-700',
                                                                                         listo:            'bg-emerald-100 text-emerald-700',
+                                                                                        entregado:        'bg-blue-100 text-blue-700',
                                                                     };
                                                                     return (
                                                                                         <div key={p.id_pedido} className="flex items-center justify-between py-2 border-b border-stone-50 last:border-0">
