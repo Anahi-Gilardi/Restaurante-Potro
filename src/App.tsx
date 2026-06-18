@@ -222,6 +222,28 @@ export default function App() {
       }
     };
     autoLoadSupabase();
+
+    // Setup Supabase Realtime listener for pedidos changes
+    const client = getSupabaseClient();
+    if (client) {
+      const channel = client
+        .channel('realtime_pedidos_app')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos_cabecera' }, async () => {
+          try {
+            const refreshed = await dbFetchPedidos();
+            if (refreshed) {
+              setPedidos(refreshed);
+            }
+          } catch (err) {
+            console.warn('Realtime fetch for pedidos failed:', err);
+          }
+        })
+        .subscribe();
+
+      return () => {
+        client.removeChannel(channel);
+      };
+    }
   }, [addLog]);
 
   // Sync completion callback handed to settings
