@@ -327,13 +327,21 @@ export default function CajaModule({
     link.click();
     document.body.removeChild(link);
 
+    // Export PDF close shift report
+    try {
+      await pdfService.exportShiftClosePDF(finalShift);
+    } catch (err: any) {
+      console.error('Error generating shift close PDF:', err);
+      toast.warning('No se pudo descargar el comprobante en formato PDF: ' + err.message);
+    }
+
     // Reset states
     setCajaSession(null);
     setShowCloseModal(false);
     setClosingPhysicalCashInput('');
     setClosingObservationsInput('Facturación normal del turno');
     loadCajaState();
-    toast.success('Jornada finalizada. Arqueo homologado y balance exportado en CSV.');
+    toast.success('Jornada finalizada. Arqueo homologado y balance exportado en CSV y PDF.');
   };
 
   // MAIN TRANSACTION PROCESSOR (Step 8, 9 & 14)
@@ -1935,6 +1943,15 @@ export default function CajaModule({
                         </span>
                       </div>
                     )}
+
+                    <button
+                      type="button"
+                      onClick={() => pdfService.exportShiftClosePDF(cs)}
+                      className="p-2 bg-stone-100 hover:bg-stone-200 text-stone-600 rounded-lg transition-colors flex items-center justify-center cursor-pointer active:scale-95 border border-stone-200"
+                      title="Descargar Arqueo PDF"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
               );

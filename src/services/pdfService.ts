@@ -386,5 +386,157 @@ export const pdfService = {
     center('Conserve este comprobante', 6.2);
 
     return doc;
+  },
+
+  async exportShiftClosePDF(data: any): Promise<void> {
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const margin = 14;
+    let y = 14;
+
+    // Header Box with Vintage Color
+    doc.setFillColor(...BRAND.brown);
+    doc.rect(margin, y, 182, 30, 'F');
+
+    const logo = await loadLogoDataUrl();
+    addLogo(doc, logo, margin + 4, y + 3, 24);
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.text('EL PATRÓN - AUDITORÍA DE CIERRE DE CAJA', margin + 34, y + 13);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.text('REPORTE CONTROL DE JORNADA FISCAL GASTRO', margin + 34, y + 20);
+    doc.text(`Generado: ${new Date().toLocaleDateString('es-AR')} ${new Date().toLocaleTimeString('es-AR')}`, margin + 34, y + 25);
+
+    y += 40;
+
+    // Cajero info table
+    doc.setTextColor(...BRAND.dark);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.text('Datos de la Sesión', margin, y);
+    y += 5;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(...BRAND.muted);
+    doc.text(`Responsable Cajero: ${data.usuario_cajero}`, margin, y);
+    doc.text(`ID Sesión: ${data.id_cierre}`, margin + 95, y);
+    y += 5;
+    doc.text(`Apertura Turno: ${data.fecha_apertura}`, margin, y);
+    doc.text(`Cierre Turno: ${data.fecha_cierre || 'En curso'}`, margin + 95, y);
+    y += 9;
+
+    // Balance summary
+    doc.setFillColor(...BRAND.cream);
+    doc.rect(margin, y, 182, 32, 'F');
+    doc.setTextColor(...BRAND.dark);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9.5);
+    doc.text('CONCILIACIÓN Y ARQUEO DE VALORES', margin + 4, y + 6);
+
+    doc.setFontSize(8.5);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`(+) Saldo Inicial Apertura Caja:`, margin + 4, y + 13);
+    doc.text(`${money(data.monto_apertura)}`, margin + 178, y + 13, { align: 'right' });
+
+    doc.text(`(+) Ventas Registradas en Turno:`, margin + 4, y + 19);
+    doc.text(`${money(data.monto_ventas)}`, margin + 178, y + 19, { align: 'right' });
+
+    doc.setFont('helvetica', 'bold');
+    const esperado = data.monto_apertura + data.monto_ventas;
+    doc.text(`(=) Saldo Teórico Esperado:`, margin + 4, y + 25);
+    doc.text(`${money(esperado)}`, margin + 178, y + 25, { align: 'right' });
+
+    y += 36;
+
+    // Real cash count
+    doc.setFillColor(250, 248, 245);
+    doc.rect(margin, y, 182, 18, 'F');
+    doc.setTextColor(...BRAND.dark);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`(=) Arqueo Físico Declarado:`, margin + 4, y + 6);
+    doc.text(`${money(data.monto_real || 0)}`, margin + 178, y + 6, { align: 'right' });
+
+    const diff = data.diferencia ?? 0;
+    const hasDiffErr = diff !== 0;
+    if (hasDiffErr) {
+      doc.setTextColor(190, 24, 24); // Red warning color
+    } else {
+      doc.setTextColor(21, 128, 61); // Green success color
+    }
+    doc.text(`(±) Diferencia Conciliación de Caja:`, margin + 4, y + 12);
+    doc.text(`${diff > 0 ? '+' : ''}${money(diff)}`, margin + 178, y + 12, { align: 'right' });
+
+    y += 24;
+
+    // Payment details if registers are present
+    if (data.registros_totales) {
+      doc.setTextColor(...BRAND.dark);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.text('Desglose de Ventas por Medio de Pago', margin, y);
+      y += 5;
+
+      doc.setFillColor(...BRAND.brown);
+      doc.rect(margin, y, 182, 7, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(8);
+      doc.text('Medio de Pago', margin + 4, y + 5);
+      doc.text('Total Acumulado ($)', margin + 178, y + 5, { align: 'right' });
+      y += 7;
+
+      doc.setTextColor(...BRAND.dark);
+      doc.setFont('helvetica', 'normal');
+      const medios = [
+        { key: 'efectivo', label: 'Efectivo' },
+        { key: 'debito', label: 'Tarjeta de Débito' },
+        { key: 'credito', label: 'Tarjeta de Crédito' },
+        { key: 'transferencia', label: 'Transferencia Bancaria' },
+        { key: 'mercadopago', label: 'MercadoPago QR' }
+      ];
+
+      medios.forEach((m, idx) => {
+        const val = (data.registros_totales as any)[m.key] || 0;
+        const rowHeight = 7;
+        if (idx % 2 === 1) {
+          doc.setFillColor(250, 248, 245);
+          doc.rect(margin, y, 182, rowHeight, 'F');
+        }
+        doc.text(m.label, margin + 4, y + 5);
+        doc.text(money(val), margin + 178, y + 5, { align: 'right' });
+        y += rowHeight;
+      });
+      y += 6;
+    }
+
+    // Observations
+    doc.setTextColor(...BRAND.dark);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.text('Observaciones del Cierre:', margin, y);
+    y += 5;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(...BRAND.muted);
+    const obsText = data.observaciones || 'Sin observaciones asentadas.';
+    const splitObs = doc.splitTextToSize(obsText, 180);
+    doc.text(splitObs, margin, y);
+    
+    y += (splitObs.length * 4) + 18;
+
+    // Signature Lines
+    doc.setDrawColor(...BRAND.line);
+    doc.line(margin + 10, y, margin + 70, y);
+    doc.line(margin + 110, y, margin + 170, y);
+    y += 4;
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...BRAND.dark);
+    doc.text('Firma Cajero Responsable', margin + 40, y, { align: 'center' });
+    doc.text('Firma Supervisor de Salón', margin + 140, y, { align: 'center' });
+
+    const filename = `arqueo-cierre-caja-${data.id_cierre}.pdf`;
+    doc.save(filename);
   }
 };

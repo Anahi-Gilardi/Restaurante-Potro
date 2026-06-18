@@ -374,6 +374,71 @@ export default function InventoryModule({
             {/* INVENTORY LIST TABLE (Lg Span 8) */}
             <div className="lg:col-span-8 bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-4">
               
+              {/* PANEL DE ALERTAS DE STOCK CRÍTICO Y COMPRAS (Rule 1 & 4) */}
+              {insumos.filter(i => i.stock_actual <= i.stock_minimo).length > 0 && (
+                <div className="bg-amber-50/70 border border-amber-200/80 rounded-xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="w-5 h-5 text-amber-600 animate-pulse" />
+                      <h4 className="text-xs font-black text-amber-900 uppercase tracking-tight">
+                        Alerta de Insumos Críticos ({insumos.filter(i => i.stock_actual <= i.stock_minimo).length})
+                      </h4>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const criticos = insumos.filter(i => i.stock_actual <= i.stock_minimo);
+                        criticos.forEach(c => {
+                          const suggestedQty = c.stock_minimo * 3 - c.stock_actual;
+                          onRestockInsumo(c.id_insumo, suggestedQty);
+                          addLog('sistema', `COMPRAS AUTO: Reabastecimiento inteligente de ${suggestedQty}${c.unidad_medida} para "${c.nombre}".`);
+                          
+                          const ocId = `OC-AUTO-${Math.floor(Math.random() * 900) + 1000}`;
+                          const calculatedCost = suggestedQty * (c.unidad_medida === 'g' ? 12 : (c.unidad_medida === 'ml' ? 9 : 8500));
+                          
+                          setComprasHistorial(prev => [{
+                            id: ocId,
+                            proveedor: c.proveedor || 'Proveedor General S.A.',
+                            insumo: c.nombre,
+                            cantidad: `${suggestedQty} ${c.unidad_medida}`,
+                            costo: calculatedCost,
+                            fecha: new Date().toLocaleDateString('es-AR'),
+                            estado: 'Entregado ✓'
+                          }, ...prev]);
+
+                          const mId = `MOV-${Math.floor(Math.random() * 90) + 100}`;
+                          setMovimientosLocales(prev => [
+                            { id: mId, insumo: c.nombre, cantidad: `+${suggestedQty} ${c.unidad_medida}`, operacion: 'Abastecimiento', motivo: `Restock sugerido: ${ocId}`, fecha: new Date().toLocaleDateString('es-AR') + ' ' + new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + 'hs' },
+                            ...prev
+                          ]);
+                        });
+                        toast.success("Órdenes sugeridas despachadas y stock restablecido.");
+                      }}
+                      className="text-[10px] font-black uppercase bg-[#624A3E] hover:bg-[#503C32] text-white py-1.5 px-3 rounded-lg shadow-sm cursor-pointer transition-all active:scale-95 border-0"
+                    >
+                      💡 Restock Inteligente Sugerido
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] font-medium text-amber-800 font-sans leading-normal">
+                    {insumos.filter(i => i.stock_actual <= i.stock_minimo).map(c => {
+                      const diff = c.stock_minimo * 3 - c.stock_actual;
+                      return (
+                        <div key={c.id_insumo} className="bg-white border border-amber-100 rounded-lg p-2 flex items-center justify-between">
+                          <div>
+                            <span className="font-bold text-amber-950 block">{c.nombre}</span>
+                            <span className="text-[10px] text-amber-600 block">Stock: {c.stock_actual}/{c.stock_minimo} {c.unidad_medida}</span>
+                            <span className="text-[9px] text-[#624A3E] italic">Prov: {c.proveedor || 'Sin asignar'}</span>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <span className="text-[9px] font-bold block uppercase text-amber-500">Orden Sugerida:</span>
+                            <span className="font-mono font-black text-amber-950">+{diff} {c.unidad_medida}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              
               <div className="flex flex-col md:flex-row justify-between md:items-center gap-3">
                 <div className="relative flex-1">
                   <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />

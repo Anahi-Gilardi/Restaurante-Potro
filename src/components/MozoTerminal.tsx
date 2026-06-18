@@ -29,6 +29,16 @@ import { clearMozoCartDraft, createMozoCartIdempotencyKey, MozoCart, readMozoCar
 
 const CHECKOUT_TIMEOUT_MS = 12000;
 
+const PAIRING_SUGGESTIONS: { [prodId: string]: { matchedProdId: string; suggestionText: string } } = {
+  'prod_car_ojo_bife': { matchedProdId: 'prod_vin_trumpeter_botella', suggestionText: '¿Deseas maridar el Ojo de Bife con un excelente Trumpeter Malbec (Botella)?' },
+  'prod_car_bife_madurado': { matchedProdId: 'prod_vin_rutini_botella', suggestionText: '¿Sugerimos un distinguido Rutini Cabernet-Malbec para acompañar el bife madurado?' },
+  'prod_car_entrana': { matchedProdId: 'prod_vin_escorihuela_gascon', suggestionText: '¿Deseas ofrecer un tradicional Escorihuela Gascón Malbec para maridar con la entraña?' },
+  'prod_pas_cintas_sepia': { matchedProdId: 'prod_vin_st_felicien_botella', suggestionText: '¿Deseas sugerir un refrescante Saint Felicien Sauvignon Blanc para acompañar los mariscos?' },
+  'prod_pes_salmon': { matchedProdId: 'prod_vin_salentein_res_ch', suggestionText: '¿Deseas maridar el Salmón Rosado con un aromático Salentein Reserva Chardonnay?' },
+  'prod_pos_volcan': { matchedProdId: 'prod_beb_whisky', suggestionText: '¿Sugerimos una medida de Whisky Macallan 12 Años para acompañar el Volcán de chocolate?' },
+  'prod_pos_flan': { matchedProdId: 'prod_cafe_espresso', suggestionText: '¿Acompañamos el flan casero con un Café Espresso Doble calientito?' }
+};
+
 function withCheckoutTimeout<T>(operation: Promise<T>, timeoutMs = CHECKOUT_TIMEOUT_MS): Promise<T> {
   let timeoutId: ReturnType<typeof setTimeout>;
   const timeout = new Promise<never>((_, reject) => {
@@ -97,6 +107,7 @@ export default function MozoTerminal({
   
   // Current order cart
   const [cart, setCart] = useState<MozoCart>({});
+  const [pairingAlert, setPairingAlert] = useState<{ parentId: string; suggestedId: string; text: string } | null>(null);
   const [observaciones, setObservaciones] = useState('');
   const [cartIdempotencyKey, setCartIdempotencyKey] = useState<string | null>(null);
   const [lastCheckoutTime, setLastCheckoutTime] = useState<number | null>(null);
@@ -281,6 +292,21 @@ export default function MozoTerminal({
       ...prev,
       [productoId]: (prev[productoId] || 0) + quantity
     }));
+
+    // Trigger pairing suggestions for main items
+    if (quantity === 1) {
+      const suggestion = PAIRING_SUGGESTIONS[productoId];
+      if (suggestion && !cart[suggestion.matchedProdId]) {
+        const suggestedProduct = productosMenu.find(p => p.id_producto === suggestion.matchedProdId);
+        if (suggestedProduct && suggestedProduct.activo) {
+          setPairingAlert({
+            parentId: productoId,
+            suggestedId: suggestion.matchedProdId,
+            text: suggestion.suggestionText
+          });
+        }
+      }
+    }
   };
 
   const handleRemoveFromCart = (productoId: string) => {
@@ -1062,7 +1088,37 @@ export default function MozoTerminal({
         </div>
       )}
     </div>
-    <ToastContainer toasts={toasts} removeToast={removeToast} />
+      {pairingAlert && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+          <div className="bg-[#FAF6F0] rounded-2xl border border-[#B07A48]/35 p-6 max-w-sm w-full shadow-2xl space-y-4 animate-scaleIn">
+            <div className="flex items-center gap-3 text-amber-700">
+              <Sparkles className="w-5 h-5 text-[#8C6239] animate-pulse" />
+              <h4 className="font-extrabold text-sm uppercase tracking-wider font-serif-vintage">Sugerencia de Maridaje</h4>
+            </div>
+            <p className="text-xs text-stone-700 leading-relaxed font-sans">{pairingAlert.text}</p>
+            <div className="flex gap-2 justify-end pt-2">
+              <button
+                onClick={() => setPairingAlert(null)}
+                className="px-3.5 py-1.5 rounded-lg border border-stone-200 text-stone-500 text-xs font-bold hover:bg-stone-50 cursor-pointer active:scale-95 transition-all"
+              >
+                No, gracias
+              </button>
+              <button
+                onClick={() => {
+                  handleAddToCart(pairingAlert.suggestedId, 1);
+                  setPairingAlert(null);
+                  toast.success('Maridaje agregado al pedido.');
+                }}
+                className="px-4 py-1.5 rounded-lg bg-[#624A3E] text-white text-xs font-extrabold shadow-sm hover:bg-[#4e3a30] cursor-pointer active:scale-95 transition-all flex items-center gap-1.5"
+              >
+                <Wine className="w-3.5 h-3.5" />
+                Agregar Maridaje
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
     </>
   );
 }
