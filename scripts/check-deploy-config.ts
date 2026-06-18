@@ -1,14 +1,22 @@
-import { isVercelProduction, validateDeploymentConfig } from '../src/lib/deployConfig';
+import {
+  formatDeploymentFailureReport,
+  formatDeploymentWarningReport,
+  getLocalDeploymentWarnings,
+  isVercelProduction,
+  validateDeploymentConfig,
+} from '../src/lib/deployConfig';
 
 const env = process.env;
 const failures = validateDeploymentConfig(env);
+const warnings = getLocalDeploymentWarnings(env);
 
 if (failures.length > 0) {
-  console.error('Deployment configuration check failed:');
-  for (const failure of failures) {
-    console.error(`- ${failure}`);
-  }
+  console.error(formatDeploymentFailureReport(failures));
   process.exit(1);
+}
+
+if (warnings.length > 0) {
+  console.warn(formatDeploymentWarningReport(warnings));
 }
 
 console.log(

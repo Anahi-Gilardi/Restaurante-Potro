@@ -15,7 +15,9 @@
     "test": "tsx --test src/**/*.test.ts",
     "check:recetas": "tsx scripts/check-recetas-module.ts",
     "check:deploy-config": "tsx scripts/check-deploy-config.ts",
-    "verify": "npm run lint && npm test && npm run check:recetas && npm run check:deploy-config && npm run build"
+    "verify": "npm run lint && npm test && npm run check:recetas && npm run check:deploy-config && npm run build",
+    "prepush": "npm run lint && npm run check:recetas && npm run build",
+    "hooks:install": "git config core.hooksPath .githooks"
   },
   "dependencies": {
     "@arcasdk/core": "^1.3.1",

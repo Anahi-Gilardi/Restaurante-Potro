@@ -31,6 +31,7 @@ import ElPatronLogo from './components/ElPatronLogo';
 import BottomNavigation from './components/BottomNavigation';
 import MobileNav from './components/MobileNav';
 import RetryErrorWrapper from './components/RetryErrorWrapper';
+import RecetasErrorBoundary from './components/RecetasErrorBoundary';
 import Skeleton from './components/Skeleton';
 
 import type { BackupSnapshotData } from './services/backupsService';
@@ -1004,7 +1005,9 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
               <MenuModule productosMenu={productosMenu} onProductosChange={setProductosMenu} addLog={addLog} />
             )}
             {activeView === 'recetas' && (
-              <RecetasModule recetas={recetas} onRecetasChange={setRecetas} productosMenu={productosMenu} insumos={insumos} addLog={addLog} />
+              <RecetasErrorBoundary>
+                <RecetasModule recetas={recetas} onRecetasChange={setRecetas} productosMenu={productosMenu} insumos={insumos} addLog={addLog} />
+              </RecetasErrorBoundary>
             )}
             {activeView === 'mesas' && (
               <MesasModule mesas={mesas} onMesasChange={setMesas} addLog={addLog} />

@@ -67,6 +67,24 @@ npm run check:deploy-config
 npm run build
 ```
 
+`npm run check:deploy-config` bloquea únicamente despliegues de Vercel Production con configuración insegura. En desarrollo local muestra un warning si el login demo está activo, pero no corta el flujo.
+
+## Hooks locales
+
+Para correr chequeos antes de cada `git push`:
+
+```bash
+npm run hooks:install
+```
+
+El hook ejecuta:
+
+```bash
+npm run prepush
+```
+
+Esto valida TypeScript, el guard JSX de `RecetasModule.tsx` y el build local antes de consumir tiempo de CI/CD.
+
 ## Limpieza
 
 ```bash
@@ -97,4 +115,5 @@ npm run clean
 - Configurar `VITE_DEMO_USER` y `VITE_DEMO_PASSWORD` en Vercel mientras el acceso demo esté habilitado.
 - Desactivar el acceso demo con `VITE_ENABLE_DEMO_LOGIN=false` cuando Supabase Auth esté operativo.
 - `npm run verify` falla en Vercel Production si faltan variables Supabase o si `VITE_ENABLE_DEMO_LOGIN` no está en `false`.
+- Si Vercel muestra el error de configuración de Production, corregir las variables en Project Settings > Environment Variables y redistribuir el último commit.
 - Las políticas RLS de la migración son abiertas para desarrollo/demo. Para producción, restringirlas por usuario, rol y operación.

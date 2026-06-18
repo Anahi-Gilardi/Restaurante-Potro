@@ -53,3 +53,56 @@ export function validateDeploymentConfig(env: DeployRuntimeEnv): string[] {
 
   return failures;
 }
+
+export function getLocalDeploymentWarnings(env: DeployRuntimeEnv): string[] {
+  if (isVercelProduction(env)) return [];
+
+  const demoLogin = readEnv(env, 'VITE_ENABLE_DEMO_LOGIN');
+  if (demoLogin === 'false') return [];
+
+  return [
+    'VITE_ENABLE_DEMO_LOGIN is enabled outside Production. This is OK for local demo testing, but Production must set it to false.',
+  ];
+}
+
+export function formatDeploymentFailureReport(failures: string[]): string {
+  return [
+    '',
+    '===============================================',
+    ' Vercel Production configuration check failed',
+    '===============================================',
+    '',
+    'The code compiled, but this deployment was stopped before publishing because Production configuration is unsafe or incomplete.',
+    '',
+    'What failed:',
+    ...failures.map(failure => `- ${failure}`),
+    '',
+    'How to fix it in Vercel:',
+    '1. Open Project Settings > Environment Variables.',
+    '2. Select the Production environment.',
+    '3. Set VITE_ENABLE_DEMO_LOGIN=false.',
+    '4. Set VITE_SUPABASE_URL=https://<your-project>.supabase.co.',
+    '5. Set VITE_SUPABASE_PUBLISHABLE_KEY or VITE_SUPABASE_ANON_KEY to the public Supabase key.',
+    '6. Redeploy the latest commit.',
+    '',
+    'Local development note:',
+    '- You can keep demo login enabled locally in .env.local while testing.',
+    '- This check only exits with code 1 for Vercel Production.',
+    '',
+  ].join('\n');
+}
+
+export function formatDeploymentWarningReport(warnings: string[]): string {
+  return [
+    '',
+    '===============================================',
+    ' WARNING: local deployment config notice',
+    '===============================================',
+    '',
+    ...warnings.map(warning => `- ${warning}`),
+    '',
+    'No build was blocked. To test Production behavior locally, run with:',
+    'VERCEL_ENV=production VITE_ENABLE_DEMO_LOGIN=false npm run check:deploy-config',
+    '',
+  ].join('\n');
+}
