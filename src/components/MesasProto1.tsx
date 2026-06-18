@@ -284,7 +284,7 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
 
     return (
       <div className="w-full flex justify-center">
-        <div className="w-full max-w-[360px] aspect-[430/620]"
+        <div className="w-full max-w-[260px] sm:max-w-[300px] aspect-[430/620]"
              onClick={handleSvgClick}
         >
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 430 620" preserveAspectRatio="xMidYMid meet" className="w-full h-full drop-shadow-xl"
