@@ -239,7 +239,7 @@ export default function App() {
     if (client) {
       const channel = client
         .channel('realtime_pedidos_app')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos' }, async () => {
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos_cabecera' }, async () => {
           try {
             const refreshed = await dbFetchPedidos();
             if (refreshed) {

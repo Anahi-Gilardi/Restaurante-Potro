@@ -380,10 +380,12 @@ export function useMozoTerminal({
         }, 1500);
       }, 200);
       addLog('pedido_creado', `Mozo ${activeMozo} envió pedido para ${selectedMesa?.numero_mesa} con ${items.length} platos.`);
-    } catch {
+    } catch (err: any) {
+      console.error('[checkoutCart] Detailed error:', err);
       checkoutInFlightRef.current = false;
       setCheckoutStatus('idle');
-      toast.error('No se pudo confirmar la comanda. Revisá la conexión y reintentá; el carrito quedó guardado.');
+      const detail = err?.message || 'Error desconocido';
+      toast.error(`No se pudo confirmar la comanda. Detalle: ${detail}. Revisá la conexión y reintentá; el carrito quedó guardado.`);
     }
   };
 
