@@ -171,14 +171,17 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
         if (mData.length > 0) {
           const merged = mData.map(m => {
             const existente = POSICIONES_INICIALES.find(p => p.id_mesa === m.id_mesa);
-            const zona = (m.sector as Zona) || 'salon';
+            const zona = (m.zona as Zona) || 'salon';
+            const posicion = (m.x != null && m.y != null)
+              ? { x: m.x, y: m.y, width: m.width || 64, height: m.height || 52, rx: m.rx || 6 }
+              : (existente?.posicion || generarPosicionNuevaMesa(zona, POSICIONES_INICIALES));
             return {
               id: generarIdMesa(m.numero_mesa, m.capacidad || 4, zona),
               id_mesa: m.id_mesa,
               numero_mesa: m.numero_mesa,
               capacidad: m.capacidad || 4,
               zona,
-              posicion: existente?.posicion || generarPosicionNuevaMesa(zona, POSICIONES_INICIALES),
+              posicion,
               estado: m.estado,
               mesas_unidas: m.mesas_unidas,
               parent_id: m.parent_id,
@@ -211,16 +214,23 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
         setVisualMesas(prev => prev.map(m => m.id_mesa === payload.new.id_mesa ? { ...m, estado: payload.new.estado, mesas_unidas: payload.new.mesas_unidas, parent_id: payload.new.parent_id } : m));
       } else if (payload.eventType === 'INSERT' && payload.new) {
         const m = payload.new as Mesa;
-        const zona = (m.sector as Zona) || 'salon';
-        setVisualMesas(prev => [...prev, {
-          id: generarIdMesa(m.numero_mesa, m.capacidad || 4, zona),
-          id_mesa: m.id_mesa,
-          numero_mesa: m.numero_mesa,
-          capacidad: m.capacidad || 4,
-          zona,
-          posicion: generarPosicionNuevaMesa(zona, prev),
-          estado: m.estado,
-        }]);
+        const zona = (m.zona as Zona) || 'salon';
+        setVisualMesas(prevVisual => {
+          const posicion = (m.x != null && m.y != null)
+            ? { x: m.x, y: m.y, width: m.width || 64, height: m.height || 52, rx: m.rx || 6 }
+            : generarPosicionNuevaMesa(zona, prevVisual);
+          return [...prevVisual, {
+            id: generarIdMesa(m.numero_mesa, m.capacidad || 4, zona),
+            id_mesa: m.id_mesa,
+            numero_mesa: m.numero_mesa,
+            capacidad: m.capacidad || 4,
+            zona,
+            posicion,
+            estado: m.estado,
+            mesas_unidas: m.mesas_unidas,
+            parent_id: m.parent_id,
+          }];
+        });
       } else if (payload.eventType === 'DELETE' && payload.old) {
         setVisualMesas(prev => prev.filter(m => m.id_mesa !== payload.old.id_mesa));
       }
@@ -235,8 +245,13 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
       id_mesa: m.id_mesa,
       numero_mesa: m.numero_mesa,
       capacidad: m.capacidad,
-      sector: m.zona,
+      zona: m.zona,
       estado: m.estado,
+      x: m.posicion.x,
+      y: m.posicion.y,
+      width: m.posicion.width,
+      height: m.posicion.height,
+      rx: m.posicion.rx,
       mesas_unidas: m.mesas_unidas,
       parent_id: m.parent_id,
     })));
@@ -283,7 +298,7 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
     const mesaUnida: Partial<Mesa> = {
       numero_mesa: `${m1.numero_mesa} + ${m2.numero_mesa}`,
       capacidad: capacidadUnida,
-      sector: m1.zona,
+      zona: m1.zona,
       estado: m1.estado === 'ocupada' || m2.estado === 'ocupada' ? 'ocupada' : 'libre',
       mesas_unidas: [m1.id_mesa, m2.id_mesa],
     };
@@ -362,7 +377,7 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
         const updated: Partial<Mesa> = {
           numero_mesa: numeroRaw,
           capacidad,
-          sector: nuevaZona,
+          zona: nuevaZona,
         };
         await mesasService.update(editingMesa.id_mesa, updated);
         setVisualMesas(prev => prev.map(m => m.id_mesa === editingMesa.id_mesa
@@ -377,7 +392,7 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
           id_mesa: Math.max(1, ...visualMesas.map(m => m.id_mesa)) + 1,
           numero_mesa: numeroRaw,
           capacidad,
-          sector: nuevaZona,
+          zona: nuevaZona,
           estado: 'libre',
         };
         const saved = await mesasService.create(newMesa);

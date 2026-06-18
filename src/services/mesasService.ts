@@ -48,7 +48,16 @@ export const mesasService = {
       id_mesa: m.id_mesa,
       numero_mesa: m.numero_mesa,
       estado: m.estado,
-      comensales: m.comensales || null
+      comensales: m.comensales || null,
+      capacidad: m.capacidad || 4,
+      zona: m.zona || 'salon',
+      x: m.x ?? null,
+      y: m.y ?? null,
+      width: m.width ?? null,
+      height: m.height ?? null,
+      rx: m.rx ?? 6,
+      mesas_unidas: m.mesas_unidas || [],
+      parent_id: m.parent_id ?? null,
     }));
     const { data, error } = await supabase.from('mesas').upsert(mapped).select();
     if (error) {

@@ -26,13 +26,21 @@ export interface Mesa {
     reserva_hora?: string;
     /** Capacidad máxima de comensales según el plano */
     capacidad?: number;
-    /** Sector del restaurante */
+    /** Zona del restaurante (usada por MesasProto1) */
+    zona?: 'comedor' | 'salon';
+    /** Sector del restaurante (legacy, usado por MesasModule) */
     sector?: 'patio' | 'comedor' | 'salon' | 'terraza' | 'vip';
-    /** Coordenada X (%) para el plano interactivo */
+    /** Coordenada X para el plano interactivo */
     x?: number;
-    /** Coordenada Y (%) para el plano interactivo */
+    /** Coordenada Y para el plano interactivo */
     y?: number;
-    /** Forma visual de la mesa en el plano */
+    /** Ancho del rectángulo de la mesa */
+    width?: number;
+    /** Alto del rectángulo de la mesa */
+    height?: number;
+    /** Radio de redondeo del rectángulo */
+    rx?: number;
+    /** Forma visual de la mesa en el plano (legacy, usado por MesasModule) */
     forma?: 'redonda' | 'rectangular';
     /** IDs de mesas unidas a esta mesa combinada */
     mesas_unidas?: number[];

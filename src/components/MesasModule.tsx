@@ -25,19 +25,19 @@ const ESTADO_POR_KEY = Object.fromEntries(ESTADOS.map(e => [e.key, e]));
 
 /** Posiciones aproximadas basadas en el plano enviado. El plano es vertical; 0,0 = arriba-izquierda. */
 const MESAS_INICIALES_PLANO: Partial<Mesa>[] = [
-  // Comedor (sector superior, 4 mesas rectangulares)
-  { id_mesa: 1, numero_mesa: 'Mesa 1', sector: 'comedor', capacidad: 4, forma: 'rectangular', x: 61, y: 16 },
-  { id_mesa: 2, numero_mesa: 'Mesa 2', sector: 'comedor', capacidad: 5, forma: 'rectangular', x: 22, y: 16 },
-  { id_mesa: 3, numero_mesa: 'Mesa 3', sector: 'comedor', capacidad: 5, forma: 'rectangular', x: 22, y: 27 },
-  { id_mesa: 4, numero_mesa: 'Mesa 4', sector: 'comedor', capacidad: 4, forma: 'rectangular', x: 61, y: 27 },
+  // Comedor (zona superior, 4 mesas rectangulares)
+  { id_mesa: 1, numero_mesa: 'Mesa 1', zona: 'comedor', capacidad: 4, x: 61, y: 16 },
+  { id_mesa: 2, numero_mesa: 'Mesa 2', zona: 'comedor', capacidad: 5, x: 22, y: 16 },
+  { id_mesa: 3, numero_mesa: 'Mesa 3', zona: 'comedor', capacidad: 5, x: 22, y: 27 },
+  { id_mesa: 4, numero_mesa: 'Mesa 4', zona: 'comedor', capacidad: 4, x: 61, y: 27 },
 
-  // Salón (sector inferior, 6 mesas redondas)
-  { id_mesa: 5, numero_mesa: 'Mesa 5', sector: 'salon', capacidad: 4, forma: 'redonda', x: 41, y: 58 },
-  { id_mesa: 6, numero_mesa: 'Mesa 6', sector: 'salon', capacidad: 4, forma: 'redonda', x: 22, y: 70 },
-  { id_mesa: 7, numero_mesa: 'Mesa 7', sector: 'salon', capacidad: 3, forma: 'redonda', x: 61, y: 70 },
-  { id_mesa: 8, numero_mesa: 'Mesa 8', sector: 'salon', capacidad: 4, forma: 'redonda', x: 22, y: 84 },
-  { id_mesa: 9, numero_mesa: 'Mesa 9', sector: 'salon', capacidad: 2, forma: 'redonda', x: 61, y: 84 },
-  { id_mesa: 10, numero_mesa: 'Mesa 10', sector: 'salon', capacidad: 4, forma: 'redonda', x: 41, y: 84 },
+  // Salón (zona inferior, 6 mesas redondas)
+  { id_mesa: 5, numero_mesa: 'Mesa 5', zona: 'salon', capacidad: 4, x: 41, y: 58 },
+  { id_mesa: 6, numero_mesa: 'Mesa 6', zona: 'salon', capacidad: 4, x: 22, y: 70 },
+  { id_mesa: 7, numero_mesa: 'Mesa 7', zona: 'salon', capacidad: 3, x: 61, y: 70 },
+  { id_mesa: 8, numero_mesa: 'Mesa 8', zona: 'salon', capacidad: 4, x: 22, y: 84 },
+  { id_mesa: 9, numero_mesa: 'Mesa 9', zona: 'salon', capacidad: 2, x: 61, y: 84 },
+  { id_mesa: 10, numero_mesa: 'Mesa 10', zona: 'salon', capacidad: 4, x: 41, y: 84 },
 ];
 
 export default function MesasModule({ mesas, onMesasChange, addLog }: MesasModuleProps) {
@@ -51,8 +51,7 @@ export default function MesasModule({ mesas, onMesasChange, addLog }: MesasModul
         ...m,
         estado: m.estado || 'libre',
         capacidad: m.capacidad ?? plano?.capacidad ?? 4,
-        sector: m.sector ?? plano?.sector ?? 'salon',
-        forma: m.forma ?? plano?.forma ?? 'redonda',
+        zona: m.zona ?? plano?.zona ?? 'salon',
         x: m.x ?? plano?.x ?? 50,
         y: m.y ?? plano?.y ?? 50,
         mesas_unidas: m.mesas_unidas ?? [],
