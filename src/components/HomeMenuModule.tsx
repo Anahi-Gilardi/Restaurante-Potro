@@ -301,16 +301,16 @@ export default function HomeMenuModule({
         <div className="w-24 h-24 md:w-28 md:h-28 bg-[#FFFDF8] rounded-full flex items-center justify-center p-1.5 shadow-lg border border-white/10 shrink-0 relative z-10">
           <ElPatronLogo className="w-full h-full object-contain rounded-full" variant="badge" color="#4A2D1B" />
         </div>
- 
+
         <div className="absolute top-4 right-4 animate-pulse">
           <span className="bg-[#22C55E]/20 text-emerald-300 border border-[#22C55E]/30 text-[10px] font-extrabold px-3 py-1 rounded-full flex items-center gap-1.5 backdrop-blur-xs">
             <span className="h-2 w-2 rounded-full bg-[#22C55E] animate-pulse" />
             Servicio Activo
           </span>
         </div>
- 
+
         <div className="flex-1 space-y-2.5 relative z-10 text-center md:text-left">
-          <h2 className="text-4xl md:text-5xl font-black tracking-tight text-[#FFFDF8] font-serif-vintage italic">
+          <h2 className="text-4xl md:text-5xl font-semibold tracking-tight text-[#FFFDF8] font-sans">
             Bienvenido a El Patrón
           </h2>
           <p className="text-base md:text-lg text-[#FAF4EE]/90 font-medium leading-relaxed max-w-xl">
@@ -326,9 +326,9 @@ export default function HomeMenuModule({
           </div>
         </div>
       </div>
- 
+
       {/* 2. Top-Level Operational Context Row (Live stats + quick action info) */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-[#FFFDF8] p-5 md:p-6 rounded-2xl border border-[#624A3E]/15 shadow-sm max-w-7xl mx-auto">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-white p-5 md:p-6 rounded-2xl border border-stone-200/80 shadow-xs max-w-7xl mx-auto">
         
         {/* Supabase Connection State */}
         <div className="space-y-2 md:border-r border-stone-100/80 md:pr-4 last:border-0">
@@ -425,7 +425,7 @@ export default function HomeMenuModule({
 
       {/* 3. Elegantly designed modules dashboard grid (operational focus) */}
       <div className="max-w-7xl mx-auto px-0 md:px-0 space-y-6">
-        <h3 className="text-lg font-bold text-[#624A3E]/80 uppercase tracking-widest mb-6 font-display-serif">
+        <h3 className="text-lg font-semibold text-stone-500 uppercase tracking-widest mb-6">
           Módulos y Terminales de Operación
         </h3>
 
@@ -434,16 +434,16 @@ export default function HomeMenuModule({
             const Icon = item.icon;
             
             // Determine badge theme colors
-            let badgeStyle = 'bg-stone-100/80 text-stone-600 border border-stone-200/60';
-            if (item.badge.type === 'emerald') badgeStyle = 'bg-emerald-50/80 text-emerald-800 border border-emerald-250';
-            if (item.badge.type === 'amber') badgeStyle = 'bg-amber-50/80 text-amber-800 border border-amber-250 animate-pulse';
-            if (item.badge.type === 'rose') badgeStyle = 'bg-rose-50/80 text-rose-800 border border-rose-250 animate-bounce';
+            let badgeStyle = 'bg-stone-100 text-stone-600 border border-stone-200';
+            if (item.badge.type === 'emerald') badgeStyle = 'bg-emerald-50 text-emerald-800 border border-emerald-200';
+            if (item.badge.type === 'amber') badgeStyle = 'bg-amber-50 text-amber-800 border border-amber-200 animate-pulse';
+            if (item.badge.type === 'rose') badgeStyle = 'bg-rose-50 text-rose-800 border border-rose-200 animate-bounce';
 
             return (
               <button
                 key={item.id}
                 onClick={() => onNavigate(item.id)}
-                className={`group bg-[#FFFDF8] p-6 rounded-2xl border border-[#624A3E]/15 shadow-sm hover:shadow-md transition-all duration-200 text-left flex flex-col justify-between min-h-[165px] cursor-pointer bg-gradient-to-br ${item.color} border-l-4 border-l-[#8C6239]/80 active:scale-[0.98]`}
+                className={`group bg-white p-6 rounded-2xl border border-stone-200/80 shadow-xs hover:shadow-md transition-all text-left flex flex-col justify-between min-h-[160px] cursor-pointer bg-gradient-to-br ${item.color} border-l-4 border-l-[#8C6239]/80`}
               >
                 {/* Module Top Row */}
                 <div className="w-full flex items-center justify-between gap-4">
