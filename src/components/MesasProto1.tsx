@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useToast, ToastContainer } from './ToastContainer';
-import { Users, X, Plus, Calendar } from 'lucide-react';
+import { X, Plus, Calendar } from 'lucide-react';
 import { Mesa, Reserva } from '../types';
 import { mesasService } from '../services/mesasService';
 import { reservasService } from '../services/reservasService';
@@ -11,28 +11,58 @@ interface MesasProto1Props {
   addLog?: (tipo: 'sistema' | 'reserva' | 'mesa' | 'pedido_creado' | 'descuento_stock' | 'alerta_stock' | 'comanda_estado' | 'merma_registrada', mensaje: string) => void;
 }
 
-type Zona = 'Patio' | 'Comedor' | 'Salón' | 'Sector VIP';
-
-const ZONAS: Zona[] = ['Patio', 'Comedor', 'Salón', 'Sector VIP'];
-
-const COLORES_ZONA: Record<Zona, string> = {
-  'Patio': 'bg-stone-100/60 border-stone-200',
-  'Comedor': 'bg-stone-100/60 border-stone-200',
-  'Salón': 'bg-stone-100/60 border-stone-200',
-  'Sector VIP': 'bg-[#F5E6D3]/60 border-[#D4A574]',
-};
-
-const ESTADO_STYLES = {
-  libre: 'bg-[#D4A574] text-white border-[#B08050] shadow-[#D4A574]/30',
-  ocupada: 'bg-[#8B5A2B] text-white border-[#6B4223] shadow-[#8B5A2B]/40',
-  reservada: 'bg-amber-400 text-amber-950 border-amber-500 shadow-amber-400/40',
-  esperando_cuenta: 'bg-emerald-600 text-white border-emerald-700 shadow-emerald-600/40',
-  limpiando: 'bg-blue-400 text-white border-blue-500 shadow-blue-400/40',
-};
-
 function formatDate(d: Date): string {
   return d.toISOString().split('T')[0];
 }
+
+// Mapa de mesas según el SVG. Cada entrada define el rectángulo del plano y la capacidad.
+interface MesaSvgMap {
+  id_mesa: number;
+  svgId: string;
+  numero: string;
+  capacidad: number;
+  zona: 'Comedor' | 'Salón';
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+const MESAS_SVG: MesaSvgMap[] = [
+  { id_mesa: 8,  svgId: 'mesa-8-comedor-1', numero: 'Mesa 8',  capacidad: 8, zona: 'Comedor', x: 135, y: 60,  width: 80, height: 52 },
+  { id_mesa: 4,  svgId: 'mesa-4-comedor-a', numero: 'Mesa 4A', capacidad: 4, zona: 'Comedor', x: 270, y: 60,  width: 64, height: 52 },
+  { id_mesa: 5,  svgId: 'mesa-5-comedor-1', numero: 'Mesa 5',  capacidad: 5, zona: 'Comedor', x: 140, y: 145, width: 72, height: 52 },
+  { id_mesa: 4,  svgId: 'mesa-4-comedor-b', numero: 'Mesa 4B', capacidad: 4, zona: 'Comedor', x: 270, y: 145, width: 64, height: 52 },
+  { id_mesa: 4,  svgId: 'mesa-4-salon-c',  numero: 'Mesa 4C', capacidad: 4, zona: 'Salón',   x: 155, y: 325, width: 64, height: 52 },
+  { id_mesa: 3,  svgId: 'mesa-3-salon-1',  numero: 'Mesa 3',  capacidad: 3, zona: 'Salón',   x: 285, y: 325, width: 52, height: 52 },
+  { id_mesa: 5,  svgId: 'mesa-5-salon-b',  numero: 'Mesa 5B', capacidad: 5, zona: 'Salón',   x: 135, y: 415, width: 72, height: 52 },
+  { id_mesa: 2,  svgId: 'mesa-2-salon-1',  numero: 'Mesa 2',  capacidad: 2, zona: 'Salón',   x: 285, y: 415, width: 52, height: 52 },
+  { id_mesa: 1,  svgId: 'mesa-1-salon-1',  numero: 'Mesa 1',  capacidad: 1, zona: 'Salón',   x: 108, y: 495, width: 52, height: 52 },
+];
+
+const ESTADO_FILL = {
+  libre: '#D4EDDA',
+  ocupada: '#F8D7DA',
+  reservada: '#FFF3CD',
+  esperando_cuenta: '#d1fae5',
+  limpiando: '#dbeafe',
+};
+
+const ESTADO_STROKE = {
+  libre: '#28A745',
+  ocupada: '#DC3545',
+  reservada: '#FFC107',
+  esperando_cuenta: '#10B981',
+  limpiando: '#3B82F6',
+};
+
+const ESTADO_TEXT = {
+  libre: '#28A745',
+  ocupada: '#DC3545',
+  reservada: '#B58900',
+  esperando_cuenta: '#065F46',
+  limpiando: '#1E40AF',
+};
 
 export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }: MesasProto1Props) {
   const { toast, toasts, removeToast } = useToast();
@@ -62,7 +92,21 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
           reservasService.listByFecha ? await reservasService.listByFecha(today) : await reservasService.list()
         ]);
         if (!mounted) return;
-        setLocalMesas(mData.length ? mData : mesas);
+
+        // Si Supabase no tiene mesas, usar las del SVG mapeadas
+        if (!mData.length) {
+          const fallback = MESAS_SVG.map(m => ({
+            id_mesa: m.id_mesa,
+            numero_mesa: m.numero,
+            capacidad: m.capacidad,
+            sector: m.zona.toLowerCase() as Mesa['sector'],
+            estado: 'libre' as const,
+          }));
+          setLocalMesas(fallback);
+        } else {
+          setLocalMesas(mData);
+        }
+
         const reservasFiltradas = (rData || []).filter((r: Reserva) =>
           (r.fecha === today || !r.fecha) && r.estado !== 'cancelada' && !r.lista_espera
         );
@@ -98,7 +142,7 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
     onMesasChange(localMesas);
   }, [localMesas, onMesasChange]);
 
-  // Calcular estado visual combinando mesa + reservas del día
+  // Estado visual combinando mesa + reservas del día
   const mesasConEstado = useMemo(() => {
     return localMesas.map(m => {
       const reserva = reservasHoy.find(r => r.id_mesa === m.id_mesa && r.estado === 'confirmada');
@@ -108,12 +152,19 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
     });
   }, [localMesas, reservasHoy]);
 
-  const mesasPorZona = (zona: Zona) => mesasConEstado.filter(m => {
-    const s = (m.sector || 'salon').toLowerCase();
-    if (zona === 'Sector VIP') return s === 'vip';
-    if (zona === 'Salón') return s === 'salon';
-    return s === zona.toLowerCase();
-  });
+  const findMesaBySvgId = (svgId: string): Mesa | undefined => {
+    const map = MESAS_SVG.find(m => m.svgId === svgId);
+    if (!map) return undefined;
+    return mesasConEstado.find(m => m.id_mesa === map.id_mesa && m.numero_mesa === map.numero);
+  };
+
+  const handleSvgClick = (e: React.MouseEvent<SVGSVGElement>) => {
+    const target = e.target as HTMLElement;
+    const svgId = target.id || target.closest('[id]')?.id;
+    if (!svgId) return;
+    const mesa = findMesaBySvgId(svgId);
+    if (mesa) openModal(mesa);
+  };
 
   const openModal = (mesa: Mesa) => {
     setSelectedMesa(mesa);
@@ -169,15 +220,15 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
           ...payload as Reserva,
         };
         await reservasService.create(newRes);
-        // Actualizar estado de mesa a reservada
         await mesasService.update(selectedMesa.id_mesa, { estado: 'reservada' });
         addLog('reserva', `Nueva reserva en ${selectedMesa.numero_mesa}`);
         toast.success('Reserva creada');
       }
 
-      // Refrescar reservas
       const updated = reservasService.listByFecha ? await reservasService.listByFecha(today) : await reservasService.list();
-      setReservasHoy((updated || []).filter((r: Reserva) => (r.fecha === today || !r.fecha) && r.estado !== 'cancelada' && !r.lista_espera));
+      setReservasHoy((updated || []).filter((r: Reserva) =>
+        (r.fecha === today || !r.fecha) && r.estado !== 'cancelada' && !r.lista_espera
+      ));
       closeModal();
     } catch (err: any) {
       console.error(err);
@@ -196,13 +247,118 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
       }
       setLocalMesas(prev => prev.map(m => m.id_mesa === selectedMesa.id_mesa ? { ...m, estado: 'libre', comensales: 0 } : m));
       const updated = reservasService.listByFecha ? await reservasService.listByFecha(today) : await reservasService.list();
-      setReservasHoy((updated || []).filter((r: Reserva) => (r.fecha === today || !r.fecha) && r.estado !== 'cancelada' && !r.lista_espera));
+      setReservasHoy((updated || []).filter((r: Reserva) =>
+        (r.fecha === today || !r.fecha) && r.estado !== 'cancelada' && !r.lista_espera
+      ));
       addLog('mesa', `${selectedMesa.numero_mesa} liberada`);
       toast.success('Mesa liberada');
       closeModal();
     } catch (err: any) {
       toast.error(err.message || 'Error al liberar');
     }
+  };
+
+  // Render del SVG con mesas interactivas y colores dinámicos
+  const renderSvg = () => {
+    const mesaElements = MESAS_SVG.map(m => {
+      const mesaState = mesasConEstado.find(ms => ms.id_mesa === m.id_mesa && ms.numero_mesa === m.numero);
+      const estado = (mesaState?.estado || 'libre') as keyof typeof ESTADO_FILL;
+      const fill = ESTADO_FILL[estado];
+      const stroke = ESTADO_STROKE[estado];
+      const textColor = ESTADO_TEXT[estado];
+      const capacidad = m.capacidad;
+
+      return (
+        <g key={m.svgId} id={m.svgId} className="cursor-pointer hover:opacity-90 transition-opacity"
+           onClick={() => mesaState && openModal(mesaState)}
+        >
+          <rect x={m.x} y={m.y} width={m.width} height={m.height} rx={6}
+                fill={fill} stroke={stroke} strokeWidth={2.5} />
+          <text x={m.x + m.width / 2} y={m.y + m.height / 2 - 2} textAnchor="middle" fontSize={Math.min(18, m.width / 3.5)} fontWeight={700} fill={textColor} fontFamily="Arial, sans-serif">{capacidad}</text>
+          <text x={m.x + m.width / 2} y={m.y + m.height / 2 + 14} textAnchor="middle" fontSize={9} fill={textColor} fontFamily="Arial, sans-serif" opacity={0.8}>Mesa</text>
+        </g>
+      );
+    });
+
+    return (
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 430 620" className="w-full h-auto max-w-[430px] mx-auto drop-shadow-xl"
+           onClick={handleSvgClick}
+      >
+        <rect x="10" y="10" width="410" height="600" rx="4" fill="none" stroke="#3D2B1F" strokeWidth="3"/>
+        <rect x="10" y="10" width="80" height="600" rx="4" fill="#2C1A0E"/>
+        <text x="50" y="200" textAnchor="middle" fontSize="11" fill="#C9A96E" fontFamily="Georgia, serif" fontWeight="700" transform="rotate(-90, 50, 200)" letterSpacing="2">RESTAURANTE</text>
+        <rect x="24" y="120" width="32" height="28" rx="6" fill="none" stroke="#C9A96E" strokeWidth="1.5" opacity="0.5"/>
+        <rect x="24" y="175" width="32" height="28" rx="6" fill="none" stroke="#C9A96E" strokeWidth="1.5" opacity="0.5"/>
+        <rect x="24" y="230" width="32" height="28" rx="6" fill="none" stroke="#C9A96E" strokeWidth="1.5" opacity="0.5"/>
+
+        <rect x="90" y="10" width="330" height="255" fill="#EAE0CC"/>
+        <text x="230" y="32" textAnchor="middle" fontSize="11" fontWeight="700" fill="#7A5C44" fontFamily="Arial, sans-serif" letterSpacing="3">COMEDOR</text>
+        <line x1="90" y1="265" x2="420" y2="265" stroke="#3D2B1F" strokeWidth="2.5"/>
+
+        <rect x="340" y="18" width="70" height="90" rx="4" fill="#D4C4A0" stroke="#8B6914" strokeWidth="2"/>
+        <text x="375" y="60" textAnchor="middle" fontSize="10" fontWeight="700" fill="#5A3E10" fontFamily="Arial, sans-serif" letterSpacing="1">CAJA</text>
+        <rect x="344" y="72" width="62" height="8" rx="3" fill="#8B6914" opacity="0.4"/>
+
+        <rect x="90" y="265" width="330" height="345" fill="#EDE4D3"/>
+        <text x="230" y="290" textAnchor="middle" fontSize="11" fontWeight="700" fill="#7A5C44" fontFamily="Arial, sans-serif" letterSpacing="3">SALÓN</text>
+
+        <text x="50" y="530" textAnchor="middle" fontSize="9" fill="#C9A96E" fontFamily="Arial, sans-serif" letterSpacing="1" transform="rotate(-90, 50, 530)">PASILLO</text>
+
+        <rect x="90" y="575" width="80" height="35" fill="#D4C4A0" stroke="#3D2B1F" strokeWidth="1.5"/>
+        <text x="130" y="596" textAnchor="middle" fontSize="7" fill="#5A3E10" fontFamily="Arial, sans-serif" fontWeight="600">INGRESO</text>
+        <text x="130" y="606" textAnchor="middle" fontSize="7" fill="#5A3E10" fontFamily="Arial, sans-serif">VEHICAL</text>
+
+        <text x="418" y="140" textAnchor="middle" fontSize="9" fill="#7A5C44" fontFamily="Arial, sans-serif" transform="rotate(90, 418, 140)" letterSpacing="2" opacity="0.6">FACHADA</text>
+
+        {mesaElements}
+
+        {/* Sillas decorativas */}
+        <g opacity="0.55">
+          <circle cx="153" cy="48" r="7" fill="#28A745"/>
+          <circle cx="175" cy="48" r="7" fill="#28A745"/>
+          <circle cx="197" cy="48" r="7" fill="#28A745"/>
+          <circle cx="153" cy="124" r="7" fill="#28A745"/>
+          <circle cx="175" cy="124" r="7" fill="#28A745"/>
+          <circle cx="197" cy="124" r="7" fill="#28A745"/>
+          <circle cx="288" cy="48" r="7" fill="#DC3545"/>
+          <circle cx="310" cy="48" r="7" fill="#DC3545"/>
+          <circle cx="288" cy="124" r="7" fill="#DC3545"/>
+          <circle cx="310" cy="124" r="7" fill="#DC3545"/>
+          <circle cx="158" cy="133" r="7" fill="#28A745"/>
+          <circle cx="180" cy="133" r="7" fill="#28A745"/>
+          <circle cx="202" cy="133" r="7" fill="#28A745"/>
+          <circle cx="158" cy="209" r="7" fill="#28A745"/>
+          <circle cx="180" cy="209" r="7" fill="#28A745"/>
+          <circle cx="288" cy="133" r="7" fill="#FFC107"/>
+          <circle cx="310" cy="133" r="7" fill="#FFC107"/>
+          <circle cx="288" cy="209" r="7" fill="#FFC107"/>
+          <circle cx="310" cy="209" r="7" fill="#FFC107"/>
+          <circle cx="173" cy="313" r="7" fill="#28A745"/>
+          <circle cx="195" cy="313" r="7" fill="#28A745"/>
+          <circle cx="173" cy="389" r="7" fill="#28A745"/>
+          <circle cx="195" cy="389" r="7" fill="#28A745"/>
+          <circle cx="303" cy="313" r="7" fill="#28A745"/>
+          <circle cx="325" cy="313" r="7" fill="#28A745"/>
+          <circle cx="303" cy="389" r="7" fill="#28A745"/>
+          <circle cx="153" cy="403" r="7" fill="#DC3545"/>
+          <circle cx="175" cy="403" r="7" fill="#DC3545"/>
+          <circle cx="197" cy="403" r="7" fill="#DC3545"/>
+          <circle cx="153" cy="479" r="7" fill="#DC3545"/>
+          <circle cx="175" cy="479" r="7" fill="#DC3545"/>
+          <circle cx="303" cy="403" r="7" fill="#28A745"/>
+          <circle cx="325" cy="403" r="7" fill="#28A745"/>
+          <circle cx="126" cy="483" r="7" fill="#28A745"/>
+        </g>
+
+        {/* Leyenda */}
+        <rect x="170" y="580" width="14" height="14" rx="3" fill="#D4EDDA" stroke="#28A745" strokeWidth="2"/>
+        <text x="188" y="591" fontSize="9" fill="#2C1A0E" fontFamily="Arial, sans-serif">Libre</text>
+        <rect x="230" y="580" width="14" height="14" rx="3" fill="#F8D7DA" stroke="#DC3545" strokeWidth="2"/>
+        <text x="248" y="591" fontSize="9" fill="#2C1A0E" fontFamily="Arial, sans-serif">Ocupado</text>
+        <rect x="310" y="580" width="14" height="14" rx="3" fill="#FFF3CD" stroke="#FFC107" strokeWidth="2"/>
+        <text x="328" y="591" fontSize="9" fill="#2C1A0E" fontFamily="Arial, sans-serif">Reservado</text>
+      </svg>
+    );
   };
 
   if (loading) {
@@ -220,55 +376,13 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-xl font-black text-stone-800 tracking-tight">Plano de Mesas</h2>
-          <p className="text-xs text-stone-500 font-medium">Prototipo 1 · Sectores · Estado en tiempo real</p>
-        </div>
-        <div className="flex flex-wrap gap-3 text-[10px] font-bold uppercase tracking-wider">
-          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-[#D4A574]" />Libre</span>
-          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-[#8B5A2B]" />Ocupada</span>
-          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-amber-400" />Reservada</span>
-          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-emerald-600" />Espera cuenta</span>
-          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-blue-400" />Limpieza</span>
+          <p className="text-xs text-stone-500 font-medium">Haz clic en una mesa para reservar o liberar</p>
         </div>
       </div>
 
-      {/* Plano por zonas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {ZONAS.map(zona => {
-          const mesasZona = mesasPorZona(zona);
-          return (
-            <div key={zona} className={`rounded-2xl border p-5 ${COLORES_ZONA[zona]} ${zona === 'Sector VIP' ? 'md:col-span-2' : ''}`}>
-              <h3 className="text-xs font-black text-stone-600 uppercase tracking-widest mb-4 text-center">{zona}</h3>
-              {mesasZona.length === 0 ? (
-                <p className="text-center text-xs text-stone-400 italic">Sin mesas en esta zona</p>
-              ) : (
-                <div className="flex flex-wrap justify-center gap-4">
-                  {mesasZona.map(m => {
-                    const estilo = ESTADO_STYLES[m.estado] || ESTADO_STYLES.libre;
-                    return (
-                      <button
-                        key={m.id_mesa}
-                        onClick={() => openModal(m)}
-                        className={`group relative w-16 h-16 sm:w-20 sm:h-20 rounded-full border-2 ${estilo} shadow-lg hover:scale-105 transition-all flex flex-col items-center justify-center cursor-pointer`}
-                        title={`${m.numero_mesa} · ${m.estado}`}
-                      >
-                        <span className="text-[10px] sm:text-xs font-black uppercase opacity-80">{m.numero_mesa}</span>
-                        <div className="flex items-center gap-0.5 text-[10px] font-bold">
-                          <Users className="w-3 h-3" />
-                          {m.capacidad || '-'}
-                        </div>
-                        {m.estado === 'reservada' && m.reserva_hora && (
-                          <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[9px] font-bold text-amber-700 whitespace-nowrap bg-white/80 px-1.5 py-0.5 rounded-full border border-amber-200">
-                            {m.reserva_hora}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          );
-        })}
+      {/* Plano SVG */}
+      <div className="bg-white rounded-2xl p-4 sm:p-6 border border-stone-200 shadow-sm">
+        {renderSvg()}
       </div>
 
       {/* Modal */}
