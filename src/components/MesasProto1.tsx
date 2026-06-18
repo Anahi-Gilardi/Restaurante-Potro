@@ -168,7 +168,7 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
   const handleSvgClick = (e: React.MouseEvent<HTMLDivElement>) => {
     e.stopPropagation();
     const target = e.target as HTMLElement;
-    const group = target.closest('[data-mesa-id]') as HTMLElement | null;
+    const group = target.closest('[data-mesa-id]') as SVGGElement | null;
     if (!group) return;
     const svgId = group.dataset.mesaId;
     if (!svgId) return;
@@ -345,12 +345,18 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
       return (
         <g key={m.svgId} data-mesa-id={m.svgId}
            className={`cursor-pointer transition-opacity ${isSelected ? 'opacity-100' : 'hover:opacity-90'}`}
-           onClick={() => mesaState && openModal(mesaState)}
+           onClick={(e) => {
+             e.stopPropagation();
+             if (mesaState) {
+               if (unionMode) toggleUnionSelection(mesaState);
+               else openModal(mesaState);
+             }
+           }}
         >
           <rect x={m.x} y={m.y} width={m.width} height={m.height} rx={6}
-                fill={fill} stroke={isSelected ? '#3B82F6' : stroke} strokeWidth={isSelected ? 4 : 2.5} />
-          <text x={m.x + m.width / 2} y={m.y + m.height / 2 - 2} textAnchor="middle" fontSize={Math.min(18, m.width / 3.5)} fontWeight={700} fill={textColor} fontFamily="Arial, sans-serif">{capacidad}</text>
-          <text x={m.x + m.width / 2} y={m.y + m.height / 2 + 14} textAnchor="middle" fontSize={9} fill={textColor} fontFamily="Arial, sans-serif" opacity={0.8}>Mesa</text>
+                fill={fill} stroke={isSelected ? '#3B82F6' : stroke} strokeWidth={isSelected ? 4 : 2.5} pointerEvents="all" />
+          <text x={m.x + m.width / 2} y={m.y + m.height / 2 - 2} textAnchor="middle" fontSize={Math.min(18, m.width / 3.5)} fontWeight={700} fill={textColor} fontFamily="Arial, sans-serif" pointerEvents="none">{capacidad}</text>
+          <text x={m.x + m.width / 2} y={m.y + m.height / 2 + 14} textAnchor="middle" fontSize={9} fill={textColor} fontFamily="Arial, sans-serif" opacity={0.8} pointerEvents="none">Mesa</text>
         </g>
       );
     });
