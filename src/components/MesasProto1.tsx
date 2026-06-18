@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useToast, ToastContainer } from './ToastContainer';
-import { X, Plus, Calendar } from 'lucide-react';
+import { X, Plus, Calendar, Pencil, Trash } from 'lucide-react';
 import { Mesa, Reserva } from '../types';
 import { mesasService } from '../services/mesasService';
 import { reservasService } from '../services/reservasService';
@@ -13,6 +13,10 @@ interface MesasProto1Props {
 
 function formatDate(d: Date): string {
   return d.toISOString().split('T')[0];
+}
+
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 // Mapa de mesas según el SVG. Cada entrada define el rectángulo del plano y la capacidad.
@@ -86,6 +90,13 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
   // Modo unir mesas
   const [unionMode, setUnionMode] = useState(false);
   const [selectedForUnion, setSelectedForUnion] = useState<Mesa[]>([]);
+
+  // Formulario agregar/editar mesa
+  const [showMesaForm, setShowMesaForm] = useState(false);
+  const [editingMesa, setEditingMesa] = useState<Mesa | null>(null);
+  const [nuevoNumero, setNuevoNumero] = useState('');
+  const [nuevaCapacidad, setNuevaCapacidad] = useState('4');
+  const [nuevaZona, setNuevaZona] = useState<'Comedor' | 'Salón'>('Comedor');
 
   const today = formatDate(new Date());
 
@@ -261,6 +272,72 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
       toast.success('Mesas separadas');
     } catch (err: any) {
       toast.error(err.message || 'Error al separar mesas');
+    }
+  };
+
+  const openEditMesa = (mesa: Mesa, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setEditingMesa(mesa);
+    setNuevoNumero(mesa.numero_mesa);
+    setNuevaCapacidad(String(mesa.capacidad || 4));
+    setNuevaZona((mesa.sector === 'comedor' ? 'Comedor' : 'Salón') as 'Comedor' | 'Salón');
+    setShowMesaForm(true);
+  };
+
+  const resetMesaForm = () => {
+    setEditingMesa(null);
+    setNuevoNumero('');
+    setNuevaCapacidad('4');
+    setNuevaZona('Comedor');
+    setShowMesaForm(false);
+  };
+
+  const handleSaveMesa = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const numero = nuevoNumero.trim();
+    const capacidad = parseInt(nuevaCapacidad) || 1;
+    if (!numero) {
+      toast.error('El número de mesa es obligatorio');
+      return;
+    }
+
+    try {
+      if (editingMesa) {
+        const updated = { ...editingMesa, numero_mesa: numero, capacidad, sector: nuevaZona.toLowerCase() as Mesa['sector'] };
+        await mesasService.update(editingMesa.id_mesa, updated);
+        setLocalMesas(prev => prev.map(m => m.id_mesa === editingMesa.id_mesa ? updated : m));
+        addLog('mesa', `Mesa renombrada a ${numero}`);
+        toast.success('Mesa actualizada');
+      } else {
+        const newId = Math.max(1, ...localMesas.map(m => m.id_mesa)) + 1;
+        const newMesa: Mesa = {
+          id_mesa: newId,
+          numero_mesa: numero,
+          capacidad,
+          sector: nuevaZona.toLowerCase() as Mesa['sector'],
+          estado: 'libre',
+        };
+        await mesasService.create(newMesa);
+        setLocalMesas(prev => [...prev, newMesa]);
+        addLog('mesa', `Nueva mesa agregada: ${numero}`);
+        toast.success('Mesa agregada');
+      }
+      resetMesaForm();
+    } catch (err: any) {
+      toast.error(err.message || 'Error guardando mesa');
+    }
+  };
+
+  const handleDeleteMesa = async (mesa: Mesa, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (!window.confirm(`¿Eliminar ${mesa.numero_mesa}?`)) return;
+    try {
+      await mesasService.remove(mesa.id_mesa);
+      setLocalMesas(prev => prev.filter(m => m.id_mesa !== mesa.id_mesa));
+      addLog('mesa', `Mesa eliminada: ${mesa.numero_mesa}`);
+      toast.success('Mesa eliminada');
+    } catch (err: any) {
+      toast.error(err.message || 'Error eliminando mesa');
     }
   };
 
@@ -490,6 +567,69 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
       {/* Plano SVG */}
       <div className="bg-white rounded-2xl p-4 sm:p-6 border border-stone-200 shadow-sm">
         {renderSvg()}
+      </div>
+
+      {/* Gestión de mesas */}
+      <div className="bg-white rounded-2xl p-4 sm:p-5 border border-stone-200 shadow-sm space-y-4">
+        <div className="flex justify-between items-center">
+          <h3 className="font-extrabold text-sm text-stone-800">Gestión de mesas</h3>
+          <button
+            onClick={() => { resetMesaForm(); setShowMesaForm(true); }}
+            className="px-3 py-2 rounded-xl text-xs font-bold bg-[#624A3E] text-white cursor-pointer hover:bg-[#503C32]"
+          >
+            + Agregar mesa
+          </button>
+        </div>
+
+        {showMesaForm && (
+          <form onSubmit={handleSaveMesa} className="bg-stone-50 rounded-xl p-4 space-y-3 border border-stone-100">
+            <div className="grid grid-cols-3 gap-3">
+              <div className="col-span-1">
+                <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Número</label>
+                <input type="text" value={nuevoNumero} onChange={e => setNuevoNumero(e.target.value)} placeholder="Ej. 10" required className="w-full px-3 py-2.5 text-xs border border-stone-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#624A3E]" />
+              </div>
+              <div className="col-span-1">
+                <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Capacidad</label>
+                <select value={nuevaCapacidad} onChange={e => setNuevaCapacidad(e.target.value)} className="w-full px-3 py-2.5 text-xs border border-stone-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#624A3E]">
+                  {[1,2,3,4,5,6,7,8,10,12].map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </div>
+              <div className="col-span-1">
+                <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Zona</label>
+                <select value={nuevaZona} onChange={e => setNuevaZona(e.target.value as 'Comedor' | 'Salón')} className="w-full px-3 py-2.5 text-xs border border-stone-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#624A3E]">
+                  <option value="Comedor">Comedor</option>
+                  <option value="Salón">Salón</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button type="button" onClick={resetMesaForm} className="flex-1 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl text-xs font-bold cursor-pointer">Cancelar</button>
+              <button type="submit" className="flex-1 py-2.5 bg-[#624A3E] hover:bg-[#503C32] text-white rounded-xl text-xs font-bold cursor-pointer">{editingMesa ? 'Guardar cambios' : 'Agregar mesa'}</button>
+            </div>
+          </form>
+        )}
+
+        <div className="space-y-2 max-h-48 overflow-y-auto">
+          {localMesas.map(m => (
+            <div key={m.id_mesa} className="flex items-center justify-between p-3 bg-stone-50 rounded-xl border border-stone-100">
+              <div className="flex items-center gap-3">
+                <span className={`w-2.5 h-2.5 rounded-full ${m.estado === 'ocupada' ? 'bg-red-500' : m.estado === 'reservada' ? 'bg-amber-400' : m.estado === 'unida' ? 'bg-gray-400' : 'bg-green-500'}`} />
+                <div>
+                  <p className="text-xs font-bold text-stone-800">{m.numero_mesa}</p>
+                  <p className="text-[10px] text-stone-500">{capitalize(m.sector || 'salon')} · {m.capacidad} pax · {m.estado}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1">
+                <button onClick={e => openEditMesa(m, e)} className="p-1.5 hover:bg-blue-50 text-stone-400 hover:text-blue-500 rounded-lg cursor-pointer transition-colors">
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
+                <button onClick={e => handleDeleteMesa(m, e)} className="p-1.5 hover:bg-rose-50 text-stone-400 hover:text-rose-500 rounded-lg cursor-pointer transition-colors">
+                  <Trash className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Modal */}
