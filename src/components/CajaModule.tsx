@@ -35,16 +35,15 @@ import {
   TicketItem, 
   TipoComprobante,
   FacturaDb,
-  PagoDb
+  PagoDb,
+  Cliente
 } from '../types';
+import { useToast, ToastContainer } from './ToastContainer';
+import { useCaja } from '../features/caja/hooks/useCaja';
 import { cajaService } from '../services/cajaService';
-import { pagosService } from '../services/pagosService';
 import { pdfService } from '../services/pdfService';
 import { printerService } from '../services/printerService';
-import { facturacionService, Factura } from '../services/facturacionService';
-import { auditoriaService } from '../services/auditoriaService';
-import { useToast, ToastContainer } from './ToastContainer';
-import { isArcaConfigured, createArcaInvoice, TIPOS_COMPROBANTE } from '../services/arcaService';
+import ElPatronLogo from './ElPatronLogo';
 
 interface CajaModuleProps {
   pedidos: Pedido[];
@@ -62,669 +61,116 @@ export default function CajaModule({
   addLog
 }: CajaModuleProps) {
   const { toast, toasts, removeToast } = useToast();
-  // Configurable Restaurant Details
-  const [restaurante, setRestaurante] = useState({
-    nombreComercial: 'El Patrón Restaurante',
-    razonSocial: 'Gastronomía El Patrón S.A.S.',
-    cuit: '30-71649251-4',
-    direccion: 'Av. Pres. Figueroa Alcorta 3420, CABA',
-    telefono: '+54 11 4802-9988',
-    email: 'facturas@elpatronrestaurante.com.ar',
-    inicioActividades: '15/04/2022',
-    condicionIva: 'Responsable Inscripto',
-    mensajePie: 'Gracias por su visita al verdadero rincón criollo.',
-    moneda: 'ARS'
+
+  const caja = useCaja({
+    pedidos,
+    productosMenu,
+    onFacturarMesa,
+    onCambiarEstadoPedido,
+    addLog,
+    toast
   });
 
-  const [editRestauranteMode, setEditRestauranteMode] = useState(false);
-
-  // Active cashier session states
-  const [cajaSession, setCajaSession] = useState<CierreCaja | null>(null);
-  const [sessionInsumos, setSessionInsumos] = useState<CierreCaja[]>([]);
-  const [lastFacturas, setLastFacturas] = useState<Factura[]>([]);
-
-  // Shift opening/closing dialog states
-  const [showOpenModal, setShowOpenModal] = useState(false);
-  const [showCloseModal, setShowCloseModal] = useState(false);
-  const [openingCashInput, setOpeningCashInput] = useState<string>('25000');
-  const [cashierNameInput, setCashierNameInput] = useState<string>('Sofía Colombo');
-  const [closingPhysicalCashInput, setClosingPhysicalCashInput] = useState<string>('');
-  const [closingObservationsInput, setClosingObservationsInput] = useState<string>('Facturación normal del turno');
-
-  // Interactive cashier selection
-  const [selectedPedidoId, setSelectedPedidoId] = useState<number | null>(null);
-  
-  // Checkout options
-  const [tipoComprobante, setTipoComprobante] = useState<TipoComprobante>('factura_b');
-  const [cuitCliente, setCuitCliente] = useState<string>('99-99999999-9'); // Default Consumidor Final
-  const [nombreCliente, setNombreCliente] = useState<string>('Consumidor Final');
-  const [metodoPago, setMetodoPago] = useState<'efectivo' | 'tarjeta' | 'transferencia' | 'mp_qr' | 'mixto'>('efectivo');
-
-  // Mixed payments queue
-  const [mixedPayments, setMixedPayments] = useState<{ metodo: string; monto: number }[]>([]);
-  const [mixedMetodoInput, setMixedMetodoInput] = useState<string>('efectivo');
-  const [mixedMontoInput, setMixedMontoInput] = useState<string>('');
-
-  // Cash payment calculated change
-  const [montoEntregadoEfectivo, setMontoEntregadoEfectivo] = useState<string>('');
-
-  // Custom discounts & standard tips percentage selectors
-  const [descuentoPorcentaje, setDescuentoPorcentaje] = useState<number>(0);
-  const [propinaPorcentaje, setPropinaPorcentaje] = useState<number>(10); // Standard 10%
-
-  // Splits for payment
-  const [splitPayerCount, setSplitPayerCount] = useState<number>(1);
-  const [activePayerIndex, setActivePayerIndex] = useState<number>(0);
-
-  // Divide account by specific products checkbox
-  const [splitByProducts, setSplitByProducts] = useState<boolean>(false);
-  const [selectedProductsForSplit, setSelectedProductsForSplit] = useState<string[]>([]); // id_producto keys
-
-  // Success transaction modal state
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [successDetails, setSuccessDetails] = useState<{ nro: string, total: number, vuelto: number } | null>(null);
-
-  // Printer configuration states
-  const [printerConfig, setPrinterConfig] = useState<PrinterConfig>(printerService.getDefaultConfig());
-  const [showPrinterSettings, setShowPrinterSettings] = useState(false);
-
-  // Sync historical shifts and current state
-  const loadCajaState = async () => {
-    const active = cajaService.getOpenSession();
-    setCajaSession(active);
-    try {
-      const history = await cajaService.list();
-      setSessionInsumos(history);
-      const facturas = await facturacionService.list();
-      setLastFacturas(facturas.slice(0, 6));
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  useEffect(() => {
-    loadCajaState();
-  }, []);
-
-  // Filter commands by active state waiting checkout
-  const activeBills = useMemo(() => {
-    return pedidos.filter(p => p.estado_comanda !== 'entregado_cobrado' && p.estado_comanda !== 'cancelado');
-  }, [pedidos]);
-
-  // Selected Order Object
-  const selectedPedido = useMemo(() => {
-    return pedidos.find(p => p.id_pedido === selectedPedidoId) || null;
-  }, [selectedPedidoId, pedidos]);
-
-  // Pricing calculations
-  const orderBreakdowns = useMemo(() => {
-    if (!selectedPedido) return { subtotal: 0, promoDeduction: 0, manualDeduction: 0, baseTotal: 0, propinaValue: 0, ivaValue: 0, finalTotal: 0, itemsCalculados: [] };
-    
-    // Group products by ID to process quantities and categories
-    const lineItems: TicketItem[] = selectedPedido.items.map(item => {
-      const prod = productosMenu.find(p => p.id_producto === item.id_producto);
-      const unit = prod ? prod.precio_venta : 0;
-      return {
-        cantidad: item.cantidad,
-        descripcion: item.nombre,
-        precio_unitario: unit,
-        subtotal: item.cantidad * unit
-      };
-    });
-
-    let subtotal = lineItems.reduce((acc, current) => acc + current.subtotal, 0);
-
-    // Apply product split filters if active
-    if (splitByProducts && selectedProductsForSplit.length > 0) {
-      subtotal = selectedPedido.items.reduce((acc, item) => {
-        if (selectedProductsForSplit.includes(item.id_producto)) {
-          const prod = productosMenu.find(p => p.id_producto === item.id_producto);
-          return acc + ((prod ? prod.precio_venta : 0) * item.cantidad);
-        }
-        return acc;
-      }, 0);
-    }
-
-    // AUTOMATIC PROMOS CALCULATION:
-    // Combo 1: Ojo de bife ("prod_car_ojo_bife" or "prod_bife") + Vino -> Deducts 15% from vino item sum
-    // Combo 2: Hamburguesa ("prod_cri_hamburguesa" or "prod_hamburguesa") + Gaseosa -> Deducts $1,500 ARS combo discount
-    let promoDeduction = 0;
-    
-    const hasOjoBife = selectedPedido.items.some(it => it.id_producto === 'prod_car_ojo_bife' || it.id_producto === 'prod_bife');
-    const hasVino = selectedPedido.items.some(it => it.id_producto === 'prod_vino_malbec' || it.id_producto === 'prod_vino_rutini_botella');
-    const hasBurger = selectedPedido.items.some(it => it.id_producto === 'prod_cri_hamburguesa' || it.id_producto === 'prod_hamburguesa');
-    const hasGaseosa = selectedPedido.items.some(it => it.id_insumo === 'ins_beb_gaseosa' || it.nombre.toLowerCase().includes('gaseosa') || it.id_producto === 'prod_gaseosa');
-
-    // Promos apply only if we are paying the whole ticket or paying those items
-    const qualifiesForBifeVino = hasOjoBife && hasVino && (!splitByProducts || (selectedProductsForSplit.includes('prod_car_ojo_bife') && (selectedProductsForSplit.includes('prod_vino_malbec') || selectedProductsForSplit.includes('prod_vino_rutini_botella'))));
-    const qualifiesForBurgerGaseosa = hasBurger && hasGaseosa && (!splitByProducts || (selectedProductsForSplit.includes('prod_cri_hamburguesa') && (selectedProductsForSplit.includes('ins_beb_gaseosa') || selectedProductsForSplit.includes('prod_gaseosa'))));
-
-    if (qualifiesForBifeVino) {
-      const vinoItem = selectedPedido.items.find(it => it.id_producto === 'prod_vino_malbec' || it.id_producto === 'prod_vino_rutini_botella');
-      const prodVino = productosMenu.find(pr => pr.id_producto === vinoItem?.id_producto);
-      if (prodVino && vinoItem) {
-        promoDeduction += (prodVino.precio_venta * 0.15) * vinoItem.cantidad;
-      }
-    }
-
-    if (qualifiesForBurgerGaseosa) {
-      promoDeduction += 1500;
-    }
-
-    // Keep safe limits
-    let manualDeduction = subtotal * (descuentoPorcentaje / 100);
-    let baseTotal = Math.max(0, subtotal - promoDeduction - manualDeduction);
-    let propinaValue = baseTotal * (propinaPorcentaje / 100);
-    
-    // In Argentina standard VAT 21.00% is computed inside the checkout
-    let ivaValue = baseTotal * 0.21;
-    let finalTotal = baseTotal + propinaValue;
-
-    return {
-      subtotal,
-      promoDeduction,
-      manualDeduction,
-      baseTotal,
-      propinaValue,
-      ivaValue,
-      finalTotal,
-      itemsCalculados: lineItems
-    };
-  }, [selectedPedido, productosMenu, descuentoPorcentaje, propinaPorcentaje, splitByProducts, selectedProductsForSplit]);
-
-  // Mixed payments calculations
-  const mixedSum = useMemo(() => {
-    return mixedPayments.reduce((sum, current) => sum + current.monto, 0);
-  }, [mixedPayments]);
-
-  const rawRemainingMixedBalance = useMemo(() => {
-    return Math.max(0, orderBreakdowns.finalTotal - mixedSum);
-  }, [mixedSum, orderBreakdowns.finalTotal]);
-
-  // Cash change calculation (vuelto)
-  const calculatedChange = useMemo(() => {
-    const rawVal = parseFloat(montoEntregadoEfectivo);
-    if (isNaN(rawVal)) return 0;
-    
-    const targetValue = metodoPago === 'mixto' ? rawRemainingMixedBalance : orderBreakdowns.finalTotal;
-    return Math.max(0, rawVal - targetValue);
-  }, [montoEntregadoEfectivo, metodoPago, rawRemainingMixedBalance, orderBreakdowns.finalTotal]);
-
-  // Adding partial mixed payment line
-  const handleAddMixedPayment = (e: React.FormEvent) => {
-    e.preventDefault();
-    const amt = parseFloat(mixedMontoInput);
-    if (isNaN(amt) || amt <= 0) {
-      toast.error('Por favor, tipee un monto numérico mayor a cero.');
-      return;
-    }
-    if (amt > rawRemainingMixedBalance) {
-      toast.error('El monto del pago excede el saldo pendiente de la cuenta.');
-      return;
-    }
-
-    setMixedPayments(prev => [...prev, { metodo: mixedMetodoInput, monto: amt }]);
-    setMixedMontoInput('');
-  };
-
-  const handleRemoveMixedPayment = (idx: number) => {
-    setMixedPayments(prev => prev.filter((_, i) => i !== idx));
-  };
-
-  // Open cashier register session
-  const handleOpenShift = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const amt = parseFloat(openingCashInput);
-    if (isNaN(amt) || amt < 0) {
-      toast.error('Monto de inicio no válido.');
-      return;
-    }
-
-    const session = await cajaService.open(amt, cashierNameInput);
-    setCajaSession(session);
-    setShowOpenModal(false);
-    addLog('sistema', `CAJA: Turno fiscal de caja iniciado por ${cashierNameInput}. Monto inicial: ARS $${amt.toLocaleString('es-AR')}`);
-    loadCajaState();
-    toast.success('La jornada fiscal diaria ha sido abierta con éxito.');
-  };
-
-  // Close shift cashier session
-  const handleCloseShift = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const money = parseFloat(closingPhysicalCashInput);
-    if (isNaN(money) || money < 0) {
-      toast.error('Monto de arqueo físico ingresado no es válido.');
-      return;
-    }
-
-    if (!cajaSession) return;
-
-    // Execute close
-    const finalShift = await cajaService.close(money, closingObservationsInput);
-    
-    addLog('sistema', `CAJA: Turno fiscal cerrado por ${finalShift.usuario_cajero}. Arqueo Real: $${finalShift.monto_real?.toLocaleString('es-AR')}. Diferencia: ARS $${finalShift.diferencia?.toLocaleString('es-AR')}`);
-
-    // Export CSV representation report of the closed daily cashier
-    const csvRows = [
-      ['EL PATRON GRILL - REPORTE DE BALANCE DIARIO'],
-      ['Cajero Responsable', finalShift.usuario_cajero],
-      ['Apertura', finalShift.fecha_apertura],
-      ['Cierre de Turno', finalShift.fecha_cierre || 'N/A'],
-      ['Monto Inicial de Caja ($)', finalShift.monto_apertura.toFixed(2)],
-      ['Total de Ventas Turno ($)', finalShift.monto_ventas.toFixed(2)],
-      ['Arqueo Físico Caja ($)', finalShift.monto_real ? finalShift.monto_real.toFixed(2) : '0.00'],
-      ['Diferencia Conciliación ($)', finalShift.diferencia ? finalShift.diferencia.toFixed(2) : '0.00'],
-      ['Observaciones Turno', finalShift.observaciones],
-      ['']
-    ];
-
-    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + csvRows.map(e => e.join(";")).join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `Arqueo_Turno_Caja_${finalShift.id_cierre}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    // Export PDF close shift report
-    try {
-      await pdfService.exportShiftClosePDF(finalShift);
-    } catch (err: any) {
-      console.error('Error generating shift close PDF:', err);
-      toast.warning('No se pudo descargar el comprobante en formato PDF: ' + err.message);
-    }
-
-    // Reset states
-    setCajaSession(null);
-    setShowCloseModal(false);
-    setClosingPhysicalCashInput('');
-    setClosingObservationsInput('Facturación normal del turno');
-    loadCajaState();
-    toast.success('Jornada finalizada. Arqueo homologado y balance exportado en CSV y PDF.');
-  };
-
-  // MAIN TRANSACTION PROCESSOR (Step 8, 9 & 14)
-  const handleConfirmCheckout = async () => {
-    if (!selectedPedido) return;
-    if (!cajaSession) {
-      toast.error('Por favor abra la caja diaria primero para poder procesar facturas.');
-      return;
-    }
-
-    // Validations: No double billing, validate calculations
-    if (orderBreakdowns.finalTotal <= 0) {
-      toast.error('No se permite emitir comprobantes por un valor negativo o cero.');
-      return;
-    }
-
-    // Payment method logic validation
-    let pays: { metodo: string; monto: number }[] = [];
-    if (metodoPago === 'mixto') {
-      if (Math.abs(mixedSum - orderBreakdowns.finalTotal) > 0.5) {
-        toast.error(`Monto incompleto en forma mixta. Saldo faltante: ${rawRemainingMixedBalance.toLocaleString('es-AR')}`);
-        return;
-      }
-      pays = [...mixedPayments];
-    } else {
-      pays = [{ metodo: metodoPago, monto: orderBreakdowns.finalTotal }];
-    }
-
-    // Check if cash received covers the total
-    if (metodoPago === 'efectivo' && montoEntregadoEfectivo) {
-      const delivered = parseFloat(montoEntregadoEfectivo);
-      if (!isNaN(delivered) && delivered < orderBreakdowns.finalTotal) {
-        toast.error('El efectivo entregado es menor que el total de la cuenta.');
-        return;
-      }
-    }
-
-    const compiledTicketNo = `T-0001-${Math.floor(Math.random() * 900000 + 100000)}`;
-
-    let arcaCae = "";
-    let arcaVto = "";
-    let arcaQr = "";
-
-    if (isArcaConfigured()) {
-      try {
-        const tipoMap: Record<string, number> = { 'factura_a': 1, 'factura_b': 6, 'ticket_consumo': 206 };
-        const tipoId = tipoMap[tipoComprobante] || 206;
-        const arcaTipo = Object.values(TIPOS_COMPROBANTE).find((t: any) => t.id === tipoId) as any;
-        if (arcaTipo) {
-          const neto = Number((orderBreakdowns.finalTotal / 1.21).toFixed(2));
-          const iva = Number((orderBreakdowns.finalTotal - neto).toFixed(2));
-          const nroDoc = cuitCliente === '99-99999999-9' ? 0 : parseInt(cuitCliente.replace(/-/g, '').slice(0, 11)) || 0;
-          const docTipo = nroDoc === 0 ? 99 : (cuitCliente.replace(/-/g, '').length >= 11 ? 80 : 96);
-
-          const result = await createArcaInvoice({
-            tipoComprobante: tipoId as any,
-            puntoVenta: 1,
-            cliente: {
-              tipoDoc: docTipo,
-              nroDoc,
-              nombre: nombreCliente,
-              condicionIva: nroDoc === 0 ? 5 : arcaTipo.condicionIva,
-            },
-            items: [{
-              descripcion: `Facturacion mesa ${selectedPedido.numero_mesa}`,
-              cantidad: 1,
-              precioUnitario: orderBreakdowns.finalTotal,
-              ivaId: 5,
-              ivaBase: neto,
-              ivaImporte: iva,
-            }],
-            total: orderBreakdowns.finalTotal,
-            neto,
-            ivaTotal: iva,
-          });
-
-          const cae = result?.CodAutorizacion || result?.CAE || '';
-          const vto = result?.Vencimiento || result?.CAEFchVto || '';
-
-          if (cae) {
-            arcaCae = cae;
-            arcaVto = vto;
-            arcaQr = JSON.stringify({
-              ver: 1,
-              fecha: new Date().toISOString().split('T')[0],
-              cuit: parseInt(restaurante.cuit.replace(/-/g, '') || '30716492514'),
-              ptoVta: 1,
-              tipoCmp: tipoId,
-              nroCmp: parseInt(compiledTicketNo.split('-').pop() || '1'),
-              importe: orderBreakdowns.finalTotal,
-              moneda: 'PES',
-              ctz: 1,
-              tipoDocRec: docTipo,
-              nroDocRec: nroDoc,
-              tipoCodAut: 1,
-              codAut: parseInt(cae) || 0
-            });
-            addLog('sistema', `ARCA: CAE ${cae} emitido para Mesa ${selectedPedido.numero_mesa}.`);
-          }
-        }
-      } catch (err: any) {
-        console.error('[ARCA] Error:', err);
-        toast.warning(`ARCA: No se pudo emitir el comprobante electrónico. ${err.message || ''}`);
-      }
-    }
-
-    // Build standard unified ticket structure
-    const dataTicket: TicketData = {
-      nombreComercial: restaurante.nombreComercial,
-      razonSocial: restaurante.razonSocial,
-      cuit: restaurante.cuit,
-      direccion: restaurante.direccion,
-      telefono: restaurante.telefono,
-      email: restaurante.email,
-      nroComprobante: compiledTicketNo,
-      idPedido: selectedPedido.id_pedido,
-      mesa: selectedPedido.numero_mesa,
-      mozo: selectedPedido.mozo,
-      cajero: cajaSession.usuario_cajero,
-      fechaHora: new Date().toLocaleDateString('es-AR') + ' ' + new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + 'hs',
-      items: selectedPedido.items.map(it => {
-        const prod = productosMenu.find(pm => pm.id_producto === it.id_producto);
-        const uni = it.precio_unitario ?? prod?.precio_venta ?? 0;
-        return {
-          cantidad: it.cantidad,
-          descripcion: it.nombre,
-          precio_unitario: uni,
-          subtotal: it.cantidad * uni
-        };
-      }),
-      subtotal: orderBreakdowns.subtotal,
-      descuento: orderBreakdowns.promoDeduction + orderBreakdowns.manualDeduction,
-      propina: orderBreakdowns.propinaValue,
-      iva: orderBreakdowns.ivaValue,
-      total: orderBreakdowns.finalTotal,
-      metodosPago: pays,
-      vuelto: calculatedChange,
-      tipoComprobante: tipoComprobante,
-      mensajePie: restaurante.mensajePie,
-      cae: arcaCae || undefined,
-      vto: arcaVto || undefined,
-      qrData: arcaQr || undefined
-    };
-
-    // 1. Create Factura row
-    const idFactura = `fac_${Date.now()}`;
-    const mappedMedio = pays.map(p => p.metodo.toUpperCase()).join(' + ');
-
-    const newFactura: FacturaDb = {
-      id_factura: idFactura,
-      id_pedido: selectedPedido.id_pedido,
-      numero_factura: compiledTicketNo,
-      tipo_comprobante: tipoComprobante === 'factura_a' ? 'Factura A' : (tipoComprobante === 'factura_b' ? 'Factura B' : 'Ticket Consumo'),
-      total: orderBreakdowns.finalTotal,
-      metodo_pago: mappedMedio,
-      cuit_cliente: cuitCliente,
-      fecha_emision: new Date().toISOString()
-    };
-
-    try {
-      // Use existing services
-      await facturacionService.create({
-        id_factura: idFactura,
-        id_pedido: selectedPedido.id_pedido,
-        nro_ticket: compiledTicketNo,
-        cliente: nombreCliente === 'Consumidor Final' ? 'Consumidor Final' : nombreCliente + ` (CUIT ${cuitCliente})`,
-        cuit: cuitCliente,
-        total: orderBreakdowns.finalTotal,
-        iva_veintiuno: orderBreakdowns.ivaValue,
-        medio_pago: metodoPago,
-        fecha: new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + ' hs',
-        estado: 'emitido',
-        afip_cae: arcaCae || undefined,
-        afip_vto: arcaVto || undefined,
-        afip_qr: arcaQr || undefined,
-        afip_resultado: arcaCae ? 'A' : undefined
-      });
-    } catch (err) {
-      console.warn('Network offline backup creation:', err);
-    }
-
-    // 2. Create Pago rows
-    const paymentRows: PagoDb[] = pays.map((p, idx) => ({
-      id_pago: `pag_${Date.now()}_${idx}`,
-      id_factura: idFactura,
-      monto: p.monto,
-      metodo: p.metodo,
-      fecha: new Date().toISOString()
-    }));
-
-    try {
-      await pagosService.bulkCreate(paymentRows);
-    } catch {
-      // fallbacked
-    }
-
-    // 3. Update Sales stats in Cash register daily shift
-    const paymentDesglosesCount = {
-      efectivo: pays.filter(p => p.metodo === 'efectivo').reduce((s, c) => s + c.monto, 0),
-      debito: pays.filter(p => p.metodo === 'debito').reduce((s, c) => s + c.monto, 0),
-      credito: pays.filter(p => p.metodo === 'tarjeta' || p.metodo === 'credito').reduce((s, c) => s + c.monto, 0),
-      transferencia: pays.filter(p => p.metodo === 'transferencia').reduce((s, c) => s + c.monto, 0),
-      mercadopago: pays.filter(p => p.metodo === 'mp_qr' || p.metodo === 'mercadopago').reduce((s, c) => s + c.monto, 0)
-    };
-
-    try {
-      await cajaService.updateSales(orderBreakdowns.finalTotal, paymentDesglosesCount);
-    } catch (e: any) {
-      toast.error(`Error al actualizar ventas: ${e.message}`);
-    }
-
-    // 4. Libera Mesa, actualiza pedido de la comanda
-    onFacturarMesa(selectedPedido.id_pedido);
-
-    // 5. Register log events audit tracker
-    try {
-      await auditoriaService.create({
-        id: `aud_${Date.now()}`,
-        tipo: 'sistema',
-        mensaje: `Cobro Exitoso Mesa ${selectedPedido.numero_mesa}. Factura Nº: ${compiledTicketNo}. Total: $${orderBreakdowns.finalTotal.toLocaleString('es-AR')}. Pago: ${mappedMedio}`,
-        timestamp: new Date()
-      });
-    } catch (e: any) {
-      console.error('Audit log error:', e);
-    }
-
-    addLog('sistema', `CAJA: Cobro finalizado correctamente para Mesa ${selectedPedido.numero_mesa}. Transacción Fiscal ${compiledTicketNo} registrada. `);
-
-    // Trigger auto printing of PDF & physical printer if configured
-    try {
-      await pdfService.exportToPDF(dataTicket);
-      await printerService.sendToPrinter(dataTicket, printerConfig);
-    } catch (e: any) {
-      toast.warning(`Cobro registrado, pero hubo un error al generar el PDF/impresión: ${e.message}`);
-    }
-
-    // Reset checkout states
-    setSelectedPedidoId(null);
-    setMixedPayments([]);
-    setMontoEntregadoEfectivo('');
-    setDescuentoPorcentaje(0);
-    setPropinaPorcentaje(10);
-    setSplitByProducts(false);
-    setSelectedProductsForSplit([]);
-    loadCajaState();
-
-    setSuccessDetails({
-      nro: compiledTicketNo,
-      total: orderBreakdowns.finalTotal,
-      vuelto: calculatedChange
-    });
-    setShowSuccessModal(true);
-  };
-
-  // Print simulator fallback directly from active layout receipt
-  const triggerManualPrint = async () => {
-    if (!selectedPedido || !cajaSession) return;
-
-    const dataTicket: TicketData = {
-      nombreComercial: restaurante.nombreComercial,
-      razonSocial: restaurante.razonSocial,
-      cuit: restaurante.cuit,
-      direccion: restaurante.direccion,
-      telefono: restaurante.telefono,
-      email: restaurante.email,
-      nroComprobante: `SIM-${Math.floor(Math.random() * 900 + 100)}`,
-      idPedido: selectedPedido.id_pedido,
-      mesa: selectedPedido.numero_mesa,
-      mozo: selectedPedido.mozo,
-      cajero: cajaSession.usuario_cajero,
-      fechaHora: new Date().toLocaleDateString('es-AR') + ' ' + new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }),
-      items: selectedPedido.items.map(it => {
-        const prod = productosMenu.find(pm => pm.id_producto === it.id_producto);
-        const uni = prod ? prod.precio_venta : 0;
-        return {
-          cantidad: it.cantidad,
-          descripcion: it.nombre,
-          precio_unitario: uni,
-          subtotal: it.cantidad * uni
-        };
-      }),
-      subtotal: orderBreakdowns.subtotal,
-      descuento: orderBreakdowns.promoDeduction + orderBreakdowns.manualDeduction,
-      propina: orderBreakdowns.propinaValue,
-      iva: orderBreakdowns.ivaValue,
-      total: orderBreakdowns.finalTotal,
-      metodosPago: [{ metodo: metodoPago, monto: orderBreakdowns.finalTotal }],
-      vuelto: calculatedChange,
-      tipoComprobante: tipoComprobante,
-      mensajePie: restaurante.mensajePie
-    };
-
-    const res = await printerService.sendToPrinter(dataTicket, printerConfig);
-    
-    // audit logs
-    await auditoriaService.create({
-      id: `aud_${Date.now()}`,
-      tipo: 'sistema',
-      mensaje: `Envío a Impresora Ticket: ${res.methodUsed}. Destino: ${printerConfig.printerName}. Resultado: ${res.success ? 'OK' : 'Fallo/Simulación'}`,
-      timestamp: new Date()
-    });
-
-    if (res.success) {
-      toast.success(res.message);
-    } else {
-      toast.error(`${res.message} — revisar conexión ESC/POS.`);
-    }
-  };
-
-  const triggerPDFDownloadOnly = async () => {
-    if (!selectedPedido || !cajaSession) return;
-
-    const dataTicket: TicketData = {
-      nombreComercial: restaurante.nombreComercial,
-      razonSocial: restaurante.razonSocial,
-      cuit: restaurante.cuit,
-      direccion: restaurante.direccion,
-      telefono: restaurante.telefono,
-      email: restaurante.email,
-      nroComprobante: `PREV-001-${selectedPedido.id_pedido}`,
-      idPedido: selectedPedido.id_pedido,
-      mesa: selectedPedido.numero_mesa,
-      mozo: selectedPedido.mozo,
-      cajero: cajaSession.usuario_cajero,
-      fechaHora: new Date().toLocaleDateString('es-AR') + ' ' + new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }),
-      items: selectedPedido.items.map(it => {
-        const prod = productosMenu.find(pm => pm.id_producto === it.id_producto);
-        const uni = prod ? prod.precio_venta : 0;
-        return {
-          cantidad: it.cantidad,
-          descripcion: it.nombre,
-          precio_unitario: uni,
-          subtotal: it.cantidad * uni
-        };
-      }),
-      subtotal: orderBreakdowns.subtotal,
-      descuento: orderBreakdowns.promoDeduction + orderBreakdowns.manualDeduction,
-      propina: orderBreakdowns.propinaValue,
-      iva: orderBreakdowns.ivaValue,
-      total: orderBreakdowns.finalTotal,
-      metodosPago: [{ metodo: metodoPago, monto: orderBreakdowns.finalTotal }],
-      vuelto: calculatedChange,
-      tipoComprobante: tipoComprobante,
-      mensajePie: restaurante.mensajePie
-    };
-
-    await pdfService.exportToPDF(dataTicket);
-  };
-
-  const downloadFacturaHistorialPdf = async (factura: Factura) => {
-    const neto = Number((factura.total / 1.21).toFixed(2));
-    await pdfService.exportToPDF({
-      idPedido: factura.id_pedido || 0,
-      nroComprobante: factura.nro_ticket,
-      tipoComprobante: 'ticket_consumo',
-      fechaHora: factura.fecha,
-      mesa: 'Historial',
-      mozo: 'Caja',
-      cajero: cajaSession?.usuario_cajero || 'Caja',
-      nombreComercial: restaurante.nombreComercial,
-      razonSocial: restaurante.razonSocial,
-      cuit: restaurante.cuit,
-      direccion: restaurante.direccion,
-      telefono: restaurante.telefono,
-      email: restaurante.email,
-      items: [{
-        cantidad: 1,
-        descripcion: 'Venta gastronomica segun ticket emitido',
-        precio_unitario: neto,
-        subtotal: neto
-      }],
-      subtotal: neto,
-      descuento: 0,
-      propina: 0,
-      iva: factura.iva_veintiuno,
-      total: factura.total,
-      metodosPago: [{ metodo: factura.medio_pago, monto: factura.total }],
-      vuelto: 0,
-      mensajePie: restaurante.mensajePie,
-      clienteNombre: factura.cliente,
-      clienteCuit: factura.cuit
-    });
-  };
+  const {
+    restaurante,
+    setRestaurante,
+    editRestauranteMode,
+    setEditRestauranteMode,
+    cajaSession,
+    sessionInsumos,
+    lastFacturas,
+    showOpenModal,
+    setShowOpenModal,
+    showCloseModal,
+    setShowCloseModal,
+    openingCashInput,
+    setOpeningCashInput,
+    cashierNameInput,
+    setCashierNameInput,
+    closingPhysicalCashInput,
+    setClosingPhysicalCashInput,
+    closingObservationsInput,
+    setClosingObservationsInput,
+    selectedPedidoId,
+    setSelectedPedidoId,
+    tipoComprobante,
+    setTipoComprobante,
+    cuitCliente,
+    setCuitCliente,
+    nombreCliente,
+    setNombreCliente,
+    metodoPago,
+    setMetodoPago,
+    mixedPayments,
+    setMixedPayments,
+    mixedMetodoInput,
+    setMixedMetodoInput,
+    mixedMontoInput,
+    setMixedMontoInput,
+    montoEntregadoEfectivo,
+    setMontoEntregadoEfectivo,
+    descuentoPorcentaje,
+    setDescuentoPorcentaje,
+    propinaPorcentaje,
+    setPropinaPorcentaje,
+    splitPayerCount,
+    setSplitPayerCount,
+    activePayerIndex,
+    setActivePayerIndex,
+    splitByProducts,
+    setSplitByProducts,
+    selectedProductsForSplit,
+    setSelectedProductsForSplit,
+    showSuccessModal,
+    setShowSuccessModal,
+    successDetails,
+    printerConfig,
+    setPrinterConfig,
+    showPrinterSettings,
+    setShowPrinterSettings,
+    selectedCliente,
+    setSelectedCliente,
+    dniCuitBuscar,
+    setDniCuitBuscar,
+    nombreNuevoCliente,
+    setNombreNuevoCliente,
+    emailNuevoCliente,
+    setEmailNuevoCliente,
+    telNuevoCliente,
+    setTelNuevoCliente,
+    puntosRedimidos,
+    setPuntosRedimidos,
+    movimientosCajaChica,
+    showMovimientoModal,
+    setShowMovimientoModal,
+    movimientoMonto,
+    setMovimientoMonto,
+    movimientoTipo,
+    setMovimientoTipo,
+    movimientoConcepto,
+    setMovimientoConcepto,
+    sumIngresosManuales,
+    sumEgresosManuales,
+    cajaEsperadaTotal,
+    handleRegistrarMovimientoCajaChica,
+    handleBuscarCliente,
+    handleRegistrarCliente,
+    activeBills,
+    selectedPedido,
+    orderBreakdowns,
+    mixedSum,
+    rawRemainingMixedBalance,
+    calculatedChange,
+    handleAddMixedPayment,
+    handleRemoveMixedPayment,
+    handleOpenShift,
+    handleCloseShift,
+    handleConfirmCheckout,
+    triggerManualPrint,
+    triggerPDFDownloadOnly,
+    downloadFacturaHistorialPdf,
+    loadCajaState
+  } = caja;
 
   // Group items by menu categories (Rule 3)
   const groupedItemsByCategory = useMemo(() => {
@@ -994,14 +440,28 @@ export default function CajaModule({
                     <span className="font-mono">${cajaSession.monto_ventas.toLocaleString('es-AR')}</span>
                   </div>
 
+                  {sumIngresosManuales > 0 && (
+                    <div className="flex justify-between text-xs font-semibold text-emerald-600">
+                      <span>(+) Ingresos Manuales:</span>
+                      <span className="font-mono">${sumIngresosManuales.toLocaleString('es-AR')}</span>
+                    </div>
+                  )}
+
+                  {sumEgresosManuales > 0 && (
+                    <div className="flex justify-between text-xs font-semibold text-rose-600">
+                      <span>(-) Egresos Manuales:</span>
+                      <span className="font-mono">-${sumEgresosManuales.toLocaleString('es-AR')}</span>
+                    </div>
+                  )}
+
                   <div className="flex justify-between text-xs font-bold text-stone-900 pt-1 font-mono border-t border-stone-100 border-dotted">
                     <span>Arqueo Teórico:</span>
-                    <span>${(cajaSession.monto_apertura + cajaSession.monto_ventas).toLocaleString('es-AR')}</span>
+                    <span>${cajaEsperadaTotal.toLocaleString('es-AR')}</span>
                   </div>
 
                   <div className="flex justify-between text-[11px] font-black text-emerald-700 pt-1 border-t border-emerald-100">
                     <span>Caja esperada:</span>
-                    <span className="font-mono">${(cajaSession.monto_apertura + cajaSession.monto_ventas).toLocaleString('es-AR')}</span>
+                    <span className="font-mono">${cajaEsperadaTotal.toLocaleString('es-AR')}</span>
                   </div>
                 </div>
 
@@ -1030,13 +490,44 @@ export default function CajaModule({
                   </div>
                 )}
 
-                <button
-                  onClick={() => setShowCloseModal(true)}
-                  className="w-full py-2.5 bg-stone-900 hover:bg-stone-800 text-white rounded-xl text-[10px] uppercase font-black transition-all cursor-pointer shadow-sm border border-[#ddd7ce] flex items-center justify-center gap-1.5"
-                >
-                  <Download className="w-3.5 h-3.5 text-amber-300" />
-                  Cierre de Turno comercial
-                </button>
+                <div className="space-y-2 pt-2 border-t border-stone-100">
+                  <button
+                    onClick={() => {
+                      setMovimientoTipo('egreso');
+                      setMovimientoMonto('');
+                      setMovimientoConcepto('');
+                      setShowMovimientoModal(true);
+                    }}
+                    className="w-full py-2 bg-[#F5F1E9] hover:bg-[#e8dfd8] text-[#624A3E] rounded-xl text-[10px] uppercase font-black transition-all cursor-pointer border border-[#d4b89a] flex items-center justify-center gap-1.5"
+                  >
+                    <Coins className="w-3.5 h-3.5" />
+                    Movimiento Caja Chica (+/-)
+                  </button>
+
+                  <button
+                    onClick={() => pdfService.exportShiftClosePDF({
+                      ...cajaSession,
+                      movimientos_manuales: movimientosCajaChica
+                    })}
+                    className="w-full py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl text-[10px] uppercase font-black transition-all cursor-pointer border border-stone-200 flex items-center justify-center gap-1.5"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    Reporte X (Parcial PDF)
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      loadCajaState();
+                      setClosingPhysicalCashInput('');
+                      setClosingObservationsInput('Facturación normal del turno');
+                      setShowCloseModal(true);
+                    }}
+                    className="w-full py-2.5 bg-stone-900 hover:bg-stone-800 text-white rounded-xl text-[10px] uppercase font-black transition-all cursor-pointer shadow-sm border border-[#ddd7ce] flex items-center justify-center gap-1.5"
+                  >
+                    <Download className="w-3.5 h-3.5 text-amber-300" />
+                    Cierre de Turno comercial (Reporte Z)
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="space-y-3">
@@ -1324,6 +815,113 @@ export default function CajaModule({
                       />
                     </div>
                   </div>
+                </div>
+
+                {/* FIDELIZACION Y CLUB EL PATRON */}
+                <div className="bg-[#fcfaf7] border border-[#e8dfd8] p-3 rounded-xl space-y-2">
+                  <h4 className="text-[10px] font-black text-[#624A3E] uppercase tracking-widest flex items-center gap-1">
+                    <Users className="w-3.5 h-3.5 text-[#624A3E]" /> Fidelización de Clientes (Club El Patrón)
+                  </h4>
+                  
+                  <div className="flex gap-2">
+                    <input 
+                      type="text" 
+                      value={dniCuitBuscar}
+                      onChange={e => setDniCuitBuscar(e.target.value)}
+                      placeholder="Buscar DNI/CUIT de cliente"
+                      className="flex-1 min-h-11 text-sm p-2 border border-slate-200 rounded bg-white text-stone-700 font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleBuscarCliente}
+                      className="px-3 min-h-11 bg-[#624A3E] hover:bg-[#503C32] text-white text-xs font-black rounded-lg cursor-pointer transition-colors"
+                    >
+                      Buscar
+                    </button>
+                  </div>
+
+                  {selectedCliente ? (
+                    <div className="p-3 bg-emerald-50/60 border border-emerald-200/50 rounded-lg space-y-2">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="text-xs font-bold text-emerald-900">{selectedCliente.nombre}</p>
+                          <p className="text-[10px] text-stone-500 font-mono">{selectedCliente.dni_cuit}</p>
+                          <p className="text-[10px] text-[#624A3E] font-bold">Puntos Disponibles: {selectedCliente.puntos} (ARS ${selectedCliente.puntos})</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedCliente(null);
+                            setPuntosRedimidos(0);
+                            setDniCuitBuscar('');
+                          }}
+                          className="text-stone-400 hover:text-stone-700 text-xs font-bold"
+                        >
+                          Deseleccionar
+                        </button>
+                      </div>
+
+                      {selectedCliente.puntos > 0 && (
+                        <div className="flex items-center gap-2 pt-1 border-t border-emerald-100">
+                          <label className="text-[9px] font-bold text-stone-600 uppercase">Canjear Puntos:</label>
+                          <input 
+                            type="number"
+                            min="0"
+                            max={Math.min(selectedCliente.puntos, orderBreakdowns.finalTotal + puntosRedimidos)}
+                            value={puntosRedimidos || ''}
+                            onChange={e => {
+                              const pts = Math.max(0, parseInt(e.target.value) || 0);
+                              const limit = Math.min(selectedCliente.puntos, orderBreakdowns.finalTotal + puntosRedimidos);
+                              if (pts > limit) {
+                                setPuntosRedimidos(limit);
+                                toast.warning(`El límite de canje para esta cuenta es de ${limit} puntos.`);
+                              } else {
+                                setPuntosRedimidos(pts);
+                              }
+                            }}
+                            className="w-20 p-1 border border-stone-300 rounded font-mono text-xs text-stone-800 text-center"
+                          />
+                          <span className="text-[10px] text-stone-500 font-medium">1 pt = ARS $1</span>
+                        </div>
+                      )}
+                    </div>
+                  ) : dniCuitBuscar.trim() !== '' && (
+                    <div className="p-3 bg-stone-50 border border-stone-200 rounded-lg space-y-2">
+                      <p className="text-[10px] text-stone-500 font-bold italic">Cliente no registrado. Registrar comensal:</p>
+                      
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <input 
+                          type="text" 
+                          placeholder="Nombre Completo"
+                          value={nombreNuevoCliente}
+                          onChange={e => setNombreNuevoCliente(e.target.value)}
+                          className="p-1.5 border border-stone-200 rounded text-xs bg-white text-stone-700"
+                        />
+                        <input 
+                          type="email" 
+                          placeholder="Email"
+                          value={emailNuevoCliente}
+                          onChange={e => setEmailNuevoCliente(e.target.value)}
+                          className="p-1.5 border border-stone-200 rounded text-xs bg-white text-stone-700"
+                        />
+                        <input 
+                          type="text" 
+                          placeholder="Teléfono"
+                          value={telNuevoCliente}
+                          onChange={e => setTelNuevoCliente(e.target.value)}
+                          className="p-1.5 border border-stone-200 rounded text-xs bg-white text-stone-700"
+                        />
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleRegistrarCliente}
+                        className="w-full py-1.5 bg-[#624A3E] hover:bg-[#503C32] text-white text-[10px] font-black uppercase rounded transition-colors"
+                      >
+                        Registrar y Seleccionar Cliente
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Standard split comensales (Rule 3) */}
@@ -1644,6 +1242,7 @@ export default function CajaModule({
                   </div>
 
                   <div className="text-center pt-2.5 pb-1 border-b border-dotted border-stone-300 space-y-0.5">
+                    <ElPatronLogo className="w-10 h-10 mx-auto mb-1.5" />
                     <span className="font-bold text-[10px] sm:text-xs block uppercase tracking-tight">{restaurante.nombreComercial}</span>
                     <span className="block text-[8px] sm:text-[9px] text-stone-500">Raz. Soc: {restaurante.razonSocial}</span>
                     <span className="block text-[8px] sm:text-[9px] text-stone-500">CUIT: {restaurante.cuit}</span>
@@ -1845,9 +1444,21 @@ export default function CajaModule({
                   <span>Ventas acumuladas:</span>
                   <span>${cajaSession.monto_ventas.toLocaleString('es-AR')}</span>
                 </div>
+                {sumIngresosManuales > 0 && (
+                  <div className="flex justify-between text-emerald-600">
+                    <span>(+) Ingresos Manuales:</span>
+                    <span>${sumIngresosManuales.toLocaleString('es-AR')}</span>
+                  </div>
+                )}
+                {sumEgresosManuales > 0 && (
+                  <div className="flex justify-between text-rose-600">
+                    <span>(-) Egresos Manuales:</span>
+                    <span>-${sumEgresosManuales.toLocaleString('es-AR')}</span>
+                  </div>
+                )}
                 <div className="flex justify-between font-bold text-stone-900 pt-1 border-t border-stone-200 border-dotted text-xs font-sans">
                   <span>Total Esperado:</span>
-                  <span>${(cajaSession.monto_apertura + cajaSession.monto_ventas).toLocaleString('es-AR')}</span>
+                  <span>${cajaEsperadaTotal.toLocaleString('es-AR')}</span>
                 </div>
               </div>
             )}
@@ -1889,6 +1500,93 @@ export default function CajaModule({
                   className="w-1/2 min-h-11 py-2.5 bg-stone-900 hover:bg-stone-800 text-white text-xs font-black uppercase rounded-xl shadow cursor-pointer border border-[#ddd7ce]"
                 >
                   Confirmar Arqueo & Cerrar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* PETTY CASH MOVEMENT MODAL */}
+      {showMovimientoModal && (
+        <div className="fixed inset-0 bg-stone-900/40 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-50">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl border border-stone-200 max-w-md w-full p-5 sm:p-6 animate-scaleIn space-y-4 shadow-lg font-sans">
+            <h3 className="text-sm font-black text-stone-900 uppercase tracking-tight flex items-center gap-2">
+              <Coins className="w-5 h-5 text-[#624A3E]" />
+              Movimiento de Caja Chica
+            </h3>
+            
+            <p className="text-[11px] text-stone-500 leading-normal font-medium">
+              Registre un ingreso o egreso de efectivo manual (ej: compras de verdulería de urgencia o cambio adicional recibido).
+            </p>
+
+            <form onSubmit={handleRegistrarMovimientoCajaChica} className="space-y-3">
+              <div>
+                <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Tipo de Movimiento</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setMovimientoTipo('egreso')}
+                    className={`min-h-11 py-2 px-3 text-xs font-black uppercase rounded-lg border transition-all cursor-pointer ${
+                      movimientoTipo === 'egreso'
+                        ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
+                        : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100'
+                    }`}
+                  >
+                    Egreso (Salida)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMovimientoTipo('ingreso')}
+                    className={`min-h-11 py-2 px-3 text-xs font-black uppercase rounded-lg border transition-all cursor-pointer ${
+                      movimientoTipo === 'ingreso'
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                        : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100'
+                    }`}
+                  >
+                    Ingreso (Entrada)
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Monto ($ ARS)</label>
+                <input 
+                  type="number"
+                  inputMode="decimal"
+                  required
+                  value={movimientoMonto}
+                  onChange={e => setMovimientoMonto(e.target.value)}
+                  className="w-full min-h-11 text-sm p-2.5 rounded-xl border border-stone-200 font-mono font-extrabold focus:ring-1 focus:ring-[#624A3E] focus:outline-none bg-stone-50"
+                  placeholder="Ej. 1500"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Concepto / Motivo</label>
+                <input 
+                  type="text"
+                  required
+                  value={movimientoConcepto}
+                  onChange={e => setMovimientoConcepto(e.target.value)}
+                  className="w-full min-h-11 text-sm p-2.5 rounded-xl border border-stone-200 focus:ring-1 focus:ring-[#624A3E] focus:outline-none"
+                  placeholder="Ej. Compra hielo de urgencia"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowMovimientoModal(false)}
+                  className="w-1/2 min-h-11 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-600 text-xs font-black uppercase rounded-xl"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="w-1/2 min-h-11 py-2.5 bg-[#624A3E] hover:bg-[#523A2E] text-white text-xs font-black uppercase rounded-xl shadow cursor-pointer border-0"
+                >
+                  Registrar Movimiento
                 </button>
               </div>
             </form>
@@ -1946,7 +1644,14 @@ export default function CajaModule({
 
                     <button
                       type="button"
-                      onClick={() => pdfService.exportShiftClosePDF(cs)}
+                      onClick={async () => {
+                        try {
+                          const movs = await cajaService.listMovimientosCajaChica(cs.id_cierre);
+                          pdfService.exportShiftClosePDF({ ...cs, movimientos_manuales: movs });
+                        } catch {
+                          pdfService.exportShiftClosePDF(cs);
+                        }
+                      }}
                       className="p-2 bg-stone-100 hover:bg-stone-200 text-stone-600 rounded-lg transition-colors flex items-center justify-center cursor-pointer active:scale-95 border border-stone-200"
                       title="Descargar Arqueo PDF"
                     >

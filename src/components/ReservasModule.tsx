@@ -56,6 +56,12 @@ function weekRangeLabel(start: Date): string {
   return `${s} - ${e}`;
 }
 
+function getWhatsAppLink(nombre: string, telefono: string, fecha: string, hora: string, pax: number): string {
+  const cleanPhone = telefono.replace(/[^\d+]/g, '');
+  const message = `¡Hola ${nombre}! 🌟 Te confirmamos tu reserva en *El Patrón* para el día *${fecha}* a las *${hora}* para *${pax}* ${pax === 1 ? 'persona' : 'personas'}. ¡Te esperamos para compartir una hermosa experiencia criolla! 🍷🥩`;
+  return `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(message)}`;
+}
+
 type PendingAction = 'create' | `edit_${string}` | `status_${string}` | `delete_${string}` | `assign_${string}`;
 const SUPABASE_TIMEOUT_MS = 12000;
 
@@ -144,6 +150,7 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
   const [observaciones, setObservaciones] = useState('');
   const [formularioDate, setFormularioDate] = useState(formatDate(new Date()));
   const [forceEspera, setForceEspera] = useState(false);
+  const [enviarWhatsApp, setEnviarWhatsApp] = useState(true);
 
   // ── Helpers de disponibilidad ──────────────────────────────────────────────
   const reservasEnFecha = useCallback((fecha: string, excluirId?: string) => {
@@ -243,6 +250,10 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
         if (!enviarEspera && updated.id_mesa) onEstadoChange(updated, updated.estado);
         addLog('sistema', `RESERVAS: Modificada reserva de '${updated.nombre_cliente}'`);
         toast.success('Reserva actualizada correctamente.');
+        if (enviarWhatsApp && updated.telefono) {
+          const url = getWhatsAppLink(updated.nombre_cliente, updated.telefono, updated.fecha, updated.hora, updated.pax);
+          window.open(url, '_blank');
+        }
         resetForm();
       } catch {
         setReservas(prev => prev.map(r => r.id_reserva === editingId ? current : r));
@@ -279,6 +290,10 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
       void fetchReservasDelDia(formularioDate);
       addLog('sistema', `RESERVAS: Registrada nueva reserva para '${saved.nombre_cliente}' para ${saved.pax} personas el ${saved.fecha} a las ${saved.hora}`);
       if (!enviarEspera && saved.id_mesa) onEstadoChange(saved, 'confirmada');
+      if (enviarWhatsApp && saved.telefono) {
+        const url = getWhatsAppLink(saved.nombre_cliente, saved.telefono, saved.fecha, saved.hora, saved.pax);
+        window.open(url, '_blank');
+      }
       resetForm();
       toast.success(enviarEspera ? 'Cliente agregado a la lista de espera.' : 'Reserva confirmada exitosamente.');
     } catch {
@@ -495,9 +510,15 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
                   rows={2}
                   className="w-full text-xs p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none focus:ring-1 focus:ring-[#624A3E] resize-none" />
               </div>
-              <div className="flex items-center gap-2">
-                <input id="forceEspera" type="checkbox" checked={forceEspera} onChange={e => setForceEspera(e.target.checked)} className="rounded border-stone-300 text-[#624A3E] focus:ring-1 focus:ring-[#624A3E]" />
-                <label htmlFor="forceEspera" className="text-[10px] font-bold text-stone-600">Enviar a lista de espera</label>
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <input id="forceEspera" type="checkbox" checked={forceEspera} onChange={e => setForceEspera(e.target.checked)} className="rounded border-stone-300 text-[#624A3E] focus:ring-1 focus:ring-[#624A3E]" />
+                  <label htmlFor="forceEspera" className="text-[10px] font-bold text-stone-600">Enviar a lista de espera</label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input id="enviarWhatsApp" type="checkbox" checked={enviarWhatsApp} onChange={e => setEnviarWhatsApp(e.target.checked)} className="rounded border-stone-300 text-[#624A3E] focus:ring-1 focus:ring-[#624A3E]" />
+                  <label htmlFor="enviarWhatsApp" className="text-[10px] font-bold text-stone-600 flex items-center gap-1">📲 Enviar confirmación por WhatsApp</label>
+                </div>
               </div>
               <button type="submit" disabled={pendingAction !== null}
                 className="w-full py-2.5 bg-[#624A3E] hover:bg-[#503C32] disabled:bg-stone-300 disabled:cursor-not-allowed text-white text-xs font-extrabold rounded-xl transition-all cursor-pointer active:scale-[0.98]">
@@ -757,6 +778,21 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
                       </div>
 
                       <div className="flex items-center gap-2 shrink-0" onClick={e => e.stopPropagation()}>
+                        <button
+                          onClick={() => {
+                            if (r.telefono) {
+                              const url = getWhatsAppLink(r.nombre_cliente, r.telefono, r.fecha || '', r.hora, r.pax);
+                              window.open(url, '_blank');
+                              addLog('sistema', `RESERVAS: Re-enviado WhatsApp de confirmación a ${r.nombre_cliente}`);
+                            } else {
+                              toast.warning('Esta reserva no tiene teléfono registrado.');
+                            }
+                          }}
+                          title="Enviar WhatsApp de Confirmación"
+                          className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-600 hover:text-emerald-700 transition-colors cursor-pointer flex items-center justify-center"
+                        >
+                          📲
+                        </button>
                         <button onClick={() => handleEdit(r)} title="Editar" disabled={pendingAction !== null}
                           className="p-1.5 rounded-lg bg-stone-50 hover:bg-blue-50 text-stone-400 hover:text-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer">
                           <Edit2 className="w-3.5 h-3.5" />

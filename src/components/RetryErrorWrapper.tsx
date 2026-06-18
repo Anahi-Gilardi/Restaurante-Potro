@@ -32,7 +32,9 @@ export default class RetryErrorWrapper extends Component<RetryErrorWrapperProps,
     const isChunkError =
       error.message.includes('Failed to fetch dynamically imported module') ||
       error.message.includes('Importing a module script failed') ||
-      error.message.includes('Loading chunk');
+      error.message.includes('Loading chunk') ||
+      error.message.toLowerCase().includes('mime type') ||
+      error.message.toLowerCase().includes('mime');
 
     if (isChunkError && this.state.retries < (this.props.maxRetries ?? 2)) {
       console.warn(`[Retry] Chunk load failed (attempt ${this.state.retries + 1}). Retrying...`);

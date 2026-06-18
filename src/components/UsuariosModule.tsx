@@ -11,9 +11,10 @@ interface UsuariosModuleProps {
   usuarios: Usuario[];
   onUsuariosChange: (usuarios: Usuario[]) => void;
   addLog: (tipo: EventoLog['tipo'], mensaje: string) => void;
+  activeUser?: Usuario;
 }
 
-export default function UsuariosModule({ usuarios, onUsuariosChange, addLog }: UsuariosModuleProps) {
+export default function UsuariosModule({ usuarios, onUsuariosChange, addLog, activeUser }: UsuariosModuleProps) {
   const { toast, toasts, removeToast } = useToast();
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -37,12 +38,22 @@ export default function UsuariosModule({ usuarios, onUsuariosChange, addLog }: U
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
   const debouncedSearch = useDebounce(search, 300);
 
-  const filtered = useMemo(() => usuarios.filter(u =>
-    `${u.nombre} ${u.apellido}`.toLowerCase().includes(debouncedSearch.toLowerCase())
-  ), [usuarios, debouncedSearch]);
+  const filtered = useMemo(() => {
+    let result = usuarios;
+    if (activeUser?.rol === 'administrador') {
+      result = result.filter(u => u.rol !== 'superadmin');
+    }
+    return result.filter(u =>
+      `${u.nombre} ${u.apellido}`.toLowerCase().includes(debouncedSearch.toLowerCase())
+    );
+  }, [usuarios, debouncedSearch, activeUser]);
 
   const handleCreateUsuario = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (rol === 'superadmin' && activeUser?.rol !== 'superadmin') {
+      toast.error('No tenés permisos para registrar usuarios con rol Super Admin.');
+      return;
+    }
     const validation = usuarioSchema.safeParse({ nombre, apellido, rol });
     if (!validation.success) {
       const msgs = validation.error.issues.map(i => i.message).join('. ');
@@ -78,6 +89,10 @@ export default function UsuariosModule({ usuarios, onUsuariosChange, addLog }: U
   };
 
   const handleStartEdit = (u: Usuario) => {
+    if (u.rol === 'superadmin' && activeUser?.rol !== 'superadmin') {
+      toast.error('No tenés permisos para editar un usuario Super Admin.');
+      return;
+    }
     setEditingId(u.id_usuario);
     setEditNombre(u.nombre);
     setEditApellido(u.apellido);
@@ -86,6 +101,15 @@ export default function UsuariosModule({ usuarios, onUsuariosChange, addLog }: U
 
   const handleSaveEdit = async (id: number) => {
     if (!editNombre.trim() || !editApellido.trim()) return;
+    const target = usuarios.find(u => u.id_usuario === id);
+    if (target?.rol === 'superadmin' && activeUser?.rol !== 'superadmin') {
+      toast.error('No tenés permisos para modificar un usuario Super Admin.');
+      return;
+    }
+    if (editRol === 'superadmin' && activeUser?.rol !== 'superadmin') {
+      toast.error('No tenés permisos para asignar el rol Super Admin.');
+      return;
+    }
     const updated = usuarios.map(u => {
       if (u.id_usuario === id) {
         const changed = { ...u, nombre: editNombre.trim(), apellido: editApellido.trim(), rol: editRol };
@@ -103,6 +127,10 @@ export default function UsuariosModule({ usuarios, onUsuariosChange, addLog }: U
   const handleToggleActivo = (id: number) => {
     const target = usuarios.find(u => u.id_usuario === id);
     if (!target) return;
+    if (target.rol === 'superadmin' && activeUser?.rol !== 'superadmin') {
+      toast.error('No tenés permisos para modificar un usuario Super Admin.');
+      return;
+    }
     const nextActivo = target.activo === false ? true : false;
     const updated = usuarios.map(u => {
       if (u.id_usuario === id) {
@@ -119,6 +147,10 @@ export default function UsuariosModule({ usuarios, onUsuariosChange, addLog }: U
     setDeleteConfirm(null);
     const target = usuarios.find(u => u.id_usuario === id);
     if (!target) return;
+    if (target.rol === 'superadmin' && activeUser?.rol !== 'superadmin') {
+      toast.error('No tenés permisos para eliminar un usuario Super Admin.');
+      return;
+    }
     const activeAdmins = usuarios.filter(u => (u.rol === 'superadmin' || u.rol === 'administrador') && u.activo !== false);
     if ((target.rol === 'superadmin' || target.rol === 'administrador') && activeAdmins.length <= 1) {
       toast.error('No se puede eliminar el último administrador activo.');
@@ -169,7 +201,9 @@ export default function UsuariosModule({ usuarios, onUsuariosChange, addLog }: U
               <select value={rol} onChange={e => setRol(e.target.value as any)}
                 className="w-full text-xs p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none focus:ring-1 focus:ring-[#624A3E] cursor-pointer font-bold text-stone-700">
                 <option value="administrador">Administrador</option>
-                <option value="superadmin">Super Admin</option>
+                {activeUser?.rol === 'superadmin' && (
+                  <option value="superadmin">Super Admin</option>
+                )}
                 <option value="mozo">Mozo</option>
                 <option value="cocina">Cocina</option>
               </select>
@@ -213,7 +247,9 @@ export default function UsuariosModule({ usuarios, onUsuariosChange, addLog }: U
                         <select value={editRol} onChange={e => setEditRol(e.target.value as any)}
                           className="w-full text-xs p-2 rounded-xl border border-stone-200 bg-white focus:outline-none focus:ring-1 focus:ring-[#624A3E]">
                           <option value="administrador">Administrador</option>
-                          <option value="superadmin">Super Admin</option>
+                          {activeUser?.rol === 'superadmin' && (
+                            <option value="superadmin">Super Admin</option>
+                          )}
                           <option value="mozo">Mozo</option>
                           <option value="cocina">Cocina</option>
                         </select>

@@ -1,0 +1,464 @@
+[
+  {
+    "id_producto": "prod_ent_carpaccio",
+    "nombre": "Carpaccio de lomo curado",
+    "categoria": "Entradas",
+    "imagen": "https://images.unsplash.com/photo-1511181642675-9312b3e201c5?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_ent_burrata",
+    "nombre": "Burrata di Andria",
+    "categoria": "Entradas",
+    "imagen": "https://images.unsplash.com/photo-1592417817098-8f3d6eb19675?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_ent_mollejas",
+    "nombre": "Mollejas al verdeo con chardonnay",
+    "categoria": "Entradas",
+    "imagen": "https://images.unsplash.com/photo-1603048588665-791ca8aea617?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_ent_provoleta",
+    "nombre": "Provoleta de campo crocante",
+    "categoria": "Entradas",
+    "imagen": "https://images.unsplash.com/photo-1582231317502-d45089c25373?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_ent_empanadas",
+    "nombre": "Empanadas cortadas a cuchillo \"El Patrón\"",
+    "categoria": "Entradas",
+    "imagen": "https://images.unsplash.com/photo-1541518763669-27fef04b14ea?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_pas_rotolo",
+    "nombre": "Rotolo di tata",
+    "categoria": "Pastas",
+    "imagen": "https://images.unsplash.com/photo-1551183053-bf91a1d81141?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_pas_cintas_sepia",
+    "nombre": "Cintas anchas en tinta de sepia",
+    "categoria": "Pastas",
+    "imagen": "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_pas_sorrentinos_cordero",
+    "nombre": "Sorrentinos de cordero patagónico",
+    "categoria": "Pastas",
+    "imagen": "https://images.unsplash.com/photo-1587314168485-3236d6710814?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_pas_ravioles_calabaza",
+    "nombre": "Ravioles de calabaza y almendras",
+    "categoria": "Pastas",
+    "imagen": "https://images.unsplash.com/photo-1473093295043-cdd812d0e601?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_pas_gnocchis",
+    "nombre": "Gnocchis de papa andina al fierrito",
+    "categoria": "Pastas",
+    "imagen": "https://images.unsplash.com/photo-1551183053-f57a3e72c842?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_car_ojo_bife",
+    "nombre": "Ojo de bife con aligot de papa",
+    "categoria": "Carnes",
+    "imagen": "https://images.unsplash.com/photo-1600891964599-f61ba0e24092?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_car_bife_madurado",
+    "nombre": "Bife de chorizo madurado (45 días)",
+    "categoria": "Carnes",
+    "imagen": "https://images.unsplash.com/photo-1544025162-d76694265947?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_car_costillar",
+    "nombre": "Costillar braseado texturado",
+    "categoria": "Carnes",
+    "imagen": "https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_car_entrana",
+    "nombre": "Entraña fina grillada",
+    "categoria": "Carnes",
+    "imagen": "https://images.unsplash.com/photo-1551024506-0bccd828d307?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_car_matambrito",
+    "nombre": "Matambrito de cerdo al verdeo",
+    "categoria": "Carnes",
+    "imagen": "https://images.unsplash.com/photo-1602489114881-2244463dfde3?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_pes_salmon",
+    "nombre": "Salmón rosado en costra de sésamo",
+    "categoria": "Pescados",
+    "imagen": "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_pes_abadejo",
+    "nombre": "Abadejo al ajillo norteño",
+    "categoria": "Pescados",
+    "imagen": "https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_pes_trucha",
+    "nombre": "Trucha patagónica a la manteca de almendras",
+    "categoria": "Pescados",
+    "imagen": "https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_pes_cazuela",
+    "nombre": "Cazuela de mariscos del Atlántico",
+    "categoria": "Pescados",
+    "imagen": "https://images.unsplash.com/photo-1534080391025-44799e9d6ea7?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_pes_merluza",
+    "nombre": "Filet de merluza premium a la romana",
+    "categoria": "Pescados",
+    "imagen": "https://images.unsplash.com/photo-1560684352-8497838a2229?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_cri_milanesa",
+    "nombre": "Milanesa con guarnición (Estilo Patrón)",
+    "categoria": "Comidas Criollas",
+    "imagen": "https://images.unsplash.com/photo-1594212699903-ec8a3cee50f6?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_cri_hamburguesa",
+    "nombre": "Hamburguesa Clásica Gourmet",
+    "categoria": "Comidas Criollas",
+    "imagen": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_cri_pastel_papa",
+    "nombre": "Pastel de papa de lomo cortado a cuchillo",
+    "categoria": "Comidas Criollas",
+    "imagen": "https://images.unsplash.com/photo-1627308595229-7830a5c91f9f?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_cri_locro",
+    "nombre": "Locro pulsudo tradicional",
+    "categoria": "Comidas Criollas",
+    "imagen": "https://images.unsplash.com/photo-1547592180-85f173990554?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_cri_humita",
+    "nombre": "Humita en cazuela de barro",
+    "categoria": "Comidas Criollas",
+    "imagen": "https://images.unsplash.com/photo-1532634922-8fe0b757fb13?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_pos_flan",
+    "nombre": "Flan casero con dulce de leche y crema",
+    "categoria": "Postres",
+    "imagen": "https://images.unsplash.com/photo-1528975604071-b4dc52a2d18c?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_pos_volcan",
+    "nombre": "Volcán de chocolate amargo",
+    "categoria": "Postres",
+    "imagen": "https://images.unsplash.com/photo-1606313564200-e75d5e30476c?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_pos_peras",
+    "nombre": "Peras al Malbec Reserva",
+    "categoria": "Postres",
+    "imagen": "https://images.unsplash.com/photo-1505253716362-afaea1d3d1af?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_pos_tiramisu",
+    "nombre": "Tiramisú de la casa",
+    "categoria": "Postres",
+    "imagen": "https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_pos_panqueque",
+    "nombre": "Panqueque de dulce de leche quemado",
+    "categoria": "Postres",
+    "imagen": "https://images.unsplash.com/photo-1504113888839-1c8003672044?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_vin_trumpeter_botella",
+    "nombre": "Trumpeter Malbec (Botella)",
+    "categoria": "Bodega",
+    "imagen": "https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_vin_rutini_botella",
+    "nombre": "Rutini Cab-Malbec 750ml",
+    "categoria": "Bodega",
+    "imagen": "https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_vin_encuentro_botella",
+    "nombre": "Encuentro CS Botella La Rural",
+    "categoria": "Bodega",
+    "imagen": "https://images.unsplash.com/photo-1584916201218-f4242ceb4809?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_vin_escorihuela_gascon",
+    "nombre": "Escorihuela Gascón Malbec 750ml",
+    "categoria": "Bodega",
+    "imagen": "https://images.unsplash.com/photo-1553830591-d8632a910dff?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_vin_eg_gran_reserva",
+    "nombre": "E.G Gran Reserva Red Blend",
+    "categoria": "Bodega",
+    "imagen": "https://images.unsplash.com/photo-1568213816046-0ee1c42bd559?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_vin_pequenas_prod_cf",
+    "nombre": "Pequeñas Producciones Cabernet Franc",
+    "categoria": "Bodega",
+    "imagen": "https://images.unsplash.com/photo-1504275107627-0c2ba7a43dba?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_vin_ruca_cap2",
+    "nombre": "Ruca Malén Capítulo 2 Malbec",
+    "categoria": "Bodega",
+    "imagen": "https://images.unsplash.com/photo-1516596429004-df39da29bef8?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_vin_alamos_botella",
+    "nombre": "Alamos Red Blend 750ml",
+    "categoria": "Bodega",
+    "imagen": "https://images.unsplash.com/photo-1578567072024-38856b62c6d2?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_vin_st_felicien_botella",
+    "nombre": "Saint Felicien Sauvignon Blanc",
+    "categoria": "Bodega",
+    "imagen": "https://images.unsplash.com/photo-1569919650156-f84419cb5512?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_vin_nicasia_malbec",
+    "nombre": "Nicasia Malbec 750ml",
+    "categoria": "Bodega",
+    "imagen": "https://images.unsplash.com/photo-1600565193348-f74bd3c7ccdf?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_vin_padrillo_cs",
+    "nombre": "Padrillo Cabernet Sauvignon",
+    "categoria": "Bodega",
+    "imagen": "https://images.unsplash.com/photo-1547595628-c61a29f496f0?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_vin_dv_catena_botella",
+    "nombre": "D.V. Catena Malbec-Malbec 750ml",
+    "categoria": "Bodega",
+    "imagen": "https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_vin_el_enemigo_botella",
+    "nombre": "El Enemigo Malbec 750ml",
+    "categoria": "Bodega",
+    "imagen": "https://images.unsplash.com/photo-1603252109303-2751441dd157?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_vin_tikal_natural",
+    "nombre": "Tikal Natural Organic Blend",
+    "categoria": "Bodega",
+    "imagen": "https://images.unsplash.com/photo-1528254846077-d67b84cf2279?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_vin_angelica_zapata",
+    "nombre": "Angélica Zapata Malbec Alta",
+    "categoria": "Bodega",
+    "imagen": "https://images.unsplash.com/photo-1584916201218-f4242ceb4809?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_vin_catena_argentino",
+    "nombre": "Catena Zapata Argentino Malbec",
+    "categoria": "Bodega",
+    "imagen": "https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_vin_luca_pinot",
+    "nombre": "Luca Pinot Noir",
+    "categoria": "Bodega",
+    "imagen": "https://images.unsplash.com/photo-1553830591-d8632a910dff?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_vin_perdices_malbec",
+    "nombre": "Las Perdices Malbec 750ml",
+    "categoria": "Bodega",
+    "imagen": "https://images.unsplash.com/photo-1584916201218-f4242ceb4809?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_vin_perdices_reserva",
+    "nombre": "Las Perdices Reserva Malbec 750ml",
+    "categoria": "Bodega",
+    "imagen": "https://images.unsplash.com/photo-1578567072024-38856b62c6d2?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_vin_don_juan_blend",
+    "nombre": "Don Juan Blend Las Perdices",
+    "categoria": "Bodega",
+    "imagen": "https://images.unsplash.com/photo-1568213816046-0ee1c42bd559?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_vin_perdices_exploracion",
+    "nombre": "Exploración Pinot Noir Gualtallary",
+    "categoria": "Bodega",
+    "imagen": "https://images.unsplash.com/photo-1553830591-d8632a910dff?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_vin_ala_colorada_cf",
+    "nombre": "Ala Colorada Cabernet Franc",
+    "categoria": "Bodega",
+    "imagen": "https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_vin_ala_viognier",
+    "nombre": "Las Perdices Ala Viognier",
+    "categoria": "Bodega",
+    "imagen": "https://images.unsplash.com/photo-1569919650156-f84419cb5512?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_vin_portillo_sb_botella",
+    "nombre": "Portillo Sauvignon Blanc 750ml",
+    "categoria": "Bodega",
+    "imagen": "https://images.unsplash.com/photo-1508215885820-4585e56135c8?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_vin_portillo_malbec",
+    "nombre": "Portillo Malbec 750ml",
+    "categoria": "Bodega",
+    "imagen": "https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_vin_salentein_res_ch",
+    "nombre": "Salentein Reserva Chardonnay",
+    "categoria": "Bodega",
+    "imagen": "https://images.unsplash.com/photo-1569919650156-f84419cb5512?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_vin_salentein_pyros",
+    "nombre": "Pyros Single Vineyard Syrah",
+    "categoria": "Bodega",
+    "imagen": "https://images.unsplash.com/photo-1553830591-d8632a910dff?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_vin_salentein_numina",
+    "nombre": "Salentein Numina Cabernet Franc",
+    "categoria": "Bodega",
+    "imagen": "https://images.unsplash.com/photo-1568213816046-0ee1c42bd559?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_vin_salentein_primus",
+    "nombre": "Salentein Primus Malbec",
+    "categoria": "Bodega",
+    "imagen": "https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_vin_baron_b_extra_brut",
+    "nombre": "Baron B Extra Brut Champagne",
+    "categoria": "Bodega",
+    "imagen": "https://images.unsplash.com/photo-1594487017449-3c723f669076?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_vin_aluda_brut",
+    "nombre": "Áluda Brut Nature Champagne",
+    "categoria": "Bodega",
+    "imagen": "https://images.unsplash.com/photo-1582231375176-0bf1db2418e2?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_vin_encuentro_rose",
+    "nombre": "Encuentro Rosé Pinot Noir",
+    "categoria": "Bodega",
+    "imagen": "https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_vin_salentein_champagne",
+    "nombre": "Salentein Extra Brut Champagne",
+    "categoria": "Bodega",
+    "imagen": "https://images.unsplash.com/photo-1594487017449-3c723f669076?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_vin_chandon_extra_brut",
+    "nombre": "Chandon Extra Brut Champagne",
+    "categoria": "Bodega",
+    "imagen": "https://images.unsplash.com/photo-1578255321055-d9eb64f21b30?w=500&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_vin_trumpeter_copa",
+    "nombre": "Trumpeter Malbec (Copa)",
+    "categoria": "Bebidas",
+    "imagen": "https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?w=400&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_beb_whisky",
+    "nombre": "Whisky Macallan 12 Años (Medida)",
+    "categoria": "Bebidas",
+    "imagen": "https://images.unsplash.com/photo-1527061011665-3652c757a4d4?w=400&q=80"
+  },
+  {
+    "id_producto": "prod_beb_gin",
+    "nombre": "Gin Tonic Heráclito",
+    "categoria": "Bebidas",
+    "imagen": "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=400&q=80"
+  },
+  {
+    "id_producto": "prod_beb_fernet",
+    "nombre": "Fernet Branca Estilo Patrón",
+    "categoria": "Bebidas",
+    "imagen": "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=400&q=80"
+  },
+  {
+    "id_producto": "prod_beb_aperol",
+    "nombre": "Aperol Spritz",
+    "categoria": "Bebidas",
+    "imagen": "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=400&q=80"
+  },
+  {
+    "id_producto": "prod_gaseosa",
+    "nombre": "Gaseosa Línea Cola Fría",
+    "categoria": "Bebidas",
+    "imagen": "https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_coca_cola_original",
+    "nombre": "Coca-Cola Sabor Original (Lata)",
+    "categoria": "Bebidas",
+    "imagen": "https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_coca_cola_zero",
+    "nombre": "Coca-Cola Sin Azúcar (Lata)",
+    "categoria": "Bebidas",
+    "imagen": "https://images.unsplash.com/photo-1543257580-7269da773bf5?w=400&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_sprite",
+    "nombre": "Sprite Sabor Original (Lata)",
+    "categoria": "Bebidas",
+    "imagen": "https://images.unsplash.com/photo-1626379616459-b2ce1d9decbc?w=400&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_sprite_zero",
+    "nombre": "Sprite Sin Azúcar (Lata)",
+    "categoria": "Bebidas",
+    "imagen": "https://images.unsplash.com/photo-1626379616459-b2ce1d9decbc?w=400&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_fanta",
+    "nombre": "Fanta Naranja (Lata)",
+    "categoria": "Bebidas",
+    "imagen": "https://images.unsplash.com/photo-1624552184280-9e9631bbeee9?w=400&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_agua",
+    "nombre": "Agua Mineral Glaciar Con/Sin Gas",
+    "categoria": "Bebidas",
+    "imagen": "https://images.unsplash.com/photo-1608885898957-a599fb18ec3f?w=400&q=80&auto=format&fit=crop"
+  },
+  {
+    "id_producto": "prod_cafe_espresso",
+    "nombre": "Café Espresso Doble",
+    "categoria": "Bebidas",
+    "imagen": "https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=400&q=80"
+  }
+]

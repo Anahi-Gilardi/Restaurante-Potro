@@ -295,6 +295,39 @@ export function PedidosProvider({ children }: { children: ReactNode }) {
     const handleCrearPedido = useCallback(
           (data: Omit<Pedido, 'id_pedido' | 'fecha_hora' | 'minutos_transcurridos' | 'origen'> & { origen?: 'Mozo'; comensales?: number; idempotency_key?: string }) => {
                   if (data.idempotency_key && pedidos.some(p => p.idempotency_key === data.idempotency_key)) return;
+
+                  // CONTROL DE SESIÓN POR MESA: buscar si existe un pedido activo para esa mesa
+                  const activePedido = pedidos.find(p => p.id_mesa === data.id_mesa && p.estado_comanda !== 'entregado_cobrado' && p.estado_comanda !== 'cancelado');
+
+                  if (activePedido) {
+                      setPedidos(prev =>
+                          prev.map(p => {
+                              if (p.id_pedido === activePedido.id_pedido) {
+                                  // AGREGAR EN LUGAR DE DUPLICAR
+                                  const updatedItems = p.items.map(it => ({ ...it }));
+                                  data.items.forEach(newItem => {
+                                      const existingItem = updatedItems.find(it => it.id_producto === newItem.id_producto);
+                                      if (existingItem) {
+                                          existingItem.cantidad += newItem.cantidad;
+                                      } else {
+                                          updatedItems.push({ ...newItem });
+                                      }
+                                  });
+                                  return {
+                                      ...p,
+                                      items: updatedItems,
+                                      estado_comanda: 'pendiente', // Vuelve a pendiente para que cocina lo prepare
+                                      observaciones: data.observaciones ? (p.observaciones ? `${p.observaciones} | ${data.observaciones}` : data.observaciones) : p.observaciones,
+                                  };
+                              }
+                              return p;
+                          })
+                      );
+                      handleDescontarStockPorEscandallo(data.items, recetas);
+                      addLog('pedido_creado', `Pedido #${activePedido.id_pedido} actualizado para mesa ${activePedido.numero_mesa} con nuevos ítems`);
+                      return;
+                  }
+
                   const newId = createClientPedidoId(pedidos.map((p: Pedido) => p.id_pedido));
                   const nuevo: Pedido = {
                             ...data,
@@ -344,10 +377,12 @@ export function PedidosProvider({ children }: { children: ReactNode }) {
           (idPedido: number) => {
                   const pedido = pedidos.find(p => p.id_pedido === idPedido);
                   if (!pedido) return;
-            
+             
                   setPedidos(prev =>
                             prev.map(p =>
-                                        p.id_pedido === idPedido ? { ...p, estado_comanda: 'entregado_cobrado' } : p
+                                        (p.id_mesa === pedido.id_mesa && p.estado_comanda !== 'entregado_cobrado' && p.estado_comanda !== 'cancelado')
+                                           ? { ...p, estado_comanda: 'entregado_cobrado' }
+                                           : p
                                       )
                           );
                   setMesas(prev =>
@@ -355,7 +390,7 @@ export function PedidosProvider({ children }: { children: ReactNode }) {
                                         m.id_mesa === pedido.id_mesa ? { ...m, estado: 'libre', comensales: undefined } : m
                                       )
                           );
-                  addLog('sistema', `Mesa ${pedido.numero_mesa} facturada y liberada (pedido #${idPedido})`);
+                  addLog('sistema', `Mesa ${pedido.numero_mesa} facturada y liberada (pedido #${idPedido} y comandas asociadas)`);
           },
           [pedidos, addLog, setMesas]
         );

@@ -1,5 +1,6 @@
 import { getActiveSupabaseClient } from '../lib/supabaseClient';
 import { ProductoMenu } from '../types';
+import { RECIPES_DETAILS } from '../data/recipesData';
 
 type DbProductoMenu = Record<string, unknown>;
 
@@ -37,7 +38,10 @@ const normalizeProductoMenu = (prod: DbProductoMenu): ProductoMenu => {
     tiempo_preparacion_estimado: readNumber(prod.tiempo_preparacion_estimado) || undefined,
     requiere_cocina: typeof prod.requiere_cocina === 'boolean'
       ? prod.requiere_cocina
-      : (tipo === 'plato' || tipo === 'postre')
+      : (tipo === 'plato' || tipo === 'postre'),
+    pasos_preparacion: Array.isArray(prod.pasos_preparacion) ? prod.pasos_preparacion : (RECIPES_DETAILS[readString(prod.id_producto)]?.pasos_preparacion || undefined),
+    alergenos: Array.isArray(prod.alergenos) ? prod.alergenos : (RECIPES_DETAILS[readString(prod.id_producto)]?.alergenos || undefined),
+    consejo_emplatado: readString(prod.consejo_emplatado) || (RECIPES_DETAILS[readString(prod.id_producto)]?.consejo_emplatado || undefined)
   };
 };
 

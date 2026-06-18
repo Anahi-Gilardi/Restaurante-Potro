@@ -21,7 +21,8 @@ import {
   CheckCircle,
   AlertTriangle,
   Truck,
-  Percent
+  Percent,
+  ExternalLink
 } from 'lucide-react';
 import { Mesa, Pedido, Insumo, ProductoMenu, Usuario } from '../types';
 import { AppView } from '../lib/permissions';
@@ -90,6 +91,62 @@ export default function HomeMenuModule({
 
   // Supabase connection client state check
   const hasSupabase = !!tryGetActiveSupabaseClient();
+
+  // Ticket Promedio
+  const ticketCount = pedidos.filter(p => p.estado_comanda === 'entregado_cobrado').length;
+  const averageTicket = ticketCount > 0 ? Math.round(totalSales / ticketCount) : 0;
+
+  // Operational Shift detection
+  const shiftInfo = useMemo(() => {
+    const timeStr = getSimulatedTimeStr();
+    const match = timeStr.match(/(\d{2}):(\d{2})/);
+    const hour = match ? parseInt(match[1]) : 12;
+
+    if (hour >= 12 && hour < 16) {
+      return { label: 'Servicio de Almuerzo ☀️', color: 'bg-amber-100 text-amber-800 border-amber-200' };
+    } else if (hour >= 19 && hour <= 23) {
+      return { label: 'Servicio de Cena 🌙', color: 'bg-[#624A3E]/20 text-[#624A3E] border-[#624A3E]/30' };
+    } else {
+      return { label: 'Preparación de Turno ☕', color: 'bg-stone-100 text-stone-700 border-stone-200' };
+    }
+  }, [getSimulatedTimeStr]);
+
+  // Live Alerts scanning
+  const activeAlerts = useMemo(() => {
+    const alerts: { text: string; action: any; type: 'warning' | 'info' | 'danger' }[] = [];
+    
+    // 1. Low stock ingredients
+    const criticalInsumos = insumos.filter(i => i.stock_actual <= i.stock_minimo);
+    if (criticalInsumos.length > 0) {
+      alerts.push({
+        text: `${criticalInsumos.length} insumos críticos bajo stock mínimo.`,
+        action: 'inventario',
+        type: 'danger'
+      });
+    }
+
+    // 2. Tables waiting for bill
+    const waitingTables = mesas.filter(m => m.estado === 'esperando_cuenta');
+    if (waitingTables.length > 0) {
+      alerts.push({
+        text: `${waitingTables.length} mesas solicitando la cuenta.`,
+        action: 'caja',
+        type: 'warning'
+      });
+    }
+
+    // 3. Cooking delays
+    const delayedCookings = pedidos.filter(p => (p.estado_comanda === 'pendiente' || p.estado_comanda === 'en_cocina') && p.minutos_transcurridos > 15);
+    if (delayedCookings.length > 0) {
+      alerts.push({
+        text: `${delayedCookings.length} comandas demoradas en cocina (> 15m).`,
+        action: 'cocina',
+        type: 'danger'
+      });
+    }
+
+    return alerts;
+  }, [insumos, mesas, pedidos]);
 
   // Menu items list
   const menuItems = [
@@ -302,7 +359,11 @@ export default function HomeMenuModule({
           <ElPatronLogo className="w-full h-full object-contain rounded-full" variant="badge" color="#4A2D1B" />
         </div>
 
-        <div className="absolute top-4 right-4 animate-pulse">
+        <div className="absolute top-4 right-4 flex items-center gap-2">
+          {/* Shift info badge */}
+          <span className={`text-[10px] font-extrabold px-3 py-1 rounded-full border shadow-xs ${shiftInfo.color}`}>
+            {shiftInfo.label}
+          </span>
           <span className="bg-[#22C55E]/20 text-emerald-300 border border-[#22C55E]/30 text-[10px] font-extrabold px-3 py-1 rounded-full flex items-center gap-1.5 backdrop-blur-xs">
             <span className="h-2 w-2 rounded-full bg-[#22C55E] animate-pulse" />
             Servicio Activo
@@ -327,30 +388,52 @@ export default function HomeMenuModule({
         </div>
       </div>
 
+      {/* Live Action Center - Notifications bell */}
+      {activeAlerts.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 max-w-7xl mx-auto space-y-2.5 shadow-sm">
+          <h4 className="text-xs font-bold text-amber-950 uppercase tracking-widest flex items-center gap-1.5 font-sans">
+            <Bell className="w-4 h-4 text-amber-600 animate-bounce" />
+            Centro de Mensajes y Alertas en Vivo
+          </h4>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {activeAlerts.map((alert, idx) => (
+              <div 
+                key={idx} 
+                onClick={() => onNavigate(alert.action)}
+                className={`p-3 rounded-xl border flex justify-between items-center text-xs font-medium cursor-pointer hover:scale-[1.01] active:scale-[0.99] transition-all bg-white shadow-2xs ${
+                  alert.type === 'danger' 
+                    ? 'border-red-200 hover:border-red-400' 
+                    : 'border-amber-200 hover:border-amber-400'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className={`w-4 h-4 ${alert.type === 'danger' ? 'text-red-500' : 'text-amber-500'}`} />
+                  <span className="text-stone-850 leading-snug">{alert.text}</span>
+                </div>
+                <ChevronRight className="w-4 h-4 text-stone-400 shrink-0" />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* 2. Top-Level Operational Context Row (Live stats + quick action info) */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-white p-5 md:p-6 rounded-2xl border border-stone-200/80 shadow-xs max-w-7xl mx-auto">
         
-        {/* Supabase Connection State */}
+        {/* Salon Capacity & Shift Widget */}
         <div className="space-y-2 md:border-r border-stone-100/80 md:pr-4 last:border-0">
-          <span className="text-xs font-bold text-stone-400 uppercase tracking-widest block mb-2">Estado de Servidores</span>
+          <span className="text-xs font-bold text-stone-400 uppercase tracking-widest block mb-2">Estado del Salón</span>
           <div className="flex items-center gap-2">
-            {hasSupabase ? (
-              <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-100 text-emerald-800 text-sm font-medium px-3 py-1.5 rounded-xl">
-                <Cloud className="w-4 h-4 text-emerald-600" />
-                <span>Supabase Activo</span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 bg-amber-50 border border-amber-100 text-amber-800 text-sm font-medium px-3 py-1.5 rounded-xl">
-                <CloudOff className="w-4 h-4 text-amber-600" />
-                <span>SQLite (Local)</span>
-              </div>
-            )}
+            <div className="bg-stone-50 border border-stone-200/60 px-3 py-1.5 rounded-xl text-stone-800 text-sm font-bold flex items-center gap-2 w-full">
+              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+              <span>Ocupación: {Math.round((occupiedTables / (mesas.length || 1)) * 100)}%</span>
+            </div>
           </div>
-          <p className="text-sm text-stone-400/95">Persistencia de datos robusta en tiempo real.</p>
+          <p className="text-sm text-stone-405 text-stone-400">{occupiedTables} mesas ocupadas de {mesas.length} totales.</p>
         </div>
 
         {/* Active operator / logged user */}
-        <div className="space-y-2 md:border-r border-stone-100/80 md:px-2 last:border-0">
+        <div className="space-y-2 md:border-r border-stone-100/80 md:px-4 last:border-0">
           <span className="text-xs font-bold text-stone-400 uppercase tracking-widest block mb-2">Usuario Activo</span>
           <div className="flex items-center gap-1.5">
             <div className="w-7 h-7 rounded-full bg-stone-100 border border-stone-200 flex items-center justify-center text-stone-600">
@@ -376,7 +459,7 @@ export default function HomeMenuModule({
         </div>
 
         {/* Simulated shift time with clock advancement */}
-        <div className="space-y-2 md:border-r border-stone-100/80 md:px-2 last:border-0 bg-stone-50/50 p-4 rounded-xl border border-dashed border-stone-200">
+        <div className="space-y-2 md:border-r border-stone-100/80 md:px-4 last:border-0 bg-stone-50/50 p-4 rounded-xl border border-dashed border-stone-200">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-stone-400 uppercase tracking-widest flex items-center gap-1 font-mono">
               <Clock className="w-3 h-3 text-stone-500" />
@@ -396,7 +479,7 @@ export default function HomeMenuModule({
               </button>
               <button
                 onClick={() => onAdvanceTime(15)}
-                className="text-[10px] px-2 py-1 font-bold bg-white border border-stone-250 rounded hover:bg-stone-100"
+                className="text-[10px] px-2 py-1 font-bold bg-white border border-stone-250 rounded hover:bg-stone-100 cursor-pointer"
               >
                 +15m
               </button>
@@ -405,23 +488,64 @@ export default function HomeMenuModule({
           <p className="text-sm text-stone-400 font-medium">Control de comanda en reloj.</p>
         </div>
 
-        {/* Brief live status overview */}
-        <div className="space-y-2 md:pl-2">
+        {/* Mini Manager Insights */}
+        <div className="space-y-2 md:pl-4">
           <span className="text-xs font-bold text-stone-400 uppercase tracking-widest block mb-2">Turno en Cifras</span>
-          <div className="flex flex-wrap gap-1.5">
-            <div className="bg-stone-50 border border-stone-200/60 px-2.5 py-1 rounded-lg flex items-center gap-1 text-sm font-medium text-stone-700">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              <span>Salón: {occupiedTables} / {mesas.length}</span>
+          <div className="flex flex-col gap-1 text-xs text-stone-700 font-medium">
+            <div className="flex justify-between items-center">
+              <span>Ventas del Turno:</span>
+              <strong className="text-emerald-700 font-mono text-sm">${totalSales.toLocaleString('es-AR')}</strong>
             </div>
-            <div className="bg-stone-50 border border-stone-200/60 px-2.5 py-1 rounded-lg flex items-center gap-1 text-sm font-medium text-stone-700">
-              <span className="h-1.5 w-1.5 rounded-full bg-orange-500 animate-pulse" />
-              <span>Cocina: {pendingCooking}</span>
+            <div className="flex justify-between items-center border-t border-stone-100 pt-1">
+              <span>Ticket Promedio:</span>
+              <strong className="text-stone-900 font-mono">${averageTicket.toLocaleString('es-AR')}</strong>
             </div>
           </div>
-          <p className="text-sm text-stone-400/95">Métricas resumidas generales.</p>
+          <p className="text-[10px] text-stone-400 mt-1">Estimados consolidados de caja.</p>
         </div>
 
       </div>
+
+      {/* Quick Shortcuts Panel */}
+      <div className="bg-white border border-stone-200/80 rounded-2xl p-5 max-w-7xl mx-auto space-y-4 shadow-sm">
+        <h4 className="text-xs font-bold text-stone-500 uppercase tracking-widest font-sans pl-1">
+          Acciones y Consultas Rápidas
+        </h4>
+        <div className="flex flex-wrap gap-2.5">
+          <button
+            onClick={() => onNavigate('caja')}
+            className="flex items-center gap-1.5 bg-stone-50 hover:bg-stone-100 border border-stone-200 text-stone-700 hover:text-stone-900 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs"
+          >
+            <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
+            Registrar Pago en Caja
+          </button>
+          
+          <button
+            onClick={() => onNavigate('inventario')}
+            className="flex items-center gap-1.5 bg-stone-50 hover:bg-stone-100 border border-stone-200 text-stone-700 hover:text-stone-900 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs"
+          >
+            <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+            Insumos Críticos
+          </button>
+
+          <button
+            onClick={() => onNavigate('recetas')}
+            className="flex items-center gap-1.5 bg-stone-50 hover:bg-stone-100 border border-stone-200 text-stone-700 hover:text-stone-900 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs"
+          >
+            <ChefHat className="w-3.5 h-3.5 text-orange-500" />
+            Recetas y Emplatados
+          </button>
+
+          <button
+            onClick={() => onNavigate('sistema')}
+            className="flex items-center gap-1.5 bg-stone-50 hover:bg-stone-100 border border-stone-200 text-stone-700 hover:text-stone-900 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs"
+          >
+            <ExternalLink className="w-3.5 h-3.5 text-indigo-500" />
+            Diagnóstico de Servidores
+          </button>
+        </div>
+      </div>
+
 
       {/* 3. Elegantly designed modules dashboard grid (operational focus) */}
       <div className="max-w-7xl mx-auto px-0 md:px-0 space-y-6">

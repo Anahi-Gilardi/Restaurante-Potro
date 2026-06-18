@@ -142,7 +142,7 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     precio_venta: 7600.00,
     categoria: 'Entradas',
     activo: true,
-    imagen: 'https://images.unsplash.com/photo-1511181642675-9312b3e201c5?w=500&q=80&auto=format&fit=crop',
+    imagen: 'https://images.unsplash.com/photo-1615224345062-3c48b79318ae?w=500&q=80&auto=format&fit=crop',
     tipo: 'plato',
     tiempo_preparacion_estimado: 8,
     requiere_cocina: true
@@ -154,7 +154,7 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     precio_venta: 8200.00,
     categoria: 'Entradas',
     activo: true,
-    imagen: 'https://images.unsplash.com/photo-1592417817098-8f3d6eb19675?w=500&q=80&auto=format&fit=crop',
+    imagen: 'https://images.unsplash.com/photo-1629115917441-df071f08cb3c?w=500&q=80&auto=format&fit=crop',
     tipo: 'plato',
     tiempo_preparacion_estimado: 6,
     requiere_cocina: true
@@ -964,7 +964,7 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     categoria: 'Bebidas',
     subcategoria: 'Gin',
     activo: true,
-    imagen: 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=400&q=80',
+    imagen: 'https://images.unsplash.com/photo-1524156868115-e696b44983db?w=500&q=80',
     tipo: 'bebida',
     requiere_cocina: false
   },
@@ -976,7 +976,7 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     categoria: 'Bebidas',
     subcategoria: 'Fernet',
     activo: true,
-    imagen: 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=400&q=80',
+    imagen: 'https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=500&q=80',
     tipo: 'bebida',
     requiere_cocina: false
   },
@@ -988,7 +988,7 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     categoria: 'Bebidas',
     subcategoria: 'Aperitivos',
     activo: true,
-    imagen: 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=400&q=80',
+    imagen: 'https://images.unsplash.com/photo-1595981267035-7b04ca84a82d?w=500&q=80',
     tipo: 'bebida',
     requiere_cocina: false
   },
@@ -1036,7 +1036,7 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     categoria: 'Bebidas',
     subcategoria: 'Gaseosas',
     activo: true,
-    imagen: 'https://images.unsplash.com/photo-1626379616459-b2ce1d9decbc?w=400&q=80&auto=format&fit=crop',
+    imagen: 'https://images.unsplash.com/photo-1625772291928-9d9300f73f61?w=500&q=80',
     tipo: 'bebida',
     requiere_cocina: false
   },
@@ -1048,7 +1048,7 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     categoria: 'Bebidas',
     subcategoria: 'Gaseosas',
     activo: true,
-    imagen: 'https://images.unsplash.com/photo-1626379616459-b2ce1d9decbc?w=400&q=80&auto=format&fit=crop',
+    imagen: 'https://images.unsplash.com/photo-1625772291928-9d9300f73f61?w=500&q=80',
     tipo: 'bebida',
     requiere_cocina: false
   },

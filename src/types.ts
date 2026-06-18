@@ -82,6 +82,12 @@ export interface ProductoMenu {
   requiere_cocina?: boolean;
   /** Tiempo estimado de preparación en minutos */
   tiempo_preparacion_estimado?: number;
+  /** Pasos de preparación y emplatado para cocina */
+  pasos_preparacion?: string[];
+  /** Alérgenos contenidos en el plato */
+  alergenos?: string[];
+  /** Consejos o instrucciones de emplatado */
+  consejo_emplatado?: string;
 }
 
 export interface RecetaEscandallo {
@@ -118,6 +124,8 @@ export interface Pedido {
     segundos_en_listo?: number;
     stock_descontado?: boolean;
     fecha_descuento_stock?: Date;
+    fecha_inicio_cocina?: Date | string;
+    fecha_listo?: Date | string;
 }
 
 export interface Merma {
@@ -154,6 +162,15 @@ export type TipoComprobante =
   | 'ticket_consumo'
   | 'nota_credito_b';
 
+export interface MovimientoCajaChica {
+    id_movimiento: string;
+    id_cierre: string;
+    tipo: 'ingreso' | 'egreso';
+    monto: number;
+    concepto: string;
+    fecha: string;
+}
+
 /** Sesión de caja (apertura → cierre de turno) */
 export interface CierreCaja {
     id_cierre: string;
@@ -172,6 +189,7 @@ export interface CierreCaja {
       transferencia: number;
       mercadopago: number;
     };
+    movimientos_manuales?: MovimientoCajaChica[];
 }
 
 /** Configuración de impresora térmica */
@@ -221,6 +239,10 @@ export interface TicketData {
     cae?: string;
     vto?: string;
     qrData?: string;
+    clienteDniCuit?: string;
+    puntosCanjeados?: number;
+    puntosGanados?: number;
+    descuentoFidelidad?: number;
 }
 
 /** Factura persistida en BD */
@@ -321,4 +343,23 @@ export interface ToastMessage {
     type: ToastType;
     message: string;
     duration?: number; // ms, default 4000
+}
+
+export interface Cliente {
+    id_cliente: string;
+    dni_cuit: string;
+    nombre: string;
+    email?: string;
+    telefono?: string;
+    puntos: number;
+    fecha_registro: Date | string;
+}
+
+export interface HistorialCostoInsumo {
+    id_historial: string;
+    id_insumo: string;
+    nombre_insumo: string;
+    costo_anterior: number;
+    costo_nuevo: number;
+    fecha: Date | string;
 }

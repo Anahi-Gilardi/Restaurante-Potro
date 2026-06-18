@@ -1,5 +1,5 @@
 import { getActiveSupabaseClient } from '../lib/supabaseClient';
-import { CierreCaja } from '../types';
+import { CierreCaja, MovimientoCajaChica } from '../types';
 
 const inferFechaApertura = (idCierre: string) => {
   const timestamp = Number(idCierre.replace('cie_', ''));
@@ -86,6 +86,29 @@ export const cajaService = {
     }
   },
 
+  async getOpenSessionRemote(idCierre: string): Promise<Partial<CierreCaja> | null> {
+    try {
+      const supabase = getActiveSupabaseClient();
+      const { data, error } = await supabase
+        .from('cierres_caja')
+        .select('*')
+        .eq('id_cierre', idCierre)
+        .single();
+      if (error) throw error;
+      if (data) {
+        return {
+          monto_ventas: parseFloat(data.monto_ventas),
+          monto_apertura: parseFloat(data.monto_apertura),
+          observaciones: data.observaciones,
+          usuario_cajero: data.usuario_cajero
+        };
+      }
+    } catch (err) {
+      console.warn('Could not fetch active session from Supabase:', err);
+    }
+    return null;
+  },
+
   async open(montoApertura: number, cajero: string): Promise<CierreCaja> {
     const session: CierreCaja = {
       id_cierre: `cie_${Date.now()}`,
@@ -115,7 +138,8 @@ export const cajaService = {
         id_cierre: session.id_cierre,
         monto_apertura: session.monto_apertura,
         observaciones: session.observaciones,
-        monto_ventas: 0
+        monto_ventas: 0,
+        usuario_cajero: session.usuario_cajero
       }]);
     } catch (err) {
       console.warn('Could not persist closure open on remote DB (offline mode active):', err);
@@ -177,21 +201,78 @@ export const cajaService = {
     }
   },
 
-  async close(montoReal: number, observaciones: string): Promise<CierreCaja> {
+  async addMovimientoCajaChica(mov: MovimientoCajaChica): Promise<void> {
+    const active = this.getOpenSession();
+    if (!active || active.id_cierre !== mov.id_cierre) return;
+
+    if (!active.movimientos_manuales) {
+      active.movimientos_manuales = [];
+    }
+    active.movimientos_manuales.push(mov);
+    localStorage.setItem('el_patron_caja_activa', JSON.stringify(active));
+
+    try {
+      const supabase = getActiveSupabaseClient();
+      await supabase.from('movimientos_caja_chica').insert([{
+        id_movimiento: mov.id_movimiento,
+        id_cierre: mov.id_cierre,
+        tipo: mov.tipo,
+        monto: mov.monto,
+        concepto: mov.concepto,
+        fecha: mov.fecha
+      }]);
+    } catch (err) {
+      console.warn('Could not persist petty cash movement on remote DB:', err);
+    }
+  },
+
+  async listMovimientosCajaChica(idCierre: string): Promise<MovimientoCajaChica[]> {
+    try {
+      const supabase = getActiveSupabaseClient();
+      const { data, error } = await supabase
+        .from('movimientos_caja_chica')
+        .select('*')
+        .eq('id_cierre', idCierre)
+        .order('fecha', { ascending: true });
+      if (error) throw error;
+      return (data || []).map(m => ({
+        id_movimiento: m.id_movimiento,
+        id_cierre: m.id_cierre,
+        tipo: m.tipo as 'ingreso' | 'egreso',
+        monto: parseFloat(m.monto),
+        concepto: m.concepto,
+        fecha: m.fecha
+      }));
+    } catch {
+      // Offline fallback
+      const active = this.getOpenSession();
+      if (active && active.id_cierre === idCierre) {
+        return active.movimientos_manuales || [];
+      }
+      return [];
+    }
+  },
+
+  async close(montoReal: number, observaciones: string, movimientos?: MovimientoCajaChica[]): Promise<CierreCaja> {
     const active = this.getOpenSession();
     if (!active) {
       throw new Error('No hay una sesión de caja abierta activa.');
     }
 
     const totalVentas = active.monto_ventas;
-    const diferencia = montoReal - (active.monto_apertura + totalVentas);
+    const movsList = movimientos || active.movimientos_manuales || [];
+    const sumIngresos = movsList.filter(m => m.tipo === 'ingreso').reduce((s, m) => s + m.monto, 0);
+    const sumEgresos = movsList.filter(m => m.tipo === 'egreso').reduce((s, m) => s + m.monto, 0);
+    const esperado = active.monto_apertura + totalVentas + sumIngresos - sumEgresos;
+    const diferencia = montoReal - esperado;
     
     const closed: CierreCaja = {
       ...active,
       fecha_cierre: new Date().toISOString().replace('T', ' ').slice(0, 19),
       monto_real: montoReal,
       diferencia: diferencia,
-      observaciones: observaciones || 'Cierre de Caja Normal'
+      observaciones: observaciones || 'Cierre de Caja Normal',
+      movimientos_manuales: movsList
     };
 
     // Remove active and add to history
@@ -213,7 +294,8 @@ export const cajaService = {
           monto_ventas: closed.monto_ventas,
           monto_real: closed.monto_real,
           diferencia: closed.diferencia,
-          observaciones: closed.observaciones
+          observaciones: closed.observaciones,
+          usuario_cajero: closed.usuario_cajero
         }]);
     } catch (err) {
       console.warn('Could not fully persist shift save on remote DB:', err);

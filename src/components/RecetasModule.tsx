@@ -536,6 +536,151 @@ export default function RecetasModule({
                                                           </button>
                                             </form>
                                 </div>
+
+                                {/* ── Ficha Técnica del Chef ── */}
+                                <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs space-y-4">
+                                  <h3 className="text-xs font-black text-[#624A3E] uppercase tracking-wider flex items-center gap-2 border-b border-stone-100 pb-2">
+                                    📖 Ficha Técnica y Pasos de Cocina
+                                  </h3>
+                                  
+                                  {selectedProduct ? (
+                                    <div className="space-y-4 font-sans text-sm text-stone-700">
+                                      {/* Alérgenos */}
+                                      <div>
+                                        <label className="text-[10px] font-black text-stone-500 uppercase tracking-wider block mb-1.5">
+                                          ⚠️ Alérgenos Declarados
+                                        </label>
+                                        <div className="flex flex-wrap gap-2">
+                                          {['Gluten', 'Lácteos', 'Huevo', 'Frutos Secos', 'Pescado', 'Mariscos', 'Maní', 'Sésamo'].map(al => {
+                                            const hasAl = (selectedProduct.alergenos || []).includes(al);
+                                            return (
+                                              <button
+                                                key={al}
+                                                type="button"
+                                                onClick={async () => {
+                                                  const nextAls = hasAl
+                                                    ? (selectedProduct.alergenos || []).filter(item => item !== al)
+                                                    : [...(selectedProduct.alergenos || []), al];
+                                                  try {
+                                                    await menuService.update(selectedProduct.id_producto, { alergenos: nextAls });
+                                                    const updated = productosMenu.map(p => p.id_producto === selectedProduct.id_producto ? { ...p, alergenos: nextAls } : p);
+                                                    onProductosChange(updated);
+                                                    toast.success(`Alérgenos de "${selectedProduct.nombre}" actualizados.`);
+                                                  } catch (err: any) {
+                                                    toast.error('Error al guardar alérgenos: ' + err.message);
+                                                  }
+                                                }}
+                                                className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
+                                                  hasAl
+                                                    ? 'bg-amber-50 text-amber-800 border-amber-300 shadow-sm font-black'
+                                                    : 'bg-stone-50 border-stone-200 text-stone-450 hover:bg-stone-100'
+                                                }`}
+                                              >
+                                                {al}
+                                              </button>
+                                            );
+                                          })}
+                                        </div>
+                                      </div>
+
+                                      {/* Consejos de emplatado */}
+                                      <div>
+                                        <label className="text-[10px] font-black text-stone-500 uppercase tracking-wider block mb-1">
+                                          🍽️ Sugerencia de Emplatado y Vajilla
+                                        </label>
+                                        <textarea
+                                          rows={2}
+                                          value={selectedProduct.consejo_emplatado || ''}
+                                          onChange={(e) => {
+                                            const val = e.target.value;
+                                            const updatedLocal = productosMenu.map(p => p.id_producto === selectedProduct.id_producto ? { ...p, consejo_emplatado: val } : p);
+                                            onProductosChange(updatedLocal);
+                                          }}
+                                          onBlur={async (e) => {
+                                            try {
+                                              await menuService.update(selectedProduct.id_producto, { consejo_emplatado: e.target.value });
+                                              toast.success('Consejo de emplatado guardado.');
+                                            } catch (err: any) {
+                                              toast.error('Error al guardar consejo de emplatado.');
+                                            }
+                                          }}
+                                          placeholder="Ej: Servir en plato plano precalentado con un ramito de romero fresco a la derecha..."
+                                          className="w-full text-xs p-2.5 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#624A3E]/30 bg-stone-50 text-stone-850"
+                                        />
+                                      </div>
+
+                                      {/* Pasos de preparación */}
+                                      <div>
+                                        <label className="text-[10px] font-black text-stone-500 uppercase tracking-wider block mb-2">
+                                          🍳 Instrucciones de Cocción Paso a Paso
+                                        </label>
+                                        <div className="space-y-2.5">
+                                          {(selectedProduct.pasos_preparacion || []).map((step, idx) => (
+                                            <div key={idx} className="flex gap-2.5 items-start text-xs bg-stone-50 p-2.5 rounded-xl border border-stone-150">
+                                              <span className="w-5 h-5 rounded-full bg-[#624A3E] text-white flex items-center justify-center shrink-0 font-bold text-[10px] font-mono">
+                                                {idx + 1}
+                                              </span>
+                                              <span className="flex-1 leading-relaxed text-stone-750 font-medium">{step}</span>
+                                              <button
+                                                type="button"
+                                                onClick={async () => {
+                                                  const nextSteps = (selectedProduct.pasos_preparacion || []).filter((_, sidx) => sidx !== idx);
+                                                  try {
+                                                    await menuService.update(selectedProduct.id_producto, { pasos_preparacion: nextSteps });
+                                                    const updated = productosMenu.map(p => p.id_producto === selectedProduct.id_producto ? { ...p, pasos_preparacion: nextSteps } : p);
+                                                    onProductosChange(updated);
+                                                    toast.success('Paso de cocción eliminado.');
+                                                  } catch (err: any) {
+                                                    toast.error('Error al eliminar paso.');
+                                                  }
+                                                }}
+                                                className="text-stone-400 hover:text-red-500 font-bold transition-colors text-[10px] uppercase font-sans tracking-wider shrink-0 cursor-pointer"
+                                              >
+                                                Borrar
+                                              </button>
+                                            </div>
+                                          ))}
+
+                                          <form
+                                            onSubmit={async (e) => {
+                                              e.preventDefault();
+                                              const input = (e.target as any).elements.nuevoPasoInput;
+                                              const stepVal = input.value.trim();
+                                              if (!stepVal) return;
+                                              
+                                              const nextSteps = [...(selectedProduct.pasos_preparacion || []), stepVal];
+                                              try {
+                                                await menuService.update(selectedProduct.id_producto, { pasos_preparacion: nextSteps });
+                                                const updated = productosMenu.map(p => p.id_producto === selectedProduct.id_producto ? { ...p, pasos_preparacion: nextSteps } : p);
+                                                onProductosChange(updated);
+                                                input.value = '';
+                                                toast.success('Paso de cocción agregado.');
+                                              } catch (err: any) {
+                                                toast.error('Error al agregar paso.');
+                                              }
+                                            }}
+                                            className="flex gap-2"
+                                          >
+                                            <input
+                                              type="text"
+                                              name="nuevoPasoInput"
+                                              placeholder="Ej: Sellar a fuego fuerte por 3 minutos..."
+                                              className="flex-1 text-xs px-3 py-2 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#624A3E]/30 bg-white"
+                                            />
+                                            <button
+                                              type="submit"
+                                              className="bg-[#624A3E] text-white text-xs font-black px-4 py-2 rounded-xl hover:bg-[#4e3a30] transition-colors shrink-0 cursor-pointer"
+                                            >
+                                              + Añadir Paso
+                                            </button>
+                                          </form>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <p className="text-stone-400 text-xs italic">Seleccione un producto para ver su ficha técnica.</p>
+                                  )}
+                                </div>
                       </div>
               </div>
         </div>
