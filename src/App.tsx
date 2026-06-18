@@ -48,6 +48,7 @@ const UsuariosModule = lazy(() => import('./components/UsuariosModule'));
 const MenuModule = lazy(() => import('./components/MenuModule'));
 const RecetasModule = lazy(() => import('./components/RecetasModule'));
 const MesasModule = lazy(() => import('./components/MesasModule'));
+const MesasProto1 = lazy(() => import('./components/MesasProto1'));
 const ProveedoresModule = lazy(() => import('./components/ProveedoresModule'));
 const PromocionesModule = lazy(() => import('./components/PromocionesModule'));
 const ReservasModule = lazy(() => import('./components/ReservasModule'));
@@ -1072,7 +1073,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
               </RecetasErrorBoundary>
             )}
             {activeView === 'mesas' && (
-              <MesasModule mesas={mesas} onMesasChange={setMesas} addLog={addLog} />
+              <MesasProto1 mesas={mesas} onMesasChange={setMesas} addLog={addLog} />
             )}
             {activeView === 'proveedores' && <ProveedoresModule addLog={addLog} />}
             {activeView === 'promociones' && <PromocionesModule addLog={addLog} />}

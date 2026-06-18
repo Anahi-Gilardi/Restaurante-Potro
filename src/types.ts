@@ -27,7 +27,7 @@ export interface Mesa {
     /** Capacidad máxima de comensales según el plano */
     capacidad?: number;
     /** Sector del restaurante */
-    sector?: 'comedor' | 'salon' | 'terraza' | 'vip';
+    sector?: 'patio' | 'comedor' | 'salon' | 'terraza' | 'vip';
     /** Coordenada X (%) para el plano interactivo */
     x?: number;
     /** Coordenada Y (%) para el plano interactivo */
