@@ -121,6 +121,24 @@ export const cajaService = {
       console.warn('Could not persist closure open on remote DB (offline mode active):', err);
     }
 
+    // Run prediction algorithm on open and log results to audit system
+    try {
+      const { prediccionService } = await import('./prediccionService');
+      const { auditoriaService } = await import('./auditoriaService');
+      prediccionService.generarAlertasDemanda().then(alertas => {
+        alertas.forEach(al => {
+          auditoriaService.create({
+            id: al.id,
+            tipo: 'alerta_stock',
+            mensaje: al.mensaje,
+            timestamp: new Date()
+          }).catch(err => console.warn('Could not persist prediction log:', err));
+        });
+      }).catch(err => console.error('Error generating demand alerts on open:', err));
+    } catch (err) {
+      console.error('Failed to import prediction services dynamically:', err);
+    }
+
     return session;
   },
 

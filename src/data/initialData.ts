@@ -124,6 +124,11 @@ export const INITIAL_INSUMOS: Insumo[] = [
   { id_insumo: 'ins_fernet_branca', nombre: 'Fernet Branca Botella 750ml', stock_actual: 24.0, stock_minimo: 6.0, unidad_medida: 'unidades', categoria: 'bodega', subcategoria: 'Fernet', proveedor: 'Distribuidora Altiplano', costo_unitario: 3800.0, es_bebida_directa: true },
   { id_insumo: 'ins_aperitivo_aperol', nombre: 'Aperol Botella 750ml', stock_actual: 12.0, stock_minimo: 3.0, unidad_medida: 'unidades', categoria: 'bodega', subcategoria: 'Aperitivos', proveedor: 'Distribuidora Altiplano', costo_unitario: 2900.0, es_bebida_directa: true },
   { id_insumo: 'ins_beb_gaseosa', nombre: 'Lata Gaseosa Cola 354ml', stock_actual: 120.0, stock_minimo: 30.0, unidad_medida: 'unidades', categoria: 'bodega', subcategoria: 'Gaseosas', proveedor: 'Coca-Cola Andina', costo_unitario: 650.0, es_bebida_directa: true },
+  { id_insumo: 'ins_beb_coca_cola_original', nombre: 'Lata Coca-Cola Original 354ml', stock_actual: 150.0, stock_minimo: 30.0, unidad_medida: 'unidades', categoria: 'bodega', subcategoria: 'Gaseosas', proveedor: 'Coca-Cola Andina', costo_unitario: 650.0, es_bebida_directa: true },
+  { id_insumo: 'ins_beb_coca_cola_zero', nombre: 'Lata Coca-Cola Sin Azúcar 354ml', stock_actual: 120.0, stock_minimo: 30.0, unidad_medida: 'unidades', categoria: 'bodega', subcategoria: 'Gaseosas', proveedor: 'Coca-Cola Andina', costo_unitario: 650.0, es_bebida_directa: true },
+  { id_insumo: 'ins_beb_sprite', nombre: 'Lata Sprite Limón 354ml', stock_actual: 100.0, stock_minimo: 20.0, unidad_medida: 'unidades', categoria: 'bodega', subcategoria: 'Gaseosas', proveedor: 'Coca-Cola Andina', costo_unitario: 650.0, es_bebida_directa: true },
+  { id_insumo: 'ins_beb_sprite_zero', nombre: 'Lata Sprite Sin Azúcar 354ml', stock_actual: 80.0, stock_minimo: 20.0, unidad_medida: 'unidades', categoria: 'bodega', subcategoria: 'Gaseosas', proveedor: 'Coca-Cola Andina', costo_unitario: 650.0, es_bebida_directa: true },
+  { id_insumo: 'ins_beb_fanta', nombre: 'Lata Fanta Naranja 354ml', stock_actual: 90.0, stock_minimo: 20.0, unidad_medida: 'unidades', categoria: 'bodega', subcategoria: 'Gaseosas', proveedor: 'Coca-Cola Andina', costo_unitario: 650.0, es_bebida_directa: true },
   { id_insumo: 'ins_beb_agua', nombre: 'Botella Agua de Manantial 500ml', stock_actual: 150.0, stock_minimo: 40.0, unidad_medida: 'unidades', categoria: 'bodega', subcategoria: 'Agua', proveedor: 'Cervecería Quilmes', costo_unitario: 450.0, es_bebida_directa: true },
   { id_insumo: 'ins_cafe_grano', nombre: 'Café de especialidad grano tostado', stock_actual: 10000.0, stock_minimo: 2000.0, unidad_medida: 'g', categoria: 'secos', subcategoria: 'Cafetería', proveedor: 'Caffé Zatti', costo_unitario: 15.0, es_bebida_directa: false },
 ];
@@ -1000,6 +1005,66 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     requiere_cocina: false
   },
   {
+    id_producto: 'prod_coca_cola_original',
+    nombre: 'Coca-Cola Sabor Original (Lata)',
+    descripcion: 'Lata de Coca-Cola original de 354ml bien helada.',
+    precio_venta: 2500.00,
+    categoria: 'Bebidas',
+    subcategoria: 'Gaseosas',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&q=80&auto=format&fit=crop',
+    tipo: 'bebida',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_coca_cola_zero',
+    nombre: 'Coca-Cola Sin Azúcar (Lata)',
+    descripcion: 'Lata de Coca-Cola Sin Azúcar de 354ml bien helada.',
+    precio_venta: 2500.00,
+    categoria: 'Bebidas',
+    subcategoria: 'Gaseosas',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1543257580-7269da773bf5?w=400&q=80&auto=format&fit=crop',
+    tipo: 'bebida',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_sprite',
+    nombre: 'Sprite Sabor Original (Lata)',
+    descripcion: 'Lata de Sprite Sabor Original de 354ml bien helada.',
+    precio_venta: 2500.00,
+    categoria: 'Bebidas',
+    subcategoria: 'Gaseosas',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1626379616459-b2ce1d9decbc?w=400&q=80&auto=format&fit=crop',
+    tipo: 'bebida',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_sprite_zero',
+    nombre: 'Sprite Sin Azúcar (Lata)',
+    descripcion: 'Lata de Sprite Sin Azúcar de 354ml bien helada.',
+    precio_venta: 2500.00,
+    categoria: 'Bebidas',
+    subcategoria: 'Gaseosas',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1626379616459-b2ce1d9decbc?w=400&q=80&auto=format&fit=crop',
+    tipo: 'bebida',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_fanta',
+    nombre: 'Fanta Naranja (Lata)',
+    descripcion: 'Lata de Fanta Naranja de 354ml bien helada.',
+    precio_venta: 2500.00,
+    categoria: 'Bebidas',
+    subcategoria: 'Gaseosas',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1624552184280-9e9631bbeee9?w=400&q=80&auto=format&fit=crop',
+    tipo: 'bebida',
+    requiere_cocina: false
+  },
+  {
     id_producto: 'prod_agua',
     nombre: 'Agua Mineral Glaciar Con/Sin Gas',
     descripcion: 'Agua mineral de vertiente natural de 500ml.',
@@ -1179,6 +1244,11 @@ export const INITIAL_RECETAS_ESCANDALLO: RecetaEscandallo[] = [
   { id_receta: 'esc_fernet_medida', id_producto: 'prod_beb_fernet', id_insumo: 'ins_fernet_branca', cantidad_a_descontar: 0.08, unidad_medida: 'unidades' },
   { id_receta: 'esc_aperol_medida', id_producto: 'prod_beb_aperol', id_insumo: 'ins_aperitivo_aperol', cantidad_a_descontar: 0.10, unidad_medida: 'unidades' },
   { id_receta: 'esc_gaseosa_lata', id_producto: 'prod_gaseosa', id_insumo: 'ins_beb_gaseosa', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_coca_original', id_producto: 'prod_coca_cola_original', id_insumo: 'ins_beb_coca_cola_original', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_coca_zero', id_producto: 'prod_coca_cola_zero', id_insumo: 'ins_beb_coca_cola_zero', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_sprite', id_producto: 'prod_sprite', id_insumo: 'ins_beb_sprite', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_sprite_zero', id_producto: 'prod_sprite_zero', id_insumo: 'ins_beb_sprite_zero', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_fanta', id_producto: 'prod_fanta', id_insumo: 'ins_beb_fanta', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
   { id_receta: 'esc_agua_botella', id_producto: 'prod_agua', id_insumo: 'ins_beb_agua', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
   { id_receta: 'esc_cafe_espresso_rec', id_producto: 'prod_cafe_espresso', id_insumo: 'ins_cafe_grano', cantidad_a_descontar: 18.00, unidad_medida: 'g' } // g de café sémola
 ];

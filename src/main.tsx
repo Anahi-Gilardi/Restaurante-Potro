@@ -44,6 +44,11 @@ try {
   </div>`;
 }
 
+import { syncQueueService } from './services/syncQueueService';
+
+// Initialize offline background sync queue
+syncQueueService.initBackgroundSync();
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary moduleName="ROOT">

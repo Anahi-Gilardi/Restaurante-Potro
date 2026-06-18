@@ -188,6 +188,7 @@ export function InventarioProvider({ children }: { children: ReactNode }) {
                     unidad_medida: insumo.unidad_medida,
                     motivo,
                     fecha: new Date(),
+                    costo_perdida: cantidad * (insumo.costo_unitario ?? 0)
           };
 
           setMermas(prev => [nueva, ...prev]);

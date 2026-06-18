@@ -126,7 +126,11 @@ export const pedidosService = {
   },
 
   async create(pedido: Pedido): Promise<Pedido> {
-    await this.upsert([pedido]);
+    try {
+      await this.upsert([pedido]);
+    } catch (err) {
+      console.warn('pedidosService.create failed remote push, enqueued for sync:', err);
+    }
     return pedido;
   },
 
@@ -150,49 +154,55 @@ export const pedidosService = {
     }
     if (fields.items !== undefined) headerFields.items = JSON.stringify(fields.items);
 
-    if (Object.keys(headerFields).length > 0) {
-      const { error } = await supabase
-        .from('pedidos_cabecera')
-        .update(headerFields)
-        .eq('id_pedido', id);
-      if (error) {
-        console.error(`Error updating header for pedido ${id}:`, error);
-        throw error;
-      }
-    }
-
-    if (fields.items !== undefined) {
-      // Re-upsert details
-      const details = serializePedidoDetails({
-        ...fields,
-        id_pedido: id,
-        id_mesa: fields.id_mesa ?? 0,
-        numero_mesa: fields.numero_mesa ?? '',
-        mozo: fields.mozo ?? '',
-        estado_comanda: fields.estado_comanda ?? 'pendiente',
-        items: fields.items,
-        fecha_hora: fields.fecha_hora ?? new Date(),
-        minutos_transcurridos: fields.minutos_transcurridos ?? 0,
-        origen: fields.origen ?? 'Mozo'
-      });
-
-      // Delete existing details
-      const { error: deleteError } = await supabase
-        .from('pedido_detalle')
-        .delete()
-        .eq('id_pedido', id);
-      if (deleteError) {
-        console.error('Error deleting previous order details:', deleteError);
-        throw deleteError;
-      }
-
-      if (details.length > 0) {
-        const { error: detError } = await supabase.from('pedido_detalle').insert(details);
-        if (detError) {
-          console.error('Error inserting details in update:', detError);
-          throw detError;
+    try {
+      if (Object.keys(headerFields).length > 0) {
+        const { error } = await supabase
+          .from('pedidos_cabecera')
+          .update(headerFields)
+          .eq('id_pedido', id);
+        if (error) {
+          console.error(`Error updating header for pedido ${id}:`, error);
+          throw error;
         }
       }
+
+      if (fields.items !== undefined) {
+        // Re-upsert details
+        const details = serializePedidoDetails({
+          ...fields,
+          id_pedido: id,
+          id_mesa: fields.id_mesa ?? 0,
+          numero_mesa: fields.numero_mesa ?? '',
+          mozo: fields.mozo ?? '',
+          estado_comanda: fields.estado_comanda ?? 'pendiente',
+          items: fields.items,
+          fecha_hora: fields.fecha_hora ?? new Date(),
+          minutos_transcurridos: fields.minutos_transcurridos ?? 0,
+          origen: fields.origen ?? 'Mozo'
+        });
+
+        // Delete existing details
+        const { error: deleteError } = await supabase
+          .from('pedido_detalle')
+          .delete()
+          .eq('id_pedido', id);
+        if (deleteError) {
+          console.error('Error deleting previous order details:', deleteError);
+          throw deleteError;
+        }
+
+        if (details.length > 0) {
+          const { error: detError } = await supabase.from('pedido_detalle').insert(details);
+          if (detError) {
+            console.error('Error inserting details in update:', detError);
+            throw detError;
+          }
+        }
+      }
+    } catch (error) {
+      console.warn(`Error in remote update for pedido ${id}. Enqueueing action to SyncQueue.`, error);
+      const { syncQueueService } = await import('./syncQueueService');
+      syncQueueService.enqueue('update_pedido_estado', { id, fields });
     }
   },
 
@@ -203,30 +213,36 @@ export const pedidosService = {
     for (const ped of pedidos) {
       const cabecera = serializePedidoHeader(ped);
 
-      const { error: hError } = await supabase.from('pedidos_cabecera').upsert(cabecera);
-      if (hError) {
-        console.error('Error upserting order header:', hError);
-        throw hError;
-      }
-
-      // 2. Handle details
-      if (ped.items) {
-        const details = serializePedidoDetails(ped);
-        const { error: deleteError } = await supabase
-          .from('pedido_detalle')
-          .delete()
-          .eq('id_pedido', ped.id_pedido);
-        if (deleteError) {
-          console.error('Error deleting previous order details:', deleteError);
-          throw deleteError;
+      try {
+        const { error: hError } = await supabase.from('pedidos_cabecera').upsert(cabecera);
+        if (hError) {
+          console.error('Error upserting order header:', hError);
+          throw hError;
         }
 
-        if (details.length === 0) continue;
-        const { error: dError } = await supabase.from('pedido_detalle').insert(details);
-        if (dError) {
-          console.error('Error inserting order details:', dError.message || JSON.stringify(dError));
-          throw dError;
+        // 2. Handle details
+        if (ped.items) {
+          const details = serializePedidoDetails(ped);
+          const { error: deleteError } = await supabase
+            .from('pedido_detalle')
+            .delete()
+            .eq('id_pedido', ped.id_pedido);
+          if (deleteError) {
+            console.error('Error deleting previous order details:', deleteError);
+            throw deleteError;
+          }
+
+          if (details.length === 0) continue;
+          const { error: dError } = await supabase.from('pedido_detalle').insert(details);
+          if (dError) {
+            console.error('Error inserting order details:', dError.message || JSON.stringify(dError));
+            throw dError;
+          }
         }
+      } catch (err) {
+        console.warn(`Error in remote upsert for order ${ped.id_pedido}. Enqueueing to SyncQueue.`, err);
+        const { syncQueueService } = await import('./syncQueueService');
+        syncQueueService.enqueue('upsert_pedido', ped);
       }
     }
   },

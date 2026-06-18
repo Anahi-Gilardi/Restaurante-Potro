@@ -117,16 +117,22 @@ export const facturacionService = {
       afip_resultado: factura.afip_resultado
     };
     
-    const { data, error } = await supabase.from('facturas').insert([dbPayload]).select().single();
-    if (error) {
-      console.error('Error creating invoice:', error);
-      throw error;
+    try {
+      const { data, error } = await supabase.from('facturas').insert([dbPayload]).select().single();
+      if (error) {
+        console.error('Error creating invoice:', error);
+        throw error;
+      }
+      return {
+        ...factura,
+        id_factura: data.id_factura
+      };
+    } catch (err) {
+      console.warn('facturacionService.create failed remote push, enqueued for sync:', err);
+      const { syncQueueService } = await import('./syncQueueService');
+      syncQueueService.enqueue('upsert_factura', factura);
+      return factura;
     }
-
-    return {
-      ...factura,
-      id_factura: data.id_factura
-    };
   },
 
   async upsert(facturas: Factura[]): Promise<void> {
@@ -149,10 +155,16 @@ export const facturacionService = {
       };
     });
 
-    const { error } = await supabase.from('facturas').upsert(dbPayloads);
-    if (error) {
-      console.error('Error upserting invoices:', error);
-      throw error;
+    try {
+      const { error } = await supabase.from('facturas').upsert(dbPayloads);
+      if (error) {
+        console.error('Error upserting invoices:', error);
+        throw error;
+      }
+    } catch (err) {
+      console.warn('facturacionService.upsert failed remote push, enqueued for sync:', err);
+      const { syncQueueService } = await import('./syncQueueService');
+      facturas.forEach(f => syncQueueService.enqueue('upsert_factura', f));
     }
   },
 

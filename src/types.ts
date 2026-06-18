@@ -120,6 +120,7 @@ export interface Merma {
     unidad_medida: string;
     motivo: 'vencimiento' | 'rotura' | 'error_cocina' | 'otro';
     fecha: Date;
+    costo_perdida?: number;
 }
 
 export interface EventoLog {

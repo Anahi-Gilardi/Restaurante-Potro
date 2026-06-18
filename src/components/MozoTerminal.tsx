@@ -20,12 +20,15 @@ import {
   MoreVertical,
   Pencil,
   EyeOff,
-  X
+  X,
+  Printer,
+  Download
 } from 'lucide-react';
-import { Mesa, Insumo, ProductoMenu, RecetaEscandallo, Pedido, PedidoItem, Usuario, EventoLog } from '../types';
+import { Mesa, Insumo, ProductoMenu, RecetaEscandallo, Pedido, PedidoItem, Usuario, EventoLog, TicketData } from '../types';
 import { useMenu, useSalon, useInventario, usePedidos } from '../context/AppContext';
 import { useToast, ToastContainer } from './ToastContainer';
 import { clearMozoCartDraft, createMozoCartIdempotencyKey, MozoCart, readMozoCartDraft, writeMozoCartDraft } from '../lib/mozoCartDraft';
+import { pdfService } from '../services/pdfService';
 
 const CHECKOUT_TIMEOUT_MS = 12000;
 
@@ -182,6 +185,22 @@ export default function MozoTerminal({
       toast.info(`Recuperamos la comanda pendiente de ${mesa.numero_mesa}.`);
     }
   }, [activeMozo, cart, cartIdempotencyKey, getValidCartFromDraft, observaciones, selectedMesaId, toast]);
+
+  // Listen to changes in pedidos to notify waiter when kitchen completes an order (transition to 'listo')
+  const prevPedidosRef = useRef<Pedido[]>([]);
+  useEffect(() => {
+    pedidos.forEach(p => {
+      // Find matching previous order state
+      const prev = prevPedidosRef.current.find(old => old.id_pedido === p.id_pedido);
+      if (prev && prev.estado_comanda !== 'listo' && p.estado_comanda === 'listo') {
+        // Trigger notification if this order belongs to the active waiter
+        if (p.mozo === activeMozo) {
+          toast.info(`🔔 ¡Plato Listo! El Pedido #${p.id_pedido} de la Mesa ${p.numero_mesa} está listo para servir.`);
+        }
+      }
+    });
+    prevPedidosRef.current = pedidos;
+  }, [pedidos, activeMozo, toast]);
 
   // Find active order of the selected table if any (to split or pay)
   const activePedidoDeMesa = useMemo(() => {
@@ -397,6 +416,57 @@ export default function MozoTerminal({
     }
   };
 
+  const handleDownloadPreTicket = async (pedido: Pedido) => {
+    try {
+      const ticketItems = pedido.items.map(item => {
+        const prod = productosMenu.find(p => p.id_producto === item.id_producto);
+        const unit = prod ? prod.precio_venta : 0;
+        return {
+          cantidad: item.cantidad,
+          descripcion: item.nombre,
+          precio_unitario: unit,
+          subtotal: unit * item.cantidad
+        };
+      });
+
+      const total = ticketItems.reduce((sum, item) => sum + item.subtotal, 0);
+      const neto = Number((total / 1.21).toFixed(2));
+      const iva = Number((total - neto).toFixed(2));
+
+      const ticketData: TicketData = {
+        idPedido: pedido.id_pedido,
+        nroComprobante: `PRE-${String(pedido.id_pedido).padStart(8, '0')}`,
+        tipoComprobante: 'ticket_consumo',
+        fechaHora: new Date(pedido.fecha_hora).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + ' hs',
+        mesa: pedido.numero_mesa,
+        mozo: pedido.mozo,
+        cajero: 'Mozo',
+        nombreComercial: 'El Patron Restaurante',
+        razonSocial: 'Gastronomia El Patron S.A.S.',
+        cuit: '30-71649251-4',
+        direccion: 'Av. Pres. Figueroa Alcorta 3420, CABA',
+        telefono: '+54 11 4802-9988',
+        email: 'facturas@elpatronrestaurante.com.ar',
+        items: ticketItems,
+        subtotal: neto,
+        descuento: 0,
+        propina: 0,
+        iva: iva,
+        total: total,
+        metodosPago: [],
+        vuelto: 0,
+        mensajePie: 'Gracias por su visita. Pre-comprobante generado por El Patron Terminal Mozo.'
+      };
+
+      await pdfService.exportToPDF(ticketData);
+      toast.success(`Pre-ticket descargado para la Mesa ${pedido.numero_mesa}`);
+      addLog('sistema', `Mozo ${activeMozo} descargó pre-ticket para la Mesa ${pedido.numero_mesa} (Pedido #${pedido.id_pedido})`);
+    } catch (err) {
+      console.error('Error generating pre-ticket PDF:', err);
+      toast.error('No se pudo descargar el pre-ticket.');
+    }
+  };
+
   // Calculating totals
   const totalCartValue = useMemo(() => {
     return Object.entries(cart).reduce((total, [prodId, qty]) => {
@@ -572,18 +642,25 @@ export default function MozoTerminal({
                   <div className="flex gap-2">
                     <button
                       onClick={() => setSplittingPedidoId(activePedidoDeMesa.id_pedido)}
-                      className="flex-1 py-1 px-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 transition-colors"
+                      className="flex-1 py-1 px-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                     >
                       <Receipt className="w-3.5 h-3.5 text-slate-500" />
                       Dividir Cuenta
                     </button>
                     <button
                       onClick={() => onFacturarMesa(activePedidoDeMesa.id_pedido)}
-                      className="flex-1 py-1 px-2.5 bg-slate-900 border border-transparent hover:bg-slate-800 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1 transition-colors shadow-sm"
+                      className="flex-1 py-1 px-2.5 bg-slate-900 border border-transparent hover:bg-slate-800 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1 transition-colors shadow-sm cursor-pointer"
                     >
                       Cobrar Mesa
                     </button>
                   </div>
+                  <button
+                    onClick={() => handleDownloadPreTicket(activePedidoDeMesa)}
+                    className="w-full mt-2 py-2 px-3 bg-[#e2dabf] hover:bg-[#d4b89a] text-[#4b3621] rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border border-[#d4b89a] cursor-pointer"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    Descargar / Imprimir Pre-Ticket
+                  </button>
                 </div>
               ) : (
                 <p className="text-xs text-slate-400 italic bg-amber-50/50 border border-amber-100/30 p-2 text-center rounded-lg">

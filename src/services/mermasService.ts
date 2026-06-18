@@ -1,5 +1,6 @@
 import { getActiveSupabaseClient } from '../lib/supabaseClient';
 import { Merma } from '../types';
+import { insumosService } from './insumosService';
 
 export const mermasService = {
   async list(): Promise<Merma[]> {
@@ -16,12 +17,18 @@ export const mermasService = {
       cantidad: parseFloat(m.cantidad),
       unidad_medida: m.unidad_medida,
       motivo: m.motivo,
-      fecha: new Date(m.fecha)
+      fecha: new Date(m.fecha),
+      costo_perdida: m.costo_perdida ? parseFloat(m.costo_perdida) : 0
     }));
   },
 
   async create(merma: Merma): Promise<Merma> {
     const supabase = getActiveSupabaseClient();
+    let costoPerdida = merma.costo_perdida;
+    if (costoPerdida === undefined || costoPerdida === null) {
+      const insumo = await insumosService.getById(merma.id_insumo);
+      costoPerdida = (insumo?.costo_unitario ?? 0) * merma.cantidad;
+    }
     const payload = {
       id_merma: merma.id_merma,
       id_insumo: merma.id_insumo,
@@ -29,7 +36,8 @@ export const mermasService = {
       cantidad: merma.cantidad,
       unidad_medida: merma.unidad_medida,
       motivo: merma.motivo,
-      fecha: merma.fecha instanceof Date ? merma.fecha.toISOString() : new Date(merma.fecha).toISOString()
+      fecha: merma.fecha instanceof Date ? merma.fecha.toISOString() : new Date(merma.fecha).toISOString(),
+      costo_perdida: costoPerdida
     };
     const { data, error } = await supabase.from('mermas').insert([payload]).select().single();
     if (error) {
@@ -38,21 +46,31 @@ export const mermasService = {
     }
     return {
       ...data,
-      fecha: new Date(data.fecha)
+      fecha: new Date(data.fecha),
+      costo_perdida: data.costo_perdida ? parseFloat(data.costo_perdida) : 0
     };
   },
 
   async upsert(mermasList: Merma[]): Promise<Merma[]> {
     const supabase = getActiveSupabaseClient();
-    const mapped = mermasList.map(m => ({
-      id_merma: m.id_merma,
-      id_insumo: m.id_insumo,
-      nombre_insumo: m.nombre_insumo,
-      cantidad: m.cantidad,
-      unidad_medida: m.unidad_medida,
-      motivo: m.motivo,
-      fecha: m.fecha instanceof Date ? m.fecha.toISOString() : new Date(m.fecha).toISOString()
-    }));
+    const insumos = await insumosService.list();
+    const mapped = mermasList.map(m => {
+      let costoPerdida = m.costo_perdida;
+      if (costoPerdida === undefined || costoPerdida === null) {
+        const ins = insumos.find(i => i.id_insumo === m.id_insumo);
+        costoPerdida = (ins?.costo_unitario ?? 0) * m.cantidad;
+      }
+      return {
+        id_merma: m.id_merma,
+        id_insumo: m.id_insumo,
+        nombre_insumo: m.nombre_insumo,
+        cantidad: m.cantidad,
+        unidad_medida: m.unidad_medida,
+        motivo: m.motivo,
+        fecha: m.fecha instanceof Date ? m.fecha.toISOString() : new Date(m.fecha).toISOString(),
+        costo_perdida: costoPerdida
+      };
+    });
     const { data, error } = await supabase.from('mermas').upsert(mapped).select();
     if (error) {
       console.error('Error upserting mermas:', error);
@@ -60,8 +78,21 @@ export const mermasService = {
     }
     return (data || []).map(m => ({
       ...m,
-      fecha: new Date(m.fecha)
+      fecha: new Date(m.fecha),
+      costo_perdida: m.costo_perdida ? parseFloat(m.costo_perdida) : 0
     }));
+  },
+
+  async getAcumuladoPerdidas(desde: Date, hasta: Date): Promise<number> {
+    const all = await this.list();
+    const tDesde = desde.getTime();
+    const tHasta = hasta.getTime();
+    return all
+      .filter(m => {
+        const t = m.fecha.getTime();
+        return t >= tDesde && t <= tHasta;
+      })
+      .reduce((sum, m) => sum + (m.costo_perdida ?? 0), 0);
   },
 
   async remove(id: string): Promise<boolean> {
