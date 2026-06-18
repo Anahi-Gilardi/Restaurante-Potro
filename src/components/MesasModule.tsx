@@ -38,6 +38,11 @@ const MESAS_INICIALES_PLANO: Partial<Mesa>[] = [
   { id_mesa: 8, numero_mesa: 'Mesa 8', sector: 'salon', capacidad: 4, forma: 'redonda', x: 22, y: 84 },
   { id_mesa: 9, numero_mesa: 'Mesa 9', sector: 'salon', capacidad: 2, forma: 'redonda', x: 61, y: 84 },
   { id_mesa: 10, numero_mesa: 'Mesa 10', sector: 'salon', capacidad: 4, forma: 'redonda', x: 41, y: 84 },
+
+  // Mesas adicionales del seed
+  { id_mesa: 12, numero_mesa: 'Mesa 12', sector: 'salon', capacidad: 4, forma: 'redonda', x: 30, y: 77 },
+  { id_mesa: 101, numero_mesa: 'VIP-1', sector: 'vip', capacidad: 8, forma: 'rectangular', x: 80, y: 92 },
+  { id_mesa: 102, numero_mesa: 'Terraza-3', sector: 'terraza', capacidad: 4, forma: 'redonda', x: 30, y: 7 },
 ];
 
 export default function MesasModule({ mesas, onMesasChange, addLog }: MesasModuleProps) {
@@ -502,7 +507,7 @@ export default function MesasModule({ mesas, onMesasChange, addLog }: MesasModul
               <div className="absolute inset-0 pointer-events-none grid grid-cols-12 grid-rows-12 gap-0 border border-[#624A3E]/10">
                 {/* Patio (Superior Izquierda) */}
                 <div className="col-start-1 col-end-6 row-start-1 row-end-3 border-r border-b border-[#624A3E]/10 bg-[#E8E3D9]/30 flex items-center justify-center">
-                  <span className="text-[9px] font-black text-[#624A3E]/50 uppercase tracking-widest font-sans">Patio</span>
+                  <span className="text-[9px] font-black text-[#624A3E]/50 uppercase tracking-widest font-sans">Patio / Terraza</span>
                 </div>
                 {/* Lavado / Baño personal (Superior Centro) */}
                 <div className="col-start-6 col-end-10 row-start-1 row-end-3 border-r border-b border-[#624A3E]/10 bg-[#FAF8F3] flex flex-col items-center justify-center">
