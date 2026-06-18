@@ -20,7 +20,7 @@ export interface Usuario {
 export interface Mesa {
     id_mesa: number;
     numero_mesa: string;
-    estado: 'libre' | 'ocupada' | 'esperando_cuenta' | 'reservada' | 'limpiando';
+    estado: 'libre' | 'ocupada' | 'esperando_cuenta' | 'reservada' | 'limpiando' | 'unida';
     comensales?: number;
     reserva_cliente?: string;
     reserva_hora?: string;

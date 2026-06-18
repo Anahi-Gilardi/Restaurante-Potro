@@ -46,6 +46,7 @@ const ESTADO_FILL = {
   reservada: '#FFF3CD',
   esperando_cuenta: '#d1fae5',
   limpiando: '#dbeafe',
+  unida: '#e5e7eb',
 };
 
 const ESTADO_STROKE = {
@@ -54,6 +55,7 @@ const ESTADO_STROKE = {
   reservada: '#FFC107',
   esperando_cuenta: '#10B981',
   limpiando: '#3B82F6',
+  unida: '#6B7280',
 };
 
 const ESTADO_TEXT = {
@@ -62,6 +64,7 @@ const ESTADO_TEXT = {
   reservada: '#B58900',
   esperando_cuenta: '#065F46',
   limpiando: '#1E40AF',
+  unida: '#374151',
 };
 
 export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }: MesasProto1Props) {
@@ -79,6 +82,10 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
   const [fecha, setFecha] = useState(formatDate(new Date()));
   const [observaciones, setObservaciones] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // Modo unir mesas
+  const [unionMode, setUnionMode] = useState(false);
+  const [selectedForUnion, setSelectedForUnion] = useState<Mesa[]>([]);
 
   const today = formatDate(new Date());
 
@@ -159,13 +166,20 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
   };
 
   const handleSvgClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.stopPropagation();
     const target = e.target as HTMLElement;
     const group = target.closest('[data-mesa-id]') as HTMLElement | null;
     if (!group) return;
     const svgId = group.dataset.mesaId;
     if (!svgId) return;
     const mesa = findMesaBySvgId(svgId);
-    if (mesa) openModal(mesa);
+    if (mesa) {
+      if (unionMode) {
+        toggleUnionSelection(mesa);
+      } else {
+        openModal(mesa);
+      }
+    }
   };
 
   const openModal = (mesa: Mesa) => {
@@ -191,6 +205,63 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
   const closeModal = () => {
     setSelectedMesa(null);
     setSaving(false);
+  };
+
+  const toggleUnionSelection = (mesa: Mesa) => {
+    setSelectedForUnion(prev => {
+      const exists = prev.some(m => m.id_mesa === mesa.id_mesa);
+      if (exists) return prev.filter(m => m.id_mesa !== mesa.id_mesa);
+      if (prev.length >= 2) return prev;
+      return [...prev, mesa];
+    });
+  };
+
+  const handleUnirMesas = async () => {
+    if (selectedForUnion.length !== 2) return;
+    const [m1, m2] = selectedForUnion;
+    const capacidadUnida = (m1.capacidad || 0) + (m2.capacidad || 0);
+    const mesaUnida: Mesa = {
+      ...m1,
+      capacidad: capacidadUnida,
+      mesas_unidas: [m1.id_mesa, m2.id_mesa],
+      numero_mesa: `${m1.numero_mesa} + ${m2.numero_mesa}`,
+      estado: m1.estado === 'ocupada' || m2.estado === 'ocupada' ? 'ocupada' : 'libre',
+    };
+
+    try {
+      await mesasService.update(m1.id_mesa, mesaUnida);
+      await mesasService.update(m2.id_mesa, { parent_id: m1.id_mesa, estado: 'unida' as any });
+      setLocalMesas(prev => prev.map(m => {
+        if (m.id_mesa === m1.id_mesa) return mesaUnida;
+        if (m.id_mesa === m2.id_mesa) return { ...m, parent_id: m1.id_mesa, estado: 'unida' as any };
+        return m;
+      }));
+      setSelectedForUnion([]);
+      setUnionMode(false);
+      addLog('mesa', `${m1.numero_mesa} unida con ${m2.numero_mesa}`);
+      toast.success('Mesas unidas correctamente');
+    } catch (err: any) {
+      toast.error(err.message || 'Error al unir mesas');
+    }
+  };
+
+  const handleSepararMesas = async () => {
+    if (!selectedMesa || !selectedMesa.mesas_unidas || selectedMesa.mesas_unidas.length < 2) return;
+    const [id1, id2] = selectedMesa.mesas_unidas;
+    try {
+      await mesasService.update(id1, { capacidad: MESAS_SVG.find(m => m.id_mesa === id1)?.capacidad, mesas_unidas: [], numero_mesa: MESAS_SVG.find(m => m.id_mesa === id1)?.numero, estado: 'libre' as const });
+      await mesasService.update(id2, { parent_id: undefined, estado: 'libre' as const });
+      setLocalMesas(prev => prev.map(m => {
+        if (m.id_mesa === id1) return { ...m, capacidad: MESAS_SVG.find(ms => ms.id_mesa === id1)?.capacidad, mesas_unidas: [], numero_mesa: MESAS_SVG.find(ms => ms.id_mesa === id1)?.numero || m.numero_mesa, estado: 'libre' as const };
+        if (m.id_mesa === id2) return { ...m, parent_id: undefined, estado: 'libre' as const };
+        return m;
+      }));
+      closeModal();
+      addLog('mesa', `Mesas separadas: ${selectedMesa.numero_mesa}`);
+      toast.success('Mesas separadas');
+    } catch (err: any) {
+      toast.error(err.message || 'Error al separar mesas');
+    }
   };
 
   const handleSaveReserva = async (e: React.FormEvent) => {
@@ -268,14 +339,16 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
       const fill = ESTADO_FILL[estado];
       const stroke = ESTADO_STROKE[estado];
       const textColor = ESTADO_TEXT[estado];
-      const capacidad = m.capacidad;
+      const capacidad = mesaState?.capacidad || m.capacidad;
+      const isSelected = unionMode && selectedForUnion.some(s => s.id_mesa === m.id_mesa);
 
       return (
-        <g key={m.svgId} data-mesa-id={m.svgId} className="cursor-pointer hover:opacity-90 transition-opacity"
+        <g key={m.svgId} data-mesa-id={m.svgId}
+           className={`cursor-pointer transition-opacity ${isSelected ? 'opacity-100' : 'hover:opacity-90'}`}
            onClick={() => mesaState && openModal(mesaState)}
         >
           <rect x={m.x} y={m.y} width={m.width} height={m.height} rx={6}
-                fill={fill} stroke={stroke} strokeWidth={2.5} />
+                fill={fill} stroke={isSelected ? '#3B82F6' : stroke} strokeWidth={isSelected ? 4 : 2.5} />
           <text x={m.x + m.width / 2} y={m.y + m.height / 2 - 2} textAnchor="middle" fontSize={Math.min(18, m.width / 3.5)} fontWeight={700} fill={textColor} fontFamily="Arial, sans-serif">{capacidad}</text>
           <text x={m.x + m.width / 2} y={m.y + m.height / 2 + 14} textAnchor="middle" fontSize={9} fill={textColor} fontFamily="Arial, sans-serif" opacity={0.8}>Mesa</text>
         </g>
@@ -284,7 +357,7 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
 
     return (
       <div className="w-full flex justify-center">
-        <div className="w-full max-w-[260px] sm:max-w-[300px] aspect-[430/620]"
+        <div className="w-full max-w-[300px] sm:max-w-[360px] aspect-[430/620]"
              onClick={handleSvgClick}
         >
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 430 620" preserveAspectRatio="xMidYMid meet" className="w-full h-full drop-shadow-xl"
@@ -378,14 +451,35 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
   }
 
   return (
-    <div className="space-y-6 p-4">
+    <div className="space-y-4 p-4">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-xl font-black text-stone-800 tracking-tight">Plano de Mesas</h2>
           <p className="text-xs text-stone-500 font-medium">Haz clic en una mesa para reservar o liberar</p>
         </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => { setUnionMode(!unionMode); setSelectedForUnion([]); }}
+            className={`px-3 py-2 rounded-xl text-xs font-bold cursor-pointer transition-colors ${
+              unionMode ? 'bg-blue-600 text-white' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
+            }`}
+          >
+            {unionMode ? 'Cancelar unión' : 'Unir mesas'}
+          </button>
+          {unionMode && selectedForUnion.length === 2 && (
+            <button onClick={handleUnirMesas} className="px-3 py-2 rounded-xl text-xs font-bold bg-[#624A3E] text-white cursor-pointer hover:bg-[#503C32]">
+              Confirmar unión
+            </button>
+          )}
+        </div>
       </div>
+
+      {unionMode && (
+        <div className="bg-blue-50 text-blue-800 text-xs p-3 rounded-xl border border-blue-200">
+          Seleccioná 2 mesas para unir. Capacidad resultante: {selectedForUnion.reduce((sum, m) => sum + (m.capacidad || 0), 0)} pax
+        </div>
+      )}
 
       {/* Plano SVG */}
       <div className="bg-white rounded-2xl p-4 sm:p-6 border border-stone-200 shadow-sm">
@@ -408,6 +502,15 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
               <div className="space-y-4">
                 <p className="text-sm text-stone-600">La mesa está ocupada. Podés liberarla cuando el cliente termine.</p>
                 <button onClick={handleLiberarMesa} className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold cursor-pointer">Liberar mesa</button>
+              </div>
+            ) : selectedMesa.estado === 'unida' ? (
+              <div className="space-y-4">
+                <p className="text-sm text-stone-600">Esta mesa está unida a otra. No se puede reservar individualmente.</p>
+              </div>
+            ) : selectedMesa.mesas_unidas && selectedMesa.mesas_unidas.length >= 2 ? (
+              <div className="space-y-4">
+                <p className="text-sm text-stone-600">Mesa unida: {selectedMesa.numero_mesa} · Capacidad {selectedMesa.capacidad} pax</p>
+                <button onClick={handleSepararMesas} className="w-full py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold cursor-pointer">Separar mesas</button>
               </div>
             ) : (
               <form onSubmit={handleSaveReserva} className="space-y-3">
