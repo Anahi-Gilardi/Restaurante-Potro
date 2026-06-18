@@ -25,26 +25,19 @@ const ESTADO_POR_KEY = Object.fromEntries(ESTADOS.map(e => [e.key, e]));
 
 /** Posiciones aproximadas basadas en el plano enviado. El plano es vertical; 0,0 = arriba-izquierda. */
 const MESAS_INICIALES_PLANO: Partial<Mesa>[] = [
-  // Patio (Superior Izquierda: x: 5-45, y: 5-15)
-  { id_mesa: 102, numero_mesa: 'Terraza-3', sector: 'terraza', capacidad: 4, forma: 'redonda', x: 25, y: 10 },
+  // Comedor (sector superior, 4 mesas rectangulares)
+  { id_mesa: 1, numero_mesa: 'Mesa 1', sector: 'comedor', capacidad: 4, forma: 'rectangular', x: 61, y: 16 },
+  { id_mesa: 2, numero_mesa: 'Mesa 2', sector: 'comedor', capacidad: 5, forma: 'rectangular', x: 22, y: 16 },
+  { id_mesa: 3, numero_mesa: 'Mesa 3', sector: 'comedor', capacidad: 5, forma: 'rectangular', x: 22, y: 27 },
+  { id_mesa: 4, numero_mesa: 'Mesa 4', sector: 'comedor', capacidad: 4, forma: 'rectangular', x: 61, y: 27 },
 
-  // Comedor (Centro Izquierda: col-span-8, row 3-6 -> x: 5-60, y: 22-45)
-  { id_mesa: 1, numero_mesa: 'Mesa 1', sector: 'comedor', capacidad: 4, forma: 'rectangular', x: 20, y: 25 },
-  { id_mesa: 2, numero_mesa: 'Mesa 2', sector: 'comedor', capacidad: 5, forma: 'rectangular', x: 45, y: 25 },
-  { id_mesa: 3, numero_mesa: 'Mesa 3', sector: 'comedor', capacidad: 5, forma: 'rectangular', x: 20, y: 40 },
-  { id_mesa: 4, numero_mesa: 'Mesa 4', sector: 'comedor', capacidad: 4, forma: 'rectangular', x: 45, y: 40 },
-
-  // Salón (Inferior Izquierda/Centro: col-span-8, row 9-12 -> x: 5-60, y: 72-95)
-  { id_mesa: 5, numero_mesa: 'Mesa 5', sector: 'salon', capacidad: 4, forma: 'redonda', x: 15, y: 75 },
-  { id_mesa: 6, numero_mesa: 'Mesa 6', sector: 'salon', capacidad: 4, forma: 'redonda', x: 35, y: 75 },
-  { id_mesa: 7, numero_mesa: 'Mesa 7', sector: 'salon', capacidad: 3, forma: 'redonda', x: 55, y: 75 },
-  { id_mesa: 8, numero_mesa: 'Mesa 8', sector: 'salon', capacidad: 4, forma: 'redonda', x: 15, y: 90 },
-  { id_mesa: 10, numero_mesa: 'Mesa 10', sector: 'salon', capacidad: 4, forma: 'redonda', x: 35, y: 90 },
-  { id_mesa: 9, numero_mesa: 'Mesa 9', sector: 'salon', capacidad: 2, forma: 'redonda', x: 55, y: 90 },
-  { id_mesa: 12, numero_mesa: 'Mesa 12', sector: 'salon', capacidad: 4, forma: 'redonda', x: 35, y: 82 },
-
-  // VIP (Inferior Derecha: col-span-4, row 11-12 -> x: 70-95, y: 86-96)
-  { id_mesa: 101, numero_mesa: 'VIP-1', sector: 'vip', capacidad: 8, forma: 'rectangular', x: 83, y: 91 },
+  // Salón (sector inferior, 6 mesas redondas)
+  { id_mesa: 5, numero_mesa: 'Mesa 5', sector: 'salon', capacidad: 4, forma: 'redonda', x: 41, y: 58 },
+  { id_mesa: 6, numero_mesa: 'Mesa 6', sector: 'salon', capacidad: 4, forma: 'redonda', x: 22, y: 70 },
+  { id_mesa: 7, numero_mesa: 'Mesa 7', sector: 'salon', capacidad: 3, forma: 'redonda', x: 61, y: 70 },
+  { id_mesa: 8, numero_mesa: 'Mesa 8', sector: 'salon', capacidad: 4, forma: 'redonda', x: 22, y: 84 },
+  { id_mesa: 9, numero_mesa: 'Mesa 9', sector: 'salon', capacidad: 2, forma: 'redonda', x: 61, y: 84 },
+  { id_mesa: 10, numero_mesa: 'Mesa 10', sector: 'salon', capacidad: 4, forma: 'redonda', x: 41, y: 84 },
 ];
 
 export default function MesasModule({ mesas, onMesasChange, addLog }: MesasModuleProps) {
@@ -504,55 +497,15 @@ export default function MesasModule({ mesas, onMesasChange, addLog }: MesasModul
           </div>
 
           {viewMode === 'plano' ? (
-            <div className="relative w-full aspect-[3/5] bg-[#FAF6F0] rounded-3xl border border-stone-200 overflow-hidden shadow-inner p-4">
-              {/* Plano de El Patrón - Adaptado al estilo limpio y ordenado */}
-              <div className="absolute inset-0 pointer-events-none grid grid-cols-12 grid-rows-12 gap-2 p-3 opacity-90">
-                {/* Patio (Superior Izquierda) */}
-                <div className="col-span-6 row-span-2 border border-stone-300/60 rounded-xl bg-stone-100/40 p-2 flex flex-col justify-between">
-                  <span className="text-[9px] font-black text-stone-400 uppercase tracking-widest font-sans">Patio / Terraza</span>
-                </div>
-                {/* Lavado / Baños (Superior Centro/Derecha) */}
-                <div className="col-span-3 row-span-2 border border-stone-300/60 rounded-xl bg-stone-100/30 p-2 flex flex-col justify-between">
-                  <span className="text-[8px] font-black text-stone-400 uppercase tracking-wider font-sans">Lavado</span>
-                </div>
-                {/* Postres (Superior Derecha) */}
-                <div className="col-span-3 row-span-2 border border-stone-300/60 rounded-xl bg-stone-100/30 p-2 flex flex-col justify-between">
-                  <span className="text-[8px] font-black text-stone-400 uppercase tracking-wider font-sans">Postres</span>
-                </div>
-
-                {/* Comedor Principal (Centro Izquierda) */}
-                <div className="col-span-8 row-span-4 border border-stone-300/60 rounded-xl bg-white p-2 flex flex-col justify-between">
-                  <span className="text-[9px] font-black text-stone-400 uppercase tracking-widest font-sans">Comedor</span>
-                </div>
-                {/* Pasillo (Centro Centro) */}
-                <div className="col-span-1 row-span-4 border border-stone-300/40 rounded-xl bg-stone-100/10 flex items-center justify-center">
-                  <span className="text-[7px] font-black text-stone-300 uppercase rotate-90 tracking-widest">Pasillo</span>
-                </div>
-                {/* Cocina (Centro Derecha) */}
-                <div className="col-span-3 row-span-4 border border-stone-300/60 rounded-xl bg-stone-100/30 p-2 flex flex-col justify-between">
-                  <span className="text-[9px] font-black text-stone-400 uppercase tracking-widest font-sans text-center">Cocina</span>
-                </div>
-
-                {/* Cava (Centro-Inferior Izquierda) */}
-                <div className="col-start-3 col-end-8 row-span-2 border border-[#624A3E]/20 rounded-xl bg-[#4A2D1B]/5 p-2 flex flex-col justify-between">
-                  <span className="text-[8px] font-black text-[#624A3E]/60 uppercase tracking-widest font-serif-vintage">Cava de Vinos</span>
-                </div>
-                {/* Heladeras / Pasillo (Centro-Inferior Derecha) */}
-                <div className="col-span-4 row-span-2 border border-stone-300/60 rounded-xl bg-stone-100/30 p-2 flex flex-col justify-between">
-                  <span className="text-[8px] font-black text-stone-400 uppercase tracking-wider font-sans">Cámaras</span>
-                </div>
-
-                {/* Salón General (Inferior Izquierda/Centro) */}
-                <div className="col-span-8 row-span-4 border border-stone-300/60 rounded-xl bg-white p-2 flex flex-col justify-between">
-                  <span className="text-[9px] font-black text-stone-400 uppercase tracking-widest font-sans">Salón</span>
-                </div>
-                {/* Barra (Inferior Derecha Superior) */}
-                <div className="col-span-4 row-span-2 border border-[#624A3E]/20 rounded-xl bg-[#624A3E]/5 p-2 flex flex-col justify-between">
-                  <span className="text-[8px] font-black text-[#624A3E]/60 uppercase tracking-widest font-sans">Barra</span>
-                </div>
-                {/* VIP / Futuro (Inferior Derecha Inferior) */}
-                <div className="col-span-4 row-span-2 border border-[#C8956A]/20 rounded-xl bg-amber-50/40 p-2 flex flex-col justify-between">
-                  <span className="text-[9px] font-black text-amber-800/60 uppercase tracking-widest font-serif-vintage italic">Sector VIP</span>
+            <div className="relative w-full aspect-[3/5] sm:aspect-[4/5] md:aspect-[3/4] bg-gradient-to-br from-[#FAF8F3] to-[#F2EEE6] rounded-3xl border-2 border-stone-200 overflow-hidden shadow-inner">
+              {/* Fondo con sectores aproximados */}
+              <div className="absolute inset-0 pointer-events-none">
+                <div className="absolute top-[2%] left-[5%] right-[5%] h-[34%] border-2 border-dashed border-stone-300/70 rounded-2xl bg-white/60" />
+                <span className="absolute top-[4%] left-[8%] text-[11px] font-black text-stone-400 uppercase tracking-widest bg-white/80 px-2 py-0.5 rounded-lg">Comedor</span>
+                <div className="absolute top-[44%] left-[5%] right-[5%] h-[50%] border-2 border-dashed border-stone-300/70 rounded-2xl bg-white/60" />
+                <span className="absolute top-[46%] left-[8%] text-[11px] font-black text-stone-400 uppercase tracking-widest bg-white/80 px-2 py-0.5 rounded-lg">Salón</span>
+                <div className="absolute top-[84%] left-[62%] right-[5%] h-[14%] border-2 border-dashed border-stone-300/70 rounded-2xl bg-white/60 flex items-center justify-center">
+                  <span className="text-[11px] font-black text-stone-400 uppercase tracking-widest bg-white/80 px-2 py-0.5 rounded-lg">Barra</span>
                 </div>
               </div>
 
