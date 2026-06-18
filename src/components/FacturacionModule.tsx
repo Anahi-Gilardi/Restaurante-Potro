@@ -215,9 +215,13 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
         id_pedido: null,
         observaciones: manualObs
       };
-      await downloadFacturaPdf(factura);
       const arcaResult = await emitToArca(factura);
-      if (arcaResult) { factura.arcaCae = arcaResult.cae; factura.arcaVto = arcaResult.vto; }
+      if (arcaResult) {
+        factura.arcaCae = arcaResult.cae;
+        factura.arcaVto = arcaResult.vto;
+        factura.arcaQr = arcaResult.qr;
+      }
+      await downloadFacturaPdf(factura);
       await persistFactura(factura);
       addLog('sistema', `FACTURACION: Comprobante manual ${factura.nro_ticket} emitido por ${money(total)}.${arcaResult ? ` CAE: ${arcaResult.cae}` : ''}`);
       setManualTotal('0');
@@ -253,9 +257,13 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
         id_pedido: selectedPending.pedido.id_pedido,
         observaciones: `Pedido #${selectedPending.pedido.id_pedido} - ${selectedPending.pedido.numero_mesa}`
       };
-      await downloadFacturaPdf(factura, selectedPending.pedido);
       const arcaResult = await emitToArca(factura);
-      if (arcaResult) { factura.arcaCae = arcaResult.cae; factura.arcaVto = arcaResult.vto; }
+      if (arcaResult) {
+        factura.arcaCae = arcaResult.cae;
+        factura.arcaVto = arcaResult.vto;
+        factura.arcaQr = arcaResult.qr;
+      }
+      await downloadFacturaPdf(factura, selectedPending.pedido);
       await persistFactura(factura);
       addLog('sistema', `FACTURACION: Pedido #${selectedPending.pedido.id_pedido} convertido en ${factura.nro_ticket}.${arcaResult ? ` CAE: ${arcaResult.cae}` : ''}`);
       setActiveTab('archivo');
@@ -324,7 +332,22 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
 
       if (cae) {
         addLog('sistema', `ARCA: CAE ${cae} emitido para ${factura.nro_ticket}.`);
-        return { cae, vto };
+        const qrJson = JSON.stringify({
+          ver: 1,
+          fecha: new Date().toISOString().split('T')[0],
+          cuit: parseInt((import.meta as any).env?.VITE_ARCA_CUIT || '30716492514'),
+          ptoVta: 1,
+          tipoCmp: tipoId,
+          nroCmp: parseInt(factura.nro_ticket.split('-').pop() || '1'),
+          importe: factura.total,
+          moneda: 'PES',
+          ctz: 1,
+          tipoDocRec: docTipo,
+          nroDocRec: nroDoc,
+          tipoCodAut: 1,
+          codAut: parseInt(cae) || 0
+        });
+        return { cae, vto, qr: qrJson };
       }
       return null;
     } catch (err: any) {
@@ -379,7 +402,10 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
       vuelto: 0,
       mensajePie: 'Gracias por su visita. Comprobante generado por El Patron Gestion Gastronomica Pro.',
       clienteNombre: factura.cliente,
-      clienteCuit: factura.cuit
+      clienteCuit: factura.cuit,
+      cae: factura.arcaCae,
+      vto: factura.arcaVto,
+      qrData: factura.arcaQr
     };
 
     await pdfService.exportToPDF(ticketData);
@@ -452,6 +478,42 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
 
   return (
     <div className="space-y-6">
+      {/* ARCA/AFIP Status Visualizer */}
+      <div className="bg-white rounded-2xl p-5 border border-stone-200 shadow-xs flex flex-col sm:flex-row items-center gap-4 justify-between transition-all animate-fadeIn">
+        <div className="flex items-center gap-4">
+          <div className={`w-12 h-12 rounded-xl flex items-center justify-center border transition-all ${
+            isArcaConfigured() 
+              ? 'bg-emerald-50 border-emerald-100 text-emerald-600' 
+              : 'bg-amber-50 border-amber-100 text-amber-500'
+          }`}>
+            <ScanLine className={`w-5 h-5 ${isArcaConfigured() ? 'animate-pulse' : ''}`} />
+          </div>
+          <div className="text-left">
+            <h3 className="text-sm font-bold text-stone-900 tracking-tight flex items-center gap-2">
+              Conexión Fiscal Electrónica (ARCA)
+              <span className={`w-2 h-2 rounded-full ${isArcaConfigured() ? 'bg-emerald-500 animate-ping' : 'bg-amber-500'}`} />
+            </h3>
+            <p className="text-xs text-stone-500 mt-0.5">
+              {isArcaConfigured() 
+                ? `Operativo - Modo Homologación (Pto Vta: 0001 - CUIT: ${(import.meta as any).env?.VITE_ARCA_CUIT || '30-71649251-4'})` 
+                : 'Modo Simulación / Desconectado - Emitiendo comprobantes locales sin CAE'
+              }
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {isArcaConfigured() ? (
+            <span className="text-[10px] uppercase font-black px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-100">
+              Conectado
+            </span>
+          ) : (
+            <span className="text-[10px] uppercase font-black px-3 py-1 bg-amber-50 text-amber-700 rounded-full border border-amber-100">
+              Demo / Simulado
+            </span>
+          )}
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <Metric label="Neto mes" value={money(netoTotal)} />
         <Metric label="IVA debito fiscal" value={money(ivaTotal)} tone="brown" />

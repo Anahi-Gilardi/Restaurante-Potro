@@ -38,6 +38,39 @@ const loadLogoDataUrl = async () => {
   return logoDataUrlCache;
 };
 
+const loadQrDataUrl = async (qrDataText: string | undefined): Promise<string | null> => {
+  if (!qrDataText) return null;
+  try {
+    let qrUrl = qrDataText;
+    if (qrDataText.startsWith('{')) {
+      try {
+        const base64 = btoa(unescape(encodeURIComponent(qrDataText)));
+        qrUrl = `https://www.afip.gob.ar/fe/qr/?p=${base64}`;
+      } catch (e) {
+        console.warn('Error converting QR JSON to Base64:', e);
+      }
+    }
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+    const response = await fetch(
+      `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrUrl)}`,
+      { signal: controller.signal }
+    );
+    clearTimeout(timeoutId);
+    if (!response.ok) return null;
+    const blob = await response.blob();
+    return await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (err) {
+    console.warn('No se pudo obtener el QR de AFIP/ARCA, usando fallback:', err);
+    return null;
+  }
+};
+
 const addLogo = (doc: jsPDF, logo: string | null, x: number, y: number, size: number) => {
   if (!logo) return;
   try {
@@ -60,16 +93,17 @@ export const pdfService = {
 
   async generateTicketPDF(data: TicketData): Promise<jsPDF> {
     const logo = await loadLogoDataUrl();
+    const qrImage = await loadQrDataUrl(data.qrData);
     const isA4 = data.tipoComprobante === 'factura_a' || data.tipoComprobante === 'factura_b';
 
     if (isA4) {
-      return this.generateA4Invoice(data, logo);
+      return this.generateA4Invoice(data, logo, qrImage);
     }
 
     return this.generateThermalTicket(data, logo);
   },
 
-  generateA4Invoice(data: TicketData, logo: string | null): jsPDF {
+  generateA4Invoice(data: TicketData, logo: string | null, qrImage: string | null): jsPDF {
     const doc = new jsPDF('p', 'mm', 'a4');
     const margin = 14;
     let y = 14;
@@ -209,14 +243,27 @@ export const pdfService = {
       y += 5;
     }
 
-    doc.setDrawColor(...BRAND.brown);
-    doc.rect(margin, 266, 18, 18);
-    doc.setFontSize(5.5);
-    doc.setTextColor(...BRAND.brown);
-    doc.text('AFIP QR', margin + 5, 276);
+    if (qrImage) {
+      try {
+        doc.addImage(qrImage, 'PNG', margin, 262, 18, 18);
+      } catch (err) {
+        console.warn('Error inserting QR image, falling back to mock box:', err);
+        doc.setDrawColor(...BRAND.brown);
+        doc.rect(margin, 266, 18, 18);
+        doc.setFontSize(5.5);
+        doc.setTextColor(...BRAND.brown);
+        doc.text('AFIP QR', margin + 5, 276);
+      }
+    } else {
+      doc.setDrawColor(...BRAND.brown);
+      doc.rect(margin, 266, 18, 18);
+      doc.setFontSize(5.5);
+      doc.setTextColor(...BRAND.brown);
+      doc.text('AFIP QR', margin + 5, 276);
+    }
     doc.setTextColor(...BRAND.muted);
     doc.setFontSize(7.5);
-    doc.text('CAE Nro: 732049182390 | Vto: 15/12/2026', margin + 24, 272);
+    doc.text(`CAE Nro: ${data.cae || '732049182390'} | Vto: ${data.vto || '15/12/2026'}`, margin + 24, 272);
     doc.text(data.mensajePie || 'Gracias por su visita.', margin + 24, 278);
 
     return doc;

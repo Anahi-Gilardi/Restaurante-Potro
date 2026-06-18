@@ -1006,7 +1006,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
             )}
             {activeView === 'recetas' && (
               <RecetasErrorBoundary>
-                <RecetasModule recetas={recetas} onRecetasChange={setRecetas} productosMenu={productosMenu} insumos={insumos} addLog={addLog} />
+                <RecetasModule recetas={recetas} onRecetasChange={setRecetas} productosMenu={productosMenu} onProductosChange={setProductosMenu} insumos={insumos} addLog={addLog} />
               </RecetasErrorBoundary>
             )}
             {activeView === 'mesas' && (

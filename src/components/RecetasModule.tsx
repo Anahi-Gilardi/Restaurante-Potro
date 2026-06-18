@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import { ChefHat, Hammer, Tag, Plus, Scale, Search, Trash, Edit2, Check, X } from 'lucide-react';
+import { ChefHat, Hammer, Tag, Plus, Scale, Search, Trash, Edit2, Check, X, Camera } from 'lucide-react';
 import { RecetaEscandallo, ProductoMenu, Insumo, EventoLog } from '../types';
 import { recetasService } from '../services/recetasService';
+import { menuService } from '../services/menuService';
 import { useToast, ToastContainer } from './ToastContainer';
 import {
   buildRecipeDraft,
@@ -25,6 +26,7 @@ interface RecetasModuleProps {
     productosMenu: ProductoMenu[];
     insumos: Insumo[];
     onRecetasChange: (recetas: RecetaEscandallo[]) => void;
+    onProductosChange: (productos: ProductoMenu[]) => void;
     addLog: (tipo: EventoLog['tipo'], mensaje: string) => void;
 }
 
@@ -33,11 +35,91 @@ export default function RecetasModule({
     productosMenu,
     insumos,
     onRecetasChange,
+    onProductosChange,
     addLog
 }: RecetasModuleProps) {
     const { toast, toasts, removeToast } = useToast();
 
-  const [activeTabRecipe, setActiveTabRecipe] = useState<string>(productosMenu[0]?.id_producto ?? '');
+    const [activeTabRecipe, setActiveTabRecipe] = useState<string>(productosMenu[0]?.id_producto ?? '');
+    
+    // Subida de imagen con redimensionamiento
+    const [isUploadingImage, setIsUploadingImage] = useState(false);
+
+    const handleImageChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>, idProducto: string) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (!file.type.startsWith('image/')) {
+            toast.error('Por favor, selecciona un archivo de imagen válido.');
+            return;
+        }
+
+        setIsUploadingImage(true);
+        const reader = new FileReader();
+
+        reader.onload = (event) => {
+            const img = new Image();
+            img.onload = async () => {
+                const canvas = document.createElement('canvas');
+                const maxDim = 500;
+                let width = img.width;
+                let height = img.height;
+
+                if (width > height) {
+                    if (width > maxDim) {
+                        height = Math.round((height * maxDim) / width);
+                        width = maxDim;
+                    }
+                } else {
+                    if (height > maxDim) {
+                        width = Math.round((width * maxDim) / height);
+                        height = maxDim;
+                    }
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+
+                const ctx = canvas.getContext('2d');
+                if (ctx) {
+                    ctx.drawImage(img, 0, 0, width, height);
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+
+                    try {
+                        await menuService.update(idProducto, { imagen: dataUrl });
+                        
+                        const updatedProducts = productosMenu.map(p => 
+                            p.id_producto === idProducto ? { ...p, imagen: dataUrl } : p
+                        );
+                        onProductosChange(updatedProducts);
+                        
+                        toast.success('Foto del plato actualizada con éxito.');
+                        addLog('sistema', `MENU: Foto de plato actualizada para el producto ID ${idProducto}`);
+                    } catch (error) {
+                        console.error(error);
+                        toast.error('Error al guardar la foto en la base de datos.');
+                    } finally {
+                        setIsUploadingImage(false);
+                    }
+                } else {
+                    toast.error('No se pudo procesar la imagen.');
+                    setIsUploadingImage(false);
+                }
+            };
+            img.onerror = () => {
+                toast.error('Error al cargar la imagen.');
+                setIsUploadingImage(false);
+            };
+            img.src = event.target?.result as string;
+        };
+
+        reader.onerror = () => {
+            toast.error('Error al leer el archivo.');
+            setIsUploadingImage(false);
+        };
+
+        reader.readAsDataURL(file);
+    }, [productosMenu, onProductosChange, toast, addLog]);
     const [searchProduct, setSearchProduct]     = useState('');
     const [localRecetas, setLocalRecetas]       = useState<RecetaEscandallo[]>(recetas);
     const [pendingAction, setPendingAction]     = useState<string | null>(null);
@@ -260,12 +342,30 @@ export default function RecetasModule({
                         {/* Encabezado del plato seleccionado */}
                         {selectedProduct && (
                       <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-xs flex items-center gap-4">
-                                    <img
-                                                      src={selectedProduct.imagen}
-                                                      alt={selectedProduct.nombre}
-                                                      className="w-14 h-14 rounded-xl object-cover border border-stone-200"
-                                                      onError={e => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1544025162-d76694265947?w=80&q=60'; }}
-                                                    />
+                                    <div className="relative group w-14 h-14 rounded-xl overflow-hidden border border-stone-200 shrink-0 cursor-pointer shadow-xs" title="Haga clic para subir una foto real del plato">
+                                                    <img
+                                                                      src={selectedProduct.imagen}
+                                                                      alt={selectedProduct.nombre}
+                                                                      className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                                                                      onError={e => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1544025162-d76694265947?w=80&q=60'; }}
+                                                                    />
+                                                    <label className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                                                                    <Camera className="w-4 h-4 text-white" />
+                                                                    <span className="text-[8px] text-white font-black mt-0.5 tracking-wider uppercase">Subir</span>
+                                                                    <input 
+                                                                                    type="file" 
+                                                                                    accept="image/*" 
+                                                                                    onChange={e => handleImageChange(e, selectedProduct.id_producto)} 
+                                                                                    disabled={isUploadingImage}
+                                                                                    className="hidden" 
+                                                                                  />
+                                                    </label>
+                                      {isUploadingImage && (
+                                        <div className="absolute inset-0 bg-white/70 flex items-center justify-center">
+                                          <div className="w-4 h-4 border-2 border-[#624A3E] border-t-transparent rounded-full animate-spin" />
+                                        </div>
+                                      )}
+                                    </div>
                                     <div className="flex-1 min-w-0">
                                                     <h2 className="font-black text-stone-900 text-base">{selectedProduct.nombre}</h2>
                                                     <p className="text-xs text-stone-500">{selectedProduct.categoria}</p>

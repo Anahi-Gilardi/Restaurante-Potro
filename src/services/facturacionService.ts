@@ -84,7 +84,11 @@ export const facturacionService = {
           iva_veintiuno: parseFloat((f.total * 0.21).toFixed(2)),
           medio_pago: mapMetodoPagoFromDb(f.metodo_pago),
           fecha: new Date(f.fecha_emision).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + ' hs',
-          estado: tipoComprobante.toLowerCase().includes('nota') ? 'nota_credito' as const : 'emitido' as const
+          estado: tipoComprobante.toLowerCase().includes('nota') ? 'nota_credito' as const : 'emitido' as const,
+          afip_cae: f.afip_cae,
+          afip_vto: f.afip_vto,
+          afip_qr: f.afip_qr,
+          afip_resultado: f.afip_resultado
         };
       });
 
@@ -106,7 +110,11 @@ export const facturacionService = {
       tipo_comprobante: factura.estado === 'nota_credito' ? 'Nota Credito' : 'Factura B',
       metodo_pago: mapMetodoPagoToDb(factura.medio_pago),
       cuit_cliente: factura.cuit,
-      fecha_emision: new Date().toISOString()
+      fecha_emision: new Date().toISOString(),
+      afip_cae: factura.afip_cae,
+      afip_vto: factura.afip_vto,
+      afip_qr: factura.afip_qr,
+      afip_resultado: factura.afip_resultado
     };
     
     const { data, error } = await supabase.from('facturas').insert([dbPayload]).select().single();
@@ -133,7 +141,11 @@ export const facturacionService = {
         tipo_comprobante: f.estado === 'nota_credito' ? 'Nota Credito' : 'Factura B',
         metodo_pago: mapMetodoPagoToDb(f.medio_pago),
         cuit_cliente: f.cuit,
-        fecha_emision: new Date().toISOString()
+        fecha_emision: new Date().toISOString(),
+        afip_cae: f.afip_cae,
+        afip_vto: f.afip_vto,
+        afip_qr: f.afip_qr,
+        afip_resultado: f.afip_resultado
       };
     });
 

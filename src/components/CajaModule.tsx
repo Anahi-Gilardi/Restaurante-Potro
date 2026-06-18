@@ -23,7 +23,8 @@ import {
   Info,
   ChevronRight,
   RefreshCw,
-  Smartphone
+  Smartphone,
+  X
 } from 'lucide-react';
 import { 
   Pedido, 
@@ -43,6 +44,7 @@ import { printerService } from '../services/printerService';
 import { facturacionService, Factura } from '../services/facturacionService';
 import { auditoriaService } from '../services/auditoriaService';
 import { useToast, ToastContainer } from './ToastContainer';
+import { isArcaConfigured, createArcaInvoice, TIPOS_COMPROBANTE } from '../services/arcaService';
 
 interface CajaModuleProps {
   pedidos: Pedido[];
@@ -117,6 +119,10 @@ export default function CajaModule({
   // Divide account by specific products checkbox
   const [splitByProducts, setSplitByProducts] = useState<boolean>(false);
   const [selectedProductsForSplit, setSelectedProductsForSplit] = useState<string[]>([]); // id_producto keys
+
+  // Success transaction modal state
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successDetails, setSuccessDetails] = useState<{ nro: string, total: number, vuelto: number } | null>(null);
 
   // Printer configuration states
   const [printerConfig, setPrinterConfig] = useState<PrinterConfig>(printerService.getDefaultConfig());
@@ -367,6 +373,73 @@ export default function CajaModule({
 
     const compiledTicketNo = `T-0001-${Math.floor(Math.random() * 900000 + 100000)}`;
 
+    let arcaCae = "";
+    let arcaVto = "";
+    let arcaQr = "";
+
+    if (isArcaConfigured()) {
+      try {
+        const tipoMap: Record<string, number> = { 'factura_a': 1, 'factura_b': 6, 'ticket_consumo': 206 };
+        const tipoId = tipoMap[tipoComprobante] || 206;
+        const arcaTipo = Object.values(TIPOS_COMPROBANTE).find((t: any) => t.id === tipoId) as any;
+        if (arcaTipo) {
+          const neto = Number((orderBreakdowns.finalTotal / 1.21).toFixed(2));
+          const iva = Number((orderBreakdowns.finalTotal - neto).toFixed(2));
+          const nroDoc = cuitCliente === '99-99999999-9' ? 0 : parseInt(cuitCliente.replace(/-/g, '').slice(0, 11)) || 0;
+          const docTipo = nroDoc === 0 ? 99 : (cuitCliente.replace(/-/g, '').length >= 11 ? 80 : 96);
+
+          const result = await createArcaInvoice({
+            tipoComprobante: tipoId as any,
+            puntoVenta: 1,
+            cliente: {
+              tipoDoc: docTipo,
+              nroDoc,
+              nombre: nombreCliente,
+              condicionIva: nroDoc === 0 ? 5 : arcaTipo.condicionIva,
+            },
+            items: [{
+              descripcion: `Facturacion mesa ${selectedPedido.numero_mesa}`,
+              cantidad: 1,
+              precioUnitario: orderBreakdowns.finalTotal,
+              ivaId: 5,
+              ivaBase: neto,
+              ivaImporte: iva,
+            }],
+            total: orderBreakdowns.finalTotal,
+            neto,
+            ivaTotal: iva,
+          });
+
+          const cae = result?.CodAutorizacion || result?.CAE || '';
+          const vto = result?.Vencimiento || result?.CAEFchVto || '';
+
+          if (cae) {
+            arcaCae = cae;
+            arcaVto = vto;
+            arcaQr = JSON.stringify({
+              ver: 1,
+              fecha: new Date().toISOString().split('T')[0],
+              cuit: parseInt(restaurante.cuit.replace(/-/g, '') || '30716492514'),
+              ptoVta: 1,
+              tipoCmp: tipoId,
+              nroCmp: parseInt(compiledTicketNo.split('-').pop() || '1'),
+              importe: orderBreakdowns.finalTotal,
+              moneda: 'PES',
+              ctz: 1,
+              tipoDocRec: docTipo,
+              nroDocRec: nroDoc,
+              tipoCodAut: 1,
+              codAut: parseInt(cae) || 0
+            });
+            addLog('sistema', `ARCA: CAE ${cae} emitido para Mesa ${selectedPedido.numero_mesa}.`);
+          }
+        }
+      } catch (err: any) {
+        console.error('[ARCA] Error:', err);
+        toast.warning(`ARCA: No se pudo emitir el comprobante electrónico. ${err.message || ''}`);
+      }
+    }
+
     // Build standard unified ticket structure
     const dataTicket: TicketData = {
       nombreComercial: restaurante.nombreComercial,
@@ -399,7 +472,10 @@ export default function CajaModule({
       metodosPago: pays,
       vuelto: calculatedChange,
       tipoComprobante: tipoComprobante,
-      mensajePie: restaurante.mensajePie
+      mensajePie: restaurante.mensajePie,
+      cae: arcaCae || undefined,
+      vto: arcaVto || undefined,
+      qrData: arcaQr || undefined
     };
 
     // 1. Create Factura row
@@ -429,7 +505,11 @@ export default function CajaModule({
         iva_veintiuno: orderBreakdowns.ivaValue,
         medio_pago: metodoPago,
         fecha: new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + ' hs',
-        estado: 'emitido'
+        estado: 'emitido',
+        afip_cae: arcaCae || undefined,
+        afip_vto: arcaVto || undefined,
+        afip_qr: arcaQr || undefined,
+        afip_resultado: arcaCae ? 'A' : undefined
       });
     } catch (err) {
       console.warn('Network offline backup creation:', err);
@@ -500,7 +580,12 @@ export default function CajaModule({
     setSelectedProductsForSplit([]);
     loadCajaState();
 
-    toast.success(`Ticket emitido. Se cobró ${orderBreakdowns.finalTotal.toLocaleString('es-AR')}. Mesa liberada.`);
+    setSuccessDetails({
+      nro: compiledTicketNo,
+      total: orderBreakdowns.finalTotal,
+      vuelto: calculatedChange
+    });
+    setShowSuccessModal(true);
   };
 
   // Print simulator fallback directly from active layout receipt
@@ -1859,6 +1944,49 @@ export default function CajaModule({
           <p className="text-[10px] text-stone-400 italic text-center py-4">No se registran históricos de cierres almacenados.</p>
         )}
       </div>
+
+      {/* SUCCESS MODAL FOR TRANSACTION POLISH (Step 3) */}
+      {showSuccessModal && successDetails && (
+        <div className="fixed inset-0 bg-stone-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn font-sans">
+          <div className="bg-white rounded-2xl border border-stone-200 max-w-sm w-full p-6 text-center space-y-4 shadow-xl relative">
+            <button 
+              onClick={() => setShowSuccessModal(false)}
+              className="absolute top-4 right-4 text-stone-400 hover:text-stone-600 transition-all cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            
+            <div className="mx-auto w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-500 border border-emerald-100 animate-bounce">
+              <CheckCircle className="w-8 h-8" />
+            </div>
+
+            <div className="space-y-1">
+              <h3 className="text-base font-black text-stone-900 uppercase tracking-tight">Cobro Completado</h3>
+              <p className="text-xs text-stone-500 font-semibold">Comprobante Nº: {successDetails.nro}</p>
+            </div>
+
+            <div className="bg-stone-50 p-4 rounded-xl border border-stone-100 space-y-2 font-mono text-sm">
+              <div className="flex justify-between text-stone-600">
+                <span className="text-xs font-sans font-bold">Monto Cobrado:</span>
+                <span className="font-extrabold text-[#624A3E]">${successDetails.total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+              </div>
+              {successDetails.vuelto > 0 && (
+                <div className="flex justify-between text-emerald-600 pt-2 border-t border-stone-200 border-dotted">
+                  <span className="text-xs font-sans font-bold">Vuelto Entregado:</span>
+                  <span className="font-extrabold">${successDetails.vuelto.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={() => setShowSuccessModal(false)}
+              className="w-full min-h-11 py-2.5 bg-[#624A3E] hover:bg-[#523A2E] text-white text-xs font-black uppercase rounded-xl shadow transition-all cursor-pointer border-0"
+            >
+              Cerrar y Continuar
+            </button>
+          </div>
+        </div>
+      )}
 
       <ToastContainer toasts={toasts} removeToast={removeToast} />
     </div>
