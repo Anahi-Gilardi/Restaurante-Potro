@@ -18,8 +18,9 @@ import {
   DollarSign
 } from 'lucide-react';
 import { Insumo, ProductoMenu, RecetaEscandallo, Merma, Proveedor } from '../types';
-import { useInventory } from '../features/inventario/hooks/useInventory';
+import { useInventory, getInsumoDeposito } from '../features/inventario/hooks/useInventory';
 import { proveedoresService } from '../services/proveedoresService';
+import { jsPDF } from 'jspdf';
 
 interface InventoryModuleProps {
   insumos: Insumo[];
@@ -76,6 +77,8 @@ export default function InventoryModule({
     setActiveSubTab,
     filterCategory,
     setFilterCategory,
+    filterDeposito,
+    setFilterDeposito,
     inventorySearch,
     setInventorySearch,
     selectedEscandalloDishId,
@@ -124,6 +127,123 @@ export default function InventoryModule({
     handleConfirmPurchaseOrder,
     handleDescargarMovimientosCSV
   } = inventory;
+
+  const totalValuation = React.useMemo(() => {
+    return insumos.reduce((sum, ins) => sum + (ins.stock_actual * (ins.costo_unitario ?? 0)), 0);
+  }, [insumos]);
+
+  const categoryValuation = React.useMemo(() => {
+    const valMap: Record<string, number> = {};
+    insumos.forEach(ins => {
+      const cat = ins.categoria || 'otros';
+      const itemVal = ins.stock_actual * (ins.costo_unitario ?? 0);
+      valMap[cat] = (valMap[cat] || 0) + itemVal;
+    });
+    return Object.entries(valMap).map(([category, value]) => ({ category, value }));
+  }, [insumos]);
+
+  const handleExportPurchaseOrderPDF = async () => {
+    if (purchaseCart.length === 0) {
+      toast.warning("El carrito de compras está vacío");
+      return;
+    }
+    try {
+      const doc = new jsPDF({
+        orientation: 'p',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      // Banner superior
+      doc.setFillColor(98, 74, 62); // Brown #624A3E
+      doc.rect(0, 0, 210, 35, 'F');
+
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(22);
+      doc.text("EL PATRON", 15, 22);
+
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text("GESTOR GASTRONOMICO & BODEGA", 15, 28);
+
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("ORDEN DE COMPRA Y RESTOCK", 120, 22);
+
+      const ocId = `OC-${Math.floor(Math.random() * 300) + 2400}`;
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Ref: ${ocId}`, 120, 28);
+
+      // Info del Proveedor y Fecha
+      doc.setTextColor(35, 31, 28);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.text("PROVEEDOR SELECCIONADO:", 15, 50);
+
+      doc.setFont("helvetica", "normal");
+      doc.text(selectedProveedor || 'Proveedor General S.A.', 15, 56);
+      doc.text(`Fecha de Emisión: ${new Date().toLocaleDateString('es-AR')}`, 15, 62);
+
+      // Tabla de items
+      let startY = 75;
+      doc.setFillColor(245, 241, 233);
+      doc.rect(15, startY, 180, 8, 'F');
+      
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.text("Insumo / Descripción", 18, startY + 5.5);
+      doc.text("Cantidad", 90, startY + 5.5);
+      doc.text("Costo Unitario", 130, startY + 5.5);
+      doc.text("Subtotal", 170, startY + 5.5);
+
+      doc.setFont("helvetica", "normal");
+      let currentY = startY + 8;
+      let total = 0;
+
+      purchaseCart.forEach((item) => {
+        const ins = insumos.find(i => i.id_insumo === item.id_insumo);
+        const name = ins ? ins.nombre : item.id_insumo;
+        const qty = `${item.cantidad} ${ins?.unidad_medida ?? ''}`;
+        const unitCost = `$${item.costo_unitario.toLocaleString('es-AR')}`;
+        const subtotal = item.cantidad * item.costo_unitario;
+        total += subtotal;
+
+        // Linea divisoria
+        doc.line(15, currentY, 195, currentY);
+
+        doc.text(name, 18, currentY + 6);
+        doc.text(qty, 90, currentY + 6);
+        doc.text(unitCost, 130, currentY + 6);
+        doc.text(`$${subtotal.toLocaleString('es-AR')}`, 170, currentY + 6);
+
+        currentY += 8;
+      });
+
+      doc.line(15, currentY, 195, currentY);
+
+      // Total
+      currentY += 8;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.text("TOTAL ESTIMADO:", 120, currentY);
+      doc.setFontSize(12);
+      doc.setTextColor(22, 101, 52); // Emerald 800
+      doc.text(`$${total.toLocaleString('es-AR')}`, 170, currentY);
+
+      // Footer
+      doc.setFontSize(8);
+      doc.setTextColor(120, 113, 108);
+      doc.text("Este documento sirve como remito de solicitud de cotización interna de El Patrón.", 15, 280);
+
+      doc.save(`Orden_Compra_El_Patron_${ocId}.pdf`);
+      toast.success("Orden de Compra exportada a PDF correctamente.");
+    } catch (e) {
+      console.error(e);
+      toast.error("Error al exportar la Orden de Compra a PDF.");
+    }
+  };
 
   return (
     <>
@@ -223,6 +343,30 @@ export default function InventoryModule({
             Utilice las fichas secundarias para asentar ingresos por lotes de proveedores ó auditar egresos en el historial exportable.
           </div>
         </div>
+
+        {/* Valorización de Inventario (Kardex) */}
+        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm space-y-3">
+          <h5 className="text-xs font-black text-[#624A3E] uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-100 pb-2">
+            📊 Valorización de Inventario
+          </h5>
+          <div className="space-y-1">
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Capital Total en Stock</span>
+            <p className="text-xl font-mono font-black text-slate-900">
+              ${totalValuation.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+            </p>
+          </div>
+          <div className="space-y-2 pt-1">
+            <span className="text-[10px] font-bold text-slate-400 uppercase block">Desglose de Capital</span>
+            <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
+              {categoryValuation.map((cat, idx) => (
+                <div key={idx} className="flex justify-between items-center text-[10px] font-sans">
+                  <span className="capitalize text-slate-500 font-medium">{cat.category}</span>
+                  <span className="font-mono font-bold text-slate-800">${cat.value.toLocaleString('es-AR', { maximumFractionDigits: 0 })}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* CORE WORKSPACE (Column Span 9) */}
@@ -312,20 +456,36 @@ export default function InventoryModule({
                   />
                 </div>
                 
-                <div className="flex gap-1 overflow-x-auto">
-                  {(['todo', 'bodega', 'frescos', 'secos'] as const).map(catName => (
-                    <button
-                      key={catName}
-                      onClick={() => setFilterCategory(catName)}
-                      className={`py-1 px-3 text-xs font-semibold rounded-lg capitalize transition-colors ${
-                        filterCategory === catName 
-                          ? 'bg-slate-100 text-slate-800' 
-                          : 'text-slate-500 hover:bg-slate-50'
-                      }`}
-                    >
-                      {catName}
-                    </button>
-                  ))}
+                <div className="flex flex-wrap gap-2 items-center">
+                  <select
+                    value={filterDeposito}
+                    onChange={(e) => setFilterDeposito(e.target.value)}
+                    className="text-xs font-semibold px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 border-0 rounded-lg text-slate-700 focus:outline-none cursor-pointer"
+                    aria-label="Filtrar por Depósito"
+                  >
+                    <option value="todos">Todos los Depósitos</option>
+                    <option value="Cámara Frigorífica">Cámara Frigorífica</option>
+                    <option value="Cámara de Frescos">Cámara de Frescos</option>
+                    <option value="Bodega y Cava">Bodega y Cava</option>
+                    <option value="Almacén de Secos">Almacén de Secos</option>
+                    <option value="Depósito General">Depósito General</option>
+                  </select>
+
+                  <div className="flex gap-1 overflow-x-auto">
+                    {(['todo', 'bodega', 'frescos', 'secos'] as const).map(catName => (
+                      <button
+                        key={catName}
+                        onClick={() => setFilterCategory(catName)}
+                        className={`py-1 px-3 text-xs font-semibold rounded-lg capitalize transition-colors ${
+                          filterCategory === catName 
+                            ? 'bg-slate-100 text-slate-800' 
+                            : 'text-slate-500 hover:bg-slate-50'
+                        }`}
+                      >
+                        {catName}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -352,7 +512,9 @@ export default function InventoryModule({
                         <tr key={ins.id_insumo} className="hover:bg-slate-50/50 transition-colors">
                           <td className="p-3">
                             <div className="font-semibold text-slate-800">{ins.nombre}</div>
-                            <div className="text-[10px] text-slate-400 capitalize">{ins.categoria} • Min: {ins.stock_minimo}{ins.unidad_medida}</div>
+                            <div className="text-[10px] text-slate-400 capitalize">
+                              {ins.categoria} • Depósito: <span className="font-semibold text-slate-600">{getInsumoDeposito(ins)}</span> • Min: {ins.stock_minimo}{ins.unidad_medida}
+                            </div>
                           </td>
                           <td className="p-3 font-mono font-bold text-slate-700">
                             {ins.stock_actual.toLocaleString('es-AR')} {ins.unidad_medida}
@@ -885,13 +1047,22 @@ export default function InventoryModule({
                           ${purchaseCart.reduce((acc, item) => acc + (item.cantidad * item.costo_unitario), 0).toLocaleString('es-AR')}
                         </p>
                       </div>
-                      <button
-                        onClick={handleConfirmPurchaseOrder}
-                        className="py-2.5 px-5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl shadow transition-all cursor-pointer flex items-center gap-1.5"
-                      >
-                        <Truck className="w-4 h-4" />
-                        Confirmar e Ingresar Compra
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleExportPurchaseOrderPDF}
+                          className="py-2.5 px-3.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow transition-all cursor-pointer flex items-center gap-1.5"
+                        >
+                          <Download className="w-4 h-4" />
+                          Exportar PDF
+                        </button>
+                        <button
+                          onClick={handleConfirmPurchaseOrder}
+                          className="py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl shadow transition-all cursor-pointer flex items-center gap-1.5"
+                        >
+                          <Truck className="w-4 h-4" />
+                          Confirmar e Ingresar Compra
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
