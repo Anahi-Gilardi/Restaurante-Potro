@@ -1245,7 +1245,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
               />
             )}
             {activeView === 'reportes' && (
-              <BusinessIntelligence pedidos={pedidos} productosMenu={productosMenu} logs={logs} precioMap={precioMap} insumos={insumos} />
+              <BusinessIntelligence pedidos={pedidos} productosMenu={productosMenu} logs={logs} precioMap={precioMap} insumos={insumos} recetas={recetas} mermas={mermas} />
             )}
             {activeView === 'panel' && (
               <PanelDashboard pedidos={pedidos} insumos={insumos} mesas={mesas} productosMenu={productosMenu} logs={logs} allowedViews={allowedViews} onNavigate={handleNavigate} getSimulatedTimeStr={getSimulatedTimeStr} />
