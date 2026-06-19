@@ -121,7 +121,9 @@ export default function SistemaModule({
     link.setAttribute("download", `Backup_${tableName}_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
+    if (document.body.contains(link)) {
+      document.body.removeChild(link);
+    }
 
     addLog('sistema', `DIAGNOSTICO: Backup local de base de datos generado para la tabla '${tableName}'.`);
   };

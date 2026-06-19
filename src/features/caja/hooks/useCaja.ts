@@ -507,7 +507,9 @@ export function useCaja({
     link.setAttribute("download", `Arqueo_Turno_Caja_${finalShift.id_cierre}.csv`);
     document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
+    if (document.body.contains(link)) {
+      document.body.removeChild(link);
+    }
 
     try {
       await pdfService.exportShiftClosePDF(finalShift);
