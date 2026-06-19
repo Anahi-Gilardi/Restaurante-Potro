@@ -255,30 +255,39 @@ export const pedidosService = {
         }
 
         if (activeHeader) {
-          // A. Ya existe una comanda activa -> Se realiza un bulk insert únicamente de los nuevos ítems
+          // A. Ya existe una comanda activa -> Se actualiza la cabecera completa y se sincronizan los detalles
           const activeId = activeHeader.id_pedido;
-          const currentItems = parseHeaderItems(activeHeader.items);
           
-          // Filtrar ítems que no estaban previamente en el pedido remoto
-          const newItems = ped.items.filter(item => 
-            !currentItems.some(ci => ci.id_producto === item.id_producto)
-          );
+          const cabeceraUpdate = serializePedidoHeader(ped);
+          delete (cabeceraUpdate as any).id_pedido;
+          delete (cabeceraUpdate as any).idempotency_key;
+          delete (cabeceraUpdate as any).id_mesa;
 
-          if (newItems.length > 0) {
-            const details = newItems.map((item, index) => ({
-              id_detalle: `${activeId}_${item.id_producto}_${Date.now()}_${index}`,
-              id_pedido: activeId,
-              id_producto: item.id_producto,
-              nombre: item.nombre,
-              cantidad: item.cantidad,
-              categoria: item.categoria,
-              precio_unitario: item.precio_unitario ?? null,
-              estado: 'pendiente'
-            }));
+          const { error: hError } = await supabase
+            .from('pedidos_cabecera')
+            .update(cabeceraUpdate)
+            .eq('id_pedido', activeId);
 
+          if (hError) {
+            console.error('Error updating active order header in upsert:', hError);
+            throw hError;
+          }
+
+          // Sincronizar todos los detalles (borrar viejos e insertar los actuales)
+          const { error: deleteError } = await supabase
+            .from('pedido_detalle')
+            .delete()
+            .eq('id_pedido', activeId);
+
+          if (deleteError) {
+            console.error('Error deleting previous order details in upsert:', deleteError);
+            throw deleteError;
+          }
+
+          if (ped.items && ped.items.length > 0) {
+            const details = serializePedidoDetails({ ...ped, id_pedido: activeId });
             let { error: dError } = await supabase.from('pedido_detalle').insert(details);
             
-            // Fallback si la columna precio_unitario no existiera
             if (dError && dError.message?.includes('precio_unitario')) {
               const fallbackDetails = details.map(d => {
                 const copy = { ...d };
@@ -290,20 +299,9 @@ export const pedidosService = {
             }
 
             if (dError) {
-              console.error('Error inserting bulk details for active comanda:', dError);
+              console.error('Error inserting details in upsert update:', dError);
               throw dError;
             }
-          }
-
-          // Sincronizar la cabecera acumulada (JSON string de fallback)
-          const { error: hError } = await supabase
-            .from('pedidos_cabecera')
-            .update({ items: JSON.stringify(ped.items) })
-            .eq('id_pedido', activeId);
-
-          if (hError) {
-            console.error('Error syncing header items fallback:', hError);
-            throw hError;
           }
 
         } else {
