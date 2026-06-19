@@ -295,6 +295,66 @@ export const pedidosService = {
     }
   },
 
+  async agregarItemsAComandaExistente(idPedido: number, nuevosItems: PedidoItem[]): Promise<void> {
+    const supabase = tryGetActiveSupabaseClient();
+    if (!supabase) {
+      const { syncQueueService } = await import('./syncQueueService');
+      syncQueueService.enqueue('upsert_pedido', {
+        id_pedido: idPedido,
+        items: nuevosItems,
+        is_accumulation: true
+      });
+      return;
+    }
+
+    // Insert each item as detail row
+    const rows = nuevosItems.map((item, index) => ({
+      id_detalle: `${idPedido}_${item.id_producto}_${Date.now()}_${index}`,
+      id_pedido: idPedido,
+      id_producto: item.id_producto,
+      nombre: item.nombre,
+      cantidad: item.cantidad,
+      categoria: item.categoria,
+      precio_unitario: item.precio_unitario ?? 0,
+      estado: 'pendiente'
+    }));
+
+    const { error: insertError } = await supabase
+      .from('pedido_detalle')
+      .insert(rows);
+
+    if (insertError) {
+      console.error('Error inserting details in accumulation:', insertError);
+      throw insertError;
+    }
+
+    // Update total in cabecera
+    const { data: todosLosDetalles, error: selectError } = await supabase
+      .from('pedido_detalle')
+      .select('cantidad, precio_unitario')
+      .eq('id_pedido', idPedido);
+
+    if (selectError) {
+      console.error('Error fetching all details to calculate total:', selectError);
+      throw selectError;
+    }
+
+    const nuevoTotal = (todosLosDetalles || []).reduce(
+      (acc, d) => acc + (Number(d.cantidad || 0) * Number(d.precio_unitario || 0)), 
+      0
+    );
+
+    const { error: updateError } = await supabase
+      .from('pedidos_cabecera')
+      .update({ total: nuevoTotal })
+      .eq('id_pedido', idPedido);
+
+    if (updateError) {
+      console.error('Error updating total in header:', updateError);
+      throw updateError;
+    }
+  },
+
   async remove(id: number): Promise<boolean> {
     const supabase = tryGetActiveSupabaseClient();
     if (!supabase) return false;
