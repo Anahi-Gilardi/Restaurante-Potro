@@ -1,16 +1,19 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { useDebounce } from '../hooks/useDebounce';
-import { UtensilsCrossed, Plus, Search, Edit2, Check, Copy, X, DollarSign } from 'lucide-react';
+import { UtensilsCrossed, Plus, Search, Edit2, Check, Copy, X, DollarSign, Image, AlertTriangle } from 'lucide-react';
 import BulkPriceEditor from './BulkPriceEditor';
 import { CardSkeleton } from './Skeleton';
-import { ProductoMenu, EventoLog } from '../types';
+import { ProductoMenu, EventoLog, RecetaEscandallo, Insumo } from '../types';
 import { menuService } from '../services/menuService';
 import { menuItemSchema } from '../lib/validations';
 import { ToastContainer, useToast } from './ToastContainer';
+import { calculateRecipeCost, calculateMarginPct, getMarginLevel } from '../lib/recetas';
 
 interface MenuModuleProps {
   productosMenu: ProductoMenu[];
   onProductosChange: (productos: ProductoMenu[]) => void;
+  recetas: RecetaEscandallo[];
+  insumos: Insumo[];
   addLog: (tipo: EventoLog['tipo'], mensaje: string) => void;
 }
 
@@ -18,6 +21,15 @@ type PendingAction = 'create' | `toggle_${string}` | `edit_${string}` | `duplica
 
 const CATEGORIAS = ['Entradas', 'Pastas', 'Carnes', 'Pescados', 'Comidas Criollas', 'Postres', 'Bebidas', 'Bodega'] as const;
 const FILTER_CATEGORIAS = ['todos', ...CATEGORIAS] as const;
+
+const ALLERGENS_LIST = [
+  { id: 'gluten', label: 'Gluten 🌾' },
+  { id: 'lactosa', label: 'Lácteos 🥛' },
+  { id: 'huevo', label: 'Huevo 🥚' },
+  { id: 'frutos_secos', label: 'Frutos Secos 🥜' },
+  { id: 'pescado', label: 'Pescado 🐟' },
+  { id: 'soja', label: 'Soja 🫘' }
+];
 
 const normalizeText = (value: string) => value.trim().toLowerCase();
 
@@ -40,9 +52,11 @@ const getFallbackImage = (categoria: string) => {
   return 'https://images.unsplash.com/photo-1544025162-d76694265947?w=400&q=80';
 };
 
-export default function MenuModule({ productosMenu, onProductosChange, addLog }: MenuModuleProps) {
+export default function MenuModule({ productosMenu, onProductosChange, recetas, insumos, addLog }: MenuModuleProps) {
   const [items, setItems] = useState<ProductoMenu[]>(productosMenu);
   const { toast, toasts, removeToast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setItems(productosMenu);
@@ -60,18 +74,26 @@ export default function MenuModule({ productosMenu, onProductosChange, addLog }:
     return () => clearTimeout(t);
   }, []);
 
+  // Form states for creating a new menu item
   const [nombre, setNombre] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [precio, setPrecio] = useState('');
   const [categoria, setCategoria] = useState<string>('Entradas');
   const [imagenUrl, setImagenUrl] = useState('');
+  const [tiempoPreparacion, setTiempoPreparacion] = useState('12');
+  const [requiereCocina, setRequiereCocina] = useState(true);
+  const [selectedAllergens, setSelectedAllergens] = useState<string[]>([]);
 
+  // Form states for editing an existing menu item
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editPrecio, setEditPrecio] = useState('');
   const [editNombre, setEditNombre] = useState('');
   const [editDescripcion, setEditDescripcion] = useState('');
   const [editCategoria, setEditCategoria] = useState('');
   const [editImagen, setEditImagen] = useState('');
+  const [editTiempoPreparacion, setEditTiempoPreparacion] = useState('12');
+  const [editRequiereCocina, setEditRequiereCocina] = useState(true);
+  const [editSelectedAllergens, setEditSelectedAllergens] = useState<string[]>([]);
 
   const isBusy = pendingAction !== null;
 
@@ -86,6 +108,10 @@ export default function MenuModule({ productosMenu, onProductosChange, addLog }:
     setPrecio('');
     setImagenUrl('');
     setCategoria('Entradas');
+    setTiempoPreparacion('12');
+    setRequiereCocina(true);
+    setSelectedAllergens([]);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const resetEditForm = () => {
@@ -95,11 +121,71 @@ export default function MenuModule({ productosMenu, onProductosChange, addLog }:
     setEditDescripcion('');
     setEditCategoria('');
     setEditImagen('');
+    setEditTiempoPreparacion('12');
+    setEditRequiereCocina(true);
+    setEditSelectedAllergens([]);
+    if (editFileInputRef.current) editFileInputRef.current.value = '';
   };
 
   const hasDuplicateName = (name: string, excludedId?: string) => (
     items.some(item => item.id_producto !== excludedId && normalizeText(item.nombre) === normalizeText(name))
   );
+
+  // Resize and compress files to base64
+  const processImageFile = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new window.Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 500;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > MAX_WIDTH) {
+            height = Math.round((height * MAX_WIDTH) / width);
+            width = MAX_WIDTH;
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            reject(new Error('Canvas context could not be created'));
+            return;
+          }
+
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.82);
+          resolve(compressedBase64);
+        };
+        img.onerror = () => reject(new Error('Invalid image file'));
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = () => reject(new Error('File reader failed'));
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, isEditMode: boolean) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      toast.info('Procesando y comprimiendo imagen...');
+      const base64 = await processImageFile(file);
+      if (isEditMode) {
+        setEditImagen(base64);
+      } else {
+        setImagenUrl(base64);
+      }
+      toast.success('Imagen lista para guardar.');
+    } catch (err) {
+      toast.error('Error al procesar la imagen. Intente con otra.');
+    }
+  };
 
   const buildMenuItem = (
     id: string,
@@ -109,6 +195,9 @@ export default function MenuModule({ productosMenu, onProductosChange, addLog }:
       precio: string;
       categoria: string;
       imagen: string;
+      tiempoPreparacion: string;
+      requiereCocina: boolean;
+      alergenos: string[];
       activo?: boolean;
     }
   ): ProductoMenu | null => {
@@ -127,7 +216,7 @@ export default function MenuModule({ productosMenu, onProductosChange, addLog }:
 
     const clean = validation.data;
     const tipo = inferTipo(clean.categoria);
-    const requiereCocina = !(tipo === 'bebida' || tipo === 'vino');
+    const reqCocina = values.requiereCocina && !(tipo === 'bebida' || tipo === 'vino');
 
     return {
       id_producto: id,
@@ -138,8 +227,9 @@ export default function MenuModule({ productosMenu, onProductosChange, addLog }:
       activo: values.activo ?? true,
       imagen: values.imagen.trim() || getFallbackImage(clean.categoria),
       tipo,
-      requiere_cocina: requiereCocina,
-      tiempo_preparacion_estimado: requiereCocina ? 12 : undefined
+      requiere_cocina: reqCocina,
+      tiempo_preparacion_estimado: reqCocina ? (Number(values.tiempoPreparacion) || 12) : undefined,
+      alergenos: values.alergenos
     };
   };
 
@@ -148,7 +238,16 @@ export default function MenuModule({ productosMenu, onProductosChange, addLog }:
     if (isBusy) return;
 
     const tempId = `prod_custom_${Date.now()}`;
-    const newItem = buildMenuItem(tempId, { nombre, descripcion, precio, categoria, imagen: imagenUrl });
+    const newItem = buildMenuItem(tempId, {
+      nombre,
+      descripcion,
+      precio,
+      categoria,
+      imagen: imagenUrl,
+      tiempoPreparacion,
+      requiereCocina,
+      alergenos: selectedAllergens
+    });
     if (!newItem) return;
     if (hasDuplicateName(newItem.nombre)) {
       toast.warning('Ya existe un producto con ese nombre en la carta.');
@@ -206,6 +305,9 @@ export default function MenuModule({ productosMenu, onProductosChange, addLog }:
     setEditDescripcion(item.descripcion || '');
     setEditCategoria(item.categoria);
     setEditImagen(item.imagen || '');
+    setEditTiempoPreparacion(item.tiempo_preparacion_estimado?.toString() || '12');
+    setEditRequiereCocina(item.requiere_cocina ?? true);
+    setEditSelectedAllergens(item.alergenos || []);
   };
 
   const handleSaveEdit = async (id: string) => {
@@ -219,6 +321,9 @@ export default function MenuModule({ productosMenu, onProductosChange, addLog }:
       precio: editPrecio,
       categoria: editCategoria,
       imagen: editImagen,
+      tiempoPreparacion: editTiempoPreparacion,
+      requiereCocina: editRequiereCocina,
+      alergenos: editSelectedAllergens,
       activo: target.activo
     });
     if (!updated) return;
@@ -286,6 +391,18 @@ export default function MenuModule({ productosMenu, onProductosChange, addLog }:
     const matchesCat = selectedCategoria === 'todos' || item.categoria === selectedCategoria;
     return matchesSearch && matchesCat;
   }), [items, debouncedSearch, selectedCategoria]);
+
+  const toggleAllergen = (allergenId: string, isEdit: boolean) => {
+    if (isEdit) {
+      setEditSelectedAllergens(prev =>
+        prev.includes(allergenId) ? prev.filter(x => x !== allergenId) : [...prev, allergenId]
+      );
+    } else {
+      setSelectedAllergens(prev =>
+        prev.includes(allergenId) ? prev.filter(x => x !== allergenId) : [...prev, allergenId]
+      );
+    }
+  };
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -361,17 +478,92 @@ export default function MenuModule({ productosMenu, onProductosChange, addLog }:
                 {CATEGORIAS.map(cat => <option key={cat} value={cat}>{cat}</option>)}
               </select>
             </div>
-            <div>
-              <label className="text-[10px] font-black text-stone-500 uppercase tracking-wider block mb-1">URL de imagen (opcional)</label>
-              <input
-                type="url"
-                value={imagenUrl}
-                onChange={e => setImagenUrl(e.target.value)}
-                placeholder="https://images.unsplash.com/..."
-                className="w-full min-h-11 text-sm p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none focus:ring-2 focus:ring-[#624A3E]/30"
-                disabled={isBusy}
-              />
+            
+            {/* Extended attributes: cooking time and kitchen requirement */}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-[10px] font-black text-stone-500 uppercase tracking-wider block mb-1">Min. Prep.</label>
+                <input
+                  type="number"
+                  value={tiempoPreparacion}
+                  onChange={e => setTiempoPreparacion(e.target.value)}
+                  placeholder="12"
+                  className="w-full min-h-11 text-sm p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none focus:ring-2 focus:ring-[#624A3E]/30"
+                  disabled={isBusy || !requiereCocina}
+                />
+              </div>
+              <div className="flex flex-col justify-end">
+                <label className="flex items-center gap-1.5 min-h-11 cursor-pointer select-none font-bold text-stone-700 text-xs">
+                  <input
+                    type="checkbox"
+                    checked={requiereCocina}
+                    onChange={e => setRequiereCocina(e.target.checked)}
+                    className="w-4 h-4 rounded text-[#624A3E] focus:ring-[#624A3E]"
+                    disabled={isBusy}
+                  />
+                  Cocina
+                </label>
+              </div>
             </div>
+
+            {/* Allergen selector */}
+            <div>
+              <label className="text-[10px] font-black text-stone-500 uppercase tracking-wider block mb-1.5">Alérgenos</label>
+              <div className="flex flex-wrap gap-1">
+                {ALLERGENS_LIST.map(alg => {
+                  const active = selectedAllergens.includes(alg.id);
+                  return (
+                    <button
+                      type="button"
+                      key={alg.id}
+                      onClick={() => toggleAllergen(alg.id, false)}
+                      className={`px-2 py-1 text-[9px] font-black rounded-lg border uppercase tracking-wide cursor-pointer transition-all ${
+                        active
+                          ? 'bg-rose-500 text-white border-rose-600'
+                          : 'bg-stone-50 text-stone-500 border-stone-200 hover:bg-stone-100'
+                      }`}
+                    >
+                      {alg.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Canvas express image resize and uploader */}
+            <div>
+              <label className="text-[10px] font-black text-stone-500 uppercase tracking-wider block mb-1">Imagen del plato</label>
+              <div className="space-y-1.5">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={e => handleImageUpload(e, false)}
+                  ref={fileInputRef}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full min-h-11 flex items-center justify-center gap-2 border border-dashed border-stone-300 hover:border-stone-400 bg-stone-50 rounded-xl text-xs font-bold text-stone-600 cursor-pointer"
+                >
+                  <Image className="w-4 h-4 text-stone-450" />
+                  {imagenUrl ? 'Cambiar Imagen' : 'Subir Imagen (Compresión)'}
+                </button>
+                {imagenUrl && (
+                  <div className="relative w-16 h-16 rounded-xl border border-stone-200 overflow-hidden">
+                    <img src={imagenUrl} className="w-full h-full object-cover" alt="Vista previa" />
+                    <button
+                      type="button"
+                      onClick={() => setImagenUrl('')}
+                      className="absolute -top-1 -right-1 bg-stone-850/80 text-white rounded-full p-0.5"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
             <button
               type="submit"
               disabled={isBusy}
@@ -423,74 +615,177 @@ export default function MenuModule({ productosMenu, onProductosChange, addLog }:
                 || pendingAction === `edit_${item.id_producto}`
                 || pendingAction === `duplicate_${item.id_producto}`;
 
+              // Calculations for costs and margins
+              const matchedRecipes = recetas.filter(r => r.id_producto === item.id_producto);
+              const hasRecipe = matchedRecipes.length > 0;
+              const recipeCost = hasRecipe ? calculateRecipeCost(matchedRecipes, insumos) : 0;
+              const marginPct = hasRecipe ? calculateMarginPct(item, recipeCost) : null;
+              const marginLevel = getMarginLevel(marginPct);
+
               return (
               <div
                 key={item.id_producto}
-                className={`p-3 bg-[#F5F1E9]/30 border rounded-2xl flex gap-3 transition-colors hover:bg-[#F5F1E9]/60 ${
+                className={`p-3 bg-[#F5F1E9]/30 border rounded-2xl flex flex-col justify-between gap-3 transition-colors hover:bg-[#F5F1E9]/60 ${
                   item.activo ? 'border-stone-150' : 'border-rose-105 bg-rose-50/10 opacity-70'
                 } ${itemBusy ? 'ring-2 ring-[#624A3E]/20' : ''}`}
               >
-                <img
-                  src={item.imagen}
-                  alt={item.nombre}
-                  loading="lazy" decoding="async"
-                  referrerPolicy="no-referrer"
-                  className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-cover shrink-0 bg-stone-100 border border-stone-200"
-                  onError={e => { (e.currentTarget as HTMLImageElement).src = getFallbackImage(item.categoria); }}
-                />
-                <div className="flex-1 flex flex-col justify-between min-w-0">
-                  <div className="space-y-0.5">
-                    <span className="text-[8px] font-black uppercase text-[#624A3E]">{item.categoria}</span>
-                    <h4 className="text-sm font-extrabold text-stone-900 tracking-tight leading-snug truncate" title={item.nombre}>{item.nombre}</h4>
-                    {item.descripcion && (
-                      <p className="text-[10px] sm:text-xs text-stone-500 leading-snug line-clamp-2 mt-0.5" title={item.descripcion}>
-                        {item.descripcion}
-                      </p>
-                    )}
+                <div className="flex gap-3">
+                  <img
+                    src={item.imagen}
+                    alt={item.nombre}
+                    loading="lazy" decoding="async"
+                    referrerPolicy="no-referrer"
+                    className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-cover shrink-0 bg-stone-100 border border-stone-200"
+                    onError={e => { (e.currentTarget as HTMLImageElement).src = getFallbackImage(item.categoria); }}
+                  />
+                  <div className="flex-1 flex flex-col justify-between min-w-0">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[8px] font-black uppercase text-[#624A3E]">{item.categoria}</span>
+                        {item.tiempo_preparacion_estimado && (
+                          <span className="text-[8px] font-black text-stone-500 uppercase tracking-tight">⏱️ {item.tiempo_preparacion_estimado} min</span>
+                        )}
+                      </div>
+                      <h4 className="text-sm font-extrabold text-stone-900 tracking-tight leading-snug truncate" title={item.nombre}>{item.nombre}</h4>
+                      {item.descripcion && (
+                        <p className="text-[10px] sm:text-xs text-stone-500 leading-snug line-clamp-2 mt-0.5" title={item.descripcion}>
+                          {item.descripcion}
+                        </p>
+                      )}
 
-                    {editingId === item.id_producto ? (
-                      <div className="space-y-2 mt-1">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs font-bold text-stone-700">$</span>
-                          <input type="number" inputMode="decimal" value={editPrecio} onChange={e => setEditPrecio(e.target.value)}
+                      {/* Display allergen badges if any */}
+                      {item.alergenos && item.alergenos.length > 0 && (
+                        <div className="flex flex-wrap gap-0.5 mt-1">
+                          {item.alergenos.map(alg => (
+                            <span key={alg} className="px-1 py-0.5 bg-rose-50 border border-rose-100 rounded text-[7px] font-bold text-rose-600">
+                              {ALLERGENS_LIST.find(x => x.id === alg)?.label || alg}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      {editingId === item.id_producto ? (
+                        <div className="space-y-2 mt-1.5 border-t border-stone-250/20 pt-1.5">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-bold text-stone-700">$</span>
+                            <input type="number" inputMode="decimal" value={editPrecio} onChange={e => setEditPrecio(e.target.value)}
+                              disabled={isBusy}
+                              className="w-20 text-sm p-1.5 border border-stone-300 rounded bg-white text-stone-800 font-mono font-bold focus:outline-none focus:ring-1 focus:ring-[#624A3E]" />
+                          </div>
+                          <input type="text" value={editNombre} onChange={e => setEditNombre(e.target.value)}
                             disabled={isBusy}
-                            className="w-20 text-sm p-1.5 border border-stone-300 rounded bg-white text-stone-800 font-mono font-bold focus:outline-none focus:ring-1 focus:ring-[#624A3E]" />
+                            className="w-full text-xs p-1.5 border border-stone-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-[#624A3E]" />
+                          <textarea value={editDescripcion} onChange={e => setEditDescripcion(e.target.value)} rows={2}
+                            disabled={isBusy}
+                            className="w-full text-xs p-1.5 border border-stone-300 rounded bg-white resize-none focus:outline-none focus:ring-1 focus:ring-[#624A3E]" />
+                          <div className="grid grid-cols-2 gap-1.5">
+                            <select value={editCategoria} onChange={e => setEditCategoria(e.target.value)}
+                              disabled={isBusy}
+                              className="w-full text-xs p-1.5 border border-stone-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-[#624A3E]">
+                              {CATEGORIAS.map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                            <input type="number" value={editTiempoPreparacion} onChange={e => setEditTiempoPreparacion(e.target.value)}
+                              disabled={isBusy || !editRequiereCocina} placeholder="Minutos"
+                              className="w-full text-xs p-1.5 border border-stone-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-[#624A3E]" />
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <label className="flex items-center gap-1 text-[10px] font-bold text-stone-650 cursor-pointer">
+                              <input type="checkbox" checked={editRequiereCocina} onChange={e => setEditRequiereCocina(e.target.checked)}
+                                className="w-3.5 h-3.5 rounded text-[#624A3E]" /> Cocina
+                            </label>
+                          </div>
+                          
+                          {/* Edit allergen tags */}
+                          <div className="space-y-1">
+                            <span className="text-[9px] font-bold text-stone-500 uppercase">Alérgenos:</span>
+                            <div className="flex flex-wrap gap-1">
+                              {ALLERGENS_LIST.map(alg => {
+                                const active = editSelectedAllergens.includes(alg.id);
+                                return (
+                                  <button
+                                    type="button"
+                                    key={alg.id}
+                                    onClick={() => toggleAllergen(alg.id, true)}
+                                    className={`px-1.5 py-0.5 text-[8px] font-bold rounded border uppercase tracking-wide transition-all ${
+                                      active
+                                        ? 'bg-rose-500 text-white border-rose-600'
+                                        : 'bg-stone-50 text-stone-500 border-stone-200 hover:bg-stone-100'
+                                    }`}
+                                  >
+                                    {alg.label}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {/* Edit image handler (Base64 canvas) */}
+                          <div className="space-y-1.5">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={e => handleImageUpload(e, true)}
+                              ref={editFileInputRef}
+                              className="hidden"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => editFileInputRef.current?.click()}
+                              className="w-full py-1 bg-stone-50 hover:bg-stone-100 border border-stone-200 rounded text-[9px] font-bold text-stone-650 flex items-center justify-center gap-1 cursor-pointer"
+                            >
+                              <Image className="w-3 h-3 text-stone-550" /> Cambiar foto
+                            </button>
+                          </div>
+
+                          <div className="flex gap-1.5 pt-1">
+                            <button onClick={() => void handleSaveEdit(item.id_producto)} disabled={isBusy}
+                              className="p-1.5 rounded bg-[#22C55E]/15 hover:bg-[#22C55E]/20 text-[#22C55E] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"><Check className="w-3.5 h-3.5" /></button>
+                            <button onClick={resetEditForm} disabled={isBusy}
+                              className="p-1.5 rounded bg-stone-100 hover:bg-stone-200 text-stone-500 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"><X className="w-3.5 h-3.5" /></button>
+                          </div>
                         </div>
-                        <input type="text" value={editNombre} onChange={e => setEditNombre(e.target.value)}
-                          disabled={isBusy}
-                          className="w-full text-xs p-1.5 border border-stone-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-[#624A3E]" />
-                        <textarea value={editDescripcion} onChange={e => setEditDescripcion(e.target.value)} rows={2}
-                          disabled={isBusy}
-                          className="w-full text-xs p-1.5 border border-stone-300 rounded bg-white resize-none focus:outline-none focus:ring-1 focus:ring-[#624A3E]" />
-                        <select value={editCategoria} onChange={e => setEditCategoria(e.target.value)}
-                          disabled={isBusy}
-                          className="w-full text-xs p-1.5 border border-stone-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-[#624A3E]">
-                          {CATEGORIAS.map(c => <option key={c} value={c}>{c}</option>)}
-                        </select>
-                        <div className="flex gap-1.5">
-                          <button onClick={() => void handleSaveEdit(item.id_producto)} disabled={isBusy}
-                            className="p-1.5 rounded bg-[#22C55E]/15 hover:bg-[#22C55E]/20 text-[#22C55E] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"><Check className="w-3.5 h-3.5" /></button>
-                          <button onClick={resetEditForm} disabled={isBusy}
-                            className="p-1.5 rounded bg-stone-100 hover:bg-stone-200 text-stone-500 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"><X className="w-3.5 h-3.5" /></button>
+                      ) : (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm font-black text-stone-850 font-mono tracking-tight">${item.precio_venta.toLocaleString('es-AR')}</span>
+                          <button onClick={() => handleStartEditing(item)} disabled={isBusy}
+                            className="p-1.5 px-2 rounded hover:bg-stone-200/50 text-stone-400 hover:text-stone-750 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer text-[10px]">
+                            <Edit2 className="w-3 h-3" />
+                          </button>
                         </div>
-                      </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Recipe escandallo margin visual flags */}
+                {!editingId && (
+                  <div className="mt-2 p-2 bg-stone-50 rounded-xl border border-stone-200/60 flex items-center justify-between text-[9px] sm:text-[10px] font-bold">
+                    {hasRecipe ? (
+                      <>
+                        <span className="text-stone-500">Costo: <strong className="font-mono">${recipeCost.toFixed(1)}</strong></span>
+                        {marginPct !== null && (
+                          <span className={`px-1.5 py-0.5 rounded-lg text-[9px] font-extrabold uppercase ${
+                            marginLevel === 'high' ? 'bg-emerald-100 text-emerald-700' :
+                            marginLevel === 'medium' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'
+                          }`}>
+                            Margen {marginPct.toFixed(0)}%
+                          </span>
+                        )}
+                      </>
                     ) : (
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-sm font-black text-stone-850 font-mono tracking-tight">${item.precio_venta.toLocaleString('es-AR')}</span>
-                        <button onClick={() => handleStartEditing(item)} disabled={isBusy}
-                          className="p-1.5 px-2 rounded hover:bg-stone-200/50 text-stone-400 hover:text-stone-750 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer text-[10px]">
-                          <Edit2 className="w-3 h-3" />
-                        </button>
-                      </div>
+                      <span className="text-amber-600 flex items-center gap-1">
+                        <AlertTriangle className="w-3.5 h-3.5" /> Sin receta vinculada
+                      </span>
                     )}
                   </div>
+                )}
 
-                  <div className="flex items-center justify-between pt-2 border-t border-stone-200/40 mt-1">
-                    <button onClick={() => void handleDuplicateItem(item)} disabled={isBusy}
-                      className="text-[9px] sm:text-[10px] font-bold px-2 py-1 rounded cursor-pointer transition-colors bg-stone-50 hover:bg-stone-100 text-stone-500 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1">
-                      <Copy className="w-3 h-3" /> {pendingAction === `duplicate_${item.id_producto}` ? 'Duplicando...' : 'Duplicar'}
-                    </button>
-                    <div className="flex items-center gap-1.5">
+                <div className="flex items-center justify-between pt-2 border-t border-stone-200/40 mt-2">
+                  <button onClick={() => void handleDuplicateItem(item)} disabled={isBusy}
+                    className="text-[9px] sm:text-[10px] font-bold px-2 py-1 rounded cursor-pointer transition-colors bg-stone-50 hover:bg-stone-100 text-stone-500 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1">
+                    <Copy className="w-3 h-3" /> {pendingAction === `duplicate_${item.id_producto}` ? 'Duplicando...' : 'Duplicar'}
+                  </button>
+                  <div className="flex items-center gap-1.5">
                     <span className={`text-[9px] sm:text-[10px] font-bold ${item.activo ? 'text-emerald-600' : 'text-rose-500'}`}>
                       {item.activo ? 'En carta' : 'Pausado'}
                     </span>
@@ -508,7 +803,6 @@ export default function MenuModule({ productosMenu, onProductosChange, addLog }:
                   </div>
                 </div>
               </div>
-            </div>
               );
             })}
           </div>

@@ -1254,7 +1254,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
               <UsuariosModule usuarios={usuarios} onUsuariosChange={setUsuarios} addLog={addLog} activeUser={activeUser} />
             )}
             {activeView === 'menu' && (
-              <MenuModule productosMenu={productosMenu} onProductosChange={setProductosMenu} addLog={addLog} />
+              <MenuModule productosMenu={productosMenu} onProductosChange={setProductosMenu} recetas={recetas} insumos={insumos} addLog={addLog} />
             )}
             {activeView === 'recetas' && (
               <RecetasErrorBoundary>
