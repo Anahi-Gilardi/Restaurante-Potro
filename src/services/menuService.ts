@@ -52,13 +52,39 @@ const toDbProductoMenu = (prod: ProductoMenu | Partial<ProductoMenu>) => ({
 
 export const menuService = {
   async list(): Promise<ProductoMenu[]> {
+    const cached = localStorage.getItem('el_patron_cache_menu');
+    if (cached) {
+      setTimeout(async () => {
+        try {
+          const supabase = getActiveSupabaseClient();
+          const { data, error } = await supabase.from('productos_menu').select('*').order('id_producto', { ascending: true });
+          if (!error && data) {
+            localStorage.setItem('el_patron_cache_menu', JSON.stringify(data));
+          }
+        } catch (e) {
+          console.warn('Background menu cache refresh failed:', e);
+        }
+      }, 500);
+
+      try {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map(normalizeProductoMenu);
+        }
+      } catch (e) {
+        console.warn('Failed parsing menu cache:', e);
+      }
+    }
+
     const supabase = getActiveSupabaseClient();
     const { data, error } = await supabase.from('productos_menu').select('*').order('id_producto', { ascending: true });
     if (error) {
       console.error('Error fetching productos_menu:', error);
       throw error;
     }
-    return (data || []).map(normalizeProductoMenu);
+    const normalized = (data || []).map(normalizeProductoMenu);
+    localStorage.setItem('el_patron_cache_menu', JSON.stringify(data || []));
+    return normalized;
   },
 
   async getById(id: string): Promise<ProductoMenu | null> {
@@ -72,6 +98,7 @@ export const menuService = {
   },
 
   async create(prod: ProductoMenu): Promise<ProductoMenu> {
+    localStorage.removeItem('el_patron_cache_menu');
     const supabase = getActiveSupabaseClient();
     const { data, error } = await supabase.from('productos_menu').insert([toDbProductoMenu(prod)]).select().single();
     if (error) {
@@ -82,6 +109,7 @@ export const menuService = {
   },
 
   async update(id: string, prod: Partial<ProductoMenu>): Promise<ProductoMenu> {
+    localStorage.removeItem('el_patron_cache_menu');
     const supabase = getActiveSupabaseClient();
     const { data, error } = await supabase.from('productos_menu').update(toDbProductoMenu(prod)).eq('id_producto', id).select().single();
     if (error) {
@@ -92,6 +120,7 @@ export const menuService = {
   },
 
   async upsert(prods: ProductoMenu[]): Promise<ProductoMenu[]> {
+    localStorage.removeItem('el_patron_cache_menu');
     const supabase = getActiveSupabaseClient();
     const { data, error } = await supabase.from('productos_menu').upsert(prods.map(toDbProductoMenu)).select();
     if (error) {
@@ -102,6 +131,7 @@ export const menuService = {
   },
 
   async remove(id: string): Promise<boolean> {
+    localStorage.removeItem('el_patron_cache_menu');
     const supabase = getActiveSupabaseClient();
     const { error } = await supabase.from('productos_menu').delete().eq('id_producto', id);
     if (error) {
@@ -112,6 +142,7 @@ export const menuService = {
   },
 
   async bulkUpdatePrices(updates: { id: string; precio_venta: number }[]): Promise<boolean> {
+    localStorage.removeItem('el_patron_cache_menu');
     const supabase = getActiveSupabaseClient();
     const { error } = await supabase.from('productos_menu').upsert(
       updates.map(u => ({ id_producto: u.id, precio_venta: u.precio_venta })),

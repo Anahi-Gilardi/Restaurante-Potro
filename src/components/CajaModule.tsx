@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { PaginatedList } from './VirtualizedList';
 import { 
   Receipt, 
   Printer, 
@@ -1727,13 +1728,16 @@ export default function CajaModule({
         </h4>
 
         {sessionInsumos.length > 0 ? (
-          <div className="space-y-2.5 max-h-[220px] overflow-y-auto pr-1">
-            {sessionInsumos.map((cs, idx) => {
+          <PaginatedList
+            items={sessionInsumos}
+            pageSize={10}
+            className="space-y-2.5 max-h-[300px] overflow-y-auto pr-1"
+            renderItem={(cs) => {
               const hasDiff = cs.diferencia !== null;
               const hasDiffErr = hasDiff && (cs.diferencia || 0) !== 0;
 
               return (
-                <div key={idx} className="p-3 bg-stone-50 border border-stone-200/60 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div className="p-3 bg-stone-50 border border-stone-200/60 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
                   <div className="space-y-1">
                     <p className="font-extrabold text-[#624A3E] flex items-center gap-1">
                       Cierre de Caja {cs.usuario_cajero}
@@ -1786,8 +1790,8 @@ export default function CajaModule({
                   </div>
                 </div>
               );
-            })}
-          </div>
+            }}
+          />
         ) : (
           <p className="text-[10px] text-stone-400 italic text-center py-4">No se registran históricos de cierres almacenados.</p>
         )}

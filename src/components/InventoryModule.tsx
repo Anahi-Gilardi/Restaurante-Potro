@@ -1,4 +1,5 @@
 import React from 'react';
+import { PaginatedList } from './VirtualizedList';
 import { useToast, ToastContainer } from './ToastContainer';
 import { 
   Database, 
@@ -45,6 +46,7 @@ export default function InventoryModule({
 }: InventoryModuleProps) {
   const { toasts, toast, dismissToast } = useToast();
   const [proveedores, setProveedores] = React.useState<Proveedor[]>([]);
+  const [visibleInsumosCount, setVisibleInsumosCount] = React.useState(20);
 
   React.useEffect(() => {
     proveedoresService.list().then(data => {
@@ -501,7 +503,7 @@ export default function InventoryModule({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50 text-xs">
-                    {filteredInsumos.map(ins => {
+                    {filteredInsumos.slice(0, visibleInsumosCount).map(ins => {
                       const isLow = ins.stock_actual <= ins.stock_minimo;
                       const isZero = ins.stock_actual <= 0;
                       
@@ -554,7 +556,7 @@ export default function InventoryModule({
                                   ...prev
                                 ]);
                               }}
-                              className="text-[10px] font-bold text-slate-900 border border-slate-200 py-1 px-2.5 rounded bg-white hover:bg-slate-50 shadow-xs"
+                              className="text-[10px] font-bold text-slate-900 border border-slate-200 py-1 px-2.5 rounded bg-white hover:bg-slate-50 shadow-xs cursor-pointer"
                             >
                               + Abastecer
                             </button>
@@ -564,6 +566,16 @@ export default function InventoryModule({
                     })}
                   </tbody>
                 </table>
+                {filteredInsumos.length > visibleInsumosCount && (
+                  <div className="p-3 bg-slate-50 border-t flex justify-center">
+                    <button
+                      onClick={() => setVisibleInsumosCount(prev => prev + 20)}
+                      className="text-xs font-bold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 py-1.5 px-4 rounded-xl shadow-xs transition-all cursor-pointer"
+                    >
+                      Cargar más ({filteredInsumos.length - visibleInsumosCount} restantes)
+                    </button>
+                  </div>
+                )}
               </div>
 
             </div>
