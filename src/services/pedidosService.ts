@@ -24,14 +24,17 @@ export const hydratePedido = (
   const relatedItems: PedidoItem[] = details
     .filter(detail => detail.id_pedido === header.id_pedido)
     .sort((a, b) => String(a.id_detalle || '').localeCompare(String(b.id_detalle || '')))
-    .map(detail => ({
-      id_producto: detail.id_producto || '',
-      nombre: detail.nombre,
-      readonly: true,
-      cantidad: detail.cantidad,
-      categoria: detail.categoria,
-      precio_unitario: detail.precio_unitario ?? undefined
-    }));
+    .map(detail => {
+      const matchingHeaderItem = headerItems.find(hi => hi.id_producto === detail.id_producto);
+      return {
+        id_producto: detail.id_producto || '',
+        nombre: detail.nombre,
+        readonly: true,
+        cantidad: detail.cantidad,
+        categoria: detail.categoria,
+        precio_unitario: detail.precio_unitario ?? matchingHeaderItem?.precio_unitario ?? undefined
+      };
+    });
 
   return {
     id_pedido: header.id_pedido,
@@ -40,7 +43,7 @@ export const hydratePedido = (
     numero_mesa: header.numero_mesa,
     mozo: header.mozo,
     estado_comanda: header.estado_comanda,
-    items: headerItems.length > 0 ? headerItems : relatedItems,
+    items: relatedItems.length > 0 ? relatedItems : headerItems,
     observaciones: header.observaciones || undefined,
     fecha_hora: new Date(header.fecha_hora),
     minutos_transcurridos: header.minutos_transcurridos || 0,
