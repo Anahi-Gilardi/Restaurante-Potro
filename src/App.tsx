@@ -829,7 +829,13 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
 
     setPedidos(prev => prev.map(p => orderIds.includes(p.id_pedido) ? { ...p, estado_comanda: 'entregado_cobrado' } : p));
 
-    const updatedMesas = mesas.map(m => String(m.id_mesa) === String(target.id_mesa) ? { ...m, estado: 'libre' as const, comensales: undefined } : m);
+    const updatedMesas = mesas.map(m => {
+      const matchId = (m.id_mesa !== undefined && m.id_mesa !== null && target.id_mesa !== undefined && target.id_mesa !== null && String(m.id_mesa) === String(target.id_mesa));
+      const norm1 = String(m.numero_mesa || '').toLowerCase().replace(/mesa\s+/gi, '').trim();
+      const norm2 = String(target.numero_mesa || '').toLowerCase().replace(/mesa\s+/gi, '').trim();
+      const matchNum = norm1 !== '' && norm1 === norm2;
+      return (matchId || matchNum) ? { ...m, estado: 'libre' as const, comensales: undefined } : m;
+    });
     setMesas(updatedMesas);
 
     addLog('sistema', `CAJA: Facturación completa cobrada correctamente de la mesa ${target.numero_mesa} por Pedido(s) #${orderIds.join(', #')}`);

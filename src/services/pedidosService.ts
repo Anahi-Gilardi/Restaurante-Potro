@@ -241,23 +241,40 @@ export const pedidosService = {
     
     for (const ped of pedidos) {
       try {
-        // 1. Verificar si la mesa ya tiene una cabecera activa ('abierta' o similar) en Supabase
-        const { data: activeHeader, error: findError } = await supabase
+        let activeId: number | null = null;
+        let isExisting = false;
+
+        // 1. Verificar si esta comanda específica ya existe en la base de datos por ID
+        const { data: existingHeader, error: checkError } = await supabase
           .from('pedidos_cabecera')
-          .select('id_pedido, items')
-          .eq('id_mesa', ped.id_mesa)
-          .in('estado_comanda', ['abierta', 'pendiente', 'en_cocina', 'listo', 'entregado'])
+          .select('id_pedido')
+          .eq('id_pedido', ped.id_pedido)
           .maybeSingle();
 
-        if (findError) {
-          console.error('Error searching active comanda for table:', findError);
-          throw findError;
+        if (existingHeader) {
+          isExisting = true;
+          activeId = existingHeader.id_pedido;
+        } else if (ped.estado_comanda !== 'entregado_cobrado' && ped.estado_comanda !== 'cancelado') {
+          // 2. Si no existe y es una comanda activa nueva, buscar si la mesa tiene otra activa
+          const { data: activeHeaders, error: findError } = await supabase
+            .from('pedidos_cabecera')
+            .select('id_pedido')
+            .eq('id_mesa', ped.id_mesa)
+            .in('estado_comanda', ['abierta', 'pendiente', 'en_cocina', 'listo', 'entregado']);
+
+          if (findError) {
+            console.error('Error searching active comanda for table:', findError);
+            throw findError;
+          }
+
+          if (activeHeaders && activeHeaders.length > 0) {
+            isExisting = true;
+            activeId = activeHeaders[0].id_pedido;
+          }
         }
 
-        if (activeHeader) {
+        if (isExisting && activeId !== null) {
           // A. Ya existe una comanda activa -> Se actualiza la cabecera completa y se sincronizan los detalles
-          const activeId = activeHeader.id_pedido;
-          
           const cabeceraUpdate = serializePedidoHeader(ped);
           delete (cabeceraUpdate as any).id_pedido;
           delete (cabeceraUpdate as any).idempotency_key;
