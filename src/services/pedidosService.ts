@@ -274,6 +274,18 @@ export const pedidosService = {
         }
 
         if (isExisting && activeId !== null) {
+          // Evitar que colas de sincronización offline (SyncQueue) reviertan comandas ya cobradas o canceladas
+          const { data: dbHeader } = await supabase
+            .from('pedidos_cabecera')
+            .select('estado_comanda')
+            .eq('id_pedido', activeId)
+            .maybeSingle();
+
+          if (dbHeader && ['entregado_cobrado', 'cancelado'].includes(dbHeader.estado_comanda)) {
+            console.log(`[upsert] Pedido #${activeId} ya está cobrado/cancelado (${dbHeader.estado_comanda}). Omitiendo para evitar reversiones.`);
+            continue;
+          }
+
           // A. Ya existe una comanda activa -> Se actualiza la cabecera completa y se sincronizan los detalles
           const cabeceraUpdate = serializePedidoHeader(ped);
           delete (cabeceraUpdate as any).id_pedido;
