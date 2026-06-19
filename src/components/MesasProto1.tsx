@@ -4,6 +4,7 @@ import { X, Plus, Calendar, Pencil, Trash } from 'lucide-react';
 import { Mesa, Reserva } from '../types';
 import { mesasService } from '../services/mesasService';
 import { reservasService } from '../services/reservasService';
+import MesaAsistente, { LAYOUT_OFICIAL, procesarComando } from './MesaAsistente';
 
 interface MesasProto1Props {
   mesas: Mesa[];
@@ -37,20 +38,30 @@ interface MesaVisual {
   zona: Zona;
   posicion: MesaPosicion;
   estado: Mesa['estado'];
+  comensales?: number;
+  id_pedido?: number;
   mesas_unidas?: number[];
   parent_id?: number;
 }
 
 const POSICIONES_INICIALES: MesaVisual[] = [
-  { id: 'mesa-8-comedor-8', id_mesa: 8, numero_mesa: '8', capacidad: 8, zona: 'comedor', posicion: { x: 135, y: 60, width: 80, height: 52, rx: 6 }, estado: 'libre' },
-  { id: 'mesa-4-comedor-4', id_mesa: 4, numero_mesa: '4', capacidad: 4, zona: 'comedor', posicion: { x: 270, y: 60, width: 64, height: 52, rx: 6 }, estado: 'libre' },
-  { id: 'mesa-5-comedor-5', id_mesa: 5, numero_mesa: '5', capacidad: 5, zona: 'comedor', posicion: { x: 140, y: 145, width: 72, height: 52, rx: 6 }, estado: 'libre' },
-  { id: 'mesa-4-comedor-6', id_mesa: 6, numero_mesa: '6', capacidad: 4, zona: 'comedor', posicion: { x: 270, y: 145, width: 64, height: 52, rx: 6 }, estado: 'libre' },
-  { id: 'mesa-4-salon-7',  id_mesa: 7, numero_mesa: '7', capacidad: 4, zona: 'salon',   posicion: { x: 155, y: 325, width: 64, height: 52, rx: 6 }, estado: 'libre' },
-  { id: 'mesa-3-salon-3',  id_mesa: 3, numero_mesa: '3', capacidad: 3, zona: 'salon',   posicion: { x: 285, y: 325, width: 52, height: 52, rx: 6 }, estado: 'libre' },
-  { id: 'mesa-5-salon-9',  id_mesa: 9, numero_mesa: '9', capacidad: 5, zona: 'salon',   posicion: { x: 135, y: 415, width: 72, height: 52, rx: 6 }, estado: 'libre' },
-  { id: 'mesa-2-salon-2',  id_mesa: 2, numero_mesa: '2', capacidad: 2, zona: 'salon',   posicion: { x: 285, y: 415, width: 52, height: 52, rx: 6 }, estado: 'libre' },
-  { id: 'mesa-1-salon-1',  id_mesa: 1, numero_mesa: '1', capacidad: 1, zona: 'salon',   posicion: { x: 108, y: 495, width: 52, height: 52, rx: 6 }, estado: 'libre' },
+  // ZONA ALTA: mesas 1-6 modulares de 2 pax
+  { id: 'mesa-2-alta-1', id_mesa: 1, numero_mesa: '1', capacidad: 2, zona: 'comedor', posicion: { x: 135, y: 50, width: 60, height: 42, rx: 6 }, estado: 'libre' },
+  { id: 'mesa-2-alta-2', id_mesa: 2, numero_mesa: '2', capacidad: 2, zona: 'comedor', posicion: { x: 210, y: 50, width: 60, height: 42, rx: 6 }, estado: 'libre' },
+  { id: 'mesa-2-alta-3', id_mesa: 3, numero_mesa: '3', capacidad: 2, zona: 'comedor', posicion: { x: 285, y: 50, width: 60, height: 42, rx: 6 }, estado: 'libre' },
+  { id: 'mesa-2-alta-4', id_mesa: 4, numero_mesa: '4', capacidad: 2, zona: 'comedor', posicion: { x: 360, y: 50, width: 60, height: 42, rx: 6 }, estado: 'libre' },
+  { id: 'mesa-2-alta-5', id_mesa: 5, numero_mesa: '5', capacidad: 2, zona: 'comedor', posicion: { x: 135, y: 110, width: 60, height: 42, rx: 6 }, estado: 'libre' },
+  { id: 'mesa-2-alta-6', id_mesa: 6, numero_mesa: '6', capacidad: 2, zona: 'comedor', posicion: { x: 210, y: 110, width: 60, height: 42, rx: 6 }, estado: 'libre' },
+
+  // ZONA CENTRAL/BAJA: mesas redondas familiares 7-11
+  { id: 'mesa-5-central-7',  id_mesa: 7, numero_mesa: '7',  capacidad: 5, zona: 'salon', posicion: { x: 200, y: 320, width: 58, height: 52, rx: 6 }, estado: 'libre' },
+  { id: 'mesa-5-central-8',  id_mesa: 8, numero_mesa: '8',  capacidad: 5, zona: 'salon', posicion: { x: 130, y: 380, width: 58, height: 52, rx: 6 }, estado: 'libre' },
+  { id: 'mesa-5-central-9',  id_mesa: 9, numero_mesa: '9',  capacidad: 5, zona: 'salon', posicion: { x: 270, y: 380, width: 58, height: 52, rx: 6 }, estado: 'libre' },
+  { id: 'mesa-5-central-10', id_mesa: 10, numero_mesa: '10', capacidad: 5, zona: 'salon', posicion: { x: 130, y: 460, width: 58, height: 52, rx: 6 }, estado: 'libre' },
+  { id: 'mesa-5-central-11', id_mesa: 11, numero_mesa: '11', capacidad: 5, zona: 'salon', posicion: { x: 270, y: 460, width: 58, height: 52, rx: 6 }, estado: 'libre' },
+
+  // SECTOR VIP: mesa 12 para eventos
+  { id: 'mesa-10-vip-12', id_mesa: 12, numero_mesa: '12', capacidad: 10, zona: 'salon', posicion: { x: 105, y: 540, width: 130, height: 62, rx: 8 }, estado: 'libre' },
 ];
 
 const ESTADO_FILL: Record<Mesa['estado'], string> = {
@@ -60,6 +71,7 @@ const ESTADO_FILL: Record<Mesa['estado'], string> = {
   esperando_cuenta: '#d1fae5',
   limpiando: '#dbeafe',
   unida: '#e5e7eb',
+  sucia: '#dbeafe',
 };
 
 const ESTADO_STROKE: Record<Mesa['estado'], string> = {
@@ -69,6 +81,7 @@ const ESTADO_STROKE: Record<Mesa['estado'], string> = {
   esperando_cuenta: '#10B981',
   limpiando: '#3B82F6',
   unida: '#6B7280',
+  sucia: '#3B82F6',
 };
 
 const ESTADO_TEXT: Record<Mesa['estado'], string> = {
@@ -78,6 +91,7 @@ const ESTADO_TEXT: Record<Mesa['estado'], string> = {
   esperando_cuenta: '#065F46',
   limpiando: '#1E40AF',
   unida: '#374151',
+  sucia: '#1E40AF',
 };
 
 function generarIdMesa(numero: string, capacidad: number, zona: Zona): string {
@@ -299,7 +313,7 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
       numero_mesa: `${m1.numero_mesa} + ${m2.numero_mesa}`,
       capacidad: capacidadUnida,
       zona: m1.zona,
-      estado: m1.estado === 'ocupada' || m2.estado === 'ocupada' ? 'ocupada' : 'libre',
+      estado: 'ocupada',
       mesas_unidas: [m1.id_mesa, m2.id_mesa],
     };
 
@@ -307,16 +321,52 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
       await mesasService.update(m1.id_mesa, mesaUnida);
       await mesasService.update(m2.id_mesa, { parent_id: m1.id_mesa, estado: 'unida' });
       setVisualMesas(prev => prev.map(m => {
-        if (m.id_mesa === m1.id_mesa) return { ...m, ...mesaUnida, zona: m1.zona, estado: mesaUnida.estado || 'libre' } as MesaVisual;
+        if (m.id_mesa === m1.id_mesa) return { ...m, ...mesaUnida, zona: m1.zona, estado: 'ocupada' } as MesaVisual;
         if (m.id_mesa === m2.id_mesa) return { ...m, parent_id: m1.id_mesa, estado: 'unida' };
         return m;
       }));
       setSelectedForUnion([]);
       setUnionMode(false);
-      addLog('mesa', `${m1.numero_mesa} unida con ${m2.numero_mesa}`);
-      toast.success('Mesas unidas correctamente');
+      addLog('mesa', `${m1.numero_mesa} unida con ${m2.numero_mesa} (ambas pasan a Ocupadas con mismo pedido)`);
+      toast.success('Mesas unidas y marcadas como Ocupadas');
     } catch (err: any) {
       toast.error(err.message || 'Error al unir mesas');
+    }
+  };
+
+  const handleAccionAsistente = async (accion: any) => {
+    try {
+      if (accion.accion === 'cambio_estado' && accion.mesa_id) {
+        const ids = Array.isArray(accion.mesa_id) ? accion.mesa_id : [accion.mesa_id];
+        const nuevoEstado = accion.nuevo_estado === 'Ocupada' ? 'ocupada' : accion.nuevo_estado === 'Reservada' ? 'reservada' : accion.nuevo_estado === 'Libre' ? 'libre' : 'sucia';
+        for (const id of ids) {
+          const mesa = visualMesas.find(m => m.id_mesa === id);
+          if (!mesa) continue;
+          // Validación: no ocupar si no está libre o reservada
+          if (nuevoEstado === 'ocupada' && mesa.estado !== 'libre' && mesa.estado !== 'reservada') {
+            toast.error(`La Mesa ${mesa.numero_mesa} no está disponible (estado: ${mesa.estado})`);
+            continue;
+          }
+          await mesasService.update(id, { estado: nuevoEstado, comensales: accion.comensales || mesa.comensales });
+          setVisualMesas(prev => prev.map(m => m.id_mesa === id ? { ...m, estado: nuevoEstado, comensales: accion.comensales || m.comensales } : m));
+        }
+        addLog('mesa', `Asistente: ${accion.mensaje}`);
+        toast.success(accion.mensaje);
+      } else if (accion.accion === 'combinar_mesas' && Array.isArray(accion.mesa_id)) {
+        const [id1, id2] = accion.mesa_id;
+        const m1 = visualMesas.find(m => m.id_mesa === id1);
+        const m2 = visualMesas.find(m => m.id_mesa === id2);
+        if (m1 && m2) {
+          setSelectedForUnion([m1, m2]);
+          await handleUnirMesas();
+        }
+      } else if (accion.accion === 'resumen_salon') {
+        toast.info(accion.mensaje);
+      } else if (accion.accion === 'error') {
+        toast.error(accion.mensaje);
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Error aplicando acción del asistente');
     }
   };
 
@@ -330,6 +380,22 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
         numero_mesa: original?.numero_mesa || selectedMesa.numero_mesa,
         estado: 'libre',
       });
+      // También liberar la mesa hija si estaba unida
+      if (selectedMesa.mesas_unidas) {
+        for (const idHija of selectedMesa.mesas_unidas) {
+          if (idHija === selectedMesa.id_mesa) continue;
+          await mesasService.update(idHija, { parent_id: null, estado: 'libre' });
+        }
+      }
+      setVisualMesas(prev => prev.map(m => {
+        if (m.id_mesa === selectedMesa.id_mesa) {
+          return { ...m, capacidad: original?.capacidad || m.capacidad, mesas_unidas: [], numero_mesa: original?.numero_mesa || m.numero_mesa, estado: 'libre' };
+        }
+        if (selectedMesa.mesas_unidas?.includes(m.id_mesa)) {
+          return { ...m, parent_id: undefined, estado: 'libre' };
+        }
+        return m;
+      }));
       addLog('mesa', `Mesas separadas: ${selectedMesa.numero_mesa}`);
       toast.success('Mesas separadas');
       closeModal();
@@ -476,21 +542,34 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
   const handleLiberarMesa = async () => {
     if (!selectedMesa) return;
     try {
-      await mesasService.update(selectedMesa.id_mesa, { estado: 'libre', comensales: 0, reserva_cliente: undefined, reserva_hora: undefined });
+      await mesasService.update(selectedMesa.id_mesa, { estado: 'sucia', comensales: 0, reserva_cliente: undefined, reserva_hora: undefined });
       const reservaExistente = reservasHoy.find(r => r.id_mesa === selectedMesa.id_mesa && r.estado === 'confirmada');
       if (reservaExistente) {
         await reservasService.update(reservaExistente.id_reserva, { estado: 'completada' });
       }
-      setVisualMesas(prev => prev.map(m => m.id_mesa === selectedMesa.id_mesa ? { ...m, estado: 'libre' } : m));
+      setVisualMesas(prev => prev.map(m => m.id_mesa === selectedMesa.id_mesa ? { ...m, estado: 'sucia' } : m));
       const updated = reservasService.listByFecha ? await reservasService.listByFecha(today) : await reservasService.list();
       setReservasHoy((updated || []).filter((r: Reserva) =>
         (r.fecha === today || !r.fecha) && r.estado !== 'cancelada' && !r.lista_espera
       ));
-      addLog('mesa', `${selectedMesa.numero_mesa} liberada`);
-      toast.success('Mesa liberada');
+      addLog('mesa', `${selectedMesa.numero_mesa} liberada y marcada como Sucia/En Limpieza`);
+      toast.success('Mesa liberada - pendiente de limpieza');
       closeModal();
     } catch (err: any) {
       toast.error(err.message || 'Error al liberar');
+    }
+  };
+
+  const handleLimpiarMesa = async () => {
+    if (!selectedMesa) return;
+    try {
+      await mesasService.update(selectedMesa.id_mesa, { estado: 'libre', comensales: 0 });
+      setVisualMesas(prev => prev.map(m => m.id_mesa === selectedMesa.id_mesa ? { ...m, estado: 'libre' } : m));
+      addLog('mesa', `${selectedMesa.numero_mesa} limpiada y lista`);
+      toast.success('Mesa limpiada');
+      closeModal();
+    } catch (err: any) {
+      toast.error(err.message || 'Error al limpiar');
     }
   };
 
@@ -609,9 +688,29 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
         </div>
       )}
 
-      {/* Plano SVG */}
-      <div className="bg-white rounded-2xl p-4 sm:p-6 border border-stone-200 shadow-sm">
-        {renderSvg()}
+      {/* Plano SVG + Asistente */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+        <div className="xl:col-span-2 bg-white rounded-2xl p-4 sm:p-6 border border-stone-200 shadow-sm">
+          {renderSvg()}
+        </div>
+        <div className="xl:col-span-1">
+          <MesaAsistente
+            mesas={visualMesas.map(m => {
+              const zonaOficial = LAYOUT_OFICIAL[m.id_mesa]?.zona || (m.zona === 'comedor' ? 'alta' : m.numero_mesa === '12' ? 'vip' : 'central');
+              return {
+                id_mesa: m.id_mesa,
+                numero_mesa: m.numero_mesa,
+                capacidad: m.capacidad,
+                zona: zonaOficial,
+                estado: (m.estado === 'ocupada' ? 'Ocupada' : m.estado === 'reservada' ? 'Reservada' : m.estado === 'sucia' || m.estado === 'limpiando' ? 'Sucia/En Limpieza' : 'Libre') as any,
+                comensales: m.comensales,
+                id_pedido: m.id_pedido,
+                mesas_unidas: m.mesas_unidas,
+              };
+            })}
+            onAccion={handleAccionAsistente}
+          />
+        </div>
       </div>
 
       {/* Gestión de mesas */}
@@ -691,8 +790,13 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
 
             {selectedMesa.estado === 'ocupada' ? (
               <div className="space-y-4">
-                <p className="text-sm text-stone-600">La mesa está ocupada. Podés liberarla cuando el cliente termine.</p>
+                <p className="text-sm text-stone-600">La mesa está ocupada. Al liberar quedará marcada como Sucia/En Limpieza hasta que se limpie.</p>
                 <button onClick={handleLiberarMesa} className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold cursor-pointer">Liberar mesa</button>
+              </div>
+            ) : selectedMesa.estado === 'sucia' ? (
+              <div className="space-y-4">
+                <p className="text-sm text-stone-600">La mesa está sucia o en limpieza. Marcala como libre cuando esté lista.</p>
+                <button onClick={handleLimpiarMesa} className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold cursor-pointer">Mesa limpia</button>
               </div>
             ) : selectedMesa.estado === 'unida' ? (
               <div className="space-y-4">
