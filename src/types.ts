@@ -96,6 +96,7 @@ export interface RecetaEscandallo {
     id_insumo: string;
     cantidad_a_descontar: number;
     unidad_medida?: Insumo['unidad_medida'] | string;
+    rendimiento?: number;
 }
 
 export interface PedidoItem {
