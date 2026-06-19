@@ -309,6 +309,16 @@ export default function App() {
             console.warn('Realtime fetch for pedido_detalle failed:', err);
           }
         })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'mesas' }, async () => {
+          try {
+            const refreshed = await dbFetchMesas();
+            if (refreshed && active) {
+              setMesas(refreshed);
+            }
+          } catch (err) {
+            console.warn('Realtime fetch for mesas failed:', err);
+          }
+        })
         .subscribe();
     }
 

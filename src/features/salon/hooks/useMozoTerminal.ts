@@ -82,9 +82,29 @@ export function useMozoTerminal({
   const activeUser = useMemo(() => usuarios.find(u => u.nombre === activeMozo), [usuarios, activeMozo]);
   const isAdmin = activeUser?.rol === 'superadmin' || activeUser?.rol === 'administrador';
 
+  const dynamicMesas = useMemo(() => {
+    return mesas.map(m => {
+      const activePedido = pedidos.find(p => 
+        String(p.id_mesa) === String(m.id_mesa) && 
+        ['abierta', 'pendiente', 'en_cocina', 'listo'].includes(p.estado_comanda)
+      );
+      if (activePedido) {
+        return {
+          ...m,
+          estado: 'ocupada' as const,
+          comensales: (activePedido as any).comensales || m.comensales || 2
+        };
+      }
+      return {
+        ...m,
+        estado: m.estado === 'ocupada' ? 'libre' : m.estado
+      };
+    });
+  }, [mesas, pedidos]);
+
   const selectedMesa = useMemo(() => {
-    return mesas.find(m => m.id_mesa === selectedMesaId) || null;
-  }, [selectedMesaId, mesas]);
+    return dynamicMesas.find(m => m.id_mesa === selectedMesaId) || null;
+  }, [selectedMesaId, dynamicMesas]);
 
   const getValidCartFromDraft = useCallback((draftCart: MozoCart): { cart: MozoCart; removed: string[] } => {
     return Object.entries(draftCart).reduce<{ cart: MozoCart; removed: string[] }>((acc, [productId, qty]) => {
@@ -500,6 +520,7 @@ export function useMozoTerminal({
     activeUser,
     isAdmin,
     selectedMesa,
+    dynamicMesas,
     activePedidoDeMesa,
     filteredProducts,
     totalCartValue,
