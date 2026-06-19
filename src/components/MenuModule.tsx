@@ -187,6 +187,26 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
     }
   };
 
+  const handleAutoGenerateImage = (dishName: string, dishCategory: string, isEditMode: boolean) => {
+    if (!dishName.trim()) {
+      toast.warning('Ingrese primero el nombre del plato para buscar una imagen adecuada.');
+      return;
+    }
+    
+    // Generate a professional Gastronomic image query via Unsplash source fallback redirect urls
+    const cleanName = encodeURIComponent(dishName.trim());
+    const cleanCategory = encodeURIComponent(dishCategory.trim());
+    // Using high quality featured source redirect based on culinary keywords
+    const autoUrl = `https://images.unsplash.com/featured/500x500/?food,plated,${cleanCategory},${cleanName}`;
+    
+    if (isEditMode) {
+      setEditImagen(autoUrl);
+    } else {
+      setImagenUrl(autoUrl);
+    }
+    toast.success('Imagen autogenerada con éxito.');
+  };
+
   const buildMenuItem = (
     id: string,
     values: {
@@ -532,8 +552,16 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
 
             {/* Canvas express image resize and uploader */}
             <div>
-              <label className="text-[10px] font-black text-stone-500 uppercase tracking-wider block mb-1">Imagen del plato</label>
-              <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-stone-500 uppercase tracking-wider block mb-1">Imagen del plato (Manual / Auto)</label>
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  value={imagenUrl}
+                  onChange={e => setImagenUrl(e.target.value)}
+                  placeholder="Pegue una URL de imagen..."
+                  className="w-full min-h-10 text-xs p-2.5 rounded-xl border border-stone-200 bg-stone-50/30 focus:outline-none focus:ring-1 focus:ring-[#624A3E]/30"
+                  disabled={isBusy}
+                />
                 <input
                   type="file"
                   accept="image/*"
@@ -541,14 +569,23 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
                   ref={fileInputRef}
                   className="hidden"
                 />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="w-full min-h-11 flex items-center justify-center gap-2 border border-dashed border-stone-300 hover:border-stone-400 bg-stone-50 rounded-xl text-xs font-bold text-stone-600 cursor-pointer"
-                >
-                  <Image className="w-4 h-4 text-stone-450" />
-                  {imagenUrl ? 'Cambiar Imagen' : 'Subir Imagen (Compresión)'}
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex-1 min-h-10 flex items-center justify-center gap-1 border border-dashed border-stone-300 hover:border-stone-400 bg-stone-50 rounded-xl text-[11px] font-bold text-stone-600 cursor-pointer"
+                  >
+                    <Image className="w-3.5 h-3.5 text-stone-450" />
+                    Subir Archivo (Canvas)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAutoGenerateImage(nombre, categoria, false)}
+                    className="flex-1 min-h-10 bg-amber-50 hover:bg-amber-100/80 border border-amber-200 text-amber-800 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                  >
+                    🪄 Auto Generar
+                  </button>
+                </div>
                 {imagenUrl && (
                   <div className="relative w-16 h-16 rounded-xl border border-stone-200 overflow-hidden">
                     <img src={imagenUrl} className="w-full h-full object-cover" alt="Vista previa" />
@@ -719,8 +756,16 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
                             </div>
                           </div>
 
-                          {/* Edit image handler (Base64 canvas) */}
+                          {/* Edit image handler (Base64 canvas & automated generator) */}
                           <div className="space-y-1.5">
+                            <input
+                              type="text"
+                              value={editImagen}
+                              onChange={e => setEditImagen(e.target.value)}
+                              placeholder="URL de imagen..."
+                              className="w-full text-xs p-1.5 border border-stone-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-[#624A3E]"
+                              disabled={isBusy}
+                            />
                             <input
                               type="file"
                               accept="image/*"
@@ -728,13 +773,22 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
                               ref={editFileInputRef}
                               className="hidden"
                             />
-                            <button
-                              type="button"
-                              onClick={() => editFileInputRef.current?.click()}
-                              className="w-full py-1 bg-stone-50 hover:bg-stone-100 border border-stone-200 rounded text-[9px] font-bold text-stone-650 flex items-center justify-center gap-1 cursor-pointer"
-                            >
-                              <Image className="w-3 h-3 text-stone-550" /> Cambiar foto
-                            </button>
+                            <div className="flex gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => editFileInputRef.current?.click()}
+                                className="flex-1 py-1 bg-stone-50 hover:bg-stone-100 border border-stone-200 rounded text-[9px] font-bold text-stone-650 flex items-center justify-center gap-1 cursor-pointer"
+                              >
+                                <Image className="w-3 h-3 text-stone-550" /> Subir
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleAutoGenerateImage(editNombre, editCategoria, true)}
+                                className="flex-1 py-1 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 rounded text-[9px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                              >
+                                🪄 Auto
+                              </button>
+                            </div>
                           </div>
 
                           <div className="flex gap-1.5 pt-1">
