@@ -170,7 +170,7 @@ ON CONFLICT (clave) DO NOTHING;
 
 -- Tabla de Pedidos / Comandas (Cabecera)
 CREATE TABLE IF NOT EXISTS public.pedidos_cabecera (
-    id_pedido INT PRIMARY KEY,
+    id_pedido BIGINT PRIMARY KEY,
     id_mesa INT REFERENCES public.mesas(id_mesa) ON DELETE SET NULL,
     numero_mesa TEXT NOT NULL,
     mozo TEXT NOT NULL,
@@ -195,7 +195,7 @@ CREATE TABLE IF NOT EXISTS public.pedidos_cabecera (
 -- Tabla de Detalles de Pedido (Items individuales)
 CREATE TABLE IF NOT EXISTS public.pedido_detalle (
     id_detalle TEXT PRIMARY KEY,
-    id_pedido INT NOT NULL REFERENCES public.pedidos_cabecera(id_pedido) ON DELETE CASCADE,
+    id_pedido BIGINT NOT NULL REFERENCES public.pedidos_cabecera(id_pedido) ON DELETE CASCADE,
     id_producto TEXT REFERENCES public.productos_menu(id_producto) ON DELETE SET NULL,
     nombre TEXT NOT NULL,
     cantidad INT NOT NULL CONSTRAINT chk_cantidad_positiva CHECK (cantidad > 0),
