@@ -98,46 +98,100 @@ export const menuService = {
   },
 
   async create(prod: ProductoMenu): Promise<ProductoMenu> {
-    localStorage.removeItem('el_patron_cache_menu');
     const supabase = getActiveSupabaseClient();
     const { data, error } = await supabase.from('productos_menu').insert([toDbProductoMenu(prod)]).select().single();
     if (error) {
       console.error('Error creating product:', error);
       throw error;
     }
-    return normalizeProductoMenu(data);
+    const normalized = normalizeProductoMenu(data);
+    
+    // Update local cache
+    const cached = localStorage.getItem('el_patron_cache_menu');
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed)) {
+          parsed.push(data);
+          localStorage.setItem('el_patron_cache_menu', JSON.stringify(parsed));
+        }
+      } catch (e) {
+        localStorage.removeItem('el_patron_cache_menu');
+      }
+    }
+    
+    return normalized;
   },
 
   async update(id: string, prod: Partial<ProductoMenu>): Promise<ProductoMenu> {
-    localStorage.removeItem('el_patron_cache_menu');
     const supabase = getActiveSupabaseClient();
     const { data, error } = await supabase.from('productos_menu').update(toDbProductoMenu(prod)).eq('id_producto', id).select().single();
     if (error) {
       console.error('Error updating product:', error);
       throw error;
     }
-    return normalizeProductoMenu(data);
+    const normalized = normalizeProductoMenu(data);
+    
+    // Update local cache in-place
+    const cached = localStorage.getItem('el_patron_cache_menu');
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed)) {
+          const updatedCache = parsed.map((item: any) => 
+            item.id_producto === id ? { ...item, ...data } : item
+          );
+          localStorage.setItem('el_patron_cache_menu', JSON.stringify(updatedCache));
+        }
+      } catch (e) {
+        localStorage.removeItem('el_patron_cache_menu');
+      }
+    }
+    
+    return normalized;
   },
 
   async upsert(prods: ProductoMenu[]): Promise<ProductoMenu[]> {
-    localStorage.removeItem('el_patron_cache_menu');
     const supabase = getActiveSupabaseClient();
     const { data, error } = await supabase.from('productos_menu').upsert(prods.map(toDbProductoMenu)).select();
     if (error) {
       console.error('Error upserting productos_menu:', error);
       throw error;
     }
-    return (data || []).map(normalizeProductoMenu);
+    const normalized = (data || []).map(normalizeProductoMenu);
+    
+    // Update local cache
+    if (data) {
+      localStorage.setItem('el_patron_cache_menu', JSON.stringify(data));
+    } else {
+      localStorage.removeItem('el_patron_cache_menu');
+    }
+    
+    return normalized;
   },
 
   async remove(id: string): Promise<boolean> {
-    localStorage.removeItem('el_patron_cache_menu');
     const supabase = getActiveSupabaseClient();
     const { error } = await supabase.from('productos_menu').delete().eq('id_producto', id);
     if (error) {
       console.error('Error deleting product:', error);
       return false;
     }
+    
+    // Update local cache
+    const cached = localStorage.getItem('el_patron_cache_menu');
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed)) {
+          const updatedCache = parsed.filter((item: any) => item.id_producto !== id);
+          localStorage.setItem('el_patron_cache_menu', JSON.stringify(updatedCache));
+        }
+      } catch (e) {
+        localStorage.removeItem('el_patron_cache_menu');
+      }
+    }
+    
     return true;
   },
 
