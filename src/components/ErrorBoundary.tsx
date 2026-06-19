@@ -44,14 +44,36 @@ export default class ErrorBoundary extends React.Component<Props, State> {
     this.setState({ hasError: false, error: null, errorInfo: null });
   };
 
-  handleReload = () => {
+  handleReload = async () => {
+    try {
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (const registration of registrations) {
+          await registration.unregister();
+        }
+      }
+      if ('caches' in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map(key => caches.delete(key)));
+      }
+    } catch {}
     window.location.reload();
   };
 
-  handleResetStorage = () => {
+  handleResetStorage = async () => {
     try {
       window.sessionStorage.clear();
       window.localStorage.clear();
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (const registration of registrations) {
+          await registration.unregister();
+        }
+      }
+      if ('caches' in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map(key => caches.delete(key)));
+      }
     } catch {}
     window.location.reload();
   };
@@ -60,7 +82,10 @@ export default class ErrorBoundary extends React.Component<Props, State> {
     if (this.state.hasError) {
       const isChunkError = this.state.error?.message?.includes('Failed to fetch') ||
                            this.state.error?.message?.includes('Importing a module') ||
-                           this.state.error?.message?.includes('Loading chunk');
+                           this.state.error?.message?.includes('Loading chunk') ||
+                           this.state.error?.message?.toLowerCase().includes('mime type') ||
+                           this.state.error?.message?.toLowerCase().includes('mime') ||
+                           this.state.error?.message?.includes('text/html');
       const isAuthError = this.state.error?.message?.includes('Supabase') ||
                           this.state.error?.message?.includes('auth') ||
                           this.state.error?.message?.includes('session');

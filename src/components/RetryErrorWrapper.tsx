@@ -30,23 +30,43 @@ export default class RetryErrorWrapper extends Component<RetryErrorWrapperProps,
 
   componentDidCatch(error: Error): void {
     const isChunkError =
-      error.message.includes('Failed to fetch dynamically imported module') ||
-      error.message.includes('Importing a module script failed') ||
+      error.message.includes('Failed to fetch') ||
+      error.message.includes('Importing a module') ||
       error.message.includes('Loading chunk') ||
       error.message.toLowerCase().includes('mime type') ||
-      error.message.toLowerCase().includes('mime');
+      error.message.toLowerCase().includes('mime') ||
+      error.message.includes('text/html');
 
     if (isChunkError && this.state.retries < (this.props.maxRetries ?? 2)) {
       console.warn(`[Retry] Chunk load failed (attempt ${this.state.retries + 1}). Retrying...`);
       this.setState(prev => ({ hasError: false, retries: prev.retries + 1, errorMessage: '' }));
     } else if (isChunkError) {
-      console.warn('[Retry] Max retries reached. Reloading page...');
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistration().then(reg => {
-          if (reg) reg.unregister();
-        });
-      }
-      setTimeout(() => window.location.reload(), 500);
+      console.warn('[Retry] Max retries reached. Cleansing cache and reloading...');
+      
+      const reload = () => {
+        window.location.reload();
+      };
+
+      const clearCacheAndSW = async () => {
+        try {
+          if ('serviceWorker' in navigator) {
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            for (const registration of registrations) {
+              await registration.unregister();
+            }
+          }
+          if ('caches' in window) {
+            const keys = await caches.keys();
+            await Promise.all(keys.map(key => caches.delete(key)));
+          }
+        } catch (e) {
+          console.warn('Error clearing SW or caches:', e);
+        } finally {
+          reload();
+        }
+      };
+
+      clearCacheAndSW();
     } else {
       console.error('[RetryErrorWrapper] Error en módulo:', error);
     }
