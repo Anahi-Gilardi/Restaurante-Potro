@@ -56,6 +56,7 @@ const FacturacionModule = lazy(() => import('./components/FacturacionModule'));
 const BackupsModule = lazy(() => import('./components/BackupsModule'));
 import { 
   getSupabaseClient,
+  resetSupabaseInstance,
   dbFetchMesas,
   dbFetchInsumos,
   dbFetchProductosMenu,
@@ -149,6 +150,23 @@ export default function App() {
   // Auto-sync effect on mount
   useEffect(() => {
     const autoLoadSupabase = async () => {
+      // 1. Load config from server if available to enable automatic online connection
+      try {
+        const response = await fetch('/api/supabase-config');
+        const data = await response.json();
+        if (data.SUPABASE_URL && data.SUPABASE_ANON_KEY) {
+          const currentUrl = localStorage.getItem('SUPABASE_URL');
+          const currentKey = localStorage.getItem('SUPABASE_ANON_KEY');
+          if (currentUrl !== data.SUPABASE_URL || currentKey !== data.SUPABASE_ANON_KEY) {
+            localStorage.setItem('SUPABASE_URL', data.SUPABASE_URL);
+            localStorage.setItem('SUPABASE_ANON_KEY', data.SUPABASE_ANON_KEY);
+            resetSupabaseInstance();
+          }
+        }
+      } catch (configErr) {
+        console.warn('Could not fetch Supabase config from API:', configErr);
+      }
+
       try {
         const savedUsuarios = await dbFetchUsuarios();
         if (savedUsuarios.length > 0) setUsuarios(savedUsuarios);
