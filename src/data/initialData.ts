@@ -142,7 +142,7 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     precio_venta: 7600.00,
     categoria: 'Entradas',
     activo: true,
-    imagen: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&q=80&auto=format&fit=crop',
+    imagen: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=500&q=80&auto=format&fit=crop',
     tipo: 'plato',
     tiempo_preparacion_estimado: 8,
     requiere_cocina: true
