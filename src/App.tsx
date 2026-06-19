@@ -1241,7 +1241,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
             {activeView === 'facturacion' && (
               <FacturacionModule pedidos={pedidos} productosMenu={productosMenu} addLog={addLog} />
             )}
-            {activeView === 'sistema' && activeUser.rol === 'superadmin' && (
+            {activeView === 'sistema' && (
               <SistemaModule 
                 insumos={insumos}
                 productosMenu={productosMenu}
@@ -1252,7 +1252,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
                 onSyncComplete={handleSupabaseSync}
               />
             )}
-            {activeView === 'backups' && (activeUser.rol === 'superadmin' || activeUser.rol === 'administrador') && (
+            {activeView === 'backups' && (
               <BackupsModule 
                 operationalData={{ usuarios, mesas, insumos, productosMenu, recetas, pedidos, mermas, logs }}
                 onRestoreData={handleRestoreBackupData}
