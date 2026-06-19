@@ -33,6 +33,9 @@ import MobileNav from './components/MobileNav';
 import RetryErrorWrapper from './components/RetryErrorWrapper';
 import RecetasErrorBoundary from './components/RecetasErrorBoundary';
 import Skeleton from './components/Skeleton';
+import { tryGetActiveSupabaseClient } from './lib/supabaseClient';
+import DiagnosticsTester from './components/DiagnosticsTester';
+
 
 import type { BackupSnapshotData } from './services/backupsService';
 // Lazy-loaded modules (code-split, loaded on demand)
@@ -102,6 +105,8 @@ export default function App() {
 
   const [postLoginLoading, setPostLoginLoading] = useState<boolean>(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
+  const [showDiagnostics, setShowDiagnostics] = useState<boolean>(false);
+
 
   // Mapa O(1) de precio_venta para cálculos de ventas en toda la app
   const precioMap = useMemo(() => {
@@ -1070,17 +1075,27 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
         id="sidebar-left-panel"
       >
         {/* Logo */}
-        <div className={`flex items-center border-b border-[#3B1F10]/10 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} py-4`}>
-          <div className="w-8 h-8 bg-white/80 rounded-lg flex items-center justify-center shadow-sm border border-[#A67550]/40 p-0.5 overflow-hidden shrink-0">
+        <div 
+          onClick={() => setShowDiagnostics(true)}
+          className={`flex items-center border-b border-[#3B1F10]/10 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} py-4 cursor-pointer hover:opacity-90 select-none`}
+          title="Ver estado de conexión"
+        >
+          <div className="w-8 h-8 bg-white/80 rounded-lg flex items-center justify-center shadow-sm border border-[#A67550]/40 p-0.5 overflow-hidden shrink-0 relative">
             <ElPatronLogo className="w-7 h-7 object-contain rounded" variant="icon" color="#4A2D1B" />
+            <span className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-white ${
+              tryGetActiveSupabaseClient() !== null ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
+            }`} />
           </div>
           {!isSidebarCollapsed && (
             <div className="ml-3 min-w-0">
               <span className="font-bold text-sm text-[#3B1F10] block leading-tight truncate">El Patrón</span>
-              <span className="text-[7px] uppercase font-bold text-[#3B1F10]/50 tracking-wider block leading-tight">Gestión Gastro</span>
+              <span className="text-[7px] uppercase font-bold text-[#3B1F10]/50 tracking-wider block leading-tight flex items-center gap-1">
+                {tryGetActiveSupabaseClient() !== null ? '🟢 Supabase Cloud' : '🟡 Modo Local'}
+              </span>
             </div>
           )}
         </div>
+
 
         {/* Nav items */}
         <nav className="flex-1 overflow-y-auto overscroll-contain py-3 sidebar-scroll-hidden">
@@ -1262,6 +1277,10 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
           </Suspense>
         </RetryErrorWrapper>
       </main>
+
+      {showDiagnostics && (
+        <DiagnosticsTester onClose={() => setShowDiagnostics(false)} />
+      )}
 
       <BottomNavigation activeView={activeView} onNavigate={handleNavigate} allowedViews={allowedViews} />
     </div>

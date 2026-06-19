@@ -3,6 +3,9 @@ import { Menu, X, User, Clock, LogOut } from 'lucide-react';
 import { AppView, getAllowedViews } from '../lib/permissions';
 import { Usuario } from '../types';
 import ElPatronLogo from './ElPatronLogo';
+import { tryGetActiveSupabaseClient } from '../lib/supabaseClient';
+import DiagnosticsTester from './DiagnosticsTester';
+
 
 interface MobileNavProps {
   activeView: AppView;
@@ -54,10 +57,13 @@ export default function MobileNav({
   onAdvanceTime
 }: MobileNavProps) {
   const [open, setOpen] = useState(false);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
   const drawerRef = useRef<HTMLDivElement>(null);
 
+  const isConnected = tryGetActiveSupabaseClient() !== null;
   const isAdmin = activeUser.rol === 'administrador' || activeUser.rol === 'superadmin';
   const visibleItems = NAV_ITEMS.filter(item => allowedViews.includes(item.id));
+
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -93,15 +99,25 @@ export default function MobileNav({
           <Menu className="w-5 h-5" />
         </button>
 
-        <div className="flex items-center gap-2 min-w-0 flex-1 justify-center px-2">
-          <div className="w-7 h-7 bg-white/80 rounded-lg flex items-center justify-center p-0.5 border border-[#A67550]/40 overflow-hidden shrink-0">
+        <div 
+          onClick={() => setShowDiagnostics(true)}
+          className="flex items-center gap-2 min-w-0 flex-1 justify-center px-2 cursor-pointer select-none active:opacity-75"
+          title="Ver estado de conexión"
+        >
+          <div className="w-7 h-7 bg-white/80 rounded-lg flex items-center justify-center p-0.5 border border-[#A67550]/40 overflow-hidden shrink-0 relative">
             <ElPatronLogo className="w-6 h-6 object-contain rounded" variant="icon" color="#4A2D1B" />
+            <span className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-white ${
+              isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
+            }`} />
           </div>
-          <div className="min-w-0 text-center">
+          <div className="min-w-0 text-left">
             <span className="font-extrabold text-sm text-[#3B1F10] drop-shadow block leading-tight truncate">El Patrón</span>
-            <span className="text-[7px] uppercase font-bold text-[#3B1F10]/60 tracking-wider block leading-tight">Gestión Gastro</span>
+            <span className="text-[7px] uppercase font-bold text-[#3B1F10]/60 tracking-wider block leading-tight flex items-center gap-1">
+              {isConnected ? 'En línea (Nube)' : 'Modo Local'}
+            </span>
           </div>
         </div>
+
 
         <div className="flex items-center gap-1.5 shrink-0">
           <div className="hidden sm:flex flex-col items-end mr-1">
@@ -128,13 +144,22 @@ export default function MobileNav({
           >
             {/* Drawer header */}
             <div className="p-3 border-b border-[#A67550]/40 flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 bg-white/80 rounded-lg flex items-center justify-center p-0.5 border border-[#A67550]/40 overflow-hidden shrink-0">
+              <div 
+                onClick={() => { setShowDiagnostics(true); setOpen(false); }}
+                className="flex items-center gap-2.5 cursor-pointer hover:opacity-85 select-none active:scale-[0.98]"
+                title="Abrir Diagnóstico"
+              >
+                <div className="w-9 h-9 bg-white/80 rounded-lg flex items-center justify-center p-0.5 border border-[#A67550]/40 overflow-hidden shrink-0 relative">
                   <ElPatronLogo className="w-8 h-8 object-contain rounded" variant="icon" color="#4A2D1B" />
+                  <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border border-white ${
+                    isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
+                  }`} />
                 </div>
                 <div className="min-w-0">
                   <span className="font-extrabold text-sm text-[#3B1F10] block leading-tight">El Patrón</span>
-                  <span className="text-[7px] uppercase font-bold text-[#3B1F10]/60 tracking-wider block leading-tight">Gestión Gastro</span>
+                  <span className="text-[7px] uppercase font-bold text-[#3B1F10]/60 tracking-wider block leading-tight">
+                    {isConnected ? '🟢 Supabase Cloud' : '🟡 Modo Local'}
+                  </span>
                 </div>
               </div>
               <button
@@ -145,6 +170,7 @@ export default function MobileNav({
                 <X className="w-5 h-5" />
               </button>
             </div>
+
 
             {/* Reloj y simulación */}
             <div className="mx-3 mt-3 p-3 bg-[#B07A48]/30 border border-[#A67550]/30 rounded-xl">
@@ -220,6 +246,9 @@ export default function MobileNav({
             </div>
           </div>
         </div>
+      )}
+      {showDiagnostics && (
+        <DiagnosticsTester onClose={() => setShowDiagnostics(false)} />
       )}
     </>
   );
