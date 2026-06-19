@@ -47,9 +47,11 @@ export function useKitchenMonitor({
   const [selectedRecipeProduct, setSelectedRecipeProduct] = useState<ProductoMenu | null>(null);
 
   const activeKitchenOrders = useMemo(() => {
-    let filtered = pedidos.filter(p => {
+    let filtered = pedidos.map(p => {
       const effective = optimisticUpdates.get(p.id_pedido)?.estado || p.estado_comanda;
-      return effective !== 'entregado_cobrado' && effective !== 'entregado' && effective !== 'cancelado';
+      return { ...p, estado_comanda: effective };
+    }).filter(p => {
+      return p.estado_comanda !== 'entregado_cobrado' && p.estado_comanda !== 'entregado' && p.estado_comanda !== 'cancelado';
     });
     if (showOnlyKitchen) {
       filtered = filtered.map(p => ({

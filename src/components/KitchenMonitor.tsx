@@ -163,7 +163,7 @@ export default function KitchenMonitor({
               onClick={() => handleOptimisticStatus(p.id_pedido, 'en_cocina')}
               className={`w-full min-h-12 mt-2 py-3 px-3 ${btnTheme} rounded-xl text-sm font-black flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer shadow-md`}
             >
-              {optimisticUpdates.get(p.id_pedido)?.updating ? (
+              {optimisticUpdates.get(p.id_pedido)?.estado === 'en_cocina' && optimisticUpdates.get(p.id_pedido)?.updating ? (
                 <><RefreshCw className="w-4 h-4 animate-spin" /> Actualizando...</>
               ) : (
                 <><Flame className="w-4 h-4" /> Iniciar Fuego</>
@@ -176,7 +176,7 @@ export default function KitchenMonitor({
               onClick={() => handleOptimisticStatus(p.id_pedido, 'listo')}
               className={`w-full min-h-12 mt-2 py-3 px-3 ${btnTheme} rounded-xl text-sm font-black flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer shadow-md`}
             >
-              {optimisticUpdates.get(p.id_pedido)?.updating ? (
+              {optimisticUpdates.get(p.id_pedido)?.estado === 'listo' && optimisticUpdates.get(p.id_pedido)?.updating ? (
                 <><RefreshCw className="w-4 h-4 animate-spin" /> Actualizando...</>
               ) : (
                 <><CheckCircle className="w-4 h-4" /> Terminado</>
@@ -189,7 +189,7 @@ export default function KitchenMonitor({
               onClick={() => handleOptimisticStatus(p.id_pedido, 'entregado')}
               className={`w-full min-h-12 mt-2 py-3 px-3 ${btnTheme} rounded-xl text-sm font-black flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer shadow-md`}
             >
-              {optimisticUpdates.get(p.id_pedido)?.updating ? (
+              {optimisticUpdates.get(p.id_pedido)?.estado === 'entregado' && optimisticUpdates.get(p.id_pedido)?.updating ? (
                 <><RefreshCw className="w-4 h-4 animate-spin" /> Actualizando...</>
               ) : (
                 <><CheckCircle className="w-4 h-4" /> Entregar a Mesa</>

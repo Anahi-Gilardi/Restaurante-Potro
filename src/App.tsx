@@ -522,12 +522,27 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
       addLog('alerta_stock', `CONTROL REPOSICIÓN: El insumo '${nom}' ha caído por debajo del stock de seguridad.`);
     });
 
-    await dbSavePedidoComplex(finalPedido);
-    await dbUpsertMesas(updatedMesas);
+    if (existingActivePedido) {
+      import('./services/pedidosService').then(({ pedidosService }) => {
+        pedidosService.agregarItemsAComandaExistente(existingActivePedido.id_pedido, newPedidoData.items).catch(err => {
+          console.warn('Background save for order accumulation failed:', err);
+        });
+      });
+    } else {
+      dbSavePedidoComplex(finalPedido).catch(err => {
+        console.warn('Background save for new order failed:', err);
+      });
+    }
+
+    dbUpsertMesas(updatedMesas).catch(err => {
+      console.warn('Background save for mesas failed:', err);
+    });
 
     if (stockDescontado) {
       stockMovements.forEach(movement => dbRecordMovement(movement).catch(console.error));
-      await dbUpsertInsumos(updatedInsumos);
+      dbUpsertInsumos(updatedInsumos).catch(err => {
+        console.warn('Background save for insumos failed:', err);
+      });
     }
   }, [pedidos, insumos, recetas, addLog, mesas, permitirVentaSinStock, setMesas, setInsumos, setPedidos, activeMozo]);
 
