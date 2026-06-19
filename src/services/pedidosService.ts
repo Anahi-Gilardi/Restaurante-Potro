@@ -240,54 +240,107 @@ export const pedidosService = {
     }
     
     for (const ped of pedidos) {
-      const cabecera = serializePedidoHeader(ped);
-
       try {
-        let { error: hError } = await supabase.from('pedidos_cabecera').upsert(cabecera);
-        
-        // Dynamic schema fallback: if idempotency_key is missing, strip and retry
-        if (hError && hError.message?.includes('idempotency_key')) {
-          console.warn('idempotency_key column missing in upsert, retrying without it...');
-          const fallbackCabecera = { ...cabecera };
-          delete fallbackCabecera.idempotency_key;
-          const res = await supabase.from('pedidos_cabecera').upsert(fallbackCabecera);
-          hError = res.error;
+        // 1. Verificar si la mesa ya tiene una cabecera activa ('abierta' o similar) en Supabase
+        const { data: activeHeader, error: findError } = await supabase
+          .from('pedidos_cabecera')
+          .select('id_pedido, items')
+          .eq('id_mesa', ped.id_mesa)
+          .in('estado_comanda', ['abierta', 'pendiente', 'en_cocina', 'listo'])
+          .maybeSingle();
+
+        if (findError) {
+          console.error('Error searching active comanda for table:', findError);
+          throw findError;
         }
 
-        if (hError) {
-          console.error('Error upserting order header:', hError);
-          throw hError;
-        }
-
-        if (ped.items) {
-          const details = serializePedidoDetails(ped);
-          const { error: deleteError } = await supabase
-            .from('pedido_detalle')
-            .delete()
-            .eq('id_pedido', ped.id_pedido);
-          if (deleteError) {
-            console.error('Error deleting previous order details:', deleteError);
-            throw deleteError;
-          }
-
-          if (details.length === 0) continue;
-          let { error: dError } = await supabase.from('pedido_detalle').insert(details);
+        if (activeHeader) {
+          // A. Ya existe una comanda activa -> Se realiza un bulk insert únicamente de los nuevos ítems
+          const activeId = activeHeader.id_pedido;
+          const currentItems = parseHeaderItems(activeHeader.items);
           
-          // Dynamic schema fallback: if precio_unitario is missing, strip and retry
-          if (dError && dError.message?.includes('precio_unitario')) {
-            console.warn('precio_unitario column missing in details insert, retrying without it...');
-            const fallbackDetails = details.map(d => {
-              const copy = { ...d };
-              delete copy.precio_unitario;
-              return copy;
-            });
-            const res = await supabase.from('pedido_detalle').insert(fallbackDetails);
-            dError = res.error;
+          // Filtrar ítems que no estaban previamente en el pedido remoto
+          const newItems = ped.items.filter(item => 
+            !currentItems.some(ci => ci.id_producto === item.id_producto)
+          );
+
+          if (newItems.length > 0) {
+            const details = newItems.map((item, index) => ({
+              id_detalle: `${activeId}_${item.id_producto}_${Date.now()}_${index}`,
+              id_pedido: activeId,
+              id_producto: item.id_producto,
+              nombre: item.nombre,
+              cantidad: item.cantidad,
+              categoria: item.categoria,
+              precio_unitario: item.precio_unitario ?? null,
+              estado: 'pendiente'
+            }));
+
+            let { error: dError } = await supabase.from('pedido_detalle').insert(details);
+            
+            // Fallback si la columna precio_unitario no existiera
+            if (dError && dError.message?.includes('precio_unitario')) {
+              const fallbackDetails = details.map(d => {
+                const copy = { ...d };
+                delete copy.precio_unitario;
+                return copy;
+              });
+              const res = await supabase.from('pedido_detalle').insert(fallbackDetails);
+              dError = res.error;
+            }
+
+            if (dError) {
+              console.error('Error inserting bulk details for active comanda:', dError);
+              throw dError;
+            }
           }
 
-          if (dError) {
-            console.error('Error inserting order details:', dError.message || JSON.stringify(dError));
-            throw dError;
+          // Sincronizar la cabecera acumulada (JSON string de fallback)
+          const { error: hError } = await supabase
+            .from('pedidos_cabecera')
+            .update({ items: JSON.stringify(ped.items) })
+            .eq('id_pedido', activeId);
+
+          if (hError) {
+            console.error('Error syncing header items fallback:', hError);
+            throw hError;
+          }
+
+        } else {
+          // B. No existe comanda activa -> Crear cabecera y luego insertar detalles
+          const cabecera = serializePedidoHeader(ped);
+          let { error: hError } = await supabase.from('pedidos_cabecera').upsert(cabecera);
+          
+          if (hError && hError.message?.includes('idempotency_key')) {
+            const fallbackCabecera = { ...cabecera };
+            delete fallbackCabecera.idempotency_key;
+            const res = await supabase.from('pedidos_cabecera').upsert(fallbackCabecera);
+            hError = res.error;
+          }
+
+          if (hError) {
+            console.error('Error creating order header:', hError);
+            throw hError;
+          }
+
+          if (ped.items && ped.items.length > 0) {
+            const details = serializePedidoDetails(ped);
+            let { error: dError } = await supabase.from('pedido_detalle').insert(details);
+            
+            if (dError && dError.message?.includes('precio_unitario')) {
+              const fallbackDetails = details.map(d => {
+                const copy = { ...d };
+                delete copy.precio_unitario;
+                return copy;
+              });
+              const res = await supabase.from('pedido_detalle').insert(fallbackDetails);
+              dError = res.error;
+            }
+
+            if (dError) {
+              console.error('Error inserting order details:', dError);
+              throw dError;
+            }
           }
         }
       } catch (err) {
@@ -331,29 +384,33 @@ export const pedidosService = {
       throw insertError;
     }
 
-    // Update total in cabecera
+    // Update items list in cabecera (JSON fallback)
     const { data: todosLosDetalles, error: selectError } = await supabase
       .from('pedido_detalle')
-      .select('cantidad, precio_unitario')
+      .select('*')
       .eq('id_pedido', idPedido);
 
     if (selectError) {
-      console.error('Error fetching all details to calculate total:', selectError);
+      console.error('Error fetching all details to synchronize header items:', selectError);
       throw selectError;
     }
 
-    const nuevoTotal = (todosLosDetalles || []).reduce(
-      (acc, d) => acc + (Number(d.cantidad || 0) * Number(d.precio_unitario || 0)), 
-      0
-    );
+    const updatedItems = (todosLosDetalles || []).map(d => ({
+      id_producto: d.id_producto || '',
+      nombre: d.nombre,
+      readonly: true,
+      cantidad: d.cantidad,
+      categoria: d.categoria,
+      precio_unitario: d.precio_unitario ?? undefined
+    }));
 
     const { error: updateError } = await supabase
       .from('pedidos_cabecera')
-      .update({ total: nuevoTotal })
+      .update({ items: JSON.stringify(updatedItems) })
       .eq('id_pedido', idPedido);
 
     if (updateError) {
-      console.error('Error updating total in header:', updateError);
+      console.error('Error updating items JSON in header:', updateError);
       throw updateError;
     }
   },

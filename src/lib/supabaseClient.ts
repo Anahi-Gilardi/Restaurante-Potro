@@ -40,9 +40,16 @@ export const resolveSupabaseConfig = (
 
 export const getSupabaseConfig = (): SupabaseConfig => {
   const env = (import.meta as any).env || {};
+  const localUrl = readLocalConfig('SUPABASE_URL');
+  const localKey = readLocalConfig('SUPABASE_ANON_KEY');
+
+  // Credenciales por defecto para el proyecto Restaurante El Patrón
+  const defaultUrl = 'https://sqczmyaoqplrmrgyczjy.supabase.co';
+  const defaultKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNxY3pteWFvcXBscm1yZ3ljemp5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyNzQ5NzQsImV4cCI6MjA5Njg1MDk3NH0.R5bPwot9KCMJ9OXWcokL705ZD7_0ujH9fGY_GcqxjYY';
+
   return resolveSupabaseConfig(env, {
-    SUPABASE_URL: readLocalConfig('SUPABASE_URL'),
-    SUPABASE_ANON_KEY: readLocalConfig('SUPABASE_ANON_KEY'),
+    SUPABASE_URL: localUrl || defaultUrl,
+    SUPABASE_ANON_KEY: localKey || defaultKey,
   });
 };
 
