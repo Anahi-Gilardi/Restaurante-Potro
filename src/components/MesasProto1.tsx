@@ -637,7 +637,6 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
       return (
         <g key={m.id} data-mesa-id={m.id}
            className={`transition-opacity ${editorMode ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer hover:opacity-90'}`}
-           onMouseDown={(e: React.MouseEvent) => editorMode ? startDrag(m, e) : undefined}
            onClick={(e: React.MouseEvent) => {
              e.stopPropagation();
              if (editorMode || draggingMesa) return;
@@ -646,8 +645,12 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
            }}
         >
           {renderSillas(m)}
-          <rect x={x} y={y} width={width} height={height} rx={rx}
-                fill={fill} stroke={isSelected ? '#3B82F6' : stroke} strokeWidth={isSelected ? 4 : 2.5} pointerEvents="all" />
+          <rect
+            x={x} y={y} width={width} height={height} rx={rx}
+            fill={fill} stroke={isSelected ? '#3B82F6' : stroke} strokeWidth={isSelected ? 4 : 2.5}
+            pointerEvents="all"
+            onMouseDown={(e: React.MouseEvent) => editorMode ? startDrag(m, e) : undefined}
+          />
           <text x={x + width / 2} y={y + height / 2 - 2} textAnchor="middle" fontSize={Math.min(18, width / 3.5)} fontWeight={700} fill={textColor} fontFamily="Arial, sans-serif" pointerEvents="none">{m.numero_mesa}</text>
           <text x={x + width / 2} y={y + height / 2 + 14} textAnchor="middle" fontSize={9} fill={textColor} fontFamily="Arial, sans-serif" opacity={0.8} pointerEvents="none">Mesa</text>
           {editorMode && (
