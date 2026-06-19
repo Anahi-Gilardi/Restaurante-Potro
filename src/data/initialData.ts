@@ -1024,7 +1024,7 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     categoria: 'Bebidas',
     subcategoria: 'Gaseosas',
     activo: true,
-    imagen: 'https://images.unsplash.com/photo-1543257580-7269da773bf5?w=400&q=80&auto=format&fit=crop',
+    imagen: 'https://images.unsplash.com/photo-1554866585-cd94860890b7?w=500&q=80&auto=format&fit=crop',
     tipo: 'bebida',
     requiere_cocina: false
   },
@@ -1048,7 +1048,7 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     categoria: 'Bebidas',
     subcategoria: 'Gaseosas',
     activo: true,
-    imagen: 'https://images.unsplash.com/photo-1625772291928-9d9300f73f61?w=500&q=80',
+    imagen: 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=500&q=80&auto=format&fit=crop',
     tipo: 'bebida',
     requiere_cocina: false
   },
