@@ -246,7 +246,7 @@ export const pedidosService = {
           .from('pedidos_cabecera')
           .select('id_pedido, items')
           .eq('id_mesa', ped.id_mesa)
-          .in('estado_comanda', ['abierta', 'pendiente', 'en_cocina', 'listo'])
+          .in('estado_comanda', ['abierta', 'pendiente', 'en_cocina', 'listo', 'entregado'])
           .maybeSingle();
 
         if (findError) {

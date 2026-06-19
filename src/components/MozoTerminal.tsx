@@ -122,7 +122,8 @@ export default function MozoTerminal({
     handlePrintSplitTicket,
     handleUpdatePrice,
     handleToggleAvailability,
-    dynamicMesas
+    dynamicMesas,
+    isSameTable
   } = useMozoTerminal({
     mesas,
     insumos,
@@ -221,8 +222,8 @@ export default function MozoTerminal({
               }
 
               const activePedido = isOcupada ? pedidos.find(p => 
-                String(p.id_mesa) === String(m.id_mesa) && 
-                ['abierta', 'pendiente', 'en_cocina', 'listo'].includes(p.estado_comanda)
+                isSameTable(m, p) && 
+                ['abierta', 'pendiente', 'en_cocina', 'listo', 'entregado'].includes(p.estado_comanda)
               ) : null;
 
               const elapsedMin = activePedido 
