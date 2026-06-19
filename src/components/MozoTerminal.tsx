@@ -28,6 +28,7 @@ import { Mesa, Insumo, ProductoMenu, RecetaEscandallo, Pedido, PedidoItem, Usuar
 import { useMenu, useSalon, useInventario, usePedidos } from '../context/AppContext';
 import { useToast, ToastContainer } from './ToastContainer';
 import { useMozoTerminal } from '../features/salon/hooks/useMozoTerminal';
+import { tryGetActiveSupabaseClient } from '../lib/supabaseClient';
 
 interface MozoTerminalProps {
   mesas: Mesa[];
@@ -79,6 +80,8 @@ export default function MozoTerminal({
   const onFacturarMesa = propOnFacturarMesa ?? ctxPedidos.handleFacturarMesa;
   const addLog = propAddLog ?? (() => {});
   const { toast, toasts, removeToast } = useToast();
+
+  const isOnline = Boolean(tryGetActiveSupabaseClient());
 
   const {
     selectedMesaId,
@@ -147,9 +150,19 @@ export default function MozoTerminal({
             <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center shrink-0">
               <UserCheck className="w-5 h-5" />
             </div>
-            <div>
-              <p className="text-xs text-slate-400 font-medium font-sans">Mozo en Turno Activo</p>
-              <h3 className="font-bold text-slate-800 font-sans tracking-tight">Terminal Registrada</h3>
+            <div className="flex-1 flex justify-between items-center min-w-0">
+              <div>
+                <p className="text-xs text-slate-400 font-medium font-sans">Mozo en Turno Activo</p>
+                <h3 className="font-bold text-slate-800 font-sans tracking-tight">Terminal Registrada</h3>
+              </div>
+              <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-lg flex items-center gap-1.5 border shrink-0 ${
+                isOnline 
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200/50' 
+                  : 'bg-amber-50 text-amber-700 border-amber-200/50'
+              }`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`} />
+                {isOnline ? 'Online (Nube)' : 'Offline (Local)'}
+              </span>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">

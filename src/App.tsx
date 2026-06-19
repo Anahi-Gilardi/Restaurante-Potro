@@ -147,10 +147,22 @@ export default function App() {
     []
   );
 
-  // Auto-sync effect on mount
+  const [supabaseTrigger, setSupabaseTrigger] = useState<number>(0);
+
+  // Listen for Supabase client resets to trigger data re-sync
   useEffect(() => {
-    const autoLoadSupabase = async () => {
-      // 1. Load config from server if available to enable automatic online connection
+    const handleReset = () => {
+      setSupabaseTrigger(prev => prev + 1);
+    };
+    window.addEventListener('supabase-client-reset', handleReset);
+    return () => {
+      window.removeEventListener('supabase-client-reset', handleReset);
+    };
+  }, []);
+
+  // 1. Config loading effect (runs once on mount)
+  useEffect(() => {
+    const loadConfig = async () => {
       try {
         const response = await fetch('/api/supabase-config');
         const data = await response.json();
@@ -160,22 +172,34 @@ export default function App() {
           if (currentUrl !== data.SUPABASE_URL || currentKey !== data.SUPABASE_ANON_KEY) {
             localStorage.setItem('SUPABASE_URL', data.SUPABASE_URL);
             localStorage.setItem('SUPABASE_ANON_KEY', data.SUPABASE_ANON_KEY);
-            resetSupabaseInstance();
+            resetSupabaseInstance(); // This triggers supabase-client-reset event
           }
         }
       } catch (configErr) {
         console.warn('Could not fetch Supabase config from API:', configErr);
       }
+    };
+    loadConfig();
+  }, []);
 
+  // 2. Data load and Realtime sync effect (runs on mount and whenever connection parameters update)
+  useEffect(() => {
+    let active = true;
+    let channel: any = null;
+    const client = getSupabaseClient();
+
+    const loadData = async () => {
       try {
         const savedUsuarios = await dbFetchUsuarios();
-        if (savedUsuarios.length > 0) setUsuarios(savedUsuarios);
+        if (savedUsuarios && savedUsuarios.length > 0 && active) {
+          setUsuarios(savedUsuarios);
+        }
       } catch (err) {
         console.warn('Usuarios: no se pudo cargar la copia persistida.', err);
       }
 
-      const client = getSupabaseClient();
       if (!client) return;
+
       try {
         const dbMesas = await dbFetchMesas();
         let dbInsumos = await dbFetchInsumos();
@@ -183,6 +207,8 @@ export default function App() {
         let dbRecipes = await dbFetchRecetas();
         const dbPedidos = await dbFetchPedidos();
         const dbMermas = await dbFetchMermas();
+
+        if (!active) return;
 
         // Auto-seed new Coca-Cola line if they are missing in the Supabase database
         if (dbProducts && dbProducts.length > 0) {
@@ -222,6 +248,8 @@ export default function App() {
           }
         }
 
+        if (!active) return;
+
         if ((dbMesas ?? []).length > 0) {
           setMesas((dbMesas ?? []).map(m => ({
             id_mesa: m.id_mesa,
@@ -245,22 +273,21 @@ export default function App() {
         if ((dbMermas ?? []).length > 0) {
           setMermas(dbMermas ?? []);
         }
-        addLog('sistema', 'SUPABASE: Auto-sincronización exitosa en el arranque de la aplicación.');
+        addLog('sistema', 'SUPABASE: Auto-sincronización exitosa con servidor Supabase.');
       } catch (err) {
         console.warn('Supabase: Falló auto-sync en el arranque. Usando datos SQLite locales.', err);
       }
     };
-    autoLoadSupabase();
 
-    // Setup Supabase Realtime listener for pedidos changes
-    const client = getSupabaseClient();
+    loadData();
+
     if (client) {
-      const channel = client
+      channel = client
         .channel('realtime_pedidos_app')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos_cabecera' }, async () => {
           try {
             const refreshed = await dbFetchPedidos();
-            if (refreshed) {
+            if (refreshed && active) {
               setPedidos(refreshed);
             }
           } catch (err) {
@@ -268,12 +295,15 @@ export default function App() {
           }
         })
         .subscribe();
-
-      return () => {
-        client.removeChannel(channel);
-      };
     }
-  }, [addLog]);
+
+    return () => {
+      active = false;
+      if (client && channel) {
+        client.removeChannel(channel);
+      }
+    };
+  }, [supabaseTrigger, addLog]);
 
   // Sync completion callback handed to settings
   const handleSupabaseSync = (newData: {

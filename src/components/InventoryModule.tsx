@@ -17,8 +17,9 @@ import {
   Sparkles,
   DollarSign
 } from 'lucide-react';
-import { Insumo, ProductoMenu, RecetaEscandallo, Merma } from '../types';
+import { Insumo, ProductoMenu, RecetaEscandallo, Merma, Proveedor } from '../types';
 import { useInventory } from '../features/inventario/hooks/useInventory';
+import { proveedoresService } from '../services/proveedoresService';
 
 interface InventoryModuleProps {
   insumos: Insumo[];
@@ -41,7 +42,24 @@ export default function InventoryModule({
   onRestockTodo,
   addLog
 }: InventoryModuleProps) {
-  const { toasts, dismissToast } = useToast();
+  const { toasts, toast, dismissToast } = useToast();
+  const [proveedores, setProveedores] = React.useState<Proveedor[]>([]);
+
+  React.useEffect(() => {
+    proveedoresService.list().then(data => {
+      if (data && data.length > 0) {
+        setProveedores(data);
+      } else {
+        setProveedores([
+          { id_proveedor: 'prov_1', nombre: 'Frigorífico Central Sur S.A.', contacto: 'Federico Balestra', telefono: '+54 11 4488-2993', categoria: 'carnes', correo: 'pedidos@frigorificosursas.com', tiempo_entrega_dias: 1 },
+          { id_proveedor: 'prov_2', nombre: 'Distribuidora Agrícola Verde Fresco', contacto: 'Laura Benítez', telefono: '+54 9 11 3998-2831', categoria: 'verduras', correo: 'ventas@verdefrescodist.com', tiempo_entrega_dias: 1 },
+          { id_proveedor: 'prov_3', nombre: 'Bebidas Unidas S.R.L. Bodegas', contacto: 'Esteban Rutini', telefono: '+54 11 5003-8822', categoria: 'bebidas', correo: 'erutini@bebidasunidas.com', tiempo_entrega_dias: 2 },
+          { id_proveedor: 'prov_4', nombre: 'Almacén Mayorista El Trébol', contacto: 'Jorge Alvarenga', telefono: '+54 11 4055-1212', categoria: 'viveres', correo: 'j.alvarenga@trebolsecos.com.ar', tiempo_entrega_dias: 3 },
+          { id_proveedor: 'prov_5', nombre: 'Envases & Descartables Oeste', contacto: 'Damián Sabor', telefono: '+54 9 11 6554-1010', categoria: 'descartables', correo: 'dsabor@envasesoeste.com', tiempo_entrega_dias: 2 },
+        ]);
+      }
+    }).catch(() => {});
+  }, []);
 
   const inventory = useInventory({
     insumos,
@@ -93,6 +111,7 @@ export default function InventoryModule({
     costHistory,
     isLoadingHistory,
     movimientosLocales,
+    setMovimientosLocales,
     filteredInsumos,
     selectedProduct,
     selectedProductIngredients,
