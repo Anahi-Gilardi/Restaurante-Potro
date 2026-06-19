@@ -1,4 +1,4 @@
-import { getActiveSupabaseClient } from '../lib/supabaseClient';
+import { tryGetActiveSupabaseClient } from '../lib/supabaseClient';
 import { Pedido, PedidoItem } from '../types';
 
 type PedidoHeaderRow = Record<string, any>;
@@ -24,13 +24,17 @@ export const hydratePedido = (
   const relatedItems: PedidoItem[] = details
     .filter(detail => detail.id_pedido === header.id_pedido)
     .sort((a, b) => String(a.id_detalle || '').localeCompare(String(b.id_detalle || '')))
-    .map(detail => ({
-      id_producto: detail.id_producto || '',
-      nombre: detail.nombre,
-      cantidad: detail.cantidad,
-      categoria: detail.categoria,
-      precio_unitario: detail.precio_unitario ?? undefined
-    }));
+    .map(detail => {
+      const matchingHeaderItem = headerItems.find(hi => hi.id_producto === detail.id_producto);
+      return {
+        id_producto: detail.id_producto || '',
+        nombre: detail.nombre,
+        readonly: true,
+        cantidad: detail.cantidad,
+        categoria: detail.categoria,
+        precio_unitario: detail.precio_unitario ?? matchingHeaderItem?.precio_unitario ?? undefined
+      };
+    });
 
   return {
     id_pedido: header.id_pedido,
@@ -39,9 +43,7 @@ export const hydratePedido = (
     numero_mesa: header.numero_mesa,
     mozo: header.mozo,
     estado_comanda: header.estado_comanda,
-    // The JSON snapshot keeps historical prices even in legacy schemas where
-    // pedido_detalle does not yet have precio_unitario.
-    items: headerItems.length > 0 ? headerItems : relatedItems,
+    items: relatedItems.length > 0 ? relatedItems : headerItems,
     observaciones: header.observaciones || undefined,
     fecha_hora: new Date(header.fecha_hora),
     minutos_transcurridos: header.minutos_transcurridos || 0,
@@ -89,7 +91,8 @@ export const serializePedidoDetails = (pedido: Pedido) => pedido.items.map((item
 
 export const pedidosService = {
   async list(): Promise<Pedido[]> {
-    const supabase = getActiveSupabaseClient();
+    const supabase = tryGetActiveSupabaseClient();
+    if (!supabase) return [];
     
     // 1. Fetch headers
     const { data: headers, error: hError } = await supabase
@@ -104,7 +107,7 @@ export const pedidosService = {
     
     if (!headers || headers.length === 0) return [];
 
-    // 2. Fetch details filtered by header IDs only (avoid SELECT * full scan)
+    // 2. Fetch details filtered by header IDs only
     const headerIds = headers.map(h => h.id_pedido);
     const { data: details, error: dError } = await supabase
       .from('pedido_detalle')
@@ -116,7 +119,6 @@ export const pedidosService = {
       throw dError;
     }
 
-    // Assemble nested structures matching `Pedido`
     return headers.map(header => hydratePedido(header, details || []));
   },
 
@@ -129,13 +131,14 @@ export const pedidosService = {
     try {
       await this.upsert([pedido]);
     } catch (err) {
-      console.warn('pedidosService.create failed remote push, enqueued for sync:', err);
+      console.warn('pedidosService.create failed remote push:', err);
     }
     return pedido;
   },
 
   async update(id: number, fields: Partial<Pedido>): Promise<void> {
-    const supabase = getActiveSupabaseClient();
+    const supabase = tryGetActiveSupabaseClient();
+    if (!supabase) return;
     
     // Map fields to header columns
     const headerFields: any = {};
@@ -156,10 +159,20 @@ export const pedidosService = {
 
     try {
       if (Object.keys(headerFields).length > 0) {
-        const { error } = await supabase
+        let { error } = await supabase
           .from('pedidos_cabecera')
           .update(headerFields)
           .eq('id_pedido', id);
+        
+        // Dynamic schema fallback: if idempotency_key is missing, strip and retry
+        if (error && error.message?.includes('idempotency_key')) {
+          console.warn('idempotency_key column missing in update, retrying without it...');
+          const fallbackFields = { ...headerFields };
+          delete fallbackFields.idempotency_key;
+          const res = await supabase.from('pedidos_cabecera').update(fallbackFields).eq('id_pedido', id);
+          error = res.error;
+        }
+
         if (error) {
           console.error(`Error updating header for pedido ${id}:`, error);
           throw error;
@@ -192,7 +205,20 @@ export const pedidosService = {
         }
 
         if (details.length > 0) {
-          const { error: detError } = await supabase.from('pedido_detalle').insert(details);
+          let { error: detError } = await supabase.from('pedido_detalle').insert(details);
+          
+          // Dynamic schema fallback: if precio_unitario is missing, strip and retry
+          if (detError && detError.message?.includes('precio_unitario')) {
+            console.warn('precio_unitario column missing in update details insert, retrying without it...');
+            const fallbackDetails = details.map(d => {
+              const copy = { ...d };
+              delete copy.precio_unitario;
+              return copy;
+            });
+            const res = await supabase.from('pedido_detalle').insert(fallbackDetails);
+            detError = res.error;
+          }
+
           if (detError) {
             console.error('Error inserting details in update:', detError);
             throw detError;
@@ -207,20 +233,32 @@ export const pedidosService = {
   },
 
   async upsert(pedidos: Pedido[]): Promise<void> {
-    const supabase = getActiveSupabaseClient();
+    const supabase = tryGetActiveSupabaseClient();
+    if (!supabase) {
+      console.warn('Supabase is not configured or offline. Skipping database upsert.');
+      return;
+    }
     
-    // 1. Process each nested order
     for (const ped of pedidos) {
       const cabecera = serializePedidoHeader(ped);
 
       try {
-        const { error: hError } = await supabase.from('pedidos_cabecera').upsert(cabecera);
+        let { error: hError } = await supabase.from('pedidos_cabecera').upsert(cabecera);
+        
+        // Dynamic schema fallback: if idempotency_key is missing, strip and retry
+        if (hError && hError.message?.includes('idempotency_key')) {
+          console.warn('idempotency_key column missing in upsert, retrying without it...');
+          const fallbackCabecera = { ...cabecera };
+          delete fallbackCabecera.idempotency_key;
+          const res = await supabase.from('pedidos_cabecera').upsert(fallbackCabecera);
+          hError = res.error;
+        }
+
         if (hError) {
           console.error('Error upserting order header:', hError);
           throw hError;
         }
 
-        // 2. Handle details
         if (ped.items) {
           const details = serializePedidoDetails(ped);
           const { error: deleteError } = await supabase
@@ -233,7 +271,20 @@ export const pedidosService = {
           }
 
           if (details.length === 0) continue;
-          const { error: dError } = await supabase.from('pedido_detalle').insert(details);
+          let { error: dError } = await supabase.from('pedido_detalle').insert(details);
+          
+          // Dynamic schema fallback: if precio_unitario is missing, strip and retry
+          if (dError && dError.message?.includes('precio_unitario')) {
+            console.warn('precio_unitario column missing in details insert, retrying without it...');
+            const fallbackDetails = details.map(d => {
+              const copy = { ...d };
+              delete copy.precio_unitario;
+              return copy;
+            });
+            const res = await supabase.from('pedido_detalle').insert(fallbackDetails);
+            dError = res.error;
+          }
+
           if (dError) {
             console.error('Error inserting order details:', dError.message || JSON.stringify(dError));
             throw dError;
@@ -247,23 +298,96 @@ export const pedidosService = {
     }
   },
 
-  async remove(id: number): Promise<boolean> {
-    const supabase = getActiveSupabaseClient();
-    const { error } = await supabase.from('pedidos_cabecera').delete().eq('id_pedido', id);
-    if (error) {
-      console.error('Error deleting order:', error);
-      return false;
+  async agregarItemsAComandaExistente(idPedido: number, nuevosItems: PedidoItem[]): Promise<void> {
+    const supabase = tryGetActiveSupabaseClient();
+    if (!supabase) {
+      const { syncQueueService } = await import('./syncQueueService');
+      syncQueueService.enqueue('upsert_pedido', {
+        id_pedido: idPedido,
+        items: nuevosItems,
+        is_accumulation: true
+      });
+      return;
     }
-    return true;
+
+    // Insert each item as detail row
+    const rows = nuevosItems.map((item, index) => ({
+      id_detalle: `${idPedido}_${item.id_producto}_${Date.now()}_${index}`,
+      id_pedido: idPedido,
+      id_producto: item.id_producto,
+      nombre: item.nombre,
+      cantidad: item.cantidad,
+      categoria: item.categoria,
+      precio_unitario: item.precio_unitario ?? 0,
+      estado: 'pendiente'
+    }));
+
+    const { error: insertError } = await supabase
+      .from('pedido_detalle')
+      .insert(rows);
+
+    if (insertError) {
+      console.error('Error inserting details in accumulation:', insertError);
+      throw insertError;
+    }
+
+    // Update total in cabecera
+    const { data: todosLosDetalles, error: selectError } = await supabase
+      .from('pedido_detalle')
+      .select('cantidad, precio_unitario')
+      .eq('id_pedido', idPedido);
+
+    if (selectError) {
+      console.error('Error fetching all details to calculate total:', selectError);
+      throw selectError;
+    }
+
+    const nuevoTotal = (todosLosDetalles || []).reduce(
+      (acc, d) => acc + (Number(d.cantidad || 0) * Number(d.precio_unitario || 0)), 
+      0
+    );
+
+    const { error: updateError } = await supabase
+      .from('pedidos_cabecera')
+      .update({ total: nuevoTotal })
+      .eq('id_pedido', idPedido);
+
+    if (updateError) {
+      console.error('Error updating total in header:', updateError);
+      throw updateError;
+    }
   },
 
-  // Realtime subscription helper
+  async remove(id: number): Promise<boolean> {
+    const supabase = tryGetActiveSupabaseClient();
+    if (!supabase) return false;
+    
+    try {
+      const { error } = await supabase.from('pedidos_cabecera').delete().eq('id_pedido', id);
+      if (error) {
+        console.error('Error deleting order:', error);
+        return false;
+      }
+      return true;
+    } catch (err) {
+      console.warn('Failed to delete remote order:', err);
+      return false;
+    }
+  },
+
   subscribe(callback: (payload: any) => void) {
-    const supabase = getActiveSupabaseClient();
-    const channel = supabase
-      .channel('realtime:pedidos_cabecera')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos_cabecera' }, callback)
-      .subscribe();
-    return channel;
+    const supabase = tryGetActiveSupabaseClient();
+    if (!supabase) return null;
+    
+    try {
+      const channel = supabase
+        .channel('realtime:pedidos_cabecera')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos_cabecera' }, callback)
+        .subscribe();
+      return channel;
+    } catch (err) {
+      console.warn('Failed to create realtime subscription channel:', err);
+      return null;
+    }
   }
 };

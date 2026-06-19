@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   BarChart3, 
   PieChart, 
@@ -15,7 +15,8 @@ import {
   Info,
   ChevronDown
 } from 'lucide-react';
-import { ProductoMenu, EventoLog, Pedido } from '../types';
+import { ProductoMenu, EventoLog, Pedido, Insumo } from '../types';
+import { insumosService } from '../services/insumosService';
 
 interface BusinessIntelligenceProps {
   productosMenu: ProductoMenu[];
@@ -24,11 +25,80 @@ interface BusinessIntelligenceProps {
   pedidos: Pedido[];
   /** Mapa O(1) de id_producto → precio_venta */
   precioMap: Map<string, number>;
+  insumos: Insumo[];
 }
 
-export default function BusinessIntelligence({ productosMenu, logs, pedidos, precioMap }: BusinessIntelligenceProps) {
+export default function BusinessIntelligence({ productosMenu, logs, pedidos, precioMap, insumos }: BusinessIntelligenceProps) {
   const [logFilter, setLogFilter] = useState<'todo' | 'pedidos' | 'stock' | 'alertas'>('todo');
   const [logSearch, setLogSearch] = useState('');
+  const [historialCostos, setHistorialCostos] = useState<any[]>([]);
+  const [selectedInsumoId, setSelectedInsumoId] = useState<string>('todos');
+  const [fechaInicio, setFechaInicio] = useState<string>('');
+  const [fechaFin, setFechaFin] = useState<string>('');
+
+  useEffect(() => {
+    insumosService.getHistory().then(data => {
+      setHistorialCostos(data || []);
+    }).catch(err => console.error('Error loading cost history in BI:', err));
+  }, []);
+
+  // Filter cost history by date range and selected insumo
+  const filteredHistorialCostos = useMemo(() => {
+    return historialCostos.filter(h => {
+      const date = new Date(h.fecha);
+      if (fechaInicio) {
+        const start = new Date(fechaInicio + 'T00:00:00');
+        if (date < start) return false;
+      }
+      if (fechaFin) {
+        const end = new Date(fechaFin + 'T23:59:59');
+        if (date > end) return false;
+      }
+      if (selectedInsumoId !== 'todos' && h.id_insumo !== selectedInsumoId) {
+        return false;
+      }
+      return true;
+    });
+  }, [historialCostos, selectedInsumoId, fechaInicio, fechaFin]);
+
+  // Aggregate inflation / cost updates by supplier
+  const proveedoresAudit = useMemo(() => {
+    const auditMap = new Map<string, { proveedor: string; updates: number; maxPct: number; insumos: Set<string> }>();
+
+    filteredHistorialCostos.forEach(h => {
+      const insumo = insumos.find(i => i.id_insumo === h.id_insumo);
+      const prov = insumo?.proveedor || 'Sin Proveedor';
+      const pct = h.costo_anterior > 0 ? ((h.costo_nuevo - h.costo_anterior) / h.costo_anterior) * 100 : 100;
+
+      const prev = auditMap.get(prov) ?? { proveedor: prov, updates: 0, maxPct: 0, insumos: new Set<string>() };
+      const nextInsumos = new Set(prev.insumos);
+      nextInsumos.add(h.nombre_insumo);
+
+      auditMap.set(prov, {
+        proveedor: prov,
+        updates: prev.updates + 1,
+        maxPct: Math.max(prev.maxPct, pct),
+        insumos: nextInsumos
+      });
+    });
+
+    return [...auditMap.values()].sort((a, b) => b.maxPct - a.maxPct);
+  }, [filteredHistorialCostos, insumos]);
+
+  // Get data points for the trend chart of the selected insumo
+  const trendPoints = useMemo(() => {
+    if (selectedInsumoId === 'todos') {
+      return [];
+    }
+    const insumoHistory = filteredHistorialCostos
+      .filter(h => h.id_insumo === selectedInsumoId)
+      .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
+
+    return insumoHistory.map(h => ({
+      fecha: new Date(h.fecha).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }),
+      costo: h.costo_nuevo
+    }));
+  }, [filteredHistorialCostos, selectedInsumoId]);
 
   // ── Métricas calculadas desde datos reales ────────────────────────────────
 
@@ -83,7 +153,10 @@ export default function BusinessIntelligence({ productosMenu, logs, pedidos, pre
       .filter(p => typeof p.tiempo_despacho_minutos === 'number' && p.tiempo_despacho_minutos > 0)
       .forEach(p => {
         p.items.forEach(item => {
-          if (item.categoria !== 'cocina') return; // solo platos de cocina
+          const cat = (item.categoria || '').toLowerCase();
+          const nom = (item.nombre || '').toLowerCase();
+          const isBar = cat.includes('bebida') || cat.includes('bodega') || cat.includes('vino') || nom.includes('vino') || nom.includes('gaseosa') || nom.includes('agua') || nom.includes('cerveza');
+          if (isBar) return;
           const prev = byProduct.get(item.nombre) ?? {
             nombre: item.nombre, totalMin: 0, count: 0, idealMin: 12
           };
@@ -396,6 +469,216 @@ export default function BusinessIntelligence({ productosMenu, logs, pedidos, pre
 
         </div>
 
+      </div>
+
+      {/* HISTORIAL DE COSTOS DE INSUMOS Y GRAFICA DE TENDENCIA */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sm:p-6 space-y-6">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center pb-4 border-b border-[#ddd7ce]/40 gap-4">
+          <div>
+            <h4 className="font-extrabold text-sm text-[#624A3E] tracking-tight flex items-center gap-2">
+              <TrendingUp className="w-4.5 h-4.5 text-[#624A3E] shrink-0" />
+              Historial de Costos & Tendencia de Insumos (Auditoría de Proveedores)
+            </h4>
+            <p className="text-xs text-stone-500">
+              Seguimiento de inflación por insumo y auditoría de variaciones por proveedor.
+            </p>
+          </div>
+          <span className="text-[10px] font-mono bg-[#624A3E]/10 text-[#624A3E] font-bold px-2.5 py-0.5 rounded-full border border-[#624A3E]/20 shrink-0">
+            {filteredHistorialCostos.length} registros filtrados
+          </span>
+        </div>
+
+        {/* FILTERS TOOLBAR */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-stone-50 p-3.5 rounded-xl border border-stone-200/60 font-sans">
+          <div>
+            <label className="text-[10px] font-bold uppercase text-stone-500 block mb-1">Filtrar por Insumo</label>
+            <select
+              value={selectedInsumoId}
+              onChange={e => setSelectedInsumoId(e.target.value)}
+              className="w-full text-xs p-2 border border-stone-200 rounded-lg bg-white text-stone-700 font-bold"
+            >
+              <option value="todos">Todos los insumos</option>
+              {insumos.map(i => (
+                <option key={i.id_insumo} value={i.id_insumo}>{i.nombre} ({i.proveedor || 'Sin Proveedor'})</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-[10px] font-bold uppercase text-stone-500 block mb-1">Fecha Desde</label>
+            <input
+              type="date"
+              value={fechaInicio}
+              onChange={e => setFechaInicio(e.target.value)}
+              className="w-full text-xs p-2 border border-stone-200 rounded-lg bg-white text-stone-700 font-mono font-bold"
+            />
+          </div>
+
+          <div>
+            <label className="text-[10px] font-bold uppercase text-stone-500 block mb-1">Fecha Hasta</label>
+            <input
+              type="date"
+              value={fechaFin}
+              onChange={e => setFechaFin(e.target.value)}
+              className="w-full text-xs p-2 border border-stone-200 rounded-lg bg-white text-stone-700 font-mono font-bold"
+            />
+          </div>
+        </div>
+
+        {/* GRID LAYOUT: TREND CHART + SUPPLIER AUDIT */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          
+          {/* LEFT: TREND CHART OR SUMMARY */}
+          <div className="lg:col-span-7 space-y-4">
+            <h5 className="text-[11px] font-black text-stone-500 uppercase tracking-widest">
+              📈 Gráfica de Tendencia de Costo
+            </h5>
+            
+            {selectedInsumoId === 'todos' ? (
+              <div className="h-48 bg-stone-50 border border-dashed border-stone-200 rounded-xl flex flex-col justify-center items-center text-center p-6">
+                <Info className="w-8 h-8 text-stone-400 mb-2" />
+                <p className="text-xs text-stone-500 font-bold">Seleccione un insumo específico en los filtros</p>
+                <p className="text-[10px] text-stone-400 mt-0.5">Podrá ver la curva temporal del costo de compra y su histórico de evolución.</p>
+              </div>
+            ) : trendPoints.length === 0 ? (
+              <div className="h-48 bg-stone-50 border border-dashed border-stone-200 rounded-xl flex flex-col justify-center items-center text-center p-6">
+                <Clock className="w-8 h-8 text-stone-400 mb-2" />
+                <p className="text-xs text-stone-500 font-bold">Sin histórico registrado</p>
+                <p className="text-[10px] text-stone-400 mt-0.5">Este insumo no tiene actualizaciones de costo registradas en el período seleccionado.</p>
+              </div>
+            ) : (
+              <div className="bg-stone-50 border border-stone-200 p-4 rounded-xl">
+                <div className="relative h-44 w-full flex items-end">
+                  <svg className="w-full h-36 overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
+                    {(() => {
+                      const costs = trendPoints.map(p => p.costo);
+                      const minCost = Math.min(...costs) * 0.9;
+                      const maxCost = Math.max(...costs) * 1.1;
+                      const range = maxCost - minCost || 1;
+
+                      const coords = trendPoints.map((p, idx) => {
+                        const x = (idx / (trendPoints.length - 1 || 1)) * 100;
+                        const y = 100 - (((p.costo - minCost) / range) * 100);
+                        return { x, y, val: p.costo, label: p.fecha };
+                      });
+
+                      const pathD = coords.map((c, i) => `${i === 0 ? 'M' : 'L'} ${c.x} ${c.y}`).join(' ');
+
+                      return (
+                        <>
+                          <line x1="0" y1="0" x2="100" y2="0" stroke="#E5E7EB" strokeWidth="0.5" strokeDasharray="2" />
+                          <line x1="0" y1="50" x2="100" y2="50" stroke="#E5E7EB" strokeWidth="0.5" strokeDasharray="2" />
+                          <line x1="0" y1="100" x2="100" y2="100" stroke="#E5E7EB" strokeWidth="0.5" />
+
+                          <path d={pathD} fill="none" stroke="#624A3E" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+
+                          {coords.map((c, idx) => (
+                            <g key={idx}>
+                              <circle cx={c.x} cy={c.y} r="3" fill="#624A3E" stroke="#FFFFFF" strokeWidth="1" className="cursor-pointer" />
+                              <text x={c.x} y={c.y - 6} textAnchor="middle" fontSize="5" className="fill-[#624A3E] font-bold font-mono">
+                                ${c.val.toLocaleString('es-AR', { maximumFractionDigits: 0 })}
+                              </text>
+                            </g>
+                          ))}
+                        </>
+                      );
+                    })()}
+                  </svg>
+                  
+                  <div className="absolute -bottom-1.5 inset-x-0 flex justify-between px-1 text-[8px] font-mono text-stone-500 font-bold">
+                    {trendPoints.map((pt, idx) => {
+                      if (idx === 0 || idx === trendPoints.length - 1 || trendPoints.length <= 4) {
+                        return <span key={idx}>{pt.fecha}</span>;
+                      }
+                      return null;
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* RIGHT: SUPPLIER AUDIT STATISTICS */}
+          <div className="lg:col-span-5 space-y-4">
+            <h5 className="text-[11px] font-black text-stone-500 uppercase tracking-widest">
+              🚚 Auditoría de Proveedores (Inflación)
+            </h5>
+
+            {proveedoresAudit.length === 0 ? (
+              <p className="text-stone-400 text-xs italic py-8 text-center bg-stone-50 border border-dashed border-stone-200 rounded-xl">
+                No hay datos de inflación de proveedores en este rango.
+              </p>
+            ) : (
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                {proveedoresAudit.map((p, idx) => (
+                  <div key={idx} className="p-3 bg-stone-50 border border-stone-200 rounded-xl flex justify-between items-center gap-3">
+                    <div className="min-w-0">
+                      <p className="text-xs font-black text-stone-850 truncate">{p.proveedor}</p>
+                      <p className="text-[9px] text-stone-500 font-bold uppercase mt-0.5">
+                        {p.updates} actualizaciones • {p.insumos.size} insumo(s)
+                      </p>
+                      <p className="text-[8px] text-stone-400 truncate mt-0.5 leading-tight">
+                        Afecta a: {Array.from(p.insumos).join(', ')}
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className="text-[10px] text-stone-400 block font-bold uppercase">Max Aumento</span>
+                      <span className="text-xs font-black text-rose-600 font-mono">
+                        +{p.maxPct.toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+        </div>
+
+        {/* DETAILED PRICE CHANGES TABLE */}
+        <div className="pt-2">
+          <h5 className="text-[11px] font-black text-stone-500 uppercase tracking-widest mb-3">
+            📋 Registro de Cambios de Costo
+          </h5>
+          
+          <div className="overflow-x-auto border border-stone-200 rounded-xl">
+            {filteredHistorialCostos.length === 0 ? (
+              <p className="text-stone-400 text-xs italic text-center py-6">No hay registros que coincidan con los filtros.</p>
+            ) : (
+              <table className="w-full text-left border-collapse text-xs font-sans">
+                <thead>
+                  <tr className="border-b border-stone-200 bg-stone-50 text-stone-500 font-bold uppercase tracking-wider text-[9px] sm:text-[10px]">
+                    <th className="py-2.5 px-3">Fecha</th>
+                    <th className="py-2.5 px-3">Insumo</th>
+                    <th className="py-2.5 px-3 text-right">Costo Anterior</th>
+                    <th className="py-2.5 px-3 text-right">Costo Nuevo</th>
+                    <th className="py-2.5 px-3 text-right">Variación</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredHistorialCostos.slice(0, 10).map((h) => {
+                    const diff = h.costo_nuevo - h.costo_anterior;
+                    const pct = h.costo_anterior > 0 ? ((diff / h.costo_anterior) * 100).toFixed(1) : '100';
+                    const isUp = diff > 0;
+                    return (
+                      <tr key={h.id_historial} className="border-b border-stone-150 hover:bg-stone-50 transition-colors">
+                        <td className="py-2.5 px-3 text-stone-500 font-mono">
+                          {new Date(h.fecha).toLocaleDateString('es-AR')} {new Date(h.fecha).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}hs
+                        </td>
+                        <td className="py-2.5 px-3 text-stone-800 font-black">{h.nombre_insumo}</td>
+                        <td className="py-2.5 px-3 text-right text-stone-600 font-mono">${h.costo_anterior.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
+                        <td className="py-2.5 px-3 text-right text-stone-950 font-mono font-bold">${h.costo_nuevo.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
+                        <td className={`py-2.5 px-3 text-right font-black font-mono ${isUp ? 'text-rose-600 font-bold' : 'text-emerald-700 font-bold'}`}>
+                          {isUp ? '↑' : '↓'} {isUp ? '+' : ''}{pct}%
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* CORE AUDIT LOG TERMINAL PANEL */}

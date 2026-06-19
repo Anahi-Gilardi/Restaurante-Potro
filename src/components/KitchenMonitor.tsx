@@ -1,5 +1,4 @@
-import React, { useMemo, useState } from 'react';
-import { useDebounce } from '../hooks/useDebounce';
+import React, { useMemo } from 'react';
 import {
   AlertTriangle,
   Flame,
@@ -13,147 +12,59 @@ import {
   Filter,
   RefreshCw,
   Pencil,
-  LayoutGrid,
-  CircleDot
+  CircleDot,
+  BookOpen
 } from 'lucide-react';
-import { Pedido, PedidoItem } from '../types';
+import { Pedido, ProductoMenu, RecetaEscandallo, Insumo } from '../types';
+import { useKitchenMonitor } from '../features/cocina/hooks/useKitchenMonitor';
 
 interface KitchenMonitorProps {
   pedidos: Pedido[];
   onCambiarEstadoPedido: (idPedido: number, nuevoEstado: Pedido['estado_comanda']) => void;
   onProducirPedidoConEscandallo: (idPedido: number) => void;
   minutosGlobal: number;
+  productosMenu: ProductoMenu[];
+  recetas: RecetaEscandallo[];
+  insumos: Insumo[];
 }
-
-const isBarItem = (item: PedidoItem) => {
-  const categoria = item.categoria.toLowerCase();
-  const nombre = item.nombre.toLowerCase();
-  return (
-    categoria.includes('bebida') ||
-    categoria.includes('bodega') ||
-    categoria.includes('vino') ||
-    nombre.includes('vino') ||
-    nombre.includes('gaseosa') ||
-    nombre.includes('agua') ||
-    nombre.includes('cerveza')
-  );
-};
-
-const isKitchenItem = (item: PedidoItem) => !isBarItem(item);
-
-type CancelRequest = {
-  pedido: Pedido;
-  title: string;
-  detail: string;
-};
 
 export default function KitchenMonitor({
   pedidos,
   onCambiarEstadoPedido,
   onProducirPedidoConEscandallo,
-  minutosGlobal
+  minutosGlobal,
+  productosMenu,
+  recetas,
+  insumos
 }: KitchenMonitorProps) {
-  const [cancelRequest, setCancelRequest] = useState<CancelRequest | null>(null);
-  const [kitchenSearch, setKitchenSearch] = useState('');
-  const debouncedKitchenSearch = useDebounce(kitchenSearch, 300);
-  const [showOnlyKitchen, setShowOnlyKitchen] = useState(false);
-  const [optimisticUpdates, setOptimisticUpdates] = useState<Map<number, { estado: Pedido['estado_comanda']; updating: boolean }>>(new Map());
+  const {
+    cancelRequest,
+    setCancelRequest,
+    kitchenSearch,
+    setKitchenSearch,
+    showOnlyKitchen,
+    setShowOnlyKitchen,
+    optimisticUpdates,
+    selectedRecipeProduct,
+    setSelectedRecipeProduct,
+    activeKitchenOrders,
+    batchProduction,
+    getSemaforoInfo,
+    isColdPlate,
+    handleOptimisticStatus,
+    confirmCancel,
+    isBarItem
+  } = useKitchenMonitor({
+    pedidos,
+    onCambiarEstadoPedido,
+    productosMenu,
+    recetas,
+    insumos
+  });
 
-  const activeKitchenOrders = useMemo(() => {
-    let filtered = pedidos.filter(p => {
-      const effective = optimisticUpdates.get(p.id_pedido)?.estado || p.estado_comanda;
-      return effective !== 'entregado_cobrado' && effective !== 'entregado' && effective !== 'cancelado';
-    });
-    if (showOnlyKitchen) {
-      filtered = filtered.map(p => ({
-        ...p,
-        items: p.items.filter(item => isKitchenItem(item))
-      })).filter(p => p.items.length > 0);
-    }
-    if (debouncedKitchenSearch.trim()) {
-      const q = debouncedKitchenSearch.toLowerCase();
-      filtered = filtered.filter(p =>
-        p.numero_mesa.toLowerCase().includes(q) ||
-        p.mozo.toLowerCase().includes(q) ||
-        p.items.some(it => it.nombre.toLowerCase().includes(q))
-      );
-    }
-    return filtered;
-  }, [pedidos, debouncedKitchenSearch, showOnlyKitchen, optimisticUpdates]);
-
-  const batchProduction = useMemo(() => {
-    const totals: { [nombre: string]: { cantidad: number; categoria: string } } = {};
-
-    activeKitchenOrders.forEach(p => {
-      if (p.estado_comanda === 'pendiente' || p.estado_comanda === 'en_cocina') {
-        p.items.forEach(item => {
-          if (isKitchenItem(item)) {
-            if (!totals[item.nombre]) {
-              totals[item.nombre] = { cantidad: 0, categoria: item.categoria };
-            }
-            totals[item.nombre].cantidad += item.cantidad;
-          }
-        });
-      }
-    });
-
-    return Object.entries(totals).map(([nombre, meta]) => ({
-      nombre,
-      cantidad: meta.cantidad,
-      categoria: meta.categoria
-    })).filter(item => item.cantidad > 0);
-  }, [activeKitchenOrders]);
-
-  const getSemaforoInfo = (minutosTranscurridos: number) => {
-    if (minutosTranscurridos <= 10) {
-      return {
-        border: 'border-l-[#2e8b57]',
-        timeDot: 'bg-[#2e8b57]',
-        timeText: 'text-[#2e8b57]'
-      };
-    } else if (minutosTranscurridos <= 18) {
-      return {
-        border: 'border-l-[#a0522d]',
-        timeDot: 'bg-[#a0522d]',
-        timeText: 'text-[#a0522d]'
-      };
-    } else {
-      return {
-        border: 'border-l-[#c0392b]',
-        timeDot: 'bg-[#c0392b] animate-pulse',
-        timeText: 'text-[#c0392b]'
-      };
-    }
-  };
-
-  const isColdPlate = (pedido: Pedido) => {
-    if (pedido.estado_comanda !== 'listo') return false;
-    return (pedido.segundos_en_listo ?? 0) >= 300;
-  };
-
-  const handleOptimisticStatus = (idPedido: number, nuevoEstado: Pedido['estado_comanda']) => {
-    setOptimisticUpdates(prev => new Map(prev).set(idPedido, { estado: nuevoEstado, updating: true }));
-    onCambiarEstadoPedido(idPedido, nuevoEstado);
-    setTimeout(() => {
-      setOptimisticUpdates(prev => {
-        const next = new Map(prev);
-        next.delete(idPedido);
-        return next;
-      });
-    }, 1500);
-  };
-
-  const getEffectiveStatus = (pedido: Pedido): Pedido['estado_comanda'] => {
-    const optimistic = optimisticUpdates.get(pedido.id_pedido);
-    return optimistic ? optimistic.estado : pedido.estado_comanda;
-  };
-
-  const confirmCancel = () => {
-    if (!cancelRequest) return;
-    onCambiarEstadoPedido(cancelRequest.pedido.id_pedido, 'cancelado');
-    setCancelRequest(null);
-  };
-
+  const ordersPendientes = useMemo(() => activeKitchenOrders.filter(p => p.estado_comanda === 'pendiente'), [activeKitchenOrders]);
+  const ordersEnCocina = useMemo(() => activeKitchenOrders.filter(p => p.estado_comanda === 'en_cocina'), [activeKitchenOrders]);
+  const ordersListo = useMemo(() => activeKitchenOrders.filter(p => p.estado_comanda === 'listo'), [activeKitchenOrders]);
   const renderTicket = (p: Pedido, estado: Pedido['estado_comanda']) => {
     const sem = estado === 'pendiente' || estado === 'en_cocina' ? getSemaforoInfo(p.minutos_transcurridos) : null;
     const cold = estado === 'listo' && isColdPlate(p);
@@ -218,6 +129,19 @@ export default function KitchenMonitor({
                 <span className="flex-1 font-bold text-[#4b3621] text-sm leading-snug truncate">
                   {it.nombre}
                 </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const prod = productosMenu.find(pm => pm.id_producto === it.id_producto);
+                    if (prod) {
+                      setSelectedRecipeProduct(prod);
+                    }
+                  }}
+                  className="touch-target p-1 text-[#a0522d] hover:text-[#4b3621] hover:bg-[#e2dabf]/50 rounded transition-colors shrink-0"
+                  title="Ver Receta y Emplatado"
+                >
+                  <BookOpen className="w-3.5 h-3.5" />
+                </button>
                 <span className="text-[9px] uppercase font-black tracking-wider text-[#4b3621]/60 bg-[#e2dabf] px-2 py-0.5 rounded-md shrink-0">
                   {isBarItem(it) ? 'BAR' : 'FUEGO'}
                 </span>
@@ -239,7 +163,7 @@ export default function KitchenMonitor({
               onClick={() => handleOptimisticStatus(p.id_pedido, 'en_cocina')}
               className={`w-full min-h-12 mt-2 py-3 px-3 ${btnTheme} rounded-xl text-sm font-black flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer shadow-md`}
             >
-              {optimisticUpdates.get(p.id_pedido)?.updating ? (
+              {optimisticUpdates.get(p.id_pedido)?.estado === 'en_cocina' && optimisticUpdates.get(p.id_pedido)?.updating ? (
                 <><RefreshCw className="w-4 h-4 animate-spin" /> Actualizando...</>
               ) : (
                 <><Flame className="w-4 h-4" /> Iniciar Fuego</>
@@ -252,7 +176,7 @@ export default function KitchenMonitor({
               onClick={() => handleOptimisticStatus(p.id_pedido, 'listo')}
               className={`w-full min-h-12 mt-2 py-3 px-3 ${btnTheme} rounded-xl text-sm font-black flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer shadow-md`}
             >
-              {optimisticUpdates.get(p.id_pedido)?.updating ? (
+              {optimisticUpdates.get(p.id_pedido)?.estado === 'listo' && optimisticUpdates.get(p.id_pedido)?.updating ? (
                 <><RefreshCw className="w-4 h-4 animate-spin" /> Actualizando...</>
               ) : (
                 <><CheckCircle className="w-4 h-4" /> Terminado</>
@@ -265,7 +189,7 @@ export default function KitchenMonitor({
               onClick={() => handleOptimisticStatus(p.id_pedido, 'entregado')}
               className={`w-full min-h-12 mt-2 py-3 px-3 ${btnTheme} rounded-xl text-sm font-black flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer shadow-md`}
             >
-              {optimisticUpdates.get(p.id_pedido)?.updating ? (
+              {optimisticUpdates.get(p.id_pedido)?.estado === 'entregado' && optimisticUpdates.get(p.id_pedido)?.updating ? (
                 <><RefreshCw className="w-4 h-4 animate-spin" /> Actualizando...</>
               ) : (
                 <><CheckCircle className="w-4 h-4" /> Entregar a Mesa</>
@@ -399,21 +323,21 @@ export default function KitchenMonitor({
           'Pendientes (Ingresos)',
           <CircleDot className="w-4 h-4 text-[#a0522d]" />,
           'bg-[#e2dabf] border-[#a0522d]',
-          activeKitchenOrders.filter(p => p.estado_comanda === 'pendiente')
+          ordersPendientes
         )}
         {renderColumn(
           'en_cocina',
           'En Preparación (Fuegos)',
           <Flame className="w-4 h-4 text-[#a0522d]" />,
           'bg-[#f3e5ab] border-[#a0522d]',
-          activeKitchenOrders.filter(p => p.estado_comanda === 'en_cocina')
+          ordersEnCocina
         )}
         {renderColumn(
           'listo',
           'Listos (A Servir)',
           <CheckCircle className="w-4 h-4 text-[#2e8b57]" />,
           'bg-[#d0f0c0] border-[#2e8b57]',
-          activeKitchenOrders.filter(p => p.estado_comanda === 'listo')
+          ordersListo
         )}
       </div>
 
@@ -441,6 +365,145 @@ export default function KitchenMonitor({
                 className="flex-1 min-h-11 py-2.5 rounded-xl bg-[#c0392b] text-[#f4ecd8] text-sm font-black cursor-pointer hover:bg-[#a93226] transition-colors shadow-md"
               >
                 Confirmar Cancelación
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {selectedRecipeProduct && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-[#fcfaf7] border border-[#d4b89a] rounded-[24px] shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 flex flex-col space-y-4 font-sans text-stone-800">
+            {/* Header */}
+            <div className="flex justify-between items-start border-b border-[#d4b89a]/30 pb-3">
+              <div>
+                <span className="text-[9px] uppercase font-black text-[#a0522d] tracking-widest block bg-[#e2dabf]/50 px-2 py-0.5 rounded w-fit">
+                  {selectedRecipeProduct.categoria} • {selectedRecipeProduct.tiempo_preparacion_estimado || 15}m prep
+                </span>
+                <h3 className="font-serif font-black text-xl text-[#4b3621] mt-1">{selectedRecipeProduct.nombre}</h3>
+              </div>
+              <button
+                onClick={() => setSelectedRecipeProduct(null)}
+                className="touch-target p-1.5 hover:bg-stone-100 rounded-full text-stone-400 hover:text-stone-700 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Image */}
+            {selectedRecipeProduct.imagen && (
+              <img
+                src={selectedRecipeProduct.imagen}
+                alt={selectedRecipeProduct.nombre}
+                className="w-full h-48 object-cover rounded-2xl border border-[#d4b89a]/45 shadow-sm"
+              />
+            )}
+
+            {/* Content layout */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              
+              {/* Left Column: Escandallo & Alérgenos */}
+              <div className="space-y-4">
+                <div>
+                  <h4 className="text-[10px] font-black text-stone-450 uppercase tracking-widest mb-2">
+                    ⚖️ Escandallo (Ingredientes de Receta)
+                  </h4>
+                  {(() => {
+                    const ingredients = recetas
+                      .filter(r => r.id_producto === selectedRecipeProduct.id_producto)
+                      .map(r => {
+                        const insumo = insumos.find(i => i.id_insumo === r.id_insumo);
+                        return {
+                          nombre: insumo ? insumo.nombre : r.id_insumo,
+                          cantidad: r.cantidad_a_descontar,
+                          unidad: r.unidad_medida || insumo?.unidad_medida || 'u'
+                        };
+                      });
+
+                    return ingredients.length === 0 ? (
+                      <p className="text-stone-400 text-xs italic">Sin ingredientes registrados en escandallo.</p>
+                    ) : (
+                      <div className="bg-stone-50 border border-stone-200/80 rounded-xl p-3 space-y-1.5">
+                        {ingredients.map((ing, idx) => (
+                          <div key={idx} className="flex justify-between items-center text-xs font-medium text-stone-700">
+                            <span>• {ing.nombre}</span>
+                            <span className="font-mono text-stone-900 font-bold bg-white px-2 py-0.5 rounded border border-stone-150">
+                              {ing.cantidad} {ing.unidad}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                <div>
+                  <h4 className="text-[10px] font-black text-stone-450 uppercase tracking-widest mb-2">
+                    ⚠️ Alérgenos Declarados
+                  </h4>
+                  {selectedRecipeProduct.alergenos && selectedRecipeProduct.alergenos.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {selectedRecipeProduct.alergenos.map((al, idx) => (
+                        <span
+                          key={idx}
+                          className="text-[10px] font-black uppercase px-2.5 py-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-lg shadow-xs"
+                        >
+                          {al}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-[10px] font-black uppercase px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-250 rounded-lg shadow-xs inline-block">
+                      Libre de alérgenos comunes
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Right Column: Pasos de Preparación */}
+              <div className="space-y-4">
+                <div>
+                  <h4 className="text-[10px] font-black text-stone-450 uppercase tracking-widest mb-2">
+                    🍳 Pasos de Cocción y Preparación
+                  </h4>
+                  {selectedRecipeProduct.pasos_preparacion && selectedRecipeProduct.pasos_preparacion.length > 0 ? (
+                    <ol className="space-y-2.5">
+                      {selectedRecipeProduct.pasos_preparacion.map((step, idx) => (
+                        <li key={idx} className="flex gap-2.5 items-start text-xs leading-relaxed text-stone-700 font-medium">
+                          <span className="w-5 h-5 rounded-full bg-[#624A3E] text-white flex items-center justify-center shrink-0 font-mono font-bold text-[10px]">
+                            {idx + 1}
+                          </span>
+                          <span className="pt-0.5">{step}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  ) : (
+                    <p className="text-stone-450 text-xs italic bg-stone-50 border border-dashed p-3 rounded-lg">
+                      No se han detallado las instrucciones de preparación paso a paso.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+            </div>
+
+            {/* Plating Advice Callout */}
+            {selectedRecipeProduct.consejo_emplatado && (
+              <div className="bg-[#f5f1e9] border border-[#d4b89a] p-3.5 rounded-2xl flex items-start gap-2.5 text-xs text-[#4b3621] leading-relaxed">
+                <Utensils className="w-4 h-4 text-[#a0522d] mt-0.5 shrink-0" />
+                <div>
+                  <span className="text-[10px] font-black uppercase text-[#a0522d] block mb-0.5">Sugerencia de Emplatado:</span>
+                  <p className="font-semibold">"{selectedRecipeProduct.consejo_emplatado}"</p>
+                </div>
+              </div>
+            )}
+
+            {/* Action Bar */}
+            <div className="pt-2 border-t border-[#d4b89a]/30 flex justify-end">
+              <button
+                onClick={() => setSelectedRecipeProduct(null)}
+                className="touch-target px-5 py-2 bg-[#624A3E] hover:bg-[#503C32] text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer shadow-sm active:scale-95"
+              >
+                Cerrar Recetario
               </button>
             </div>
           </div>

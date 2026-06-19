@@ -34,11 +34,39 @@ export const insumosService = {
 
   async update(id: string, insumo: Partial<Insumo>): Promise<Insumo> {
     const supabase = getActiveSupabaseClient();
+    let previousCost = 0;
+    try {
+      const current = await this.getById(id);
+      if (current) {
+        previousCost = current.costo_unitario ?? 0;
+      }
+    } catch (e) {
+      console.warn('Could not fetch previous cost:', e);
+    }
+
     const { data, error } = await supabase.from('insumos').update(insumo).eq('id_insumo', id).select().single();
     if (error) {
       console.error('Error updating insumo:', error);
       throw error;
     }
+
+    const newCost = insumo.costo_unitario;
+    if (newCost !== undefined && newCost !== null && newCost !== previousCost) {
+      try {
+        const id_historial = `his_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+        await supabase.from('historial_costos_insumos').insert([{
+          id_historial,
+          id_insumo: id,
+          nombre_insumo: data.nombre,
+          costo_anterior: previousCost,
+          costo_nuevo: newCost,
+          fecha: new Date().toISOString()
+        }]);
+      } catch (e) {
+        console.error('Error recording cost history:', e);
+      }
+    }
+
     if (insumo.costo_unitario !== undefined && insumo.costo_unitario !== null) {
       recalculateMarginsForInsumo(id, insumo.costo_unitario).catch(err =>
         console.error('Error running real-time margin recalculation:', err)
@@ -49,12 +77,42 @@ export const insumosService = {
 
   async upsert(insumos: Insumo[]): Promise<Insumo[]> {
     const supabase = getActiveSupabaseClient();
+    const existingMap = new Map<string, number>();
+    try {
+      const existing = await this.list();
+      existing.forEach(i => {
+        existingMap.set(i.id_insumo, i.costo_unitario ?? 0);
+      });
+    } catch (e) {
+      console.warn('Could not fetch existing insumos:', e);
+    }
+
     const { data, error } = await supabase.from('insumos').upsert(insumos).select();
     if (error) {
       console.error('Error upserting insumos:', error);
       throw error;
     }
-    // Recalculate margins for each upserted insumo with updated cost
+
+    for (const ins of (data || [])) {
+      const prevCost = existingMap.get(ins.id_insumo) ?? 0;
+      const newCost = ins.costo_unitario ?? 0;
+      if (newCost !== prevCost && newCost > 0) {
+        try {
+          const id_historial = `his_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+          await supabase.from('historial_costos_insumos').insert([{
+            id_historial,
+            id_insumo: ins.id_insumo,
+            nombre_insumo: ins.nombre,
+            costo_anterior: prevCost,
+            costo_nuevo: newCost,
+            fecha: new Date().toISOString()
+          }]);
+        } catch (e) {
+          console.error('Error recording cost history on upsert:', e);
+        }
+      }
+    }
+
     (data || []).forEach(ins => {
       if (ins.costo_unitario !== undefined && ins.costo_unitario !== null) {
         recalculateMarginsForInsumo(ins.id_insumo, parseFloat(ins.costo_unitario)).catch(err =>
@@ -75,6 +133,20 @@ export const insumosService = {
     return true;
   },
 
+  async getHistory(idInsumo?: string): Promise<any[]> {
+    const supabase = getActiveSupabaseClient();
+    let query = supabase.from('historial_costos_insumos').select('*').order('fecha', { ascending: false });
+    if (idInsumo) {
+      query = query.eq('id_insumo', idInsumo);
+    }
+    const { data, error } = await query;
+    if (error) {
+      console.error('Error fetching cost history:', error);
+      return [];
+    }
+    return data || [];
+  },
+
   async recordMovement(movement: {
     id_insumo: string;
     tipo_movimiento: 'entrada' | 'salida_comanda' | 'salida_merma' | 'ajuste';
@@ -92,6 +164,16 @@ export const insumosService = {
     if (error) {
       console.error('Error recording movement:', error);
     }
+  },
+
+  async listMovements(): Promise<any[]> {
+    const supabase = getActiveSupabaseClient();
+    const { data, error } = await supabase.from('movimientos_inventario').select('*').order('fecha', { ascending: false });
+    if (error) {
+      console.error('Error fetching movements:', error);
+      return [];
+    }
+    return data || [];
   }
 };
 

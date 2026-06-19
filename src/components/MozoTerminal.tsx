@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useMemo } from 'react';
 import { 
   Users, 
   Plus, 
@@ -24,32 +24,11 @@ import {
   Printer,
   Download
 } from 'lucide-react';
-import { Mesa, Insumo, ProductoMenu, RecetaEscandallo, Pedido, PedidoItem, Usuario, EventoLog, TicketData } from '../types';
+import { Mesa, Insumo, ProductoMenu, RecetaEscandallo, Pedido, PedidoItem, Usuario, EventoLog } from '../types';
 import { useMenu, useSalon, useInventario, usePedidos } from '../context/AppContext';
 import { useToast, ToastContainer } from './ToastContainer';
-import { clearMozoCartDraft, createMozoCartIdempotencyKey, MozoCart, readMozoCartDraft, writeMozoCartDraft } from '../lib/mozoCartDraft';
-import { pdfService } from '../services/pdfService';
-
-const CHECKOUT_TIMEOUT_MS = 12000;
-
-const PAIRING_SUGGESTIONS: { [prodId: string]: { matchedProdId: string; suggestionText: string } } = {
-  'prod_car_ojo_bife': { matchedProdId: 'prod_vin_trumpeter_botella', suggestionText: '¿Deseas maridar el Ojo de Bife con un excelente Trumpeter Malbec (Botella)?' },
-  'prod_car_bife_madurado': { matchedProdId: 'prod_vin_rutini_botella', suggestionText: '¿Sugerimos un distinguido Rutini Cabernet-Malbec para acompañar el bife madurado?' },
-  'prod_car_entrana': { matchedProdId: 'prod_vin_escorihuela_gascon', suggestionText: '¿Deseas ofrecer un tradicional Escorihuela Gascón Malbec para maridar con la entraña?' },
-  'prod_pas_cintas_sepia': { matchedProdId: 'prod_vin_st_felicien_botella', suggestionText: '¿Deseas sugerir un refrescante Saint Felicien Sauvignon Blanc para acompañar los mariscos?' },
-  'prod_pes_salmon': { matchedProdId: 'prod_vin_salentein_res_ch', suggestionText: '¿Deseas maridar el Salmón Rosado con un aromático Salentein Reserva Chardonnay?' },
-  'prod_pos_volcan': { matchedProdId: 'prod_beb_whisky', suggestionText: '¿Sugerimos una medida de Whisky Macallan 12 Años para acompañar el Volcán de chocolate?' },
-  'prod_pos_flan': { matchedProdId: 'prod_cafe_espresso', suggestionText: '¿Acompañamos el flan casero con un Café Espresso Doble calientito?' }
-};
-
-function withCheckoutTimeout<T>(operation: Promise<T>, timeoutMs = CHECKOUT_TIMEOUT_MS): Promise<T> {
-  let timeoutId: ReturnType<typeof setTimeout>;
-  const timeout = new Promise<never>((_, reject) => {
-    timeoutId = setTimeout(() => reject(new Error('Tiempo de espera agotado al enviar la comanda.')), timeoutMs);
-  });
-
-  return Promise.race([operation, timeout]).finally(() => clearTimeout(timeoutId));
-}
+import { useMozoTerminal } from '../features/salon/hooks/useMozoTerminal';
+import { tryGetActiveSupabaseClient } from '../lib/supabaseClient';
 
 interface MozoTerminalProps {
   mesas: Mesa[];
@@ -101,397 +80,68 @@ export default function MozoTerminal({
   const onFacturarMesa = propOnFacturarMesa ?? ctxPedidos.handleFacturarMesa;
   const addLog = propAddLog ?? (() => {});
   const { toast, toasts, removeToast } = useToast();
-  const checkoutInFlightRef = useRef(false);
-  // Waiter selections
-  const [selectedMesaId, setSelectedMesaId] = useState<number | null>(null);
-  const [comensales, setComensales] = useState<number>(2);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategoria, setSelectedCategoria] = useState<string>('todo');
-  
-  // Current order cart
-  const [cart, setCart] = useState<MozoCart>({});
-  const [pairingAlert, setPairingAlert] = useState<{ parentId: string; suggestedId: string; text: string } | null>(null);
-  const [observaciones, setObservaciones] = useState('');
-  const [cartIdempotencyKey, setCartIdempotencyKey] = useState<string | null>(null);
-  const [lastCheckoutTime, setLastCheckoutTime] = useState<number | null>(null);
-  const [checkoutStatus, setCheckoutStatus] = useState<'idle' | 'sending' | 'done'>('idle');
 
-  // Admin menu state
-  const [adminMenuProduct, setAdminMenuProduct] = useState<string | null>(null);
-  const [editingPriceProduct, setEditingPriceProduct] = useState<string | null>(null);
-  const [editingPriceValue, setEditingPriceValue] = useState<number>(0);
-  const activeUser = useMemo(() => usuarios.find(u => u.nombre === activeMozo), [usuarios, activeMozo]);
-  const isAdmin = activeUser?.rol === 'superadmin' || activeUser?.rol === 'administrador';
+  const isOnline = Boolean(tryGetActiveSupabaseClient());
 
-  // Bill splitting state
-  const [splittingPedidoId, setSplittingPedidoId] = useState<number | null>(null);
-  const [splitCount, setSplitCount] = useState<number>(2);
-  const [splitItemsChecked, setSplitItemsChecked] = useState<{ [itemIdx: number]: boolean }>({});
-
-  const selectedMesa = useMemo(() => {
-    return mesas.find(m => m.id_mesa === selectedMesaId) || null;
-  }, [selectedMesaId, mesas]);
-
-  const getValidCartFromDraft = useCallback((draftCart: MozoCart): { cart: MozoCart; removed: string[] } => {
-    return Object.entries(draftCart).reduce<{ cart: MozoCart; removed: string[] }>((acc, [productId, qty]) => {
-      const product = productosMenu.find(p => p.id_producto === productId);
-      if (!product || !product.activo) {
-        acc.removed.push(product?.nombre ?? productId);
-        return acc;
-      }
-      acc.cart[productId] = qty;
-      return acc;
-    }, { cart: {}, removed: [] });
-  }, [productosMenu]);
-
-  useEffect(() => {
-    if (!selectedMesaId) return;
-    writeMozoCartDraft(selectedMesaId, {
-      cart,
-      observaciones,
-      mozo: activeMozo,
-      idempotencyKey: cartIdempotencyKey ?? undefined,
-    });
-  }, [selectedMesaId, cart, observaciones, activeMozo, cartIdempotencyKey]);
-
-  const handleSelectMesa = useCallback((mesa: Mesa) => {
-    if (checkoutInFlightRef.current) return;
-    if (selectedMesaId) {
-      writeMozoCartDraft(selectedMesaId, {
-        cart,
-        observaciones,
-        mozo: activeMozo,
-        idempotencyKey: cartIdempotencyKey ?? undefined,
-      });
-    }
-
-    const draft = readMozoCartDraft(mesa.id_mesa);
-    const validatedDraft = draft ? getValidCartFromDraft(draft.cart) : { cart: {}, removed: [] };
-    setSelectedMesaId(mesa.id_mesa);
-    setCart(validatedDraft.cart);
-    setObservaciones(draft?.observaciones ?? '');
-    setCartIdempotencyKey(draft?.idempotencyKey ?? createMozoCartIdempotencyKey(mesa.id_mesa));
-    setCheckoutStatus('idle');
-
-    if (mesa.estado === 'ocupada' && mesa.comensales) {
-      setComensales(mesa.comensales);
-    }
-
-    if (validatedDraft.removed.length > 0) {
-      toast.warning(`Quitamos ${validatedDraft.removed.length} producto(s) del borrador porque ya no están activos.`);
-    }
-
-    if (Object.keys(validatedDraft.cart).length > 0) {
-      toast.info(`Recuperamos la comanda pendiente de ${mesa.numero_mesa}.`);
-    }
-  }, [activeMozo, cart, cartIdempotencyKey, getValidCartFromDraft, observaciones, selectedMesaId, toast]);
-
-  // Listen to changes in pedidos to notify waiter when kitchen completes an order (transition to 'listo')
-  const prevPedidosRef = useRef<Pedido[]>([]);
-  useEffect(() => {
-    pedidos.forEach(p => {
-      // Find matching previous order state
-      const prev = prevPedidosRef.current.find(old => old.id_pedido === p.id_pedido);
-      if (prev && prev.estado_comanda !== 'listo' && p.estado_comanda === 'listo') {
-        // Trigger notification if this order belongs to the active waiter
-        if (p.mozo === activeMozo) {
-          const itemsList = p.items.map(item => `${item.cantidad}x ${item.nombre}`).join(', ');
-          toast.info(`🔔 ¡Pedido Listo! Mesa ${p.numero_mesa}: Entregar (${itemsList}).`);
-        }
-      }
-    });
-    prevPedidosRef.current = pedidos;
-  }, [pedidos, activeMozo, toast]);
-
-  // Find active order of the selected table if any (to split or pay)
-  const activePedidoDeMesa = useMemo(() => {
-    if (!selectedMesaId) return null;
-    return pedidos.find(p => p.id_mesa === selectedMesaId && p.estado_comanda !== 'entregado_cobrado') || null;
-  }, [selectedMesaId, pedidos]);
-
-  // Filter products by category and search
-  const filteredProducts = useMemo(() => {
-    return productosMenu.filter(p => {
-      const matchCat = selectedCategoria === 'todo' || p.categoria === selectedCategoria;
-      const matchSearch = p.nombre.toLowerCase().includes(searchQuery.toLowerCase());
-      return p.activo && matchCat && matchSearch;
-    });
-  }, [productosMenu, selectedCategoria, searchQuery]);
-
-  // Helper: check how much of an insumo would be required by the current cart
-  const calculateCartInsumoRequirements = (tempCart: MozoCart) => {
-    const requirements: { [id_insumo: string]: number } = {};
-    
-    Object.keys(tempCart).forEach(prodId => {
-      const qty = tempCart[prodId];
-      if (qty <= 0) return;
-      
-      // Find recipes
-      const productRecipes = recetas.filter(r => r.id_producto === prodId);
-      productRecipes.forEach(rec => {
-        if (!requirements[rec.id_insumo]) {
-          requirements[rec.id_insumo] = 0;
-        }
-        requirements[rec.id_insumo] += rec.cantidad_a_descontar * qty;
-      });
-    });
-
-    return requirements;
-  };
-
-  // Helper: evaluate if adding 1 unit of a product breaches current stock
-  const evaluateStockAdd = (productoId: string, quantity = 1): { allowed: boolean; warning?: string; isCritical: boolean } => {
-    const nextCart = { ...cart, [productoId]: (cart[productoId] || 0) + quantity };
-    const requirements = calculateCartInsumoRequirements(nextCart);
-
-    for (const [insumoId, reqAmount] of Object.entries(requirements)) {
-      const insumo = insumos.find(i => i.id_insumo === insumoId);
-      if (!insumo) continue;
-
-      if (insumo.stock_actual < reqAmount) {
-        if (permitirVentaSinStock) {
-          return { 
-            allowed: true, 
-            isCritical: false, 
-            warning: `[FORZADO] Stock insuficiente de: "${insumo.nombre}" (Faltante: ${(reqAmount - insumo.stock_actual).toFixed(2)}${insumo.unidad_medida}).` 
-          };
-        } else {
-          return { 
-            allowed: false, 
-            isCritical: true, 
-            warning: `¡BLOQUEADO! Sin material suficiente de: "${insumo.nombre}". Se requiere ${reqAmount}${insumo.unidad_medida} y el stock actual es de ${insumo.stock_actual}${insumo.unidad_medida}.` 
-          };
-        }
-      }
-
-      if (insumo.stock_actual - reqAmount <= insumo.stock_minimo) {
-        return { 
-          allowed: true, 
-          isCritical: false, 
-          warning: `Existencia cercana al Stock Mínimo de Seguridad para "${insumo.nombre}" (${insumo.stock_actual}${insumo.unidad_medida} disponibles).` 
-        };
-      }
-    }
-
-    return { allowed: true, isCritical: false };
-  };
-
-  // Quick check of remaining simulated capacity for UI tags
-  const getSimulatedStockRemaining = (prod: ProductoMenu) => {
-    const productRecipes = recetas.filter(r => r.id_producto === prod.id_producto);
-    if (productRecipes.length === 0) return 999;
-    let maxPlatesSimulated = Infinity;
-    productRecipes.forEach(rec => {
-      const insumo = insumos.find(i => i.id_insumo === rec.id_insumo);
-      if (insumo) {
-        const remainingForThis = Math.floor(insumo.stock_actual / rec.cantidad_a_descontar);
-        if (remainingForThis < maxPlatesSimulated) {
-          maxPlatesSimulated = remainingForThis;
-        }
-      }
-    });
-    return maxPlatesSimulated === Infinity ? 999 : maxPlatesSimulated;
-  };
-
-  // Cart operations
-  const handleAddToCart = (productoId: string, quantity = 1) => {
-    if (checkoutInFlightRef.current || checkoutStatus === 'sending') return;
-    if (!selectedMesaId) {
-      toast.error('Seleccioná una mesa antes de cargar productos.');
-      return;
-    }
-    const evalResult = evaluateStockAdd(productoId, quantity);
-    if (!evalResult.allowed) {
-      addLog('alerta_stock', `Cancelado intento de pedido: ${evalResult.warning}`);
-      toast.error(evalResult.warning || 'No hay stock suficiente para este producto.');
-      return;
-    }
-    if (evalResult.warning) toast.warning(evalResult.warning);
-    
-    setCart(prev => ({
-      ...prev,
-      [productoId]: (prev[productoId] || 0) + quantity
-    }));
-
-    // Trigger pairing suggestions for main items
-    if (quantity === 1) {
-      const suggestion = PAIRING_SUGGESTIONS[productoId];
-      if (suggestion && !cart[suggestion.matchedProdId]) {
-        const suggestedProduct = productosMenu.find(p => p.id_producto === suggestion.matchedProdId);
-        if (suggestedProduct && suggestedProduct.activo) {
-          setPairingAlert({
-            parentId: productoId,
-            suggestedId: suggestion.matchedProdId,
-            text: suggestion.suggestionText
-          });
-        }
-      }
-    }
-  };
-
-  const handleRemoveFromCart = (productoId: string) => {
-    if (checkoutInFlightRef.current || checkoutStatus === 'sending') return;
-    setCart(prev => {
-      const updated = { ...prev };
-      if (updated[productoId] > 1) {
-        updated[productoId] -= 1;
-      } else {
-        delete updated[productoId];
-      }
-      return updated;
-    });
-  };
-
-  const handleClearCart = () => {
-    setCart({});
-    setObservaciones('');
-    if (selectedMesaId) clearMozoCartDraft(selectedMesaId);
-  };
-
-  const checkoutCart = async () => {
-    if (checkoutInFlightRef.current || checkoutStatus === 'sending') return;
-    if (!selectedMesaId) return;
-    if (Object.keys(cart).length === 0) return;
-
-    // Double check stock at moment of checkout
-    const requirements = calculateCartInsumoRequirements(cart);
-    for (const [insumoId, reqAmount] of Object.entries(requirements)) {
-      const insumo = insumos.find(i => i.id_insumo === insumoId);
-      if (insumo && insumo.stock_actual < reqAmount && !permitirVentaSinStock) {
-        toast.error(`No es posible procesar la orden. Se agotó un insumo clave: ${insumo.nombre}`);
-        return;
-      }
-    }
-
-    // Build items list
-    const items: PedidoItem[] = [];
-    for (const [prodId, qty] of Object.entries(cart)) {
-      const p = productosMenu.find(item => item.id_producto === prodId);
-      if (!p) {
-        toast.error('Hay un producto que ya no existe en la carta. Quitalo del carrito e intentá nuevamente.');
-        return;
-      }
-      items.push({
-        id_producto: prodId,
-        nombre: p.nombre,
-        cantidad: Number(qty),
-        categoria: p.categoria,
-        precio_unitario: p.precio_venta
-      });
-    }
-
-    // Optimistic UI update: show feedback immediately
-    checkoutInFlightRef.current = true;
-    setCheckoutStatus('sending');
-    setLastCheckoutTime(Date.now());
-    const idempotencyKey = cartIdempotencyKey ?? createMozoCartIdempotencyKey(selectedMesaId);
-    setCartIdempotencyKey(idempotencyKey);
-
-    try {
-      await withCheckoutTimeout(Promise.resolve(onCrearPedido({
-        idempotency_key: idempotencyKey,
-        id_mesa: selectedMesaId,
-        numero_mesa: selectedMesa ? selectedMesa.numero_mesa : `Mesa ${selectedMesaId}`,
-        mozo: activeMozo,
-        estado_comanda: 'pendiente',
-        items,
-        observaciones: observaciones.trim() || undefined,
-      })));
-
-      setCart({});
-      setObservaciones('');
-      setCartIdempotencyKey(null);
-      clearMozoCartDraft(selectedMesaId);
-      setTimeout(() => {
-        setCheckoutStatus('done');
-        setTimeout(() => {
-          setCheckoutStatus('idle');
-          checkoutInFlightRef.current = false;
-        }, 1500);
-      }, 200);
-      addLog('pedido_creado', `Mozo ${activeMozo} envió pedido para ${selectedMesa?.numero_mesa} con ${items.length} platos.`);
-    } catch {
-      checkoutInFlightRef.current = false;
-      setCheckoutStatus('idle');
-      toast.error('No se pudo confirmar la comanda. Revisá la conexión y reintentá; el carrito quedó guardado.');
-    }
-  };
-
-  const handleDownloadPreTicket = async (pedido: Pedido) => {
-    try {
-      const ticketItems = pedido.items.map(item => {
-        const prod = productosMenu.find(p => p.id_producto === item.id_producto);
-        const unit = prod ? prod.precio_venta : 0;
-        return {
-          cantidad: item.cantidad,
-          descripcion: item.nombre,
-          precio_unitario: unit,
-          subtotal: unit * item.cantidad
-        };
-      });
-
-      const total = ticketItems.reduce((sum, item) => sum + item.subtotal, 0);
-      const neto = Number((total / 1.21).toFixed(2));
-      const iva = Number((total - neto).toFixed(2));
-
-      const ticketData: TicketData = {
-        idPedido: pedido.id_pedido,
-        nroComprobante: `PRE-${String(pedido.id_pedido).padStart(8, '0')}`,
-        tipoComprobante: 'ticket_consumo',
-        fechaHora: new Date(pedido.fecha_hora).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + ' hs',
-        mesa: pedido.numero_mesa,
-        mozo: pedido.mozo,
-        cajero: 'Mozo',
-        nombreComercial: 'El Patron Restaurante',
-        razonSocial: 'Gastronomia El Patron S.A.S.',
-        cuit: '30-71649251-4',
-        direccion: 'Av. Pres. Figueroa Alcorta 3420, CABA',
-        telefono: '+54 11 4802-9988',
-        email: 'facturas@elpatronrestaurante.com.ar',
-        items: ticketItems,
-        subtotal: neto,
-        descuento: 0,
-        propina: 0,
-        iva: iva,
-        total: total,
-        metodosPago: [],
-        vuelto: 0,
-        mensajePie: 'Gracias por su visita. Pre-comprobante generado por El Patron Terminal Mozo.'
-      };
-
-      await pdfService.exportToPDF(ticketData);
-      toast.success(`Pre-ticket descargado para la Mesa ${pedido.numero_mesa}`);
-      addLog('sistema', `Mozo ${activeMozo} descargó pre-ticket para la Mesa ${pedido.numero_mesa} (Pedido #${pedido.id_pedido})`);
-    } catch (err) {
-      console.error('Error generating pre-ticket PDF:', err);
-      toast.error('No se pudo descargar el pre-ticket.');
-    }
-  };
-
-  // Calculating totals
-  const totalCartValue = useMemo(() => {
-    return Object.entries(cart).reduce((total, [prodId, qty]) => {
-      const p = productosMenu.find(item => item.id_producto === prodId);
-      return total + (p ? p.precio_venta * Number(qty) : 0);
-    }, 0);
-  }, [cart, productosMenu]);
-
-  // Admin: optimistic price update
-  const handleUpdatePrice = (id: string, newPrice: number) => {
-    setEditingPriceProduct(null);
-    setProductosMenu(prev => prev.map(p => p.id_producto === id ? { ...p, precio_venta: newPrice } : p));
-  };
-
-  // Admin: toggle availability (soft delete)
-  const handleToggleAvailability = (id: string) => {
-    setAdminMenuProduct(null);
-    setProductosMenu(prev => prev.map(p => p.id_producto === id ? { ...p, activo: !p.activo } : p));
-  };
+  const {
+    selectedMesaId,
+    comensales,
+    setComensales,
+    searchQuery,
+    setSearchQuery,
+    selectedCategoria,
+    setSelectedCategoria,
+    cart,
+    observaciones,
+    setObservaciones,
+    checkoutStatus,
+    adminMenuProduct,
+    setAdminMenuProduct,
+    editingPriceProduct,
+    setEditingPriceProduct,
+    editingPriceValue,
+    setEditingPriceValue,
+    splittingPedidoId,
+    setSplittingPedidoId,
+    splitCount,
+    setSplitCount,
+    splitItemsChecked,
+    setSplitItemsChecked,
+    isAdmin,
+    selectedMesa,
+    activePedidoDeMesa,
+    filteredProducts,
+    totalCartValue,
+    handleSelectMesa,
+    getSimulatedStockRemaining,
+    handleAddToCart,
+    handleRemoveFromCart,
+    handleClearCart,
+    checkoutCart,
+    handleDownloadPreTicket,
+    handlePrintSplitTicket,
+    handleUpdatePrice,
+    handleToggleAvailability
+  } = useMozoTerminal({
+    mesas,
+    insumos,
+    productosMenu,
+    setProductosMenu,
+    recetas,
+    usuarios,
+    activeMozo,
+    onMozoChange,
+    onCrearPedido,
+    pedidos,
+    onFacturarMesa,
+    addLog,
+    permitirVentaSinStock,
+    toast
+  });
 
   return (
     <>
     <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-6" id="mozo-terminal-container">
-      {/* LEFT COLUMN: Mesa Grid and active waiter selector */}
       <div className="min-w-0 space-y-4 lg:col-span-4 lg:space-y-6 order-1">
         
         {/* Active Waiter Picker */}
@@ -500,9 +150,19 @@ export default function MozoTerminal({
             <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center shrink-0">
               <UserCheck className="w-5 h-5" />
             </div>
-            <div>
-              <p className="text-xs text-slate-400 font-medium font-sans">Mozo en Turno Activo</p>
-              <h3 className="font-bold text-slate-800 font-sans tracking-tight">Terminal Registrada</h3>
+            <div className="flex-1 flex justify-between items-center min-w-0">
+              <div>
+                <p className="text-xs text-slate-400 font-medium font-sans">Mozo en Turno Activo</p>
+                <h3 className="font-bold text-slate-800 font-sans tracking-tight">Terminal Registrada</h3>
+              </div>
+              <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-lg flex items-center gap-1.5 border shrink-0 ${
+                isOnline 
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200/50' 
+                  : 'bg-amber-50 text-amber-700 border-amber-200/50'
+              }`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`} />
+                {isOnline ? 'Online (Nube)' : 'Offline (Local)'}
+              </span>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -669,6 +329,20 @@ export default function MozoTerminal({
                     <Printer className="w-3.5 h-3.5" />
                     Descargar / Imprimir Pre-Ticket
                   </button>
+                  <div className="flex gap-2 mt-2">
+                    <button
+                      onClick={() => handlePrintSplitTicket(activePedidoDeMesa, 'cocina')}
+                      className="flex-1 py-1.5 px-2 bg-stone-100 hover:bg-[#e2dabf] text-[#4b3621] rounded-lg text-[10px] font-bold flex items-center justify-center gap-1 transition-colors border border-stone-200 cursor-pointer"
+                    >
+                      🍳 Comanda Cocina
+                    </button>
+                    <button
+                      onClick={() => handlePrintSplitTicket(activePedidoDeMesa, 'barra')}
+                      className="flex-1 py-1.5 px-2 bg-stone-100 hover:bg-[#e2dabf] text-[#4b3621] rounded-lg text-[10px] font-bold flex items-center justify-center gap-1 transition-colors border border-stone-200 cursor-pointer"
+                    >
+                      🍷 Comanda Barra
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <p className="text-xs text-slate-400 italic bg-amber-50/50 border border-amber-100/30 p-2 text-center rounded-lg">
@@ -1173,36 +847,7 @@ export default function MozoTerminal({
         </div>
       )}
     </div>
-      {pairingAlert && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
-          <div className="bg-[#FAF6F0] rounded-2xl border border-[#B07A48]/35 p-6 max-w-sm w-full shadow-2xl space-y-4 animate-scaleIn">
-            <div className="flex items-center gap-3 text-amber-700">
-              <Sparkles className="w-5 h-5 text-[#8C6239] animate-pulse" />
-              <h4 className="font-extrabold text-sm uppercase tracking-wider font-serif-vintage">Sugerencia de Maridaje</h4>
-            </div>
-            <p className="text-xs text-stone-700 leading-relaxed font-sans">{pairingAlert.text}</p>
-            <div className="flex gap-2 justify-end pt-2">
-              <button
-                onClick={() => setPairingAlert(null)}
-                className="px-3.5 py-1.5 rounded-lg border border-stone-200 text-stone-500 text-xs font-bold hover:bg-stone-50 cursor-pointer active:scale-95 transition-all"
-              >
-                No, gracias
-              </button>
-              <button
-                onClick={() => {
-                  handleAddToCart(pairingAlert.suggestedId, 1);
-                  setPairingAlert(null);
-                  toast.success('Maridaje agregado al pedido.');
-                }}
-                className="px-4 py-1.5 rounded-lg bg-[#624A3E] text-white text-xs font-extrabold shadow-sm hover:bg-[#4e3a30] cursor-pointer active:scale-95 transition-all flex items-center gap-1.5"
-              >
-                <Wine className="w-3.5 h-3.5" />
-                Agregar Maridaje
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
       <ToastContainer toasts={toasts} removeToast={removeToast} />
     </>
   );

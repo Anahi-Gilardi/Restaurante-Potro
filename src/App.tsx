@@ -13,7 +13,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 
-import { Mesa, Insumo, ProductoMenu, RecetaEscandallo, Pedido, PedidoItem, Merma, EventoLog, Reserva, Usuario } from './types';
+import { Mesa, Insumo, ProductoMenu, RecetaEscandallo, Pedido, Merma, EventoLog, Reserva, Usuario } from './types';
 import { 
   INITIAL_USUARIOS,
   INITIAL_MESAS, 
@@ -56,6 +56,7 @@ const FacturacionModule = lazy(() => import('./components/FacturacionModule'));
 const BackupsModule = lazy(() => import('./components/BackupsModule'));
 import { 
   getSupabaseClient,
+  resetSupabaseInstance,
   dbFetchMesas,
   dbFetchInsumos,
   dbFetchProductosMenu,
@@ -73,6 +74,16 @@ import {
 } from './supabase';
 import { AppView, canAccessView, getAllowedViews } from './lib/permissions';
 import { createClientPedidoId } from './lib/pedidoIds';
+import { cajaService } from './services/cajaService';
+
+function isSameTable(p1: { id_mesa?: any; numero_mesa?: string }, p2: { id_mesa?: any; numero_mesa?: string }): boolean {
+  if (p1.id_mesa !== undefined && p1.id_mesa !== null && p2.id_mesa !== undefined && p2.id_mesa !== null) {
+    if (String(p1.id_mesa) === String(p2.id_mesa)) return true;
+  }
+  const norm1 = String(p1.numero_mesa || '').toLowerCase().replace(/mesa\s+/gi, '').trim();
+  const norm2 = String(p2.numero_mesa || '').toLowerCase().replace(/mesa\s+/gi, '').trim();
+  return norm1 !== '' && norm1 === norm2;
+}
 
 export default function App() {
   const { toast, toasts, removeToast } = useToast();
@@ -136,18 +147,59 @@ export default function App() {
     []
   );
 
-  // Auto-sync effect on mount
+  const [supabaseTrigger, setSupabaseTrigger] = useState<number>(0);
+
+  // Listen for Supabase client resets to trigger data re-sync
   useEffect(() => {
-    const autoLoadSupabase = async () => {
+    const handleReset = () => {
+      setSupabaseTrigger(prev => prev + 1);
+    };
+    window.addEventListener('supabase-client-reset', handleReset);
+    return () => {
+      window.removeEventListener('supabase-client-reset', handleReset);
+    };
+  }, []);
+
+  // 1. Config loading effect (runs once on mount)
+  useEffect(() => {
+    const loadConfig = async () => {
+      try {
+        const response = await fetch('/api/supabase-config');
+        const data = await response.json();
+        if (data.SUPABASE_URL && data.SUPABASE_ANON_KEY) {
+          const currentUrl = localStorage.getItem('SUPABASE_URL');
+          const currentKey = localStorage.getItem('SUPABASE_ANON_KEY');
+          if (currentUrl !== data.SUPABASE_URL || currentKey !== data.SUPABASE_ANON_KEY) {
+            localStorage.setItem('SUPABASE_URL', data.SUPABASE_URL);
+            localStorage.setItem('SUPABASE_ANON_KEY', data.SUPABASE_ANON_KEY);
+            resetSupabaseInstance(); // This triggers supabase-client-reset event
+          }
+        }
+      } catch (configErr) {
+        console.warn('Could not fetch Supabase config from API:', configErr);
+      }
+    };
+    loadConfig();
+  }, []);
+
+  // 2. Data load and Realtime sync effect (runs on mount and whenever connection parameters update)
+  useEffect(() => {
+    let active = true;
+    let channel: any = null;
+    const client = getSupabaseClient();
+
+    const loadData = async () => {
       try {
         const savedUsuarios = await dbFetchUsuarios();
-        if (savedUsuarios.length > 0) setUsuarios(savedUsuarios);
+        if (savedUsuarios && savedUsuarios.length > 0 && active) {
+          setUsuarios(savedUsuarios);
+        }
       } catch (err) {
         console.warn('Usuarios: no se pudo cargar la copia persistida.', err);
       }
 
-      const client = getSupabaseClient();
       if (!client) return;
+
       try {
         const dbMesas = await dbFetchMesas();
         let dbInsumos = await dbFetchInsumos();
@@ -155,6 +207,8 @@ export default function App() {
         let dbRecipes = await dbFetchRecetas();
         const dbPedidos = await dbFetchPedidos();
         const dbMermas = await dbFetchMermas();
+
+        if (!active) return;
 
         // Auto-seed new Coca-Cola line if they are missing in the Supabase database
         if (dbProducts && dbProducts.length > 0) {
@@ -194,6 +248,8 @@ export default function App() {
           }
         }
 
+        if (!active) return;
+
         if ((dbMesas ?? []).length > 0) {
           setMesas((dbMesas ?? []).map(m => ({
             id_mesa: m.id_mesa,
@@ -217,35 +273,47 @@ export default function App() {
         if ((dbMermas ?? []).length > 0) {
           setMermas(dbMermas ?? []);
         }
-        addLog('sistema', 'SUPABASE: Auto-sincronización exitosa en el arranque de la aplicación.');
+        addLog('sistema', 'SUPABASE: Auto-sincronización exitosa con servidor Supabase.');
       } catch (err) {
         console.warn('Supabase: Falló auto-sync en el arranque. Usando datos SQLite locales.', err);
       }
     };
-    autoLoadSupabase();
 
-    // Setup Supabase Realtime listener for pedidos changes
-    const client = getSupabaseClient();
+    loadData();
+
     if (client) {
-      const channel = client
+      channel = client
         .channel('realtime_pedidos_app')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos_cabecera' }, async () => {
           try {
             const refreshed = await dbFetchPedidos();
-            if (refreshed) {
+            if (refreshed && active) {
               setPedidos(refreshed);
             }
           } catch (err) {
             console.warn('Realtime fetch for pedidos failed:', err);
           }
         })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'pedido_detalle' }, async () => {
+          try {
+            const refreshed = await dbFetchPedidos();
+            if (refreshed && active) {
+              setPedidos(refreshed);
+            }
+          } catch (err) {
+            console.warn('Realtime fetch for pedido_detalle failed:', err);
+          }
+        })
         .subscribe();
-
-      return () => {
-        client.removeChannel(channel);
-      };
     }
-  }, [addLog]);
+
+    return () => {
+      active = false;
+      if (client && channel) {
+        client.removeChannel(channel);
+      }
+    };
+  }, [supabaseTrigger, addLog]);
 
   // Sync completion callback handed to settings
   const handleSupabaseSync = (newData: {
@@ -337,96 +405,15 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
       return;
     }
 
-    // Si la mesa ya tiene un pedido activo, agregamos items al pedido existente en lugar de crear uno nuevo
-    const pedidoActivo = pedidos.find(p =>
-      p.id_mesa === newPedidoData.id_mesa &&
-      p.estado_comanda !== 'entregado_cobrado' &&
-      p.estado_comanda !== 'cancelado'
-    );
+    console.log('[DEBUG] handleCrearPedido called with:', newPedidoData);
+    const existingActivePedido = pedidos.find(p => {
+      const match = isSameTable(p, newPedidoData) && 
+        p.estado_comanda !== 'entregado_cobrado' && 
+        p.estado_comanda !== 'cancelado';
+      console.log(`[DEBUG] Comparing order #${p.id_pedido} (mesa: ${p.numero_mesa}, id_mesa: ${p.id_mesa}, estado: ${p.estado_comanda}) with new order. Match: ${match}`);
+      return match;
+    });
 
-    if (pedidoActivo) {
-      // Merge de items: sumar cantidades si ya existe el mismo producto
-      const itemsMap = new Map<string, PedidoItem>();
-      pedidoActivo.items.forEach(it => itemsMap.set(it.id_producto, { ...it }));
-      newPedidoData.items.forEach(it => {
-        const existing = itemsMap.get(it.id_producto);
-        if (existing) {
-          existing.cantidad += it.cantidad;
-        } else {
-          itemsMap.set(it.id_producto, { ...it });
-        }
-      });
-      const mergedItems = Array.from(itemsMap.values());
-
-      let itemsDescontados: string[] = [];
-      let alarmasBajoStock: string[] = [];
-      const stockMovements: Array<{
-        id_insumo: string;
-        tipo_movimiento: 'salida_comanda';
-        cantidad: number;
-        stock_anterior: number;
-        stock_nuevo: number;
-      }> = [];
-      const updatedInsumos = insumos.map(ins => ({ ...ins }));
-
-      newPedidoData.items.forEach(pItem => {
-        const qtyPlates = pItem.cantidad;
-        const matchingRecetas = recetas.filter(r => r.id_producto === pItem.id_producto);
-        matchingRecetas.forEach(rec => {
-          const insIdx = updatedInsumos.findIndex(ins => ins.id_insumo === rec.id_insumo);
-          if (insIdx === -1) return;
-          const currentIns = updatedInsumos[insIdx];
-          const discountAmt = parseFloat((rec.cantidad_a_descontar * qtyPlates).toFixed(2));
-          const stockAnterior = currentIns.stock_actual;
-          const updatedStock = parseFloat((Math.max(permitirVentaSinStock ? -999999 : 0, stockAnterior - discountAmt)).toFixed(2));
-          updatedInsumos[insIdx].stock_actual = updatedStock;
-          itemsDescontados.push(`${currentIns.nombre} (-${discountAmt} ${currentIns.unidad_medida})`);
-          stockMovements.push({
-            id_insumo: currentIns.id_insumo,
-            tipo_movimiento: 'salida_comanda',
-            cantidad: discountAmt,
-            stock_anterior: stockAnterior,
-            stock_nuevo: updatedStock
-          });
-          if (updatedStock <= currentIns.stock_minimo) {
-            alarmasBajoStock.push(`${currentIns.nombre} (Stock actual: ${updatedStock}${currentIns.unidad_medida})`);
-          }
-        });
-      });
-
-      const stockDescontado = itemsDescontados.length > 0;
-      const updatedPedido: Pedido = {
-        ...pedidoActivo,
-        items: mergedItems,
-        observaciones: [pedidoActivo.observaciones, newPedidoData.observaciones].filter(Boolean).join(' / '),
-        stock_descontado: pedidoActivo.stock_descontado || stockDescontado,
-        fecha_descuento_stock: (pedidoActivo.stock_descontado || stockDescontado) ? new Date() : undefined,
-      };
-
-      setPedidos(prev => prev.map(p => p.id_pedido === updatedPedido.id_pedido ? updatedPedido : p));
-
-      const updatedMesas = mesas.map(m => m.id_mesa === newPedidoData.id_mesa ? { ...m, estado: 'ocupada' as const, comensales: newPedidoData.comensales || m.comensales || 2 } : m);
-      setMesas(updatedMesas);
-
-      addLog('pedido_creado', `Mesa ${newPedidoData.numero_mesa}: agregados ${newPedidoData.items.length} platos al pedido #${updatedPedido.id_pedido}. Items: ${newPedidoData.items.map(i => `${i.nombre} (x${i.cantidad})`).join(', ')}`);
-
-      if (itemsDescontados.length > 0) {
-        setInsumos(updatedInsumos);
-        addLog('descuento_stock', `ESCANDALLO (AGREGAR A COMANDA): Pedido #${updatedPedido.id_pedido} actualizado. Insumos descontados: ${itemsDescontados.join(', ')}`);
-      }
-      alarmasBajoStock.forEach(nom => addLog('alerta_stock', `CONTROL REPOSICIÓN: El insumo '${nom}' ha caído por debajo del stock de seguridad.`));
-
-      await dbSavePedidoComplex(updatedPedido);
-      await dbUpsertMesas(updatedMesas);
-      if (stockDescontado) {
-        stockMovements.forEach(movement => dbRecordMovement(movement).catch(console.error));
-        await dbUpsertInsumos(updatedInsumos);
-      }
-      return;
-    }
-
-    const currentPedidos = pedidos;
-    const newId = createClientPedidoId(currentPedidos.map(p => p.id_pedido));
     let itemsDescontados: string[] = [];
     let alarmasBajoStock: string[] = [];
     const stockMovements: Array<{
@@ -470,48 +457,94 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     });
 
     const stockDescontado = itemsDescontados.length > 0;
-    const newPedido: Pedido = {
-      ...newPedidoData,
-      id_pedido: newId,
-      fecha_hora: new Date(),
-      minutos_transcurridos: 0,
-      origen: newPedidoData.origen || 'Mozo',
-      stock_descontado: stockDescontado,
-      fecha_descuento_stock: stockDescontado ? new Date() : undefined
-    };
+    let finalPedido: Pedido;
 
-    setPedidos(prev => {
-      if (newPedido.idempotency_key && prev.some(p => p.idempotency_key === newPedido.idempotency_key)) return prev;
-      const safeId = prev.some(p => p.id_pedido === newPedido.id_pedido)
-        ? createClientPedidoId(prev.map(p => p.id_pedido))
-        : newPedido.id_pedido;
-      return [{ ...newPedido, id_pedido: safeId }, ...prev];
-    });
+    if (existingActivePedido) {
+      const updatedItems = [...existingActivePedido.items];
+      newPedidoData.items.forEach(newItem => {
+        const existingItemIdx = updatedItems.findIndex(it => it.id_producto === newItem.id_producto);
+        if (existingItemIdx > -1) {
+          updatedItems[existingItemIdx] = {
+            ...updatedItems[existingItemIdx],
+            cantidad: updatedItems[existingItemIdx].cantidad + newItem.cantidad
+          };
+        } else {
+          updatedItems.push({ ...newItem });
+        }
+      });
 
-    // Update mesa occupied
-    const updatedMesas = mesas.map(m => m.id_mesa === newPedidoData.id_mesa ? { ...m, estado: 'ocupada' as const, comensales: newPedidoData.comensales || 2 } : m);
+      const mergedObs = [existingActivePedido.observaciones, newPedidoData.observaciones]
+        .map(o => o?.trim())
+        .filter(Boolean)
+        .join(' | ');
+
+      finalPedido = {
+        ...existingActivePedido,
+        items: updatedItems,
+        observaciones: mergedObs || undefined,
+        estado_comanda: 'pendiente',
+        stock_descontado: existingActivePedido.stock_descontado || stockDescontado,
+        fecha_descuento_stock: existingActivePedido.fecha_descuento_stock || (stockDescontado ? new Date() : undefined)
+      };
+
+      setPedidos(prev => prev.map(p => p.id_pedido === existingActivePedido.id_pedido ? finalPedido : p));
+      addLog('pedido_creado', `Mesa ${newPedidoData.numero_mesa} agregó a su pedido #${existingActivePedido.id_pedido} por ${newPedidoData.mozo || activeMozo}. Nuevos items: ${newPedidoData.items.map(i => `${i.nombre} (x${i.cantidad})`).join(', ')}`);
+    } else {
+      const newId = createClientPedidoId(pedidos.map(p => p.id_pedido));
+      finalPedido = {
+        ...newPedidoData,
+        id_pedido: newId,
+        fecha_hora: new Date(),
+        minutos_transcurridos: 0,
+        origen: newPedidoData.origen || 'Mozo',
+        stock_descontado: stockDescontado,
+        fecha_descuento_stock: stockDescontado ? new Date() : undefined
+      };
+
+      setPedidos(prev => {
+        const safeId = prev.some(p => p.id_pedido === finalPedido.id_pedido)
+          ? createClientPedidoId(prev.map(p => p.id_pedido))
+          : finalPedido.id_pedido;
+        return [{ ...finalPedido, id_pedido: safeId }, ...prev];
+      });
+      addLog('pedido_creado', `Mesa ${newPedidoData.numero_mesa} generó pedido #${finalPedido.id_pedido} por ${finalPedido.mozo}. Items: ${newPedidoData.items.map(i => `${i.nombre} (x${i.cantidad})`).join(', ')}`);
+    }
+
+    const updatedMesas = mesas.map(m => String(m.id_mesa) === String(newPedidoData.id_mesa) ? { ...m, estado: 'ocupada' as const, comensales: newPedidoData.comensales || 2 } : m);
     setMesas(updatedMesas);
-
-    addLog('pedido_creado', `Mesa ${newPedidoData.numero_mesa} generó pedido #${newId} por ${newPedido.mozo}. Items: ${newPedidoData.items.map(i => `${i.nombre} (x${i.cantidad})`).join(', ')}`);
 
     if (itemsDescontados.length > 0) {
       setInsumos(updatedInsumos);
-      addLog('descuento_stock', `ESCANDALLO (AL MANDAR COMANDA): Pedido #${newId} enviado a cocina. Insumos descontados: ${itemsDescontados.join(', ')}`);
+      addLog('descuento_stock', `ESCANDALLO (AL MANDAR COMANDA): Pedido #${finalPedido.id_pedido} enviado a cocina. Insumos descontados: ${itemsDescontados.join(', ')}`);
     }
 
     alarmasBajoStock.forEach(nom => {
       addLog('alerta_stock', `CONTROL REPOSICIÓN: El insumo '${nom}' ha caído por debajo del stock de seguridad.`);
     });
 
-    // Sync state mutations to Supabase in background
-    await dbSavePedidoComplex(newPedido);
-    await dbUpsertMesas(updatedMesas);
+    if (existingActivePedido) {
+      import('./services/pedidosService').then(({ pedidosService }) => {
+        pedidosService.agregarItemsAComandaExistente(existingActivePedido.id_pedido, newPedidoData.items).catch(err => {
+          console.warn('Background save for order accumulation failed:', err);
+        });
+      });
+    } else {
+      dbSavePedidoComplex(finalPedido).catch(err => {
+        console.warn('Background save for new order failed:', err);
+      });
+    }
+
+    dbUpsertMesas(updatedMesas).catch(err => {
+      console.warn('Background save for mesas failed:', err);
+    });
 
     if (stockDescontado) {
       stockMovements.forEach(movement => dbRecordMovement(movement).catch(console.error));
-      await dbUpsertInsumos(updatedInsumos);
+      dbUpsertInsumos(updatedInsumos).catch(err => {
+        console.warn('Background save for insumos failed:', err);
+      });
     }
-  }, [pedidos, insumos, recetas, addLog, mesas, permitirVentaSinStock, setMesas, setInsumos, setPedidos]);
+  }, [pedidos, insumos, recetas, addLog, mesas, permitirVentaSinStock, setMesas, setInsumos, setPedidos, activeMozo]);
 
   const handleMozoChange = (mozo: string) => {
     const nextUser = usuarios.find(usuario => usuario.nombre === mozo && usuario.activo !== false);
@@ -719,12 +752,20 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     setPedidos(prev => prev.map(p => {
       if (p.id_pedido === idPedido) {
         const updated: Pedido = { ...p, estado_comanda: nuevoEstado };
+        if (nuevoEstado === 'en_cocina') {
+          updated.fecha_inicio_cocina = new Date();
+          if (!p.stock_descontado) {
+            updated.stock_descontado = true;
+            updated.fecha_descuento_stock = new Date();
+          }
+        }
         if (nuevoEstado === 'listo') {
           updated.segundos_en_listo = 0;
-        }
-        if (nuevoEstado === 'en_cocina' && !p.stock_descontado) {
-          updated.stock_descontado = true;
-          updated.fecha_descuento_stock = new Date();
+          updated.fecha_listo = new Date();
+          if (p.fecha_inicio_cocina) {
+            const diffMs = new Date(updated.fecha_listo).getTime() - new Date(p.fecha_inicio_cocina).getTime();
+            updated.tiempo_despacho_minutos = Math.max(1, Math.round(diffMs / 60000));
+          }
         }
         if (nuevoEstado === 'cancelado') {
           updated.stock_descontado = false;
@@ -759,20 +800,45 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
   };
 
   // --- Handlers for Cashier View (Caja & Cierre) ---
-  const handleFacturarMesa = useCallback((idPedido: number) => {
+  const handleFacturarMesa = useCallback((idPedido: number, alreadyUpdatedInCaja: boolean = false) => {
     const target = pedidos.find(p => p.id_pedido === idPedido);
     if (!target) return;
 
-    setPedidos(prev => prev.map(p => p.id_pedido === idPedido ? { ...p, estado_comanda: 'entregado_cobrado' } : p));
+    const ordersToBill = pedidos.filter(p => 
+      isSameTable(p, target) && 
+      p.estado_comanda !== 'entregado_cobrado' && 
+      p.estado_comanda !== 'cancelado'
+    );
 
-    const updatedMesas = mesas.map(m => m.id_mesa === target.id_mesa ? { ...m, estado: 'libre' as const, comensales: undefined } : m);
+    const orderIds = ordersToBill.map(o => o.id_pedido);
+
+    setPedidos(prev => prev.map(p => orderIds.includes(p.id_pedido) ? { ...p, estado_comanda: 'entregado_cobrado' } : p));
+
+    const updatedMesas = mesas.map(m => String(m.id_mesa) === String(target.id_mesa) ? { ...m, estado: 'libre' as const, comensales: undefined } : m);
     setMesas(updatedMesas);
 
-    addLog('sistema', `CAJA: Facturación completa cobrada correctamente de la mesa ${target.numero_mesa} por Pedido #${idPedido}`);
+    addLog('sistema', `CAJA: Facturación completa cobrada correctamente de la mesa ${target.numero_mesa} por Pedido(s) #${orderIds.join(', #')}`);
 
-    dbSavePedidoComplex({ ...target, estado_comanda: 'entregado_cobrado' });
+    ordersToBill.forEach(order => {
+      dbSavePedidoComplex({ ...order, estado_comanda: 'entregado_cobrado' });
+    });
     dbUpsertMesas(updatedMesas);
-  }, [pedidos, mesas, addLog]);
+
+    if (!alreadyUpdatedInCaja) {
+      const totalPedido = ordersToBill.reduce((sum, order) => {
+        const orderSum = (order.items || []).reduce((itemSum, item) => {
+          const pm = productosMenu.find(pr => pr.id_producto === item.id_producto);
+          const price = item.precio_unitario ?? pm?.precio_venta ?? 0;
+          return itemSum + (price * item.cantidad);
+        }, 0);
+        return sum + orderSum;
+      }, 0);
+
+      cajaService.updateSales(totalPedido, { efectivo: totalPedido }).catch(err => {
+        console.error('Error updating sales in cajaService during direct billing:', err);
+      });
+    }
+  }, [pedidos, mesas, productosMenu, addLog]);
 
   // --- Handlers for Inventory View ---
   const handleRegistrarMerma = (idInsumo: string, cantidad: number, motivo: Merma['motivo']) => {
@@ -1131,6 +1197,9 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
                 onCambiarEstadoPedido={handleCambiarEstadoPedido}
                 onProducirPedidoConEscandallo={handleProducirPedidoConEscandallo}
                 minutosGlobal={minutosGlobal}
+                productosMenu={productosMenu}
+                recetas={recetas}
+                insumos={insumos}
               />
             )}
             {activeView === 'caja' && (
@@ -1145,13 +1214,13 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
               />
             )}
             {activeView === 'reportes' && (
-              <BusinessIntelligence pedidos={pedidos} productosMenu={productosMenu} logs={logs} precioMap={precioMap} />
+              <BusinessIntelligence pedidos={pedidos} productosMenu={productosMenu} logs={logs} precioMap={precioMap} insumos={insumos} />
             )}
             {activeView === 'panel' && (
               <PanelDashboard pedidos={pedidos} insumos={insumos} mesas={mesas} productosMenu={productosMenu} logs={logs} allowedViews={allowedViews} onNavigate={handleNavigate} getSimulatedTimeStr={getSimulatedTimeStr} />
             )}
             {activeView === 'usuarios' && (
-              <UsuariosModule usuarios={usuarios} onUsuariosChange={setUsuarios} addLog={addLog} />
+              <UsuariosModule usuarios={usuarios} onUsuariosChange={setUsuarios} addLog={addLog} activeUser={activeUser} />
             )}
             {activeView === 'menu' && (
               <MenuModule productosMenu={productosMenu} onProductosChange={setProductosMenu} addLog={addLog} />
@@ -1183,7 +1252,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
                 onSyncComplete={handleSupabaseSync}
               />
             )}
-            {activeView === 'backups' && activeUser.rol === 'superadmin' && (
+            {activeView === 'backups' && (activeUser.rol === 'superadmin' || activeUser.rol === 'administrador') && (
               <BackupsModule 
                 operationalData={{ usuarios, mesas, insumos, productosMenu, recetas, pedidos, mermas, logs }}
                 onRestoreData={handleRestoreBackupData}

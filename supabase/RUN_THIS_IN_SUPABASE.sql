@@ -121,6 +121,9 @@ ALTER TABLE productos_menu ADD COLUMN IF NOT EXISTS requiere_cocina BOOLEAN NOT 
 ALTER TABLE productos_menu ADD COLUMN IF NOT EXISTS precio_original NUMERIC;
 ALTER TABLE productos_menu ADD COLUMN IF NOT EXISTS precio_final NUMERIC;
 ALTER TABLE productos_menu ADD COLUMN IF NOT EXISTS descuento_aplicado NUMERIC DEFAULT 0;
+ALTER TABLE productos_menu ADD COLUMN IF NOT EXISTS pasos_preparacion TEXT[];
+ALTER TABLE productos_menu ADD COLUMN IF NOT EXISTS alergenos TEXT[];
+ALTER TABLE productos_menu ADD COLUMN IF NOT EXISTS consejo_emplatado TEXT;
 
 CREATE TABLE IF NOT EXISTS recetas_escandallo (
   id_receta TEXT PRIMARY KEY,
@@ -169,6 +172,28 @@ CREATE TABLE IF NOT EXISTS mermas (
   motivo TEXT NOT NULL DEFAULT 'otro',
   fecha TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   costo_perdida NUMERIC DEFAULT 0
+);
+
+ALTER TABLE pedidos_cabecera ADD COLUMN IF NOT EXISTS fecha_inicio_cocina TIMESTAMPTZ;
+ALTER TABLE pedidos_cabecera ADD COLUMN IF NOT EXISTS fecha_listo TIMESTAMPTZ;
+
+CREATE TABLE IF NOT EXISTS historial_costos_insumos (
+  id_historial TEXT PRIMARY KEY,
+  id_insumo TEXT NOT NULL,
+  nombre_insumo TEXT NOT NULL,
+  costo_anterior NUMERIC NOT NULL,
+  costo_nuevo NUMERIC NOT NULL,
+  fecha TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS clientes (
+  id_cliente TEXT PRIMARY KEY,
+  dni_cuit TEXT NOT NULL UNIQUE,
+  nombre TEXT NOT NULL,
+  email TEXT,
+  telefono TEXT,
+  puntos NUMERIC NOT NULL DEFAULT 0,
+  fecha_registro TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS auditoria_eventos (
@@ -277,6 +302,18 @@ CREATE INDEX IF NOT EXISTS idx_reservas_mesa ON reservas(id_mesa);
 CREATE INDEX IF NOT EXISTS idx_facturas_pedido ON facturas(id_pedido);
 CREATE INDEX IF NOT EXISTS idx_pagos_factura ON pagos(id_factura);
 
+-- Table for petty cash manual flows (Ingresos / Egresos)
+CREATE TABLE IF NOT EXISTS movimientos_caja_chica (
+  id_movimiento TEXT PRIMARY KEY,
+  id_cierre TEXT REFERENCES cierres_caja(id_cierre) ON DELETE CASCADE,
+  tipo TEXT NOT NULL CHECK (tipo IN ('ingreso', 'egreso')),
+  monto NUMERIC NOT NULL,
+  concepto TEXT NOT NULL,
+  fecha TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_mov_caja_chica_cierre ON movimientos_caja_chica(id_cierre);
+
 -- Demo policies: open for local development. Restrict them before production.
 ALTER TABLE usuarios ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mesas ENABLE ROW LEVEL SECURITY;
@@ -295,6 +332,7 @@ ALTER TABLE pagos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE cierres_caja ENABLE ROW LEVEL SECURITY;
 ALTER TABLE movimientos_inventario ENABLE ROW LEVEL SECURITY;
 ALTER TABLE backups ENABLE ROW LEVEL SECURITY;
+ALTER TABLE movimientos_caja_chica ENABLE ROW LEVEL SECURITY;
 
 DO $$
 DECLARE
@@ -304,7 +342,7 @@ BEGIN
     'usuarios','mesas','insumos','productos_menu','recetas_escandallo',
     'pedidos_cabecera','pedido_detalle','mermas','auditoria_eventos',
     'proveedores','promociones','reservas','facturas','pagos',
-    'cierres_caja','movimientos_inventario','backups'
+    'cierres_caja','movimientos_inventario','backups', 'movimientos_caja_chica'
   ]
   LOOP
     EXECUTE format('DROP POLICY IF EXISTS %I ON %I', 'permitir_todo_demo_' || table_name, table_name);

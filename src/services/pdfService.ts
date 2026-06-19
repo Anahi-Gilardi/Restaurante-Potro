@@ -22,6 +22,14 @@ const loadLogoDataUrl = async () => {
   if (logoDataUrlCache !== undefined) return logoDataUrlCache;
 
   try {
+    if (typeof window !== 'undefined') {
+      const customLogo = localStorage.getItem('el_potro_custom_logo');
+      if (customLogo) {
+        logoDataUrlCache = customLogo;
+        return logoDataUrlCache;
+      }
+    }
+
     const response = await fetch('/logo-el-patron.jpeg');
     const blob = await response.blob();
     logoDataUrlCache = await new Promise<string>((resolve, reject) => {
@@ -393,6 +401,8 @@ export const pdfService = {
     const margin = 14;
     let y = 14;
 
+    const isReporteX = !data.fecha_cierre || data.fecha_cierre.toLowerCase().includes('curso');
+
     // Header Box with Vintage Color
     doc.setFillColor(...BRAND.brown);
     doc.rect(margin, y, 182, 30, 'F');
@@ -403,10 +413,10 @@ export const pdfService = {
     doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(16);
-    doc.text('EL PATRÓN - AUDITORÍA DE CIERRE DE CAJA', margin + 34, y + 13);
+    doc.text(isReporteX ? 'EL PATRÓN - REPORTE PARCIAL (REPORTE X)' : 'EL PATRÓN - CIERRE DE CAJA (REPORTE Z)', margin + 34, y + 13);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8.5);
-    doc.text('REPORTE CONTROL DE JORNADA FISCAL GASTRO', margin + 34, y + 20);
+    doc.text(isReporteX ? 'ARQUEO PARCIAL DE CONTROL EN TURNO' : 'REPORTE CONTROL DE JORNADA FISCAL GASTRO', margin + 34, y + 20);
     doc.text(`Generado: ${new Date().toLocaleDateString('es-AR')} ${new Date().toLocaleTimeString('es-AR')}`, margin + 34, y + 25);
 
     y += 40;
@@ -424,12 +434,17 @@ export const pdfService = {
     doc.text(`ID Sesión: ${data.id_cierre}`, margin + 95, y);
     y += 5;
     doc.text(`Apertura Turno: ${data.fecha_apertura}`, margin, y);
-    doc.text(`Cierre Turno: ${data.fecha_cierre || 'En curso'}`, margin + 95, y);
+    doc.text(`Cierre Turno: ${data.fecha_cierre || 'En curso (Reporte X)'}`, margin + 95, y);
     y += 9;
 
     // Balance summary
+    const movimientos = data.movimientos_manuales || [];
+    const sumIngresos = movimientos.filter((m: any) => m.tipo === 'ingreso').reduce((s: number, m: any) => s + m.monto, 0);
+    const sumEgresos = movimientos.filter((m: any) => m.tipo === 'egreso').reduce((s: number, m: any) => s + m.monto, 0);
+    const esperado = data.monto_apertura + data.monto_ventas + sumIngresos - sumEgresos;
+
     doc.setFillColor(...BRAND.cream);
-    doc.rect(margin, y, 182, 32, 'F');
+    doc.rect(margin, y, 182, 44, 'F');
     doc.setTextColor(...BRAND.dark);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9.5);
@@ -443,22 +458,27 @@ export const pdfService = {
     doc.text(`(+) Ventas Registradas en Turno:`, margin + 4, y + 19);
     doc.text(`${money(data.monto_ventas)}`, margin + 178, y + 19, { align: 'right' });
 
-    doc.setFont('helvetica', 'bold');
-    const esperado = data.monto_apertura + data.monto_ventas;
-    doc.text(`(=) Saldo Teórico Esperado:`, margin + 4, y + 25);
-    doc.text(`${money(esperado)}`, margin + 178, y + 25, { align: 'right' });
+    doc.text(`(+) Ingresos Manuales (Caja Chica):`, margin + 4, y + 25);
+    doc.text(`${money(sumIngresos)}`, margin + 178, y + 25, { align: 'right' });
 
-    y += 36;
+    doc.text(`(-) Egresos Manuales (Caja Chica):`, margin + 4, y + 31);
+    doc.text(`-${money(sumEgresos)}`, margin + 178, y + 31, { align: 'right' });
+
+    doc.setFont('helvetica', 'bold');
+    doc.text(`(=) Saldo Teórico Esperado:`, margin + 4, y + 38);
+    doc.text(`${money(esperado)}`, margin + 178, y + 38, { align: 'right' });
+
+    y += 48;
 
     // Real cash count
     doc.setFillColor(250, 248, 245);
     doc.rect(margin, y, 182, 18, 'F');
     doc.setTextColor(...BRAND.dark);
     doc.setFont('helvetica', 'bold');
-    doc.text(`(=) Arqueo Físico Declarado:`, margin + 4, y + 6);
-    doc.text(`${money(data.monto_real || 0)}`, margin + 178, y + 6, { align: 'right' });
+    doc.text(isReporteX ? `(=) Saldo Estimado Físico:` : `(=) Arqueo Físico Declarado:`, margin + 4, y + 6);
+    doc.text(`${money(data.monto_real || esperado)}`, margin + 178, y + 6, { align: 'right' });
 
-    const diff = data.diferencia ?? 0;
+    const diff = isReporteX ? 0 : (data.diferencia ?? 0);
     const hasDiffErr = diff !== 0;
     if (hasDiffErr) {
       doc.setTextColor(190, 24, 24); // Red warning color
@@ -469,6 +489,42 @@ export const pdfService = {
     doc.text(`${diff > 0 ? '+' : ''}${money(diff)}`, margin + 178, y + 12, { align: 'right' });
 
     y += 24;
+
+    // Petty Cash movements section
+    if (movimientos.length > 0) {
+      doc.setTextColor(...BRAND.dark);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.text('Detalle de Movimientos de Caja Chica', margin, y);
+      y += 5;
+
+      doc.setFillColor(...BRAND.brown);
+      doc.rect(margin, y, 182, 7, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(8);
+      doc.text('Fecha/Hora', margin + 4, y + 5);
+      doc.text('Concepto / Descripción', margin + 45, y + 5);
+      doc.text('Tipo', margin + 130, y + 5);
+      doc.text('Monto ($)', margin + 178, y + 5, { align: 'right' });
+      y += 7;
+
+      doc.setTextColor(...BRAND.dark);
+      doc.setFont('helvetica', 'normal');
+      movimientos.forEach((m: any, idx: number) => {
+        const rowHeight = 7;
+        if (idx % 2 === 1) {
+          doc.setFillColor(250, 248, 245);
+          doc.rect(margin, y, 182, rowHeight, 'F');
+        }
+        const timeStr = new Date(m.fecha).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + ' hs';
+        doc.text(timeStr, margin + 4, y + 5);
+        doc.text(m.concepto.slice(0, 45), margin + 45, y + 5);
+        doc.text(m.tipo.toUpperCase(), margin + 130, y + 5);
+        doc.text(money(m.monto), margin + 178, y + 5, { align: 'right' });
+        y += rowHeight;
+      });
+      y += 6;
+    }
 
     // Payment details if registers are present
     if (data.registros_totales) {
@@ -514,7 +570,7 @@ export const pdfService = {
     doc.setTextColor(...BRAND.dark);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
-    doc.text('Observaciones del Cierre:', margin, y);
+    doc.text('Observaciones:', margin, y);
     y += 5;
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8.5);
@@ -533,10 +589,116 @@ export const pdfService = {
     doc.setFontSize(8);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(...BRAND.dark);
-    doc.text('Firma Cajero Responsable', margin + 40, y, { align: 'center' });
+    doc.text(isReporteX ? 'Firma Cajero Supervisor' : 'Firma Cajero Responsable', margin + 40, y, { align: 'center' });
     doc.text('Firma Supervisor de Salón', margin + 140, y, { align: 'center' });
 
-    const filename = `arqueo-cierre-caja-${data.id_cierre}.pdf`;
+    const filename = isReporteX ? `reporte-x-caja-${data.id_cierre}.pdf` : `arqueo-cierre-caja-${data.id_cierre}.pdf`;
     doc.save(filename);
+  },
+
+  async exportPreparationTicketPDF(pedido: any, tipo: 'cocina' | 'barra'): Promise<void> {
+    const isBarItem = (it: any) => {
+      const cat = (it.categoria || '').toLowerCase();
+      const nom = (it.nombre || '').toLowerCase();
+      return (
+        cat.includes('bebida') ||
+        cat.includes('bodega') ||
+        cat.includes('vino') ||
+        nom.includes('vino') ||
+        nom.includes('gaseosa') ||
+        nom.includes('agua') ||
+        nom.includes('cerveza')
+      );
+    };
+
+    const filteredItems = pedido.items.filter((it: any) => {
+      const isBar = isBarItem(it);
+      return tipo === 'barra' ? isBar : !isBar;
+    });
+
+    if (filteredItems.length === 0) {
+      throw new Error(`No hay productos de ${tipo === 'barra' ? 'Barra' : 'Cocina'} en este pedido.`);
+    }
+
+    const wrappedRows = filteredItems.map((item: any) => ({
+      item,
+      lines: Math.max(1, Math.ceil(item.nombre.length / 22))
+    }));
+    const ticketHeight = Math.max(
+      120,
+      60 + wrappedRows.reduce((sum: number, row: any) => sum + row.lines * 4.2 + 4, 0)
+    );
+    const doc = new jsPDF('p', 'mm', [80, ticketHeight]);
+    let y = 7;
+
+    const center = (text: string, size = 8, bold = false) => {
+      doc.setFont('helvetica', bold ? 'bold' : 'normal');
+      doc.setFontSize(size);
+      doc.text(text, 40, y, { align: 'center' });
+      y += size * 0.45 + 1.3;
+    };
+
+    const line = (offset = 0) => {
+      doc.setDrawColor(219, 213, 204);
+      doc.line(5, y + offset, 75, y + offset);
+      y += 3.5;
+    };
+
+    doc.setFillColor(98, 74, 62);
+    doc.rect(5, y, 70, 13, 'F');
+    doc.setTextColor(255, 255, 255);
+    y += 5;
+    center('EL PATRON', 10, true);
+    center(`COMANDA DE ${tipo.toUpperCase()}`, 7, false);
+    y += 5;
+
+    doc.setTextColor(35, 31, 28);
+    center(`MESA: ${pedido.numero_mesa}`, 11, true);
+    center(`Pedido #${pedido.id_pedido}`, 7.5);
+    y += 1.5;
+    line();
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.text(`Mozo: ${pedido.mozo}`, 5, y);
+    doc.text(`Hora: ${new Date(pedido.fecha_hora).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })} hs`, 75, y, { align: 'right' });
+    y += 5;
+    line();
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.text('Cant.', 5, y);
+    doc.text('Producto / Descripción', 16, y);
+    y += 3.5;
+    line(-1);
+
+    doc.setFont('helvetica', 'normal');
+    filteredItems.forEach(({ nombre, cantidad }: any) => {
+      const lines = doc.splitTextToSize(nombre, 42) as string[];
+      doc.setFont('helvetica', 'bold');
+      doc.text(`${cantidad}x`, 5, y);
+      doc.setFont('helvetica', 'normal');
+      lines.forEach((text, index) => {
+        doc.text(text, 16, y + index * 4);
+      });
+      y += Math.max(4, lines.length * 4) + 2.5;
+    });
+
+    if (pedido.observaciones) {
+      line();
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.text('OBSERVACIONES:', 5, y);
+      y += 3.5;
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(7);
+      const splitObs = doc.splitTextToSize(pedido.observaciones, 70);
+      splitObs.forEach((lineText: string) => {
+        doc.text(lineText, 5, y);
+        y += 4;
+      });
+    }
+
+    doc.save(`comanda-${tipo}-${pedido.id_pedido}.pdf`);
   }
 };

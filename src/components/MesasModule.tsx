@@ -86,13 +86,63 @@ export default function MesasModule({ mesas, onMesasChange, addLog }: MesasModul
   // Confirmación eliminación
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
 
+  // Drag & Drop
+  const [draggingId, setDraggingId] = useState<number | null>(null);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     setLocalMesas(normalizedMesas);
   }, [normalizedMesas]);
 
+  useEffect(() => {
+    if (draggingId === null) return;
+
+    const handleWindowMouseMove = (e: MouseEvent) => {
+      if (!containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      let x = ((e.clientX - rect.left) / rect.width) * 100;
+      let y = ((e.clientY - rect.top) / rect.height) * 100;
+
+      x = Math.max(3, Math.min(97, x));
+      y = Math.max(3, Math.min(97, y));
+
+      setLocalMesas(prev =>
+        prev.map(m =>
+          m.id_mesa === draggingId
+            ? { ...m, x: parseFloat(x.toFixed(1)), y: parseFloat(y.toFixed(1)) }
+            : m
+        )
+      );
+    };
+
+    const handleWindowMouseUp = () => {
+      const finalMesa = localMesas.find(m => m.id_mesa === draggingId);
+      if (finalMesa) {
+        mesasService.update(draggingId, finalMesa).catch(() => {});
+        persist(localMesas);
+      }
+      setDraggingId(null);
+    };
+
+    window.addEventListener('mousemove', handleWindowMouseMove);
+    window.addEventListener('mouseup', handleWindowMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', handleWindowMouseMove);
+      window.removeEventListener('mouseup', handleWindowMouseUp);
+    };
+  }, [draggingId, localMesas]);
+
   const persist = (next: Mesa[]) => {
     setLocalMesas(next);
     onMesasChange(next);
+  };
+
+  const handleMouseDown = (e: React.MouseEvent, id: number) => {
+    if (!isEditMode) return;
+    e.preventDefault();
+    setDraggingId(id);
   };
 
   const handleCreateMesa = (e: React.FormEvent) => {
@@ -438,7 +488,7 @@ export default function MesasModule({ mesas, onMesasChange, addLog }: MesasModul
 
           <div className="space-y-2">
             <button
-              onClick={() => { setUnionMode(v => !v); setSelectedIds([]); }}
+              onClick={() => { setUnionMode(v => !v); setSelectedIds([]); setIsEditMode(false); }}
               className={`w-full min-h-10 flex items-center justify-center gap-2 text-xs font-extrabold rounded-xl transition-all cursor-pointer ${
                 unionMode ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-stone-100 text-stone-700 hover:bg-stone-200 border border-stone-200'
               }`}
@@ -458,6 +508,18 @@ export default function MesasModule({ mesas, onMesasChange, addLog }: MesasModul
                   Confirmar unión ({selectedIds.length})
                 </button>
               </>
+            )}
+            <button
+              onClick={() => { setIsEditMode(v => !v); setUnionMode(false); setSelectedIds([]); }}
+              className={`w-full min-h-10 flex items-center justify-center gap-2 text-xs font-extrabold rounded-xl transition-all cursor-pointer ${
+                isEditMode ? 'bg-blue-100 text-blue-800 border border-blue-300' : 'bg-stone-100 text-stone-700 hover:bg-stone-200 border border-stone-200'
+              }`}
+            >
+              <LayoutGrid className="w-4 h-4" />
+              {isEditMode ? 'Guardar Ubicaciones' : 'Editar Ubicaciones'}
+            </button>
+            {isEditMode && (
+              <p className="text-[10px] text-blue-600 font-bold text-center animate-pulse">Arrastrá las mesas para reubicarlas en el plano.</p>
             )}
           </div>
         </div>
@@ -496,49 +558,99 @@ export default function MesasModule({ mesas, onMesasChange, addLog }: MesasModul
           </div>
 
           {viewMode === 'plano' ? (
-            <div className="relative w-full aspect-[3/5] sm:aspect-[4/5] md:aspect-[3/4] bg-gradient-to-br from-[#FAF8F3] to-[#F2EEE6] rounded-3xl border-2 border-stone-200 overflow-hidden shadow-inner">
-              {/* Fondo con sectores aproximados */}
-              <div className="absolute inset-0 pointer-events-none">
-                <div className="absolute top-[2%] left-[5%] right-[5%] h-[34%] border-2 border-dashed border-stone-300/70 rounded-2xl bg-white/60" />
-                <span className="absolute top-[4%] left-[8%] text-[11px] font-black text-stone-400 uppercase tracking-widest bg-white/80 px-2 py-0.5 rounded-lg">Comedor</span>
-                <div className="absolute top-[44%] left-[5%] right-[5%] h-[50%] border-2 border-dashed border-stone-300/70 rounded-2xl bg-white/60" />
-                <span className="absolute top-[46%] left-[8%] text-[11px] font-black text-stone-400 uppercase tracking-widest bg-white/80 px-2 py-0.5 rounded-lg">Salón</span>
-                <div className="absolute top-[84%] left-[62%] right-[5%] h-[14%] border-2 border-dashed border-stone-300/70 rounded-2xl bg-white/60 flex items-center justify-center">
-                  <span className="text-[11px] font-black text-stone-400 uppercase tracking-widest bg-white/80 px-2 py-0.5 rounded-lg">Barra</span>
-                </div>
-              </div>
-
+            <div
+              ref={containerRef}
+              className="relative w-full aspect-[682/1000] rounded-3xl border-2 border-stone-200 overflow-hidden shadow-inner bg-[#FAF8F3] select-none"
+              style={{
+                backgroundImage: 'url(/plano_original.png)',
+                backgroundSize: '100% 100%',
+                backgroundPosition: 'center',
+                backgroundRepeat: 'no-repeat'
+              }}
+            >
               {/* Mesas posicionadas */}
               {mesasVisiblesEnPlano.map(m => {
                 const estilo = getEstadoStyle(m.estado);
                 const isSelected = selectedIds.includes(m.id_mesa);
                 const isParent = (m.mesas_unidas?.length ?? 0) > 0;
+                const isDragging = draggingId === m.id_mesa;
+
                 return (
                   <div
                     key={m.id_mesa}
+                    onMouseDown={(e) => handleMouseDown(e, m.id_mesa)}
                     onClick={() => {
                       if (unionMode) {
                         if (!m.parent_id) toggleSelectForUnion(m.id_mesa);
                         else toast.error('No podés unir una mesa que ya pertenece a otra unión.');
-                      } else {
+                      } else if (!isEditMode) {
                         handleToggleEstadoMesa(m.id_mesa);
                       }
                     }}
                     style={{ left: `${m.x}%`, top: `${m.y}%` }}
-                    className={`absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center cursor-pointer transition-all duration-200 select-none ${
-                      m.forma === 'rectangular' ? 'w-[4.5rem] h-[3rem] sm:w-24 sm:h-14 rounded-2xl' : 'w-14 h-14 sm:w-16 sm:h-16 rounded-full'
-                    } ${estilo.bg} ${estilo.border} border-2 ${estilo.color} ${estilo.shadow} shadow-sm hover:shadow-md ${
+                    className={`absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center transition-all duration-200 select-none ${
+                      isEditMode ? 'cursor-move' : 'cursor-pointer'
+                    } ${
+                      m.forma === 'rectangular' ? 'w-[4.5rem] h-[2.5rem] sm:w-[5.5rem] sm:h-[3.2rem] rounded-xl' : 'w-12 h-12 sm:w-14 sm:h-14 rounded-full'
+                    } ${estilo.bg} ${estilo.border} border-2 ${estilo.color} ${estilo.shadow} shadow-md hover:shadow-lg ${
                       isSelected ? `ring-2 ring-offset-2 ${estilo.ring} z-20 scale-110` : 'hover:scale-105 z-10'
-                    }`}
+                    } ${isDragging ? 'opacity-80 scale-110 z-30' : ''}`}
                   >
-                    <span className="text-[10px] sm:text-[11px] font-black leading-tight">{m.numero_mesa}</span>
-                    <div className="flex items-center gap-0.5 mt-0.5">
-                      <Users className="w-2.5 h-2.5 opacity-70" />
-                      <span className="text-[9px] sm:text-[10px] font-bold opacity-90 leading-none">{m.capacidad}</span>
+                    {/* Sillas realistas alrededor de la mesa */}
+                    {m.forma === 'redonda' ? (
+                      Array.from({ length: m.capacidad }).map((_, idx) => {
+                        const angle = (360 / m.capacidad) * idx;
+                        return (
+                          <span
+                            key={idx}
+                            className={`absolute w-3 h-3 sm:w-3.5 sm:h-3.5 rounded-full border border-stone-300 shadow-xs transition-colors duration-200 ${estilo.bg} ${estilo.border}`}
+                            style={{
+                              transform: `rotate(${angle}deg) translateY(-1.55rem)`,
+                              transformOrigin: 'center center',
+                              left: 'calc(50% - 6px)',
+                              top: 'calc(50% - 6px)',
+                            }}
+                          />
+                        );
+                      })
+                    ) : (
+                      <>
+                        {/* Sillas arriba */}
+                        {Array.from({ length: Math.ceil(m.capacidad / 2) }).map((_, idx) => {
+                          const count = Math.ceil(m.capacidad / 2);
+                          const leftPercent = count === 1 ? 50 : 20 + (60 / (count - 1)) * idx;
+                          return (
+                            <span
+                              key={`top-${idx}`}
+                              className={`absolute -top-2 w-3 h-3 sm:w-3.5 sm:h-3.5 rounded-sm border border-stone-300 shadow-xs transition-colors duration-200 ${estilo.bg} ${estilo.border}`}
+                              style={{ left: `calc(${leftPercent}% - 6px)` }}
+                            />
+                          );
+                        })}
+                        {/* Sillas abajo */}
+                        {Array.from({ length: Math.floor(m.capacidad / 2) }).map((_, idx) => {
+                          const count = Math.floor(m.capacidad / 2);
+                          const leftPercent = count === 1 ? 50 : 20 + (60 / (count - 1)) * idx;
+                          return (
+                            <span
+                              key={`bottom-${idx}`}
+                              className={`absolute -bottom-2 w-3 h-3 sm:w-3.5 sm:h-3.5 rounded-sm border border-stone-300 shadow-xs transition-colors duration-200 ${estilo.bg} ${estilo.border}`}
+                              style={{ left: `calc(${leftPercent}% - 6px)` }}
+                            />
+                          );
+                        })}
+                      </>
+                    )}
+
+                    {/* Contenido mesa */}
+                    <span className="text-[9px] sm:text-[10px] font-black leading-tight z-10">{m.numero_mesa}</span>
+                    <div className="flex items-center gap-0.5 mt-0.5 z-10">
+                      <Users className="w-2 h-2 sm:w-2.5 sm:h-2.5 opacity-70" />
+                      <span className="text-[8px] sm:text-[9px] font-bold opacity-90 leading-none">{m.capacidad}</span>
                     </div>
-                    <span className={`absolute -top-1.5 -right-1.5 w-2.5 h-2.5 rounded-full border-2 border-white ${estilo.dot} shadow-sm`} />
+                    <span className={`absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border-2 border-white ${estilo.dot} shadow-sm z-20`} />
                     {isParent && (
-                      <span className="absolute -bottom-2 -right-2 min-w-[1.25rem] h-5 px-1 bg-[#624A3E] text-white rounded-full text-[8px] font-black flex items-center justify-center shadow-md border-2 border-white">
+                      <span className="absolute -bottom-1.5 -right-1.5 min-w-[1.1rem] h-4.5 px-0.5 bg-[#624A3E] text-white rounded-full text-[8px] font-black flex items-center justify-center shadow-md border border-white z-20">
                         +{m.mesas_unidas?.length}
                       </span>
                     )}

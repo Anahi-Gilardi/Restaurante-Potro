@@ -39,14 +39,32 @@ export const ALL_APP_VIEWS: AppView[] = [
   'backups'
 ];
 
-const MODULOS_SOLO_SUPERADMIN: AppView[] = ['sistema', 'backups'];
+const MODULOS_SOLO_SUPERADMIN: AppView[] = ['sistema'];
 
 const ALL_SIN_RESTRINGIDOS = ALL_APP_VIEWS.filter(
   v => !MODULOS_SOLO_SUPERADMIN.includes(v)
 );
 
 const ROLE_PERMISSIONS: Record<Usuario['rol'], AppView[]> = {
-  superadmin: ALL_APP_VIEWS,
+  superadmin: [
+    'home',
+    'panel',
+    'mozo',
+    'cocina',
+    'caja',
+    'reportes',
+    'usuarios',
+    'menu',
+    'recetas',
+    'mesas',
+    'inventario',
+    'proveedores',
+    'promociones',
+    'reservas',
+    'facturacion',
+    'sistema',
+    'backups'
+  ],
   administrador: ALL_SIN_RESTRINGIDOS,
   mozo: ['home', 'panel', 'mozo', 'caja', 'reservas'] as AppView[],
   cocina: ['home', 'panel', 'cocina']

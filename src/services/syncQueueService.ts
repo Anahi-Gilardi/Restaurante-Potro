@@ -82,8 +82,12 @@ export const syncQueueService = {
 
       try {
         if (item.action === 'upsert_pedido') {
-          // Serialize and push header & details
-          await pedidosService.upsert([item.payload]);
+          if (item.payload.is_accumulation) {
+            await pedidosService.agregarItemsAComandaExistente(item.payload.id_pedido, item.payload.items);
+          } else {
+            // Serialize and push header & details
+            await pedidosService.upsert([item.payload]);
+          }
           success = true;
         } else if (item.action === 'upsert_factura') {
           await facturacionService.upsert([item.payload]);

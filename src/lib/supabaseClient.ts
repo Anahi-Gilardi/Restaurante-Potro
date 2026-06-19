@@ -81,6 +81,9 @@ export const resetSupabaseClientCache = () => {
   cachedClient?.auth.stopAutoRefresh();
   cachedClient = null;
   cachedFingerprint = '';
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('supabase-client-reset'));
+  }
 };
 
 export const getActiveSupabaseClient = (): SupabaseClient => {

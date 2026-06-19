@@ -7,12 +7,13 @@ test('superadmin tiene acceso total', () => {
   assert.equal(canAccessView('superadmin', 'backups'), true);
   assert.equal(canAccessView('superadmin', 'caja'), true);
   assert.equal(canAccessView('superadmin', 'usuarios'), true);
+  assert.equal(canAccessView('superadmin', 'reservas'), true);
 });
 
-test('administrador no puede acceder a sistema ni backups', () => {
+test('administrador no puede acceder a sistema pero si a backups', () => {
   assert.equal(canAccessView('administrador', 'caja'), true);
   assert.equal(canAccessView('administrador', 'usuarios'), true);
-  assert.equal(canAccessView('administrador', 'backups'), false);
+  assert.equal(canAccessView('administrador', 'backups'), true);
   assert.equal(canAccessView('administrador', 'sistema'), false);
 });
 
