@@ -21,6 +21,119 @@ const marginToneClass = {
   low: 'text-red-500',
 } as const;
 
+function parseMinutesFromText(text: string): number | null {
+  const regex = /(\d+)\s*(?:minutos|min|m\b)/i;
+  const match = text.match(regex);
+  if (match) {
+    const mins = parseInt(match[1], 10);
+    if (!isNaN(mins) && mins > 0) return mins;
+  }
+  return null;
+}
+
+function StepTimer({ text }: { text: string }) {
+  const minutes = useMemo(() => parseMinutesFromText(text), [text]);
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const [isRunning, setIsRunning] = useState(false);
+  const timerRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, []);
+
+  if (minutes === null) return null;
+
+  const startTimer = () => {
+    if (isRunning) return;
+    const duration = timeLeft !== null ? timeLeft : minutes * 60;
+    setTimeLeft(duration);
+    setIsRunning(true);
+    timerRef.current = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev === null || prev <= 1) {
+          if (timerRef.current) clearInterval(timerRef.current);
+          setIsRunning(false);
+          try {
+            const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+            const oscillator = audioCtx.createOscillator();
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(440, audioCtx.currentTime);
+            oscillator.connect(audioCtx.destination);
+            oscillator.start();
+            setTimeout(() => oscillator.stop(), 500);
+          } catch (e) {
+            console.error('AudioContext error:', e);
+          }
+          alert(`⏰ ¡Tiempo cumplido!: "${text}"`);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const pauseTimer = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    setIsRunning(false);
+  };
+
+  const resetTimer = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    setIsRunning(false);
+    setTimeLeft(null);
+  };
+
+  const formatTime = (secs: number) => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
+
+  return (
+    <div className="mt-1.5 flex items-center gap-2 bg-stone-150/40 p-1.5 rounded-lg border border-stone-200 w-fit shrink-0">
+      <span className="text-[10px] font-bold text-stone-600 flex items-center gap-1 font-mono">
+        ⏱️ {timeLeft !== null ? formatTime(timeLeft) : `${minutes} min`}
+      </span>
+      <div className="flex gap-1">
+        {!isRunning ? (
+          <button
+            type="button"
+            onClick={startTimer}
+            className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-md transition-colors cursor-pointer"
+          >
+            Iniciar
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={pauseTimer}
+            className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 bg-amber-600 hover:bg-amber-500 text-white rounded-md transition-colors cursor-pointer"
+          >
+            Pausar
+          </button>
+        )}
+        {timeLeft !== null && (
+          <button
+            type="button"
+            onClick={resetTimer}
+            className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 bg-stone-400 hover:bg-stone-500 text-white rounded-md transition-colors cursor-pointer"
+          >
+            Reiniciar
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 interface RecetasModuleProps {
     recetas: RecetaEscandallo[];
     productosMenu: ProductoMenu[];
@@ -124,13 +237,19 @@ export default function RecetasModule({
     const [localRecetas, setLocalRecetas]       = useState<RecetaEscandallo[]>(recetas);
     const [pendingAction, setPendingAction]     = useState<string | null>(null);
 
-  // Edición inline de cantidad
+  // Edición inline de cantidad y rendimiento
   const [editCantidadId, setEditCantidadId]       = useState<string | null>(null);
     const [editCantidadValue, setEditCantidadValue] = useState('');
+    const [editRendimientoValue, setEditRendimientoValue] = useState('100');
 
   // Nuevo ingrediente
   const [selectedInsumoId, setSelectedInsumoId] = useState('');
     const [cantidadUsar, setCantidadUsar]           = useState('');
+    const [rendimientoUsar, setRendimientoUsar]   = useState('100');
+
+  // Simulador e Ingeniería de Menú
+  const [targetMarginInput, setTargetMarginInput] = useState('70');
+  const [portionsInput, setPortionsInput] = useState('10');
 
   useEffect(() => { setLocalRecetas(recetas); }, [recetas]);
 
@@ -182,6 +301,12 @@ export default function RecetasModule({
                 return;
         }
 
+                                              const parsedRendimiento = parsePositiveQuantity(rendimientoUsar) ?? 100;
+        if (parsedRendimiento <= 0 || parsedRendimiento > 100) {
+                toast.error('El rendimiento debe estar entre 1% y 100%.');
+                return;
+        }
+
                                               const matchedIn = insumos.find(i => i.id_insumo === selectedInsumoId);
         if (!matchedIn) return;
 
@@ -191,7 +316,7 @@ export default function RecetasModule({
                                                       return;
                                               }
 
-                                              const newRec = buildRecipeDraft(activeTabRecipe, matchedIn, parsedCantidad);
+                                              const newRec = buildRecipeDraft(activeTabRecipe, matchedIn, parsedCantidad, parsedRendimiento);
 
                                               const previous = localRecetas;
         setPendingAction('add');
@@ -199,12 +324,13 @@ export default function RecetasModule({
         setLocalRecetas(next);
         onRecetasChange(next);
         setCantidadUsar('');
+        setRendimientoUsar('100');
         setSelectedInsumoId('');
 
                                               try {
                                                       await recetasService.create(newRec);
                                                       toast.success(`"${matchedIn.nombre}" agregado a la receta.`);
-                                                      addLog('sistema', `ESCANDALLO: Agregado "${matchedIn.nombre}" (${parsedCantidad} ${matchedIn.unidad_medida}) a "${selectedProduct?.nombre}".`);
+                                                      addLog('sistema', `ESCANDALLO: Agregado "${matchedIn.nombre}" (${parsedCantidad} ${matchedIn.unidad_medida}) con rendimiento ${parsedRendimiento}% a "${selectedProduct?.nombre}".`);
                                               } catch {
                                                       setLocalRecetas(previous);
                                                       onRecetasChange(previous);
@@ -212,12 +338,13 @@ export default function RecetasModule({
                                               } finally {
                                                       setPendingAction(null);
                                               }
-  }, [pendingAction, selectedInsumoId, cantidadUsar, activeTabRecipe, insumos, localRecetas, onRecetasChange, selectedProduct, addLog, toast]);
+  }, [pendingAction, selectedInsumoId, cantidadUsar, rendimientoUsar, activeTabRecipe, insumos, localRecetas, onRecetasChange, selectedProduct, addLog, toast]);
 
   // ── Iniciar edición de cantidad ───────────────────────────────────────────
   const handleStartEditCantidad = (rec: RecetaEscandallo) => {
         setEditCantidadId(rec.id_receta);
         setEditCantidadValue(String(rec.cantidad_a_descontar));
+        setEditRendimientoValue(String(rec.rendimiento ?? 100));
   };
 
   // ── Guardar edición de cantidad ───────────────────────────────────────────
@@ -228,12 +355,19 @@ export default function RecetasModule({
                 toast.error('Ingresá una cantidad válida mayor a 0.');
                 return;
         }
-        if (parsed === rec.cantidad_a_descontar) {
+
+        const parsedRend = parsePositiveQuantity(editRendimientoValue) ?? 100;
+        if (parsedRend <= 0 || parsedRend > 100) {
+                toast.error('El rendimiento debe estar entre 1% y 100%.');
+                return;
+        }
+
+        if (parsed === rec.cantidad_a_descontar && parsedRend === (rec.rendimiento ?? 100)) {
                 setEditCantidadId(null);
                 return;
         }
 
-                                                 const updated = { ...rec, cantidad_a_descontar: parsed };
+                                                 const updated = { ...rec, cantidad_a_descontar: parsed, rendimiento: parsedRend };
         const previous = localRecetas;
         setPendingAction(`edit-${rec.id_receta}`);
         const next = localRecetas.map(r => r.id_receta === rec.id_receta ? updated : r);
@@ -242,18 +376,18 @@ export default function RecetasModule({
         setEditCantidadId(null);
 
                                                  try {
-                                                         await recetasService.update(rec.id_receta, { cantidad_a_descontar: parsed });
+                                                         await recetasService.update(rec.id_receta, { cantidad_a_descontar: parsed, rendimiento: parsedRend });
                                                          const ins = insumos.find(i => i.id_insumo === rec.id_insumo);
-                                                         toast.success(`Cantidad actualizada: ${parsed} ${ins?.unidad_medida ?? ''}`);
-                                                         addLog('sistema', `ESCANDALLO: Cantidad de "${ins?.nombre ?? rec.id_insumo}" actualizada a ${parsed} en "${selectedProduct?.nombre}".`);
+                                                         toast.success(`Ingrediente actualizado.`);
+                                                         addLog('sistema', `ESCANDALLO: Insumo "${ins?.nombre ?? rec.id_insumo}" actualizado (cant: ${parsed}, rend: ${parsedRend}%) en "${selectedProduct?.nombre}".`);
                                                  } catch {
                                                          setLocalRecetas(previous);
                                                          onRecetasChange(previous);
-                                                         toast.error('No se pudo actualizar la cantidad. Se revirtió el cambio.');
+                                                         toast.error('No se pudo actualizar el ingrediente. Se revirtió el cambio.');
                                                  } finally {
                                                          setPendingAction(null);
                                                  }
-  }, [pendingAction, editCantidadValue, localRecetas, onRecetasChange, insumos, selectedProduct, addLog, toast]);
+  }, [pendingAction, editCantidadValue, editRendimientoValue, localRecetas, onRecetasChange, insumos, selectedProduct, addLog, toast]);
 
   // ── Eliminar ingrediente ──────────────────────────────────────────────────
   const handleRemoveRecipeItem = useCallback(async (id: string) => {
@@ -275,10 +409,29 @@ export default function RecetasModule({
                                                          setLocalRecetas(previous);
                                                          onRecetasChange(previous);
                                                          toast.error('No se pudo eliminar el ingrediente. Se revirtió el cambio.');
-                                                 } finally {
-                                                         setPendingAction(null);
-                                                 }
+                                                  } finally {
+                                                          setPendingAction(null);
+                                                  }
   }, [pendingAction, localRecetas, onRecetasChange, insumos, selectedProduct, addLog, toast]);
+
+  const suggestedPrice = useMemo(() => {
+    const margin = parseFloat(targetMarginInput) || 70;
+    if (margin >= 100) return calculatedCost;
+    return Math.round(calculatedCost / (1 - margin / 100));
+  }, [calculatedCost, targetMarginInput]);
+
+  const handleApplySuggestedPrice = async () => {
+    if (!selectedProduct) return;
+    try {
+      await menuService.update(selectedProduct.id_producto, { precio_venta: suggestedPrice });
+      const updated = productosMenu.map(p => p.id_producto === selectedProduct.id_producto ? { ...p, precio_venta: suggestedPrice } : p);
+      onProductosChange(updated);
+      toast.success(`Precio de "${selectedProduct.nombre}" actualizado a $${suggestedPrice.toLocaleString('es-AR')}`);
+      addLog('sistema', `MENU: Precio de venta del plato "${selectedProduct.nombre}" modificado a $${suggestedPrice} según simulación de margen.`);
+    } catch (err: any) {
+      toast.error('Error al actualizar el precio de venta.');
+    }
+  };
 
   return (
         <div className="space-y-6">
@@ -425,51 +578,75 @@ export default function RecetasModule({
                                                                                                                 )}
                                                                                           </div>
                                                                   
-                                                                    {/* Cantidad — editable inline */}
+                                                                    {/* Cantidad y Rendimiento — editable inline */}
                                                                     {isEditing ? (
-                                                                                            <div className="flex items-center gap-1 shrink-0">
-                                                                                                                      <input
-                                                                                                                                                    type="number"
-                                                                                                                                                    min="0.01"
-                                                                                                                                                    step="any"
-                                                                                                                                                    value={editCantidadValue}
-                                                                                                                                                    onChange={e => setEditCantidadValue(e.target.value)}
-                                                                                                                                                    onKeyDown={e => {
-                                                                                                                                                                                    if (e.key === 'Enter') handleSaveEditCantidad(rec);
-                                                                                                                                                                                    if (e.key === 'Escape') setEditCantidadId(null);
-                                                                                                                                                      }}
-                                                                                                                                                    autoFocus
-                                                                                                                                                    className="w-20 px-2 py-1 text-xs border border-[#624A3E]/30 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#624A3E]"
-                                                                                                                                                    aria-label={`Editar cantidad de ${ins?.nombre ?? rec.id_insumo}`}
-                                                                                                                                                  />
-                                                                                                                      <span className="text-[10px] text-stone-500">{ins?.unidad_medida}</span>
+                                                                                            <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                                                                                                                      <div className="flex items-center gap-0.5">
+                                                                                                                        <input
+                                                                                                                                                      type="number"
+                                                                                                                                                      min="0.01"
+                                                                                                                                                      step="any"
+                                                                                                                                                      value={editCantidadValue}
+                                                                                                                                                      onChange={e => setEditCantidadValue(e.target.value)}
+                                                                                                                                                      onKeyDown={e => {
+                                                                                                                                                                                      if (e.key === 'Enter') handleSaveEditCantidad(rec);
+                                                                                                                                                                                      if (e.key === 'Escape') setEditCantidadId(null);
+                                                                                                                                                        }}
+                                                                                                                                                      autoFocus
+                                                                                                                                                      className="w-16 px-1.5 py-1 text-xs border border-[#624A3E]/30 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#624A3E]"
+                                                                                                                                                      aria-label={`Editar cantidad de ${ins?.nombre ?? rec.id_insumo}`}
+                                                                                                                                                    />
+                                                                                                                        <span className="text-[9px] text-stone-500">{ins?.unidad_medida}</span>
+                                                                                                                      </div>
+
+                                                                                                                      <div className="flex items-center gap-0.5">
+                                                                                                                        <span className="text-[9px] text-stone-400">Rend:</span>
+                                                                                                                        <input
+                                                                                                                                                      type="number"
+                                                                                                                                                      min="1"
+                                                                                                                                                      max="100"
+                                                                                                                                                      value={editRendimientoValue}
+                                                                                                                                                      onChange={e => setEditRendimientoValue(e.target.value)}
+                                                                                                                                                      onKeyDown={e => {
+                                                                                                                                                                                      if (e.key === 'Enter') handleSaveEditCantidad(rec);
+                                                                                                                                                                                      if (e.key === 'Escape') setEditCantidadId(null);
+                                                                                                                                                        }}
+                                                                                                                                                      className="w-12 px-1.5 py-1 text-xs border border-[#624A3E]/30 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#624A3E] font-mono text-center"
+                                                                                                                                                      placeholder="100"
+                                                                                                                                                    />
+                                                                                                                        <span className="text-[9px] text-stone-550">%</span>
+                                                                                                                      </div>
+
                                                                                                                       <button
                                                                                                                                                     onClick={() => handleSaveEditCantidad(rec)}
                                                                                                                                                     disabled={isBusy}
                                                                                                                                                     className="p-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 transition-colors disabled:opacity-40"
-                                                                                                                                                    aria-label="Confirmar cantidad"
+                                                                                                                                                    aria-label="Confirmar"
                                                                                                                                                   >
                                                                                                                                                   <Check className="w-3.5 h-3.5 text-emerald-700" />
                                                                                                                         </button>
                                                                                                                       <button
                                                                                                                                                     onClick={() => setEditCantidadId(null)}
                                                                                                                                                     className="p-1 rounded-lg hover:bg-stone-100 transition-colors"
-                                                                                                                                                    aria-label="Cancelar edición"
+                                                                                                                                                    aria-label="Cancelar"
                                                                                                                                                   >
                                                                                                                                                   <X className="w-3.5 h-3.5 text-stone-400" />
                                                                                                                         </button>
-                                                                                              </div>
+                                                                                            </div>
                                                                                           ) : (
                                                                                             <div className="flex items-center gap-2 shrink-0">
                                                                                                                       <span className="text-sm font-mono font-bold text-stone-700">
                                                                                                                         {rec.cantidad_a_descontar} {ins?.unidad_medida ?? rec.unidad_medida ?? ''}
-                                                                                                                        </span>
+                                                                                                                      </span>
+                                                                                                                      <span className="text-[10px] font-mono text-stone-500 bg-stone-100 rounded px-1.5 py-0.5" title="Rendimiento culinario de la materia prima">
+                                                                                                                        Rend: {rec.rendimiento ?? 100}%
+                                                                                                                      </span>
                                                                                                                       <button
                                                                                                                                                     onClick={() => handleStartEditCantidad(rec)}
                                                                                                                                                     disabled={isBusy}
                                                                                                                                                     className="p-1 rounded-lg hover:bg-stone-100 transition-colors disabled:opacity-40"
-                                                                                                                                                    aria-label={`Editar cantidad de ${ins?.nombre ?? rec.id_insumo}`}
-                                                                                                                                                    title="Editar cantidad"
+                                                                                                                                                    aria-label={`Editar ${ins?.nombre ?? rec.id_insumo}`}
+                                                                                                                                                    title="Editar ingrediente"
                                                                                                                                                   >
                                                                                                                                                   <Edit2 className="w-3.5 h-3.5 text-stone-400" />
                                                                                                                         </button>
@@ -477,13 +654,13 @@ export default function RecetasModule({
                                                                                                                                                     onClick={() => handleRemoveRecipeItem(rec.id_receta)}
                                                                                                                                                     disabled={isBusy}
                                                                                                                                                     className="p-1 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-40"
-                                                                                                                                                    aria-label={`Eliminar ${ins?.nombre ?? rec.id_insumo} de la receta`}
+                                                                                                                                                    aria-label={`Eliminar ${ins?.nombre ?? rec.id_insumo}`}
                                                                                                                                                     title="Eliminar ingrediente"
                                                                                                                                                   >
                                                                                                                                                   <Trash className="w-3.5 h-3.5 text-red-400" />
                                                                                                                         </button>
-                                                                                              </div>
-                                                                                        )}
+                                                                                            </div>
+                                                                                          )}
                                                                   </div>
                                                                 );
                         })}
@@ -502,7 +679,7 @@ export default function RecetasModule({
                                                                           <select
                                                                                               value={selectedInsumoId}
                                                                                               onChange={e => setSelectedInsumoId(e.target.value)}
-                                                                                              className="w-full border border-stone-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#624A3E]/30"
+                                                                                              className="w-full border border-stone-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#624A3E]/30 cursor-pointer"
                                                                                               aria-label="Seleccionar insumo"
                                                                                             >
                                                                                             <option value="">Seleccionar insumo…</option>
@@ -522,20 +699,138 @@ export default function RecetasModule({
                                                                                               value={cantidadUsar}
                                                                                               onChange={e => setCantidadUsar(e.target.value)}
                                                                                               placeholder="0"
-                                                                                              className="w-28 border border-stone-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#624A3E]/30"
+                                                                                              className="w-24 border border-stone-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#624A3E]/30"
                                                                                               aria-label="Cantidad del insumo"
+                                                                                            />
+                                                          </div>
+                                                          <div>
+                                                                          <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Rend. %</label>
+                                                                          <input
+                                                                                              type="number"
+                                                                                              min="1"
+                                                                                              max="100"
+                                                                                              value={rendimientoUsar}
+                                                                                              onChange={e => setRendimientoUsar(e.target.value)}
+                                                                                              placeholder="100"
+                                                                                              className="w-20 border border-stone-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#624A3E]/30"
+                                                                                              aria-label="Rendimiento del insumo"
                                                                                             />
                                                           </div>
                                                           <button
                                                                             type="submit"
                                                                             disabled={!!pendingAction || !selectedInsumoId || !cantidadUsar}
-                                                                            className="bg-[#624A3E] text-white text-sm font-bold px-4 py-2 rounded-xl hover:bg-[#4e3a30] transition-colors disabled:opacity-50 flex items-center gap-2"
+                                                                            className="bg-[#624A3E] hover:bg-[#4e3a30] text-white text-sm font-bold px-4 py-2 rounded-xl transition-colors disabled:opacity-50 flex items-center gap-2 cursor-pointer"
                                                                             aria-label="Agregar ingrediente a la receta"
                                                                           >
                                                                           <Plus className="w-4 h-4" /> Agregar
                                                           </button>
                                             </form>
                                 </div>
+
+                                {/* SIMULADOR DE MARGEN Y PRECIO SUGERIDO */}
+                                {selectedProduct && calculatedCost > 0 && (
+                                  <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs space-y-3.5">
+                                    <h3 className="text-xs font-black text-[#624A3E] uppercase tracking-wider flex items-center gap-2 border-b border-stone-100 pb-2">
+                                      📊 Simulador de Precios e Ingeniería de Menú
+                                    </h3>
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                      <div>
+                                        <span className="text-[10px] font-bold text-stone-550 block mb-1 uppercase">Costo Receta Neto</span>
+                                        <span className="text-base font-black text-stone-900 font-mono">
+                                          ${calculatedCost.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                        </span>
+                                      </div>
+                                      <div>
+                                        <label className="text-[10px] font-bold text-stone-550 block mb-1 uppercase">Margen Objetivo %</label>
+                                        <div className="flex items-center gap-1.5">
+                                          <input
+                                            type="number"
+                                            min="10"
+                                            max="95"
+                                            value={targetMarginInput}
+                                            onChange={e => setTargetMarginInput(e.target.value)}
+                                            className="w-16 px-2.5 py-1.5 text-xs font-bold border border-stone-200 rounded-lg bg-stone-50 text-stone-700 font-mono"
+                                          />
+                                          <span className="text-xs text-stone-550 font-bold">%</span>
+                                        </div>
+                                      </div>
+                                      <div>
+                                        <span className="text-[10px] font-bold text-stone-550 block mb-1 uppercase">Precio Sugerido Venta</span>
+                                        <span className="text-base font-black text-emerald-750 font-mono">
+                                          ${suggestedPrice.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <button
+                                      onClick={handleApplySuggestedPrice}
+                                      className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[10px] font-black uppercase transition-all cursor-pointer shadow-sm flex items-center justify-center gap-1.5"
+                                    >
+                                      Aplicar Precio Sugerido al Menú
+                                    </button>
+                                  </div>
+                                )}
+
+                                {/* CALCULADORA DE PRODUCCIÓN / ABASTECIMIENTO */}
+                                {selectedProduct && currentRecipeItems.length > 0 && (
+                                  <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs space-y-4">
+                                    <h3 className="text-xs font-black text-[#624A3E] uppercase tracking-wider flex items-center gap-2 border-b border-stone-100 pb-2">
+                                      🍳 Calculadora de Abastecimiento de Producción
+                                    </h3>
+                                    <div className="flex items-center gap-3 bg-stone-50 p-3 rounded-xl border border-stone-200/50">
+                                      <div className="flex-1">
+                                        <label className="text-[10px] font-black text-stone-550 block mb-1 uppercase">Cantidad de Porciones a Preparar</label>
+                                        <input
+                                          type="number"
+                                          min="1"
+                                          value={portionsInput}
+                                          onChange={e => setPortionsInput(e.target.value)}
+                                          className="w-full px-3 py-2 text-xs font-bold border border-stone-200 rounded-lg bg-white text-stone-700"
+                                          placeholder="Ej: 50"
+                                        />
+                                      </div>
+                                    </div>
+                                    
+                                    <div className="space-y-2">
+                                      <span className="text-[10px] font-bold text-stone-500 uppercase block">Necesidad de Ingredientes Consolidada</span>
+                                      <div className="divide-y divide-stone-100 border border-stone-200 rounded-xl overflow-hidden text-xs">
+                                        {currentRecipeItems.map(rec => {
+                                          const ins = insumos.find(i => i.id_insumo === rec.id_insumo);
+                                          const portions = parseInt(portionsInput) || 0;
+                                          const rend = rec.rendimiento ?? 100;
+                                          const factorRend = rend > 0 ? 100 / rend : 1;
+                                          
+                                          const netQtyPerPortion = rec.cantidad_a_descontar;
+                                          const grossQtyPerPortion = netQtyPerPortion * factorRend;
+                                          
+                                          const totalGrossNeeded = grossQtyPerPortion * portions;
+                                          const stock = ins?.stock_actual ?? 0;
+                                          const buyNeeded = Math.max(0, totalGrossNeeded - stock);
+                                          
+                                          return (
+                                            <div key={rec.id_receta} className="p-3 bg-white flex justify-between items-center hover:bg-stone-50/40">
+                                              <div>
+                                                <p className="font-bold text-stone-850">{ins?.nombre ?? rec.id_insumo}</p>
+                                                <p className="text-[10px] text-stone-400">
+                                                  Por porción: {netQtyPerPortion} {ins?.unidad_medida} (Bruto: {grossQtyPerPortion.toFixed(1)} {ins?.unidad_medida})
+                                                </p>
+                                              </div>
+                                              <div className="text-right">
+                                                <p className="font-semibold text-stone-700">Requerido: <span className="font-mono font-bold">{totalGrossNeeded.toLocaleString('es-AR', { maximumFractionDigits: 1 })} {ins?.unidad_medida}</span></p>
+                                                {buyNeeded > 0 ? (
+                                                  <p className="text-[10px] text-rose-600 font-bold">
+                                                    Faltante: {buyNeeded.toLocaleString('es-AR', { maximumFractionDigits: 1 })} {ins?.unidad_medida} (Comprar)
+                                                  </p>
+                                                ) : (
+                                                  <p className="text-[10px] text-emerald-600 font-bold">Stock suficiente</p>
+                                                )}
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
 
                                 {/* ── Ficha Técnica del Chef ── */}
                                 <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs space-y-4">
@@ -620,7 +915,10 @@ export default function RecetasModule({
                                               <span className="w-5 h-5 rounded-full bg-[#624A3E] text-white flex items-center justify-center shrink-0 font-bold text-[10px] font-mono">
                                                 {idx + 1}
                                               </span>
-                                              <span className="flex-1 leading-relaxed text-stone-750 font-medium">{step}</span>
+                                              <span className="flex-1 leading-relaxed text-stone-750 font-medium">
+                                                {step}
+                                                <StepTimer text={step} />
+                                              </span>
                                               <button
                                                 type="button"
                                                 onClick={async () => {

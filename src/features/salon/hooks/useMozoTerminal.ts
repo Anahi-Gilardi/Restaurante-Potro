@@ -82,9 +82,38 @@ export function useMozoTerminal({
   const activeUser = useMemo(() => usuarios.find(u => u.nombre === activeMozo), [usuarios, activeMozo]);
   const isAdmin = activeUser?.rol === 'superadmin' || activeUser?.rol === 'administrador';
 
+  const isSameTable = useCallback((m: Mesa, p: Pedido) => {
+    if (m.id_mesa !== undefined && m.id_mesa !== null && p.id_mesa !== undefined && p.id_mesa !== null) {
+      if (String(m.id_mesa) === String(p.id_mesa)) return true;
+    }
+    const norm1 = String(m.numero_mesa || '').toLowerCase().replace(/mesa\s+/gi, '').trim();
+    const norm2 = String(p.numero_mesa || '').toLowerCase().replace(/mesa\s+/gi, '').trim();
+    return norm1 !== '' && norm1 === norm2;
+  }, []);
+
+  const dynamicMesas = useMemo(() => {
+    return mesas.map(m => {
+      const activePedido = pedidos.find(p => 
+        isSameTable(m, p) && 
+        ['abierta', 'pendiente', 'en_cocina', 'listo', 'entregado'].includes(p.estado_comanda)
+      );
+      if (activePedido) {
+        return {
+          ...m,
+          estado: 'ocupada' as const,
+          comensales: (activePedido as any).comensales || m.comensales || 2
+        };
+      }
+      return {
+        ...m,
+        estado: m.estado === 'ocupada' ? 'libre' : m.estado
+      };
+    });
+  }, [mesas, pedidos, isSameTable]);
+
   const selectedMesa = useMemo(() => {
-    return mesas.find(m => m.id_mesa === selectedMesaId) || null;
-  }, [selectedMesaId, mesas]);
+    return dynamicMesas.find(m => m.id_mesa === selectedMesaId) || null;
+  }, [selectedMesaId, dynamicMesas]);
 
   const getValidCartFromDraft = useCallback((draftCart: MozoCart): { cart: MozoCart; removed: string[] } => {
     return Object.entries(draftCart).reduce<{ cart: MozoCart; removed: string[] }>((acc, [productId, qty]) => {
@@ -500,6 +529,7 @@ export function useMozoTerminal({
     activeUser,
     isAdmin,
     selectedMesa,
+    dynamicMesas,
     activePedidoDeMesa,
     filteredProducts,
     totalCartValue,
@@ -513,6 +543,7 @@ export function useMozoTerminal({
     handleDownloadPreTicket,
     handlePrintSplitTicket,
     handleUpdatePrice,
-    handleToggleAvailability
+    handleToggleAvailability,
+    isSameTable
   };
 }

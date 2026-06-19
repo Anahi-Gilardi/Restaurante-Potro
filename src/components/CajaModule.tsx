@@ -61,6 +61,7 @@ export default function CajaModule({
   addLog
 }: CajaModuleProps) {
   const { toast, toasts, removeToast } = useToast();
+  const [activeSummaryTab, setActiveSummaryTab] = useState<'platos' | 'gastos'>('platos');
 
   const caja = useCaja({
     pedidos,
@@ -188,6 +189,35 @@ export default function CajaModule({
     
     return grouped;
   }, [selectedPedido, productosMenu]);
+
+  const platosConsumidosHoy = useMemo(() => {
+    const todayStr = new Date().toDateString();
+    const totals: { [name: string]: { cantidad: number; totalRecaudado: number; categoria: string } } = {};
+    
+    pedidos.forEach(p => {
+      const orderDateStr = new Date(p.fecha_hora).toDateString();
+      if (orderDateStr === todayStr && p.estado_comanda === 'entregado_cobrado') {
+        p.items.forEach(item => {
+          const pm = productosMenu.find(prod => prod.id_producto === item.id_producto);
+          const price = item.precio_unitario ?? pm?.precio_venta ?? 0;
+          if (!totals[item.nombre]) {
+            totals[item.nombre] = { cantidad: 0, totalRecaudado: 0, categoria: item.categoria };
+          }
+          totals[item.nombre].cantidad += item.cantidad;
+          totals[item.nombre].totalRecaudado += price * item.cantidad;
+        });
+      }
+    });
+
+    return Object.entries(totals)
+      .map(([nombre, meta]) => ({
+        nombre,
+        cantidad: meta.cantidad,
+        totalRecaudado: meta.totalRecaudado,
+        categoria: meta.categoria
+      }))
+      .sort((a, b) => b.cantidad - a.cantidad);
+  }, [pedidos, productosMenu]);
 
   return (
     <div className="space-y-6" id="gastro-checkout-master">
@@ -546,6 +576,102 @@ export default function CajaModule({
               </div>
             )}
           </div>
+
+          {/* RESUMEN DIARIO CONSOLIDADO */}
+          {cajaSession && (
+            <div className="bg-white rounded-2xl p-5 border border-stone-200 shadow-sm space-y-4">
+              <div className="flex justify-between items-center pb-2 border-b border-stone-100">
+                <h4 className="font-black text-stone-800 font-sans tracking-tight text-xs uppercase flex items-center gap-1.5">
+                  <TrendingUp className="w-4 h-4 text-emerald-600" />
+                  Resumen Diario Consolidado
+                </h4>
+                <div className="flex gap-1 p-0.5 bg-stone-100 rounded-lg">
+                  <button
+                    onClick={() => setActiveSummaryTab('platos')}
+                    className={`px-2 py-1 text-[9px] font-bold uppercase rounded-md transition-all cursor-pointer ${
+                      activeSummaryTab === 'platos'
+                        ? 'bg-white text-stone-900 shadow-xs'
+                        : 'text-stone-500 hover:text-stone-900'
+                    }`}
+                  >
+                    Platos
+                  </button>
+                  <button
+                    onClick={() => setActiveSummaryTab('gastos')}
+                    className={`px-2 py-1 text-[9px] font-bold uppercase rounded-md transition-all cursor-pointer ${
+                      activeSummaryTab === 'gastos'
+                        ? 'bg-white text-stone-900 shadow-xs'
+                        : 'text-stone-500 hover:text-stone-900'
+                    }`}
+                  >
+                    Gastos ({movimientosCajaChica.length})
+                  </button>
+                </div>
+              </div>
+
+              {activeSummaryTab === 'platos' ? (
+                <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1">
+                  {platosConsumidosHoy.length === 0 ? (
+                    <div className="text-center py-6 text-stone-400 text-[10px]">
+                      Aún no hay platos cobrados hoy en este turno.
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-stone-100">
+                      {platosConsumidosHoy.map((plato, idx) => (
+                        <div key={idx} className="flex justify-between items-center py-2 text-[11px]">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono bg-stone-100 text-stone-700 rounded-md px-1.5 py-0.5 text-[9px] font-black">
+                              {plato.cantidad}x
+                            </span>
+                            <span className="font-semibold text-stone-800">{plato.nombre}</span>
+                            {plato.categoria && (
+                              <span className="text-[8px] text-stone-400 uppercase font-bold tracking-wider">
+                                ({plato.categoria})
+                              </span>
+                            )}
+                          </div>
+                          <span className="font-mono font-bold text-stone-600">
+                            ${plato.totalRecaudado.toLocaleString('es-AR')}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1">
+                  {movimientosCajaChica.length === 0 ? (
+                    <div className="text-center py-6 text-stone-400 text-[10px]">
+                      No hay movimientos de caja chica registrados hoy.
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-stone-100">
+                      {movimientosCajaChica.map((mov, idx) => (
+                        <div key={idx} className="flex justify-between items-start py-2 text-[11px]">
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <span className={`w-1.5 h-1.5 rounded-full ${
+                                mov.tipo === 'ingreso' ? 'bg-emerald-500' : 'bg-rose-500'
+                              }`} />
+                              <span className="font-black text-stone-800 capitalize">{mov.concepto || 'Sin concepto'}</span>
+                            </div>
+                            <span className="text-[9px] text-stone-400 font-mono">
+                              {new Date(mov.fecha_hora).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                          <span className={`font-mono font-black ${
+                            mov.tipo === 'ingreso' ? 'text-emerald-600' : 'text-rose-600'
+                          }`}>
+                            {mov.tipo === 'ingreso' ? '+' : '-'}${mov.monto.toLocaleString('es-AR')}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* ACTIVE UNBILLED COMMANDS LIST (Rule 2) */}
           <div className="bg-white rounded-2xl p-5 border border-stone-200 shadow-sm space-y-4">

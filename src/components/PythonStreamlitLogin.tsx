@@ -18,6 +18,8 @@ import {
   getConfiguredDemoCredentials,
   isDemoLoginEnabled,
 } from '../lib/demoLogin';
+import DiagnosticsTester from './DiagnosticsTester';
+
 
 interface PythonStreamlitLoginProps {
   onLoginSuccess: (user: Usuario) => void;
@@ -48,7 +50,9 @@ export default function PythonStreamlitLogin({ onLoginSuccess }: PythonStreamlit
   const [showPassword, setShowPassword] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [error, setError] = useState('');
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
   const loginInFlightRef = useRef(false);
+
 
   const completeLogin = async (user: Usuario) => {
     await new Promise(resolve => setTimeout(resolve, 300));
@@ -217,9 +221,23 @@ export default function PythonStreamlitLogin({ onLoginSuccess }: PythonStreamlit
               <span>Iniciar sesión</span>
               <ArrowRight className="w-5 h-5" />
             </button>
+            
+            <div className="pt-2 text-center">
+              <button
+                type="button"
+                onClick={() => setShowDiagnostics(true)}
+                className="text-xs font-semibold text-stone-500 hover:text-[#4A2D1B] hover:underline transition-all cursor-pointer flex items-center justify-center gap-1 mx-auto"
+              >
+                🔧 ¿Problemas de conexión? Ejecutar diagnóstico
+              </button>
+            </div>
           </form>
         )}
       </div>
+
+      {showDiagnostics && (
+        <DiagnosticsTester onClose={() => setShowDiagnostics(false)} />
+      )}
 
       <div className="absolute bottom-4 left-0 right-0 text-center text-[10px] text-stone-400/80">
         El Patrón Gastronomía Premium S.A. • Terminal POS Autorizada

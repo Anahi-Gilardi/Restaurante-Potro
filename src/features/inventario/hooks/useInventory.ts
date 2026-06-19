@@ -367,7 +367,9 @@ export function useInventory({
     link.setAttribute("download", `Movimientos_Stock_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
+    if (document.body.contains(link)) {
+      document.body.removeChild(link);
+    }
 
     addLog('sistema', 'DIAGNOSTICO: Exportado reporte fiscal del historial de stock en CSV.');
     toast.success("Reporte CSV descargado correctamente");

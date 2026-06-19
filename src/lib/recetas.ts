@@ -38,7 +38,9 @@ export function calculateRecipeCost(
 ): number {
   return recetas.reduce((total, receta) => {
     const insumo = insumos.find(item => item.id_insumo === receta.id_insumo);
-    return total + receta.cantidad_a_descontar * (insumo?.costo_unitario ?? 0);
+    const rend = receta.rendimiento ?? 100;
+    const factorRend = rend > 0 ? 100 / rend : 1;
+    return total + (receta.cantidad_a_descontar * factorRend) * (insumo?.costo_unitario ?? 0);
   }, 0);
 }
 
@@ -58,6 +60,7 @@ export function buildRecipeDraft(
   productId: string,
   insumo: Insumo,
   cantidad: number,
+  rendimiento: number = 100,
   idFactory: () => string = () => `rec_new_${Date.now()}`,
 ): RecetaEscandallo {
   return {
@@ -66,5 +69,6 @@ export function buildRecipeDraft(
     id_insumo: insumo.id_insumo,
     cantidad_a_descontar: cantidad,
     unidad_medida: insumo.unidad_medida,
+    rendimiento,
   };
 }

@@ -121,7 +121,9 @@ export default function MozoTerminal({
     handleDownloadPreTicket,
     handlePrintSplitTicket,
     handleUpdatePrice,
-    handleToggleAvailability
+    handleToggleAvailability,
+    dynamicMesas,
+    isSameTable
   } = useMozoTerminal({
     mesas,
     insumos,
@@ -190,12 +192,12 @@ export default function MozoTerminal({
               Distribución de Mesas
             </h3>
             <span className="text-[11px] font-mono bg-slate-50 text-slate-500 px-2 py-0.5 rounded">
-              {mesas.filter(m => m.estado === 'ocupada').length} Ocupadas
+              {dynamicMesas.filter(m => m.estado === 'ocupada').length} Ocupadas
             </span>
           </div>
 
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-2.5">
-            {mesas.map(m => {
+            {dynamicMesas.map(m => {
               const isSelected = m.id_mesa === selectedMesaId;
               const isOcupada = m.estado === 'ocupada';
               const isInCuenta = m.estado === 'esperando_cuenta';
@@ -219,6 +221,15 @@ export default function MozoTerminal({
                 labelText = "Ocupada";
               }
 
+              const activePedido = isOcupada ? pedidos.find(p => 
+                isSameTable(m, p) && 
+                ['abierta', 'pendiente', 'en_cocina', 'listo', 'entregado'].includes(p.estado_comanda)
+              ) : null;
+
+              const elapsedMin = activePedido 
+                ? Math.max(0, Math.floor((Date.now() - new Date(activePedido.fecha_hora).getTime()) / 60000))
+                : 0;
+
               return (
                 <button
                   key={m.id_mesa}
@@ -228,9 +239,16 @@ export default function MozoTerminal({
                 >
                   <span className="text-xs sm:text-sm font-black font-sans">{m.numero_mesa}</span>
                   {isOcupada ? (
-                    <div className="flex items-center gap-0.5 mt-1 sm:mt-2">
-                      <Users className={`w-3 h-3 ${isSelected ? 'text-white' : 'text-[#2563a0]'}`} />
-                      <span className="text-[10px] sm:text-xs font-bold">{m.comensales || 0}</span>
+                    <div className="flex flex-col items-center gap-0.5 mt-1">
+                      <div className="flex items-center gap-0.5">
+                        <Users className={`w-3 h-3 ${isSelected ? 'text-white' : 'text-[#2563a0]'}`} />
+                        <span className="text-[10px] sm:text-xs font-bold">{m.comensales || 0}</span>
+                      </div>
+                      {elapsedMin > 0 && (
+                        <span className={`text-[8px] font-mono font-bold ${isSelected ? 'text-white/80' : 'text-[#2563a0]/80 bg-[#2563a0]/5 px-1 rounded'}`}>
+                          ⏱️ {elapsedMin}m
+                        </span>
+                      )}
                     </div>
                   ) : isInCuenta ? (
                     <span className="text-[8px] sm:text-[10px] uppercase tracking-wider font-extrabold text-[#c47f1a] text-center leading-tight">Saldar</span>

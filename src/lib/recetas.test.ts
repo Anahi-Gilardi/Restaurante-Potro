@@ -84,7 +84,7 @@ test('calcula costo y margen estimado de receta', () => {
 });
 
 test('crea un borrador de escandallo consistente', () => {
-  const draft = buildRecipeDraft('prod-burger', insumos[0], 120, () => 'rec-test');
+  const draft = buildRecipeDraft('prod-burger', insumos[0], 120, 100, () => 'rec-test');
 
   assert.deepEqual(draft, {
     id_receta: 'rec-test',
@@ -92,5 +92,6 @@ test('crea un borrador de escandallo consistente', () => {
     id_insumo: 'ins-carne',
     cantidad_a_descontar: 120,
     unidad_medida: 'g',
+    rendimiento: 100,
   });
 });
