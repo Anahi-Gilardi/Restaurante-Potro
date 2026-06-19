@@ -162,12 +162,62 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
   const [unionMode, setUnionMode] = useState(false);
   const [selectedForUnion, setSelectedForUnion] = useState<MesaVisual[]>([]);
 
+  // Modo editor de posiciones
+  const [editorMode, setEditorMode] = useState(false);
+  const [draggingMesa, setDraggingMesa] = useState<MesaVisual | null>(null);
+  const svgRef = React.useRef<SVGSVGElement>(null);
+
   // Formulario agregar/editar mesa
   const [showMesaForm, setShowMesaForm] = useState(false);
   const [editingMesa, setEditingMesa] = useState<MesaVisual | null>(null);
   const [nuevoNumero, setNuevoNumero] = useState('');
   const [nuevaCapacidad, setNuevaCapacidad] = useState('4');
   const [nuevaZona, setNuevaZona] = useState<Zona>('comedor');
+
+  const handleSvgMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (!editorMode || !draggingMesa || !svgRef.current) return;
+    const pt = svgRef.current.createSVGPoint();
+    pt.x = e.clientX;
+    pt.y = e.clientY;
+    const svgP = pt.matrixTransform(svgRef.current.getScreenCTM()?.inverse());
+    const width = draggingMesa.posicion.width;
+    const height = draggingMesa.posicion.height;
+    const newX = Math.max(15, Math.min(430 - width - 15, svgP.x - width / 2));
+    const newY = Math.max(15, Math.min(620 - height - 15, svgP.y - height / 2));
+    setVisualMesas(prev => prev.map(m => m.id_mesa === draggingMesa.id_mesa
+      ? { ...m, posicion: { ...m.posicion, x: newX, y: newY } }
+      : m
+    ));
+  };
+
+  const handleSvgMouseUp = async () => {
+    if (!editorMode || !draggingMesa) {
+      setDraggingMesa(null);
+      return;
+    }
+    const mesaActualizada = visualMesas.find(m => m.id_mesa === draggingMesa.id_mesa);
+    if (mesaActualizada) {
+      try {
+        await mesasService.update(mesaActualizada.id_mesa, {
+          x: Math.round(mesaActualizada.posicion.x),
+          y: Math.round(mesaActualizada.posicion.y),
+          width: mesaActualizada.posicion.width,
+          height: mesaActualizada.posicion.height,
+        });
+        addLog('mesa', `Mesa ${mesaActualizada.numero_mesa} reposicionada a x:${Math.round(mesaActualizada.posicion.x)}, y:${Math.round(mesaActualizada.posicion.y)}`);
+      } catch (err: any) {
+        toast.error(err.message || 'Error guardando posición');
+      }
+    }
+    setDraggingMesa(null);
+  };
+
+  const startDrag = (m: MesaVisual, e: React.MouseEvent) => {
+    if (!editorMode) return;
+    e.stopPropagation();
+    e.preventDefault();
+    setDraggingMesa(m);
+  };
 
   const today = formatDate(new Date());
 
@@ -585,9 +635,12 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
       const { x, y, width, height, rx } = m.posicion;
 
       return (
-        <g key={m.id} data-mesa-id={m.id} className="cursor-pointer hover:opacity-90 transition-opacity"
+        <g key={m.id} data-mesa-id={m.id}
+           className={`transition-opacity ${editorMode ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer hover:opacity-90'}`}
+           onMouseDown={(e: React.MouseEvent) => editorMode ? startDrag(m, e) : undefined}
            onClick={(e: React.MouseEvent) => {
              e.stopPropagation();
+             if (editorMode || draggingMesa) return;
              if (unionMode) toggleUnionSelection(m);
              else openModal(m);
            }}
@@ -597,6 +650,12 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
                 fill={fill} stroke={isSelected ? '#3B82F6' : stroke} strokeWidth={isSelected ? 4 : 2.5} pointerEvents="all" />
           <text x={x + width / 2} y={y + height / 2 - 2} textAnchor="middle" fontSize={Math.min(18, width / 3.5)} fontWeight={700} fill={textColor} fontFamily="Arial, sans-serif" pointerEvents="none">{m.numero_mesa}</text>
           <text x={x + width / 2} y={y + height / 2 + 14} textAnchor="middle" fontSize={9} fill={textColor} fontFamily="Arial, sans-serif" opacity={0.8} pointerEvents="none">Mesa</text>
+          {editorMode && (
+            <g pointerEvents="none">
+              <circle cx={x + width - 8} cy={y + 8} r={5} fill="#3B82F6" />
+              <path d={`M${x + width - 10} ${y + 8} L${x + width - 6} ${y + 8} M${x + width - 8} ${y + 6} L${x + width - 8} ${y + 10}`} stroke="white" strokeWidth={1.5} />
+            </g>
+          )}
         </g>
       );
     });
@@ -605,7 +664,10 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
       <div className="w-full flex justify-center">
         <div className="w-full max-w-[300px] sm:max-w-[360px] aspect-[430/620]"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 430 620" preserveAspectRatio="xMidYMid meet" className="w-full h-full drop-shadow-xl"
+          <svg ref={svgRef} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 430 620" preserveAspectRatio="xMidYMid meet" className="w-full h-full drop-shadow-xl"
+            onMouseMove={handleSvgMouseMove}
+            onMouseUp={handleSvgMouseUp}
+            onMouseLeave={handleSvgMouseUp}
           >
             <rect x="10" y="10" width="410" height="600" rx="4" fill="none" stroke="#3D2B1F" strokeWidth="3"/>
             <rect x="10" y="10" width="80" height="600" rx="4" fill="#2C1A0E"/>
@@ -665,9 +727,17 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
           <h2 className="text-xl font-black text-stone-800 tracking-tight">Plano de Mesas</h2>
           <p className="text-xs text-stone-500 font-medium">Haz clic en una mesa para reservar o liberar</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <button
-            onClick={() => { setUnionMode(!unionMode); setSelectedForUnion([]); }}
+            onClick={() => { setEditorMode(!editorMode); setUnionMode(false); setSelectedForUnion([]); }}
+            className={`px-3 py-2 rounded-xl text-xs font-bold cursor-pointer transition-colors ${
+              editorMode ? 'bg-blue-600 text-white' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
+            }`}
+          >
+            {editorMode ? 'Salir del editor' : 'Mover mesas'}
+          </button>
+          <button
+            onClick={() => { setUnionMode(!unionMode); setEditorMode(false); setSelectedForUnion([]); }}
             className={`px-3 py-2 rounded-xl text-xs font-bold cursor-pointer transition-colors ${
               unionMode ? 'bg-blue-600 text-white' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
             }`}
@@ -681,6 +751,12 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
           )}
         </div>
       </div>
+
+      {editorMode && (
+        <div className="bg-blue-50 text-blue-800 text-xs p-3 rounded-xl border border-blue-200">
+          🖱️ Modo editor activo: arrastrá las mesas dentro del plano. Las posiciones se guardan automáticamente.
+        </div>
+      )}
 
       {unionMode && (
         <div className="bg-blue-50 text-blue-800 text-xs p-3 rounded-xl border border-blue-200">
@@ -739,10 +815,10 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
                 </select>
               </div>
               <div className="col-span-1">
-                <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Zona</label>
+                <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Sector / Zona</label>
                 <select value={nuevaZona} onChange={e => setNuevaZona(e.target.value as Zona)} className="w-full px-3 py-2.5 text-xs border border-stone-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#624A3E]">
-                  <option value="comedor">Comedor</option>
-                  <option value="salon">Salón</option>
+                  <option value="comedor">Zona Alta (Mesas 1-6 · 2 pax)</option>
+                  <option value="salon">Zona Central/Baja (Mesas 7-11 · 4-5 pax) + VIP</option>
                 </select>
               </div>
             </div>
