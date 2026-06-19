@@ -142,7 +142,7 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     precio_venta: 7600.00,
     categoria: 'Entradas',
     activo: true,
-    imagen: 'https://images.unsplash.com/photo-1615224345062-3c48b79318ae?w=500&q=80&auto=format&fit=crop',
+    imagen: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&q=80&auto=format&fit=crop',
     tipo: 'plato',
     tiempo_preparacion_estimado: 8,
     requiere_cocina: true
@@ -154,7 +154,7 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     precio_venta: 8200.00,
     categoria: 'Entradas',
     activo: true,
-    imagen: 'https://images.unsplash.com/photo-1629115917441-df071f08cb3c?w=500&q=80&auto=format&fit=crop',
+    imagen: 'https://images.unsplash.com/photo-1592417817098-8f3d6eb19675?w=500&q=80&auto=format&fit=crop',
     tipo: 'plato',
     tiempo_preparacion_estimado: 6,
     requiere_cocina: true
