@@ -225,6 +225,13 @@ export const pedidosService = {
           }
         }
       }
+
+      if (fields.estado_comanda === 'entregado' || fields.estado_comanda === 'entregado_cobrado') {
+        const { insumosService } = await import('./insumosService');
+        insumosService.descontarStockPorPedido(id).catch(err =>
+          console.error('Error in deferred stock deduction:', err)
+        );
+      }
     } catch (error) {
       console.warn(`Error in remote update for pedido ${id}. Enqueueing action to SyncQueue.`, error);
       const { syncQueueService } = await import('./syncQueueService');
