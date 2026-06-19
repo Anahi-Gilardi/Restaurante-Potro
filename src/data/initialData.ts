@@ -516,7 +516,7 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     categoria: 'Bodega',
     subcategoria: 'Vinos tintos',
     activo: true,
-    imagen: 'https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?w=500&q=80&auto=format&fit=crop',
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=500&q=80&auto=format&fit=crop',
     tipo: 'vino',
     requiere_cocina: false
   },
@@ -528,7 +528,7 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     categoria: 'Bodega',
     subcategoria: 'Vinos tintos',
     activo: true,
-    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=500&q=80&auto=format&fit=crop',
+    imagen: 'https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?w=500&q=80&auto=format&fit=crop',
     tipo: 'vino',
     requiere_cocina: false
   },
@@ -666,7 +666,7 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     categoria: 'Bodega',
     subcategoria: 'Vinos tintos',
     activo: true,
-    imagen: 'https://images.unsplash.com/photo-1603252109303-2751441dd157?w=500&q=80&auto=format&fit=crop',
+    imagen: 'https://images.unsplash.com/photo-1584916201218-f4242ceb4809?w=500&q=80&auto=format&fit=crop',
     tipo: 'vino',
     requiere_cocina: false
   },
