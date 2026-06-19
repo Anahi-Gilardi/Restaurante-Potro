@@ -13,7 +13,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 
-import { Mesa, Insumo, ProductoMenu, RecetaEscandallo, Pedido, Merma, EventoLog, Reserva, Usuario } from './types';
+import { Mesa, Insumo, ProductoMenu, RecetaEscandallo, Pedido, PedidoItem, Merma, EventoLog, Reserva, Usuario } from './types';
 import { 
   INITIAL_USUARIOS,
   INITIAL_MESAS, 
@@ -336,6 +336,95 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
       addLog('sistema', `PEDIDOS: Reintento sincronizado por idempotencia (${newPedidoData.idempotency_key}).`);
       return;
     }
+
+    // Si la mesa ya tiene un pedido activo, agregamos items al pedido existente en lugar de crear uno nuevo
+    const pedidoActivo = pedidos.find(p =>
+      p.id_mesa === newPedidoData.id_mesa &&
+      p.estado_comanda !== 'entregado_cobrado' &&
+      p.estado_comanda !== 'cancelado'
+    );
+
+    if (pedidoActivo) {
+      // Merge de items: sumar cantidades si ya existe el mismo producto
+      const itemsMap = new Map<string, PedidoItem>();
+      pedidoActivo.items.forEach(it => itemsMap.set(it.id_producto, { ...it }));
+      newPedidoData.items.forEach(it => {
+        const existing = itemsMap.get(it.id_producto);
+        if (existing) {
+          existing.cantidad += it.cantidad;
+        } else {
+          itemsMap.set(it.id_producto, { ...it });
+        }
+      });
+      const mergedItems = Array.from(itemsMap.values());
+
+      let itemsDescontados: string[] = [];
+      let alarmasBajoStock: string[] = [];
+      const stockMovements: Array<{
+        id_insumo: string;
+        tipo_movimiento: 'salida_comanda';
+        cantidad: number;
+        stock_anterior: number;
+        stock_nuevo: number;
+      }> = [];
+      const updatedInsumos = insumos.map(ins => ({ ...ins }));
+
+      newPedidoData.items.forEach(pItem => {
+        const qtyPlates = pItem.cantidad;
+        const matchingRecetas = recetas.filter(r => r.id_producto === pItem.id_producto);
+        matchingRecetas.forEach(rec => {
+          const insIdx = updatedInsumos.findIndex(ins => ins.id_insumo === rec.id_insumo);
+          if (insIdx === -1) return;
+          const currentIns = updatedInsumos[insIdx];
+          const discountAmt = parseFloat((rec.cantidad_a_descontar * qtyPlates).toFixed(2));
+          const stockAnterior = currentIns.stock_actual;
+          const updatedStock = parseFloat((Math.max(permitirVentaSinStock ? -999999 : 0, stockAnterior - discountAmt)).toFixed(2));
+          updatedInsumos[insIdx].stock_actual = updatedStock;
+          itemsDescontados.push(`${currentIns.nombre} (-${discountAmt} ${currentIns.unidad_medida})`);
+          stockMovements.push({
+            id_insumo: currentIns.id_insumo,
+            tipo_movimiento: 'salida_comanda',
+            cantidad: discountAmt,
+            stock_anterior: stockAnterior,
+            stock_nuevo: updatedStock
+          });
+          if (updatedStock <= currentIns.stock_minimo) {
+            alarmasBajoStock.push(`${currentIns.nombre} (Stock actual: ${updatedStock}${currentIns.unidad_medida})`);
+          }
+        });
+      });
+
+      const stockDescontado = itemsDescontados.length > 0;
+      const updatedPedido: Pedido = {
+        ...pedidoActivo,
+        items: mergedItems,
+        observaciones: [pedidoActivo.observaciones, newPedidoData.observaciones].filter(Boolean).join(' / '),
+        stock_descontado: pedidoActivo.stock_descontado || stockDescontado,
+        fecha_descuento_stock: (pedidoActivo.stock_descontado || stockDescontado) ? new Date() : undefined,
+      };
+
+      setPedidos(prev => prev.map(p => p.id_pedido === updatedPedido.id_pedido ? updatedPedido : p));
+
+      const updatedMesas = mesas.map(m => m.id_mesa === newPedidoData.id_mesa ? { ...m, estado: 'ocupada' as const, comensales: newPedidoData.comensales || m.comensales || 2 } : m);
+      setMesas(updatedMesas);
+
+      addLog('pedido_creado', `Mesa ${newPedidoData.numero_mesa}: agregados ${newPedidoData.items.length} platos al pedido #${updatedPedido.id_pedido}. Items: ${newPedidoData.items.map(i => `${i.nombre} (x${i.cantidad})`).join(', ')}`);
+
+      if (itemsDescontados.length > 0) {
+        setInsumos(updatedInsumos);
+        addLog('descuento_stock', `ESCANDALLO (AGREGAR A COMANDA): Pedido #${updatedPedido.id_pedido} actualizado. Insumos descontados: ${itemsDescontados.join(', ')}`);
+      }
+      alarmasBajoStock.forEach(nom => addLog('alerta_stock', `CONTROL REPOSICIÓN: El insumo '${nom}' ha caído por debajo del stock de seguridad.`));
+
+      await dbSavePedidoComplex(updatedPedido);
+      await dbUpsertMesas(updatedMesas);
+      if (stockDescontado) {
+        stockMovements.forEach(movement => dbRecordMovement(movement).catch(console.error));
+        await dbUpsertInsumos(updatedInsumos);
+      }
+      return;
+    }
+
     const currentPedidos = pedidos;
     const newId = createClientPedidoId(currentPedidos.map(p => p.id_pedido));
     let itemsDescontados: string[] = [];

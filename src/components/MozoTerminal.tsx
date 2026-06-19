@@ -629,7 +629,7 @@ export default function MozoTerminal({
                     </span>
                   </div>
                   
-                  <div className="space-y-1 mb-3">
+                  <div className="space-y-1 mb-3 max-h-40 overflow-y-auto">
                     {activePedidoDeMesa.items.map((it, idx) => (
                       <div key={idx} className="flex justify-between text-xs text-slate-600">
                         <span>{it.cantidad}x {it.nombre}</span>
@@ -638,6 +638,13 @@ export default function MozoTerminal({
                         </span>
                       </div>
                     ))}
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-200 mb-3">
+                    <span className="text-xs font-bold text-slate-600">Total acumulado</span>
+                    <span className="text-sm font-black font-mono text-slate-800">
+                      ${activePedidoDeMesa.items.reduce((sum, it) => sum + (it.cantidad * (productosMenu.find(p => p.id_producto === it.id_producto)?.precio_venta || 0)), 0).toLocaleString('es-AR')}
+                    </span>
                   </div>
 
                   <div className="flex gap-2">

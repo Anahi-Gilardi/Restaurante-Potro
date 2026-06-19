@@ -32,6 +32,7 @@ import {
     ProductoMenu,
     RecetaEscandallo,
     Pedido,
+    PedidoItem,
     Merma,
     EventoLog,
 } from '../types';
@@ -295,6 +296,38 @@ export function PedidosProvider({ children }: { children: ReactNode }) {
     const handleCrearPedido = useCallback(
           (data: Omit<Pedido, 'id_pedido' | 'fecha_hora' | 'minutos_transcurridos' | 'origen'> & { origen?: 'Mozo'; comensales?: number; idempotency_key?: string }) => {
                   if (data.idempotency_key && pedidos.some(p => p.idempotency_key === data.idempotency_key)) return;
+
+                  // Si la mesa ya tiene un pedido activo, agregar items al existente
+                  const pedidoActivo = pedidos.find(p =>
+                    p.id_mesa === data.id_mesa &&
+                    p.estado_comanda !== 'entregado_cobrado' &&
+                    p.estado_comanda !== 'cancelado'
+                  );
+
+                  if (pedidoActivo) {
+                    const itemsMap = new Map<string, PedidoItem>();
+                    pedidoActivo.items.forEach(it => itemsMap.set(it.id_producto, { ...it }));
+                    data.items.forEach(it => {
+                      const existing = itemsMap.get(it.id_producto);
+                      if (existing) existing.cantidad += it.cantidad;
+                      else itemsMap.set(it.id_producto, { ...it });
+                    });
+                    const mergedItems = Array.from(itemsMap.values());
+                    const updated: Pedido = {
+                      ...pedidoActivo,
+                      items: mergedItems,
+                      observaciones: [pedidoActivo.observaciones, data.observaciones].filter(Boolean).join(' / '),
+                    };
+                    setPedidos(prev => prev.map(p => p.id_pedido === updated.id_pedido ? updated : p));
+                    setMesas(prev =>
+                              prev.map(m =>
+                                          m.id_mesa === data.id_mesa ? { ...m, estado: 'ocupada', comensales: data.comensales || m.comensales || 2 } : m
+                                        ));
+                    handleDescontarStockPorEscandallo(data.items, recetas);
+                    addLog('pedido_creado', `Mesa ${data.numero_mesa}: agregados ${data.items.length} platos al pedido #${updated.id_pedido}.`);
+                    return;
+                  }
+
                   const newId = createClientPedidoId(pedidos.map((p: Pedido) => p.id_pedido));
                   const nuevo: Pedido = {
                             ...data,
