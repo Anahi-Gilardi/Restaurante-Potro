@@ -93,27 +93,44 @@ export function useKitchenMonitor({
     })).filter(item => item.cantidad > 0);
   }, [activeKitchenOrders]);
 
-  const getSemaforoInfo = useCallback((minutosTranscurridos: number) => {
-    if (minutosTranscurridos <= 10) {
+  const getSemaforoInfo = useCallback((minutosTranscurridos: number, pedido: Pedido) => {
+    let maxPrepTime = 12;
+    if (pedido && pedido.items) {
+      const kitchenItems = pedido.items.filter(item => !isBarItem(item));
+      const times = kitchenItems.map(item => {
+        const prod = productosMenu.find(p => p.id_producto === item.id_producto);
+        return prod?.tiempo_preparacion_estimado ?? 12;
+      });
+      if (times.length > 0) {
+        maxPrepTime = Math.max(...times);
+      }
+    }
+
+    const ratio = minutosTranscurridos / maxPrepTime;
+
+    if (ratio <= 0.8) {
       return {
         border: 'border-l-[#2e8b57]',
         timeDot: 'bg-[#2e8b57]',
-        timeText: 'text-[#2e8b57]'
+        timeText: 'text-[#2e8b57]',
+        delayed: false
       };
-    } else if (minutosTranscurridos <= 18) {
+    } else if (ratio <= 1.2) {
       return {
         border: 'border-l-[#a0522d]',
         timeDot: 'bg-[#a0522d]',
-        timeText: 'text-[#a0522d]'
+        timeText: 'text-[#a0522d]',
+        delayed: false
       };
     } else {
       return {
         border: 'border-l-[#c0392b]',
         timeDot: 'bg-[#c0392b] animate-pulse',
-        timeText: 'text-[#c0392b]'
+        timeText: 'text-[#c0392b] font-black animate-pulse',
+        delayed: true
       };
     }
-  }, []);
+  }, [productosMenu]);
 
   const isColdPlate = useCallback((pedido: Pedido) => {
     if (pedido.estado_comanda !== 'listo') return false;

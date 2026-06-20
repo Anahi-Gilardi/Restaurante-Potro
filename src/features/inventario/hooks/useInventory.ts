@@ -3,6 +3,21 @@ import { useToast } from '../../../components/ToastContainer';
 import { Insumo, ProductoMenu, RecetaEscandallo, Merma } from '../../../types';
 import { insumosService } from '../../../services/insumosService';
 
+export function getInsumoDeposito(insumo: Insumo): string {
+  switch (insumo.categoria) {
+    case 'frescos':
+      return insumo.nombre.toLowerCase().includes('carne') || insumo.nombre.toLowerCase().includes('ojo') || insumo.nombre.toLowerCase().includes('bife')
+        ? 'Cámara Frigorífica'
+        : 'Cámara de Frescos';
+    case 'bodega':
+      return 'Bodega y Cava';
+    case 'secos':
+      return 'Almacén de Secos';
+    default:
+      return 'Depósito General';
+  }
+}
+
 interface UseInventoryProps {
   insumos: Insumo[];
   productosMenu: ProductoMenu[];
@@ -27,6 +42,7 @@ export function useInventory({
   // Local toggles
   const [activeSubTab, setActiveSubTab] = useState<'deposito' | 'escandallo' | 'compras' | 'movimientos' | 'precios'>('deposito');
   const [filterCategory, setFilterCategory] = useState<'todo' | 'bodega' | 'frescos' | 'secos'>('todo');
+  const [filterDeposito, setFilterDeposito] = useState<string>('todos');
   const [inventorySearch, setInventorySearch] = useState('');
 
   // Selected dish for escandallo simulator
@@ -86,22 +102,57 @@ export function useInventory({
     }
   }, [activeSubTab]);
 
-  // List of simulated log of movements
-  const [movimientosLocales, setMovimientosLocales] = useState([
-    { id: 'MOV-010', insumo: 'Vino Malbec Reservado 750ml', cantidad: '3 uds', operacion: 'Descuento', motivo: 'Consumo Bebidas Comanda', fecha: '2026-06-05 13:42hs' },
-    { id: 'MOV-011', insumo: 'Corte de Carne Vacuna (Bife)', cantidad: '1050g', operacion: 'Descuento', motivo: 'Producción Cocina Escandallo', fecha: '2026-06-05 14:15hs' },
-    { id: 'MOV-012', insumo: 'Papa Negra Bastón', cantidad: '15000g', operacion: 'Abastecimiento', motivo: 'Órden de Compra OC-2512', fecha: '2026-06-05 15:00hs' },
-    { id: 'MOV-013', insumo: 'Lechuga Romana Orgánica', cantidad: '500g', operacion: 'Descarte/Merma', motivo: 'Desperdicio Manual Vencido', fecha: '2026-06-05 16:30hs' }
-  ]);
+  // List of real movements fetched from database
+  const [movimientosLocales, setMovimientosLocales] = useState<any[]>([]);
+
+  const loadMovements = async () => {
+    try {
+      const data = await insumosService.listMovements();
+      const formatted = data.map((m, idx) => {
+        const ins = insumos.find(i => i.id_insumo === m.id_insumo);
+        let rawDate = new Date(m.fecha);
+        if (isNaN(rawDate.getTime())) rawDate = new Date();
+        const timeStr = rawDate.toLocaleDateString('es-AR') + ' ' + rawDate.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + 'hs';
+        
+        const sign = m.tipo_movimiento.startsWith('salida') ? '-' : '+';
+        const qtyStr = `${sign}${m.cantidad} ${ins?.unidad_medida ?? ''}`;
+
+        let opLabel = 'Descuento';
+        if (m.tipo_movimiento === 'entrada') opLabel = 'Abastecimiento';
+        else if (m.tipo_movimiento === 'salida_merma') opLabel = 'Descarte/Merma';
+        else if (m.tipo_movimiento === 'ajuste') opLabel = m.stock_nuevo > m.stock_anterior ? 'Abastecimiento' : 'Descarte/Merma';
+
+        return {
+          id: m.id_movimiento ? m.id_movimiento.replace('mov_', 'MOV-').slice(0, 10).toUpperCase() : `MOV-${100 + idx}`,
+          insumo: ins ? ins.nombre : (m.nombre_insumo || m.id_insumo),
+          cantidad: qtyStr,
+          operacion: opLabel,
+          motivo: m.motivo || (m.tipo_movimiento === 'entrada' ? 'Ingreso de compra' : (m.tipo_movimiento === 'salida_merma' ? 'Merma registrada' : 'Consumo comanda')),
+          fecha: timeStr
+        };
+      });
+      setMovimientosLocales(formatted);
+    } catch (e) {
+      console.error('Error loading inventory movements:', e);
+    }
+  };
+
+  useEffect(() => {
+    if (activeSubTab === 'movimientos') {
+      loadMovements();
+    }
+  }, [activeSubTab, insumos]);
 
   // Filtered insumos
   const filteredInsumos = useMemo(() => {
     return insumos.filter(ins => {
       const matchCat = filterCategory === 'todo' || ins.categoria === filterCategory;
+      const dep = getInsumoDeposito(ins);
+      const matchDep = filterDeposito === 'todos' || dep === filterDeposito;
       const matchSearch = ins.nombre.toLowerCase().includes(inventorySearch.toLowerCase());
-      return matchCat && matchSearch;
+      return matchCat && matchDep && matchSearch;
     });
-  }, [insumos, filterCategory, inventorySearch]);
+  }, [insumos, filterCategory, filterDeposito, inventorySearch]);
 
   // Handle merma register
   const submitMermaForm = (e: React.FormEvent) => {
@@ -380,6 +431,8 @@ export function useInventory({
     setActiveSubTab,
     filterCategory,
     setFilterCategory,
+    filterDeposito,
+    setFilterDeposito,
     inventorySearch,
     setInventorySearch,
     selectedEscandalloDishId,

@@ -41,7 +41,7 @@ interface MesaVisual {
   comensales?: number;
   id_pedido?: number;
   mesas_unidas?: number[];
-  parent_id?: number;
+  parent_id?: number | null;
 }
 
 const POSICIONES_INICIALES: MesaVisual[] = [
@@ -71,7 +71,7 @@ const ESTADO_FILL: Record<Mesa['estado'], string> = {
   esperando_cuenta: '#d1fae5',
   limpiando: '#dbeafe',
   unida: '#e5e7eb',
-  sucia: '#dbeafe',
+  sucia: '#f5f5f4',
 };
 
 const ESTADO_STROKE: Record<Mesa['estado'], string> = {
@@ -81,7 +81,7 @@ const ESTADO_STROKE: Record<Mesa['estado'], string> = {
   esperando_cuenta: '#10B981',
   limpiando: '#3B82F6',
   unida: '#6B7280',
-  sucia: '#3B82F6',
+  sucia: '#78716c',
 };
 
 const ESTADO_TEXT: Record<Mesa['estado'], string> = {
@@ -91,7 +91,7 @@ const ESTADO_TEXT: Record<Mesa['estado'], string> = {
   esperando_cuenta: '#065F46',
   limpiando: '#1E40AF',
   unida: '#374151',
-  sucia: '#1E40AF',
+  sucia: '#44403c',
 };
 
 function generarIdMesa(numero: string, capacidad: number, zona: Zona): string {
@@ -130,13 +130,13 @@ function renderSillas(mesa: MesaVisual): React.ReactNode[] {
   const arriba = Math.min(capacidad, 4);
   for (let i = 1; i <= arriba; i++) {
     sillas.push(
-      <circle key={`top-${i}`} cx={x + pasoX * i} cy={y - 12} r={radio} fill="#28A745" opacity="0.55" pointerEvents="none" />
+      <circle key={`top-${i}`} cx={x + pasoX * i} cy={y - 12} r={radio} fill="#4E3629" opacity="0.65" pointerEvents="none" />
     );
   }
   const abajo = Math.max(0, capacidad - 4);
   for (let i = 1; i <= abajo; i++) {
     sillas.push(
-      <circle key={`bottom-${i}`} cx={x + pasoX * i} cy={y + height + 12} r={radio} fill="#28A745" opacity="0.55" pointerEvents="none" />
+      <circle key={`bottom-${i}`} cx={x + pasoX * i} cy={y + height + 12} r={radio} fill="#4E3629" opacity="0.65" pointerEvents="none" />
     );
   }
   return sillas;
@@ -174,20 +174,39 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
   const [nuevaCapacidad, setNuevaCapacidad] = useState('4');
   const [nuevaZona, setNuevaZona] = useState<Zona>('comedor');
 
-  const handleSvgMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+  const updatePosition = (clientX: number, clientY: number) => {
     if (!editorMode || !draggingMesa || !svgRef.current) return;
     const pt = svgRef.current.createSVGPoint();
-    pt.x = e.clientX;
-    pt.y = e.clientY;
+    pt.x = clientX;
+    pt.y = clientY;
     const svgP = pt.matrixTransform(svgRef.current.getScreenCTM()?.inverse());
     const width = draggingMesa.posicion.width;
     const height = draggingMesa.posicion.height;
-    const newX = Math.max(15, Math.min(430 - width - 15, svgP.x - width / 2));
-    const newY = Math.max(15, Math.min(620 - height - 15, svgP.y - height / 2));
+
+    // Apply Snapping (Magnetic Grid Snapping to 10px multiples)
+    const rawX = svgP.x - width / 2;
+    const rawY = svgP.y - height / 2;
+    const snapX = Math.round(rawX / 10) * 10;
+    const snapY = Math.round(rawY / 10) * 10;
+
+    const newX = Math.max(15, Math.min(430 - width - 15, snapX));
+    const newY = Math.max(15, Math.min(620 - height - 15, snapY));
+
     setVisualMesas(prev => prev.map(m => m.id_mesa === draggingMesa.id_mesa
       ? { ...m, posicion: { ...m.posicion, x: newX, y: newY } }
       : m
     ));
+  };
+
+  const handleSvgMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    updatePosition(e.clientX, e.clientY);
+  };
+
+  const handleSvgTouchMove = (e: React.TouchEvent<SVGSVGElement>) => {
+    const touch = e.touches[0];
+    if (touch) {
+      updatePosition(touch.clientX, touch.clientY);
+    }
   };
 
   const handleSvgMouseUp = async () => {
@@ -212,10 +231,9 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
     setDraggingMesa(null);
   };
 
-  const startDrag = (m: MesaVisual, e: React.MouseEvent) => {
+  const startDrag = (m: MesaVisual, e: React.MouseEvent | React.TouchEvent) => {
     if (!editorMode) return;
     e.stopPropagation();
-    e.preventDefault();
     setDraggingMesa(m);
   };
 
@@ -392,7 +410,6 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
         for (const id of ids) {
           const mesa = visualMesas.find(m => m.id_mesa === id);
           if (!mesa) continue;
-          // Validación: no ocupar si no está libre o reservada
           if (nuevoEstado === 'ocupada' && mesa.estado !== 'libre' && mesa.estado !== 'reservada') {
             toast.error(`La Mesa ${mesa.numero_mesa} no está disponible (estado: ${mesa.estado})`);
             continue;
@@ -430,7 +447,6 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
         numero_mesa: original?.numero_mesa || selectedMesa.numero_mesa,
         estado: 'libre',
       });
-      // También liberar la mesa hija si estaba unida
       if (selectedMesa.mesas_unidas) {
         for (const idHija of selectedMesa.mesas_unidas) {
           if (idHija === selectedMesa.id_mesa) continue;
@@ -442,7 +458,7 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
           return { ...m, capacidad: original?.capacidad || m.capacidad, mesas_unidas: [], numero_mesa: original?.numero_mesa || m.numero_mesa, estado: 'libre' };
         }
         if (selectedMesa.mesas_unidas?.includes(m.id_mesa)) {
-          return { ...m, parent_id: undefined, estado: 'libre' };
+          return { ...m, parent_id: null, estado: 'libre' };
         }
         return m;
       }));
@@ -623,14 +639,32 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
     }
   };
 
-  // Render del SVG con mesas dinámicas
   const renderSvg = () => {
+    // 1. Draw connection lines between child tables and parents (united tables)
+    const unionConnectionLines = visualMesas
+      .filter(m => m.parent_id != null)
+      .map(child => {
+        const parent = visualMesas.find(p => p.id_mesa === child.parent_id);
+        if (!parent) return null;
+        const cx1 = child.posicion.x + child.posicion.width / 2;
+        const cy1 = child.posicion.y + child.posicion.height / 2;
+        const cx2 = parent.posicion.x + parent.posicion.width / 2;
+        const cy2 = parent.posicion.y + parent.posicion.height / 2;
+        return (
+          <line
+            key={`link-${child.id_mesa}-${parent.id_mesa}`}
+            x1={cx1} y1={cy1} x2={cx2} y2={cy2}
+            stroke="#4A5568" strokeWidth={3} strokeDasharray="5,4"
+            pointerEvents="none" opacity="0.85"
+          />
+        );
+      });
+
     const mesaElements = visualMesas.map(m => {
       const reserva = reservasHoy.find(r => r.id_mesa === m.id_mesa && r.estado === 'confirmada');
-      const estado = m.estado === 'ocupada' ? 'ocupada' : m.estado === 'unida' ? 'unida' : reserva ? 'reservada' : 'libre';
-      const fill = ESTADO_FILL[estado];
-      const stroke = ESTADO_STROKE[estado];
-      const textColor = ESTADO_TEXT[estado];
+      const fill = ESTADO_FILL[m.estado];
+      const stroke = ESTADO_STROKE[m.estado];
+      const textColor = ESTADO_TEXT[m.estado];
       const isSelected = unionMode && selectedForUnion.some(s => s.id_mesa === m.id_mesa);
       const { x, y, width, height, rx } = m.posicion;
 
@@ -650,9 +684,19 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
             fill={fill} stroke={isSelected ? '#3B82F6' : stroke} strokeWidth={isSelected ? 4 : 2.5}
             pointerEvents="all"
             onMouseDown={(e: React.MouseEvent) => editorMode ? startDrag(m, e) : undefined}
+            onTouchStart={(e: React.TouchEvent) => editorMode ? startDrag(m, e) : undefined}
           />
           <text x={x + width / 2} y={y + height / 2 - 2} textAnchor="middle" fontSize={Math.min(18, width / 3.5)} fontWeight={700} fill={textColor} fontFamily="Arial, sans-serif" pointerEvents="none">{m.numero_mesa}</text>
           <text x={x + width / 2} y={y + height / 2 + 14} textAnchor="middle" fontSize={9} fill={textColor} fontFamily="Arial, sans-serif" opacity={0.8} pointerEvents="none">Mesa</text>
+          
+          {/* Reservation calendar icon on table */}
+          {reserva && (
+            <g transform={`translate(${x + 4}, ${y + 4})`} pointerEvents="none">
+              <rect width="10" height="10" rx="2" fill="#D97706" />
+              <path d="M2 3 h6 M3 2 v2 M7 2 v2" stroke="white" strokeWidth="1" />
+            </g>
+          )}
+
           {editorMode && (
             <g pointerEvents="none">
               <circle cx={x + width - 8} cy={y + 8} r={5} fill="#3B82F6" />
@@ -665,11 +709,12 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
 
     return (
       <div className="w-full flex justify-center">
-        <div className="w-full max-w-[300px] sm:max-w-[360px] aspect-[430/620]"
-        >
+        <div className="w-full max-w-[300px] sm:max-w-[360px] aspect-[430/620]">
           <svg ref={svgRef} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 430 620" preserveAspectRatio="xMidYMid meet" className="w-full h-full drop-shadow-xl"
             onMouseMove={handleSvgMouseMove}
+            onTouchMove={handleSvgTouchMove}
             onMouseUp={handleSvgMouseUp}
+            onTouchEnd={handleSvgMouseUp}
             onMouseLeave={handleSvgMouseUp}
           >
             <rect x="10" y="10" width="410" height="600" rx="4" fill="none" stroke="#3D2B1F" strokeWidth="3"/>
@@ -698,15 +743,18 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
 
             <text x="418" y="140" textAnchor="middle" fontSize="9" fill="#7A5C44" fontFamily="Arial, sans-serif" transform="rotate(90, 418, 140)" letterSpacing="2" opacity="0.6">FACHADA</text>
 
+            {unionConnectionLines}
             {mesaElements}
 
             {/* Leyenda */}
-            <rect x="170" y="580" width="14" height="14" rx="3" fill="#D4EDDA" stroke="#28A745" strokeWidth="2"/>
-            <text x="188" y="591" fontSize="9" fill="#2C1A0E" fontFamily="Arial, sans-serif">Libre</text>
-            <rect x="230" y="580" width="14" height="14" rx="3" fill="#F8D7DA" stroke="#DC3545" strokeWidth="2"/>
-            <text x="248" y="591" fontSize="9" fill="#2C1A0E" fontFamily="Arial, sans-serif">Ocupado</text>
-            <rect x="310" y="580" width="14" height="14" rx="3" fill="#FFF3CD" stroke="#FFC107" strokeWidth="2"/>
-            <text x="328" y="591" fontSize="9" fill="#2C1A0E" fontFamily="Arial, sans-serif">Reservado</text>
+            <rect x="155" y="580" width="12" height="12" rx="3" fill="#D4EDDA" stroke="#28A745" strokeWidth="2.5"/>
+            <text x="172" y="590" fontSize="8" fill="#2C1A0E" fontFamily="Arial, sans-serif">Libre</text>
+            <rect x="205" y="580" width="12" height="12" rx="3" fill="#F8D7DA" stroke="#DC3545" strokeWidth="2.5"/>
+            <text x="222" y="590" fontSize="8" fill="#2C1A0E" fontFamily="Arial, sans-serif">Ocupado</text>
+            <rect x="255" y="580" width="12" height="12" rx="3" fill="#FFF3CD" stroke="#FFC107" strokeWidth="2.5"/>
+            <text x="272" y="590" fontSize="8" fill="#2C1A0E" fontFamily="Arial, sans-serif">Reserva</text>
+            <rect x="305" y="580" width="12" height="12" rx="3" fill="#f5f5f4" stroke="#78716c" strokeWidth="2.5"/>
+            <text x="322" y="590" fontSize="8" fill="#2C1A0E" fontFamily="Arial, sans-serif">Sucia</text>
           </svg>
         </div>
       </div>
@@ -757,13 +805,13 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
 
       {editorMode && (
         <div className="bg-blue-50 text-blue-800 text-xs p-3 rounded-xl border border-blue-200">
-          🖱️ Modo editor activo: arrastrá las mesas dentro del plano. Las posiciones se guardan automáticamente.
+          📱 Modo editor activo: arrastra las mesas dentro del plano. Alineación asistida a la cuadrícula activa.
         </div>
       )}
 
       {unionMode && (
         <div className="bg-blue-50 text-blue-800 text-xs p-3 rounded-xl border border-blue-200">
-          Seleccioná 2 mesas para unir. Capacidad resultante: {selectedForUnion.reduce((sum, m) => sum + (m.capacidad || 0), 0)} pax
+          Selecciona 2 mesas para unir. Capacidad resultante: {selectedForUnion.reduce((sum, m) => sum + (m.capacidad || 0), 0)} pax
         </div>
       )}
 
@@ -872,7 +920,7 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
                   <div>
                     <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Fecha</label>
                     <div className="relative">
-                      <Calendar className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <Calendar className="w-4 h-4 text-stone-450 absolute left-3 top-1/2 -translate-y-1/2" />
                       <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} required className="w-full pl-9 pr-2 py-2.5 text-xs border border-stone-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#624A3E]" />
                     </div>
                   </div>

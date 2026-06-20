@@ -66,7 +66,7 @@ export default function KitchenMonitor({
   const ordersEnCocina = useMemo(() => activeKitchenOrders.filter(p => p.estado_comanda === 'en_cocina'), [activeKitchenOrders]);
   const ordersListo = useMemo(() => activeKitchenOrders.filter(p => p.estado_comanda === 'listo'), [activeKitchenOrders]);
   const renderTicket = (p: Pedido, estado: Pedido['estado_comanda']) => {
-    const sem = estado === 'pendiente' || estado === 'en_cocina' ? getSemaforoInfo(p.minutos_transcurridos) : null;
+    const sem = estado === 'pendiente' || estado === 'en_cocina' ? getSemaforoInfo(p.minutos_transcurridos, p) : null;
     const cold = estado === 'listo' && isColdPlate(p);
     const holdMinutes = estado === 'listo' ? Math.floor((p.segundos_en_listo ?? 0) / 60) : 0;
 
@@ -91,6 +91,13 @@ export default function KitchenMonitor({
           <div className="bg-[#c0392b] text-[#f4ecd8] text-[9px] uppercase font-black tracking-wider px-4 py-1.5 flex items-center gap-1.5 shadow">
             <Snowflake className="w-3.5 h-3.5 animate-spin" />
             <span>Alerta: Plato Frío • {holdMinutes}m sin retirar</span>
+          </div>
+        )}
+
+        {sem?.delayed && (
+          <div className="bg-[#c0392b] text-[#f4ecd8] text-[9px] uppercase font-black tracking-wider px-4 py-1.5 flex items-center gap-1.5 shadow animate-pulse">
+            <AlertTriangle className="w-3.5 h-3.5 text-yellow-300 animate-bounce" />
+            <span>Retraso Crítico en Cocina</span>
           </div>
         )}
 

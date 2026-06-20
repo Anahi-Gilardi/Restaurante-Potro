@@ -1,5 +1,17 @@
 import { getActiveSupabaseClient } from '../lib/supabaseClient';
-import { Insumo } from '../types';
+import { Insumo, PedidoItem, RecetaEscandallo } from '../types';
+
+export function calcularDescuentosInventario(items: PedidoItem[], recetas: RecetaEscandallo[]): Record<string, number> {
+  const descuentos: Record<string, number> = {};
+  for (const item of items) {
+    const itemRecetas = recetas.filter(r => r.id_producto === item.id_producto);
+    for (const rec of itemRecetas) {
+      const actual = descuentos[rec.id_insumo] || 0;
+      descuentos[rec.id_insumo] = actual + (rec.cantidad_a_descontar * item.cantidad);
+    }
+  }
+  return descuentos;
+}
 
 export const insumosService = {
   async list(): Promise<Insumo[]> {
@@ -174,6 +186,87 @@ export const insumosService = {
       return [];
     }
     return data || [];
+  },
+
+  async descontarStockPorPedido(pedidoId: number): Promise<void> {
+    try {
+      const { pedidosService } = await import('./pedidosService');
+      const { recetasService } = await import('./recetasService');
+      const { auditoriaService } = await import('./auditoriaService');
+
+      const pedido = await pedidosService.getById(pedidoId);
+      if (!pedido) {
+        console.warn(`[Stock] Pedido #${pedidoId} no encontrado para descontar stock.`);
+        return;
+      }
+
+      if (pedido.stock_descontado) {
+        console.log(`[Stock] El stock para el pedido #${pedidoId} ya ha sido descontado.`);
+        return;
+      }
+
+      const recetas = await recetasService.list();
+      const insumos = await this.list();
+
+      let descontadoAlgunaReceta = false;
+
+      for (const item of pedido.items) {
+        const itemRecetas = recetas.filter(r => r.id_producto === item.id_producto);
+        if (itemRecetas.length === 0) continue;
+
+        for (const rec of itemRecetas) {
+          const insumo = insumos.find(i => i.id_insumo === rec.id_insumo);
+          if (!insumo) continue;
+
+          const cantidadDescontar = rec.cantidad_a_descontar * item.cantidad;
+          const stockAnterior = insumo.stock_actual;
+          const stockNuevo = Math.max(0, stockAnterior - cantidadDescontar);
+
+          // Update stock in database
+          await this.update(insumo.id_insumo, { stock_actual: stockNuevo });
+
+          // Record movement
+          await this.recordMovement({
+            id_insumo: insumo.id_insumo,
+            tipo_movimiento: 'salida_comanda',
+            cantidad: cantidadDescontar,
+            stock_anterior: stockAnterior,
+            stock_nuevo: stockNuevo
+          });
+
+          descontadoAlgunaReceta = true;
+
+          // Check if below minimum stock
+          if (stockNuevo < insumo.stock_minimo) {
+            const msg = `Alerta de Stock Crítico: El insumo "${insumo.nombre}" ha quedado en ${stockNuevo} ${insumo.unidad_medida} (mínimo: ${insumo.stock_minimo} ${insumo.unidad_medida}) tras el pedido #${pedidoId}.`;
+            console.warn(msg);
+            await auditoriaService.create({
+              id: `alert_stock_${insumo.id_insumo}_${Date.now()}`,
+              tipo: 'alerta_stock',
+              mensaje: msg,
+              timestamp: new Date()
+            }).catch(err => console.error('Error logging stock alert:', err));
+          }
+        }
+      }
+
+      if (descontadoAlgunaReceta) {
+        // Mark order as stock discounted
+        await pedidosService.update(pedidoId, {
+          stock_descontado: true,
+          fecha_descuento_stock: new Date()
+        });
+
+        await auditoriaService.create({
+          id: `discount_stock_${pedidoId}_${Date.now()}`,
+          tipo: 'descuento_stock',
+          mensaje: `Se descontaron insumos del inventario para el pedido #${pedidoId}`,
+          timestamp: new Date()
+        }).catch(err => console.error('Error logging discount stock log:', err));
+      }
+    } catch (error) {
+      console.error(`Error descontando stock para el pedido #${pedidoId}:`, error);
+    }
   }
 };
 
