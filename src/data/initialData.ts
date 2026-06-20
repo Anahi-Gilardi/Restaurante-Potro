@@ -207,7 +207,7 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     precio_venta: 9550.00,
     categoria: 'Entradas',
     activo: true,
-    imagen: 'https://images.unsplash.com/photo-1603048588665-791ca8aea617?w=500&q=80&auto=format&fit=crop',
+    imagen: '/images/mollejas_verdeo.jpg',
     tipo: 'plato',
     tiempo_preparacion_estimado: 15,
     requiere_cocina: true
@@ -219,7 +219,7 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     precio_venta: 6900.00,
     categoria: 'Entradas',
     activo: true,
-    imagen: 'https://images.unsplash.com/photo-1582231317502-d45089c25373?w=500&q=80&auto=format&fit=crop',
+    imagen: '/images/provoleta.jpg',
     tipo: 'plato',
     tiempo_preparacion_estimado: 12,
     requiere_cocina: true
@@ -231,7 +231,7 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     precio_venta: 4300.00,
     categoria: 'Entradas',
     activo: true,
-    imagen: 'https://images.unsplash.com/photo-1541518763669-27fef04b14ea?w=500&q=80&auto=format&fit=crop',
+    imagen: '/images/empanadas.jpg',
     tipo: 'plato',
     tiempo_preparacion_estimado: 10,
     requiere_cocina: true
@@ -245,7 +245,7 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     precio_venta: 11200.00,
     categoria: 'Pastas',
     activo: true,
-    imagen: 'https://images.unsplash.com/photo-1551183053-bf91a1d81141?w=500&q=80&auto=format&fit=crop',
+    imagen: '/images/rotolo_tata.jpg',
     tipo: 'plato',
     tiempo_preparacion_estimado: 18,
     requiere_cocina: true
@@ -257,7 +257,7 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     precio_venta: 13800.00,
     categoria: 'Pastas',
     activo: true,
-    imagen: 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=500&q=80&auto=format&fit=crop',
+    imagen: '/images/cintas_sepia.jpg',
     tipo: 'plato',
     tiempo_preparacion_estimado: 14,
     requiere_cocina: true
