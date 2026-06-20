@@ -155,10 +155,16 @@ export default function RecetasModule({
 
     const [activeTabRecipe, setActiveTabRecipe] = useState<string>(productosMenu[0]?.id_producto ?? '');
     
+    const selectedProduct = useMemo(
+        () => productosMenu.find(p => p.id_producto === activeTabRecipe),
+        [productosMenu, activeTabRecipe]
+    );
+    
     // Subida de imagen con redimensionamiento
     const [isUploadingImage, setIsUploadingImage] = useState(false);
+    const [pendingImage, setPendingImage] = useState<string | null>(null);
 
-    const handleImageChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>, idProducto: string) => {
+    const handleImageChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
@@ -197,27 +203,12 @@ export default function RecetasModule({
                 if (ctx) {
                     ctx.drawImage(img, 0, 0, width, height);
                     const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-
-                    try {
-                        await menuService.update(idProducto, { imagen: dataUrl });
-                        
-                        const updatedProducts = productosMenu.map(p => 
-                            p.id_producto === idProducto ? { ...p, imagen: dataUrl } : p
-                        );
-                        onProductosChange(updatedProducts);
-                        
-                        toast.success('Foto del plato actualizada con éxito.');
-                        addLog('sistema', `MENU: Foto de plato actualizada para el producto ID ${idProducto}`);
-                    } catch (error) {
-                        console.error(error);
-                        toast.error('Error al guardar la foto en la base de datos.');
-                    } finally {
-                        setIsUploadingImage(false);
-                    }
+                    setPendingImage(dataUrl);
+                    toast.success('Imagen lista. Presione "Guardar Foto" para confirmar.');
                 } else {
                     toast.error('No se pudo procesar la imagen.');
-                    setIsUploadingImage(false);
                 }
+                setIsUploadingImage(false);
             };
             img.onerror = () => {
                 toast.error('Error al cargar la imagen.');
@@ -232,7 +223,32 @@ export default function RecetasModule({
         };
 
         reader.readAsDataURL(file);
-    }, [productosMenu, onProductosChange, toast, addLog]);
+    }, [toast]);
+
+    const handleSavePendingImage = useCallback(async () => {
+        if (!pendingImage || !selectedProduct) return;
+
+        setIsUploadingImage(true);
+        try {
+            const idProducto = selectedProduct.id_producto;
+            await menuService.update(idProducto, { imagen: pendingImage });
+            
+            const updatedProducts = productosMenu.map(p => 
+                p.id_producto === idProducto ? { ...p, imagen: pendingImage } : p
+            );
+            onProductosChange(updatedProducts);
+            
+            toast.success('Foto del plato guardada con éxito.');
+            addLog('sistema', `MENU: Foto de plato guardada para el producto ID ${idProducto}`);
+            setPendingImage(null);
+        } catch (error) {
+            console.error(error);
+            toast.error('Error al guardar la foto en la base de datos.');
+        } finally {
+            setIsUploadingImage(false);
+        }
+    }, [pendingImage, selectedProduct, productosMenu, onProductosChange, toast, addLog]);
+
     const [searchProduct, setSearchProduct]     = useState('');
     const [localRecetas, setLocalRecetas]       = useState<RecetaEscandallo[]>(recetas);
     const [pendingAction, setPendingAction]     = useState<string | null>(null);
@@ -252,6 +268,11 @@ export default function RecetasModule({
   const [portionsInput, setPortionsInput] = useState('10');
 
   useEffect(() => { setLocalRecetas(recetas); }, [recetas]);
+  
+  // Limpiar imagen pendiente al cambiar de plato
+  useEffect(() => {
+    setPendingImage(null);
+  }, [activeTabRecipe]);
 
   // Asegura que el tab activo siga siendo válido si cambia el menú
   useEffect(() => {
@@ -263,11 +284,6 @@ export default function RecetasModule({
   const filteredProducts = useMemo(
         () => productosMenu.filter(p => p.nombre.toLowerCase().includes(searchProduct.toLowerCase())),
         [productosMenu, searchProduct]
-      );
-
-  const selectedProduct = useMemo(
-        () => productosMenu.find(p => p.id_producto === activeTabRecipe),
-        [productosMenu, activeTabRecipe]
       );
     const currentRecipeItems = useMemo(
         () => getRecipeItemsForProduct(localRecetas, activeTabRecipe),
@@ -497,7 +513,7 @@ export default function RecetasModule({
                       <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-xs flex items-center gap-4">
                                     <div className="relative group w-14 h-14 rounded-xl overflow-hidden border border-stone-200 shrink-0 cursor-pointer shadow-xs" title="Haga clic para subir una foto real del plato">
                                                     <img
-                                                                      src={selectedProduct.imagen}
+                                                                      src={pendingImage || selectedProduct.imagen}
                                                                       alt={selectedProduct.nombre}
                                                                       className="w-full h-full object-cover transition-transform group-hover:scale-105"
                                                                       onError={e => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1544025162-d76694265947?w=80&q=60'; }}
@@ -508,7 +524,7 @@ export default function RecetasModule({
                                                                     <input 
                                                                                     type="file" 
                                                                                     accept="image/*" 
-                                                                                    onChange={e => handleImageChange(e, selectedProduct.id_producto)} 
+                                                                                    onChange={handleImageChange} 
                                                                                     disabled={isUploadingImage}
                                                                                     className="hidden" 
                                                                                   />
@@ -521,7 +537,25 @@ export default function RecetasModule({
                                     </div>
                                     <div className="flex-1 min-w-0">
                                                     <h2 className="font-black text-stone-900 text-base">{selectedProduct.nombre}</h2>
-                                                    <p className="text-xs text-stone-500">{selectedProduct.categoria}</p>
+                                                    <p className="text-xs text-stone-500 mb-1">{selectedProduct.categoria}</p>
+                                                    {pendingImage && (
+                                                      <div className="flex gap-1.5 mt-1">
+                                                        <button
+                                                          onClick={handleSavePendingImage}
+                                                          disabled={isUploadingImage}
+                                                          className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-bold shadow-xs transition-colors cursor-pointer flex items-center gap-1"
+                                                        >
+                                                          <Check className="w-3 h-3" /> Guardar Foto
+                                                        </button>
+                                                        <button
+                                                          onClick={() => setPendingImage(null)}
+                                                          disabled={isUploadingImage}
+                                                          className="px-2 py-1 bg-stone-100 hover:bg-stone-200 text-stone-600 rounded-lg text-[10px] font-bold transition-colors cursor-pointer"
+                                                        >
+                                                          Cancelar
+                                                        </button>
+                                                      </div>
+                                                    )}
                                     </div>
                                     <div className="text-right shrink-0 space-y-0.5">
                                                     <div className="text-xs text-stone-400">Precio venta</div>
