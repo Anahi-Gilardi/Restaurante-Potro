@@ -62,7 +62,11 @@ export const menuService = {
           try {
             const { data, error } = await client.from('productos_menu').select('*').order('id_producto', { ascending: true });
             if (!error && data) {
-              localStorage.setItem('el_patron_cache_menu', JSON.stringify(data));
+              try {
+                localStorage.setItem('el_patron_cache_menu', JSON.stringify(data));
+              } catch (storageError) {
+                console.warn('LocalStorage quota exceeded on background update:', storageError);
+              }
             }
           } catch (e) {
             console.warn('Background menu cache refresh failed:', e);
@@ -82,7 +86,11 @@ export const menuService = {
 
     if (!client) {
       // Local/Offline Mode seed cache
-      localStorage.setItem('el_patron_cache_menu', JSON.stringify(INITIAL_PRODUCTOS_MENU));
+      try {
+        localStorage.setItem('el_patron_cache_menu', JSON.stringify(INITIAL_PRODUCTOS_MENU));
+      } catch (storageError) {
+        console.warn('LocalStorage quota exceeded on offline seed:', storageError);
+      }
       return INITIAL_PRODUCTOS_MENU;
     }
 
@@ -92,7 +100,11 @@ export const menuService = {
       throw error;
     }
     const normalized = (data || []).map(normalizeProductoMenu);
-    localStorage.setItem('el_patron_cache_menu', JSON.stringify(data || []));
+    try {
+      localStorage.setItem('el_patron_cache_menu', JSON.stringify(data || []));
+    } catch (storageError) {
+      console.warn('LocalStorage quota exceeded on sync:', storageError);
+    }
     return normalized;
   },
 
@@ -122,7 +134,11 @@ export const menuService = {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed)) {
           parsed.push(data);
-          localStorage.setItem('el_patron_cache_menu', JSON.stringify(parsed));
+          try {
+            localStorage.setItem('el_patron_cache_menu', JSON.stringify(parsed));
+          } catch (storageError) {
+            console.warn('LocalStorage quota exceeded on product create:', storageError);
+          }
         }
       } catch (e) {
         localStorage.removeItem('el_patron_cache_menu');
@@ -180,7 +196,11 @@ export const menuService = {
           const updatedCache = parsed.map((item: any) => 
             item.id_producto === id ? { ...item, ...toDbProductoMenu(prod) } : item
           );
-          localStorage.setItem('el_patron_cache_menu', JSON.stringify(updatedCache));
+          try {
+            localStorage.setItem('el_patron_cache_menu', JSON.stringify(updatedCache));
+          } catch (storageError) {
+            console.warn('LocalStorage quota exceeded, skipping local cache write:', storageError);
+          }
         }
       } catch (e) {
         localStorage.removeItem('el_patron_cache_menu');
@@ -190,7 +210,11 @@ export const menuService = {
       const initialCache = INITIAL_PRODUCTOS_MENU.map(item =>
         item.id_producto === id ? { ...item, ...toDbProductoMenu(prod) } : item
       );
-      localStorage.setItem('el_patron_cache_menu', JSON.stringify(initialCache));
+      try {
+        localStorage.setItem('el_patron_cache_menu', JSON.stringify(initialCache));
+      } catch (storageError) {
+        console.warn('LocalStorage quota exceeded, skipping local cache write:', storageError);
+      }
     }
 
     return normalized;
@@ -207,7 +231,11 @@ export const menuService = {
     
     // Update local cache
     if (data) {
-      localStorage.setItem('el_patron_cache_menu', JSON.stringify(data));
+      try {
+        localStorage.setItem('el_patron_cache_menu', JSON.stringify(data));
+      } catch (storageError) {
+        console.warn('LocalStorage quota exceeded on upsert:', storageError);
+      }
     } else {
       localStorage.removeItem('el_patron_cache_menu');
     }
@@ -230,7 +258,11 @@ export const menuService = {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed)) {
           const updatedCache = parsed.filter((item: any) => item.id_producto !== id);
-          localStorage.setItem('el_patron_cache_menu', JSON.stringify(updatedCache));
+          try {
+            localStorage.setItem('el_patron_cache_menu', JSON.stringify(updatedCache));
+          } catch (storageError) {
+            console.warn('LocalStorage quota exceeded on product remove:', storageError);
+          }
         }
       } catch (e) {
         localStorage.removeItem('el_patron_cache_menu');
