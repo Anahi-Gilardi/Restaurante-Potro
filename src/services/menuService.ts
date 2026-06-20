@@ -1,6 +1,7 @@
-import { getActiveSupabaseClient } from '../lib/supabaseClient';
+import { getActiveSupabaseClient, tryGetActiveSupabaseClient } from '../lib/supabaseClient';
 import { ProductoMenu } from '../types';
 import { RECIPES_DETAILS } from '../data/recipesData';
+import { INITIAL_PRODUCTOS_MENU } from '../data/initialData';
 
 type DbProductoMenu = Record<string, unknown>;
 
@@ -53,18 +54,21 @@ const toDbProductoMenu = (prod: ProductoMenu | Partial<ProductoMenu>) => ({
 export const menuService = {
   async list(): Promise<ProductoMenu[]> {
     const cached = localStorage.getItem('el_patron_cache_menu');
+    const client = tryGetActiveSupabaseClient();
+
     if (cached) {
-      setTimeout(async () => {
-        try {
-          const supabase = getActiveSupabaseClient();
-          const { data, error } = await supabase.from('productos_menu').select('*').order('id_producto', { ascending: true });
-          if (!error && data) {
-            localStorage.setItem('el_patron_cache_menu', JSON.stringify(data));
+      if (client) {
+        setTimeout(async () => {
+          try {
+            const { data, error } = await client.from('productos_menu').select('*').order('id_producto', { ascending: true });
+            if (!error && data) {
+              localStorage.setItem('el_patron_cache_menu', JSON.stringify(data));
+            }
+          } catch (e) {
+            console.warn('Background menu cache refresh failed:', e);
           }
-        } catch (e) {
-          console.warn('Background menu cache refresh failed:', e);
-        }
-      }, 500);
+        }, 500);
+      }
 
       try {
         const parsed = JSON.parse(cached);
@@ -76,8 +80,13 @@ export const menuService = {
       }
     }
 
-    const supabase = getActiveSupabaseClient();
-    const { data, error } = await supabase.from('productos_menu').select('*').order('id_producto', { ascending: true });
+    if (!client) {
+      // Local/Offline Mode seed cache
+      localStorage.setItem('el_patron_cache_menu', JSON.stringify(INITIAL_PRODUCTOS_MENU));
+      return INITIAL_PRODUCTOS_MENU;
+    }
+
+    const { data, error } = await client.from('productos_menu').select('*').order('id_producto', { ascending: true });
     if (error) {
       console.error('Error fetching productos_menu:', error);
       throw error;
@@ -124,14 +133,44 @@ export const menuService = {
   },
 
   async update(id: string, prod: Partial<ProductoMenu>): Promise<ProductoMenu> {
-    const supabase = getActiveSupabaseClient();
-    const { data, error } = await supabase.from('productos_menu').update(toDbProductoMenu(prod)).eq('id_producto', id).select().single();
-    if (error) {
-      console.error('Error updating product:', error);
-      throw error;
+    let updatedData: any = null;
+    let fallback = false;
+
+    try {
+      const supabase = getActiveSupabaseClient();
+      const { data, error } = await supabase.from('productos_menu').update(toDbProductoMenu(prod)).eq('id_producto', id).select().single();
+      if (error) {
+        console.warn('Supabase update failed, falling back to local update:', error);
+        fallback = true;
+      } else {
+        updatedData = data;
+      }
+    } catch (e) {
+      console.warn('Supabase not available, falling back to local update:', e);
+      fallback = true;
     }
-    const normalized = normalizeProductoMenu(data);
-    
+
+    // In case of fallback or direct local edit, reconstruct the updated object
+    if (fallback || !updatedData) {
+      const cached = localStorage.getItem('el_patron_cache_menu');
+      let currentItem: any = null;
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed)) {
+            currentItem = parsed.find((item: any) => item.id_producto === id);
+          }
+        } catch {}
+      }
+      if (!currentItem) {
+        currentItem = INITIAL_PRODUCTOS_MENU.find(p => p.id_producto === id) || { id_producto: id };
+      }
+      // Reconstruct the DB payload format to preserve consistency in cache
+      updatedData = { ...currentItem, ...prod };
+    }
+
+    const normalized = normalizeProductoMenu(updatedData);
+
     // Update local cache in-place
     const cached = localStorage.getItem('el_patron_cache_menu');
     if (cached) {
@@ -139,15 +178,21 @@ export const menuService = {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed)) {
           const updatedCache = parsed.map((item: any) => 
-            item.id_producto === id ? { ...item, ...data } : item
+            item.id_producto === id ? { ...item, ...toDbProductoMenu(prod) } : item
           );
           localStorage.setItem('el_patron_cache_menu', JSON.stringify(updatedCache));
         }
       } catch (e) {
         localStorage.removeItem('el_patron_cache_menu');
       }
+    } else {
+      // Create new cache with seeded menu plus updated item if cache was empty
+      const initialCache = INITIAL_PRODUCTOS_MENU.map(item =>
+        item.id_producto === id ? { ...item, ...toDbProductoMenu(prod) } : item
+      );
+      localStorage.setItem('el_patron_cache_menu', JSON.stringify(initialCache));
     }
-    
+
     return normalized;
   },
 
