@@ -241,9 +241,9 @@ export default function RecetasModule({
             toast.success('Foto del plato guardada con éxito.');
             addLog('sistema', `MENU: Foto de plato guardada para el producto ID ${idProducto}`);
             setPendingImage(null);
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
-            toast.error('Error al guardar la foto en la base de datos.');
+            toast.error(`Error al guardar la foto: ${error?.message || error}`);
         } finally {
             setIsUploadingImage(false);
         }
