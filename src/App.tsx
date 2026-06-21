@@ -287,8 +287,9 @@ export default function App() {
     loadData();
 
     if (client) {
-      channel = client
-        .channel('realtime_pedidos_app')
+      const activeChannel = client.channel('realtime_pedidos_app');
+      channel = activeChannel;
+      activeChannel
         .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos_cabecera' }, async () => {
           try {
             const refreshed = await dbFetchPedidos();
@@ -319,16 +320,22 @@ export default function App() {
             console.warn('Realtime fetch for mesas failed:', err);
           }
         })
-        .subscribe();
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            console.log('Realtime subscription connected successfully.');
+          }
+        });
     }
 
     return () => {
       active = false;
       if (client && channel) {
-        client.removeChannel(channel);
+        client.removeChannel(channel).catch((err: any) => {
+          console.warn('Failed to remove channel cleanly:', err);
+        });
       }
     };
-  }, [supabaseTrigger, addLog]);
+  }, [supabaseTrigger]);
 
   // Sync completion callback handed to settings
   const handleSupabaseSync = (newData: {
