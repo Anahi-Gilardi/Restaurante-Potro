@@ -815,29 +815,9 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
         </div>
       )}
 
-      {/* Plano SVG + Asistente */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        <div className="xl:col-span-2 bg-white rounded-2xl p-4 sm:p-6 border border-stone-200 shadow-sm">
-          {renderSvg()}
-        </div>
-        <div className="xl:col-span-1">
-          <MesaAsistente
-            mesas={visualMesas.map(m => {
-              const zonaOficial = LAYOUT_OFICIAL[m.id_mesa]?.zona || (m.zona === 'comedor' ? 'alta' : m.numero_mesa === '12' ? 'vip' : 'central');
-              return {
-                id_mesa: m.id_mesa,
-                numero_mesa: m.numero_mesa,
-                capacidad: m.capacidad,
-                zona: zonaOficial,
-                estado: (m.estado === 'ocupada' ? 'Ocupada' : m.estado === 'reservada' ? 'Reservada' : m.estado === 'sucia' || m.estado === 'limpiando' ? 'Sucia/En Limpieza' : 'Libre') as any,
-                comensales: m.comensales,
-                id_pedido: m.id_pedido,
-                mesas_unidas: m.mesas_unidas,
-              };
-            })}
-            onAccion={handleAccionAsistente}
-          />
-        </div>
+      {/* Plano SVG */}
+      <div className="bg-white rounded-2xl p-4 sm:p-6 border border-stone-200 shadow-sm">
+        {renderSvg()}
       </div>
 
       {/* Gestión de mesas */}
