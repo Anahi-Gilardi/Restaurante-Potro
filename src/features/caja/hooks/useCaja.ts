@@ -865,7 +865,9 @@ export function useCaja({
       metodosPago: [{ metodo: metodoPago, monto: orderBreakdowns.finalTotal }],
       vuelto: calculatedChange,
       tipoComprobante: tipoComprobante,
-      mensajePie: restaurante.mensajePie
+      mensajePie: restaurante.mensajePie,
+      clienteNombre: selectedCliente ? selectedCliente.nombre : nombreCliente,
+      clienteCuit: selectedCliente ? selectedCliente.dni_cuit : cuitCliente
     };
 
     await pdfService.exportToPDF(dataTicket);

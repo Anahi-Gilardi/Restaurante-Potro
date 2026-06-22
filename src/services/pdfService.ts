@@ -277,6 +277,15 @@ export const pdfService = {
       lines: Math.max(1, Math.ceil(item.descripcion.length / 22))
     }));
 
+    const nombreComercial = (data.nombreComercial || 'El Patrón Restaurante').toUpperCase();
+    const razonSocial = data.razonSocial || 'Gastronomía El Patrón S.A.S.';
+    const cuit = data.cuit || '30-71649251-4';
+    const direccion = data.direccion || 'Av. Pres. Figueroa Alcorta 3420, CABA';
+    const telefono = data.telefono || '+54 11 4802-9988';
+    
+    const clienteNombre = (data.clienteNombre || 'Consumidor Final').toUpperCase();
+    const clienteCuit = data.clienteCuit || '99-99999999-9';
+
     let extraHeight = 0;
     if (qrImage) extraHeight += 24;
     if (data.cae) extraHeight += 12;
@@ -311,12 +320,12 @@ export const pdfService = {
     y += logo ? 25 : 2;
 
     doc.setTextColor(...BRAND.dark);
-    center(data.nombreComercial.toUpperCase(), 10, true);
+    center(nombreComercial, 10, true);
     doc.setTextColor(...BRAND.muted);
-    center(`Raz. Soc: ${data.razonSocial}`, 6.5);
-    center(`CUIT ${data.cuit}`, 6.5);
-    center(data.direccion.slice(0, 42), 6.2);
-    center(`Telf: ${data.telefono}`, 6.2);
+    center(`Raz. Soc: ${razonSocial}`, 6.5);
+    center(`CUIT ${cuit}`, 6.5);
+    center(direccion.slice(0, 42), 6.2);
+    center(`Telf: ${telefono}`, 6.2);
     y += 1.5;
     line(0, true);
 
@@ -328,9 +337,9 @@ export const pdfService = {
     doc.setFontSize(7);
     doc.text(`COMPROB.: ${comprobanteStr}`, 5, y);
     y += 4;
-    doc.text(`CLIENTE: ${data.clienteNombre.toUpperCase()}`, 5, y);
+    doc.text(`CLIENTE: ${clienteNombre}`, 5, y);
     y += 4;
-    doc.text(`CUIT/DNI: ${data.clienteCuit}`, 5, y);
+    doc.text(`CUIT/DNI: ${clienteCuit}`, 5, y);
     y += 4;
     doc.text(`FECHA: ${data.fechaHora}`, 5, y);
     y += 4;
