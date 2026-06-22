@@ -47,8 +47,8 @@ export const getSupabaseConfig = (): SupabaseConfig => {
   const defaultUrl = 'https://sqczmyaoqplrmrgyczjy.supabase.co';
   const defaultKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNxY3pteWFvcXBscm1yZ3ljemp5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyNzQ5NzQsImV4cCI6MjA5Njg1MDk3NH0.R5bPwot9KCMJ9OXWcokL705ZD7_0ujH9fGY_GcqxjYY';
 
-  // Si localUrl es un placeholder o no pertenece al proyecto actual, limpiamos localStorage
-  if (localUrl && (localUrl.includes('xxx') || localUrl.includes('placeholder') || !localUrl.startsWith('https://sqczmyaoqplrmrgyczjy'))) {
+  // Si localUrl es un placeholder, limpiamos localStorage
+  if (localUrl && (localUrl.includes('xxx') || localUrl.includes('placeholder'))) {
     if (typeof window !== 'undefined') {
       window.localStorage.removeItem('SUPABASE_URL');
       window.localStorage.removeItem('SUPABASE_ANON_KEY');
