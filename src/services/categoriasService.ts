@@ -2,11 +2,14 @@ import { tryGetActiveSupabaseClient } from '../lib/supabaseClient';
 import { Categoria } from '../types';
 
 export const DEFAULT_CATEGORIAS: Categoria[] = [
-  { id: 'cat_bebidas', nombre: 'Bebidas', slug: 'bebidas', orden: 1, activa: true, icono: 'Wine' },
-  { id: 'cat_calzones_empanadas', nombre: 'Calzones y empanadas', slug: 'calzones-y-empanadas', orden: 2, activa: true, icono: 'UtensilsCrossed' },
-  { id: 'cat_pizzas', nombre: 'Pizzas', slug: 'pizzas', orden: 3, activa: true, icono: 'Pizza' },
-  { id: 'cat_postres', nombre: 'Postres', slug: 'postres', orden: 4, activa: true, icono: 'Coffee' },
-  { id: 'cat_sandwiches', nombre: 'Sandwiches', slug: 'sandwiches', orden: 5, activa: true, icono: 'UtensilsCrossed' }
+  { id: 'cat_entradas', nombre: 'Entradas', slug: 'entradas', orden: 1, activa: true, icono: 'UtensilsCrossed' },
+  { id: 'cat_pastas', nombre: 'Pastas', slug: 'pastas', orden: 2, activa: true, icono: 'UtensilsCrossed' },
+  { id: 'cat_carnes', nombre: 'Carnes', slug: 'carnes', orden: 3, activa: true, icono: 'Beef' },
+  { id: 'cat_pescados', nombre: 'Pescados', slug: 'pescados', orden: 4, activa: true, icono: 'Fish' },
+  { id: 'cat_criollas', nombre: 'Comidas Criollas', slug: 'comidas-criollas', orden: 5, activa: true, icono: 'Utensils' },
+  { id: 'cat_postres', nombre: 'Postres', slug: 'postres', orden: 6, activa: true, icono: 'Coffee' },
+  { id: 'cat_bebidas', nombre: 'Bebidas', slug: 'bebidas', orden: 7, activa: true, icono: 'Wine' },
+  { id: 'cat_bodega', nombre: 'Bodega', slug: 'bodega', orden: 8, activa: true, icono: 'Wine' }
 ];
 
 export const categoriasService = {

@@ -80,7 +80,7 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
   const [nombre, setNombre] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [precio, setPrecio] = useState('');
-  const [categoria, setCategoria] = useState<string>('Pizzas');
+  const [categoria, setCategoria] = useState<string>('Entradas');
   const [imagenUrl, setImagenUrl] = useState('');
   const [tiempoPreparacion, setTiempoPreparacion] = useState('12');
   const [requiereCocina, setRequiereCocina] = useState(true);
@@ -104,14 +104,11 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/(^-|-$)+/g, '');
 
-    if (norm === 'calzone-y-empanadas' || norm === 'calzones-y-empanadas') {
-      return 'calzones-y-empanadas';
-    }
-    if (norm === 'pizzas-tradicionales' || norm === 'pizzas-gourmet' || norm === 'pizzas') {
-      return 'pizzas';
-    }
-    if (norm === 'bebidas' || norm === 'bodega') {
+    if (norm.includes('bebida') || norm.includes('bodega') || norm.includes('vino') || norm.includes('cerveza') || norm.includes('gaseosa')) {
       return 'bebidas';
+    }
+    if (norm.includes('postre') || norm.includes('dulce') || norm.includes('helado')) {
+      return 'postres';
     }
     return norm;
   };
