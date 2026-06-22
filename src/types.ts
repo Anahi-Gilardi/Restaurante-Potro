@@ -364,3 +364,14 @@ export interface HistorialCostoInsumo {
     costo_nuevo: number;
     fecha: Date | string;
 }
+
+export interface Categoria {
+    id: string;
+    nombre: string;
+    slug: string;
+    orden: number;
+    activa: boolean;
+    icono?: string | null;
+    created_at?: string;
+}
+

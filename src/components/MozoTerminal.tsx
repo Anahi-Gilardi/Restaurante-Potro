@@ -29,6 +29,7 @@ import { useMenu, useSalon, useInventario, usePedidos } from '../context/AppCont
 import { useToast, ToastContainer } from './ToastContainer';
 import { useMozoTerminal } from '../features/salon/hooks/useMozoTerminal';
 import { tryGetActiveSupabaseClient } from '../lib/supabaseClient';
+import { useCategories } from '../hooks/useCategories';
 
 interface MozoTerminalProps {
   mesas: Mesa[];
@@ -45,6 +46,15 @@ interface MozoTerminalProps {
   addLog: (tipo: EventoLog['tipo'], mensaje: string) => void;
   permitirVentaSinStock?: boolean;
 }
+
+const renderCategoryIcon = (categoriaName: string, categories: any[]) => {
+  const cat = categories.find(c => c.nombre.toLowerCase() === categoriaName.toLowerCase());
+  const iconName = cat?.icono;
+  if (iconName === 'Wine') return <Wine className="w-3.5 h-3.5 text-brand-orange" />;
+  if (iconName === 'Coffee') return <Coffee className="w-3.5 h-3.5 text-brand-orange" />;
+  if (iconName === 'Pizza') return <Pizza className="w-3.5 h-3.5 text-brand-orange" />;
+  return <UtensilsCrossed className="w-3.5 h-3.5 text-brand-orange" />;
+};
 
 export default function MozoTerminal({
   mesas: propMesas,
@@ -80,6 +90,7 @@ export default function MozoTerminal({
   const onFacturarMesa = propOnFacturarMesa ?? ctxPedidos.handleFacturarMesa;
   const addLog = propAddLog ?? (() => {});
   const { toast, toasts, removeToast } = useToast();
+  const { categories } = useCategories();
 
   const isOnline = Boolean(tryGetActiveSupabaseClient());
 

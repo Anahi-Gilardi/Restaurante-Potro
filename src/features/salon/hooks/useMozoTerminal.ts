@@ -226,7 +226,26 @@ export function useMozoTerminal({
   // Filter products by category and search
   const filteredProducts = useMemo(() => {
     return productosMenu.filter(p => {
-      const matchCat = selectedCategoria === 'todo' || p.categoria === selectedCategoria;
+      const normalizeCategorySlug = (categoria: string): string => {
+        const norm = categoria.toLowerCase().trim()
+          .normalize('NFD')
+          .replace(/[̀-ͯ]/g, '')
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/(^-|-$)+/g, '');
+
+        if (norm === 'calzone-y-empanadas' || norm === 'calzones-y-empanadas') {
+          return 'calzones-y-empanadas';
+        }
+        if (norm === 'pizzas-tradicionales' || norm === 'pizzas-gourmet' || norm === 'pizzas') {
+          return 'pizzas';
+        }
+        if (norm === 'bebidas' || norm === 'bodega') {
+          return 'bebidas';
+        }
+        return norm;
+      };
+      const pSlug = normalizeCategorySlug(p.categoria);
+      const matchCat = selectedCategoria === 'todo' || pSlug === selectedCategoria;
       const matchSearch = p.nombre.toLowerCase().includes(searchQuery.toLowerCase());
       return p.activo && matchCat && matchSearch;
     });

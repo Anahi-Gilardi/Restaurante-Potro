@@ -366,6 +366,7 @@ EXECUTE FUNCTION public.log_insumo_cost_change();
 -- ============================================================
 -- 6. HABILITACIÓN DE ROW LEVEL SECURITY (RLS)
 -- ============================================================
+ALTER TABLE public.categorias ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.usuarios ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.mesas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.insumos ENABLE ROW LEVEL SECURITY;
@@ -396,7 +397,7 @@ DECLARE
   t TEXT;
 BEGIN
   FOREACH t IN ARRAY ARRAY[
-    'usuarios', 'mesas', 'insumos', 'productos_menu', 'recetas_escandallo', 
+    'categorias', 'usuarios', 'mesas', 'insumos', 'productos_menu', 'recetas_escandallo', 
     'pedidos_cabecera', 'pedido_detalle', 'mermas', 'auditoria_eventos', 
     'proveedores', 'promociones', 'reservas', 'facturas', 'pagos', 
     'cierres_caja', 'movimientos_inventario', 'backups', 'clientes', 
