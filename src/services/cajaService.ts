@@ -131,37 +131,39 @@ export const cajaService = {
 
     localStorage.setItem('el_patron_caja_activa', JSON.stringify(session));
 
-    // Try Supabase push
-    try {
-      const supabase = getActiveSupabaseClient();
-      await supabase.from('cierres_caja').insert([{
-        id_cierre: session.id_cierre,
-        monto_apertura: session.monto_apertura,
-        observaciones: session.observaciones,
-        monto_ventas: 0,
-        usuario_cajero: session.usuario_cajero
-      }]);
-    } catch (err) {
-      console.warn('Could not persist closure open on remote DB (offline mode active):', err);
-    }
+    // Run remote persistence and predictions asynchronously in the background to prevent UI blockages/freezes
+    (async () => {
+      // Try Supabase push
+      try {
+        const supabase = getActiveSupabaseClient();
+        await supabase.from('cierres_caja').insert([{
+          id_cierre: session.id_cierre,
+          monto_apertura: session.monto_apertura,
+          observaciones: session.observaciones,
+          monto_ventas: 0,
+          usuario_cajero: session.usuario_cajero
+        }]);
+      } catch (err) {
+        console.warn('Could not persist closure open on remote DB (offline mode active):', err);
+      }
 
-    // Run prediction algorithm on open and log results to audit system
-    try {
-      const { prediccionService } = await import('./prediccionService');
-      const { auditoriaService } = await import('./auditoriaService');
-      prediccionService.generarAlertasDemanda().then(alertas => {
-        alertas.forEach(al => {
-          auditoriaService.create({
+      // Run prediction algorithm on open and log results to audit system
+      try {
+        const { prediccionService } = await import('./prediccionService');
+        const { auditoriaService } = await import('./auditoriaService');
+        const alertas = await prediccionService.generarAlertasDemanda();
+        for (const al of alertas) {
+          await auditoriaService.create({
             id: al.id,
             tipo: 'alerta_stock',
             mensaje: al.mensaje,
             timestamp: new Date()
-          }).catch(err => console.warn('Could not persist prediction log:', err));
-        });
-      }).catch(err => console.error('Error generating demand alerts on open:', err));
-    } catch (err) {
-      console.error('Failed to import prediction services dynamically:', err);
-    }
+          });
+        }
+      } catch (err) {
+        console.error('Background prediction service / logger failed on shift open:', err);
+      }
+    })();
 
     return session;
   },

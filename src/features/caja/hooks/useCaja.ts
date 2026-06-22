@@ -126,24 +126,9 @@ export function useCaja({
   // Sync historical shifts and current state
   const loadCajaState = async () => {
     let active = cajaService.getOpenSession();
-    if (active) {
-      try {
-        const remote = await cajaService.getOpenSessionRemote(active.id_cierre);
-        if (remote) {
-          active = {
-            ...active,
-            monto_ventas: remote.monto_ventas ?? active.monto_ventas,
-            monto_apertura: remote.monto_apertura ?? active.monto_apertura,
-            usuario_cajero: remote.usuario_cajero ?? active.usuario_cajero,
-            observaciones: remote.observaciones ?? active.observaciones
-          };
-          localStorage.setItem('el_patron_caja_activa', JSON.stringify(active));
-        }
-      } catch (err) {
-        console.warn('Offline active session loading fallback');
-      }
-    }
+    // Instantly set the local session to avoid UI flicker or requiring reopen on refresh
     setCajaSession(active);
+
     try {
       const history = await cajaService.list();
       setSessionInsumos(history);
@@ -156,7 +141,27 @@ export function useCaja({
         setMovimientosCajaChica([]);
       }
     } catch (err) {
-      console.error(err);
+      console.error('Error loading history in loadCajaState:', err);
+    }
+
+    // Update with remote state in the background
+    if (active) {
+      try {
+        const remote = await cajaService.getOpenSessionRemote(active.id_cierre);
+        if (remote) {
+          const updatedActive = {
+            ...active,
+            monto_ventas: remote.monto_ventas ?? active.monto_ventas,
+            monto_apertura: remote.monto_apertura ?? active.monto_apertura,
+            usuario_cajero: remote.usuario_cajero ?? active.usuario_cajero,
+            observaciones: remote.observaciones ?? active.observaciones
+          };
+          localStorage.setItem('el_patron_caja_activa', JSON.stringify(updatedActive));
+          setCajaSession(updatedActive);
+        }
+      } catch (err) {
+        console.warn('Offline active session loading fallback');
+      }
     }
   };
 
