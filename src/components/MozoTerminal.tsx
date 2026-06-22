@@ -94,6 +94,38 @@ export default function MozoTerminal({
 
   const isOnline = Boolean(tryGetActiveSupabaseClient());
 
+  const getCategorySlug = useMemo(() => {
+    return (catName: string): string => {
+      if (!catName) return '';
+      const norm = catName.toLowerCase().trim()
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)+/g, '');
+
+      const cat = categories.find(c => {
+        const dbNorm = c.nombre.toLowerCase().trim()
+          .normalize('NFD')
+          .replace(/[̀-ͯ]/g, '')
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/(^-|-$)+/g, '');
+        return dbNorm === norm || c.slug === norm;
+      });
+      if (cat) return cat.slug;
+
+      if (norm.includes('bebida') || norm.includes('vino') || norm.includes('cerveza') || norm.includes('gaseosa')) {
+        return 'bebidas';
+      }
+      if (norm.includes('bodega')) {
+        return 'bodega';
+      }
+      if (norm.includes('postre') || norm.includes('dulce') || norm.includes('helado')) {
+        return 'postres';
+      }
+      return norm;
+    };
+  }, [categories]);
+
   const {
     selectedMesaId,
     comensales,
@@ -404,16 +436,11 @@ export default function MozoTerminal({
           <div className="flex gap-1.5 w-full overflow-x-auto py-1.5 scrollbar-thin scroll-smooth border-t border-stone-100 pt-3 pb-2">
             {[
               { id: 'todo', label: 'Todos' },
-              { id: 'Entradas', label: 'Entradas' },
-              { id: 'Pastas', label: 'Pastas' },
-              { id: 'Carnes', label: 'Carnes' },
-              { id: 'Pescados', label: 'Pescados' },
-              { id: 'Comidas Criollas', label: 'Criollas' },
-              { id: 'Postres', label: 'Postres' },
-              { id: 'Bebidas', label: 'Bebidas' },
-              { id: 'Bodega', label: 'Bodega' }
+              ...categories.map(c => ({ id: c.slug, label: c.nombre === 'Comidas Criollas' ? 'Criollas' : c.nombre }))
             ].map(cat => {
-              const count = cat.id === 'todo' ? productosMenu.filter(p => p.activo).length : productosMenu.filter(p => p.activo && p.categoria === cat.id).length;
+              const count = cat.id === 'todo' 
+                ? productosMenu.filter(p => p.activo).length 
+                : productosMenu.filter(p => p.activo && getCategorySlug(p.categoria) === cat.id).length;
               return (
                 <button
                   key={cat.id}

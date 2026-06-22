@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Mesa, Insumo, ProductoMenu, RecetaEscandallo, Pedido, PedidoItem, Usuario, EventoLog, TicketData } from '../../../types';
 import { clearMozoCartDraft, createMozoCartIdempotencyKey, MozoCart, readMozoCartDraft, writeMozoCartDraft } from '../../../lib/mozoCartDraft';
 import { pdfService } from '../../../services/pdfService';
+import { useCategories } from '../../../hooks/useCategories';
 
 const CHECKOUT_TIMEOUT_MS = 12000;
 
@@ -55,6 +56,7 @@ export function useMozoTerminal({
   toast
 }: UseMozoTerminalProps) {
   const checkoutInFlightRef = useRef(false);
+  const { categories } = useCategories();
 
   // States
   const [selectedMesaId, setSelectedMesaId] = useState<number | null>(null);
@@ -223,30 +225,45 @@ export function useMozoTerminal({
     return mergePedidos(tablePedidos);
   }, [selectedMesaId, selectedMesa, pedidos]);
 
+  const getCategorySlug = useCallback((catName: string) => {
+    if (!catName) return '';
+    const norm = catName.toLowerCase().trim()
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)+/g, '');
+
+    const cat = categories.find(c => {
+      const dbNorm = c.nombre.toLowerCase().trim()
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)+/g, '');
+      return dbNorm === norm || c.slug === norm;
+    });
+    if (cat) return cat.slug;
+
+    if (norm.includes('bebida') || norm.includes('vino') || norm.includes('cerveza') || norm.includes('gaseosa')) {
+      return 'bebidas';
+    }
+    if (norm.includes('bodega')) {
+      return 'bodega';
+    }
+    if (norm.includes('postre') || norm.includes('dulce') || norm.includes('helado')) {
+      return 'postres';
+    }
+    return norm;
+  }, [categories]);
+
   // Filter products by category and search
   const filteredProducts = useMemo(() => {
     return productosMenu.filter(p => {
-      const normalizeCategorySlug = (categoria: string): string => {
-        const norm = categoria.toLowerCase().trim()
-          .normalize('NFD')
-          .replace(/[̀-ͯ]/g, '')
-          .replace(/[^a-z0-9]+/g, '-')
-          .replace(/(^-|-$)+/g, '');
-    
-        if (norm.includes('bebida') || norm.includes('bodega') || norm.includes('vino') || norm.includes('cerveza') || norm.includes('gaseosa')) {
-          return 'bebidas';
-        }
-        if (norm.includes('postre') || norm.includes('dulce') || norm.includes('helado')) {
-          return 'postres';
-        }
-        return norm;
-      };
-      const pSlug = normalizeCategorySlug(p.categoria);
+      const pSlug = getCategorySlug(p.categoria);
       const matchCat = selectedCategoria === 'todo' || pSlug === selectedCategoria;
       const matchSearch = p.nombre.toLowerCase().includes(searchQuery.toLowerCase());
       return p.activo && matchCat && matchSearch;
     });
-  }, [productosMenu, selectedCategoria, searchQuery]);
+  }, [productosMenu, selectedCategoria, searchQuery, getCategorySlug]);
 
   // Helper: check how much of an insumo would be required by the current cart
   const calculateCartInsumoRequirements = useCallback((tempCart: MozoCart) => {
