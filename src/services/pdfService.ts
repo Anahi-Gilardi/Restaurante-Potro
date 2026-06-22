@@ -102,13 +102,7 @@ export const pdfService = {
   async generateTicketPDF(data: TicketData): Promise<jsPDF> {
     const logo = await loadLogoDataUrl();
     const qrImage = await loadQrDataUrl(data.qrData);
-    const isA4 = data.tipoComprobante === 'factura_a' || data.tipoComprobante === 'factura_b';
-
-    if (isA4) {
-      return this.generateA4Invoice(data, logo, qrImage);
-    }
-
-    return this.generateThermalTicket(data, logo);
+    return this.generateThermalTicket(data, logo, qrImage);
   },
 
   generateA4Invoice(data: TicketData, logo: string | null, qrImage: string | null): jsPDF {
@@ -277,14 +271,19 @@ export const pdfService = {
     return doc;
   },
 
-  generateThermalTicket(data: TicketData, logo: string | null): jsPDF {
+  generateThermalTicket(data: TicketData, logo: string | null, qrImage: string | null = null): jsPDF {
     const wrappedRows = data.items.map(item => ({
       item,
       lines: Math.max(1, Math.ceil(item.descripcion.length / 22))
     }));
+
+    let extraHeight = 0;
+    if (qrImage) extraHeight += 24;
+    if (data.cae) extraHeight += 12;
+
     const ticketHeight = Math.max(
-      205,
-      118 + wrappedRows.reduce((sum, row) => sum + row.lines * 4.2 + 4, 0) + data.metodosPago.length * 5
+      205 + extraHeight,
+      118 + extraHeight + wrappedRows.reduce((sum, row) => sum + row.lines * 4.2 + 4, 0) + data.metodosPago.length * 5
     );
     const doc = new jsPDF('p', 'mm', [80, ticketHeight]);
     let y = 7;
@@ -296,51 +295,58 @@ export const pdfService = {
       y += size * 0.45 + 1.3;
     };
 
-    const line = (offset = 0) => {
+    const line = (offset = 0, dotted = false) => {
       doc.setDrawColor(...BRAND.line);
+      if (dotted) {
+        doc.setLineDashPattern([0.8, 0.8], 0);
+      }
       doc.line(5, y + offset, 75, y + offset);
+      if (dotted) {
+        doc.setLineDashPattern([], 0); // Reset
+      }
       y += 3.5;
     };
 
     addLogo(doc, logo, 29, y, 22);
     y += logo ? 25 : 2;
 
-    doc.setFillColor(...BRAND.brown);
-    doc.rect(5, y, 70, 13, 'F');
-    doc.setTextColor(255, 255, 255);
-    y += 5;
-    center(data.nombreComercial.toUpperCase(), 10, true);
-    center('GESTION GASTRONOMICA PRO', 6.5, false);
-    y += 5;
-
     doc.setTextColor(...BRAND.dark);
-    center('Ticket de consumo', 8, true);
-    center(data.razonSocial, 6.5);
+    center(data.nombreComercial.toUpperCase(), 10, true);
+    doc.setTextColor(...BRAND.muted);
+    center(`Raz. Soc: ${data.razonSocial}`, 6.5);
     center(`CUIT ${data.cuit}`, 6.5);
     center(data.direccion.slice(0, 42), 6.2);
-    center(`Tel. ${data.telefono}`, 6.2);
+    center(`Telf: ${data.telefono}`, 6.2);
     y += 1.5;
-    line();
+    line(0, true);
 
+    doc.setTextColor(...BRAND.dark);
+    const comprobanteStr = data.tipoComprobante === 'factura_b' 
+      ? 'FACTURA B-CONS. FINAL' 
+      : (data.tipoComprobante === 'factura_a' ? 'FACTURA A-RESP. INS.' : 'TICKET INTERNO');
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7);
-    doc.text(`Ticket: ${data.nroComprobante}`, 5, y);
-    doc.text(`Mesa: ${data.mesa}`, 75, y, { align: 'right' });
+    doc.text(`COMPROB.: ${comprobanteStr}`, 5, y);
     y += 4;
-    doc.text(`Fecha: ${data.fechaHora}`, 5, y);
+    doc.text(`CLIENTE: ${data.clienteNombre.toUpperCase()}`, 5, y);
     y += 4;
-    doc.text(`Mozo: ${data.mozo}`, 5, y);
-    doc.text(`Caja: ${data.cajero}`, 75, y, { align: 'right' });
+    doc.text(`CUIT/DNI: ${data.clienteCuit}`, 5, y);
+    y += 4;
+    doc.text(`FECHA: ${data.fechaHora}`, 5, y);
+    y += 4;
+    doc.text(`MESA: ${data.mesa.toUpperCase()}`, 5, y);
+    doc.text(`MOZO: ${data.mozo}`, 75, y, { align: 'right' });
+    y += 4;
+    doc.text(`CAJERO: ${data.cajero.toUpperCase()}`, 5, y);
     y += 5;
-    line();
+    line(0, true);
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(6.8);
-    doc.text('Cant.', 5, y);
-    doc.text('Producto', 16, y);
-    doc.text('Importe', 75, y, { align: 'right' });
+    doc.text('DESCRIPCIÓN / CANT.', 5, y);
+    doc.text('TOTAL ($)', 75, y, { align: 'right' });
     y += 3.5;
-    line(-1);
+    line(-1, true);
 
     doc.setFont('helvetica', 'normal');
     data.items.forEach(({ descripcion, cantidad, subtotal }) => {
@@ -357,7 +363,7 @@ export const pdfService = {
     });
 
     y += 1;
-    line();
+    line(0, true);
 
     const sum = (label: string, value: string, bold = false) => {
       doc.setFont('helvetica', bold ? 'bold' : 'normal');
@@ -367,28 +373,45 @@ export const pdfService = {
       y += bold ? 5.5 : 4.5;
     };
 
-    sum('Subtotal', money(data.subtotal));
-    if (data.descuento > 0) sum('Descuento', `-${money(data.descuento)}`);
-    if (data.propina > 0) sum('Propina', money(data.propina));
-    sum('IVA 21% incluido', money(data.iva));
+    doc.setTextColor(...BRAND.dark);
+    sum('Subtotal Neto:', money(data.subtotal));
+    if (data.descuento > 0) sum('Descuento:', `-${money(data.descuento)}`);
+    if (data.propina > 0) sum('Propina (10%):', money(data.propina));
+    sum('IVA 21% incluido:', money(data.iva));
 
     doc.setFillColor(...BRAND.cream);
     doc.rect(5, y - 2, 70, 10, 'F');
     y += 5;
     doc.setTextColor(...BRAND.brown);
-    sum('TOTAL', money(data.total), true);
+    sum('TOTAL CUENTA:', money(data.total), true);
     doc.setTextColor(...BRAND.dark);
     y += 2;
-    line();
+    line(0, true);
 
     center('Medios de pago', 7, true);
     data.metodosPago.forEach(mp => {
       sum(mp.metodo.toUpperCase(), money(mp.monto));
     });
-    if (data.vuelto > 0) sum('Vuelto efectivo', money(data.vuelto));
+    if (data.vuelto > 0) sum('Vuelto efectivo:', money(data.vuelto));
 
     y += 2;
-    line();
+    line(0, true);
+
+    if (qrImage) {
+      try {
+        doc.addImage(qrImage, 'PNG', 31, y, 18, 18);
+        y += 21;
+      } catch (err) {
+        console.warn('Error inserting QR in thermal PDF:', err);
+      }
+    }
+    if (data.cae) {
+      center(`CAE: ${data.cae}`, 6.5, true);
+      center(`Vto CAE: ${data.vto || ''}`, 6.2);
+      y += 2;
+      line(0, true);
+    }
+
     center(data.mensajePie || 'Gracias por su visita.', 6.8);
     center('El Patron Restaurante', 7.5, true);
     center('Conserve este comprobante', 6.2);
