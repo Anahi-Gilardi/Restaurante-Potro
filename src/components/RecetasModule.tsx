@@ -180,7 +180,7 @@ export default function RecetasModule({
             const img = new Image();
             img.onload = async () => {
                 const canvas = document.createElement('canvas');
-                const maxDim = 500;
+                const maxDim = 400;
                 let width = img.width;
                 let height = img.height;
 
@@ -202,7 +202,7 @@ export default function RecetasModule({
                 const ctx = canvas.getContext('2d');
                 if (ctx) {
                     ctx.drawImage(img, 0, 0, width, height);
-                    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.70);
                     setPendingImage(dataUrl);
                     toast.success('Imagen lista. Presione "Guardar Foto" para confirmar.');
                 } else {

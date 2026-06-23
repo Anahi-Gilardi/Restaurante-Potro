@@ -48,6 +48,57 @@ export default function SistemaModule({
   onSyncComplete
 }: SistemaModuleProps) {
   const { toast, toasts, removeToast } = useToast();
+
+  const totalLocalStorageMB = useMemo(() => {
+    let total = 0;
+    try {
+      for (const x in localStorage) {
+        if (localStorage.hasOwnProperty(x)) {
+          total += ((localStorage[x] || '').length * 2);
+        }
+      }
+    } catch (e) {
+      console.warn(e);
+    }
+    return (total / (1024 * 1024)).toFixed(2);
+  }, [productosMenu]);
+
+  const menuCacheSizeKB = useMemo(() => {
+    const raw = localStorage.getItem('el_patron_cache_menu') || '';
+    return (raw.length * 2 / 1024).toFixed(1);
+  }, [productosMenu]);
+
+  const handlePurgeImageCache = () => {
+    try {
+      const cached = localStorage.getItem('el_patron_cache_menu');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed)) {
+          let count = 0;
+          const cleaned = parsed.map((p: any) => {
+            if (p.imagen && p.imagen.startsWith('data:')) {
+              count++;
+              return { ...p, imagen: '/logo-el-patron.jpeg' };
+            }
+            return p;
+          });
+          localStorage.setItem('el_patron_cache_menu', JSON.stringify(cleaned));
+          toast.success(`Caché liberada: se removieron ${count} imágenes pesadas.`);
+          addLog('sistema', `CACHÉ: Purgadas ${count} imágenes base64 de la caché local.`);
+          setTimeout(() => {
+            window.location.reload();
+          }, 1500);
+        } else {
+          toast.info('No hay caché de imágenes para purgar.');
+        }
+      } else {
+        toast.info('No hay caché de imágenes para purgar.');
+      }
+    } catch (e) {
+      toast.error('Error al purgar la caché.');
+    }
+  };
+
   // Test latencies
   const [dbPingStatus, setDbPingStatus] = useState<'idle' | 'testing' | 'ready'>('idle');
   const [dbPingMs, setDbPingMs] = useState<number>(0);
@@ -368,6 +419,53 @@ export default function SistemaModule({
             >
               <Download className="w-3 h-3 text-slate-500" />
               pedidos.csv
+            </button>
+          </div>
+        </div>
+
+        {/* Caché y Almacenamiento Local (PWA / Offline) */}
+        <div className="bg-white rounded-2xl p-5 border border-stone-200/85 shadow-sm space-y-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <h4 className="font-bold text-slate-800 text-xs font-sans tracking-tight">
+                Caché y Almacenamiento Local (PWA / Offline)
+              </h4>
+              <p className="text-[11px] text-slate-400 font-sans mt-0.5">
+                Supervise y limpie la cuota del almacenamiento del navegador para evitar límites de espacio.
+              </p>
+            </div>
+            <Database className="w-5 h-5 text-amber-600" />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 bg-stone-50 p-3.5 rounded-xl border border-stone-100">
+            <div>
+              <span className="text-[9px] uppercase font-bold text-stone-400 block">Uso total de LocalStorage</span>
+              <span className="font-mono text-xs font-black text-stone-700">{totalLocalStorageMB} MB</span>
+            </div>
+            <div>
+              <span className="text-[9px] uppercase font-bold text-stone-400 block">Caché de Platos (Menu)</span>
+              <span className="font-mono text-xs font-black text-stone-700">{menuCacheSizeKB} KB</span>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-2 pt-1">
+            <button
+              onClick={handlePurgeImageCache}
+              className="flex-1 py-2 px-3 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-[10px] font-extrabold text-center cursor-pointer transition-colors shadow-sm"
+            >
+              Purgar Fotos de la Caché Local
+            </button>
+            <button
+              onClick={() => {
+                localStorage.removeItem('el_potro_custom_logo');
+                localStorage.removeItem('el_patron_custom_logo');
+                window.dispatchEvent(new Event('el_patron_logo_changed'));
+                toast.success('Logotipo personalizado restablecido.');
+                window.location.reload();
+              }}
+              className="py-2 px-3 border border-stone-200 hover:border-red-200 text-stone-550 hover:bg-red-50 hover:text-red-700 rounded-lg text-[10px] font-extrabold transition-all cursor-pointer bg-white"
+            >
+              Restaurar Logo del Sistema
             </button>
           </div>
         </div>

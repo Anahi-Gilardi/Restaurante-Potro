@@ -161,7 +161,7 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
         const img = new window.Image();
         img.onload = () => {
           const canvas = document.createElement('canvas');
-          const MAX_WIDTH = 500;
+          const MAX_WIDTH = 400;
           let width = img.width;
           let height = img.height;
 
@@ -180,7 +180,7 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
           }
 
           ctx.drawImage(img, 0, 0, width, height);
-          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.82);
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.70);
           resolve(compressedBase64);
         };
         img.onerror = () => reject(new Error('Invalid image file'));
