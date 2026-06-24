@@ -130,13 +130,13 @@ function renderSillas(mesa: MesaVisual): React.ReactNode[] {
   const arriba = Math.min(capacidad, 4);
   for (let i = 1; i <= arriba; i++) {
     sillas.push(
-      <circle key={`top-${i}`} cx={x + pasoX * i} cy={y - 12} r={radio} fill="#4E3629" opacity="0.65" pointerEvents="none" />
+      <circle key={`top-${i}`} cx={x + pasoX * i} cy={y - 12} r={radio} fill="#374151" opacity="0.65" pointerEvents="none" />
     );
   }
   const abajo = Math.max(0, capacidad - 4);
   for (let i = 1; i <= abajo; i++) {
     sillas.push(
-      <circle key={`bottom-${i}`} cx={x + pasoX * i} cy={y + height + 12} r={radio} fill="#4E3629" opacity="0.65" pointerEvents="none" />
+      <circle key={`bottom-${i}`} cx={x + pasoX * i} cy={y + height + 12} r={radio} fill="#374151" opacity="0.65" pointerEvents="none" />
     );
   }
   return sillas;
@@ -717,44 +717,53 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
             onTouchEnd={handleSvgMouseUp}
             onMouseLeave={handleSvgMouseUp}
           >
-            <rect x="10" y="10" width="410" height="600" rx="4" fill="none" stroke="#3D2B1F" strokeWidth="3"/>
-            <rect x="10" y="10" width="80" height="600" rx="4" fill="#2C1A0E"/>
-            <text x="50" y="200" textAnchor="middle" fontSize="11" fill="#C9A96E" fontFamily="Georgia, serif" fontWeight="700" transform="rotate(-90, 50, 200)" letterSpacing="2">RESTAURANTE</text>
-            <rect x="24" y="120" width="32" height="28" rx="6" fill="none" stroke="#C9A96E" strokeWidth="1.5" opacity="0.5"/>
-            <rect x="24" y="175" width="32" height="28" rx="6" fill="none" stroke="#C9A96E" strokeWidth="1.5" opacity="0.5"/>
-            <rect x="24" y="230" width="32" height="28" rx="6" fill="none" stroke="#C9A96E" strokeWidth="1.5" opacity="0.5"/>
+            <rect x="10" y="10" width="410" height="600" rx="4" fill="none" stroke="#4B5563" strokeWidth="3"/>
+            
+            {/* Sidebar con estilo de Pizzería Colores: Fondo rojo pizza, y círculos de colores */}
+            <rect x="10" y="10" width="80" height="600" rx="4" fill="#DF3B20"/>
+            <text x="50" y="320" textAnchor="middle" fontSize="13" fill="#FFFFFF" fontFamily="'Outfit', 'Inter', sans-serif" fontWeight="900" transform="rotate(-90, 50, 320)" letterSpacing="2">PIZZERÍA COLORES</text>
+            
+            {/* Círculos que representan "Colores" */}
+            <circle cx="50" cy="80" r="8" fill="#EF4444" stroke="#FFFFFF" strokeWidth="1.5"/>
+            <circle cx="50" cy="110" r="8" fill="#F59E0B" stroke="#FFFFFF" strokeWidth="1.5"/>
+            <circle cx="50" cy="140" r="8" fill="#10B981" stroke="#FFFFFF" strokeWidth="1.5"/>
+            <circle cx="50" cy="170" r="8" fill="#3B82F6" stroke="#FFFFFF" strokeWidth="1.5"/>
+            <circle cx="50" cy="200" r="8" fill="#8B5CF6" stroke="#FFFFFF" strokeWidth="1.5"/>
 
-            <rect x="90" y="10" width="330" height="255" fill="#EAE0CC"/>
-            <text x="230" y="32" textAnchor="middle" fontSize="11" fontWeight="700" fill="#7A5C44" fontFamily="Arial, sans-serif" letterSpacing="3">COMEDOR</text>
-            <line x1="90" y1="265" x2="420" y2="265" stroke="#3D2B1F" strokeWidth="2.5"/>
+            {/* Salón Principal: Fondo cálido suave */}
+            <rect x="90" y="10" width="330" height="255" fill="#FFF5EC"/>
+            <text x="230" y="32" textAnchor="middle" fontSize="11" fontWeight="700" fill="#9B2C2C" fontFamily="Arial, sans-serif" letterSpacing="3">SALÓN PRINCIPAL</text>
+            <line x1="90" y1="265" x2="420" y2="265" stroke="#4B5563" strokeWidth="2"/>
 
-            <rect x="340" y="18" width="70" height="90" rx="4" fill="#D4C4A0" stroke="#8B6914" strokeWidth="2"/>
-            <text x="375" y="60" textAnchor="middle" fontSize="10" fontWeight="700" fill="#5A3E10" fontFamily="Arial, sans-serif" letterSpacing="1">CAJA</text>
-            <rect x="344" y="72" width="62" height="8" rx="3" fill="#8B6914" opacity="0.4"/>
+            {/* Caja / Barra */}
+            <rect x="325" y="18" width="85" height="90" rx="6" fill="#FEEBC8" stroke="#DD6B20" strokeWidth="2"/>
+            <text x="367" y="60" textAnchor="middle" fontSize="9" fontWeight="700" fill="#7B341E" fontFamily="Arial, sans-serif" letterSpacing="1">CAJA / BARRA</text>
+            <rect x="331" y="72" width="73" height="8" rx="3" fill="#DD6B20" opacity="0.4"/>
 
-            <rect x="90" y="265" width="330" height="345" fill="#EDE4D3"/>
-            <text x="230" y="290" textAnchor="middle" fontSize="11" fontWeight="700" fill="#7A5C44" fontFamily="Arial, sans-serif" letterSpacing="3">SALÓN</text>
+            {/* Terraza y Vereda: Fondo verde suave de exterior */}
+            <rect x="90" y="265" width="330" height="345" fill="#F0FDF4"/>
+            <text x="230" y="290" textAnchor="middle" fontSize="11" fontWeight="700" fill="#15803D" fontFamily="Arial, sans-serif" letterSpacing="3">TERRAZA & VEREDA</text>
 
-            <text x="50" y="530" textAnchor="middle" fontSize="9" fill="#C9A96E" fontFamily="Arial, sans-serif" letterSpacing="1" transform="rotate(-90, 50, 530)">PASILLO</text>
+            <text x="50" y="530" textAnchor="middle" fontSize="9" fill="#FFFFFF" fontFamily="Arial, sans-serif" letterSpacing="1" transform="rotate(-90, 50, 530)" opacity="0.8">ACCESO</text>
 
-            <rect x="90" y="575" width="80" height="35" fill="#D4C4A0" stroke="#3D2B1F" strokeWidth="1.5"/>
-            <text x="130" y="596" textAnchor="middle" fontSize="7" fill="#5A3E10" fontFamily="Arial, sans-serif" fontWeight="600">INGRESO</text>
-            <text x="130" y="606" textAnchor="middle" fontSize="7" fill="#5A3E10" fontFamily="Arial, sans-serif">VEHICAL</text>
+            {/* Acceso peatonal limpio sin ingreso de vehículos */}
+            <rect x="90" y="575" width="80" height="35" fill="#E2E8F0" stroke="#4B5563" strokeWidth="1.5"/>
+            <text x="130" y="596" textAnchor="middle" fontSize="8" fill="#1E293B" fontFamily="Arial, sans-serif" fontWeight="700">ACCESO</text>
 
-            <text x="418" y="140" textAnchor="middle" fontSize="9" fill="#7A5C44" fontFamily="Arial, sans-serif" transform="rotate(90, 418, 140)" letterSpacing="2" opacity="0.6">FACHADA</text>
+            <text x="418" y="140" textAnchor="middle" fontSize="9" fill="#4B5563" fontFamily="Arial, sans-serif" transform="rotate(90, 418, 140)" letterSpacing="2" opacity="0.6">VEREDA</text>
 
             {unionConnectionLines}
             {mesaElements}
 
             {/* Leyenda */}
             <rect x="155" y="580" width="12" height="12" rx="3" fill="#D4EDDA" stroke="#28A745" strokeWidth="2.5"/>
-            <text x="172" y="590" fontSize="8" fill="#2C1A0E" fontFamily="Arial, sans-serif">Libre</text>
+            <text x="172" y="590" fontSize="8" fill="#1E293B" fontFamily="Arial, sans-serif">Libre</text>
             <rect x="205" y="580" width="12" height="12" rx="3" fill="#F8D7DA" stroke="#DC3545" strokeWidth="2.5"/>
-            <text x="222" y="590" fontSize="8" fill="#2C1A0E" fontFamily="Arial, sans-serif">Ocupado</text>
+            <text x="222" y="590" fontSize="8" fill="#1E293B" fontFamily="Arial, sans-serif">Ocupado</text>
             <rect x="255" y="580" width="12" height="12" rx="3" fill="#FFF3CD" stroke="#FFC107" strokeWidth="2.5"/>
-            <text x="272" y="590" fontSize="8" fill="#2C1A0E" fontFamily="Arial, sans-serif">Reserva</text>
+            <text x="272" y="590" fontSize="8" fill="#1E293B" fontFamily="Arial, sans-serif">Reserva</text>
             <rect x="305" y="580" width="12" height="12" rx="3" fill="#f5f5f4" stroke="#78716c" strokeWidth="2.5"/>
-            <text x="322" y="590" fontSize="8" fill="#2C1A0E" fontFamily="Arial, sans-serif">Sucia</text>
+            <text x="322" y="590" fontSize="8" fill="#1E293B" fontFamily="Arial, sans-serif">Sucia</text>
           </svg>
         </div>
       </div>
@@ -764,7 +773,7 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64 text-stone-500">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#624A3E] mr-3" />
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#DF3B20] mr-3" />
         Cargando plano de mesas...
       </div>
     );
@@ -796,7 +805,7 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
             {unionMode ? 'Cancelar unión' : 'Unir mesas'}
           </button>
           {unionMode && selectedForUnion.length === 2 && (
-            <button onClick={handleUnirMesas} className="px-3 py-2 rounded-xl text-xs font-bold bg-[#624A3E] text-white cursor-pointer hover:bg-[#503C32]">
+            <button onClick={handleUnirMesas} className="px-3 py-2 rounded-xl text-xs font-bold bg-[#DF3B20] text-white cursor-pointer hover:bg-[#C53030]">
               Confirmar unión
             </button>
           )}
@@ -826,7 +835,7 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
           <h3 className="font-extrabold text-sm text-stone-800">Gestión de mesas</h3>
           <button
             onClick={() => { resetMesaForm(); setShowMesaForm(true); }}
-            className="px-3 py-2 rounded-xl text-xs font-bold bg-[#624A3E] text-white cursor-pointer hover:bg-[#503C32]"
+            className="px-3 py-2 rounded-xl text-xs font-bold bg-[#DF3B20] text-white cursor-pointer hover:bg-[#C53030]"
           >
             + Agregar mesa
           </button>
@@ -837,17 +846,17 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
             <div className="grid grid-cols-3 gap-3">
               <div className="col-span-1">
                 <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Número</label>
-                <input type="text" value={nuevoNumero} onChange={e => setNuevoNumero(e.target.value)} placeholder="Ej. 10" required className="w-full px-3 py-2.5 text-xs border border-stone-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#624A3E]" />
+                <input type="text" value={nuevoNumero} onChange={e => setNuevoNumero(e.target.value)} placeholder="Ej. 10" required className="w-full px-3 py-2.5 text-xs border border-stone-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#DF3B20]" />
               </div>
               <div className="col-span-1">
                 <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Capacidad</label>
-                <select value={nuevaCapacidad} onChange={e => setNuevaCapacidad(e.target.value)} className="w-full px-3 py-2.5 text-xs border border-stone-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#624A3E]">
+                <select value={nuevaCapacidad} onChange={e => setNuevaCapacidad(e.target.value)} className="w-full px-3 py-2.5 text-xs border border-stone-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#DF3B20]">
                   {[1,2,3,4,5,6,7,8,10,12].map(n => <option key={n} value={n}>{n}</option>)}
                 </select>
               </div>
               <div className="col-span-1">
                 <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Sector / Zona</label>
-                <select value={nuevaZona} onChange={e => setNuevaZona(e.target.value as Zona)} className="w-full px-3 py-2.5 text-xs border border-stone-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#624A3E]">
+                <select value={nuevaZona} onChange={e => setNuevaZona(e.target.value as Zona)} className="w-full px-3 py-2.5 text-xs border border-stone-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#DF3B20]">
                   <option value="comedor">Zona Alta (Mesas 1-6 · 2 pax)</option>
                   <option value="salon">Zona Central/Baja (Mesas 7-11 · 4-5 pax) + VIP</option>
                 </select>
@@ -855,7 +864,7 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
             </div>
             <div className="flex gap-2">
               <button type="button" onClick={resetMesaForm} className="flex-1 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl text-xs font-bold cursor-pointer">Cancelar</button>
-              <button type="submit" className="flex-1 py-2.5 bg-[#624A3E] hover:bg-[#503C32] text-white rounded-xl text-xs font-bold cursor-pointer">{editingMesa ? 'Guardar cambios' : 'Agregar mesa'}</button>
+              <button type="submit" className="flex-1 py-2.5 bg-[#DF3B20] hover:bg-[#C53030] text-white rounded-xl text-xs font-bold cursor-pointer">{editingMesa ? 'Guardar cambios' : 'Agregar mesa'}</button>
             </div>
           </form>
         )}
@@ -921,37 +930,37 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
                     <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Fecha</label>
                     <div className="relative">
                       <Calendar className="w-4 h-4 text-stone-450 absolute left-3 top-1/2 -translate-y-1/2" />
-                      <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} required className="w-full pl-9 pr-2 py-2.5 text-xs border border-stone-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#624A3E]" />
+                      <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} required className="w-full pl-9 pr-2 py-2.5 text-xs border border-stone-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#DF3B20]" />
                     </div>
                   </div>
                   <div>
                     <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Hora</label>
-                    <input type="time" value={hora} onChange={e => setHora(e.target.value)} required className="w-full px-3 py-2.5 text-xs border border-stone-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#624A3E]" />
+                    <input type="time" value={hora} onChange={e => setHora(e.target.value)} required className="w-full px-3 py-2.5 text-xs border border-stone-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#DF3B20]" />
                   </div>
                 </div>
                 <div>
                   <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Nombre y Apellido</label>
-                  <input type="text" value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Ej. Carlos Tevez" required className="w-full px-3 py-2.5 text-xs border border-stone-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#624A3E]" />
+                  <input type="text" value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Ej. Carlos Tevez" required className="w-full px-3 py-2.5 text-xs border border-stone-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#DF3B20]" />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Celular</label>
-                    <input type="text" value={telefono} onChange={e => setTelefono(e.target.value)} placeholder="+54 11..." className="w-full px-3 py-2.5 text-xs border border-stone-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#624A3E]" />
+                    <input type="text" value={telefono} onChange={e => setTelefono(e.target.value)} placeholder="+54 11..." className="w-full px-3 py-2.5 text-xs border border-stone-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#DF3B20]" />
                   </div>
                   <div>
                     <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Pax</label>
-                    <select value={pax} onChange={e => setPax(e.target.value)} className="w-full px-3 py-2.5 text-xs border border-stone-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#624A3E]">
+                    <select value={pax} onChange={e => setPax(e.target.value)} className="w-full px-3 py-2.5 text-xs border border-stone-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#DF3B20]">
                       {[1,2,3,4,5,6,7,8,9,10,12,14,16].map(n => <option key={n} value={n}>{n}</option>)}
                     </select>
                   </div>
                 </div>
                 <div>
                   <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Observaciones</label>
-                  <textarea value={observaciones} onChange={e => setObservaciones(e.target.value)} rows={2} placeholder="Alergias, ubicación preferida..." className="w-full px-3 py-2.5 text-xs border border-stone-200 rounded-xl resize-none focus:outline-none focus:ring-1 focus:ring-[#624A3E]" />
+                  <textarea value={observaciones} onChange={e => setObservaciones(e.target.value)} rows={2} placeholder="Alergias, ubicación preferida..." className="w-full px-3 py-2.5 text-xs border border-stone-200 rounded-xl resize-none focus:outline-none focus:ring-1 focus:ring-[#DF3B20]" />
                 </div>
                 <div className="flex gap-3 pt-2">
                   <button type="button" onClick={closeModal} className="flex-1 py-3 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl font-bold cursor-pointer">Cancelar</button>
-                  <button type="submit" disabled={saving} className="flex-1 py-3 bg-[#624A3E] hover:bg-[#503C32] text-white rounded-xl font-bold cursor-pointer disabled:opacity-60 flex items-center justify-center gap-2">
+                  <button type="submit" disabled={saving} className="flex-1 py-3 bg-[#DF3B20] hover:bg-[#C53030] text-white rounded-xl font-bold cursor-pointer disabled:opacity-60 flex items-center justify-center gap-2">
                     {saving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Plus className="w-4 h-4" />}
                     {reservasHoy.some(r => r.id_mesa === selectedMesa.id_mesa && r.estado === 'confirmada') ? 'Guardar' : 'Reservar'}
                   </button>
