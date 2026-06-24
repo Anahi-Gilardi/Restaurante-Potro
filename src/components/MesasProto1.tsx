@@ -717,40 +717,8 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
             onTouchEnd={handleSvgMouseUp}
             onMouseLeave={handleSvgMouseUp}
           >
-            <rect x="10" y="10" width="410" height="600" rx="4" fill="none" stroke="#4B5563" strokeWidth="3"/>
-            
-            {/* Sidebar con estilo de Pizzería Colores: Fondo rojo pizza, y círculos de colores */}
-            <rect x="10" y="10" width="80" height="600" rx="4" fill="#DF3B20"/>
-            <text x="50" y="320" textAnchor="middle" fontSize="13" fill="#FFFFFF" fontFamily="'Outfit', 'Inter', sans-serif" fontWeight="900" transform="rotate(-90, 50, 320)" letterSpacing="2">PIZZERÍA COLORES</text>
-            
-            {/* Círculos que representan "Colores" */}
-            <circle cx="50" cy="80" r="8" fill="#EF4444" stroke="#FFFFFF" strokeWidth="1.5"/>
-            <circle cx="50" cy="110" r="8" fill="#F59E0B" stroke="#FFFFFF" strokeWidth="1.5"/>
-            <circle cx="50" cy="140" r="8" fill="#10B981" stroke="#FFFFFF" strokeWidth="1.5"/>
-            <circle cx="50" cy="170" r="8" fill="#3B82F6" stroke="#FFFFFF" strokeWidth="1.5"/>
-            <circle cx="50" cy="200" r="8" fill="#8B5CF6" stroke="#FFFFFF" strokeWidth="1.5"/>
-
-            {/* Salón Principal: Fondo cálido suave */}
-            <rect x="90" y="10" width="330" height="255" fill="#FFF5EC"/>
-            <text x="230" y="32" textAnchor="middle" fontSize="11" fontWeight="700" fill="#9B2C2C" fontFamily="Arial, sans-serif" letterSpacing="3">SALÓN PRINCIPAL</text>
-            <line x1="90" y1="265" x2="420" y2="265" stroke="#4B5563" strokeWidth="2"/>
-
-            {/* Caja / Barra */}
-            <rect x="325" y="18" width="85" height="90" rx="6" fill="#FEEBC8" stroke="#DD6B20" strokeWidth="2"/>
-            <text x="367" y="60" textAnchor="middle" fontSize="9" fontWeight="700" fill="#7B341E" fontFamily="Arial, sans-serif" letterSpacing="1">CAJA / BARRA</text>
-            <rect x="331" y="72" width="73" height="8" rx="3" fill="#DD6B20" opacity="0.4"/>
-
-            {/* Terraza y Vereda: Fondo verde suave de exterior */}
-            <rect x="90" y="265" width="330" height="345" fill="#F0FDF4"/>
-            <text x="230" y="290" textAnchor="middle" fontSize="11" fontWeight="700" fill="#15803D" fontFamily="Arial, sans-serif" letterSpacing="3">TERRAZA & VEREDA</text>
-
-            <text x="50" y="530" textAnchor="middle" fontSize="9" fill="#FFFFFF" fontFamily="Arial, sans-serif" letterSpacing="1" transform="rotate(-90, 50, 530)" opacity="0.8">ACCESO</text>
-
-            {/* Acceso peatonal limpio sin ingreso de vehículos */}
-            <rect x="90" y="575" width="80" height="35" fill="#E2E8F0" stroke="#4B5563" strokeWidth="1.5"/>
-            <text x="130" y="596" textAnchor="middle" fontSize="8" fill="#1E293B" fontFamily="Arial, sans-serif" fontWeight="700">ACCESO</text>
-
-            <text x="418" y="140" textAnchor="middle" fontSize="9" fill="#4B5563" fontFamily="Arial, sans-serif" transform="rotate(90, 418, 140)" letterSpacing="2" opacity="0.6">VEREDA</text>
+            {/* Fondo blanco limpio y liso */}
+            <rect x="10" y="10" width="410" height="600" rx="8" fill="#FFFFFF" stroke="#E2E8F0" strokeWidth="2"/>
 
             {unionConnectionLines}
             {mesaElements}

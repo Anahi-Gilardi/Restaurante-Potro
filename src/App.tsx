@@ -50,6 +50,8 @@ const PanelDashboard = lazy(() => import('./components/PanelDashboard'));
 const UsuariosModule = lazy(() => import('./components/UsuariosModule'));
 const MenuModule = lazy(() => import('./components/MenuModule'));
 const RecetasModule = lazy(() => import('./components/RecetasModule'));
+const MesasModule = lazy(() => import('./components/MesasModule'));
+const MesasProto1 = lazy(() => import('./components/MesasProto1'));
 const ProveedoresModule = lazy(() => import('./components/ProveedoresModule'));
 const PromocionesModule = lazy(() => import('./components/PromocionesModule'));
 const ReservasModule = lazy(() => import('./components/ReservasModule'));
@@ -1129,6 +1131,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
             { id: 'reportes', label: 'Reportes', icon: '📈' },
             { id: 'menu', label: 'Menú', icon: '📖' },
             { id: 'recetas', label: 'Recetas', icon: '⚖️' },
+            { id: 'mesas', label: 'Mesas', icon: '🪑' },
             { id: 'inventario', label: 'Inventario', icon: '📦' },
             { id: 'proveedores', label: 'Proveedores', icon: '🚚' },
             { id: 'promociones', label: 'Promociones', icon: '🏷️' },
@@ -1265,7 +1268,9 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
                 <RecetasModule recetas={recetas} onRecetasChange={setRecetas} productosMenu={productosMenu} onProductosChange={setProductosMenu} insumos={insumos} addLog={addLog} />
               </RecetasErrorBoundary>
             )}
-
+            {activeView === 'mesas' && (
+              <MesasProto1 mesas={mesas} onMesasChange={setMesas} addLog={addLog} />
+            )}
             {activeView === 'proveedores' && <ProveedoresModule addLog={addLog} />}
             {activeView === 'promociones' && <PromocionesModule addLog={addLog} />}
             {activeView === 'reservas' && (

@@ -10,6 +10,7 @@ export type AppView =
   | 'usuarios'
   | 'menu'
   | 'recetas'
+  | 'mesas'
   | 'inventario'
   | 'proveedores'
   | 'promociones'
@@ -28,6 +29,7 @@ export const ALL_APP_VIEWS: AppView[] = [
   'usuarios',
   'menu',
   'recetas',
+  'mesas',
   'inventario',
   'proveedores',
   'promociones',
@@ -54,6 +56,7 @@ const ROLE_PERMISSIONS: Record<Usuario['rol'], AppView[]> = {
     'usuarios',
     'menu',
     'recetas',
+    'mesas',
     'inventario',
     'proveedores',
     'promociones',
