@@ -31,7 +31,6 @@ const NAV_ITEMS: { id: AppView; label: string; icon: string }[] = [
   { id: 'reportes', label: 'Reportes', icon: '📈' },
   { id: 'menu', label: 'Menú', icon: '📖' },
   { id: 'recetas', label: 'Recetas', icon: '⚖️' },
-  { id: 'mesas', label: 'Mesas', icon: '🪑' },
   { id: 'inventario', label: 'Inventario', icon: '📦' },
   { id: 'proveedores', label: 'Proveedores', icon: '🚚' },
   { id: 'promociones', label: 'Promociones', icon: '🏷️' },
