@@ -275,12 +275,12 @@ export default function SupabaseManager({
 
     try {
       const OLD_PRODUCT_IDS = [
-        'prod_ent_carpaccio', 'prod_ent_burrata', 'prod_ent_mollejas', 'prod_ent_provoleta', 'prod_ent_empanadas',
-        'prod_pas_rotolo', 'prod_pas_cintas_sepia', 'prod_pas_sorrentinos_cordero', 'prod_pas_ravioles_calabaza', 'prod_pas_gnocchis',
-        'prod_car_ojo_bife', 'prod_car_bife_madurado', 'prod_car_costillar', 'prod_car_entrana', 'prod_car_matambrito',
+        'prod_ent_burrata', 'prod_ent_mollejas', 'prod_ent_provoleta',
+        'prod_pas_sorrentinos_cordero', 'prod_pas_ravioles_calabaza', 'prod_pas_gnocchis',
+        'prod_car_bife_madurado', 'prod_car_costillar', 'prod_car_entrana', 'prod_car_matambrito',
         'prod_pes_abadejo', 'prod_pes_cazuela', 'prod_pes_merluza',
-        'prod_cri_milanesa', 'prod_cri_hamburguesa', 'prod_cri_pastel_papa', 'prod_cri_humita',
-        'prod_pos_flan', 'prod_pos_volcan', 'prod_pos_peras', 'prod_pos_tiramisu', 'prod_pos_panqueque'
+        'prod_cri_milanesa', 'prod_cri_hamburguesa', 'prod_cri_pastel_papa',
+        'prod_pos_volcan', 'prod_pos_peras', 'prod_pos_panqueque'
       ];
 
       addLog('sistema', 'SUPABASE: Eliminando platos obsoletos (legacy) de la nube...');

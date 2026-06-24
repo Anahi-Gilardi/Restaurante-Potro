@@ -200,6 +200,42 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     tiempo_preparacion_estimado: 8,
     requiere_cocina: true
   },
+  {
+    id_producto: 'prod_ent_provolone',
+    nombre: 'Provolone al hierro con orégano y oliva',
+    descripcion: 'Queso provolone fundido al hierro, perfumado con orégano silvestre y aceite de oliva extra virgen.',
+    precio_venta: 5500.00,
+    categoria: 'Entradas',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1579372786545-d24232daf58c?w=500&q=80',
+    tipo: 'plato',
+    tiempo_preparacion_estimado: 10,
+    requiere_cocina: true
+  },
+  {
+    id_producto: 'prod_ent_empanadas',
+    nombre: 'Dúo de empanadas criollas cortadas a cuchillo',
+    descripcion: 'Dos empanadas tradicionales rellenas de carne vacuna cortada a cuchillo, cocidas al horno de barro.',
+    precio_venta: 4800.00,
+    categoria: 'Entradas',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=500&q=80',
+    tipo: 'plato',
+    tiempo_preparacion_estimado: 10,
+    requiere_cocina: true
+  },
+  {
+    id_producto: 'prod_ent_carpaccio',
+    nombre: 'Carpaccio de lomo curado',
+    descripcion: 'Finas láminas de lomo vacuno curado, acompañadas de rúcula fresca, lascas de queso parmesano y vinagreta de limón.',
+    precio_venta: 8500.00,
+    categoria: 'Entradas',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=500&q=80',
+    tipo: 'plato',
+    tiempo_preparacion_estimado: 5,
+    requiere_cocina: true
+  },
 
   // ================= 2. PASTAS =================
   {
@@ -274,6 +310,30 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     tiempo_preparacion_estimado: 12,
     requiere_cocina: true
   },
+  {
+    id_producto: 'prod_pas_rotolo',
+    nombre: 'Rotolo di tata relleno de espinaca y ricota',
+    descripcion: 'Rollo de pasta al huevo relleno de espinaca fresca, ricota artesanal y nuez moscada, gratinado al horno.',
+    precio_venta: 12500.00,
+    categoria: 'Pastas',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1574894709920-11b28e7367e3?w=500&q=80',
+    tipo: 'plato',
+    tiempo_preparacion_estimado: 15,
+    requiere_cocina: true
+  },
+  {
+    id_producto: 'prod_pas_cintas_sepia',
+    nombre: 'Cinta ancha de pasta al huevo con tinta de sepia',
+    descripcion: 'Pasta fresca al huevo saborizada con tinta de sepia natural, ideal para combinar con salsas cremosas.',
+    precio_venta: 13200.00,
+    categoria: 'Pastas',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1551183053-bf91a1d81141?w=500&q=80',
+    tipo: 'plato',
+    tiempo_preparacion_estimado: 12,
+    requiere_cocina: true
+  },
 
   // ================= 3. CARNES =================
   {
@@ -310,6 +370,18 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     imagen: 'https://images.unsplash.com/photo-1594212699903-ec8a3cee50f6?w=500&q=80',
     tipo: 'plato',
     tiempo_preparacion_estimado: 18,
+    requiere_cocina: true
+  },
+  {
+    id_producto: 'prod_car_ojo_bife',
+    nombre: 'Ojo de bife con aligot de papas',
+    descripcion: 'Corte premium de ojo de bife grillado a las brasas, acompañado de aligot cremoso de papas con queso fundido.',
+    precio_venta: 24500.00,
+    categoria: 'Carnes',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=500&q=80',
+    tipo: 'plato',
+    tiempo_preparacion_estimado: 20,
     requiere_cocina: true
   },
 
@@ -376,6 +448,18 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     tiempo_preparacion_estimado: 10,
     requiere_cocina: true
   },
+  {
+    id_producto: 'prod_cri_humita',
+    nombre: 'Humita en chala norteña',
+    descripcion: 'Clásica humita elaborada con choclo fresco rallado, queso derretido, albahaca y envuelta en chala.',
+    precio_venta: 9500.00,
+    categoria: 'Comidas Criollas',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1547592180-85f173990554?w=500&q=80',
+    tipo: 'plato',
+    tiempo_preparacion_estimado: 10,
+    requiere_cocina: true
+  },
 
   // ================= 6. POSTRES =================
   {
@@ -412,6 +496,30 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     imagen: 'https://images.unsplash.com/photo-1524351199679-46cddf530c04?w=500&q=80',
     tipo: 'postre',
     tiempo_preparacion_estimado: 6,
+    requiere_cocina: true
+  },
+  {
+    id_producto: 'prod_pos_tiramisu',
+    nombre: 'Tiramisú clásico al mascarpone',
+    descripcion: 'Vainillas embebidas en café espresso y licor de café, con una suave crema de queso mascarpone y cacao.',
+    precio_venta: 5200.00,
+    categoria: 'Postres',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1606313564200-e75d5e30476c?w=500&q=80',
+    tipo: 'postre',
+    tiempo_preparacion_estimado: 5,
+    requiere_cocina: true
+  },
+  {
+    id_producto: 'prod_pos_flan',
+    nombre: 'Flan casero tradicional con dulce de leche y crema',
+    descripcion: 'Flan de huevos de campo con caramelo clásico, acompañado de dulce de leche y crema batida.',
+    precio_venta: 4500.00,
+    categoria: 'Postres',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1524351199679-46cddf530c04?w=500&q=80',
+    tipo: 'postre',
+    tiempo_preparacion_estimado: 5,
     requiere_cocina: true
   },
 
