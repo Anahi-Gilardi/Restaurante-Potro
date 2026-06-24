@@ -720,6 +720,9 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
             {/* Fondo blanco limpio y liso */}
             <rect x="10" y="10" width="410" height="600" rx="8" fill="#FFFFFF" stroke="#E2E8F0" strokeWidth="2"/>
 
+            {/* Línea divisoria para separar Comedor / Salón */}
+            <line x1="10" y1="240" x2="420" y2="240" stroke="#CBD5E1" strokeWidth="2" strokeDasharray="5,5" />
+
             {unionConnectionLines}
             {mesaElements}
 
