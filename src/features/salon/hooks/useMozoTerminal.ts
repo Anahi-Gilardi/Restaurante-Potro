@@ -239,9 +239,9 @@ export function useMozoTerminal({
         .replace(/[̀-ͯ]/g, '')
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/(^-|-$)+/g, '');
-      return dbNorm === norm || c.slug === norm;
+      return dbNorm === norm || c.slug.toLowerCase() === norm;
     });
-    if (cat) return cat.slug;
+    if (cat) return cat.slug.toLowerCase();
 
     if (norm.includes('bebida') || norm.includes('vino') || norm.includes('cerveza') || norm.includes('gaseosa')) {
       return 'bebidas';
@@ -259,7 +259,7 @@ export function useMozoTerminal({
   const filteredProducts = useMemo(() => {
     return productosMenu.filter(p => {
       const pSlug = getCategorySlug(p.categoria);
-      const matchCat = selectedCategoria === 'todo' || pSlug === selectedCategoria;
+      const matchCat = selectedCategoria === 'todo' || pSlug.toLowerCase() === selectedCategoria.toLowerCase();
       const matchSearch = p.nombre.toLowerCase().includes(searchQuery.toLowerCase());
       return p.activo && matchCat && matchSearch;
     });

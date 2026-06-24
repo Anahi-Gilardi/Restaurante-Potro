@@ -59,7 +59,9 @@ export function useCaja({
   const [editRestauranteMode, setEditRestauranteMode] = useState(false);
 
   // Active cashier session states
-  const [cajaSession, setCajaSession] = useState<CierreCaja | null>(null);
+  const [cajaSession, setCajaSession] = useState<CierreCaja | null>(() => {
+    return cajaService.getOpenSession();
+  });
   const [sessionInsumos, setSessionInsumos] = useState<CierreCaja[]>([]);
   const [lastFacturas, setLastFacturas] = useState<Factura[]>([]);
 
@@ -117,7 +119,10 @@ export function useCaja({
   const [puntosRedimidos, setPuntosRedimidos] = useState<number>(0);
 
   // Caja chica states
-  const [movimientosCajaChica, setMovimientosCajaChica] = useState<any[]>([]);
+  const [movimientosCajaChica, setMovimientosCajaChica] = useState<any[]>(() => {
+    const active = cajaService.getOpenSession();
+    return active?.movimientos_manuales || [];
+  });
   const [showMovimientoModal, setShowMovimientoModal] = useState(false);
   const [movimientoMonto, setMovimientoMonto] = useState('');
   const [movimientoTipo, setMovimientoTipo] = useState<'ingreso' | 'egreso'>('egreso');
@@ -130,16 +135,16 @@ export function useCaja({
     setCajaSession(active);
 
     try {
-      const history = await cajaService.list();
+      // Fetch history, invoices, and cash movements in parallel to minimize load times
+      const [history, facturas, movs] = await Promise.all([
+        cajaService.list(),
+        facturacionService.list(),
+        active ? cajaService.listMovimientosCajaChica(active.id_cierre) : Promise.resolve([])
+      ]);
+
       setSessionInsumos(history);
-      const facturas = await facturacionService.list();
       setLastFacturas(facturas.slice(0, 6));
-      if (active) {
-        const movs = await cajaService.listMovimientosCajaChica(active.id_cierre);
-        setMovimientosCajaChica(movs);
-      } else {
-        setMovimientosCajaChica([]);
-      }
+      setMovimientosCajaChica(movs);
     } catch (err) {
       console.error('Error loading history in loadCajaState:', err);
     }
@@ -149,15 +154,23 @@ export function useCaja({
       try {
         const remote = await cajaService.getOpenSessionRemote(active.id_cierre);
         if (remote) {
-          const updatedActive = {
-            ...active,
-            monto_ventas: remote.monto_ventas ?? active.monto_ventas,
-            monto_apertura: remote.monto_apertura ?? active.monto_apertura,
-            usuario_cajero: remote.usuario_cajero ?? active.usuario_cajero,
-            observaciones: remote.observaciones ?? active.observaciones
-          };
-          localStorage.setItem('el_patron_caja_activa', JSON.stringify(updatedActive));
-          setCajaSession(updatedActive);
+          if (remote.fecha_cierre) {
+            // The session has been closed remotely on another terminal
+            localStorage.removeItem('el_patron_caja_activa');
+            setCajaSession(null);
+            toast.info('La sesión de caja fue cerrada desde otro terminal.');
+          } else {
+            const updatedActive = {
+              ...active,
+              monto_ventas: remote.monto_ventas ?? active.monto_ventas,
+              monto_apertura: remote.monto_apertura ?? active.monto_apertura,
+              usuario_cajero: remote.usuario_cajero ?? active.usuario_cajero,
+              observaciones: remote.observaciones ?? active.observaciones,
+              movimientos_manuales: remote.movimientos_manuales ?? active.movimientos_manuales
+            };
+            localStorage.setItem('el_patron_caja_activa', JSON.stringify(updatedActive));
+            setCajaSession(updatedActive);
+          }
         }
       } catch (err) {
         console.warn('Offline active session loading fallback');

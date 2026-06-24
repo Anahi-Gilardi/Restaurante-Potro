@@ -100,7 +100,8 @@ export const cajaService = {
           monto_ventas: parseFloat(data.monto_ventas),
           monto_apertura: parseFloat(data.monto_apertura),
           observaciones: data.observaciones,
-          usuario_cajero: data.usuario_cajero
+          usuario_cajero: data.usuario_cajero,
+          fecha_cierre: data.fecha_cierre
         };
       }
     } catch (err) {
@@ -152,13 +153,14 @@ export const cajaService = {
         const { prediccionService } = await import('./prediccionService');
         const { auditoriaService } = await import('./auditoriaService');
         const alertas = await prediccionService.generarAlertasDemanda();
-        for (const al of alertas) {
-          await auditoriaService.create({
-            id: al.id,
-            tipo: 'alerta_stock',
-            mensaje: al.mensaje,
-            timestamp: new Date()
-          });
+        const logsToInsert = alertas.map(al => ({
+          id: al.id,
+          tipo: 'alerta_stock' as const,
+          mensaje: al.mensaje,
+          timestamp: new Date()
+        }));
+        if (logsToInsert.length > 0) {
+          await auditoriaService.upsert(logsToInsert);
         }
       } catch (err) {
         console.error('Background prediction service / logger failed on shift open:', err);
@@ -280,7 +282,15 @@ export const cajaService = {
     // Remove active and add to history
     localStorage.removeItem('el_patron_caja_activa');
 
-    const history = await this.list();
+    const raw = localStorage.getItem('el_patron_historial_cierres');
+    let history: CierreCaja[] = [];
+    if (raw) {
+      try {
+        history = JSON.parse(raw);
+      } catch {
+        // safe fallback
+      }
+    }
     const updatedHistory = [closed, ...history.filter(h => h.id_cierre !== closed.id_cierre)];
     localStorage.setItem('el_patron_historial_cierres', JSON.stringify(updatedHistory));
 

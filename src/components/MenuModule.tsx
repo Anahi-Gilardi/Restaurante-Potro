@@ -430,7 +430,7 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
 
   const filtered = useMemo(() => items.filter(item => {
     const matchesSearch = item.nombre.toLowerCase().includes(debouncedSearch.toLowerCase());
-    const matchesCat = selectedCategoria === 'todos' || getCategorySlug(item.categoria) === selectedCategoria;
+    const matchesCat = selectedCategoria === 'todos' || getCategorySlug(item.categoria).toLowerCase() === selectedCategoria.toLowerCase();
     return matchesSearch && matchesCat;
   }), [items, debouncedSearch, selectedCategoria, categories]);
 
@@ -654,9 +654,9 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
               {categories.map(cat => (
                 <button
                   key={cat.id}
-                  onClick={() => setSelectedCategoria(cat.slug)}
+                  onClick={() => setSelectedCategoria(cat.slug.toLowerCase())}
                   className={`px-2.5 py-1.5 text-[10px] font-black rounded-lg uppercase tracking-wide cursor-pointer transition-all border ${
-                    selectedCategoria === cat.slug
+                    selectedCategoria.toLowerCase() === cat.slug.toLowerCase()
                       ? 'bg-[#624A3E] text-white border-[#5d3a2e]'
                       : 'bg-stone-50 text-stone-600 border-stone-200 hover:bg-stone-100'
                   }`}

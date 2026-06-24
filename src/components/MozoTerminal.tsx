@@ -109,9 +109,9 @@ export default function MozoTerminal({
           .replace(/[̀-ͯ]/g, '')
           .replace(/[^a-z0-9]+/g, '-')
           .replace(/(^-|-$)+/g, '');
-        return dbNorm === norm || c.slug === norm;
+        return dbNorm === norm || c.slug.toLowerCase() === norm;
       });
-      if (cat) return cat.slug;
+      if (cat) return cat.slug.toLowerCase();
 
       if (norm.includes('bebida') || norm.includes('vino') || norm.includes('cerveza') || norm.includes('gaseosa')) {
         return 'bebidas';
@@ -436,11 +436,11 @@ export default function MozoTerminal({
           <div className="flex gap-1.5 w-full overflow-x-auto py-1.5 scrollbar-thin scroll-smooth border-t border-stone-100 pt-3 pb-2">
             {[
               { id: 'todo', label: 'Todos' },
-              ...categories.map(c => ({ id: c.slug, label: c.nombre === 'Comidas Criollas' ? 'Criollas' : c.nombre }))
+              ...categories.map(c => ({ id: c.slug.toLowerCase(), label: c.nombre === 'Comidas Criollas' ? 'Criollas' : c.nombre }))
             ].map(cat => {
               const count = cat.id === 'todo' 
                 ? productosMenu.filter(p => p.activo).length 
-                : productosMenu.filter(p => p.activo && getCategorySlug(p.categoria) === cat.id).length;
+                : productosMenu.filter(p => p.activo && getCategorySlug(p.categoria).toLowerCase() === cat.id.toLowerCase()).length;
               return (
                 <button
                   key={cat.id}

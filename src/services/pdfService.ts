@@ -88,12 +88,15 @@ const addLogo = (doc: jsPDF, logo: string | null, x: number, y: number, size: nu
   }
 };
 
-const sanitizeFile = (value: string) => value.replace(/[\\/:*?"<>|]+/g, '_').replace(/\s+/g, '_');
+const sanitizeFile = (value: string | undefined | null) => {
+  if (!value) return '';
+  return value.replace(/[\\/:*?"<>|]+/g, '_').replace(/\s+/g, '_');
+};
 
 export const pdfService = {
   async exportToPDF(data: TicketData): Promise<void> {
     const doc = await this.generateTicketPDF(data);
-    const filename = data.tipoComprobante.startsWith('factura')
+    const filename = data.tipoComprobante && data.tipoComprobante.startsWith('factura')
       ? `factura-el-patron-${sanitizeFile(data.nroComprobante)}.pdf`
       : `ticket-el-patron-${sanitizeFile(data.nroComprobante || String(data.idPedido))}.pdf`;
     doc.save(filename);
@@ -102,6 +105,9 @@ export const pdfService = {
   async generateTicketPDF(data: TicketData): Promise<jsPDF> {
     const logo = await loadLogoDataUrl();
     const qrImage = await loadQrDataUrl(data.qrData);
+    if (data.tipoComprobante && data.tipoComprobante.startsWith('factura')) {
+      return this.generateA4Invoice(data, logo, qrImage);
+    }
     return this.generateThermalTicket(data, logo, qrImage);
   },
 
@@ -189,7 +195,7 @@ export const pdfService = {
       doc.setFont('helvetica', 'bold');
       doc.text(String(item.cantidad), margin + 3, y);
       doc.setFont('helvetica', 'normal');
-      doc.text(item.descripcion.slice(0, 58), margin + 20, y);
+      doc.text((item.descripcion || '').slice(0, 58), margin + 20, y);
       doc.text(money(itemUnit(item)), margin + 142, y, { align: 'right' });
       doc.text(money(item.subtotal), margin + 178, y, { align: 'right' });
       y += rowHeight;
@@ -274,7 +280,7 @@ export const pdfService = {
   generateThermalTicket(data: TicketData, logo: string | null, qrImage: string | null = null): jsPDF {
     const wrappedRows = data.items.map(item => ({
       item,
-      lines: Math.max(1, Math.ceil(item.descripcion.length / 22))
+      lines: Math.max(1, Math.ceil((item.descripcion || '').length / 22))
     }));
 
     const nombreComercial = (data.nombreComercial || 'El Patrón Restaurante').toUpperCase();
@@ -286,34 +292,34 @@ export const pdfService = {
     const clienteNombre = (data.clienteNombre || 'Consumidor Final').toUpperCase();
     const clienteCuit = data.clienteCuit || '99-99999999-9';
 
-    let extraHeight = 0;
-    if (qrImage) extraHeight += 24;
-    if (data.cae) extraHeight += 12;
+    const itemsHeight = data.items.reduce((sum, item) => {
+      const desc = item.descripcion || '';
+      const lines = Math.max(1, Math.ceil(desc.length / 22));
+      return sum + Math.max(4, lines * 4) + 2.5;
+    }, 0);
+    const paymentsHeight = data.metodosPago.length * 4.5;
+    const extraHeight = (qrImage ? 21 : 0) + (data.cae ? 12 : 0);
+    
+    const calculatedHeight = 7 + (logo ? 25 : 2) + 21 + 24 + 7 + itemsHeight + 18 + 10 + paymentsHeight + extraHeight + 18;
+    const ticketHeight = Math.max(150, Math.ceil(calculatedHeight + 12));
 
-    const ticketHeight = Math.max(
-      205 + extraHeight,
-      118 + extraHeight + wrappedRows.reduce((sum, row) => sum + row.lines * 4.2 + 4, 0) + data.metodosPago.length * 5
-    );
     const doc = new jsPDF('p', 'mm', [80, ticketHeight]);
     let y = 7;
 
     const center = (text: string, size = 8, bold = false) => {
-      doc.setFont('helvetica', bold ? 'bold' : 'normal');
+      doc.setFont('courier', bold ? 'bold' : 'normal');
       doc.setFontSize(size);
       doc.text(text, 40, y, { align: 'center' });
       y += size * 0.45 + 1.3;
     };
 
-    const line = (offset = 0, dotted = false) => {
-      doc.setDrawColor(...BRAND.line);
-      if (dotted) {
-        doc.setLineDashPattern([0.8, 0.8], 0);
-      }
-      doc.line(5, y + offset, 75, y + offset);
-      if (dotted) {
-        doc.setLineDashPattern([], 0); // Reset
-      }
-      y += 3.5;
+    const line = (dotted = true) => {
+      doc.setFont('courier', 'normal');
+      doc.setFontSize(8.5);
+      doc.setTextColor(...BRAND.muted);
+      const chars = dotted ? '-'.repeat(36) : '='.repeat(36);
+      doc.text(chars, 40, y, { align: 'center' });
+      y += 4;
     };
 
     addLogo(doc, logo, 29, y, 22);
@@ -327,56 +333,58 @@ export const pdfService = {
     center(direccion.slice(0, 42), 6.2);
     center(`Telf: ${telefono}`, 6.2);
     y += 1.5;
-    line(0, true);
+    line(true);
 
     doc.setTextColor(...BRAND.dark);
     const comprobanteStr = data.tipoComprobante === 'factura_b' 
       ? 'FACTURA B-CONS. FINAL' 
       : (data.tipoComprobante === 'factura_a' ? 'FACTURA A-RESP. INS.' : 'TICKET INTERNO');
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7);
+    
+    doc.setFont('courier', 'normal');
+    doc.setFontSize(7.5);
     doc.text(`COMPROB.: ${comprobanteStr}`, 5, y);
     y += 4;
-    doc.text(`CLIENTE: ${clienteNombre}`, 5, y);
+    doc.text(`CLIENTE : ${clienteNombre}`, 5, y);
     y += 4;
     doc.text(`CUIT/DNI: ${clienteCuit}`, 5, y);
     y += 4;
-    doc.text(`FECHA: ${data.fechaHora}`, 5, y);
+    doc.text(`FECHA   : ${data.fechaHora}`, 5, y);
     y += 4;
-    doc.text(`MESA: ${data.mesa.toUpperCase()}`, 5, y);
+    doc.text(`MESA    : ${data.mesa.toUpperCase()}`, 5, y);
     doc.text(`MOZO: ${data.mozo}`, 75, y, { align: 'right' });
     y += 4;
-    doc.text(`CAJERO: ${data.cajero.toUpperCase()}`, 5, y);
+    doc.text(`CAJERO  : ${data.cajero.toUpperCase()}`, 5, y);
     y += 5;
-    line(0, true);
+    line(true);
 
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(6.8);
-    doc.text('DESCRIPCIÓN / CANT.', 5, y);
+    doc.setFont('courier', 'bold');
+    doc.setFontSize(7.5);
+    doc.text('CANT. / DESCRIPCIÓN', 5, y);
     doc.text('TOTAL ($)', 75, y, { align: 'right' });
     y += 3.5;
-    line(-1, true);
+    line(true);
 
-    doc.setFont('helvetica', 'normal');
+    doc.setFont('courier', 'normal');
     data.items.forEach(({ descripcion, cantidad, subtotal }) => {
-      const lines = doc.splitTextToSize(descripcion, 42) as string[];
-      doc.setFont('helvetica', 'bold');
+      const descText = descripcion || '';
+      const lines = doc.splitTextToSize(descText, 32) as string[];
+      doc.setFont('courier', 'bold');
       doc.text(`${cantidad}x`, 5, y);
-      doc.setFont('helvetica', 'normal');
+      doc.setFont('courier', 'normal');
       lines.forEach((text, index) => {
-        doc.text(text, 16, y + index * 4);
+        doc.text(text, 14, y + index * 4);
       });
-      doc.setFont('helvetica', 'bold');
+      doc.setFont('courier', 'bold');
       doc.text(money(subtotal), 75, y, { align: 'right' });
       y += Math.max(4, lines.length * 4) + 2.5;
     });
 
     y += 1;
-    line(0, true);
+    line(true);
 
     const sum = (label: string, value: string, bold = false) => {
-      doc.setFont('helvetica', bold ? 'bold' : 'normal');
-      doc.setFontSize(bold ? 8.5 : 7);
+      doc.setFont('courier', bold ? 'bold' : 'normal');
+      doc.setFontSize(bold ? 8.5 : 7.5);
       doc.text(label, 5, y);
       doc.text(value, 75, y, { align: 'right' });
       y += bold ? 5.5 : 4.5;
@@ -389,22 +397,22 @@ export const pdfService = {
     sum('IVA 21% incluido:', money(data.iva));
 
     doc.setFillColor(...BRAND.cream);
-    doc.rect(5, y - 2, 70, 10, 'F');
-    y += 5;
+    doc.rect(5, y - 2, 70, 9, 'F');
+    y += 4.5;
     doc.setTextColor(...BRAND.brown);
     sum('TOTAL CUENTA:', money(data.total), true);
     doc.setTextColor(...BRAND.dark);
-    y += 2;
-    line(0, true);
+    y += 1.5;
+    line(true);
 
-    center('Medios de pago', 7, true);
+    center('Medios de pago', 7.5, true);
     data.metodosPago.forEach(mp => {
       sum(mp.metodo.toUpperCase(), money(mp.monto));
     });
     if (data.vuelto > 0) sum('Vuelto efectivo:', money(data.vuelto));
 
     y += 2;
-    line(0, true);
+    line(true);
 
     if (qrImage) {
       try {
@@ -415,10 +423,10 @@ export const pdfService = {
       }
     }
     if (data.cae) {
-      center(`CAE: ${data.cae}`, 6.5, true);
+      center(`CAE: ${data.cae}`, 6.8, true);
       center(`Vto CAE: ${data.vto || ''}`, 6.2);
       y += 2;
-      line(0, true);
+      line(true);
     }
 
     center(data.mensajePie || 'Gracias por su visita.', 6.8);
