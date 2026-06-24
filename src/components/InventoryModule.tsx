@@ -1,27 +1,26 @@
-import React from 'react';
-import { PaginatedList } from './VirtualizedList';
-import { useToast, ToastContainer } from './ToastContainer';
+import React, { useState, useMemo } from 'react';
 import { 
   Database, 
   Trash2, 
   Plus, 
   RefreshCw, 
+  FolderMinus, 
   Sliders, 
   Search, 
   AlertTriangle,
   Beaker,
+  TrendingDown,
   Info,
   Layers,
+  ArrowRight,
   Truck,
   ArrowUpDown,
   Download,
+  ShieldAlert,
   Sparkles,
   DollarSign
 } from 'lucide-react';
-import { Insumo, ProductoMenu, RecetaEscandallo, Merma, Proveedor } from '../types';
-import { useInventory, getInsumoDeposito } from '../features/inventario/hooks/useInventory';
-import { proveedoresService } from '../services/proveedoresService';
-import { jsPDF } from 'jspdf';
+import { Insumo, ProductoMenu, RecetaEscandallo, Merma } from '../types';
 
 interface InventoryModuleProps {
   insumos: Insumo[];
@@ -44,211 +43,241 @@ export default function InventoryModule({
   onRestockTodo,
   addLog
 }: InventoryModuleProps) {
-  const { toasts, toast, dismissToast } = useToast();
-  const [proveedores, setProveedores] = React.useState<Proveedor[]>([]);
-  const [visibleInsumosCount, setVisibleInsumosCount] = React.useState(20);
+  
+  // Local toggles
+  const [activeSubTab, setActiveSubTab] = useState<'deposito' | 'escandallo' | 'compras' | 'movimientos'>('deposito');
+  const [filterCategory, setFilterCategory] = useState<'todo' | 'bodega' | 'frescos' | 'secos'>('todo');
+  const [inventorySearch, setInventorySearch] = useState('');
 
-  React.useEffect(() => {
-    proveedoresService.list().then(data => {
-      if (data && data.length > 0) {
-        setProveedores(data);
-      } else {
-        setProveedores([
-          { id_proveedor: 'prov_1', nombre: 'Frigorífico Central Sur S.A.', contacto: 'Federico Balestra', telefono: '+54 11 4488-2993', categoria: 'carnes', correo: 'pedidos@frigorificosursas.com', tiempo_entrega_dias: 1 },
-          { id_proveedor: 'prov_2', nombre: 'Distribuidora Agrícola Verde Fresco', contacto: 'Laura Benítez', telefono: '+54 9 11 3998-2831', categoria: 'verduras', correo: 'ventas@verdefrescodist.com', tiempo_entrega_dias: 1 },
-          { id_proveedor: 'prov_3', nombre: 'Bebidas Unidas S.R.L. Bodegas', contacto: 'Esteban Rutini', telefono: '+54 11 5003-8822', categoria: 'bebidas', correo: 'erutini@bebidasunidas.com', tiempo_entrega_dias: 2 },
-          { id_proveedor: 'prov_4', nombre: 'Almacén Mayorista El Trébol', contacto: 'Jorge Alvarenga', telefono: '+54 11 4055-1212', categoria: 'viveres', correo: 'j.alvarenga@trebolsecos.com.ar', tiempo_entrega_dias: 3 },
-          { id_proveedor: 'prov_5', nombre: 'Envases & Descartables Oeste', contacto: 'Damián Sabor', telefono: '+54 9 11 6554-1010', categoria: 'descartables', correo: 'dsabor@envasesoeste.com', tiempo_entrega_dias: 2 },
-        ]);
-      }
-    }).catch(() => {});
-  }, []);
+  // Selected dish for escandallo simulator
+  const [selectedEscandalloDishId, setSelectedEscandalloDishId] = useState<string>('prod_pes_salmon');
+  const [simulatePortions, setSimulatePortions] = useState<number>(1);
 
-  const inventory = useInventory({
-    insumos,
-    productosMenu,
-    recetas,
-    mermas,
-    onRegistrarMerma,
-    onRestockInsumo,
-    addLog
-  });
+  // Waste (Merma) form states
+  const [mermaInsumoId, setMermaInsumoId] = useState<string>('');
+  const [mermaCantidad, setMermaCantidad] = useState<number>(0);
+  const [mermaMotivo, setMermaMotivo] = useState<Merma['motivo']>('vencimiento');
 
-  const {
-    activeSubTab,
-    setActiveSubTab,
-    filterCategory,
-    setFilterCategory,
-    filterDeposito,
-    setFilterDeposito,
-    inventorySearch,
-    setInventorySearch,
-    selectedEscandalloDishId,
-    setSelectedEscandalloDishId,
-    simulatePortions,
-    setSimulatePortions,
-    mermaInsumoId,
-    setMermaInsumoId,
-    mermaCantidad,
-    setMermaCantidad,
-    mermaMotivo,
-    setMermaMotivo,
-    ajusteInsumoId,
-    setAjusteInsumoId,
-    ajusteCantidad,
-    setAjusteCantidad,
-    ajusteOperacion,
-    setAjusteOperacion,
-    ajusteMotivo,
-    setAjusteMotivo,
-    selectedProveedor,
-    setSelectedProveedor,
-    compraInsumoId,
-    setCompraInsumoId,
-    compraCantidad,
-    setCompraCantidad,
-    compraCostoUnitarioInput,
-    setCompraCostoUnitarioInput,
-    purchaseCart,
-    setPurchaseCart,
-    comprasHistorial,
-    setComprasHistorial,
-    costHistory,
-    isLoadingHistory,
-    movimientosLocales,
-    setMovimientosLocales,
-    filteredInsumos,
-    selectedProduct,
-    selectedProductIngredients,
-    maxYieldPortions,
-    submitMermaForm,
-    submitAjusteForm,
-    handleAddToPurchaseCart,
-    handleRemoveFromPurchaseCart,
-    handleSuggestMissingStock,
-    handleConfirmPurchaseOrder,
-    handleDescargarMovimientosCSV
-  } = inventory;
+  // Manual Adjustments Form States
+  const [ajusteInsumoId, setAjusteInsumoId] = useState<string>('');
+  const [ajusteCantidad, setAjusteCantidad] = useState<number>(0);
+  const [ajusteOperacion, setAjusteOperacion] = useState<'sumar' | 'restar'>('sumar');
+  const [ajusteMotivo, setAjusteMotivo] = useState<string>('Ajuste de Arqueo Físico');
 
-  const totalValuation = React.useMemo(() => {
-    return insumos.reduce((sum, ins) => sum + (ins.stock_actual * (ins.costo_unitario ?? 0)), 0);
-  }, [insumos]);
+  // Supplier Purchase orders state simulator
+  const [selectedProveedor, setSelectedProveedor] = useState<string>('Distribuidora Alvear S.A. (Bebidas)');
+  const [compraInsumoId, setCompraInsumoId] = useState<string>('ins_vin_malbec');
+  const [compraCantidad, setCompraCantidad] = useState<number>(10);
+  const [comprasHistorial, setComprasHistorial] = useState([
+    { id: 'OC-2512', proveedor: 'Frigorífico Pampeano Premium', insumo: 'Corte de Carne Vacuna (Bife)', cantidad: '15000g', costo: 180000, fecha: '04/06/2026', estado: 'Entregado ✓' },
+    { id: 'OC-2513', proveedor: 'Distribuidora Alvear S.A. (Bebidas)', insumo: 'Vino Rutini Cabernet 750ml', cantidad: '12 uds', costo: 156000, fecha: '05/06/2026', estado: 'Entregado ✓' },
+  ]);
 
-  const categoryValuation = React.useMemo(() => {
-    const valMap: Record<string, number> = {};
-    insumos.forEach(ins => {
-      const cat = ins.categoria || 'otros';
-      const itemVal = ins.stock_actual * (ins.costo_unitario ?? 0);
-      valMap[cat] = (valMap[cat] || 0) + itemVal;
+  const proveedores = [
+    { nombre: 'Distribuidora Alvear S.A. (Bebidas)', contacto: 'ventas@alvear-bodegas.top', telefono: '+54 11 4821 9302' },
+    { nombre: 'Frigorífico Pampeano Premium', contacto: 'pedidos@pampeanocarnes.com', telefono: '+54 11 5012 4432' },
+    { nombre: 'Granja Sol Sanitaria (Pollo/Frescos)', contacto: 'solgranja@frescos.org', telefono: '+54 11 3942 9110' },
+    { nombre: 'Mercado de Abasto CABA (Vegetales)', contacto: 'abasto@central-vegetal.com', telefono: '+54 11 4110 5510' }
+  ];
+
+  // List of simulated log of movements
+  const [movimientosLocales, setMovimientosLocales] = useState([
+    { id: 'MOV-010', insumo: 'Vino Malbec Reservado 750ml', cantidad: '3 uds', operacion: 'Descuento', motivo: 'Consumo Bebidas Comanda', fecha: '2026-06-05 13:42hs' },
+    { id: 'MOV-011', insumo: 'Corte de Carne Vacuna (Bife)', cantidad: '1050g', operacion: 'Descuento', motivo: 'Producción Cocina Escandallo', fecha: '2026-06-05 14:15hs' },
+    { id: 'MOV-012', insumo: 'Papa Negra Bastón', cantidad: '15000g', operacion: 'Abastecimiento', motivo: 'Órden de Compra OC-2512', fecha: '2026-06-05 15:00hs' },
+    { id: 'MOV-013', insumo: 'Lechuga Romana Orgánica', cantidad: '500g', operacion: 'Descarte/Merma', motivo: 'Desperdicio Manual Vencido', fecha: '2026-06-05 16:30hs' }
+  ]);
+
+  // Filtered insumos
+  const filteredInsumos = useMemo(() => {
+    return insumos.filter(ins => {
+      const matchCat = filterCategory === 'todo' || ins.categoria === filterCategory;
+      const matchSearch = ins.nombre.toLowerCase().includes(inventorySearch.toLowerCase());
+      return matchCat && matchSearch;
     });
-    return Object.entries(valMap).map(([category, value]) => ({ category, value }));
-  }, [insumos]);
+  }, [insumos, filterCategory, inventorySearch]);
 
-  const handleExportPurchaseOrderPDF = async () => {
-    if (purchaseCart.length === 0) {
-      toast.warning("El carrito de compras está vacío");
+  // Handle merma register
+  const submitMermaForm = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mermaInsumoId || mermaCantidad <= 0) {
+      alert("Por favor complete todos los datos requeridos.");
       return;
     }
-    try {
-      const doc = new jsPDF({
-        orientation: 'p',
-        unit: 'mm',
-        format: 'a4'
-      });
 
-      // Banner superior
-      doc.setFillColor(98, 74, 62); // Brown #624A3E
-      doc.rect(0, 0, 210, 35, 'F');
+    const insSelected = insumos.find(i => i.id_insumo === mermaInsumoId);
+    if (!insSelected) return;
 
-      doc.setTextColor(255, 255, 255);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(22);
-      doc.text("EL PATRON", 15, 22);
-
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-      doc.text("GESTOR GASTRONOMICO & BODEGA", 15, 28);
-
-      doc.setFontSize(14);
-      doc.setFont("helvetica", "bold");
-      doc.text("ORDEN DE COMPRA Y RESTOCK", 120, 22);
-
-      const ocId = `OC-${Math.floor(Math.random() * 300) + 2400}`;
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-      doc.text(`Ref: ${ocId}`, 120, 28);
-
-      // Info del Proveedor y Fecha
-      doc.setTextColor(35, 31, 28);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(11);
-      doc.text("PROVEEDOR SELECCIONADO:", 15, 50);
-
-      doc.setFont("helvetica", "normal");
-      doc.text(selectedProveedor || 'Proveedor General S.A.', 15, 56);
-      doc.text(`Fecha de Emisión: ${new Date().toLocaleDateString('es-AR')}`, 15, 62);
-
-      // Tabla de items
-      let startY = 75;
-      doc.setFillColor(245, 241, 233);
-      doc.rect(15, startY, 180, 8, 'F');
-      
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(9);
-      doc.text("Insumo / Descripción", 18, startY + 5.5);
-      doc.text("Cantidad", 90, startY + 5.5);
-      doc.text("Costo Unitario", 130, startY + 5.5);
-      doc.text("Subtotal", 170, startY + 5.5);
-
-      doc.setFont("helvetica", "normal");
-      let currentY = startY + 8;
-      let total = 0;
-
-      purchaseCart.forEach((item) => {
-        const ins = insumos.find(i => i.id_insumo === item.id_insumo);
-        const name = ins ? ins.nombre : item.id_insumo;
-        const qty = `${item.cantidad} ${ins?.unidad_medida ?? ''}`;
-        const unitCost = `$${item.costo_unitario.toLocaleString('es-AR')}`;
-        const subtotal = item.cantidad * item.costo_unitario;
-        total += subtotal;
-
-        // Linea divisoria
-        doc.line(15, currentY, 195, currentY);
-
-        doc.text(name, 18, currentY + 6);
-        doc.text(qty, 90, currentY + 6);
-        doc.text(unitCost, 130, currentY + 6);
-        doc.text(`$${subtotal.toLocaleString('es-AR')}`, 170, currentY + 6);
-
-        currentY += 8;
-      });
-
-      doc.line(15, currentY, 195, currentY);
-
-      // Total
-      currentY += 8;
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(11);
-      doc.text("TOTAL ESTIMADO:", 120, currentY);
-      doc.setFontSize(12);
-      doc.setTextColor(22, 101, 52); // Emerald 800
-      doc.text(`$${total.toLocaleString('es-AR')}`, 170, currentY);
-
-      // Footer
-      doc.setFontSize(8);
-      doc.setTextColor(120, 113, 108);
-      doc.text("Este documento sirve como remito de solicitud de cotización interna de El Patrón.", 15, 280);
-
-      doc.save(`Orden_Compra_El_Patron_${ocId}.pdf`);
-      toast.success("Orden de Compra exportada a PDF correctamente.");
-    } catch (e) {
-      console.error(e);
-      toast.error("Error al exportar la Orden de Compra a PDF.");
+    if (insSelected.stock_actual < mermaCantidad) {
+      alert(`No puede registrar merma mayor al stock disponible (${insSelected.stock_actual}${insSelected.unidad_medida})`);
+      return;
     }
+
+    onRegistrarMerma(mermaInsumoId, mermaCantidad, mermaMotivo);
+    addLog('merma_registrada', `Merma manual registrada: ${mermaCantidad}${insSelected.unidad_medida} de ${insSelected.nombre} por motivo de ${mermaMotivo}`);
+    
+    // Append to local movements timeline
+    const movId = `MOV-${Math.floor(Math.random() * 900) + 100}`;
+    setMovimientosLocales(prev => [
+      { id: movId, insumo: insSelected.nombre, cantidad: `${mermaCantidad} ${insSelected.unidad_medida}`, operacion: 'Descarte/Merma', motivo: `Manual: ${mermaMotivo}`, fecha: new Date().toLocaleDateString('es-AR') + ' ' + new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + 'hs' },
+      ...prev
+    ]);
+
+    // Reset form
+    setMermaCantidad(0);
+    setMermaInsumoId('');
+    alert("Merma asentada exitosamente.");
+  };
+
+  // Process manual adjustments (plus/minus)
+  const submitAjusteForm = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!ajusteInsumoId || ajusteCantidad <= 0) {
+      alert("Por favor complete los datos de ajuste.");
+      return;
+    }
+
+    const insSelected = insumos.find(i => i.id_insumo === ajusteInsumoId);
+    if (!insSelected) return;
+
+    if (ajusteOperacion === 'restar' && insSelected.stock_actual < ajusteCantidad) {
+      alert("No puede sustraer más que las existencias actuales.");
+      return;
+    }
+
+    // Adjust immediately via parent helper or local mermas
+    if (ajusteOperacion === 'sumar') {
+      onRestockInsumo(ajusteInsumoId, ajusteCantidad);
+    } else {
+      onRegistrarMerma(ajusteInsumoId, ajusteCantidad, 'otro');
+    }
+
+    addLog('sistema', `Inventario: Ajuste manual de stock de '${insSelected.nombre}'. Cantidad: ${ajusteOperacion === 'sumar' ? '+' : '-'}${ajusteCantidad}${insSelected.unidad_medida}. Motivo: ${ajusteMotivo}`);
+    
+    // Append to local movements timeline
+    const movId = `MOV-${Math.floor(Math.random() * 900) + 100}`;
+    setMovimientosLocales(prev => [
+      { id: movId, insumo: insSelected.nombre, cantidad: `${ajusteCantidad} ${insSelected.unidad_medida}`, operacion: ajusteOperacion === 'sumar' ? 'Abastecimiento' : 'Descarte/Merma', motivo: `Ajuste manual: ${ajusteMotivo}`, fecha: new Date().toLocaleDateString('es-AR') + ' ' + new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + 'hs' },
+      ...prev
+    ]);
+
+    setAjusteCantidad(0);
+    setAjusteInsumoId('');
+    alert("Ajuste manual procesado correctamente.");
+  };
+
+  // Submit Simulated Purchase Order to supplier
+  const handleIngresarCompraProveedor = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!compraInsumoId || compraCantidad <= 0) {
+      alert("Configure el insumo y cantidad de la compra.");
+      return;
+    }
+
+    const insSelected = insumos.find(i => i.id_insumo === compraInsumoId);
+    if (!insSelected) return;
+
+    // Standardize mock units price
+    const calculatedCost = compraCantidad * (insSelected.unidad_medida === 'g' ? 12 : (insSelected.unidad_medida === 'ml' ? 9 : 8500));
+
+    // Increase stock immediately
+    onRestockInsumo(compraInsumoId, compraCantidad);
+    addLog('sistema', `COMPRAS: Compra recibida de Proveedor [${selectedProveedor}]. +${compraCantidad}${insSelected.unidad_medida} de "${insSelected.nombre}" inyectados.`);
+
+    // Add to simulated purchase list
+    const ocId = `OC-${Math.floor(Math.random() * 300) + 2400}`;
+    const newOC = {
+      id: ocId,
+      proveedor: selectedProveedor,
+      insumo: insSelected.nombre,
+      cantidad: `${compraCantidad} ${insSelected.unidad_medida}`,
+      costo: calculatedCost,
+      fecha: new Date().toLocaleDateString('es-AR'),
+      estado: 'Entregado ✓'
+    };
+
+    setComprasHistorial(prev => [newOC, ...prev]);
+
+    // Add to stock movements
+    const movId = `MOV-${Math.floor(Math.random() * 900) + 100}`;
+    setMovimientosLocales(prev => [
+      { id: movId, insumo: insSelected.nombre, cantidad: `${compraCantidad} ${insSelected.unidad_medida}`, operacion: 'Abastecimiento', motivo: `Distribuidor: ${ocId}`, fecha: new Date().toLocaleDateString('es-AR') + ' ' + new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + 'hs' },
+      ...prev
+    ]);
+
+    // Reset Form
+    setCompraCantidad(10);
+    alert(`ÓRDEN DE COMPRA ENVIADA Y RECIBIDA\n\nProveedor: ${selectedProveedor}\nSe acreditó el stock físico. Costo estimado devengado: $${calculatedCost.toLocaleString('es-AR')}`);
+  };
+
+  // Recipe specs for the selected dish
+  const selectedProduct = useMemo(() => {
+    return productosMenu.find(p => p.id_producto === selectedEscandalloDishId) || 
+           productosMenu.find(p => recetas.some(r => r.id_producto === p.id_producto)) || 
+           productosMenu[0] || null;
+  }, [selectedEscandalloDishId, productosMenu, recetas]);
+
+  const selectedProductIngredients = useMemo(() => {
+    const activeId = selectedProduct?.id_producto || selectedEscandalloDishId;
+    return recetas.filter(r => r.id_producto === activeId).map(recipe => {
+      const ins = insumos.find(i => i.id_insumo === recipe.id_insumo);
+      return {
+        ...recipe,
+        nombre_insumo: ins ? ins.nombre : 'Insumo desconocido',
+        unidad_medida: ins ? ins.unidad_medida : 'u',
+        stock_actual: ins ? ins.stock_actual : 0,
+        stock_minimo: ins ? ins.stock_minimo : 0,
+      };
+    });
+  }, [selectedProduct, selectedEscandalloDishId, recetas, insumos]);
+
+  // Calculate maximum portion yield based on current inventory
+  const maxYieldPortions = useMemo(() => {
+    if (selectedProductIngredients.length === 0) return 0;
+    let limit = 999;
+    selectedProductIngredients.forEach(ing => {
+      if (ing.cantidad_a_descontar > 0) {
+        const yieldForIng = Math.floor(ing.stock_actual / ing.cantidad_a_descontar);
+        if (yieldForIng < limit) {
+          limit = yieldForIng;
+        }
+      }
+    });
+    return limit === 999 ? 0 : limit;
+  }, [selectedProductIngredients]);
+
+  // Generate downloadable stock log CSV
+  const handleDescargarMovimientosCSV = () => {
+    const csvRows = [
+      ['HISTORIAL DE MOVIMIENTOS DE STOCK (AUDITORIA FISCAL)'],
+      ['ID Transacción', 'Insumo / Deposito', 'Cantidad', 'Operación', 'Motivo del Movimiento', 'Timestamp Registrado'],
+    ];
+
+    movimientosLocales.forEach(m => {
+      csvRows.push([
+        m.id,
+        m.insumo,
+        m.cantidad,
+        m.operacion,
+        m.motivo,
+        m.fecha
+      ]);
+    });
+
+    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + csvRows.map(e => e.join(";")).join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `Movimientos_Stock_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    addLog('sistema', 'DIAGNOSTICO: Exportado reporte fiscal del historial de stock en CSV.');
+    alert("Reporte CSV de auditoría descargado exitosamente.");
   };
 
   return (
-    <>
     <div className="grid grid-cols-1 xl:grid-cols-12 gap-6" id="inventory-module-container">
       
       {/* LEFT AREA: Sub-navigation & Inventory Stats (Column Span 3) */}
@@ -313,18 +342,6 @@ export default function InventoryModule({
             <ArrowUpDown className="w-4 h-4 text-amber-500" />
             Historial de Movimientos
           </button>
-
-          <button
-            onClick={() => setActiveSubTab('precios')}
-            className={`w-full py-2.5 px-3 rounded-xl text-xs font-black font-sans text-left flex items-center gap-2 transition-all cursor-pointer ${
-              activeSubTab === 'precios'
-                ? 'bg-[#624A3E] text-white shadow-md shadow-[#624A3E]/20 border border-[#5d3a2e]'
-                : 'text-slate-600 hover:bg-slate-50'
-            }`}
-          >
-            <DollarSign className="w-4 h-4 text-[#EF4444]" />
-            Historial de Precios
-          </button>
         </div>
 
         {/* Global actions */}
@@ -345,30 +362,6 @@ export default function InventoryModule({
             Utilice las fichas secundarias para asentar ingresos por lotes de proveedores ó auditar egresos en el historial exportable.
           </div>
         </div>
-
-        {/* Valorización de Inventario (Kardex) */}
-        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm space-y-3">
-          <h5 className="text-xs font-black text-[#624A3E] uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-100 pb-2">
-            📊 Valorización de Inventario
-          </h5>
-          <div className="space-y-1">
-            <span className="text-[10px] font-bold text-slate-400 uppercase">Capital Total en Stock</span>
-            <p className="text-xl font-mono font-black text-slate-900">
-              ${totalValuation.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-            </p>
-          </div>
-          <div className="space-y-2 pt-1">
-            <span className="text-[10px] font-bold text-slate-400 uppercase block">Desglose de Capital</span>
-            <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
-              {categoryValuation.map((cat, idx) => (
-                <div key={idx} className="flex justify-between items-center text-[10px] font-sans">
-                  <span className="capitalize text-slate-500 font-medium">{cat.category}</span>
-                  <span className="font-mono font-bold text-slate-800">${cat.value.toLocaleString('es-AR', { maximumFractionDigits: 0 })}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* CORE WORKSPACE (Column Span 9) */}
@@ -381,71 +374,6 @@ export default function InventoryModule({
             {/* INVENTORY LIST TABLE (Lg Span 8) */}
             <div className="lg:col-span-8 bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-4">
               
-              {/* PANEL DE ALERTAS DE STOCK CRÍTICO Y COMPRAS */}
-              {insumos.filter(i => i.stock_actual <= i.stock_minimo).length > 0 && (
-                <div className="bg-amber-50/70 border border-amber-200/80 rounded-xl p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <AlertTriangle className="w-5 h-5 text-amber-600 animate-pulse" />
-                      <h4 className="text-xs font-black text-amber-900 uppercase tracking-tight">
-                        Alerta de Insumos Críticos ({insumos.filter(i => i.stock_actual <= i.stock_minimo).length})
-                      </h4>
-                    </div>
-                    <button
-                      onClick={() => {
-                        const criticos = insumos.filter(i => i.stock_actual <= i.stock_minimo);
-                        criticos.forEach(c => {
-                          const suggestedQty = c.stock_minimo * 3 - c.stock_actual;
-                          onRestockInsumo(c.id_insumo, suggestedQty);
-                          addLog('sistema', `COMPRAS AUTO: Reabastecimiento inteligente de ${suggestedQty}${c.unidad_medida} para "${c.nombre}".`);
-                          
-                          const ocId = `OC-AUTO-${Math.floor(Math.random() * 900) + 1000}`;
-                          const calculatedCost = suggestedQty * (c.unidad_medida === 'g' ? 12 : (c.unidad_medida === 'ml' ? 9 : 8500));
-                          
-                          setComprasHistorial(prev => [{
-                            id: ocId,
-                            proveedor: c.proveedor || 'Proveedor General S.A.',
-                            insumo: c.nombre,
-                            cantidad: `${suggestedQty} ${c.unidad_medida}`,
-                            costo: calculatedCost,
-                            fecha: new Date().toLocaleDateString('es-AR'),
-                            estado: 'Entregado ✓'
-                          }, ...prev]);
-
-                          const mId = `MOV-${Math.floor(Math.random() * 90) + 100}`;
-                          setMovimientosLocales(prev => [
-                            { id: mId, insumo: c.nombre, cantidad: `+${suggestedQty} ${c.unidad_medida}`, operacion: 'Abastecimiento', motivo: `Restock sugerido: ${ocId}`, fecha: new Date().toLocaleDateString('es-AR') + ' ' + new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + 'hs' },
-                            ...prev
-                          ]);
-                        });
-                        toast.success("Órdenes sugeridas despachadas y stock restablecido.");
-                      }}
-                      className="text-[10px] font-black uppercase bg-[#624A3E] hover:bg-[#503C32] text-white py-1.5 px-3 rounded-lg shadow-sm cursor-pointer transition-all active:scale-95 border-0"
-                    >
-                      💡 Restock Inteligente Sugerido
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] font-medium text-amber-800 font-sans leading-normal">
-                    {insumos.filter(i => i.stock_actual <= i.stock_minimo).map(c => {
-                      const diff = c.stock_minimo * 3 - c.stock_actual;
-                      return (
-                        <div key={c.id_insumo} className="bg-white border border-amber-100 rounded-lg p-2 flex items-center justify-between">
-                          <div>
-                            <span className="font-bold text-amber-950 block">{c.nombre}</span>
-                            <span className="text-[10px] text-amber-600 block">Stock: {c.stock_actual}/{c.stock_minimo} {c.unidad_medida}</span>
-                            <span className="text-[9px] text-[#624A3E] italic">Prov: {c.proveedor || 'Sin asignar'}</span>
-                          </div>
-                          <div className="text-right shrink-0">
-                            <span className="text-[9px] font-bold block uppercase text-amber-500">Orden Sugerida:</span>
-                            <span className="font-mono font-black text-amber-950">+{diff} {c.unidad_medida}</span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-              
               <div className="flex flex-col md:flex-row justify-between md:items-center gap-3">
                 <div className="relative flex-1">
                   <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -454,40 +382,24 @@ export default function InventoryModule({
                     placeholder="Filtrar ingredientes..."
                     value={inventorySearch}
                     onChange={(e) => setInventorySearch(e.target.value)}
-                    className="w-full pl-9 pr-3 py-1.5 bg-slate-50 rounded-xl text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-900 transition-colors"
+                    className="w-full pl-9 pr-3 py-1.5 bg-slate-50 rounded-xl text-xs text-slate-755 text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-900 transition-colors"
                   />
                 </div>
                 
-                <div className="flex flex-wrap gap-2 items-center">
-                  <select
-                    value={filterDeposito}
-                    onChange={(e) => setFilterDeposito(e.target.value)}
-                    className="text-xs font-semibold px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 border-0 rounded-lg text-slate-700 focus:outline-none cursor-pointer"
-                    aria-label="Filtrar por Depósito"
-                  >
-                    <option value="todos">Todos los Depósitos</option>
-                    <option value="Cámara Frigorífica">Cámara Frigorífica</option>
-                    <option value="Cámara de Frescos">Cámara de Frescos</option>
-                    <option value="Bodega y Cava">Bodega y Cava</option>
-                    <option value="Almacén de Secos">Almacén de Secos</option>
-                    <option value="Depósito General">Depósito General</option>
-                  </select>
-
-                  <div className="flex gap-1 overflow-x-auto">
-                    {(['todo', 'bodega', 'frescos', 'secos'] as const).map(catName => (
-                      <button
-                        key={catName}
-                        onClick={() => setFilterCategory(catName)}
-                        className={`py-1 px-3 text-xs font-semibold rounded-lg capitalize transition-colors ${
-                          filterCategory === catName 
-                            ? 'bg-slate-100 text-slate-800' 
-                            : 'text-slate-500 hover:bg-slate-50'
-                        }`}
-                      >
-                        {catName}
-                      </button>
-                    ))}
-                  </div>
+                <div className="flex gap-1 overflow-x-auto">
+                  {(['todo', 'bodega', 'frescos', 'secos'] as const).map(catName => (
+                    <button
+                      key={catName}
+                      onClick={() => setFilterCategory(catName)}
+                      className={`py-1 px-3 text-xs font-semibold rounded-lg capitalize transition-colors ${
+                        filterCategory === catName 
+                          ? 'bg-slate-100 text-slate-800' 
+                          : 'text-slate-500 hover:bg-slate-50'
+                      }`}
+                    >
+                      {catName}
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -503,7 +415,7 @@ export default function InventoryModule({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50 text-xs">
-                    {filteredInsumos.slice(0, visibleInsumosCount).map(ins => {
+                    {filteredInsumos.map(ins => {
                       const isLow = ins.stock_actual <= ins.stock_minimo;
                       const isZero = ins.stock_actual <= 0;
                       
@@ -514,9 +426,7 @@ export default function InventoryModule({
                         <tr key={ins.id_insumo} className="hover:bg-slate-50/50 transition-colors">
                           <td className="p-3">
                             <div className="font-semibold text-slate-800">{ins.nombre}</div>
-                            <div className="text-[10px] text-slate-400 capitalize">
-                              {ins.categoria} • Depósito: <span className="font-semibold text-slate-600">{getInsumoDeposito(ins)}</span> • Min: {ins.stock_minimo}{ins.unidad_medida}
-                            </div>
+                            <div className="text-[10px] text-slate-400 capitalize">{ins.categoria} • Min: {ins.stock_minimo}{ins.unidad_medida}</div>
                           </td>
                           <td className="p-3 font-mono font-bold text-slate-700">
                             {ins.stock_actual.toLocaleString('es-AR')} {ins.unidad_medida}
@@ -556,7 +466,7 @@ export default function InventoryModule({
                                   ...prev
                                 ]);
                               }}
-                              className="text-[10px] font-bold text-slate-900 border border-slate-200 py-1 px-2.5 rounded bg-white hover:bg-slate-50 shadow-xs cursor-pointer"
+                              className="text-[10px] font-bold text-slate-900 border border-slate-200 py-1 px-2.5 rounded bg-white hover:bg-slate-50 shadow-xs"
                             >
                               + Abastecer
                             </button>
@@ -566,16 +476,6 @@ export default function InventoryModule({
                     })}
                   </tbody>
                 </table>
-                {filteredInsumos.length > visibleInsumosCount && (
-                  <div className="p-3 bg-slate-50 border-t flex justify-center">
-                    <button
-                      onClick={() => setVisibleInsumosCount(prev => prev + 20)}
-                      className="text-xs font-bold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 py-1.5 px-4 rounded-xl shadow-xs transition-all cursor-pointer"
-                    >
-                      Cargar más ({filteredInsumos.length - visibleInsumosCount} restantes)
-                    </button>
-                  </div>
-                )}
               </div>
 
             </div>
@@ -601,7 +501,7 @@ export default function InventoryModule({
                   // ADJUSTMENT FORM
                   <form onSubmit={submitAjusteForm} className="space-y-3">
                     <div>
-                      <label className="text-[10px] font-bold text-slate-500 uppercase font-sans">Insumo a Ajustar</label>
+                      <label className="text-[10px] font-bold text-slate-505 text-slate-500 uppercase font-sans">Insumo a Ajustar</label>
                       <select
                         value={ajusteInsumoId}
                         onChange={(e) => setAjusteInsumoId(e.target.value)}
@@ -696,7 +596,7 @@ export default function InventoryModule({
                     </div>
 
                     <div>
-                      <label className="text-[10px] font-bold text-slate-505 text-slate-550 text-slate-500 uppercase font-sans">Motivo del Descarte</label>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase font-sans">Motivo del Descarte</label>
                       <select
                         value={mermaMotivo}
                         onChange={(e) => setMermaMotivo(e.target.value as Merma['motivo'])}
@@ -720,7 +620,7 @@ export default function InventoryModule({
               </div>
 
               {/* RECENT HISTORIC LOST LOGS */}
-              <div className="mt-4 pt-4 border-t border-slate-100">
+              <div className="mt-4 pt-4 border-t border-slate-55 border-slate-100">
                 <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Últimas pérdidas registradas</h5>
                 {mermas.length === 0 ? (
                   <p className="text-[10px] italic text-slate-400">Ningún desperdicio registrado hoy.</p>
@@ -728,7 +628,7 @@ export default function InventoryModule({
                   <div className="space-y-1.5 max-h-24 overflow-y-auto pr-1">
                     {mermas.slice(-3).reverse().map((m, idx) => (
                       <div key={idx} className="flex justify-between items-center text-[10px] bg-slate-50 p-1.5 border border-slate-100 rounded-lg">
-                        <span className="text-slate-600 font-sans line-clamp-1">-{m.cantidad} {m.unidad_medida} de {m.nombre_insumo}</span>
+                        <span className="text-slate-650 font-sans line-clamp-1">-{m.cantidad} {m.unidad_medida} de {m.nombre_insumo}</span>
                         <span className="text-rose-600 uppercase font-bold text-[8px] font-mono">{m.motivo}</span>
                       </div>
                     ))}
@@ -780,7 +680,6 @@ export default function InventoryModule({
                       <img
                         src={p.imagen}
                         alt=""
-                        loading="lazy" decoding="async"
                         className="w-8 h-8 rounded-lg object-cover"
                       />
                       <div className="flex-1 min-w-0">
@@ -827,8 +726,8 @@ export default function InventoryModule({
                           </div>
 
                           <div className="text-right space-y-1">
-                            <div className="font-semibold text-slate-700">
-                              Simulado: <span className="font-bold font-mono text-slate-900 font-bold">-{totalSimulatedReduction}{ing.unidad_medida}</span>
+                            <div className="font-semibold text-slate-750 text-slate-700">
+                              Simulado: <span className="font-bold font-mono text-slate-900">-{totalSimulatedReduction}{ing.unidad_medida}</span>
                             </div>
                             <div className="text-[10px] leading-none text-slate-500">
                               Depósito: <span className="font-bold font-sans">{ing.stock_actual}{ing.unidad_medida}</span> •{' '}
@@ -904,12 +803,12 @@ export default function InventoryModule({
                 Genere un pedido formal de abastecimiento. Se sumará al stock físico de manera inmediata en la simulación.
               </p>
 
-              <form onSubmit={handleAddToPurchaseCart} className="space-y-3">
+              <form onSubmit={handleIngresarCompraProveedor} className="space-y-3">
                 
                 <div>
                   <label className="text-[10px] font-bold text-slate-500 uppercase">Seleccionar Proveedor</label>
                   <select
-                    className="w-full text-xs text-slate-700 bg-slate-50 p-2.5 border border-slate-150 rounded-lg shadow-inner focus:outline-none"
+                    className="w-full text-xs text-slate-700 bg-slate-50 p-2.5 border border-slate-150 rounded-lg"
                     value={selectedProveedor}
                     onChange={(e) => setSelectedProveedor(e.target.value)}
                   >
@@ -922,7 +821,7 @@ export default function InventoryModule({
                 <div>
                   <label className="text-[10px] font-bold text-slate-500 uppercase">Material a Abastecer</label>
                   <select
-                    className="w-full text-xs text-slate-700 bg-slate-50 p-2.5 border border-slate-150 rounded-lg shadow-inner focus:outline-none"
+                    className="w-full text-xs text-slate-700 bg-slate-50 p-2.5 border border-slate-150 rounded-lg"
                     value={compraInsumoId}
                     onChange={(e) => setCompraInsumoId(e.target.value)}
                   >
@@ -934,63 +833,39 @@ export default function InventoryModule({
                   </select>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Cantidad</label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        className="w-full text-xs p-2.5 bg-slate-50 border border-slate-150 rounded-lg text-slate-800 shadow-inner focus:outline-none"
-                        value={compraCantidad || ''}
-                        onChange={(e) => setCompraCantidad(Math.max(1, parseFloat(e.target.value)))}
-                        placeholder="Cant."
-                      />
-                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-mono text-slate-400 font-bold">
-                        {insumos.find(i => i.id_insumo === compraInsumoId)?.unidad_medida}
-                      </span>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Costo Unitario ($)</label>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase">Cantidad a Comprar</label>
+                  <div className="relative">
                     <input
                       type="number"
-                      step="0.01"
-                      className="w-full text-xs p-2.5 bg-slate-50 border border-slate-150 rounded-lg text-slate-800 shadow-inner focus:outline-none"
-                      value={compraCostoUnitarioInput}
-                      onChange={(e) => setCompraCostoUnitarioInput(e.target.value)}
-                      placeholder="Costo"
+                      className="w-full text-xs p-2.5 bg-slate-50 border border-slate-150 rounded-lg text-slate-850"
+                      value={compraCantidad || ''}
+                      onChange={(e) => setCompraCantidad(Math.max(1, parseFloat(e.target.value)))}
+                      placeholder="Ej: 2000"
                     />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-mono text-slate-400 font-bold">
+                      {insumos.find(i => i.id_insumo === compraInsumoId)?.unidad_medida}
+                    </span>
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-2 pt-2">
-                  <button
-                    type="submit"
-                    className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl shadow transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Agregar al Carrito
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleSuggestMissingStock}
-                    className="w-full py-2 bg-[#624A3E] hover:bg-[#503C32] text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-98"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
-                    Sugerir por Stock Mínimo
-                  </button>
-                </div>
+                <button
+                  type="submit"
+                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl shadow transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  Enviar Órden de Restock Digital
+                </button>
 
               </form>
 
               {/* SUPPLIER LOG CONTACTS */}
-              <div className="pt-2 border-t border-slate-100">
+              <div className="pt-2">
                 <h5 className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-2">Directorio de Contactos</h5>
                 <div className="space-y-1.5">
                   {proveedores.map((p, idx) => (
                     <div key={idx} className="bg-slate-50 p-2 rounded-lg border text-[9px] text-slate-500 leading-snug">
-                      <p className="font-bold text-slate-800 font-sans">{p.nombre}</p>
+                      <p className="font-bold text-slate-800">{p.nombre}</p>
                       <p>Email: {p.contacto} • Tel: {p.telefono}</p>
                     </div>
                   ))}
@@ -999,124 +874,41 @@ export default function InventoryModule({
 
             </div>
 
-            {/* Shopping Cart & Simulated Purchase Orders lists (Lg Span 7) */}
-            <div className="lg:col-span-7 space-y-6">
+            {/* Simulated Purchase Orders lists (Lg Span 7) */}
+            <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-4">
+              <h4 className="font-extrabold text-xs text-slate-800 uppercase tracking-wider font-sans">
+                Historial de Compras de Bodega & Insumos
+              </h4>
 
-              {/* Carrito de Compras (Actual) */}
-              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-4">
-                <div className="flex justify-between items-center">
-                  <h4 className="font-extrabold text-sm text-slate-800 font-sans tracking-tight flex items-center gap-2">
-                    🛒 Carrito de Compras ({purchaseCart.length} ítems)
-                  </h4>
-                  {purchaseCart.length > 0 && (
-                    <button
-                      onClick={() => setPurchaseCart([])}
-                      className="text-rose-500 hover:text-rose-700 text-xs font-semibold cursor-pointer"
-                    >
-                      Vaciar Carrito
-                    </button>
-                  )}
-                </div>
-
-                {purchaseCart.length === 0 ? (
-                  <div className="text-center py-8 text-slate-400 text-xs font-sans bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                    El carrito está vacío. Agregue insumos manualmente o use "Sugerir por Stock Mínimo".
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    <div className="space-y-2 max-h-[180px] overflow-y-auto pr-1">
-                      {purchaseCart.map((item, idx) => {
-                        const ins = insumos.find(i => i.id_insumo === item.id_insumo);
-                        return (
-                          <div key={idx} className="bg-slate-50 border border-slate-100 rounded-xl p-3 flex justify-between items-center text-xs">
-                            <div>
-                              <p className="font-bold text-slate-800">{ins ? ins.nombre : item.id_insumo}</p>
-                              <p className="text-[10px] text-slate-400">
-                                Cantidad: {item.cantidad} {ins?.unidad_medida} • Costo Unitario: ${item.costo_unitario}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <span className="font-mono font-bold text-slate-900">
-                                ${(item.cantidad * item.costo_unitario).toLocaleString('es-AR')}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveFromPurchaseCart(idx)}
-                                className="text-slate-400 hover:text-rose-600 transition-colors p-1 cursor-pointer"
-                              >
-                                <Trash2 className="w-4 h-4 text-rose-500" />
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    <div className="pt-3 border-t border-slate-100 flex justify-between items-center">
-                      <div>
-                        <span className="text-[10px] font-bold text-slate-400 uppercase font-sans">Costo Total Estimado</span>
-                        <p className="text-lg font-mono font-black text-emerald-700">
-                          ${purchaseCart.reduce((acc, item) => acc + (item.cantidad * item.costo_unitario), 0).toLocaleString('es-AR')}
-                        </p>
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={handleExportPurchaseOrderPDF}
-                          className="py-2.5 px-3.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow transition-all cursor-pointer flex items-center gap-1.5"
-                        >
-                          <Download className="w-4 h-4" />
-                          Exportar PDF
-                        </button>
-                        <button
-                          onClick={handleConfirmPurchaseOrder}
-                          className="py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl shadow transition-all cursor-pointer flex items-center gap-1.5"
-                        >
-                          <Truck className="w-4 h-4" />
-                          Confirmar e Ingresar Compra
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
+              <div className="border rounded-xl bg-slate-50/50 p-2 text-[11px] text-indigo-750 flex items-center gap-2">
+                <Info className="w-5 h-5 text-indigo-600" />
+                <span>Simulación de cadena de frío y recepción de remitos para restaurante en tiempo real.</span>
               </div>
 
-              {/* Historial de Compras */}
-              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-4">
-                <h4 className="font-extrabold text-xs text-slate-800 uppercase tracking-wider font-sans">
-                  Historial de Compras de Bodega & Insumos
-                </h4>
-
-                <div className="border rounded-xl bg-slate-50/50 p-2 text-[11px] text-slate-700 flex items-center gap-2">
-                  <Info className="w-5 h-5 text-slate-650" />
-                  <span>Historial de recepciones de mercadería y remitos liquidados.</span>
-                </div>
-
-                <div className="space-y-2 max-h-[180px] overflow-y-auto">
-                  {comprasHistorial.map((oc, idx) => (
-                    <div key={idx} className="bg-white border rounded-xl p-3.5 shadow-xs flex justify-between items-center text-xs">
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-bold text-slate-800 font-sans">{oc.proveedor}</span>
-                          <span className="bg-slate-150 text-slate-650 text-[8px] font-bold px-1.5 rounded-full uppercase">
-                            {oc.id}
-                          </span>
-                        </div>
-                        <p className="text-[10px] text-slate-400 mt-1">
-                          Insumo: {oc.insumo} • Cantidad: <strong className="text-slate-700">{oc.cantidad}</strong>
-                        </p>
-                        <p className="text-[9px] text-slate-400">Fecha de Arribo: {oc.fecha}</p>
-                      </div>
-
-                      <div className="text-right">
-                        <span className="font-mono font-bold text-slate-900 block">${oc.costo.toLocaleString('es-AR')}</span>
-                        <span className="bg-emerald-50 text-emerald-800 text-[9px] font-bold px-2 py-0.5 rounded-full inline-block mt-1">
-                          {oc.estado}
+              <div className="space-y-2 max-h-[380px] overflow-y-auto">
+                {comprasHistorial.map((oc, idx) => (
+                  <div key={idx} className="bg-white border rounded-xl p-3.5 shadow-xs flex justify-between items-center text-xs">
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-slate-800 font-sans">{oc.proveedor}</span>
+                        <span className="bg-slate-150 text-slate-650 text-[8px] font-bold px-1.5 rounded-full uppercase">
+                          {oc.id}
                         </span>
                       </div>
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        Insumo: {oc.insumo} • Cantidad: <strong className="text-slate-700">{oc.cantidad}</strong>
+                      </p>
+                      <p className="text-[9px] text-slate-400">Fecha de Arribo: {oc.fecha}</p>
                     </div>
-                  ))}
-                </div>
 
+                    <div className="text-right">
+                      <span className="font-mono font-bold text-slate-900 block">${oc.costo.toLocaleString('es-AR')}</span>
+                      <span className="bg-emerald-50 text-emerald-800 text-[9px] font-bold px-2 py-0.5 rounded-full inline-block mt-1">
+                        {oc.estado}
+                      </span>
+                    </div>
+                  </div>
+                ))}
               </div>
 
             </div>
@@ -1134,7 +926,7 @@ export default function InventoryModule({
                   Libro Diario de Control de Stock
                 </h3>
                 <p className="text-xs text-slate-400 font-sans">
-                  Registro cronológico de movimientos de bodega (egresos de Cocina por comanda, desajustes y mermas directas).
+                  Registro cronológico de movimientos de bodega (Egresos KDS comanda, desajustes y mermas directas).
                 </p>
               </div>
 
@@ -1150,7 +942,7 @@ export default function InventoryModule({
             <div className="border border-slate-100 rounded-xl overflow-hidden max-h-[450px] overflow-y-auto">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="bg-slate-50 border-b border-slate-100 text-[10px] text-slate-505 text-slate-500 uppercase font-bold tracking-wider">
+                  <tr className="bg-slate-50 border-b border-slate-100 text-[10px] text-slate-500 uppercase font-bold tracking-wider">
                     <th className="p-3">Ref ID</th>
                     <th className="p-3">Insumo</th>
                     <th className="p-3">Cantidad</th>
@@ -1180,7 +972,7 @@ export default function InventoryModule({
                             {m.operacion}
                           </span>
                         </td>
-                        <td className="p-3 font-sans text-slate-600">{m.motivo}</td>
+                        <td className="p-3 font-sans text-slate-550 text-slate-600">{m.motivo}</td>
                         <td className="p-3 text-slate-400 font-mono text-[10px]">{m.fecha}</td>
                       </tr>
                     );
@@ -1192,77 +984,8 @@ export default function InventoryModule({
           </div>
         )}
 
-        {/* WORKSPACE E: PRICE HISTORY */}
-        {activeSubTab === 'precios' && (
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-4">
-            <div>
-              <h3 className="font-extrabold text-base text-slate-900 font-sans tracking-tight">
-                Auditoría de Historial de Precios
-              </h3>
-              <p className="text-xs text-slate-400 font-sans">
-                Historial cronológico de cambios de costos unitarios de insumos. Registra variaciones para control de márgenes.
-              </p>
-            </div>
-
-            {isLoadingHistory ? (
-              <div className="text-center py-8 text-xs text-slate-400">
-                Cargando historial de variaciones...
-              </div>
-            ) : costHistory.length === 0 ? (
-              <div className="text-center py-8 text-xs text-slate-400">
-                No se registran variaciones de costos aún.
-              </div>
-            ) : (
-              <div className="border border-slate-100 rounded-xl overflow-hidden max-h-[450px] overflow-y-auto">
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="bg-slate-50 border-b border-slate-100 text-[10px] text-slate-500 uppercase font-bold tracking-wider">
-                      <th className="p-3">Insumo</th>
-                      <th className="p-3">Costo Anterior</th>
-                      <th className="p-3">Costo Nuevo</th>
-                      <th className="p-3">Variación</th>
-                      <th className="p-3">Fecha de Ajuste</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {costHistory.map((h, idx) => {
-                      const diff = h.costo_nuevo - h.costo_anterior;
-                      const pct = h.costo_anterior > 0 ? (diff / h.costo_anterior) * 100 : 0;
-                      const isIncrease = diff > 0;
-                      return (
-                        <tr key={h.id_historial || idx} className="hover:bg-slate-50/50 transition-colors">
-                          <td className="p-3 font-semibold text-slate-800">{h.nombre_insumo || h.id_insumo}</td>
-                          <td className="p-3 font-mono text-slate-600">${h.costo_anterior?.toFixed(2)}</td>
-                          <td className="p-3 font-mono font-bold text-slate-900">${h.costo_nuevo?.toFixed(2)}</td>
-                          <td className="p-3">
-                            <span className={`px-2 py-0.5 text-[9px] font-bold rounded-full inline-flex items-center gap-1 ${
-                              diff === 0 
-                                ? 'bg-slate-100 text-slate-800'
-                                : isIncrease
-                                ? 'bg-rose-100 text-rose-800'
-                                : 'bg-emerald-100 text-emerald-800'
-                            }`}>
-                              {diff === 0 ? '=' : isIncrease ? '↑' : '↓'}
-                              {diff !== 0 && `${isIncrease ? '+' : ''}${pct.toFixed(1)}%`}
-                            </span>
-                          </td>
-                          <td className="p-3 text-slate-400 font-mono text-[10px]">
-                            {new Date(h.fecha).toLocaleString('es-AR')}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
-
       </div>
 
     </div>
-      <ToastContainer toasts={toasts} removeToast={dismissToast} />
-    </>
   );
 }

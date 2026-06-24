@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   Users, 
   Plus, 
@@ -15,236 +15,505 @@ import {
   Wine, 
   DollarSign, 
   Receipt,
-  UserCheck,
-  RefreshCw,
-  MoreVertical,
-  Pencil,
-  EyeOff,
-  X,
-  Printer,
-  Download
+  UserCheck
 } from 'lucide-react';
-import { Mesa, Insumo, ProductoMenu, RecetaEscandallo, Pedido, PedidoItem, Usuario, EventoLog } from '../types';
-import { useMenu, useSalon, useInventario, usePedidos } from '../context/AppContext';
-import { useToast, ToastContainer } from './ToastContainer';
-import { useMozoTerminal } from '../features/salon/hooks/useMozoTerminal';
-import { tryGetActiveSupabaseClient } from '../lib/supabaseClient';
-import { useCategories } from '../hooks/useCategories';
+import { Mesa, Insumo, ProductoMenu, RecetaEscandallo, Pedido, PedidoItem } from '../types';
+
+interface WineMapping {
+  macro: 'tintas' | 'blancas' | 'champagne' | 'destilados' | null;
+  varietales: string[];
+}
+
+function getWineMapping(p: ProductoMenu): WineMapping {
+  const name = p.nombre.toLowerCase();
+  const desc = (p.descripcion || '').toLowerCase();
+
+  let macro: WineMapping['macro'] = null;
+  const varietales: string[] = [];
+
+  // Categorize based on category, subcategory or name
+  if (p.categoria === 'Bodega') {
+    const sub = (p.subcategoria || '').toLowerCase();
+    if (sub.includes('espumantes') || sub.includes('champagne') || name.includes('champagne') || name.includes('chandon') || name.includes('baron b') || name.includes('aluda') || name.includes('rosé') || name.includes('brut')) {
+      macro = 'champagne';
+    } else if (sub.includes('blancos') || name.includes('sauvignon') || name.includes('chardonnay') || name.includes('viognier') || name.includes('torrontés') || name.includes('torrontes') || name.includes('riesling') || name.includes('gewurztraminer') || name.includes('albariño')) {
+      macro = 'blancas';
+    } else {
+      macro = 'tintas';
+    }
+  } else if (p.categoria === 'Bebidas') {
+    const sub = (p.subcategoria || '').toLowerCase();
+    if (sub.includes('whisky') || sub.includes('gin') || sub.includes('fernet') || sub.includes('aperitivos') || name.includes('macallan') || name.includes('gin') || name.includes('fernet') || name.includes('aperol') || name.includes('spritz')) {
+      macro = 'destilados';
+    }
+  }
+
+  if (macro === 'tintas') {
+    // Malbec
+    if (
+      name.includes('trumpeter malbec') || name.includes('trumpeter (botella)') || name.includes('trumpeter (copa)') ||
+      name.includes('encuentro malbec') ||
+      name.includes('rutini') ||
+      name.includes('escorihuela') ||
+      name.includes('capítulo 2') || name.includes('ruca malén') ||
+      name.includes('st felicien') || name.includes('saint felicien') ||
+      name.includes('nicasia') ||
+      name.includes('padrillo') ||
+      name.includes('d.v. catena') || name.includes('dv catena') ||
+      name.includes('enemigo') ||
+      name.includes('tikal') || name.includes('tical') ||
+      name.includes('angélica zapata') || name.includes('angelica zapata') ||
+      name.includes('argentino') ||
+      name.includes('luca') ||
+      name.includes('perdices') ||
+      name.includes('don juan') ||
+      name.includes('exploración') || name.includes('exploracion') ||
+      name.includes('alae') ||
+      name.includes('portillo') ||
+      name.includes('pyros') ||
+      name.includes('numina') ||
+      name.includes('primus')
+    ) {
+      varietales.push('Malbec');
+    }
+
+    // Cabernet Sauvignon
+    if (
+      name.includes('escorihuela') ||
+      name.includes('capítulo 2') || name.includes('ruca malén') ||
+      name.includes('st felicien') || name.includes('saint felicien') ||
+      name.includes('d.v. catena') || name.includes('dv catena') ||
+      name.includes('angélica zapata') || name.includes('angelica zapata') ||
+      name.includes('perdices') ||
+      name.includes('exploración') || name.includes('exploracion') ||
+      name.includes('encuentro cs') || name.includes('padrillo cs')
+    ) {
+      varietales.push('Cabernet Sauvignon');
+    }
+
+    // Red Blend
+    if (
+      name.includes('trumpeter red blend') || name.includes('alamos') || name.includes('nicasia red blend') || name.includes('nicasia blend') || name.includes('eg gran reserva') || name.includes('gran reserva red blend')
+    ) {
+      varietales.push('Red Blend');
+    }
+
+    // Cabernet Franc
+    if (
+      name.includes('rutini') ||
+      name.includes('pequeñas producciones') || name.includes('pequenas prod') ||
+      name.includes('enemigo') ||
+      name.includes('ala colorada') ||
+      name.includes('numina')
+    ) {
+      varietales.push('Cabernet Franc');
+    }
+
+    // Merlot
+    if (
+      name.includes('rutini') ||
+      name.includes('angélica zapata') || name.includes('angelica zapata')
+    ) {
+      varietales.push('Merlot');
+    }
+
+    // Pinot Noir
+    if (
+      name.includes('escorihuela') ||
+      name.includes('padrillo') ||
+      name.includes('d.v. catena') || name.includes('dv catena') ||
+      name.includes('perdices') ||
+      name.includes('luca pinot') ||
+      name.includes('numina')
+    ) {
+      varietales.push('Pinot Noir');
+    }
+
+    // Otros Varietales Tintos
+    if (
+      name.includes('ala colorada') || name.includes('ancelotta') || name.includes('tannat') || name.includes('petit verdot')
+    ) {
+      varietales.push('Otros Varietales Tintos');
+    }
+  }
+
+  if (macro === 'blancas') {
+    // Chardonnay
+    if (
+      name.includes('trumpeter doux') || name.includes('doux') ||
+      name.includes('escorihuela') ||
+      name.includes('st felicien') || name.includes('saint felicien') ||
+      name.includes('angélica zapata') || name.includes('angelica zapata') ||
+      name.includes('luca') ||
+      name.includes('perdices reserva chardonnay') || name.includes('perdices chardonnay') || name.includes('perdices reserva') ||
+      name.includes('exploración') || name.includes('exploracion') ||
+      name.includes('salentein reserva chardonnay') || name.includes('reserva chardonnay')
+    ) {
+      varietales.push('Chardonnay');
+    }
+
+    // Sauvignon Blanc
+    if (
+      name.includes('escorihuela') ||
+      name.includes('st felicien sauvignon') || name.includes('saint felicien sauvignon') ||
+      name.includes('perdices sauvignon') || name.includes('perdices sb') ||
+      name.includes('portillo sauvignon') || name.includes('portillo sb') ||
+      name.includes('reserva sauvignon') ||
+      name.includes('pyros sauvignon') || name.includes('pyros sb') ||
+      name.includes('ala viognier')
+    ) {
+      varietales.push('Sauvignon Blanc');
+    }
+
+    // Torrontés
+    if (name.includes('torrontés') || name.includes('torrontes')) {
+      varietales.push('Torrontés');
+    }
+
+    // Riesling
+    if (name.includes('riesling')) {
+      varietales.push('Riesling');
+    }
+
+    // Gewurztraminer
+    if (name.includes('gewurztraminer') || name.includes('gewürz')) {
+      varietales.push('Gewurztraminer');
+    }
+
+    // Albariño
+    if (name.includes('albariño') || name.includes('albarino')) {
+      varietales.push('Albariño');
+    }
+  }
+
+  if (macro === 'champagne') {
+    if (name.includes('baron b')) {
+      varietales.push('Baron B');
+    } else if (name.includes('aluda') || name.includes('alyda')) {
+      varietales.push('Alyda');
+    } else if (name.includes('encuentro')) {
+      varietales.push('Encuentro');
+    } else if (name.includes('salentein')) {
+      varietales.push('Salentein');
+    } else if (name.includes('chandon')) {
+      varietales.push('Chandon');
+    }
+  }
+
+  if (macro === 'destilados') {
+    if (name.includes('whisky') || name.includes('macallan')) {
+      varietales.push('Whisky');
+    } else if (name.includes('gin') || name.includes('heráclito') || name.includes('heraclito')) {
+      varietales.push('Gin');
+    } else if (name.includes('fernet') || name.includes('branca')) {
+      varietales.push('Fernet');
+    } else if (name.includes('aperol') || name.includes('spritz') || name.includes('aperitivo')) {
+      varietales.push('Aperitivos');
+    }
+  }
+
+  return { macro, varietales };
+}
 
 interface MozoTerminalProps {
   mesas: Mesa[];
   insumos: Insumo[];
   productosMenu: ProductoMenu[];
-  setProductosMenu: (items: ProductoMenu[] | ((prev: ProductoMenu[]) => ProductoMenu[])) => void;
   recetas: RecetaEscandallo[];
-  usuarios: Usuario[];
   activeMozo: string;
   onMozoChange: (mozo: string) => void;
-  onCrearPedido: (pedido: Omit<Pedido, 'id_pedido' | 'fecha_hora' | 'minutos_transcurridos' | 'origen'> & { origen?: 'Mozo'; idempotency_key?: string }) => void | Promise<void>;
+  onCrearPedido: (pedido: Omit<Pedido, 'id_pedido' | 'fecha_hora' | 'minutos_transcurridos' | 'origen'> & { origen?: 'Mozo' }) => void;
   pedidos: Pedido[];
   onFacturarMesa: (idPedido: number) => void;
-  addLog: (tipo: EventoLog['tipo'], mensaje: string) => void;
+  addLog: (tipo: 'pedido_creado' | 'descuento_stock' | 'alerta_stock' | 'comanda_estado' | 'sistema', mensaje: string) => void;
   permitirVentaSinStock?: boolean;
 }
 
-const renderCategoryIcon = (categoriaName: string, categories: any[]) => {
-  const cat = categories.find(c => c.nombre.toLowerCase() === categoriaName.toLowerCase());
-  const iconName = cat?.icono;
-  if (iconName === 'Wine') return <Wine className="w-3.5 h-3.5 text-brand-orange" />;
-  if (iconName === 'Coffee') return <Coffee className="w-3.5 h-3.5 text-brand-orange" />;
-  if (iconName === 'Pizza') return <Pizza className="w-3.5 h-3.5 text-brand-orange" />;
-  return <UtensilsCrossed className="w-3.5 h-3.5 text-brand-orange" />;
-};
-
 export default function MozoTerminal({
-  mesas: propMesas,
-  insumos: propInsumos,
-  productosMenu: propProductosMenu,
-  setProductosMenu: propSetProductosMenu,
-  recetas: propRecetas,
-  usuarios: propUsuarios = [],
-  activeMozo: propActiveMozo,
-  onMozoChange: propOnMozoChange,
-  onCrearPedido: propOnCrearPedido,
-  pedidos: propPedidos,
-  onFacturarMesa: propOnFacturarMesa,
-  addLog: propAddLog,
+  mesas,
+  insumos,
+  productosMenu,
+  recetas,
+  activeMozo,
+  onMozoChange,
+  onCrearPedido,
+  pedidos,
+  onFacturarMesa,
+  addLog,
   permitirVentaSinStock = false
 }: MozoTerminalProps) {
-  // Use context as primary source, fall back to props for backward compat
-  const ctxMenu = useMenu();
-  const ctxSalon = useSalon();
-  const ctxInventario = useInventario();
-  const ctxPedidos = usePedidos();
+  // Waiter selections
+  const [selectedMesaId, setSelectedMesaId] = useState<number | null>(null);
+  const [comensales, setComensales] = useState<number>(2);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategoria, setSelectedCategoria] = useState<string>('todo');
+  
+  // Bodega hierarchy states
+  const [selectedWineMacro, setSelectedWineMacro] = useState<'tintas' | 'blancas' | 'champagne' | 'destilados' | 'todo'>('todo');
+  const [selectedWineVarietal, setSelectedWineVarietal] = useState<string>('todo');
+  
+  // Current order cart
+  const [cart, setCart] = useState<{ [id_producto: string]: number }>({});
+  const [observaciones, setObservaciones] = useState('');
 
-  const productosMenu = propProductosMenu ?? ctxMenu.productosMenu;
-  const setProductosMenu = propSetProductosMenu ?? ctxMenu.setProductosMenu;
-  const recetas = propRecetas ?? ctxMenu.recetas;
-  const insumos = propInsumos ?? ctxInventario.insumos;
-  const pedidos = propPedidos ?? ctxPedidos.pedidos;
-  const mesas = propMesas ?? ctxSalon.mesas;
-  const usuarios = propUsuarios;
-  const activeMozo = propActiveMozo ?? ctxSalon.activeMozo;
-  const onMozoChange = propOnMozoChange ?? ctxSalon.setActiveMozo;
-  const onCrearPedido = propOnCrearPedido ?? ctxPedidos.handleCrearPedido;
-  const onFacturarMesa = propOnFacturarMesa ?? ctxPedidos.handleFacturarMesa;
-  const addLog = propAddLog ?? (() => {});
-  const { toast, toasts, removeToast } = useToast();
-  const { categories } = useCategories();
+  // Bill splitting state
+  const [splittingPedidoId, setSplittingPedidoId] = useState<number | null>(null);
+  const [splitCount, setSplitCount] = useState<number>(2);
+  const [splitItemsChecked, setSplitItemsChecked] = useState<{ [itemIdx: number]: boolean }>({});
 
-  const isOnline = Boolean(tryGetActiveSupabaseClient());
+  const selectedMesa = useMemo(() => {
+    return mesas.find(m => m.id_mesa === selectedMesaId) || null;
+  }, [selectedMesaId, mesas]);
 
-  const getCategorySlug = useMemo(() => {
-    return (catName: string): string => {
-      if (!catName) return '';
-      const norm = catName.toLowerCase().trim()
-        .normalize('NFD')
-        .replace(/[̀-ͯ]/g, '')
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)+/g, '');
+  // Find active order of the selected table if any (to split or pay)
+  const activePedidoDeMesa = useMemo(() => {
+    if (!selectedMesaId) return null;
+    return pedidos.find(p => p.id_mesa === selectedMesaId && p.estado_comanda !== 'entregado_cobrado') || null;
+  }, [selectedMesaId, pedidos]);
 
-      const cat = categories.find(c => {
-        const dbNorm = c.nombre.toLowerCase().trim()
-          .normalize('NFD')
-          .replace(/[̀-ͯ]/g, '')
-          .replace(/[^a-z0-9]+/g, '-')
-          .replace(/(^-|-$)+/g, '');
-        return dbNorm === norm || c.slug.toLowerCase() === norm;
+  // Filter products by category and search (with hierarchical wine/beverage browsing)
+  const filteredProducts = useMemo(() => {
+    return productosMenu.filter(p => {
+      // 1. General category match
+      let matchCat = false;
+      if (selectedCategoria === 'todo') {
+        matchCat = true;
+      } else if (selectedCategoria === 'Bodega') {
+        const mapping = getWineMapping(p);
+        matchCat = p.categoria === 'Bodega' || mapping.macro === 'destilados';
+      } else {
+        matchCat = p.categoria === selectedCategoria;
+      }
+
+      // 2. Text Search match
+      const matchSearch = p.nombre.toLowerCase().includes(searchQuery.toLowerCase());
+      if (!matchCat || !matchSearch) return false;
+
+      // 3. Hierarchical Wine/Bodega filter
+      if (selectedCategoria === 'Bodega') {
+        const mapping = getWineMapping(p);
+        
+        // Macro category filter
+        if (selectedWineMacro !== 'todo' && mapping.macro !== selectedWineMacro) {
+          return false;
+        }
+
+        // Varietal filter
+        if (selectedWineVarietal !== 'todo' && !mapping.varietales.includes(selectedWineVarietal)) {
+          return false;
+        }
+      }
+
+      return p.activo;
+    });
+  }, [productosMenu, selectedCategoria, searchQuery, selectedWineMacro, selectedWineVarietal]);
+
+  // Helper: check how much of an insumo would be required by the current cart
+  const calculateCartInsumoRequirements = (tempCart: { [id_producto: string]: number }) => {
+    const requirements: { [id_insumo: string]: number } = {};
+    
+    Object.keys(tempCart).forEach(prodId => {
+      const qty = tempCart[prodId];
+      if (qty <= 0) return;
+      
+      // Find recipes
+      const productRecipes = recetas.filter(r => r.id_producto === prodId);
+      productRecipes.forEach(rec => {
+        if (!requirements[rec.id_insumo]) {
+          requirements[rec.id_insumo] = 0;
+        }
+        requirements[rec.id_insumo] += rec.cantidad_a_descontar * qty;
       });
-      if (cat) return cat.slug.toLowerCase();
+    });
 
-      if (norm.includes('bebida') || norm.includes('vino') || norm.includes('cerveza') || norm.includes('gaseosa')) {
-        return 'bebidas';
-      }
-      if (norm.includes('bodega')) {
-        return 'bodega';
-      }
-      if (norm.includes('postre') || norm.includes('dulce') || norm.includes('helado')) {
-        return 'postres';
-      }
-      return norm;
-    };
-  }, [categories]);
+    return requirements;
+  };
 
-  const {
-    selectedMesaId,
-    comensales,
-    setComensales,
-    searchQuery,
-    setSearchQuery,
-    selectedCategoria,
-    setSelectedCategoria,
-    cart,
-    observaciones,
-    setObservaciones,
-    checkoutStatus,
-    adminMenuProduct,
-    setAdminMenuProduct,
-    editingPriceProduct,
-    setEditingPriceProduct,
-    editingPriceValue,
-    setEditingPriceValue,
-    splittingPedidoId,
-    setSplittingPedidoId,
-    splitCount,
-    setSplitCount,
-    splitItemsChecked,
-    setSplitItemsChecked,
-    isAdmin,
-    selectedMesa,
-    activePedidoDeMesa,
-    filteredProducts,
-    totalCartValue,
-    handleSelectMesa,
-    getSimulatedStockRemaining,
-    handleAddToCart,
-    handleRemoveFromCart,
-    handleClearCart,
-    checkoutCart,
-    handleDownloadPreTicket,
-    handlePrintSplitTicket,
-    handleUpdatePrice,
-    handleToggleAvailability,
-    dynamicMesas,
-    isSameTable
-  } = useMozoTerminal({
-    mesas,
-    insumos,
-    productosMenu,
-    setProductosMenu,
-    recetas,
-    usuarios,
-    activeMozo,
-    onMozoChange,
-    onCrearPedido,
-    pedidos,
-    onFacturarMesa,
-    addLog,
-    permitirVentaSinStock,
-    toast
-  });
+  // Helper: evaluate if adding 1 unit of a product breaches current stock
+  const evaluateStockAdd = (productoId: string): { allowed: boolean; warning?: string; isCritical: boolean } => {
+    const nextCart = { ...cart, [productoId]: (cart[productoId] || 0) + 1 };
+    const requirements = calculateCartInsumoRequirements(nextCart);
+
+    for (const [insumoId, reqAmount] of Object.entries(requirements)) {
+      const insumo = insumos.find(i => i.id_insumo === insumoId);
+      if (!insumo) continue;
+
+      if (insumo.stock_actual < reqAmount) {
+        if (permitirVentaSinStock) {
+          return { 
+            allowed: true, 
+            isCritical: false, 
+            warning: `[FORZADO] Stock insuficiente de: "${insumo.nombre}" (Faltante: ${(reqAmount - insumo.stock_actual).toFixed(2)}${insumo.unidad_medida}).` 
+          };
+        } else {
+          return { 
+            allowed: false, 
+            isCritical: true, 
+            warning: `¡BLOQUEDADO! Sin material suficiente de: "${insumo.nombre}". Se requiere ${reqAmount}${insumo.unidad_medida} y el stock actual es de ${insumo.stock_actual}${insumo.unidad_medida}.` 
+          };
+        }
+      }
+
+      if (insumo.stock_actual - reqAmount <= insumo.stock_minimo) {
+        return { 
+          allowed: true, 
+          isCritical: false, 
+          warning: `Existencia cercana al Stock Mínimo de Seguridad para "${insumo.nombre}" (${insumo.stock_actual}${insumo.unidad_medida} disponibles).` 
+        };
+      }
+    }
+
+    return { allowed: true, isCritical: false };
+  };
+
+  // Quick check of remaining simulated capacity for UI tags
+  const getSimulatedStockRemaining = (prod: ProductoMenu) => {
+    // Find recipes associated to this product
+    const productRecipes = recetas.filter(r => r.id_producto === prod.id_producto);
+    let maxPlatesSimulated = 999;
+
+    productRecipes.forEach(rec => {
+      const insumo = insumos.find(i => i.id_insumo === rec.id_insumo);
+      if (insumo) {
+        const remainingForThis = Math.floor(insumo.stock_actual / rec.cantidad_a_descontar);
+        if (remainingForThis < maxPlatesSimulated) {
+          maxPlatesSimulated = remainingForThis;
+        }
+      }
+    });
+
+    return maxPlatesSimulated === 999 ? 0 : maxPlatesSimulated;
+  };
+
+  // Cart operations
+  const handleAddToCart = (productoId: string) => {
+    if (!selectedMesaId) {
+      alert("Por favor seleccione primero una mesa.");
+      return;
+    }
+    const evalResult = evaluateStockAdd(productoId);
+    if (!evalResult.allowed) {
+      addLog('alerta_stock', `Cancelado intento de pedido: ${evalResult.warning}`);
+      return;
+    }
+    
+    setCart(prev => ({
+      ...prev,
+      [productoId]: (prev[productoId] || 0) + 1
+    }));
+  };
+
+  const handleRemoveFromCart = (productoId: string) => {
+    setCart(prev => {
+      const updated = { ...prev };
+      if (updated[productoId] > 1) {
+        updated[productoId] -= 1;
+      } else {
+        delete updated[productoId];
+      }
+      return updated;
+    });
+  };
+
+  const checkoutCart = () => {
+    if (!selectedMesaId) return;
+    if (Object.keys(cart).length === 0) return;
+
+    // Double check stock at moment of checkout
+    const requirements = calculateCartInsumoRequirements(cart);
+    for (const [insumoId, reqAmount] of Object.entries(requirements)) {
+      const insumo = insumos.find(i => i.id_insumo === insumoId);
+      if (insumo && insumo.stock_actual < reqAmount) {
+        alert(`No es posible procesar la orden. Se agotó un insumo clave: ${insumo.nombre}`);
+        return;
+      }
+    }
+
+    // Build items list
+    const items: PedidoItem[] = Object.entries(cart).map(([prodId, qty]) => {
+      const p = productosMenu.find(item => item.id_producto === prodId)!;
+      return {
+        id_producto: prodId,
+        nombre: p.nombre,
+        cantidad: Number(qty),
+        categoria: p.categoria
+      };
+    });
+
+    onCrearPedido({
+      id_mesa: selectedMesaId,
+      numero_mesa: selectedMesa ? selectedMesa.numero_mesa : `Mesa ${selectedMesaId}`,
+      mozo: activeMozo,
+      estado_comanda: 'pendiente',
+      items,
+      observaciones: observaciones.trim() || undefined,
+    });
+
+    // Reset layout
+    setCart({});
+    setObservaciones('');
+    addLog('pedido_creado', `Mozo ${activeMozo} inyectó pedido para ${selectedMesa?.numero_mesa} con ${items.length} platos.`);
+  };
+
+  // Calculating totals
+  const totalCartValue = useMemo(() => {
+    return Object.entries(cart).reduce((total, [prodId, qty]) => {
+      const p = productosMenu.find(item => item.id_producto === prodId);
+      return total + (p ? p.precio_venta * Number(qty) : 0);
+    }, 0);
+  }, [cart, productosMenu]);
 
   return (
-    <>
-    <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-6" id="mozo-terminal-container">
-      <div className="min-w-0 space-y-4 lg:col-span-4 lg:space-y-6 order-1">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6" id="mozo-terminal-container">
+      {/* LEFT COLUMN: Mesa Grid and active waiter selector */}
+      <div className="lg:col-span-4 space-y-6">
         
         {/* Active Waiter Picker */}
-        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-100 shadow-sm">
+        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
               <UserCheck className="w-5 h-5" />
             </div>
-            <div className="flex-1 flex justify-between items-center min-w-0">
-              <div>
-                <p className="text-xs text-slate-400 font-medium font-sans">Mozo en Turno Activo</p>
-                <h3 className="font-bold text-slate-800 font-sans tracking-tight">Terminal Registrada</h3>
-              </div>
-              <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-lg flex items-center gap-1.5 border shrink-0 ${
-                isOnline 
-                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200/50' 
-                  : 'bg-amber-50 text-amber-700 border-amber-200/50'
-              }`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`} />
-                {isOnline ? 'Online (Nube)' : 'Offline (Local)'}
-              </span>
+            <div>
+              <p className="text-xs text-slate-400 font-medium font-sans">Mozo en Turno Activo</p>
+              <h3 className="font-bold text-slate-800 font-sans tracking-tight">Terminal Registrada</h3>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {usuarios.filter(usuario => usuario.activo !== false && usuario.rol !== 'cocina').map(usuario => (
+          <div className="grid grid-cols-3 gap-2">
+            {['Enzo', 'Micaela', 'Sofía'].map(mozoName => (
               <button
-                key={usuario.id_usuario}
-                onClick={() => onMozoChange(usuario.nombre)}
-                className={`min-h-11 py-2 px-3 rounded-lg text-sm font-extrabold transition-all cursor-pointer ${
-                  activeMozo === usuario.nombre
+                key={mozoName}
+                onClick={() => onMozoChange(mozoName)}
+                className={`py-2 px-3 rounded-lg text-sm font-extrabold transition-all cursor-pointer ${
+                  activeMozo === mozoName 
                     ? 'bg-[#624A3E] text-white shadow-sm scale-[1.02] border border-[#5d3a2e]' 
                     : 'bg-stone-50 text-stone-600 border border-stone-200 hover:bg-[#F5F1E9]'
                 }`}
               >
-                {usuario.nombre}
+                {mozoName}
               </button>
             ))}
           </div>
         </div>
 
         {/* Mesas Selector Grid */}
-        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-100 shadow-sm">
+        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="font-bold text-sm md:text-base text-slate-800 font-sans tracking-tight flex items-center gap-2">
+            <h3 className="font-bold text-slate-800 font-sans tracking-tight flex items-center gap-2">
               <UtensilsCrossed className="w-4 h-4 text-slate-500" />
               Distribución de Mesas
             </h3>
             <span className="text-[11px] font-mono bg-slate-50 text-slate-500 px-2 py-0.5 rounded">
-              {dynamicMesas.filter(m => m.estado === 'ocupada').length} Ocupadas
+              {mesas.filter(m => m.estado === 'ocupada').length} Ocupadas
             </span>
           </div>
 
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-2.5">
-            {dynamicMesas.map(m => {
+          <div className="grid grid-cols-4 gap-2.5">
+            {mesas.map(m => {
               const isSelected = m.id_mesa === selectedMesaId;
               const isOcupada = m.estado === 'ocupada';
               const isInCuenta = m.estado === 'esperando_cuenta';
-              const isReservada = m.estado === 'reservada';
+              const isReservada = m.id_mesa === 3; // Mesa 3 is reserved for dinner per instructions
 
               // Determine visual theme according to exact state specs
               let stateClasses = "border-stone-200 bg-white hover:bg-stone-50 text-stone-700";
@@ -264,39 +533,29 @@ export default function MozoTerminal({
                 labelText = "Ocupada";
               }
 
-              const activePedido = isOcupada ? pedidos.find(p => 
-                isSameTable(m, p) && 
-                ['abierta', 'pendiente', 'en_cocina', 'listo', 'entregado'].includes(p.estado_comanda)
-              ) : null;
-
-              const elapsedMin = activePedido 
-                ? Math.max(0, Math.floor((Date.now() - new Date(activePedido.fecha_hora).getTime()) / 60000))
-                : 0;
-
               return (
                 <button
                   key={m.id_mesa}
                   id={`mesa-btn-${m.id_mesa}`}
-                  onClick={() => handleSelectMesa(m)}
-                  className={`min-h-[72px] p-2.5 rounded-xl flex flex-col justify-between items-center transition-all aspect-square sm:aspect-auto sm:h-24 border cursor-pointer ${stateClasses}`}
+                  onClick={() => {
+                    setSelectedMesaId(m.id_mesa);
+                    // Prepopulate comensales if occupied
+                    if (m.estado === 'ocupada' && m.comensales) {
+                      setComensales(m.comensales);
+                    }
+                  }}
+                  className={`p-2.5 rounded-xl flex flex-col justify-between items-center transition-all aspect-square border cursor-pointer ${stateClasses}`}
                 >
-                  <span className="text-xs sm:text-sm font-black font-sans">{m.numero_mesa}</span>
+                  <span className="text-xs font-black font-sans">{m.numero_mesa}</span>
                   {isOcupada ? (
-                    <div className="flex flex-col items-center gap-0.5 mt-1">
-                      <div className="flex items-center gap-0.5">
-                        <Users className={`w-3 h-3 ${isSelected ? 'text-white' : 'text-[#2563a0]'}`} />
-                        <span className="text-[10px] sm:text-xs font-bold">{m.comensales || 0}</span>
-                      </div>
-                      {elapsedMin > 0 && (
-                        <span className={`text-[8px] font-mono font-bold ${isSelected ? 'text-white/80' : 'text-[#2563a0]/80 bg-[#2563a0]/5 px-1 rounded'}`}>
-                          ⏱️ {elapsedMin}m
-                        </span>
-                      )}
+                    <div className="flex items-center gap-0.5 mt-2">
+                      <Users className={`w-3 h-3 ${isSelected ? 'text-amber-205 text-white' : 'text-[#2563a0]'}`} />
+                      <span className="text-[10px] font-bold">{m.comensales || 0}</span>
                     </div>
                   ) : isInCuenta ? (
-                    <span className="text-[8px] sm:text-[10px] uppercase tracking-wider font-extrabold text-[#c47f1a] text-center leading-tight">Saldar</span>
+                    <span className="text-[8px] uppercase tracking-wider font-extrabold text-[#c47f1a]">Salar</span>
                   ) : (
-                    <span className={`text-[8px] sm:text-[10px] uppercase tracking-wider font-semibold opacity-80 text-center leading-tight ${isSelected ? 'text-white/60' : ''}`}>{labelText}</span>
+                    <span className={`text-[8px] uppercase tracking-wider font-semibold opacity-80 ${isSelected ? 'text-white/60' : ''}`}>{labelText}</span>
                   )}
                 </button>
               );
@@ -350,7 +609,7 @@ export default function MozoTerminal({
                     </span>
                   </div>
                   
-                  <div className="space-y-1 mb-3 max-h-40 overflow-y-auto">
+                  <div className="space-y-1 mb-3">
                     {activePedidoDeMesa.items.map((it, idx) => (
                       <div key={idx} className="flex justify-between text-xs text-slate-600">
                         <span>{it.cantidad}x {it.nombre}</span>
@@ -361,47 +620,19 @@ export default function MozoTerminal({
                     ))}
                   </div>
 
-                  <div className="flex items-center justify-between pt-2 border-t border-slate-200 mb-3">
-                    <span className="text-xs font-bold text-slate-600">Total acumulado</span>
-                    <span className="text-sm font-black font-mono text-slate-800">
-                      ${activePedidoDeMesa.items.reduce((sum, it) => sum + (it.cantidad * (productosMenu.find(p => p.id_producto === it.id_producto)?.precio_venta || 0)), 0).toLocaleString('es-AR')}
-                    </span>
-                  </div>
-
                   <div className="flex gap-2">
                     <button
                       onClick={() => setSplittingPedidoId(activePedidoDeMesa.id_pedido)}
-                      className="flex-1 py-1 px-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                      className="flex-1 py-1 px-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 transition-colors"
                     >
                       <Receipt className="w-3.5 h-3.5 text-slate-500" />
                       Dividir Cuenta
                     </button>
                     <button
                       onClick={() => onFacturarMesa(activePedidoDeMesa.id_pedido)}
-                      className="flex-1 py-1 px-2.5 bg-slate-900 border border-transparent hover:bg-slate-800 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1 transition-colors shadow-sm cursor-pointer"
+                      className="flex-1 py-1 px-2.5 bg-slate-900 border border-slate-9 border-transparent hover:bg-slate-800 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1 transition-colors shadow-sm"
                     >
                       Cobrar Mesa
-                    </button>
-                  </div>
-                  <button
-                    onClick={() => handleDownloadPreTicket(activePedidoDeMesa)}
-                    className="w-full mt-2 py-2 px-3 bg-[#e2dabf] hover:bg-[#d4b89a] text-[#4b3621] rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border border-[#d4b89a] cursor-pointer"
-                  >
-                    <Printer className="w-3.5 h-3.5" />
-                    Descargar / Imprimir Pre-Ticket
-                  </button>
-                  <div className="flex gap-2 mt-2">
-                    <button
-                      onClick={() => handlePrintSplitTicket(activePedidoDeMesa, 'cocina')}
-                      className="flex-1 py-1.5 px-2 bg-stone-100 hover:bg-[#e2dabf] text-[#4b3621] rounded-lg text-[10px] font-bold flex items-center justify-center gap-1 transition-colors border border-stone-200 cursor-pointer"
-                    >
-                      🍳 Comanda Cocina
-                    </button>
-                    <button
-                      onClick={() => handlePrintSplitTicket(activePedidoDeMesa, 'barra')}
-                      className="flex-1 py-1.5 px-2 bg-stone-100 hover:bg-[#e2dabf] text-[#4b3621] rounded-lg text-[10px] font-bold flex items-center justify-center gap-1 transition-colors border border-stone-200 cursor-pointer"
-                    >
-                      🍷 Comanda Barra
                     </button>
                   </div>
                 </div>
@@ -416,51 +647,122 @@ export default function MozoTerminal({
       </div>
 
       {/* CENTRAL COLUMN: Product Catalog */}
-      <div className="min-w-0 lg:col-span-5 space-y-4 order-3 lg:order-2">
+      <div className="lg:col-span-5 space-y-4">
          {/* Search and Filters */}
-        <div className="bg-white rounded-2xl p-3 sm:p-4 border border-stone-105 shadow-sm space-y-3">
-          <div className="flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center">
-            <h3 className="font-extrabold text-sm md:text-base text-[#624A3E] tracking-wider uppercase">Filtro de Categorías Premium</h3>
-            <div className="relative w-full sm:w-56">
+        <div className="bg-white rounded-2xl p-4 border border-stone-105 shadow-sm space-y-3">
+          <div className="flex flex-col md:flex-row gap-3 justify-between items-center">
+            <h3 className="font-extrabold text-xs text-[#624A3E] tracking-wider uppercase">Filtro de Categorías Premium</h3>
+            <div className="relative w-full md:w-56">
               <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 placeholder="Buscar plato o bebida..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full min-h-11 pl-9 pr-3 py-2 bg-stone-50 border border-stone-200/80 rounded-xl text-sm text-stone-700 placeholder-stone-400 focus:outline-none focus:ring-1 focus:ring-[#624A3E] focus:border-[#624A3E] transition-all"
+                className="w-full pl-9 pr-3 py-1.5 bg-stone-50 border border-stone-200/80 rounded-xl text-xs text-stone-700 placeholder-stone-400 focus:outline-none focus:ring-1 focus:ring-[#624A3E] focus:border-[#624A3E] transition-all"
               />
             </div>
           </div>
 
-          <div className="flex gap-1.5 w-full overflow-x-auto py-1.5 scrollbar-thin scroll-smooth border-t border-stone-100 pt-3 pb-2">
+          <div className="flex gap-1.5 w-full overflow-x-auto py-1 scrollbar-thin scroll-smooth border-t border-stone-100 pt-3">
             {[
-              { id: 'todo', label: 'Todos' },
-              ...categories.map(c => ({ id: c.slug.toLowerCase(), label: c.nombre === 'Comidas Criollas' ? 'Criollas' : c.nombre }))
-            ].map(cat => {
-              const count = cat.id === 'todo' 
-                ? productosMenu.filter(p => p.activo).length 
-                : productosMenu.filter(p => p.activo && getCategorySlug(p.categoria).toLowerCase() === cat.id.toLowerCase()).length;
-              return (
-                <button
-                  key={cat.id}
-                  onClick={() => setSelectedCategoria(cat.id)}
-                  className={`py-1.5 px-3 text-xs font-extrabold rounded-lg whitespace-nowrap transition-all duration-150 cursor-pointer active:scale-95 flex items-center gap-1 shrink-0 ${
-                    selectedCategoria === cat.id 
-                      ? 'bg-[#624A3E] text-white shadow-sm ring-1 ring-amber-900/10' 
-                      : 'bg-stone-50 text-stone-600 border border-stone-200 hover:bg-[#F5F1E9] hover:text-stone-900'
-                  }`}
-                >
-                  {cat.label}
-                  <span className={`text-[9px] font-bold ml-0.5 ${selectedCategoria === cat.id ? 'text-white/70' : 'text-stone-400'}`}>({count})</span>
-                </button>
-              );
-            })}
+              { id: 'todo', label: 'Todos 🍽️' },
+              { id: 'Entradas', label: 'Entradas 🥗' },
+              { id: 'Pastas', label: 'Pastas 🍝' },
+              { id: 'Carnes', label: 'Carnes 🥩' },
+              { id: 'Pescados', label: 'Pescados 🐟' },
+              { id: 'Comidas Criollas', label: 'Criollas 🥧' },
+              { id: 'Postres', label: 'Postres 🍰' },
+              { id: 'Bebidas', label: 'Bebidas 🥤' },
+              { id: 'Bodega', label: 'Bodega 🍷' }
+            ].map(cat => (
+              <button
+                key={cat.id}
+                onClick={() => {
+                  setSelectedCategoria(cat.id);
+                  if (cat.id !== 'Bodega') {
+                    setSelectedWineMacro('todo');
+                    setSelectedWineVarietal('todo');
+                  }
+                }}
+                className={`py-1.5 px-3 text-xs font-extrabold rounded-lg whitespace-nowrap transition-all duration-150 cursor-pointer active:scale-95 flex items-center gap-1 shrink-0 ${
+                  selectedCategoria === cat.id 
+                    ? 'bg-[#624A3E] text-white shadow-sm ring-1 ring-amber-900/10' 
+                    : 'bg-stone-50 text-stone-600 border border-stone-200 hover:bg-[#F5F1E9] hover:text-stone-900'
+                }`}
+              >
+                {cat.label}
+              </button>
+            ))}
           </div>
+
+          {/* HIERARCHICAL BODEGA/WINE BROWSER */}
+          {selectedCategoria === 'Bodega' && (
+            <div className="space-y-2.5 pt-3 border-t border-stone-100/60 transition-all duration-300">
+              {/* Macro categories */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                {[
+                  { id: 'todo', label: 'Todo Bodega 🍷' },
+                  { id: 'tintas', label: 'Bodegas Tintas 🍷' },
+                  { id: 'blancas', label: 'Bodegas Blancas 🥂' },
+                  { id: 'champagne', label: 'Champagne & Espumantes 🍾' },
+                  { id: 'destilados', label: 'Destilados & Aperitivos 🥃' }
+                ].map(macro => (
+                  <button
+                    key={macro.id}
+                    onClick={() => {
+                      setSelectedWineMacro(macro.id as any);
+                      setSelectedWineVarietal('todo');
+                    }}
+                    className={`py-1 px-2.5 text-[10px] md:text-[11px] font-black rounded-lg transition-all cursor-pointer ${
+                      selectedWineMacro === macro.id
+                        ? 'bg-[#624A3E] text-white shadow-sm ring-1 ring-amber-900/10'
+                        : 'bg-stone-50 text-stone-500 hover:bg-stone-100 hover:text-stone-850 border border-stone-200/60'
+                    }`}
+                  >
+                    {macro.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Varietals sub-menu for Tintas and Blancas */}
+              {(selectedWineMacro === 'tintas' || selectedWineMacro === 'blancas') && (
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none flex-nowrap bg-stone-50/50 p-1.5 rounded-lg border border-stone-100/80">
+                  <span className="text-[9px] text-[#624A3E] font-black uppercase tracking-wider shrink-0 mr-1">Varietal:</span>
+                  <button
+                    onClick={() => setSelectedWineVarietal('todo')}
+                    className={`py-0.5 px-2.5 text-[9px] font-black rounded transition-all cursor-pointer ${
+                      selectedWineVarietal === 'todo'
+                        ? 'bg-amber-900/10 text-[#624A3E] border border-amber-900/20'
+                        : 'bg-transparent text-stone-500 hover:bg-stone-100 hover:text-stone-700'
+                    }`}
+                  >
+                    Todos
+                  </button>
+                  {(selectedWineMacro === 'tintas'
+                    ? ['Malbec', 'Cabernet Sauvignon', 'Red Blend', 'Cabernet Franc', 'Merlot', 'Pinot Noir', 'Otros Varietales Tintos']
+                    : ['Chardonnay', 'Sauvignon Blanc', 'Torrontés', 'Riesling', 'Gewurztraminer', 'Albariño']
+                  ).map(varName => (
+                    <button
+                      key={varName}
+                      onClick={() => setSelectedWineVarietal(varName)}
+                      className={`py-0.5 px-2.5 text-[9px] font-black rounded whitespace-nowrap transition-all cursor-pointer ${
+                        selectedWineVarietal === varName
+                          ? 'bg-[#624A3E] text-white shadow-sm'
+                          : 'bg-transparent text-stone-500 hover:bg-stone-100 hover:text-stone-700'
+                      }`}
+                    >
+                      {varName}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Product Cards Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-1 xl:grid-cols-2 gap-3 lg:max-h-[550px] lg:overflow-y-auto lg:pr-1">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[550px] overflow-y-auto pr-1">
           {filteredProducts.map(p => {
             const stockRemaining = getSimulatedStockRemaining(p);
             const isOutOfStock = stockRemaining <= 0;
@@ -481,11 +783,10 @@ export default function MozoTerminal({
                 style={{ contentVisibility: 'auto' }}
               >
                 {/* Product Image */}
-                <div className="h-24 sm:h-28 w-full bg-stone-50 relative overflow-hidden">
+                <div className="h-28 w-full bg-stone-50 relative overflow-hidden">
                   <img
                     src={p.imagen}
                     alt={p.nombre}
-                    loading="lazy" decoding="async"
                     referrerPolicy="no-referrer"
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
@@ -508,13 +809,13 @@ export default function MozoTerminal({
                       </span>
                     </div>
                   ) : isLowStock ? (
-                    <div className="absolute bottom-2 left-2">
+                    <div className="absolute top-2 right-2">
                       <span className="bg-[#F97316] text-white text-[9px] font-extrabold px-2 py-0.5 rounded shadow">
                         Bajo stock: {stockRemaining}u
                       </span>
                     </div>
                   ) : (
-                    <div className="absolute bottom-2 left-2">
+                    <div className="absolute top-2 right-2">
                       <span className="bg-[#22C55E] text-white text-[9px] font-extrabold px-2 py-0.5 rounded shadow">
                         Disp: {stockRemaining}u
                       </span>
@@ -522,78 +823,36 @@ export default function MozoTerminal({
                   )}
                 </div>
 
-                {/* Content: stacked layout - name full width, price+actions below */}
-                <div className="p-3 bg-white">
-                  <h4 className="font-extrabold text-stone-800 text-sm font-sans line-clamp-2 min-h-[2.5rem] leading-snug group-hover:text-[#624A3E] transition-colors">
-                    {p.nombre}
-                  </h4>
-                  <div className="flex items-center justify-between gap-2 mt-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      {editingPriceProduct === p.id_producto ? (
-                        <div className="flex items-center gap-1">
-                          <input type="number" value={editingPriceValue} step={100}
-                            onChange={e => setEditingPriceValue(Number(e.target.value))}
-                            className="w-24 text-xs font-black font-mono p-1 border border-[#624A3E] rounded bg-amber-50 focus:outline-none"
-                            autoFocus
-                          />
-                          <button onClick={() => handleUpdatePrice(p.id_producto, editingPriceValue)}
-                            className="text-[10px] bg-[#624A3E] text-white px-1.5 py-1 rounded font-bold cursor-pointer">OK</button>
-                          <button onClick={() => setEditingPriceProduct(null)}
-                            className="text-[10px] bg-stone-200 px-1.5 py-1 rounded font-bold cursor-pointer">
-                            <X className="w-3 h-3" /></button>
-                        </div>
-                      ) : (
-                        <span className="text-stone-900 font-mono text-sm font-black">
-                          ${p.precio_venta.toLocaleString('es-AR')}
-                        </span>
-                      )}
+                {/* Content */}
+                <div className="p-3 flex justify-between items-center bg-white">
+                  <div className="min-w-0 flex-1">
+                    <h4 className="font-extrabold text-stone-850 text-xs font-sans line-clamp-1 leading-snug group-hover:text-[#624A3E] transition-colors">
+                      {p.nombre}
+                    </h4>
+                    <div className="mt-1 flex items-center gap-1.5">
+                      <span className="text-stone-900 font-mono text-xs font-black">
+                        ${p.precio_venta.toLocaleString('es-AR')}
+                      </span>
                       {currentInCart > 0 && (
-                        <span className="bg-[#624A3E] text-white rounded-full px-1.5 py-0.1 text-[9px] font-black font-mono shrink-0">
+                        <span className="bg-[#624A3E] text-white rounded-full px-1.5 py-0.1 text-[9px] font-black font-mono">
                           {currentInCart} en bolsa
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      {[1, 2, 3].map(n => (
-                        <button
-                          key={n}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (!isOutOfStock) handleAddToCart(p.id_producto, n);
-                          }}
-                          className="touch-target w-10 h-10 sm:w-11 sm:h-11 rounded-lg bg-[#624A3E]/10 text-[#624A3E] hover:bg-[#624A3E] hover:text-white active:scale-90 transition-all text-xs font-extrabold cursor-pointer flex items-center justify-center"
-                          title={`Agregar ${n}`}
-                        >
-                          +{n}
-                        </button>
-                      ))}
-                    </div>
                   </div>
+
+                  {/* elastic sum button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (!isOutOfStock) handleAddToCart(p.id_producto);
+                    }}
+                    className="w-8 h-8 rounded-full bg-[#624A3E] text-white hover:bg-[#503C32] active:scale-90 transition-all duration-150 flex items-center justify-center font-bold shadow-md shadow-[#624A3E]/20 cursor-pointer border border-amber-950/10 shrink-0"
+                    title="Añadir a comanda"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
                 </div>
-
-                {/* Admin gear menu - floating on image */}
-                {isAdmin && (
-                  <div className="absolute top-2 right-2">
-                    <button onClick={(e) => { e.stopPropagation(); setAdminMenuProduct(adminMenuProduct === p.id_producto ? null : p.id_producto); }}
-                      className="w-7 h-7 flex items-center justify-center rounded-full bg-white/90 hover:bg-white shadow-sm border border-stone-200 text-stone-500 hover:text-stone-700 transition-all cursor-pointer backdrop-blur-sm">
-                      <MoreVertical className="w-3.5 h-3.5" />
-                    </button>
-                    {adminMenuProduct === p.id_producto && (
-                      <div className="absolute top-9 right-0 z-50 bg-white border border-stone-200 rounded-xl shadow-xl py-1 w-44"
-                        onClick={e => e.stopPropagation()}>
-                        <button onClick={() => { setEditingPriceProduct(p.id_producto); setEditingPriceValue(p.precio_venta); setAdminMenuProduct(null); }}
-                          className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-stone-700 hover:bg-amber-50 transition-colors cursor-pointer">
-                          <Pencil className="w-3.5 h-3.5 text-amber-600" /> Editar Precio
-                        </button>
-                        <button onClick={() => handleToggleAvailability(p.id_producto)}
-                          className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 transition-colors cursor-pointer">
-                          <EyeOff className="w-3.5 h-3.5" /> {p.activo ? 'Ocultar / Dar de Baja' : 'Restaurar'}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
-
               </div>
             );
           })}
@@ -601,15 +860,15 @@ export default function MozoTerminal({
       </div>
 
       {/* RIGHT COLUMN: Active Comanda Cart Summary */}
-      <div className="min-w-0 lg:col-span-3 order-2">
-        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-100 shadow-sm flex flex-col min-h-[320px] sm:min-h-[400px] lg:h-[520px] lg:sticky lg:top-6">
+      <div className="lg:col-span-3">
+        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col h-[520px] sticky top-6">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-            <h3 className="font-bold text-slate-800 text-sm md:text-base font-sans flex items-center gap-2">
+            <h3 className="font-bold text-slate-800 text-sm font-sans flex items-center gap-2">
               <ShoppingBag className="w-4 h-4 text-slate-500" />
               Nueva Comanda
             </h3>
             {selectedMesa && (
-              <span className="bg-slate-900 text-white font-sans text-[10px] sm:text-xs font-extrabold px-2 py-0.5 rounded">
+              <span className="bg-slate-900 text-white font-sans text-[10px] font-extrabold px-2 py-0.5 rounded">
                 {selectedMesa.numero_mesa}
               </span>
             )}
@@ -620,8 +879,8 @@ export default function MozoTerminal({
               <div className="w-12 h-12 bg-slate-50 text-slate-400 rounded-full flex items-center justify-center mb-3">
                 <UtensilsCrossed className="w-5 h-5" />
               </div>
-              <h4 className="font-bold text-slate-700 text-sm">Seleccione Mesa</h4>
-              <p className="text-slate-400 text-xs mt-1 max-w-[180px]">
+              <h4 className="font-bold text-slate-700 text-xs">Seleccione Mesa</h4>
+              <p className="text-slate-400 text-[10px] mt-1 max-w-[180px]">
                 Marque una mesa disponible en el plano izquierdo para iniciar la comanda.
               </p>
             </div>
@@ -630,8 +889,8 @@ export default function MozoTerminal({
               <div className="w-12 h-12 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mb-3">
                 <Sparkles className="w-5 h-5" />
               </div>
-              <h4 className="font-bold text-slate-700 text-sm">Comanda Vacía</h4>
-              <p className="text-slate-400 text-xs mt-1 max-w-[180px]">
+              <h4 className="font-bold text-slate-700 text-xs">Comanda Vacía</h4>
+              <p className="text-slate-400 text-[10px] mt-1 max-w-[180px]">
                 Toque los platos de la carta central para cargarlos a la mesa de forma interactiva.
               </p>
             </div>
@@ -645,22 +904,22 @@ export default function MozoTerminal({
                     <div key={prodId} className="flex justify-between items-center text-xs bg-slate-50 p-2 rounded-xl border border-slate-100 hover:border-slate-200 transition-colors">
                       <div className="flex-1 pr-1 font-sans">
                         <span className="font-bold text-slate-800 line-clamp-1">{p.nombre}</span>
-                  <span className="text-[10px] text-slate-400 font-mono">${(p.precio_venta).toLocaleString('es-AR')} u.</span>
-                       </div>
-
-                       <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] text-slate-400 font-mono">${(p.precio_venta).toLocaleString('es-AR')} u.</span>
+                      </div>
+                      
+                      <div className="flex items-center gap-1.5">
                         <button
                           onClick={() => handleRemoveFromCart(prodId)}
-                          className="touch-target w-8 h-8 bg-white hover:bg-slate-100 rounded border border-slate-200 flex items-center justify-center text-slate-600 transition-colors"
+                          className="w-5 h-5 bg-white hover:bg-slate-100 rounded border border-slate-200 flex items-center justify-center text-slate-600 transition-colors"
                         >
-                          <Minus className="w-3.5 h-3.5" />
+                          <Minus className="w-3 h-3" />
                         </button>
-                        <span className="font-mono text-sm font-bold w-5 text-center">{qty}</span>
+                        <span className="font-mono text-xs font-bold w-4 text-center">{qty}</span>
                         <button
                           onClick={() => handleAddToCart(prodId)}
-                          className="touch-target w-8 h-8 bg-white hover:bg-slate-100 rounded border border-slate-200 flex items-center justify-center text-slate-600 transition-colors"
+                          className="w-5 h-5 bg-white hover:bg-slate-100 rounded border border-slate-200 flex items-center justify-center text-slate-600 transition-colors"
                         >
-                          <Plus className="w-3.5 h-3.5" />
+                          <Plus className="w-3 h-3" />
                         </button>
                       </div>
                     </div>
@@ -678,19 +937,8 @@ export default function MozoTerminal({
                   placeholder="Ej: Bife bien cocido, papas sin sal, agua a temperatura ambiente..."
                   value={observaciones}
                   onChange={(e) => setObservaciones(e.target.value)}
-                  className="w-full min-h-11 text-base text-slate-700 p-2.5 border border-slate-100 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-950 resize-none h-16"
+                  className="w-full text-xs text-slate-700 p-2 border border-slate-100 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-950 resize-none h-14"
                 />
-              </div>
-
-              {/* Cart count badge */}
-              <div className="flex items-center justify-between text-[10px] text-stone-500 font-medium pb-1">
-                <span>{Object.keys(cart).length} productos distintos</span>
-                <button
-                  onClick={handleClearCart}
-                  className="touch-target text-rose-500 hover:text-rose-700 font-bold uppercase tracking-wider cursor-pointer text-xs"
-                >
-                  Vaciar Carrito
-                </button>
               </div>
 
               {/* FOOTER TOTAL & INJECT BTN */}
@@ -704,22 +952,10 @@ export default function MozoTerminal({
 
                 <button
                   onClick={checkoutCart}
-                  disabled={checkoutStatus === 'sending'}
-                  className={`w-full min-h-11 py-3 px-4 rounded-xl text-sm sm:text-base font-black flex items-center justify-center gap-2 shadow-md transition-all duration-100 cursor-pointer border ${
-                    checkoutStatus === 'done'
-                      ? 'bg-emerald-600 text-white border-emerald-500 shadow-emerald-500/20'
-                      : checkoutStatus === 'sending'
-                      ? 'bg-amber-500 text-white border-amber-400 animate-pulse'
-                      : 'bg-[#624A3E] hover:bg-[#503C32] active:scale-95 text-white border-amber-950/10 shadow-[#624A3E]/20'
-                  }`}
+                  className="w-full py-2.5 px-4 bg-[#624A3E] hover:bg-[#503C32] active:scale-95 text-white rounded-xl text-xs font-black flex items-center justify-center gap-2 shadow-md shadow-[#624A3E]/20 transition-all duration-100 cursor-pointer border border-amber-950/10"
                 >
-                  {checkoutStatus === 'done' ? (
-                    <><CheckCircle className="w-3.5 h-3.5" /> Pedido Enviado ✓</>
-                  ) : checkoutStatus === 'sending' ? (
-                    <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Enviando...</>
-                  ) : (
-                    <><Sparkles className="w-3.5 h-3.5 text-amber-300" /> Enviar a Cocina 🚀</>
-                  )}
+                  <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                  Enviar a Cocina (Nuevo Pedido) 🚀
                 </button>
               </div>
             </>
@@ -729,8 +965,8 @@ export default function MozoTerminal({
 
       {/* BILL SPLITTING MODAL (MODO DIVISION DE CUENTAS) */}
       {splittingPedidoId !== null && (
-        <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 z-50">
-          <div className="bg-white rounded-t-2xl sm:rounded-2xl p-5 sm:p-6 shadow-xl max-w-md w-full max-h-[92vh] overflow-y-auto border border-slate-100">
+        <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-6 shadow-xl max-w-md w-full border border-slate-100">
             <div className="flex justify-between items-start mb-4">
               <div>
                 <h3 className="font-extrabold text-base text-slate-900 font-sans tracking-tight flex items-center gap-2">
@@ -791,14 +1027,14 @@ export default function MozoTerminal({
                       <div className="flex items-center bg-white border border-slate-200 rounded-lg p-1.5 gap-2.5">
                         <button 
                           onClick={() => setSplitCount(c => Math.max(2, c - 1))}
-                          className="touch-target w-8 h-8 rounded bg-slate-50 flex items-center justify-center font-bold text-sm active:scale-90"
+                          className="w-5 h-5 rounded bg-slate-50 flex items-center justify-center font-bold text-xs"
                         >
                           -
                         </button>
-                        <span className="text-sm font-bold font-mono w-5 text-center">{splitCount}</span>
+                        <span className="text-xs font-bold font-mono">{splitCount}</span>
                         <button 
                           onClick={() => setSplitCount(c => c + 1)}
-                          className="touch-target w-8 h-8 rounded bg-slate-50 flex items-center justify-center font-bold text-sm active:scale-90"
+                          className="w-5 h-5 rounded bg-slate-50 flex items-center justify-center font-bold text-xs"
                         >
                           +
                         </button>
@@ -877,7 +1113,7 @@ export default function MozoTerminal({
                     <button
                       onClick={() => {
                         const amntToPay = itemizedTotal > 0 ? itemizedTotal : orderTotal;
-                        toast.success(`Se procesó el cobro de ${amntToPay.toLocaleString('es-AR')} para ${p.numero_mesa}.`);
+                        alert(`Se procesó el cobro de $${amntToPay.toLocaleString('es-AR')} para ${p.numero_mesa}.`);
                         
                         // If fully paid or equal split, complete it
                         if (itemizedTotal === 0 || itemizedTotal === orderTotal) {
@@ -885,7 +1121,6 @@ export default function MozoTerminal({
                         } else {
                           // partial pay, we log it
                           addLog('sistema', `Mesa ${p.numero_mesa}: Cobro parcial de $${itemizedTotal.toLocaleString('es-AR')} recibido.`);
-                                  toast.warning(`Cobro parcial registrado. Saldo pendiente: $${(orderTotal - itemizedTotal).toLocaleString('es-AR')}. La mesa sigue abierta.`);
                         }
                         setSplittingPedidoId(null);
                         setSplitItemsChecked({});
@@ -903,8 +1138,5 @@ export default function MozoTerminal({
         </div>
       )}
     </div>
-
-      <ToastContainer toasts={toasts} removeToast={removeToast} />
-    </>
   );
 }

@@ -1,30 +1,29 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Database, 
-  Server, 
-  RefreshCw, 
-  CheckCircle, 
-  AlertTriangle, 
-  Unlock, 
-  Sliders, 
-  CloudLightning, 
-  Upload, 
-  Download, 
-  Zap, 
+import React, { useState, useEffect } from 'react';
+import {
+  Database,
+  Server,
+  RefreshCw,
+  CheckCircle,
+  AlertTriangle,
+  Unlock,
+  Sliders,
+  CloudLightning,
+  Upload,
+  Download,
+  Zap,
   Sparkles,
   Info
 } from 'lucide-react';
-import { 
-  getSupabaseConfig, 
-  getSupabaseClient, 
-  resetSupabaseInstance, 
-  dbFetchPedidos,
-  dbFetchUsuarios, 
-  dbFetchMesas, 
-  dbFetchInsumos, 
-  dbFetchProductosMenu, 
-  dbFetchRecetas, 
-  dbFetchPromociones, 
+import {
+  getSupabaseConfig,
+  getSupabaseClient,
+  resetSupabaseInstance,
+  dbFetchUsuarios,
+  dbFetchMesas,
+  dbFetchInsumos,
+  dbFetchProductosMenu,
+  dbFetchRecetas,
+  dbFetchPromociones,
   dbFetchProveedores,
   dbFetchReservas,
   dbUpsertUsuarios,
@@ -35,18 +34,17 @@ import {
   dbUpsertPromociones,
   dbUpsertProveedores,
   dbUpsertReservas,
+  dbFetchPedidos,
   dbFetchMermas,
   dbUpsertMermas
 } from '../supabase';
-import { normalizeSupabaseUrl } from '../lib/supabaseClient';
-import { 
-  INITIAL_USUARIOS, 
-  INITIAL_MESAS, 
-  INITIAL_INSUMOS, 
-  INITIAL_PRODUCTOS_MENU, 
-  INITIAL_RECETAS_ESCANDALLO 
+import {
+  INITIAL_USUARIOS,
+  INITIAL_MESAS,
+  INITIAL_INSUMOS,
+  INITIAL_PRODUCTOS_MENU,
+  INITIAL_RECETAS_ESCANDALLO
 } from '../data/initialData';
-import { useToast, ToastContainer } from './ToastContainer';
 
 interface SupabaseManagerProps {
   onSyncComplete?: (data: {
@@ -74,13 +72,10 @@ export default function SupabaseManager({
   currentRecetas,
   addLog
 }: SupabaseManagerProps) {
-  const { toast, toasts, removeToast } = useToast();
   const [copiedKey, setCopiedKey] = useState(false);
-  const [copiedSql, setCopiedSql] = useState(false);
-  const [showSqlSetupGuide, setShowSqlSetupGuide] = useState(false);
   const [url, setUrl] = useState('');
   const [anonKey, setAnonKey] = useState('');
-  
+
   // Statuses
   const [connectionStatus, setConnectionStatus] = useState<'not_configured' | 'testing' | 'connected' | 'error'>('not_configured');
   const [connectionMessage, setConnectionMessage] = useState('');
@@ -90,7 +85,7 @@ export default function SupabaseManager({
   // Dynamic PostgreSQL scan states
   const [scannedTables, setScannedTables] = useState<any[]>([]);
   const [isScanning, setIsScanning] = useState(false);
-  
+
   // Interactive inspection grid states
   const [selectedTableForInspect, setSelectedTableForInspect] = useState<string | null>(null);
   const [inspectRows, setInspectRows] = useState<any[]>([]);
@@ -100,38 +95,33 @@ export default function SupabaseManager({
   const [inspectFilter, setInspectFilter] = useState('');
   const [pageSize, setPageSize] = useState(5);
   const [pageIndex, setPageIndex] = useState(0);
-  const initialTestStarted = useRef(false);
 
   const candidateTables = [
     { name: 'usuarios', desc: 'Credenciales, roles y perfiles de operarios/as.', key: 'id_usuario' },
-    { name: 'mesas', desc: 'Configuracion y estado actual de mesas fisicas en salon.', key: 'id_mesa' },
-    { name: 'insumos', desc: 'Stock actual de insumos y materias primas.', key: 'id_insumo' },
-    { name: 'productos_menu', desc: 'Platos, tragos y articulos activos del catalogo de venta.', key: 'id_producto' },
-    { name: 'recetas_escandallo', desc: 'Ingredientes y descuentos automaticos por escandallo.', key: 'id_receta' },
-    { name: 'mermas', desc: 'Mermas registradas por roturas o perdidas de bodega.', key: 'id_merma' },
-    { name: 'movimientos_inventario', desc: 'Movimientos de entrada, salida y ajustes de stock.', key: 'id_movimiento' },
+    { name: 'mesetas', desc: 'Configuración y estado actual de mesas físicas en salón.', key: 'id_mesa' },
+    { name: 'mesas', desc: 'Nomenclatura alternativa para mesas físicas.', key: 'id_mesa' },
+    { name: 'depósitos', desc: 'Historial y stock actual de insumos y materias primas.', key: 'id_insumo' },
+    { name: 'insumos', desc: 'Nomenclatura alternativa para depósitos/insumos.', key: 'id_insumo' },
+    { name: 'productos_menú', desc: 'Platos, tragos y artículos activos del catálogo de venta.', key: 'id_producto' },
+    { name: 'productos', desc: 'Nomenclatura alternativa para productos.', key: 'id_producto' },
+    { name: 'recetas_escandallo', desc: 'Asociación e ingredientes de platos con descuento para cocina.', key: 'id_receta' },
+    { name: 'promociones', desc: 'Campañas de descuento Happy Hour o combos especiales.', key: 'id_promo' },
     { name: 'proveedores', desc: 'Directorio de suministro y plazos de entrega estimados.', key: 'id_proveedor' },
-    { name: 'promociones', desc: 'Campanas de descuento, happy hour o combos especiales.', key: 'id_promo' },
-    { name: 'reservas', desc: 'Planillas de reservas, clientes y asignacion de mesas.', key: 'id_reserva' },
-    { name: 'facturas', desc: 'Archivo fiscal e historial de facturacion.', key: 'id_factura' },
-    { name: 'pagos', desc: 'Pagos asociados a facturas.', key: 'id_pago' },
-    { name: 'cierres_caja', desc: 'Aperturas y cierres de turno de caja.', key: 'id_cierre' },
-    { name: 'auditoria_eventos', desc: 'Trazabilidad y logs de auditoria tecnica.', key: 'id' },
-    { name: 'backups', desc: 'Respaldos generados por el sistema.', key: 'id_backup' },
+    { name: 'reservas', desc: 'Planillas de reservas, clientes y asignación de mesas.', key: 'id_reserva' },
+    { name: 'mermas', desc: 'Mermas registradas por roturas o pérdidas de bodega.', key: 'id_merma' },
+    { name: 'facturas', desc: 'Archivo fiscal e historial de facturación AFIP.', key: 'id_factura' },
     { name: 'pedidos_cabecera', desc: 'Cabecera de comandas vivas o terminadas del turno.', key: 'id_pedido' },
-    { name: 'pedido_detalle', desc: 'Detalles de productos asociados a cada comanda.', key: 'id_detalle' }
+    { name: 'pedido_detalle', desc: 'Detalles de platillos asociados por cada comanda.', key: 'id_detalle' },
+    { name: 'auditoria_eventos', desc: 'Trazabilidad y logs de auditoría técnica del software.', key: 'id' }
   ];
 
   useEffect(() => {
-    if (initialTestStarted.current) return;
-    initialTestStarted.current = true;
-
     // Initial load
     const config = getSupabaseConfig();
     setUrl(config.url);
     // Don't show fully truncated key in state literally
-    setAnonKey(config.key === 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' ? '' : config.key);
-    
+    setAnonKey(config.key === 'SUPABASE_ANON_KEY_TRUNCADA...' ? '' : config.key);
+
     // Auto-test if config looks fully valid
     if (config.url && config.key && !config.key.includes('...')) {
       testConnection(config.url, config.key);
@@ -141,13 +131,13 @@ export default function SupabaseManager({
   const scanDatabaseTables = async (client: any) => {
     setIsScanning(true);
     const results: any[] = [];
-    
+
     for (const cand of candidateTables) {
       try {
         const { data, count, error } = await client
           .from(cand.name)
           .select('*', { count: 'exact', head: true });
-        
+
         if (error) {
           if (error.code === 'PGRST116' || error.message?.includes('not find') || error.code === '42P01') {
             results.push({ ...cand, status: 'missing', count: 'Sin Crear' });
@@ -185,7 +175,7 @@ export default function SupabaseManager({
         .from(tableName)
         .select('*')
         .limit(100);
-      
+
       if (error) throw error;
 
       if (data && data.length > 0) {
@@ -205,15 +195,7 @@ export default function SupabaseManager({
   };
 
   const testConnection = async (testUrl: string, testKey: string) => {
-    const normalizedUrl = normalizeSupabaseUrl(testUrl);
-    const normalizedKey = testKey.trim();
-    const currentConfig = getSupabaseConfig();
-    const configChanged = (
-      normalizeSupabaseUrl(currentConfig.url) !== normalizedUrl
-      || currentConfig.key !== normalizedKey
-    );
-
-    if (!normalizedUrl || !normalizedKey) {
+    if (!testUrl || !testKey) {
       setConnectionStatus('not_configured');
       setConnectionMessage('Faltan ingresar las credenciales de Supabase.');
       return;
@@ -223,12 +205,10 @@ export default function SupabaseManager({
     setConnectionMessage('Estableciendo enlace de prueba...');
 
     try {
-      // Temporarily store in local storage to initialize correct client instance.
-      localStorage.setItem('SUPABASE_URL', normalizedUrl);
-      localStorage.setItem('SUPABASE_ANON_KEY', normalizedKey);
-      setUrl(normalizedUrl);
-      setAnonKey(normalizedKey);
-      if (configChanged) resetSupabaseInstance();
+      // Temporarily store in local storage to initialize correct client instance
+      localStorage.setItem('SUPABASE_URL', testUrl);
+      localStorage.setItem('SUPABASE_ANON_KEY', testKey);
+      resetSupabaseInstance();
 
       const client = getSupabaseClient();
       if (!client) {
@@ -237,45 +217,9 @@ export default function SupabaseManager({
 
       // Test reading tables
       const { data: userTest, error: userError } = await client.from('usuarios').select('count', { count: 'exact', head: true });
-      
-      let mesasCount: any = 'Error';
-      try {
-        const resMesas = await client.from('mesas').select('count', { count: 'exact', head: true });
-        if (!resMesas.error) mesasCount = resMesas.count ?? 0;
-      } catch { }
 
-      let depositosCount: any = 'Error';
-      try {
-        const resDep = await client.from('insumos').select('count', { count: 'exact', head: true });
-        if (!resDep.error) depositosCount = resDep.count ?? 0;
-      } catch { }
-
-      let prodCount: any = 'Error';
-      try {
-        const resProd = await client.from('productos_menu').select('count', { count: 'exact', head: true });
-        if (!resProd.error) prodCount = resProd.count ?? 0;
-      } catch { }
-
-      let recCount: any = 'Error';
-      try {
-        const resRec = await client.from('recetas_escandallo').select('count', { count: 'exact', head: true });
-        if (!resRec.error) recCount = resRec.count ?? 0;
-      } catch { }
-
-      let isTableMissing = false;
-      if (userError) {
-        const isMissingRelation = 
-          userError.code === '42P01' || 
-          (userError.message && (
-            userError.message.toLowerCase().includes('relation') || 
-            userError.message.toLowerCase().includes('does not exist')
-          ));
-        
-        if (isMissingRelation) {
-          isTableMissing = true;
-        } else {
-          throw userError;
-        }
+      if (userError && userError.code !== '42P01' && userError.code !== 'PGRST116') {
+        throw userError;
       }
 
       setConnectionStatus('connected');
@@ -295,7 +239,7 @@ export default function SupabaseManager({
 
   const handleSaveConfig = () => {
     if (!url || !anonKey) {
-      toast.error("Por favor rellene la URL y la Anon Key de Supabase.");
+      alert("Por favor rellene la URL y la Anon Key de Supabase.");
       return;
     }
     testConnection(url, anonKey);
@@ -318,7 +262,7 @@ export default function SupabaseManager({
   const handleSeedDatabase = async () => {
     const client = getSupabaseClient();
     if (!client || connectionStatus !== 'connected') {
-      toast.warning('Debe establecer una conexión exitosa primero.');
+      alert('Debe establecer una conexión exitosa primero.');
       return;
     }
 
@@ -330,29 +274,49 @@ export default function SupabaseManager({
     addLog('sistema', 'SUPABASE: Iniciando carga masiva de datos iniciales a las tablas en la nube...');
 
     try {
+      const OLD_PRODUCT_IDS = [
+        'prod_ent_carpaccio', 'prod_ent_burrata', 'prod_ent_mollejas', 'prod_ent_provoleta', 'prod_ent_empanadas',
+        'prod_pas_rotolo', 'prod_pas_cintas_sepia', 'prod_pas_sorrentinos_cordero', 'prod_pas_ravioles_calabaza', 'prod_pas_gnocchis',
+        'prod_car_ojo_bife', 'prod_car_bife_madurado', 'prod_car_costillar', 'prod_car_entrana', 'prod_car_matambrito',
+        'prod_pes_abadejo', 'prod_pes_cazuela', 'prod_pes_merluza',
+        'prod_cri_milanesa', 'prod_cri_hamburguesa', 'prod_cri_pastel_papa', 'prod_cri_humita',
+        'prod_pos_flan', 'prod_pos_volcan', 'prod_pos_peras', 'prod_pos_tiramisu', 'prod_pos_panqueque'
+      ];
+
+      addLog('sistema', 'SUPABASE: Eliminando platos obsoletos (legacy) de la nube...');
+      await client
+        .from('recetas_escandallo')
+        .delete()
+        .in('id_producto', OLD_PRODUCT_IDS);
+
+      await client
+        .from('productos_menu')
+        .delete()
+        .in('id_producto', OLD_PRODUCT_IDS);
+
       // 1. Send usuarios
       await dbUpsertUsuarios(INITIAL_USUARIOS);
-      
+
       // 2. Send mesas
       await dbUpsertMesas(currentMesas.length > 0 ? currentMesas : INITIAL_MESAS);
-      
+
       // 3. Send insumos
       await dbUpsertInsumos(currentInsumos.length > 0 ? currentInsumos : INITIAL_INSUMOS);
-      
+
       // 4. Send menu
       await dbUpsertProductosMenu(currentProductosMenu.length > 0 ? currentProductosMenu : INITIAL_PRODUCTOS_MENU);
-      
+
       // 5. Send recetas
       await dbUpsertRecetas(currentRecetas.length > 0 ? currentRecetas : INITIAL_RECETAS_ESCANDALLO);
 
       addLog('sistema', 'SUPABASE: ¡Base de Datos sembrada con éxito! Todos los registros de inventario, recetas y mesas están sincronizados en el servidor.');
-      toast.success('¡Base de datos sembrada y sincronizada correctamente en Supabase!');
-      
+      alert('¡Base de Datos sembrada y sincronizada correctamente en Supabase! Las tablas ahora tienen registros operacionales.');
+
       // Refresh counts
       testConnection(url, anonKey);
 
     } catch (err: any) {
-      toast.error(`Error al sembrar datos: ${err.message || err}`);
+      alert(`Error al sembrar datos: ${err.message || err}`);
       addLog('sistema', `SUPABASE ERROR: Error al sembrar base de datos. ${err.message || ''}`);
     } finally {
       setIsPushing(false);
@@ -363,7 +327,7 @@ export default function SupabaseManager({
   const handlePullDatabase = async () => {
     const client = getSupabaseClient();
     if (!client || connectionStatus !== 'connected') {
-      toast.warning('Debe establecer una conexión exitosa primero.');
+      alert('Debe establecer una conexión exitosa primero.');
       return;
     }
 
@@ -421,20 +385,19 @@ export default function SupabaseManager({
       if (pulledCount > 0 && onSyncComplete) {
         onSyncComplete(syncedPayload);
         addLog('sistema', `SUPABASE: Descarga completa. Sincronizadas y actualizadas de manera segura en caliente.`);
-        toast.success('¡Sincronización completada! La interfaz se actualizó con los datos de Supabase.');
+        alert('¡Sincronización descendente completada con éxito! La interfaz se actualizó con los datos de Supabase.');
       } else {
-        toast.warning('Las tablas remotas parecen estar vacías. Use "Sembrar / Inicializar" para cargarlas.');
+        alert('Las tablas remotas parecen estar vacías. Utilice "Sembrar / Inicializar" para cargarlas por primera vez.');
       }
 
     } catch (err: any) {
-      toast.error(`Error de sincronización: ${err.message || err}`);
+      alert(`Error de sincronización descendente: ${err.message || err}`);
     } finally {
       setIsPulling(false);
     }
   };
 
   return (
-    <>
     <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm space-y-4 font-sans" id="supabase-manager-widget">
       <div className="flex justify-between items-start">
         <div>
@@ -452,8 +415,8 @@ export default function SupabaseManager({
 
         <div className="flex items-center gap-1.5">
           <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold ${
-            connectionStatus === 'connected' 
-              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+            connectionStatus === 'connected'
+              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
               : connectionStatus === 'testing'
               ? 'bg-amber-50 text-amber-700 border border-amber-200 animate-pulse'
               : connectionStatus === 'error'
@@ -476,9 +439,9 @@ export default function SupabaseManager({
       <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5 bg-slate-50/70 p-4 rounded-xl border border-slate-100">
         <div className="md:col-span-4 space-y-1">
           <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500 block">Supabase App URL</label>
-          <input 
-            type="text" 
-            placeholder="https://xxx.supabase.co" 
+          <input
+            type="text"
+            placeholder="https://xxx.supabase.co"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             className="w-full text-xs py-1.5 px-3 bg-white border border-slate-200 rounded-lg text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#624A3E]"
@@ -487,9 +450,9 @@ export default function SupabaseManager({
 
         <div className="md:col-span-5 space-y-1">
           <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500 block">Supabase Client Anon Key</label>
-          <input 
-            type="password" 
-            placeholder="eyJhbGciOiJIUzI... (Su clave anónima)" 
+          <input
+            type="password"
+            placeholder="SUPABASE_ANON_KEY"
             value={anonKey}
             onChange={(e) => setAnonKey(e.target.value)}
             className="w-full text-xs py-1.5 px-3 bg-white border border-slate-200 rounded-lg text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#624A3E] font-mono"
@@ -505,7 +468,7 @@ export default function SupabaseManager({
             <RefreshCw className={`w-3.5 h-3.5 ${connectionStatus === 'testing' ? 'animate-spin' : ''}`} />
             Conectar
           </button>
-          
+
           {(url || anonKey) && (
             <button
               onClick={handleClearConfig}
@@ -520,8 +483,8 @@ export default function SupabaseManager({
 
       {connectionMessage && (
         <div className={`p-3 rounded-lg text-[11px] leading-snug font-medium flex items-center gap-2 ${
-          connectionStatus === 'connected' 
-            ? 'bg-emerald-500/10 border border-emerald-500/25 text-emerald-800' 
+          connectionStatus === 'connected'
+            ? 'bg-emerald-500/10 border border-emerald-500/25 text-emerald-800'
             : connectionStatus === 'error'
             ? 'bg-rose-500/10 border border-rose-500/25 text-rose-800'
             : 'bg-amber-500/10 border border-amber-500/25 text-amber-800'
@@ -535,306 +498,10 @@ export default function SupabaseManager({
         </div>
       )}
 
-      {/* SQL Setup Helper button and collapsible panel */}
-      <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100 flex flex-col gap-2.5">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <Unlock className="w-4 h-4 text-[#624A3E]" />
-            <div>
-              <span className="text-[11px] font-black uppercase text-slate-700 block text-left">Soporte SQL - Crear Tablas en Supabase</span>
-              <span className="text-[10px] text-slate-400 block text-left">Copie el script integral para inicializar su portal en un clic.</span>
-            </div>
-          </div>
-          <button
-            onClick={() => setShowSqlSetupGuide(!showSqlSetupGuide)}
-            className="px-2.5 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-[10px] font-extrabold rounded-lg cursor-pointer transition-all shadow-xs"
-          >
-            {showSqlSetupGuide ? 'Ocultar Código' : 'Ver Código SQL'}
-          </button>
-        </div>
-
-        {showSqlSetupGuide && (
-          <div className="space-y-2.5 animate-fadeIn">
-            <p className="text-[10px] text-slate-500 leading-relaxed text-left">
-              Ejecute este script en el <strong>"SQL Editor"</strong> de su consola de Supabase para crear automáticamente todas las tablas relacionales y habilitar el acceso completo de subida/bajada sin restricciones de seguridad (RLS):
-            </p>
-            <div className="bg-slate-900 text-slate-100 p-3 rounded-xl relative font-mono text-[9px] overflow-hidden group shadow-inner">
-              <pre className="overflow-x-auto whitespace-pre max-h-56 leading-relaxed text-left pr-20">
-{`-- 1. CREACIÓN DE TODAS LAS TABLAS DE RESTAURANTE
-CREATE TABLE IF NOT EXISTS public.productos_menu (
-  id_producto text PRIMARY KEY,
-  nombre text NOT NULL,
-  precio_venta numeric NOT NULL,
-  categoria text NOT NULL,
-  activo boolean DEFAULT true,
-  imagen text
-);
-
-CREATE TABLE IF NOT EXISTS public.usuarios (
-  id_usuario bigint PRIMARY KEY,
-  nombre text NOT NULL,
-  apellido text,
-  rol text NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS public.mesas (
-  id_mesa bigint PRIMARY KEY,
-  numero_mesa text NOT NULL,
-  estado text NOT NULL,
-  comensales bigint
-);
-
-CREATE TABLE IF NOT EXISTS public.insumos (
-  id_insumo text PRIMARY KEY,
-  nombre text NOT NULL,
-  stock_actual numeric NOT NULL,
-  stock_minimo numeric,
-  unidad_medida text NOT NULL,
-  categoria text NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS public.recetas_escandallo (
-  id_receta text PRIMARY KEY,
-  id_producto text,
-  id_insumo text,
-  cantidad_a_descontar numeric NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS public.promociones (
-  id_promocion text PRIMARY KEY,
-  codigo text NOT NULL,
-  descripcion text,
-  tipo_descuento text NOT NULL,
-  valor numeric NOT NULL,
-  activa boolean DEFAULT true,
-  id_producto_regalo text,
-  cantidad_compra bigint
-);
-
-CREATE TABLE IF NOT EXISTS public.proveedores (
-  id_proveedor text PRIMARY KEY,
-  nombre text NOT NULL,
-  rubro text NOT NULL,
-  contacto text,
-  telefono text,
-  email text,
-  historial_compras text
-);
-
-CREATE TABLE IF NOT EXISTS public.reservas (
-  id_reserva text PRIMARY KEY,
-  cliente text NOT NULL,
-  comensales bigint NOT NULL,
-  fecha_hora timestamp with time zone NOT NULL,
-  mesa_sugerida text,
-  estado text DEFAULT 'confirmada',
-  contacto text,
-  observaciones text
-);
-
-CREATE TABLE IF NOT EXISTS public.auditoria_eventos (
-  id text PRIMARY KEY,
-  tipo text NOT NULL,
-  mensaje text NOT NULL,
-  fecha timestamp with time zone DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS public.pedidos_cabecera (
-  id_pedido bigint PRIMARY KEY,
-  idempotency_key text,
-  id_mesa bigint,
-  numero_mesa text NOT NULL,
-  mozo text NOT NULL,
-  estado_comanda text NOT NULL,
-  observaciones text,
-  fecha_hora timestamp with time zone NOT NULL,
-  minutos_transcurridos bigint DEFAULT 0,
-  origen text NOT NULL,
-  tiempo_despacho_minutos numeric,
-  segundos_en_listo bigint,
-  items text
-);
-
-ALTER TABLE public.pedidos_cabecera
-  ADD COLUMN IF NOT EXISTS idempotency_key text;
-
-CREATE UNIQUE INDEX IF NOT EXISTS idx_pedidos_cabecera_idempotency_key
-  ON public.pedidos_cabecera (idempotency_key)
-  WHERE idempotency_key IS NOT NULL;
-
-CREATE TABLE IF NOT EXISTS public.pedido_detalle (
-  id_detalle text PRIMARY KEY,
-  id_pedido bigint NOT NULL,
-  id_producto text NOT NULL,
-  nombre text NOT NULL,
-  cantidad bigint NOT NULL,
-  categoria text NOT NULL
-);
-
--- 2. DESACTIVACIÓN DE RLS PARA PERMITIR LECTURA/ESCRITURA DIRECTA
-ALTER TABLE public.productos_menu DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.usuarios DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.mesas DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.insumos DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.insumos DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.recetas_escandallo DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.promociones DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.proveedores DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.reservas DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.auditoria_eventos DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.pedidos_cabecera DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.pedido_detalle DISABLE ROW LEVEL SECURITY;`}
-              </pre>
-              <button
-                onClick={() => {
-                  const sqlCode = `-- 1. CREACIÓN DE TODAS LAS TABLAS DE RESTAURANTE
-CREATE TABLE IF NOT EXISTS public.productos_menu (
-  id_producto text PRIMARY KEY,
-  nombre text NOT NULL,
-  precio_venta numeric NOT NULL,
-  categoria text NOT NULL,
-  activo boolean DEFAULT true,
-  imagen text
-);
-
-CREATE TABLE IF NOT EXISTS public.usuarios (
-  id_usuario bigint PRIMARY KEY,
-  nombre text NOT NULL,
-  apellido text,
-  rol text NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS public.mesas (
-  id_mesa bigint PRIMARY KEY,
-  numero_mesa text NOT NULL,
-  estado text NOT NULL,
-  comensales bigint
-);
-
-CREATE TABLE IF NOT EXISTS public.insumos (
-  id_insumo text PRIMARY KEY,
-  nombre text NOT NULL,
-  stock_actual numeric NOT NULL DEFAULT 0,
-  stock_minimo numeric DEFAULT 0,
-  unidad_medida text NOT NULL,
-  categoria text NOT NULL DEFAULT 'secos'
-);
-
-CREATE TABLE IF NOT EXISTS public.recetas_escandallo (
-  id_receta text PRIMARY KEY,
-  id_producto text,
-  id_insumo text,
-  cantidad_a_descontar numeric NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS public.promociones (
-  id_promocion text PRIMARY KEY,
-  codigo text NOT NULL,
-  descripcion text,
-  tipo_descuento text NOT NULL,
-  valor numeric NOT NULL,
-  activa boolean DEFAULT true,
-  id_producto_regalo text,
-  cantidad_compra bigint
-);
-
-CREATE TABLE IF NOT EXISTS public.proveedores (
-  id_proveedor text PRIMARY KEY,
-  nombre text NOT NULL,
-  rubro text NOT NULL,
-  contacto text,
-  telefono text,
-  email text,
-  historial_compras text
-);
-
-CREATE TABLE IF NOT EXISTS public.reservas (
-  id_reserva text PRIMARY KEY,
-  cliente text NOT NULL,
-  comensales bigint NOT NULL,
-  fecha_hora timestamp with time zone NOT NULL,
-  mesa_sugerida text,
-  estado text DEFAULT 'confirmada',
-  contacto text,
-  observaciones text
-);
-
-CREATE TABLE IF NOT EXISTS public.auditoria_eventos (
-  id text PRIMARY KEY,
-  tipo text NOT NULL,
-  mensaje text NOT NULL,
-  fecha timestamp with time zone DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS public.pedidos_cabecera (
-  id_pedido bigint PRIMARY KEY,
-  idempotency_key text,
-  id_mesa bigint,
-  numero_mesa text NOT NULL,
-  mozo text NOT NULL,
-  estado_comanda text NOT NULL,
-  observaciones text,
-  fecha_hora timestamp with time zone NOT NULL,
-  minutos_transcurridos bigint DEFAULT 0,
-  origen text NOT NULL,
-  tiempo_despacho_minutos numeric,
-  segundos_en_listo bigint,
-  items text
-);
-
-ALTER TABLE public.pedidos_cabecera
-  ADD COLUMN IF NOT EXISTS idempotency_key text;
-
-CREATE UNIQUE INDEX IF NOT EXISTS idx_pedidos_cabecera_idempotency_key
-  ON public.pedidos_cabecera (idempotency_key)
-  WHERE idempotency_key IS NOT NULL;
-
-CREATE TABLE IF NOT EXISTS public.pedido_detalle (
-  id_detalle text PRIMARY KEY,
-  id_pedido bigint NOT NULL,
-  id_producto text NOT NULL,
-  nombre text NOT NULL,
-  cantidad bigint NOT NULL,
-  categoria text NOT NULL
-);
-
--- 2. DESACTIVACIÓN DE RLS PARA PERMITIR LECTURA/ESCRITURA DIRECTA
-ALTER TABLE public.productos_menu DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.usuarios DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.mesas DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.insumos DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.recetas_escandallo DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.promociones DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.proveedores DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.reservas DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.auditoria_eventos DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.pedidos_cabecera DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.pedido_detalle DISABLE ROW LEVEL SECURITY;`;
-                  navigator.clipboard.writeText(sqlCode);
-                  setCopiedSql(true);
-                  setTimeout(() => setCopiedSql(false), 2000);
-                  addLog('sistema', 'SUPABASE: Copiado script SQL completo de estructuración de tablas.');
-                }}
-                className="absolute top-2 right-2 px-2.5 py-1 bg-white/10 hover:bg-white/20 text-white rounded text-[10px] font-extrabold flex items-center gap-1 cursor-pointer transition-all"
-              >
-                {copiedSql ? (
-                  <>
-                    <CheckCircle className="w-3 h-3 text-emerald-400 font-sans" />
-                    ¡Copiado!
-                  </>
-                ) : (
-                  'Copiar Código'
-                )}
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
       {/* Database stats and bi-directional synchronizer dashboard */}
       {connectionStatus === 'connected' && (
         <div className="space-y-6 mt-4 border-t border-slate-100 pt-4 animate-fadeIn">
-          
+
           {/* Table List Scanner Grid */}
           <div className="space-y-2">
             <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-xl border border-slate-100">
@@ -861,15 +528,15 @@ ALTER TABLE public.pedido_detalle DISABLE ROW LEVEL SECURITY;`;
                   const isSelected = selectedTableForInspect === table.name;
                   const isDetected = table.status === 'detected';
                   const isForbidden = table.status === 'forbidden';
-                  
+
                   return (
-                    <div 
-                      key={idx} 
+                    <div
+                      key={idx}
                       className={`p-3 rounded-xl border transition-all flex flex-col justify-between ${
-                        isSelected 
-                          ? 'border-[#624A3E] bg-[#624A3E]/5 ring-1 ring-[#624A3E]/10' 
-                          : isDetected 
-                          ? 'border-slate-150 bg-white hover:bg-slate-50/50' 
+                        isSelected
+                          ? 'border-[#624A3E] bg-[#624A3E]/5 ring-1 ring-[#624A3E]/10'
+                          : isDetected
+                          ? 'border-slate-150 bg-white hover:bg-slate-50/50'
                           : 'border-slate-100 bg-slate-50/30 opacity-70'
                       }`}
                     >
@@ -879,10 +546,10 @@ ALTER TABLE public.pedido_detalle DISABLE ROW LEVEL SECURITY;`;
                             {table.name}
                           </span>
                           <span className={`text-[8px] font-black uppercase px-1.5 py-0.2 rounded shrink-0 ${
-                            isDetected 
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' 
-                              : isForbidden 
-                              ? 'bg-amber-50 text-amber-700 border border-amber-100' 
+                            isDetected
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+                              : isForbidden
+                              ? 'bg-amber-50 text-amber-700 border border-amber-100'
                               : 'bg-slate-100 text-slate-400 border border-slate-200'
                           }`}>
                             {isDetected ? `${table.count} filas` : isForbidden ? 'RLS Guard' : 'No Creada'}
@@ -926,7 +593,7 @@ ALTER TABLE public.pedido_detalle DISABLE ROW LEVEL SECURITY;`;
                 </div>
 
                 <div className="flex items-center gap-1.5">
-                  <input 
+                  <input
                     type="text"
                     value={inspectFilter}
                     onChange={(e) => {
@@ -968,12 +635,12 @@ ALTER TABLE public.pedido_detalle DISABLE ROW LEVEL SECURITY;`;
                 <div className="space-y-2.5">
                   {/* Rows count summary */}
                   {(() => {
-                    const filtered = inspectRows.filter(row => 
+                    const filtered = inspectRows.filter(row =>
                       JSON.stringify(row).toLowerCase().includes(inspectFilter.toLowerCase())
                     );
                     const totalPages = Math.ceil(filtered.length / pageSize);
                     const displayed = filtered.slice(pageIndex * pageSize, (pageIndex + 1) * pageSize);
-                    
+
                     return (
                       <>
                         {/* Table layout overflow holder */}
@@ -1022,7 +689,7 @@ ALTER TABLE public.pedido_detalle DISABLE ROW LEVEL SECURITY;`;
                           <span>
                             Mostrando {pageIndex * pageSize + 1}-{Math.min((pageIndex + 1) * pageSize, filtered.length)} de {filtered.length} filas coincidentes (de {inspectRows.length} examinadas)
                           </span>
-                          
+
                           <div className="flex items-center gap-1.5">
                             <button
                               onClick={() => setPageIndex(p => Math.max(0, p - 1))}
@@ -1091,7 +758,5 @@ ALTER TABLE public.pedido_detalle DISABLE ROW LEVEL SECURITY;`;
         </div>
       )}
     </div>
-    <ToastContainer toasts={toasts} removeToast={removeToast} />
-    </>
   );
 }

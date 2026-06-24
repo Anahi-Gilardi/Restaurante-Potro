@@ -1219,9 +1219,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
                 mesas={mesas}
                 insumos={insumos}
                 productosMenu={productosMenu}
-                setProductosMenu={setProductosMenu}
                 recetas={recetas}
-                usuarios={usuarios}
                 pedidos={pedidos}
                 onMozoChange={setActiveMozo}
                 onCrearPedido={handleCrearPedido}
@@ -1252,7 +1250,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
               />
             )}
             {activeView === 'reportes' && (
-              <BusinessIntelligence pedidos={pedidos} productosMenu={productosMenu} logs={logs} precioMap={precioMap} insumos={insumos} recetas={recetas} mermas={mermas} />
+              <BusinessIntelligence productosMenu={productosMenu} logs={logs} />
             )}
             {activeView === 'panel' && (
               <PanelDashboard pedidos={pedidos} insumos={insumos} mesas={mesas} productosMenu={productosMenu} logs={logs} allowedViews={allowedViews} onNavigate={handleNavigate} getSimulatedTimeStr={getSimulatedTimeStr} />

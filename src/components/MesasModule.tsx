@@ -65,33 +65,33 @@ const POSICIONES_INICIALES: MesaVisual[] = [
 ];
 
 const ESTADO_FILL: Record<Mesa['estado'], string> = {
-  libre: '#D4EDDA',
-  ocupada: '#F8D7DA',
-  reservada: '#FFF3CD',
-  esperando_cuenta: '#d1fae5',
-  limpiando: '#dbeafe',
-  unida: '#e5e7eb',
-  sucia: '#f5f5f4',
+  libre: 'url(#freeGrad)',
+  ocupada: 'url(#occupiedGrad)',
+  reservada: 'url(#reservedGrad)',
+  esperando_cuenta: 'url(#waitingGrad)',
+  limpiando: 'url(#cleaningGrad)',
+  unida: 'url(#unitedGrad)',
+  sucia: 'url(#dirtyGrad)',
 };
 
 const ESTADO_STROKE: Record<Mesa['estado'], string> = {
-  libre: '#28A745',
-  ocupada: '#DC3545',
-  reservada: '#FFC107',
-  esperando_cuenta: '#10B981',
-  limpiando: '#3B82F6',
-  unida: '#6B7280',
-  sucia: '#78716c',
+  libre: '#10B981', // Emerald green
+  ocupada: '#EF4444', // Red
+  reservada: '#F59E0B', // Amber
+  esperando_cuenta: '#059669', // Dark Emerald
+  limpiando: '#3B82F6', // Blue
+  unida: '#9CA3AF', // Gray
+  sucia: '#78716C', // Stone
 };
 
 const ESTADO_TEXT: Record<Mesa['estado'], string> = {
-  libre: '#28A745',
-  ocupada: '#DC3545',
-  reservada: '#B58900',
+  libre: '#047857',
+  ocupada: '#B91C1C',
+  reservada: '#B45309',
   esperando_cuenta: '#065F46',
-  limpiando: '#1E40AF',
-  unida: '#374151',
-  sucia: '#44403c',
+  limpiando: '#1D4ED8',
+  unida: '#4B5563',
+  sucia: '#44403C',
 };
 
 function generarIdMesa(numero: string, capacidad: number, zona: Zona): string {
@@ -124,19 +124,30 @@ function renderSillas(mesa: MesaVisual): React.ReactNode[] {
   const { x, y, width, height } = mesa.posicion;
   const capacidad = mesa.capacidad;
   const sillas: React.ReactNode[] = [];
-  const radio = 7;
   const pasoX = width / (Math.min(capacidad, 4) + 1);
 
   const arriba = Math.min(capacidad, 4);
   for (let i = 1; i <= arriba; i++) {
+    const cx = x + pasoX * i;
     sillas.push(
-      <circle key={`top-${i}`} cx={x + pasoX * i} cy={y - 12} r={radio} fill="#4E3629" opacity="0.65" pointerEvents="none" />
+      <g key={`top-chair-${i}`} pointerEvents="none">
+        {/* Cushion (Seat) */}
+        <rect x={cx - 7} y={y - 11} width="14" height="8" rx="2" fill="#8C6D58" stroke="#4E3629" strokeWidth="1" />
+        {/* Backrest */}
+        <rect x={cx - 7} y={y - 14} width="14" height="3" rx="1" fill="#4E3629" />
+      </g>
     );
   }
   const abajo = Math.max(0, capacidad - 4);
   for (let i = 1; i <= abajo; i++) {
+    const cx = x + pasoX * i;
     sillas.push(
-      <circle key={`bottom-${i}`} cx={x + pasoX * i} cy={y + height + 12} r={radio} fill="#4E3629" opacity="0.65" pointerEvents="none" />
+      <g key={`bottom-chair-${i}`} pointerEvents="none">
+        {/* Cushion (Seat) */}
+        <rect x={cx - 7} y={y + height + 3} width="14" height="8" rx="2" fill="#8C6D58" stroke="#4E3629" strokeWidth="1" />
+        {/* Backrest */}
+        <rect x={cx - 7} y={y + height + 11} width="14" height="3" rx="1" fill="#4E3629" />
+      </g>
     );
   }
   return sillas;
@@ -670,7 +681,7 @@ export default function MesasModule({ mesas, onMesasChange, addLog = () => {} }:
 
       return (
         <g key={m.id} data-mesa-id={m.id}
-           className={`transition-opacity ${editorMode ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer hover:opacity-90'}`}
+           className={`transition-opacity ${editorMode ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer hover:opacity-95'}`}
            onClick={(e: React.MouseEvent) => {
              e.stopPropagation();
              if (editorMode || draggingMesa) return;
@@ -686,8 +697,8 @@ export default function MesasModule({ mesas, onMesasChange, addLog = () => {} }:
             onMouseDown={(e: React.MouseEvent) => editorMode ? startDrag(m, e) : undefined}
             onTouchStart={(e: React.TouchEvent) => editorMode ? startDrag(m, e) : undefined}
           />
-          <text x={x + width / 2} y={y + height / 2 - 2} textAnchor="middle" fontSize={Math.min(18, width / 3.5)} fontWeight={700} fill={textColor} fontFamily="Arial, sans-serif" pointerEvents="none">{m.numero_mesa}</text>
-          <text x={x + width / 2} y={y + height / 2 + 14} textAnchor="middle" fontSize={9} fill={textColor} fontFamily="Arial, sans-serif" opacity={0.8} pointerEvents="none">Mesa</text>
+          <text x={x + width / 2} y={y + height / 2 - 2} textAnchor="middle" fontSize={Math.min(18, width / 3.5)} fontWeight={800} fill={textColor} fontFamily="Arial, sans-serif" pointerEvents="none">{m.numero_mesa}</text>
+          <text x={x + width / 2} y={y + height / 2 + 14} textAnchor="middle" fontSize={9} fill={textColor} fontFamily="Arial, sans-serif" opacity={0.8} fontWeight={500} pointerEvents="none">Mesa</text>
           
           {/* Reservation calendar icon on table */}
           {reserva && (
@@ -708,8 +719,8 @@ export default function MesasModule({ mesas, onMesasChange, addLog = () => {} }:
     });
 
     return (
-      <div className="w-full flex justify-center">
-        <div className="w-full max-w-[300px] sm:max-w-[360px] aspect-[430/620]">
+      <div className="w-full flex justify-center py-2">
+        <div className="w-full max-w-[360px] md:max-w-[550px] lg:max-w-[650px] aspect-[430/620] transition-all duration-300">
           <svg ref={svgRef} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 430 620" preserveAspectRatio="xMidYMid meet" className="w-full h-full drop-shadow-xl"
             onMouseMove={handleSvgMouseMove}
             onTouchMove={handleSvgTouchMove}
@@ -717,29 +728,103 @@ export default function MesasModule({ mesas, onMesasChange, addLog = () => {} }:
             onTouchEnd={handleSvgMouseUp}
             onMouseLeave={handleSvgMouseUp}
           >
-            <rect x="10" y="10" width="410" height="600" rx="4" fill="none" stroke="#3D2B1F" strokeWidth="3"/>
-            <rect x="10" y="10" width="80" height="600" rx="4" fill="#2C1A0E"/>
-            <text x="50" y="200" textAnchor="middle" fontSize="11" fill="#C9A96E" fontFamily="Georgia, serif" fontWeight="700" transform="rotate(-90, 50, 200)" letterSpacing="2">RESTAURANTE</text>
-            <rect x="24" y="120" width="32" height="28" rx="6" fill="none" stroke="#C9A96E" strokeWidth="1.5" opacity="0.5"/>
-            <rect x="24" y="175" width="32" height="28" rx="6" fill="none" stroke="#C9A96E" strokeWidth="1.5" opacity="0.5"/>
-            <rect x="24" y="230" width="32" height="28" rx="6" fill="none" stroke="#C9A96E" strokeWidth="1.5" opacity="0.5"/>
+            <defs>
+              {/* Architectural Grid pattern */}
+              <pattern id="gridPattern" width="20" height="20" patternUnits="userSpaceOnUse">
+                <rect width="20" height="20" fill="none" />
+                <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#F1EFE9" strokeWidth="0.75" />
+              </pattern>
+              
+              {/* Premium Gradients for Tables */}
+              <linearGradient id="freeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#ECFDF5" />
+                <stop offset="100%" stopColor="#D1FAE5" />
+              </linearGradient>
+              <linearGradient id="occupiedGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#FFF5F5" />
+                <stop offset="100%" stopColor="#FEE2E2" />
+              </linearGradient>
+              <linearGradient id="reservedGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#FFFBEB" />
+                <stop offset="100%" stopColor="#FEF3C7" />
+              </linearGradient>
+              <linearGradient id="dirtyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#FAFAF9" />
+                <stop offset="100%" stopColor="#F5F5F4" />
+              </linearGradient>
+              <linearGradient id="cleaningGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#EFF6FF" />
+                <stop offset="100%" stopColor="#DBEAFE" />
+              </linearGradient>
+              <linearGradient id="waitingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#F0FDF4" />
+                <stop offset="100%" stopColor="#D1FAE5" />
+              </linearGradient>
+              <linearGradient id="unitedGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#F9FAFB" />
+                <stop offset="100%" stopColor="#E5E7EB" />
+              </linearGradient>
+            </defs>
 
-            <rect x="90" y="10" width="330" height="255" fill="#EAE0CC"/>
-            <text x="230" y="32" textAnchor="middle" fontSize="11" fontWeight="700" fill="#7A5C44" fontFamily="Arial, sans-serif" letterSpacing="3">COMEDOR</text>
-            <line x1="90" y1="265" x2="420" y2="265" stroke="#3D2B1F" strokeWidth="2.5"/>
+            {/* Layout Canvas border */}
+            <rect x="10" y="10" width="410" height="600" rx="6" fill="none" stroke="#4E3629" strokeWidth="4.5"/>
+            
+            {/* Left Corridor (Pasillo) */}
+            <rect x="10" y="10" width="80" height="600" rx="4" fill="#3D2B1F"/>
+            <text x="50" y="200" textAnchor="middle" fontSize="11" fill="#C9A96E" fontFamily="Georgia, serif" fontWeight="700" transform="rotate(-90, 50, 200)" letterSpacing="3">RESTAURANTE</text>
+            <rect x="24" y="120" width="32" height="28" rx="6" fill="none" stroke="#C9A96E" strokeWidth="1.5" opacity="0.4"/>
+            <rect x="24" y="175" width="32" height="28" rx="6" fill="none" stroke="#C9A96E" strokeWidth="1.5" opacity="0.4"/>
+            <rect x="24" y="230" width="32" height="28" rx="6" fill="none" stroke="#C9A96E" strokeWidth="1.5" opacity="0.4"/>
+            <text x="50" y="510" textAnchor="middle" fontSize="9" fill="#C9A96E" fontFamily="Arial, sans-serif" letterSpacing="1.5" transform="rotate(-90, 50, 510)">PASILLO</text>
 
-            <rect x="340" y="18" width="70" height="90" rx="4" fill="#D4C4A0" stroke="#8B6914" strokeWidth="2"/>
-            <text x="375" y="60" textAnchor="middle" fontSize="10" fontWeight="700" fill="#5A3E10" fontFamily="Arial, sans-serif" letterSpacing="1">CAJA</text>
-            <rect x="344" y="72" width="62" height="8" rx="3" fill="#8B6914" opacity="0.4"/>
+            {/* COMEDOR Zone */}
+            <rect x="90" y="10" width="330" height="255" fill="#FAF8F5"/>
+            <rect x="90" y="10" width="330" height="255" fill="url(#gridPattern)" opacity="0.75" />
+            <text x="255" y="34" textAnchor="middle" fontSize="12" fontWeight="800" fill="#7A5C44" fontFamily="Arial, sans-serif" letterSpacing="3">COMEDOR</text>
+            <line x1="90" y1="265" x2="420" y2="265" stroke="#4E3629" strokeWidth="3"/>
 
-            <rect x="90" y="265" width="330" height="345" fill="#EDE4D3"/>
-            <text x="230" y="290" textAnchor="middle" fontSize="11" fontWeight="700" fill="#7A5C44" fontFamily="Arial, sans-serif" letterSpacing="3">SALÓN</text>
+            {/* CAJA Module */}
+            <rect x="340" y="18" width="70" height="90" rx="8" fill="#FFFDF9" stroke="#8C6D58" strokeWidth="2.5"/>
+            <text x="375" y="55" textAnchor="middle" fontSize="10" fontWeight="800" fill="#624A3E" fontFamily="Arial, sans-serif" letterSpacing="1.5">CAJA</text>
+            <rect x="346" y="72" width="58" height="8" rx="3.5" fill="#8C6D58" opacity="0.45"/>
 
-            <text x="50" y="530" textAnchor="middle" fontSize="9" fill="#C9A96E" fontFamily="Arial, sans-serif" letterSpacing="1" transform="rotate(-90, 50, 530)">PASILLO</text>
+            {/* SALÓN Zone */}
+            <rect x="90" y="265" width="330" height="345" fill="#FAF7F0"/>
+            <rect x="90" y="265" width="330" height="345" fill="url(#gridPattern)" opacity="0.75" />
+            <text x="255" y="292" textAnchor="middle" fontSize="12" fontWeight="800" fill="#7A5C44" fontFamily="Arial, sans-serif" letterSpacing="3">SALÓN</text>
 
-            <rect x="90" y="575" width="80" height="35" fill="#D4C4A0" stroke="#3D2B1F" strokeWidth="1.5"/>
-            <text x="130" y="596" textAnchor="middle" fontSize="7" fill="#5A3E10" fontFamily="Arial, sans-serif" fontWeight="600">INGRESO</text>
-            <text x="130" y="606" textAnchor="middle" fontSize="7" fill="#5A3E10" fontFamily="Arial, sans-serif">VEHICAL</text>
+            {/* INGRESO Zone */}
+            <rect x="90" y="575" width="80" height="35" fill="#FAF2E5" stroke="#4E3629" strokeWidth="2"/>
+            <text x="130" y="596" textAnchor="middle" fontSize="7.5" fill="#624A3E" fontFamily="Arial, sans-serif" fontWeight="800" letterSpacing="0.5">INGRESO</text>
+            
+            {/* Architectural swing doors */}
+            {/* Comedor doorway swing */}
+            <path d="M 90 120 A 25 25 0 0 1 115 145" fill="none" stroke="#7A5C44" strokeWidth="1.5" strokeDasharray="3,3" />
+            <line x1="90" y1="120" x2="90" y2="145" stroke="#7A5C44" strokeWidth="2.5" />
+            
+            {/* Salón doorway swing */}
+            <path d="M 90 400 A 25 25 0 0 1 115 425" fill="none" stroke="#7A5C44" strokeWidth="1.5" strokeDasharray="3,3" />
+            <line x1="90" y1="400" x2="90" y2="425" stroke="#7A5C44" strokeWidth="2.5" />
+            
+            {/* Entrance swing doors */}
+            <path d="M 110 575 A 20 20 0 0 0 130 555" fill="none" stroke="#4E3629" strokeWidth="1.5" strokeDasharray="2.5,2" />
+            <line x1="110" y1="575" x2="130" y2="575" stroke="#4E3629" strokeWidth="2.5" />
+            <path d="M 150 575 A 20 20 0 0 1 130 555" fill="none" stroke="#4E3629" strokeWidth="1.5" strokeDasharray="2.5,2" />
+            <line x1="150" y1="575" x2="130" y2="575" stroke="#4E3629" strokeWidth="2.5" />
+
+            {/* Plants container decorations (plants in corners) */}
+            {/* Top-Right Plant */}
+            <g transform="translate(400, 25)">
+              <circle cx="0" cy="0" r="10" fill="#DCFCE7" stroke="#10B981" strokeWidth="1.5" />
+              <circle cx="0" cy="0" r="6" fill="#10B981" />
+              <path d="M -3 0 L 3 0 M 0 -3 L 0 3" stroke="#047857" strokeWidth="1" />
+            </g>
+            {/* Bottom-Right Plant */}
+            <g transform="translate(400, 550)">
+              <circle cx="0" cy="0" r="10" fill="#DCFCE7" stroke="#10B981" strokeWidth="1.5" />
+              <circle cx="0" cy="0" r="6" fill="#10B981" />
+              <path d="M -3 0 L 3 0 M 0 -3 L 0 3" stroke="#047857" strokeWidth="1" />
+            </g>
 
             <text x="418" y="140" textAnchor="middle" fontSize="9" fill="#7A5C44" fontFamily="Arial, sans-serif" transform="rotate(90, 418, 140)" letterSpacing="2" opacity="0.6">FACHADA</text>
 
@@ -747,14 +832,14 @@ export default function MesasModule({ mesas, onMesasChange, addLog = () => {} }:
             {mesaElements}
 
             {/* Leyenda */}
-            <rect x="155" y="580" width="12" height="12" rx="3" fill="#D4EDDA" stroke="#28A745" strokeWidth="2.5"/>
-            <text x="172" y="590" fontSize="8" fill="#2C1A0E" fontFamily="Arial, sans-serif">Libre</text>
-            <rect x="205" y="580" width="12" height="12" rx="3" fill="#F8D7DA" stroke="#DC3545" strokeWidth="2.5"/>
-            <text x="222" y="590" fontSize="8" fill="#2C1A0E" fontFamily="Arial, sans-serif">Ocupado</text>
-            <rect x="255" y="580" width="12" height="12" rx="3" fill="#FFF3CD" stroke="#FFC107" strokeWidth="2.5"/>
-            <text x="272" y="590" fontSize="8" fill="#2C1A0E" fontFamily="Arial, sans-serif">Reserva</text>
-            <rect x="305" y="580" width="12" height="12" rx="3" fill="#f5f5f4" stroke="#78716c" strokeWidth="2.5"/>
-            <text x="322" y="590" fontSize="8" fill="#2C1A0E" fontFamily="Arial, sans-serif">Sucia</text>
+            <rect x="155" y="580" width="12" height="12" rx="3" fill="url(#freeGrad)" stroke="#10B981" strokeWidth="2"/>
+            <text x="172" y="589" fontSize="8.5" fill="#44403C" fontWeight="700" fontFamily="Arial, sans-serif">Libre</text>
+            <rect x="205" y="580" width="12" height="12" rx="3" fill="url(#occupiedGrad)" stroke="#EF4444" strokeWidth="2"/>
+            <text x="222" y="589" fontSize="8.5" fill="#44403C" fontWeight="700" fontFamily="Arial, sans-serif">Ocupado</text>
+            <rect x="255" y="580" width="12" height="12" rx="3" fill="url(#reservedGrad)" stroke="#F59E0B" strokeWidth="2"/>
+            <text x="272" y="589" fontSize="8.5" fill="#44403C" fontWeight="700" fontFamily="Arial, sans-serif">Reserva</text>
+            <rect x="305" y="580" width="12" height="12" rx="3" fill="url(#dirtyGrad)" stroke="#78716C" strokeWidth="2"/>
+            <text x="322" y="589" fontSize="8.5" fill="#44403C" fontWeight="700" fontFamily="Arial, sans-serif">Sucia</text>
           </svg>
         </div>
       </div>
