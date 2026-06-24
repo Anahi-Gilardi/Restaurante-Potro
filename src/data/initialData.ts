@@ -69,6 +69,10 @@ export const INITIAL_INSUMOS: Insumo[] = [
   { id_insumo: 'ins_chocolate_belga', nombre: 'Chocolate amargo belga 70%', stock_actual: 5000.0, stock_minimo: 1500.0, unidad_medida: 'g', categoria: 'secos', subcategoria: 'Especialidades', proveedor: 'Gourmet Imports', costo_unitario: 16.0, es_bebida_directa: false },
   { id_insumo: 'ins_helado_crema', nombre: 'Helado Crema Americana', stock_actual: 30.0, stock_minimo: 5.0, unidad_medida: 'unidades', categoria: 'frescos', subcategoria: 'Postres', proveedor: 'Gourmet Imports', costo_unitario: 350.0, es_bebida_directa: false },
   { id_insumo: 'ins_peras_und', nombre: 'Peras frescas premium', stock_actual: 80.0, stock_minimo: 15.0, unidad_medida: 'unidades', categoria: 'frescos', subcategoria: 'Vegetales', proveedor: 'Mercado de Abasto', costo_unitario: 90.0, es_bebida_directa: false },
+  { id_insumo: 'ins_espinaca_fresca', nombre: 'Espinaca fresca de quinta', stock_actual: 20000.0, stock_minimo: 4000.0, unidad_medida: 'g', categoria: 'frescos', subcategoria: 'Vegetales', proveedor: 'Mercado de Abasto', costo_unitario: 1.5, es_bebida_directa: false },
+  { id_insumo: 'ins_huevo_fresco', nombre: 'Huevos de campo frescos', stock_actual: 300.0, stock_minimo: 60.0, unidad_medida: 'unidades', categoria: 'frescos', subcategoria: 'Lácteos', proveedor: 'Granja Las Alturas', costo_unitario: 150.0, es_bebida_directa: false },
+  { id_insumo: 'ins_queso_crema', nombre: 'Queso crema doble', stock_actual: 12000.0, stock_minimo: 2500.0, unidad_medida: 'g', categoria: 'frescos', subcategoria: 'Lácteos', proveedor: 'Lácteos La Bocha', costo_unitario: 5.5, es_bebida_directa: false },
+  { id_insumo: 'ins_choclo_fresco', nombre: 'Choclo dulce fresco', stock_actual: 100.0, stock_minimo: 20.0, unidad_medida: 'unidades', categoria: 'frescos', subcategoria: 'Vegetales', proveedor: 'Mercado de Abasto', costo_unitario: 120.0, es_bebida_directa: false },
 
   // 6. Insumos de Bodega (Vinos de Excel / Directos)
   // La Rural
@@ -1142,7 +1146,25 @@ export const INITIAL_RECETAS_ESCANDALLO: RecetaEscandallo[] = [
   { id_receta: 'esc_pos_ling_dl', id_producto: 'prod_pos_lingote_choc', id_insumo: 'ins_dulce_leche', cantidad_a_descontar: 30.00, unidad_medida: 'g' },
   { id_receta: 'esc_pos_pan_crema', id_producto: 'prod_pos_pannacotta', id_insumo: 'ins_crema_leche', cantidad_a_descontar: 100.00, unidad_medida: 'ml' },
   { id_receta: 'esc_pos_pan_frutos', id_producto: 'prod_pos_pannacotta', id_insumo: 'ins_frutos_rojos', cantidad_a_descontar: 30.00, unidad_medida: 'g' },
-  { id_receta: 'esc_pos_tarta_queso', id_producto: 'prod_pos_tarta_vasca', id_insumo: 'ins_queso_crema', cantidad_a_descontar: 120.00, unidad_medida: 'g' }
+  { id_receta: 'esc_pos_tarta_queso', id_producto: 'prod_pos_tarta_vasca', id_insumo: 'ins_queso_crema', cantidad_a_descontar: 120.00, unidad_medida: 'g' },
+  // RECETAS PLATOS NUEVOS
+  { id_receta: 'esc_ent_prov_base', id_producto: 'prod_ent_provolone', id_insumo: 'ins_provolone', cantidad_a_descontar: 180.00, unidad_medida: 'g' },
+  { id_receta: 'esc_ent_emp_base', id_producto: 'prod_ent_empanadas', id_insumo: 'ins_empanada_relleno', cantidad_a_descontar: 120.00, unidad_medida: 'g' },
+  { id_receta: 'esc_ent_carp_lomo', id_producto: 'prod_ent_carpaccio', id_insumo: 'ins_lomo_carne', cantidad_a_descontar: 100.00, unidad_medida: 'g' },
+  { id_receta: 'esc_ent_carp_parm', id_producto: 'prod_ent_carpaccio', id_insumo: 'ins_parmesano', cantidad_a_descontar: 20.00, unidad_medida: 'g' },
+  { id_receta: 'esc_pas_rot_espin', id_producto: 'prod_pas_rotolo', id_insumo: 'ins_espinaca_fresca', cantidad_a_descontar: 100.00, unidad_medida: 'g' },
+  { id_receta: 'esc_pas_rot_qcrem', id_producto: 'prod_pas_rotolo', id_insumo: 'ins_queso_crema', cantidad_a_descontar: 80.00, unidad_medida: 'g' },
+  { id_receta: 'esc_pas_rot_harin', id_producto: 'prod_pas_rotolo', id_insumo: 'ins_harina_trigo', cantidad_a_descontar: 80.00, unidad_medida: 'g' },
+  { id_receta: 'esc_pas_sep_harin', id_producto: 'prod_pas_cintas_sepia', id_insumo: 'ins_harina_trigo', cantidad_a_descontar: 100.00, unidad_medida: 'g' },
+  { id_receta: 'esc_pas_sep_huevo', id_producto: 'prod_pas_cintas_sepia', id_insumo: 'ins_huevo_fresco', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_pas_sep_tinta', id_producto: 'prod_pas_cintas_sepia', id_insumo: 'ins_tinta_sepia', cantidad_a_descontar: 10.00, unidad_medida: 'g' },
+  { id_receta: 'esc_car_ojo_bife', id_producto: 'prod_car_ojo_bife', id_insumo: 'ins_bife_madurado', cantidad_a_descontar: 300.00, unidad_medida: 'g' },
+  { id_receta: 'esc_car_ojo_aliq', id_producto: 'prod_car_ojo_bife', id_insumo: 'ins_aligot_queso', cantidad_a_descontar: 80.00, unidad_medida: 'g' },
+  { id_receta: 'esc_cri_hum_choclo', id_producto: 'prod_cri_humita', id_insumo: 'ins_choclo_fresco', cantidad_a_descontar: 2.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_pos_tira_qcrem', id_producto: 'prod_pos_tiramisu', id_insumo: 'ins_queso_crema', cantidad_a_descontar: 100.00, unidad_medida: 'g' },
+  { id_receta: 'esc_pos_tira_cafe', id_producto: 'prod_pos_tiramisu', id_insumo: 'ins_cafe_grano', cantidad_a_descontar: 10.00, unidad_medida: 'g' },
+  { id_receta: 'esc_pos_flan_huevo', id_producto: 'prod_pos_flan', id_insumo: 'ins_huevo_fresco', cantidad_a_descontar: 2.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_pos_flan_dl', id_producto: 'prod_pos_flan', id_insumo: 'ins_dulce_leche', cantidad_a_descontar: 50.00, unidad_medida: 'g' }
 ];
 
 export const INITIAL_PEDIDOS: Pedido[] = [
