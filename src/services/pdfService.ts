@@ -82,7 +82,9 @@ const loadQrDataUrl = async (qrDataText: string | undefined): Promise<string | n
 const addLogo = (doc: jsPDF, logo: string | null, x: number, y: number, size: number) => {
   if (!logo) return;
   try {
-    doc.addImage(logo, 'JPEG', x, y, size, size);
+    const isPng = logo.includes('iVBORw');
+    const format = isPng ? 'PNG' : 'JPEG';
+    doc.addImage(logo, format, x, y, size, size);
   } catch (err) {
     console.warn('No se pudo insertar el logo en PDF:', err);
   }
