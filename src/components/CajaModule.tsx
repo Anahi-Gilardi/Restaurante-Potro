@@ -587,7 +587,7 @@ export default function CajaModule({
     const neto = Number((factura.total / 1.21).toFixed(2));
     const ivaValue = Number(factura.iva_veintiuno || (factura.total - neto).toFixed(2));
     await pdfService.exportToPDF({
-      idPedido: String(factura.id_factura || Date.now()),
+      idPedido: factura.id_pedido || 0,
       nroComprobante: factura.nro_ticket,
       tipoComprobante: 'ticket_consumo',
       fechaHora: factura.fecha,
