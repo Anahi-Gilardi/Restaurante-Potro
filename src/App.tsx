@@ -78,6 +78,7 @@ import {
 import { AppView, canAccessView, getAllowedViews } from './lib/permissions';
 import { createClientPedidoId } from './lib/pedidoIds';
 import { cajaService } from './services/cajaService';
+import { reservasService } from './services/reservasService';
 
 function isSameTable(p1: { id_mesa?: any; numero_mesa?: string }, p2: { id_mesa?: any; numero_mesa?: string }): boolean {
   if (p1.id_mesa !== undefined && p1.id_mesa !== null && p2.id_mesa !== undefined && p2.id_mesa !== null) {
@@ -851,6 +852,27 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
       dbSavePedidoComplex({ ...order, estado_comanda: 'entregado_cobrado' });
     });
     dbUpsertMesas(updatedMesas);
+
+    // Completar automáticamente la reserva asociada para el día de hoy
+    const today = new Date().toISOString().split('T')[0];
+    reservasService.listByFecha(today).then(todayReservas => {
+      const matchRes = todayReservas.find(r => {
+        const matchId = (r.id_mesa !== undefined && r.id_mesa !== null && target.id_mesa !== undefined && target.id_mesa !== null && String(r.id_mesa) === String(target.id_mesa));
+        const norm1 = String(r.nombre_mesa || '').toLowerCase().replace(/mesa\s+/gi, '').trim();
+        const norm2 = String(target.numero_mesa || '').toLowerCase().replace(/mesa\s+/gi, '').trim();
+        const matchNum = norm1 !== '' && norm1 === norm2;
+        return (matchId || matchNum) && (r.estado === 'sentada' || r.estado === 'confirmada');
+      });
+      if (matchRes) {
+        reservasService.update(matchRes.id_reserva, { estado: 'completada' }).then(() => {
+          addLog('sistema', `RESERVA: Completada automáticamente para Mesa ${target.numero_mesa} al cobrar la comanda.`);
+        }).catch(err => {
+          console.error('Error updating reservation to completada:', err);
+        });
+      }
+    }).catch(err => {
+      console.error('Error listing today reservations:', err);
+    });
 
     if (!alreadyUpdatedInCaja) {
       const totalPedido = ordersToBill.reduce((sum, order) => {

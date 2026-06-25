@@ -513,7 +513,7 @@ export default function MozoTerminal({
               const isSelected = m.id_mesa === selectedMesaId;
               const isOcupada = m.estado === 'ocupada';
               const isInCuenta = m.estado === 'esperando_cuenta';
-              const isReservada = m.id_mesa === 3; // Mesa 3 is reserved for dinner per instructions
+              const isReservada = m.estado === 'reservada';
 
               // Determine visual theme according to exact state specs
               let stateClasses = "border-stone-200 bg-white hover:bg-stone-50 text-stone-700";

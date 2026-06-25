@@ -609,7 +609,7 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
     if (!selectedMesa) return;
     try {
       await mesasService.update(selectedMesa.id_mesa, { estado: 'sucia', comensales: 0, reserva_cliente: undefined, reserva_hora: undefined });
-      const reservaExistente = reservasHoy.find(r => r.id_mesa === selectedMesa.id_mesa && r.estado === 'confirmada');
+      const reservaExistente = reservasHoy.find(r => r.id_mesa === selectedMesa.id_mesa && (r.estado === 'confirmada' || r.estado === 'sentada'));
       if (reservaExistente) {
         await reservasService.update(reservaExistente.id_reserva, { estado: 'completada' });
       }
