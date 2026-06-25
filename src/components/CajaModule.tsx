@@ -584,28 +584,40 @@ export default function CajaModule({
   };
 
   const downloadFacturaHistorialPdf = async (factura: Factura) => {
-    const { jsPDF } = await import('jspdf');
-    const doc = new jsPDF('p', 'mm', [80, 160]);
-    let y = 10;
-    const line = (text: string, size = 8, bold = false) => {
-      doc.setFont('courier', bold ? 'bold' : 'normal');
-      doc.setFontSize(size);
-      doc.text(text, 5, y);
-      y += size * 0.55 + 1.5;
-    };
-    line('EL PATRON RESTAURANTE', 10, true);
-    line('Ticket emitido desde caja', 8);
-    line('------------------------------', 8);
-    line(`Nro: ${factura.nro_ticket}`, 8, true);
-    line(`Cliente: ${factura.cliente}`, 7);
-    line(`CUIT: ${factura.cuit || '-'}`, 7);
-    line(`Medio: ${factura.medio_pago.toUpperCase()}`, 7);
-    line(`Fecha: ${factura.fecha}`, 7);
-    line('------------------------------', 8);
-    line(`Neto: $${(factura.total - factura.iva_veintiuno).toLocaleString('es-AR')}`, 8);
-    line(`IVA: $${factura.iva_veintiuno.toLocaleString('es-AR')}`, 8);
-    line(`TOTAL: $${factura.total.toLocaleString('es-AR')}`, 10, true);
-    doc.save(`ticket_${factura.nro_ticket}.pdf`);
+    const neto = Number((factura.total / 1.21).toFixed(2));
+    const ivaValue = Number(factura.iva_veintiuno || (factura.total - neto).toFixed(2));
+    await pdfService.exportToPDF({
+      idPedido: String(factura.id_factura || Date.now()),
+      nroComprobante: factura.nro_ticket,
+      tipoComprobante: 'ticket_consumo',
+      fechaHora: factura.fecha,
+      mesa: 'Historial',
+      mozo: 'Caja',
+      cajero: 'Caja',
+      nombreComercial: restaurante.nombreComercial || 'El Patrón',
+      razonSocial: restaurante.razonSocial || 'El Patrón S.A.',
+      cuit: restaurante.cuit || '30-12345678-9',
+      direccion: restaurante.direccion || 'Calle Falsa 123',
+      telefono: restaurante.telefono || '0358-154123456',
+      email: restaurante.email || 'caja@elpatron.com.ar',
+      items: [{
+        cantidad: 1,
+        descripcion: 'Venta gastronómica según ticket emitido',
+        precio_unitario: neto,
+        subtotal: neto
+      }],
+      subtotal: neto,
+      descuento: 0,
+      propina: 0,
+      iva: ivaValue,
+      total: factura.total,
+      metodosPago: [{ metodo: factura.medio_pago || 'efectivo', monto: factura.total }],
+      vuelto: 0,
+      mensajePie: restaurante.mensajePie || 'Gracias por su visita.',
+      cae: (factura as any).afip_cae || (factura as any).cae || undefined,
+      vto: (factura as any).afip_vto || (factura as any).vto || undefined,
+      qrData: (factura as any).afip_qr || (factura as any).qrData || undefined
+    });
   };
 
   // Group items by menu categories (Rule 3)
