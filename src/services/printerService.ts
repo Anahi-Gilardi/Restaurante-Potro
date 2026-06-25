@@ -47,62 +47,64 @@ export const printerService = {
     }
     
     esc += '[ESC/POS: ALIGN CENTER]\n';
+    esc += '[ESC/POS: TEXT FONT_DOUBLE_SIZE]\n';
     esc += `${data.nombreComercial.toUpperCase()}\n`;
-    esc += 'EL PATRÓN RESTAURANTE\n';
-    esc += `${doubleSeparator}\n`;
-    esc += 'VIRTUAL FISCAL PRINTER DRIVER\n';
+    esc += '[ESC/POS: TEXT FONT_NORMAL]\n';
+    esc += `${data.razonSocial}\n`;
     esc += `CUIT: ${data.cuit}\n`;
     esc += `${data.direccion}\n`;
-    esc += `Telf: ${data.telefono}\n`;
+    esc += `Tel: ${data.telefono}\n`;
     esc += `Email: ${data.email}\n`;
-    esc += `${separator}\n`;
+    esc += `${doubleSeparator}\n`;
     
     esc += '[ESC/POS: ALIGN LEFT]\n';
-    esc += `TICKET NRO: ${data.nroComprobante}\n`;
+    esc += `TICKET Nº: ${data.nroComprobante}\n`;
     esc += `FECHA: ${data.fechaHora}\n`;
     esc += `MESA: ${data.mesa.toUpperCase()}\n`;
-    esc += `MOZO: ${data.mozo} • CAJERO: ${data.cajero}\n`;
-    esc += `ID PEDIDO: EP-${data.idPedido}\n`;
+    esc += `MOZO: ${data.mozo}  |  CAJERO: ${data.cajero}\n`;
+    esc += `PEDIDO ID: EP-${data.idPedido}\n`;
     esc += `${separator}\n`;
     
-    esc += padLeftRight('CANT  PRODUCTO', 'TOTAL') + '\n';
+    esc += padLeftRight('CANT  PRODUCTO', 'SUBTOTAL') + '\n';
     esc += `${separator}\n`;
     
     data.items.forEach(it => {
       let desc = it.descripcion;
-      const maxDescLength = charWidth - 14; 
-      if (desc.length > maxDescLength) {
-        desc = desc.slice(0, maxDescLength - 2) + '..';
-      }
-      const qtyStr = `${it.cantidad}x `.padEnd(4);
-      esc += padLeftRight(qtyStr + desc, `$${it.subtotal.toLocaleString('es-AR')}`) + '\n';
+      esc += `${desc}\n`;
+      const unitPrice = it.precio_unitario ?? it.precioUnitario ?? 0;
+      const qtyStr = `  ${it.cantidad} x $${unitPrice.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
+      const subtotalStr = `$${it.subtotal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
+      esc += padLeftRight(qtyStr, subtotalStr) + '\n';
     });
     
     esc += `${separator}\n`;
-    esc += padLeftRight('Subtotal Neto:', `$${data.subtotal.toLocaleString('es-AR')}`) + '\n';
+    esc += padLeftRight('Subtotal Neto:', `$${data.subtotal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`) + '\n';
     if (data.descuento > 0) {
-      esc += padLeftRight('Bonificación:', `-$${data.descuento.toLocaleString('es-AR')}`) + '\n';
+      esc += padLeftRight('Bonificación:', `-$${data.descuento.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`) + '\n';
     }
     if (data.propina > 0) {
-      esc += padLeftRight('Propina Sugerida:', `$${data.propina.toLocaleString('es-AR')}`) + '\n';
+      esc += padLeftRight('Propina Sugerida:', `$${data.propina.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`) + '\n';
     }
+    esc += padLeftRight('IVA (21.0% incl.):', `$${data.iva.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`) + '\n';
+    esc += `${separator}\n`;
     
     esc += '[ESC/POS: TEXT FONT_DOUBLE_SIZE]\n';
-    esc += padLeftRight('TOTAL GRAL:', `$${data.total.toLocaleString('es-AR')}`) + '\n';
+    esc += padLeftRight('TOTAL:', `$${data.total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`) + '\n';
     esc += '[ESC/POS: TEXT FONT_NORMAL]\n';
     
-    esc += `${separator}\n`;
+    esc += `${doubleSeparator}\n`;
     esc += '[ESC/POS: ALIGN CENTER]\n';
     esc += 'MEDIOS DE PAGO:\n';
     data.metodosPago.forEach(mp => {
-      esc += `   ${mp.metodo.toUpperCase()}:  $${mp.monto.toLocaleString('es-AR')}\n`;
+      esc += padLeftRight(`   ${mp.metodo.toUpperCase()}:`, `$${mp.monto.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`) + '\n';
     });
     if (data.vuelto > 0) {
-      esc += `   CAMBIO ENTREGADO: $${data.vuelto.toLocaleString('es-AR')}\n`;
+      esc += padLeftRight('   VUELTO ENTREGADO:', `$${data.vuelto.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`) + '\n';
     }
     esc += `${separator}\n`;
     esc += `${data.mensajePie}\n`;
     esc += 'Muchas gracias por su visita.\n';
+    esc += 'Conserve este comprobante.\n';
     esc += `${doubleSeparator}\n`;
     
     if (config.autoCut) {
@@ -126,13 +128,7 @@ export const printerService = {
     console.log(`Print Dispatch Triggered: Printer "${config.printerName}" width=${config.paperWidth}. Output:\n`, rawText);
 
     // Simulated network or physical bridges check
-    // We hook structured diagnostic logs for developer debug purposes
     try {
-      // 1. Future hook: Check if local Python API / FastAPI is active on 127.0.0.1:8001
-      // 2. Future hook: QZ Tray connection checks
-      // 3. WebUSB checks
-      
-      // Let's perform a lightweight fetch simulation that fails fast if unavailable (no long hangs)
       const controller = new AbortController();
       const id = setTimeout(() => controller.abort(), 100); // very fast check
       
