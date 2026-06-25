@@ -24,11 +24,9 @@ interface MobileNavProps {
 
 const NAV_ITEMS: { id: AppView; label: string; icon: string }[] = [
   { id: 'home', label: 'Inicio', icon: '🏠' },
-  { id: 'panel', label: 'Panel', icon: '📊' },
   { id: 'mozo', label: 'Mozo', icon: '📱' },
   { id: 'cocina', label: 'Cocina', icon: '🍳' },
   { id: 'caja', label: 'Caja', icon: '💵' },
-  { id: 'reportes', label: 'Reportes', icon: '📈' },
   { id: 'menu', label: 'Menú', icon: '📖' },
   { id: 'recetas', label: 'Recetas', icon: '⚖️' },
   { id: 'mesas', label: 'Mesas', icon: '🪑' },

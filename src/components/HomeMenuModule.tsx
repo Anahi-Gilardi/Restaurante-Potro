@@ -150,18 +150,7 @@ export default function HomeMenuModule({
 
   // Menu items list
   const menuItems = [
-    {
-      id: 'panel',
-      title: 'Panel General',
-      description: 'Supervisión en vivo de comandas, auditoría de logs y consolidador de métricas.',
-      icon: TrendingUp,
-      color: 'from-amber-500/10 to-amber-600/5 hover:border-amber-400',
-      iconColor: 'text-amber-700',
-      badge: {
-        text: `$${totalSales.toLocaleString('es-AR')}`,
-        type: 'emerald'
-      }
-    },
+
     {
       id: 'mozo',
       title: 'Mozo / Salón',
@@ -210,18 +199,7 @@ export default function HomeMenuModule({
         type: 'neutral'
       }
     },
-    {
-      id: 'reportes',
-      title: 'Reportes / BI',
-      description: 'Análisis de ventas, rentabilidad por plato, matriz BCG y consola de auditoría.',
-      icon: TrendingUp,
-      color: 'from-sky-500/10 to-sky-600/5 hover:border-sky-400',
-      iconColor: 'text-sky-700',
-      badge: {
-        text: 'Business Intelligence',
-        type: 'neutral'
-      }
-    },
+
     {
       id: 'usuarios',
       title: 'Usuarios',

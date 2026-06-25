@@ -2,11 +2,9 @@ import { Usuario } from '../types';
 
 export type AppView =
   | 'home'
-  | 'panel'
   | 'mozo'
   | 'cocina'
   | 'caja'
-  | 'reportes'
   | 'usuarios'
   | 'menu'
   | 'recetas'
@@ -21,11 +19,9 @@ export type AppView =
 
 export const ALL_APP_VIEWS: AppView[] = [
   'home',
-  'panel',
   'mozo',
   'cocina',
   'caja',
-  'reportes',
   'usuarios',
   'menu',
   'recetas',
@@ -48,11 +44,9 @@ const ALL_SIN_RESTRINGIDOS = ALL_APP_VIEWS.filter(
 const ROLE_PERMISSIONS: Record<Usuario['rol'], AppView[]> = {
   superadmin: [
     'home',
-    'panel',
     'mozo',
     'cocina',
     'caja',
-    'reportes',
     'usuarios',
     'menu',
     'recetas',
@@ -66,8 +60,8 @@ const ROLE_PERMISSIONS: Record<Usuario['rol'], AppView[]> = {
     'backups'
   ],
   administrador: ALL_SIN_RESTRINGIDOS,
-  mozo: ['home', 'panel', 'mozo', 'caja', 'reservas'] as AppView[],
-  cocina: ['home', 'panel', 'cocina']
+  mozo: ['home', 'mozo', 'caja', 'reservas'] as AppView[],
+  cocina: ['home', 'cocina']
 };
 
 export const getAllowedViews = (role: Usuario['rol']): AppView[] => (

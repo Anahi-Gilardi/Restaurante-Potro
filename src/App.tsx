@@ -43,10 +43,8 @@ const HomeMenuModule = lazy(() => import('./components/HomeMenuModule'));
 const MozoTerminal = lazy(() => import('./components/MozoTerminal'));
 const KitchenMonitor = lazy(() => import('./components/KitchenMonitor'));
 const InventoryModule = lazy(() => import('./components/InventoryModule'));
-const BusinessIntelligence = lazy(() => import('./components/BusinessIntelligence'));
 const CajaModule = lazy(() => import('./components/CajaModule'));
 const SistemaModule = lazy(() => import('./components/SistemaModule'));
-const PanelDashboard = lazy(() => import('./components/PanelDashboard'));
 const UsuariosModule = lazy(() => import('./components/UsuariosModule'));
 const MenuModule = lazy(() => import('./components/MenuModule'));
 const RecetasModule = lazy(() => import('./components/RecetasModule'));
@@ -601,7 +599,6 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
 
     const chunksToPreload = [
       import('./components/HomeMenuModule'),
-      import('./components/PanelDashboard'),
     ];
 
     Promise.allSettled(chunksToPreload).finally(() => {
@@ -1146,11 +1143,9 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
         <nav className="flex-1 overflow-y-auto overscroll-contain py-3 sidebar-scroll-hidden">
           {[
             { id: 'home', label: 'Inicio', icon: '🏠' },
-            { id: 'panel', label: 'Panel', icon: '📊' },
             { id: 'mozo', label: 'Mozo', icon: '📱' },
             { id: 'cocina', label: 'Cocina', icon: '🍳' },
             { id: 'caja', label: 'Caja', icon: '💵' },
-            { id: 'reportes', label: 'Reportes', icon: '📈' },
             { id: 'menu', label: 'Menú', icon: '📖' },
             { id: 'recetas', label: 'Recetas', icon: '⚖️' },
             { id: 'mesas', label: 'Mesas', icon: '🪑' },
@@ -1270,12 +1265,6 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
                 onRestockTodo={handleRestockTodo}
                 addLog={addLog}
               />
-            )}
-            {activeView === 'reportes' && (
-              <BusinessIntelligence productosMenu={productosMenu} logs={logs} />
-            )}
-            {activeView === 'panel' && (
-              <PanelDashboard pedidos={pedidos} insumos={insumos} mesas={mesas} productosMenu={productosMenu} logs={logs} allowedViews={allowedViews} onNavigate={handleNavigate} getSimulatedTimeStr={getSimulatedTimeStr} />
             )}
             {activeView === 'usuarios' && (
               <UsuariosModule usuarios={usuarios} onUsuariosChange={setUsuarios} addLog={addLog} activeUser={activeUser} />
