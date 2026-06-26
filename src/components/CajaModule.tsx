@@ -1043,7 +1043,10 @@ export default function CajaModule({
                       className={`w-full p-3 rounded-xl border text-left transition-all flex justify-between items-center cursor-pointer ${
                         isSelected 
                           ? 'border-[#E8B800] bg-[#FAF7F0]/90 dark:bg-[#4A2D1B]/40 glow-gold shadow-md'
-                          : 'border-stone-200/50 dark:border-stone-800/55 bg-white/70 dark:bg-stone-900/40 hover:bg-stone-50 dark:hover:bg-sto                      <div className="space-y-1">
+                          : 'border-stone-200/50 dark:border-stone-800/55 bg-white/70 dark:bg-stone-900/40 hover:bg-stone-50 dark:hover:bg-stone-800/40'
+                      }`}
+                    >
+                      <div className="space-y-1">
                         <div className="flex items-center gap-1.5">
                           <span className="font-extrabold text-stone-900 dark:text-stone-100 text-xs font-sans tracking-tight">{b.numero_mesa}</span>
                           
@@ -1073,7 +1076,7 @@ export default function CajaModule({
                         <span className="font-mono text-xs font-black text-stone-955 dark:text-stone-100 block">
                           ${totalPrice.toLocaleString('es-AR')}
                         </span>
-                        <span className="text-[9px] text-[#624A3E] dark:text-stone-300 uppercase font-black tracking-wide flex items-center gap-0.5 justify-end">se font-black tracking-wide flex items-center gap-0.5 justify-end">
+                        <span className="text-[9px] text-[#624A3E] dark:text-stone-300 uppercase font-black tracking-wide flex items-center gap-0.5 justify-end">
                           <Clock className="w-2.5 h-2.5" /> {b.minutos_transcurridos}m
                         </span>
                       </div>
