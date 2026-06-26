@@ -12,6 +12,29 @@
   --color-patron-brown: #4A2D1B;
   --color-patron-bronze: #C8956A;
   --color-patron-gold: #E8B800;
+
+  /* Custom intermediate stone colors to fix text/border visibility */
+  --color-stone-105: #f3f3f0;
+  --color-stone-150: #eeeeec;
+  --color-stone-205: #e2e0dd;
+  --color-stone-255: #e1dfdc;
+  --color-stone-250: #dedbd9;
+  --color-stone-350: #bfb9b5;
+  --color-stone-450: #908984;
+  --color-stone-550: #68625c;
+  --color-stone-650: #4d4945;
+  --color-stone-750: #373330;
+  --color-stone-850: #221f1d;
+  
+  /* Custom intermediate slate colors to fix layout contrast */
+  --color-slate-150: #e9eef5;
+  --color-slate-250: #d7e1ed;
+  --color-slate-350: #b2c3d9;
+  --color-slate-450: #7c8ba1;
+  --color-slate-550: #54647a;
+  --color-slate-650: #3d4b5f;
+  --color-slate-750: #283548;
+  --color-slate-850: #162031;
 }
 
 /* Scrollbar delgado pegado al borde */
