@@ -488,7 +488,7 @@ export default function MozoTerminal({
                 className={`py-2 px-3 rounded-lg text-sm font-extrabold transition-all cursor-pointer ${
                   activeMozo === mozoName 
                     ? 'bg-[#4A2D1B] text-white shadow-md border border-[#C8956A]/30 glow-gold scale-[1.02]' 
-                    : 'bg-stone-50 dark:bg-white/10 text-stone-700 dark:text-stone-150 border border-stone-200 dark:border-white/15 hover:bg-[#F5F1E9] dark:hover:bg-white/20'
+                    : 'bg-stone-50 dark:bg-white/10 text-stone-700 dark:text-white border border-stone-200 dark:border-white/15 hover:bg-[#F5F1E9] dark:hover:bg-white/20'
                 }`}
               >
                 {mozoName}
@@ -517,7 +517,7 @@ export default function MozoTerminal({
               const isReservada = m.estado === 'reservada';
 
               // Determine visual theme according to exact state specs
-              let stateClasses = "border-stone-200/80 dark:border-white/15 bg-white/50 dark:bg-white/10 hover:bg-stone-50 dark:hover:bg-white/20 text-stone-700 dark:text-stone-150";
+              let stateClasses = "border-stone-200/80 dark:border-white/15 bg-white/50 dark:bg-white/10 hover:bg-stone-50 dark:hover:bg-white/20 text-stone-700 dark:text-white";
               let labelText = "Libre";
 
               if (isSelected) {
@@ -744,7 +744,7 @@ export default function MozoTerminal({
                     className={`py-0.5 px-2.5 text-[9px] font-black rounded transition-all cursor-pointer ${
                       selectedWineVarietal === 'todo'
                         ? 'bg-amber-900/10 dark:bg-amber-500/10 text-[#4A2D1B] dark:text-[#C8956A] border border-amber-900/20 dark:border-amber-500/20'
-                        : 'bg-transparent text-stone-500 dark:text-stone-350 hover:bg-stone-100 hover:text-stone-700 dark:hover:text-stone-100'
+                        : 'bg-transparent text-stone-500 dark:text-stone-200 hover:bg-stone-100 hover:text-stone-700 dark:hover:text-stone-100'
                     }`}
                   >
                     Todos
@@ -759,7 +759,7 @@ export default function MozoTerminal({
                       className={`py-0.5 px-2.5 text-[9px] font-black rounded whitespace-nowrap transition-all cursor-pointer ${
                         selectedWineVarietal === varName
                           ? 'bg-[#4A2D1B] text-white shadow-sm'
-                          : 'bg-transparent text-stone-500 dark:text-stone-350 hover:bg-stone-100 hover:text-stone-700 dark:hover:text-stone-100'
+                          : 'bg-transparent text-stone-500 dark:text-stone-200 hover:bg-stone-100 hover:text-stone-700 dark:hover:text-stone-100'
                       }`}
                     >
                       {varName}
@@ -838,7 +838,7 @@ export default function MozoTerminal({
                 {/* Content */}
                 <div className="p-3 flex justify-between items-center bg-white dark:bg-[#4A2D1B]/40">
                   <div className="min-w-0 flex-1">
-                    <h4 className="font-extrabold text-stone-850 dark:text-stone-105 text-xs font-sans line-clamp-1 leading-snug group-hover:text-[#4A2D1B] dark:group-hover:text-[#E8B800] transition-colors">
+                    <h4 className="font-extrabold text-stone-850 dark:text-white text-xs font-sans line-clamp-1 leading-snug group-hover:text-[#4A2D1B] dark:group-hover:text-[#E8B800] transition-colors">
                       {p.nombre}
                     </h4>
                     <div className="mt-1 flex items-center gap-1.5">
