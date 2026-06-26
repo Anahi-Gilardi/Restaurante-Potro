@@ -75,29 +75,71 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
     });
   };
 
-  const specialties = [
+  const [coverTab, setCoverTab] = useState<'parrilla' | 'pizzeria'>('parrilla');
+
+  const specialtiesParrilla = [
     {
       id: 'spec_1',
       title: 'Ojo de Bife Madurado',
-      description: 'Corte premium de 450g madurado en seco por 28 días, asado a leña de quebracho colorado y servido con chimichurri rústico.',
-      tag: 'Fuegos Criollos',
-      image: '/images/ojo_bife_flames.png'
+      description: 'Corte de 450g madurado en seco durante 28 días, asado a leña de quebracho colorado y servido con chimichurri casero.',
+      tag: 'El Favorito de la Casa',
+      image: '/images/ojo_de_bife_grill.png'
     },
     {
       id: 'spec_2',
-      title: 'Pizza Margherita Gourmet',
-      description: 'Masa madre madurada 48hs con salsa de tomates italianos, muzzarella de búfala, hojas de albahaca fresca y oliva extra virgen al horno de barro.',
-      tag: 'Horno de Barro',
-      image: '/images/pizza_wood_oven.png'
+      title: 'Provoleta al Hierro',
+      description: 'Queso provolone fundido al crocante con oliva, orégano fresco, rodajas de tomate cherry y albahaca.',
+      tag: 'Entrada Caliente',
+      image: '/images/provoleta_hierro.png'
     },
     {
       id: 'spec_3',
-      title: 'Empanadas Criollas de Lomo',
-      description: 'Empanadas de lomo cortado a cuchillo, cocidas al horno de barro con cebolla de verdeo, huevo duro y especias seleccionadas.',
-      tag: 'Especialidad de la Casa',
-      image: '/images/empanadas.jpg'
+      title: 'Cintas Caseras al Sepia',
+      description: 'Pasta fresca amasada al huevo con tinta de calamar, salteada con langostinos al ajillo, tomates secos y vino blanco.',
+      tag: 'Pasta de Autor',
+      image: '/images/cintas_sepia_pasta.png'
     }
   ];
+
+  const specialtiesPizzeria = [
+    {
+      id: 'spec_pizz_1',
+      title: 'Pizza Margherita de Búfala',
+      description: 'Salsa de tomates italianos, muzzarella de búfala premium, hojas de albahaca fresca y un toque de aceite de oliva virgen extra sobre masa madre.',
+      tag: 'Especialidad al Horno',
+      image: '/images/pizza_wood_oven.png'
+    },
+    {
+      id: 'spec_pizz_2',
+      title: 'Empanadas Criollas de Lomo',
+      description: 'Relleno jugoso de lomo cortado a cuchillo, huevo de campo, cebolla de verdeo y especias criollas horneadas a leña.',
+      tag: 'Clásico del Horno',
+      image: '/images/empanadas.jpg'
+    },
+    {
+      id: 'spec_pizz_3',
+      title: 'Calzone Napolitano',
+      description: 'Masa italiana rellena de jamón cocido premium, muzzarella hilada, tomates seleccionados, albahaca y oliva.',
+      tag: 'Exclusivo del Horno',
+      image: '/images/pizza_wood_oven.png'
+    }
+  ];
+
+  const specialties = coverTab === 'parrilla' ? specialtiesParrilla : specialtiesPizzeria;
+
+  const accentColor = coverTab === 'parrilla' ? '#4A2D1B' : '#9B2226';
+  const hoverAccentColor = coverTab === 'parrilla' ? '#6B4A35' : '#B22226';
+
+  const heroBackground = coverTab === 'parrilla' ? '/images/ojo_de_bife_grill.png' : '/images/pizza_wood_oven.png';
+  const heroBadge = coverTab === 'parrilla' ? 'Gastronomía de Autor & Fuegos Criollos' : 'Pizzería & Horno Artesanal';
+  const heroTitleStart = coverTab === 'parrilla' ? 'El Verdadero Sabor' : 'Pizzas de Masa Madre';
+  const heroTitleHighlight = coverTab === 'parrilla' ? 'Del Fuego Criollo' : 'al Horno de Barro';
+  const heroDescription = coverTab === 'parrilla' 
+    ? 'Carnes seleccionadas maduradas en seco, pastas de autor amasadas a mano diariamente y una exclusiva selección de bodega. Te invitamos a vivir la experiencia de El Patrón.'
+    : 'Pizzas artesanales fermentadas por 48 horas, empanadas cocidas a leña y postres tradicionales criollos respetando el sabor auténtico.';
+
+  const specSubtitle = coverTab === 'parrilla' ? 'Nuestra Carta' : 'El Horno de Barro';
+  const specTitle = coverTab === 'parrilla' ? 'Especialidades de El Patrón' : 'Pizzas & Empanadas';
 
   return (
     <div className="min-h-screen bg-[#FAF7F0] dark:bg-[#1A110B] text-stone-900 dark:text-[#FAF7F0] font-sans selection:bg-[#624A3E] selection:text-white transition-colors duration-300">
@@ -116,11 +158,26 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
           </div>
 
           {/* Desktop Navigation links */}
-          <nav className="hidden md:flex items-center gap-8 text-sm font-semibold text-stone-600 dark:text-stone-300">
-            <a href="#especialidades" className="hover:text-[#624A3E] dark:hover:text-amber-400 transition-colors">Especialidades</a>
-            <a href="#experiencia" className="hover:text-[#624A3E] dark:hover:text-amber-400 transition-colors">Bodega</a>
-            <a href="#reserva" className="hover:text-[#624A3E] dark:hover:text-amber-400 transition-colors">Reservas</a>
-            <a href="#contacto" className="hover:text-[#624A3E] dark:hover:text-amber-400 transition-colors">Ubicación</a>
+          <nav className="hidden md:flex items-center gap-6 text-sm font-semibold text-stone-600 dark:text-stone-300">
+            {/* Toggle Button */}
+            <div className="flex bg-[#FAF7F0] dark:bg-[#1E140E] p-1 rounded-full border border-stone-200 dark:border-stone-850 shadow-xs mr-2">
+              <button
+                onClick={() => setCoverTab('parrilla')}
+                className={`px-3 py-1 rounded-full text-[10px] font-extrabold transition-all uppercase tracking-wider cursor-pointer ${coverTab === 'parrilla' ? 'bg-[#4A2D1B] text-white shadow-xs' : 'text-stone-500 hover:text-[#4A2D1B] dark:hover:text-[#FAF7F0]'}`}
+              >
+                🥩 Parrilla
+              </button>
+              <button
+                onClick={() => setCoverTab('pizzeria')}
+                className={`px-3 py-1 rounded-full text-[10px] font-extrabold transition-all uppercase tracking-wider cursor-pointer ${coverTab === 'pizzeria' ? 'bg-[#9B2226] text-white shadow-xs' : 'text-stone-500 hover:text-[#9B2226] dark:hover:text-[#FAF7F0]'}`}
+              >
+                🍕 Pizzería
+              </button>
+            </div>
+            <a href="#especialidades" className={`transition-colors ${coverTab === 'parrilla' ? 'hover:text-[#624A3E]' : 'hover:text-[#9B2226]'}`}>Especialidades</a>
+            <a href="#experiencia" className={`transition-colors ${coverTab === 'parrilla' ? 'hover:text-[#624A3E]' : 'hover:text-[#9B2226]'}`}>Bodega</a>
+            <a href="#reserva" className={`transition-colors ${coverTab === 'parrilla' ? 'hover:text-[#624A3E]' : 'hover:text-[#9B2226]'}`}>Reservas</a>
+            <a href="#contacto" className={`transition-colors ${coverTab === 'parrilla' ? 'hover:text-[#624A3E]' : 'hover:text-[#9B2226]'}`}>Ubicación</a>
           </nav>
 
           {/* Action Gateway Button */}
@@ -161,6 +218,21 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
             exit={{ opacity: 0, y: -20 }}
             className="md:hidden w-full bg-[#FAF7F0] dark:bg-[#1C140E] border-b border-[#624A3E]/10 px-6 py-4 space-y-3 flex flex-col font-medium"
           >
+            {/* Mobile Toggle inside Drawer */}
+            <div className="flex bg-stone-100 dark:bg-stone-900 p-1 rounded-full border border-stone-200 dark:border-stone-800 shadow-inner w-full max-w-[220px] mx-auto mb-1">
+              <button
+                onClick={() => { setCoverTab('parrilla'); setMobileMenuOpen(false); }}
+                className={`flex-1 py-1.5 rounded-full text-[10px] font-extrabold transition-all uppercase tracking-wider cursor-pointer ${coverTab === 'parrilla' ? 'bg-[#4A2D1B] text-white shadow-sm' : 'text-stone-500'}`}
+              >
+                🥩 Parrilla
+              </button>
+              <button
+                onClick={() => { setCoverTab('pizzeria'); setMobileMenuOpen(false); }}
+                className={`flex-1 py-1.5 rounded-full text-[10px] font-extrabold transition-all uppercase tracking-wider cursor-pointer ${coverTab === 'pizzeria' ? 'bg-[#9B2226] text-white shadow-sm' : 'text-stone-500'}`}
+              >
+                🍕 Pizzería
+              </button>
+            </div>
             <a href="#especialidades" onClick={() => setMobileMenuOpen(false)} className="py-2 text-stone-700 dark:text-stone-300 border-b border-stone-100 dark:border-stone-850">Especialidades</a>
             <a href="#experiencia" onClick={() => setMobileMenuOpen(false)} className="py-2 text-stone-700 dark:text-stone-300 border-b border-stone-100 dark:border-stone-850">Bodega</a>
             <a href="#reserva" onClick={() => setMobileMenuOpen(false)} className="py-2 text-stone-700 dark:text-stone-300 border-b border-stone-100 dark:border-stone-850">Reservas</a>
@@ -173,8 +245,8 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
       <section className="relative overflow-hidden py-20 lg:py-28 bg-[#1A110B] text-white flex items-center">
         {/* Background Image with Overlay */}
         <div 
-          className="absolute inset-0 bg-cover bg-center opacity-65 select-none pointer-events-none animate-pulse duration-[4000ms]"
-          style={{ backgroundImage: `url('/images/ojo_bife_flames.png')` }}
+          className="absolute inset-0 bg-cover bg-center opacity-60 select-none pointer-events-none transition-all duration-700 ease-in-out"
+          style={{ backgroundImage: `url('${heroBackground}')` }}
         />
         <div className="absolute inset-0 bg-gradient-to-r from-[#1A110B] via-[#1A110B]/60 to-[#1A110B]/20" />
 
@@ -184,10 +256,10 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
-              className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500/10 border border-amber-500/30 rounded-full text-amber-400 text-xs font-bold uppercase tracking-wider font-display-serif"
+              className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/5 border border-white/10 rounded-full text-stone-300 text-xs font-bold uppercase tracking-wider font-display-serif"
             >
               <Sparkles className="w-3.5 h-3.5" />
-              Gastronomía de Autor & Fuegos Criollos
+              {heroBadge}
             </motion.div>
 
             <motion.h1 
@@ -196,8 +268,8 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
               transition={{ duration: 0.6, delay: 0.1 }}
               className="text-4xl sm:text-5xl lg:text-6xl font-bold font-serif-rustic leading-tight tracking-wide text-[#FAF7F0] drop-shadow-md"
             >
-              Fuegos Criollos & <br />
-              <span className="text-amber-500 italic font-semibold">Pizzas al Horno de Barro</span>
+              {heroTitleStart} <br />
+              <span className={`italic font-semibold transition-all ${coverTab === 'parrilla' ? 'text-amber-500' : 'text-amber-400'}`}>{heroTitleHighlight}</span>
             </motion.h1>
 
             <motion.p 
@@ -206,7 +278,7 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
               transition={{ duration: 0.6, delay: 0.2 }}
               className="text-stone-200 text-sm sm:text-base md:text-lg max-w-xl font-serif-rustic italic leading-relaxed"
             >
-              Carnes premium seleccionadas a la leña, pizzas de masa madre cocidas al horno de barro, pastas caseras y empanadas criollas elaboradas en el día. Te invitamos a vivir la experiencia de El Patrón.
+              {heroDescription}
             </motion.p>
 
             <motion.div 
@@ -236,32 +308,59 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
       {/* 3. CORE STATS / VALUES BAR */}
       <section className="bg-[#FAF7F0] dark:bg-[#201710] py-8 border-y border-[#624A3E]/10 dark:border-amber-900/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
-          <div className="flex flex-col items-center p-3 space-y-1">
-            <Flame className="w-7 h-7 text-[#9B2226] animate-pulse" />
-            <span className="font-extrabold text-sm uppercase text-[#4A2D1B] dark:text-amber-400 font-display-serif tracking-widest">Fuegos Criollos</span>
-            <span className="text-[11px] text-stone-500 dark:text-stone-400 font-serif-rustic italic">Cortes premium a la leña de quebracho</span>
-          </div>
-          <div className="flex flex-col items-center p-3 space-y-1 border-y sm:border-y-0 sm:border-x border-stone-200 dark:border-stone-800">
-            <Pizza className="w-7 h-7 text-[#3A5A40]" />
-            <span className="font-extrabold text-sm uppercase text-[#4A2D1B] dark:text-amber-400 font-display-serif tracking-widest">Horno de Barro</span>
-            <span className="text-[11px] text-stone-500 dark:text-stone-400 font-serif-rustic italic">Pizzas de masa madre y empanadas gourmet</span>
-          </div>
-          <div className="flex flex-col items-center p-3 space-y-1">
-            <ChefHat className="w-7 h-7 text-[#C8956A]" />
-            <span className="font-extrabold text-sm uppercase text-[#4A2D1B] dark:text-amber-400 font-display-serif tracking-widest">Pastas de Autor</span>
-            <span className="text-[11px] text-stone-500 dark:text-stone-400 font-serif-rustic italic">Elaboración artesanal amasada en el día</span>
-          </div>
+          {coverTab === 'parrilla' ? (
+            <>
+              <div className="flex flex-col items-center p-3 space-y-1">
+                <Flame className="w-7 h-7 text-[#4A2D1B] dark:text-amber-500 animate-pulse" />
+                <span className="font-extrabold text-sm uppercase text-[#4A2D1B] dark:text-amber-400 font-display-serif tracking-widest">Cortes Premium</span>
+                <span className="text-[11px] text-stone-500 dark:text-stone-400 font-serif-rustic italic">Maduración controlada Dry Aged</span>
+              </div>
+              <div className="flex flex-col items-center p-3 space-y-1 border-y sm:border-y-0 sm:border-x border-stone-200 dark:border-stone-850">
+                <ChefHat className="w-7 h-7 text-[#4A2D1B] dark:text-amber-500" />
+                <span className="font-extrabold text-sm uppercase text-[#4A2D1B] dark:text-amber-400 font-display-serif tracking-widest">Cocina de Autor</span>
+                <span className="text-[11px] text-stone-500 dark:text-stone-400 font-serif-rustic italic">Pastas frescas y recetas tradicionales</span>
+              </div>
+              <div className="flex flex-col items-center p-3 space-y-1">
+                <Wine className="w-7 h-7 text-[#C8956A]" />
+                <span className="font-extrabold text-sm uppercase text-[#4A2D1B] dark:text-amber-400 font-display-serif tracking-widest">Cava Selecta</span>
+                <span className="text-[11px] text-stone-500 dark:text-stone-400 font-serif-rustic italic">Vinos de alta gama para maridajes</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex flex-col items-center p-3 space-y-1">
+                <Pizza className="w-7 h-7 text-[#9B2226] animate-bounce duration-[1500ms]" />
+                <span className="font-extrabold text-sm uppercase text-[#9B2226] dark:text-red-400 font-display-serif tracking-widest">Horno de Barro</span>
+                <span className="text-[11px] text-stone-500 dark:text-stone-400 font-serif-rustic italic">Pizzas de masa madre a la leña</span>
+              </div>
+              <div className="flex flex-col items-center p-3 space-y-1 border-y sm:border-y-0 sm:border-x border-stone-200 dark:border-stone-850">
+                <Flame className="w-7 h-7 text-[#3A5A40]" />
+                <span className="font-extrabold text-sm uppercase text-[#4A2D1B] dark:text-amber-400 font-display-serif tracking-widest">Tradición Criolla</span>
+                <span className="text-[11px] text-stone-500 dark:text-stone-400 font-serif-rustic italic">Empanadas elaboradas a mano</span>
+              </div>
+              <div className="flex flex-col items-center p-3 space-y-1">
+                <Wine className="w-7 h-7 text-[#C8956A]" />
+                <span className="font-extrabold text-sm uppercase text-[#4A2D1B] dark:text-amber-400 font-display-serif tracking-widest">Maridaje Perfecto</span>
+                <span className="text-[11px] text-stone-500 dark:text-stone-400 font-serif-rustic italic">Cerveza tirada y tragos artesanales</span>
+              </div>
+            </>
+          )}
         </div>
       </section>
 
       {/* 4. SPECIALTIES SECTION */}
       <section id="especialidades" className="py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
         <div className="text-center space-y-3">
-          <span className="text-xs uppercase font-bold text-[#6B4A35] dark:text-amber-500 tracking-widest font-display-serif">Nuestra Carta</span>
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-wide font-serif-rustic text-[#4A2D1B] dark:text-[#FAF7F0]">
-            Especialidades de El Patrón
+          <span className="text-xs uppercase font-bold text-[#6B4A35] dark:text-amber-500 tracking-widest font-display-serif">
+            {specSubtitle}
+          </span>
+          <h2 className={`text-3xl sm:text-4xl font-bold tracking-wide font-serif-rustic transition-all ${coverTab === 'parrilla' ? 'text-[#4A2D1B] dark:text-[#FAF7F0]' : 'text-[#9B2226] dark:text-[#FAF7F0]'}`}>
+            {specTitle}
           </h2>
-          <div className="w-16 h-1 bg-[#4A2D1B] dark:bg-amber-500 mx-auto rounded-full" />
+          <div 
+            className="w-16 h-1 mx-auto rounded-full transition-all duration-300"
+            style={{ backgroundColor: accentColor }}
+          />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -281,13 +380,16 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
                     (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1544025162-d76694265947?w=600';
                   }}
                 />
-                <span className="absolute top-4 left-4 px-3 py-1 bg-[#4A2D1B] dark:bg-amber-500 text-[#FAF7F0] dark:text-[#1A110B] text-[10px] font-bold uppercase tracking-wider font-display-serif rounded-lg shadow">
+                <span 
+                  className="absolute top-4 left-4 px-3 py-1 text-[#FAF7F0] text-[10px] font-bold uppercase tracking-wider font-display-serif rounded-lg shadow transition-all duration-300"
+                  style={{ backgroundColor: accentColor }}
+                >
                   {spec.tag}
                 </span>
               </div>
               <div className="p-6 flex-1 flex flex-col justify-between space-y-4">
                 <div className="space-y-2">
-                  <h3 className="text-lg font-bold font-serif-rustic text-[#4A2D1B] dark:text-[#FAF7F0] tracking-wide">
+                  <h3 className={`text-lg font-bold font-serif-rustic tracking-wide transition-all ${coverTab === 'parrilla' ? 'text-[#4A2D1B] dark:text-[#FAF7F0]' : 'text-[#9B2226] dark:text-[#FAF7F0]'}`}>
                     {spec.title}
                   </h3>
                   <p className="text-xs text-stone-600 dark:text-stone-400 font-serif-rustic italic leading-relaxed">
