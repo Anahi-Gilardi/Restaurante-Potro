@@ -1,5 +1,6 @@
 import React, { Component, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { forceCleanReload } from '../lib/reloadHelper';
 
 interface RetryErrorWrapperProps {
   children: ReactNode;
@@ -40,33 +41,17 @@ export default class RetryErrorWrapper extends Component<RetryErrorWrapperProps,
     if (isChunkError && this.state.retries < (this.props.maxRetries ?? 2)) {
       console.warn(`[Retry] Chunk load failed (attempt ${this.state.retries + 1}). Retrying...`);
       this.setState(prev => ({ hasError: false, retries: prev.retries + 1, errorMessage: '' }));
+
     } else if (isChunkError) {
-      console.warn('[Retry] Max retries reached. Cleansing cache and reloading...');
-      
-      const reload = () => {
-        window.location.reload();
-      };
-
-      const clearCacheAndSW = async () => {
-        try {
-          if ('serviceWorker' in navigator) {
-            const registrations = await navigator.serviceWorker.getRegistrations();
-            for (const registration of registrations) {
-              await registration.unregister();
-            }
-          }
-          if ('caches' in window) {
-            const keys = await caches.keys();
-            await Promise.all(keys.map(key => caches.delete(key)));
-          }
-        } catch (e) {
-          console.warn('Error clearing SW or caches:', e);
-        } finally {
-          reload();
+      console.warn('[Retry] Max retries reached. Attempting safe clean reload...');
+      forceCleanReload().then(success => {
+        if (!success) {
+          console.error('[Retry] Safe reload prevented to avoid infinite loop. Keeping error state.');
         }
-      };
-
-      clearCacheAndSW();
+      }).catch(err => {
+        console.error('[Retry] Safe reload failed:', err);
+        window.location.reload();
+      });
     } else {
       console.error('[RetryErrorWrapper] Error en módulo:', error);
     }
