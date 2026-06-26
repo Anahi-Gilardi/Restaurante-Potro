@@ -339,21 +339,21 @@ export default function KitchenMonitor({
           'pendiente',
           'Pendientes (Ingresos)',
           <CircleDot className="w-4 h-4 text-[#a0522d]" />,
-          'bg-[#FAF7F0] dark:bg-[#4A2D1B]/30 border-[#a0522d]/60',
+          'bg-[#4A2D1B]/10 dark:bg-[#4A2D1B]/30 border-[#a0522d]/60',
           ordersPendientes
         )}
         {renderColumn(
           'en_cocina',
           'En Preparación (Fuegos)',
           <Flame className="w-4 h-4 text-[#E8B800]" />,
-          'bg-[#FAF7F0] dark:bg-[#4A2D1B]/30 border-[#E8B800]/60',
+          'bg-[#E8B800]/15 dark:bg-[#E8B800]/25 border-[#E8B800]/60',
           ordersEnCocina
         )}
         {renderColumn(
           'listo',
           'Listos (A Servir)',
           <CheckCircle className="w-4 h-4 text-[#2e8b57]" />,
-          'bg-[#FAF7F0] dark:bg-[#4A2D1B]/30 border-[#2e8b57]/60',
+          'bg-emerald-500/10 dark:bg-emerald-500/20 border-[#2e8b57]/60',
           ordersListo
         )}
       </div>

@@ -89,6 +89,22 @@ function isSameTable(p1: { id_mesa?: any; numero_mesa?: string }, p2: { id_mesa?
 
 export default function App() {
   const { toast, toasts, removeToast } = useToast();
+
+  // System theme detection and class toggling for class-based dark mode
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = (e: MediaQueryListEvent | MediaQueryList) => {
+      if (e.matches) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    };
+    handleChange(mediaQuery);
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
+
   // --- Global Synced States ---
   const [isStreamlitLoggedIn, setIsStreamlitLoggedIn] = useState<boolean>(() => (
     typeof window !== 'undefined' && window.sessionStorage.getItem('el_patron_session') === 'active'
