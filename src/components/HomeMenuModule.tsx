@@ -326,7 +326,7 @@ export default function HomeMenuModule({
     <div className="space-y-8 animate-fadeIn" id="home-operational-menu">
       
       {/* 1. Impact Brand Header Block */}
-      <div className="bg-gradient-to-br from-[#4A2D1B] via-[#6B4A35] to-[#2E190E] rounded-3xl p-8 md:p-10 text-white shadow-xl relative overflow-hidden flex flex-col md:flex-row items-center gap-6 border-b-4 border-[#6B4A35]">
+      <div className="bg-gradient-to-br from-[#4A2D1B] via-[#6B4A35] to-[#2E190E] rounded-3xl p-8 md:p-10 text-white shadow-2xl relative overflow-hidden flex flex-col md:flex-row items-center gap-6 border border-[#C8956A]/20">
         {/* Subtle decorative logo outline in the background of the banner */}
         <div className="absolute right-[-25px] bottom-[-25px] opacity-10 rotate-12 scale-110 pointer-events-none">
           <ElPatronLogo className="w-64 h-64" variant="icon" color="#FFFDF8" />
@@ -356,7 +356,7 @@ export default function HomeMenuModule({
             Sistema integral de gestión gastronómica diseñado para el control operativo absoluto en cocina, salón, caja, facturación e inventario de alta precisión.
           </p>
           <div className="flex flex-wrap justify-center md:justify-start gap-2 pt-1">
-            <span className="bg-white/10 text-amber-200 text-[11px] px-3 py-1 rounded-full font-bold border border-white/5 font-mono">
+            <span className="bg-white/10 text-amber-250 text-[11px] px-3 py-1 rounded-full font-bold border border-white/5 font-mono">
               Estación Principal Terminal POS
             </span>
             <span className="bg-white/10 text-[#FFFDF8] text-[11px] px-3 py-1 rounded-full font-bold border border-white/5 font-sans">
@@ -368,8 +368,8 @@ export default function HomeMenuModule({
 
       {/* Live Action Center - Notifications bell */}
       {activeAlerts.length > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 max-w-7xl mx-auto space-y-2.5 shadow-sm">
-          <h4 className="text-xs font-bold text-amber-950 uppercase tracking-widest flex items-center gap-1.5 font-sans">
+        <div className="bg-amber-500/10 dark:bg-amber-500/5 border border-amber-500/20 text-amber-900 dark:text-amber-200 rounded-3xl p-5 max-w-7xl mx-auto space-y-3 shadow-md backdrop-blur-md">
+          <h4 className="text-xs font-black text-amber-950 dark:text-amber-100 uppercase tracking-widest flex items-center gap-1.5 font-sans">
             <Bell className="w-4 h-4 text-amber-600 animate-bounce" />
             Centro de Mensajes y Alertas en Vivo
           </h4>
@@ -378,15 +378,15 @@ export default function HomeMenuModule({
               <div 
                 key={idx} 
                 onClick={() => onNavigate(alert.action)}
-                className={`p-3 rounded-xl border flex justify-between items-center text-xs font-medium cursor-pointer hover:scale-[1.01] active:scale-[0.99] transition-all bg-white shadow-2xs ${
+                className={`p-3.5 rounded-2xl border flex justify-between items-center text-xs font-semibold cursor-pointer hover:scale-[1.01] active:scale-[0.99] transition-all glass-panel shadow-sm ${
                   alert.type === 'danger' 
-                    ? 'border-red-200 hover:border-red-400' 
-                    : 'border-amber-200 hover:border-amber-400'
+                    ? 'border-red-200/50 hover:border-red-400 dark:border-red-500/30' 
+                    : 'border-amber-250/50 hover:border-amber-400 dark:border-amber-500/30'
                 }`}
               >
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className={`w-4 h-4 ${alert.type === 'danger' ? 'text-red-500' : 'text-amber-500'}`} />
-                  <span className="text-stone-850 leading-snug">{alert.text}</span>
+                <div className="flex items-center gap-2.5">
+                  <AlertTriangle className={`w-4 h-4 shrink-0 ${alert.type === 'danger' ? 'text-red-500' : 'text-amber-500'}`} />
+                  <span className="text-stone-800 dark:text-stone-200 leading-snug">{alert.text}</span>
                 </div>
                 <ChevronRight className="w-4 h-4 text-stone-400 shrink-0" />
               </div>
@@ -396,129 +396,129 @@ export default function HomeMenuModule({
       )}
 
       {/* 2. Top-Level Operational Context Row (Live stats + quick action info) */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-white p-5 md:p-6 rounded-2xl border border-stone-200/80 shadow-xs max-w-7xl mx-auto">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 p-6 rounded-3xl glass-panel shadow-md max-w-7xl mx-auto">
         
         {/* Salon Capacity & Shift Widget */}
-        <div className="space-y-2 md:border-r border-stone-100/80 md:pr-4 last:border-0">
-          <span className="text-xs font-bold text-stone-400 uppercase tracking-widest block mb-2">Estado del Salón</span>
+        <div className="space-y-3 md:border-r border-stone-200/30 md:pr-5 last:border-0">
+          <span className="text-[10px] font-black text-stone-400 dark:text-stone-500 uppercase tracking-widest block">Estado del Salón</span>
           <div className="flex items-center gap-2">
-            <div className="bg-stone-50 border border-stone-200/60 px-3 py-1.5 rounded-xl text-stone-800 text-sm font-bold flex items-center gap-2 w-full">
+            <div className="bg-[#4A2D1B]/5 dark:bg-white/5 border border-stone-200/40 dark:border-white/10 px-3.5 py-2 rounded-xl text-stone-800 dark:text-stone-200 text-sm font-bold flex items-center gap-2.5 w-full shadow-inner">
               <span className="h-2 w-2 rounded-full bg-emerald-500" />
               <span>Ocupación: {Math.round((occupiedTables / (mesas.length || 1)) * 100)}%</span>
             </div>
           </div>
-          <p className="text-sm text-stone-405 text-stone-400">{occupiedTables} mesas ocupadas de {mesas.length} totales.</p>
+          <p className="text-xs text-stone-500 dark:text-stone-400">{occupiedTables} mesas ocupadas de {mesas.length} totales.</p>
         </div>
 
         {/* Active operator / logged user */}
-        <div className="space-y-2 md:border-r border-stone-100/80 md:px-4 last:border-0">
-          <span className="text-xs font-bold text-stone-400 uppercase tracking-widest block mb-2">Usuario Activo</span>
-          <div className="flex items-center gap-1.5">
-            <div className="w-7 h-7 rounded-full bg-stone-100 border border-stone-200 flex items-center justify-center text-stone-600">
-              <User className="w-4 h-4 text-stone-500" />
+        <div className="space-y-3 md:border-r border-stone-200/30 md:px-5 last:border-0">
+          <span className="text-[10px] font-black text-stone-400 dark:text-stone-500 uppercase tracking-widest block">Usuario Activo</span>
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-[#4A2D1B]/10 dark:bg-white/10 border border-stone-200/40 dark:border-white/15 flex items-center justify-center text-stone-600">
+              <User className="w-4 h-4 text-stone-600 dark:text-stone-300" />
             </div>
             {canChangeUser ? (
               <select
                 value={activeMozo}
                 onChange={(e) => onMozoChange(e.target.value)}
-                className="text-sm bg-transparent border-0 font-medium text-stone-800 focus:outline-none focus:ring-0 p-0 cursor-pointer hover:text-[#624A3E]"
+                className="text-sm bg-transparent border-0 font-extrabold text-stone-850 dark:text-stone-100 focus:outline-none focus:ring-0 p-0 cursor-pointer hover:text-[#624A3E] dark:hover:text-[#C8956A]"
               >
                 {usuarios.filter(usuario => usuario.activo !== false).map(usuario => (
-                  <option key={usuario.id_usuario} value={usuario.nombre}>
+                  <option key={usuario.id_usuario} value={usuario.nombre} className="dark:bg-[#1e130c] dark:text-stone-100">
                     {usuario.nombre} ({usuario.rol === 'superadmin' ? 'Super Admin' : usuario.rol === 'administrador' ? 'Administrador' : usuario.rol === 'cocina' ? 'Cocina' : 'Mozo'})
                   </option>
                 ))}
               </select>
             ) : (
-              <span className="text-sm font-medium text-stone-800">{activeMozo}</span>
+              <span className="text-sm font-extrabold text-stone-850 dark:text-stone-100">{activeMozo}</span>
             )}
           </div>
-          <p className="text-sm text-stone-400/95">Persona logueada de forma segura.</p>
+          <p className="text-xs text-stone-500 dark:text-stone-400">Persona logueada de forma segura.</p>
         </div>
 
         {/* Simulated shift time with clock advancement */}
-        <div className="space-y-2 md:border-r border-stone-100/80 md:px-4 last:border-0 bg-stone-50/50 p-4 rounded-xl border border-dashed border-stone-200">
+        <div className="space-y-3 md:border-r border-stone-200/30 md:px-5 last:border-0 bg-[#4A2D1B]/5 dark:bg-white/5 p-4 rounded-2xl border border-dashed border-stone-300/60 dark:border-white/10">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-stone-400 uppercase tracking-widest flex items-center gap-1 font-mono">
-              <Clock className="w-3 h-3 text-stone-500" />
+            <span className="text-[10px] font-black text-stone-400 dark:text-stone-500 uppercase tracking-widest flex items-center gap-1.5 font-sans">
+              <Clock className="w-3.5 h-3.5 text-stone-500" />
               Reloj Operacional
             </span>
             <span className={`h-1.5 w-1.5 rounded-full ${autoTimerRunning ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'}`} />
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-base font-medium text-stone-800 font-mono tracking-tight">{getSimulatedTimeStr()}</span>
-            <div className="flex gap-1">
+            <span className="text-base font-extrabold text-stone-800 dark:text-stone-100 font-mono tracking-tight">{getSimulatedTimeStr()}</span>
+            <div className="flex gap-1.5">
               <button
                 onClick={onToggleAutoTimer}
                 title={autoTimerRunning ? "Pausar" : "Iniciar"}
-                className={`p-1.5 rounded-lg ${autoTimerRunning ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'} cursor-pointer`}
+                className={`p-1.5 rounded-lg transition-all ${autoTimerRunning ? 'bg-amber-100/80 text-amber-700 hover:bg-amber-200' : 'bg-emerald-100/80 text-emerald-700 hover:bg-emerald-200'} cursor-pointer`}
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${autoTimerRunning ? 'animate-spin' : ''}`} />
               </button>
               <button
                 onClick={() => onAdvanceTime(15)}
-                className="text-[10px] px-2 py-1 font-bold bg-white border border-stone-250 rounded hover:bg-stone-100 cursor-pointer"
+                className="text-[10px] px-2 py-1 font-bold bg-white dark:bg-[#4A2D1B]/60 text-stone-700 dark:text-stone-200 border border-stone-200/80 dark:border-white/10 rounded-lg hover:bg-stone-50 dark:hover:bg-[#4A2D1B] transition-colors cursor-pointer"
               >
                 +15m
               </button>
             </div>
           </div>
-          <p className="text-sm text-stone-400 font-medium">Control de comanda en reloj.</p>
+          <p className="text-xs text-stone-500 dark:text-stone-400">Control de comanda en reloj.</p>
         </div>
 
         {/* Mini Manager Insights */}
-        <div className="space-y-2 md:pl-4">
-          <span className="text-xs font-bold text-stone-400 uppercase tracking-widest block mb-2">Turno en Cifras</span>
-          <div className="flex flex-col gap-1 text-xs text-stone-700 font-medium">
+        <div className="space-y-3 md:pl-5">
+          <span className="text-[10px] font-black text-stone-400 dark:text-stone-500 uppercase tracking-widest block">Turno en Cifras</span>
+          <div className="flex flex-col gap-1 text-xs text-stone-700 dark:text-stone-300 font-semibold">
             <div className="flex justify-between items-center">
               <span>Ventas del Turno:</span>
-              <strong className="text-emerald-700 font-mono text-sm">${totalSales.toLocaleString('es-AR')}</strong>
+              <strong className="text-emerald-700 dark:text-emerald-400 font-mono text-sm font-extrabold">${totalSales.toLocaleString('es-AR')}</strong>
             </div>
-            <div className="flex justify-between items-center border-t border-stone-100 pt-1">
+            <div className="flex justify-between items-center border-t border-stone-200/30 pt-1">
               <span>Ticket Promedio:</span>
-              <strong className="text-stone-900 font-mono">${averageTicket.toLocaleString('es-AR')}</strong>
+              <strong className="text-stone-900 dark:text-[#C8956A] font-mono font-extrabold">${averageTicket.toLocaleString('es-AR')}</strong>
             </div>
           </div>
-          <p className="text-[10px] text-stone-400 mt-1">Estimados consolidados de caja.</p>
+          <p className="text-xs text-stone-500 dark:text-stone-400">Estimados consolidados de caja.</p>
         </div>
 
       </div>
 
       {/* Quick Shortcuts Panel */}
-      <div className="bg-white border border-stone-200/80 rounded-2xl p-5 max-w-7xl mx-auto space-y-4 shadow-sm">
-        <h4 className="text-xs font-bold text-stone-500 uppercase tracking-widest font-sans pl-1">
+      <div className="glass-panel rounded-3xl p-5 max-w-7xl mx-auto space-y-3.5 shadow-md">
+        <h4 className="text-[10px] font-black text-stone-400 dark:text-stone-500 uppercase tracking-widest pl-1">
           Acciones y Consultas Rápidas
         </h4>
         <div className="flex flex-wrap gap-2.5">
           <button
             onClick={() => onNavigate('caja')}
-            className="flex items-center gap-1.5 bg-stone-50 hover:bg-stone-100 border border-stone-200 text-stone-700 hover:text-stone-900 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs"
+            className="flex items-center gap-1.5 btn-premium-secondary px-3.5 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer shadow-2xs"
           >
-            <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
+            <DollarSign className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
             Registrar Pago en Caja
           </button>
           
           <button
             onClick={() => onNavigate('inventario')}
-            className="flex items-center gap-1.5 bg-stone-50 hover:bg-stone-100 border border-stone-200 text-stone-700 hover:text-stone-900 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs"
+            className="flex items-center gap-1.5 btn-premium-secondary px-3.5 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer shadow-2xs"
           >
-            <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+            <AlertTriangle className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
             Insumos Críticos
           </button>
 
           <button
             onClick={() => onNavigate('recetas')}
-            className="flex items-center gap-1.5 bg-stone-50 hover:bg-stone-100 border border-stone-200 text-stone-700 hover:text-stone-900 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs"
+            className="flex items-center gap-1.5 btn-premium-secondary px-3.5 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer shadow-2xs"
           >
-            <ChefHat className="w-3.5 h-3.5 text-orange-500" />
+            <ChefHat className="w-3.5 h-3.5 text-orange-500 dark:text-orange-400" />
             Recetas y Emplatados
           </button>
 
           <button
             onClick={() => onNavigate('sistema')}
-            className="flex items-center gap-1.5 bg-stone-50 hover:bg-stone-100 border border-stone-200 text-stone-700 hover:text-stone-900 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs"
+            className="flex items-center gap-1.5 btn-premium-secondary px-3.5 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer shadow-2xs"
           >
-            <ExternalLink className="w-3.5 h-3.5 text-indigo-500" />
+            <ExternalLink className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
             Diagnóstico de Servidores
           </button>
         </div>
@@ -527,7 +527,7 @@ export default function HomeMenuModule({
 
       {/* 3. Elegantly designed modules dashboard grid (operational focus) */}
       <div className="max-w-7xl mx-auto px-0 md:px-0 space-y-6">
-        <h3 className="text-lg font-semibold text-stone-500 uppercase tracking-widest mb-6">
+        <h3 className="text-xs font-black text-stone-400 dark:text-stone-500 uppercase tracking-widest mb-4">
           Módulos y Terminales de Operación
         </h3>
 
@@ -536,35 +536,35 @@ export default function HomeMenuModule({
             const Icon = item.icon;
             
             // Determine badge theme colors
-            let badgeStyle = 'bg-stone-100 text-stone-600 border border-stone-200';
-            if (item.badge.type === 'emerald') badgeStyle = 'bg-emerald-50 text-emerald-800 border border-emerald-200';
-            if (item.badge.type === 'amber') badgeStyle = 'bg-amber-50 text-amber-800 border border-amber-200 animate-pulse';
-            if (item.badge.type === 'rose') badgeStyle = 'bg-rose-50 text-rose-800 border border-rose-200 animate-bounce';
+            let badgeStyle = 'bg-stone-100 dark:bg-white/5 text-stone-650 dark:text-stone-400 border border-stone-250 dark:border-white/10';
+            if (item.badge.type === 'emerald') badgeStyle = 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-800 dark:text-emerald-450 border border-emerald-200 dark:border-emerald-500/25';
+            if (item.badge.type === 'amber') badgeStyle = 'bg-amber-50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-450 border border-amber-200 dark:border-amber-500/25 animate-pulse';
+            if (item.badge.type === 'rose') badgeStyle = 'bg-rose-50 dark:bg-rose-500/10 text-rose-800 dark:text-rose-450 border border-rose-200 dark:border-rose-500/25 animate-bounce';
 
             return (
               <button
                 key={item.id}
                 onClick={() => onNavigate(item.id)}
-                className={`group bg-white p-6 rounded-2xl border border-stone-200/80 shadow-xs hover:shadow-md transition-all text-left flex flex-col justify-between min-h-[160px] cursor-pointer bg-gradient-to-br ${item.color} border-l-4 border-l-[#8C6239]/80`}
+                className={`group glass-panel p-6 rounded-3xl transition-all text-left flex flex-col justify-between min-h-[170px] cursor-pointer hover:shadow-lg dark:hover:shadow-[#E8B800]/5 bg-gradient-to-br ${item.color} border-l-4 border-l-[#8C6239] hover:scale-[1.01]`}
               >
                 {/* Module Top Row */}
                 <div className="w-full flex items-center justify-between gap-4">
-                  <div className={`p-2.5 rounded-xl bg-white shadow-xs border border-stone-150 ${item.iconColor}`}>
+                  <div className={`p-2.5 rounded-xl bg-white dark:bg-[#4A2D1B]/50 shadow-md border border-stone-200/50 dark:border-white/10 ${item.iconColor}`}>
                     <Icon className="w-6 h-6 shrink-0" />
                   </div>
                   
-                  <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full font-mono uppercase tracking-wide ${badgeStyle}`}>
+                  <span className={`text-[9px] font-black px-2.5 py-0.5 rounded-full font-mono uppercase tracking-wide ${badgeStyle}`}>
                     {item.badge.text}
                   </span>
                 </div>
 
                 {/* Module description content */}
-                <div className="space-y-1.5 pt-3">
-                  <h4 className="font-semibold text-xl text-stone-900 group-hover:text-[#624A3E] transition-colors tracking-tight flex items-center gap-1">
+                <div className="space-y-1.5 pt-4">
+                  <h4 className="font-extrabold text-lg text-stone-900 dark:text-stone-100 group-hover:text-[#624A3E] dark:group-hover:text-[#C8956A] transition-colors tracking-tight flex items-center gap-1">
                     <span>{item.title}</span>
                     <ChevronRight className="w-4 h-4 text-stone-400 group-hover:translate-x-0.5 transition-transform" />
                   </h4>
-                  <p className="text-sm text-stone-500 group-hover:text-stone-600 transition-colors line-clamp-2 leading-relaxed">
+                  <p className="text-xs text-stone-500 dark:text-stone-450 group-hover:text-stone-700 dark:group-hover:text-stone-300 transition-colors line-clamp-2 leading-relaxed font-sans">
                     {item.description}
                   </p>
                 </div>

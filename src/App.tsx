@@ -1091,7 +1091,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
 
   return (
     <ErrorBoundary>
-    <div className="h-screen overflow-hidden bg-[#F5F1E9] flex font-sans text-stone-800 antialiased selection:bg-[#624A3E] selection:text-white">
+    <div className="h-screen overflow-hidden bg-premium-dark flex font-sans text-stone-800 antialiased selection:bg-[#624A3E] selection:text-white">
 
       {/* MOBILE/TABLET HEADER + DRAWER / RAIL */}
       <MobileNav
@@ -1111,7 +1111,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
 
       {/* LEFT SIDE PANEL - Desktop/Tablet sidebar */}
       <aside
-        className={`fixed left-0 top-0 h-screen z-50 hidden lg:flex flex-col bg-[#C8956A] text-[#3B1F10]/90 border-r border-[#A67550]/40 shadow-xl shadow-black/15 transition-all duration-300 ease-in-out ${
+        className={`fixed left-0 top-0 h-screen z-50 hidden lg:flex flex-col bg-[#4A2D1B] text-[#FAF7F0]/90 border-r border-[#FAF7F0]/10 shadow-2xl backdrop-blur-md transition-all duration-300 ease-in-out ${
           isSidebarCollapsed ? 'w-16' : 'w-64'
         }`}
         id="sidebar-left-panel"
@@ -1119,19 +1119,19 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
         {/* Logo */}
         <div 
           onClick={() => setShowDiagnostics(true)}
-          className={`flex items-center border-b border-[#3B1F10]/10 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} py-4 cursor-pointer hover:opacity-90 select-none`}
+          className={`flex items-center border-b border-[#FAF7F0]/10 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-4'} py-5 cursor-pointer hover:bg-white/5 transition-colors select-none`}
           title="Ver estado de conexión"
         >
-          <div className="w-8 h-8 bg-white/80 rounded-lg flex items-center justify-center shadow-sm border border-[#A67550]/40 p-0.5 overflow-hidden shrink-0 relative">
-            <ElPatronLogo className="w-7 h-7 object-contain rounded" variant="icon" color="#4A2D1B" />
-            <span className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-white ${
+          <div className="w-9 h-9 bg-white rounded-xl flex items-center justify-center shadow-lg border border-[#C8956A]/30 p-0.5 overflow-hidden shrink-0 relative">
+            <ElPatronLogo className="w-8 h-8 object-contain rounded" variant="icon" color="#4A2D1B" />
+            <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white ${
               tryGetActiveSupabaseClient() !== null ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
             }`} />
           </div>
           {!isSidebarCollapsed && (
             <div className="ml-3 min-w-0">
-              <span className="font-bold text-sm text-[#3B1F10] block leading-tight truncate">El Patrón</span>
-              <span className="text-[7px] uppercase font-bold text-[#3B1F10]/50 tracking-wider block leading-tight flex items-center gap-1">
+              <span className="font-extrabold text-sm text-[#FAF7F0] block leading-tight tracking-wide font-sans">El Patrón</span>
+              <span className="text-[7px] uppercase font-black text-[#C8956A] tracking-wider block leading-tight mt-0.5">
                 {tryGetActiveSupabaseClient() !== null ? '🟢 Supabase Cloud' : '🟡 Modo Local'}
               </span>
             </div>
@@ -1140,7 +1140,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
 
 
         {/* Nav items */}
-        <nav className="flex-1 overflow-y-auto overscroll-contain py-3 sidebar-scroll-hidden">
+        <nav className="flex-1 overflow-y-auto overscroll-contain py-4 sidebar-scroll-hidden space-y-1 px-2">
           {[
             { id: 'home', label: 'Inicio', icon: '🏠' },
             { id: 'mozo', label: 'Mozo', icon: '📱' },
@@ -1165,20 +1165,20 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
                 id={`tab-${item.id}`}
                 title={isSidebarCollapsed ? item.label : ''}
                 onClick={() => handleNavigate(item.id as AppView)}
-                className={`w-full flex items-center gap-3 px-3 py-3 transition-colors cursor-pointer ${
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 cursor-pointer ${
                   isSidebarCollapsed ? 'justify-center' : 'justify-start'
                 } ${
                   isActive
-                    ? 'bg-[#4A2D1B] text-white'
-                    : 'text-[#3B1F10]/65 hover:text-[#3B1F10] hover:bg-[#B07A48]/35'
+                    ? 'bg-[#C8956A] text-[#4A2D1B] font-bold shadow-lg shadow-black/10 scale-[1.01]'
+                    : 'text-[#FAF7F0]/70 hover:text-[#FAF7F0] hover:bg-white/5'
                 }`}
               >
                 <span className="text-base shrink-0 leading-none">{item.icon}</span>
                 {!isSidebarCollapsed && (
-                  <span className="text-sm whitespace-nowrap truncate">{item.label}</span>
+                  <span className="text-xs whitespace-nowrap truncate">{item.label}</span>
                 )}
                 {!isSidebarCollapsed && isActive && (
-                  <span className="ml-auto w-1.5 h-1.5 rounded-full bg-amber-300 shadow-sm shadow-amber-400/50 shrink-0" />
+                  <span className="ml-auto w-1.5 h-1.5 rounded-full bg-[#4A2D1B] shrink-0 animate-pulse" />
                 )}
               </button>
             );
@@ -1186,22 +1186,22 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
         </nav>
 
         {/* Footer */}
-        <div className="border-t border-[#3B1F10]/10 p-3">
+        <div className="border-t border-[#FAF7F0]/10 p-3 space-y-2">
           <button
             onClick={handleLogout}
             title={isSidebarCollapsed ? 'Cerrar sesión' : ''}
-            className={`w-full flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-[#7B2D12]/10 text-[#7B2D12] transition-colors cursor-pointer ${
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-rose-500/10 text-rose-350 transition-colors cursor-pointer ${
               isSidebarCollapsed ? 'justify-center' : 'justify-start'
             }`}
           >
-            <LogOut className="w-5 h-5 flex-shrink-0" />
-            {!isSidebarCollapsed && <span className="text-sm">Cerrar sesión</span>}
+            <LogOut className="w-4 h-4 flex-shrink-0 text-rose-400" />
+            {!isSidebarCollapsed && <span className="text-xs font-semibold">Cerrar sesión</span>}
           </button>
 
           <button
             onClick={() => setIsSidebarCollapsed(c => !c)}
             title={isSidebarCollapsed ? 'Expandir' : 'Colapsar'}
-            className="w-full flex items-center justify-center mt-2 p-2 rounded-lg hover:bg-[#3B1F10]/10 text-[#3B1F10]/70 transition-colors cursor-pointer"
+            className="w-full flex items-center justify-center p-2 rounded-lg hover:bg-white/5 text-[#FAF7F0]/60 hover:text-[#FAF7F0] transition-colors cursor-pointer"
           >
             {isSidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
           </button>

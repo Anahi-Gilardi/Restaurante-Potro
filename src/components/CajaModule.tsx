@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { motion } from 'motion/react';
 import { 
   Receipt, 
   Printer, 
@@ -641,7 +642,7 @@ export default function CajaModule({
     <div className="space-y-6" id="gastro-checkout-master">
       
       {/* HEADER BAR: Settings & Restaurant Config */}
-      <div className="bg-white rounded-2xl p-4 border border-stone-200/80 shadow-xs flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div className="glass-panel rounded-2xl p-4 shadow-xs flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div className="flex items-center gap-3">
           <div className="p-2 ml-1 bg-[#624A3E]/10 rounded-xl text-[#624A3E]">
             <Receipt className="w-6 h-6" />
@@ -847,7 +848,7 @@ export default function CajaModule({
         <div className="lg:col-span-4 space-y-6">
           
           {/* DAILY DRAWER SHIFT COMPONENT (Rule 1) */}
-          <div className="bg-white rounded-2xl p-5 border border-stone-200 shadow-xs space-y-4">
+          <div className="glass-panel rounded-2xl p-5 shadow-xs space-y-4">
             <div className="flex justify-between items-start">
               <div>
                 <span className="text-[9px] uppercase font-black text-stone-400 block tracking-wider">Flujo Contable Diario</span>
@@ -951,7 +952,7 @@ export default function CajaModule({
           </div>
 
           {/* ACTIVE UNBILLED COMMANDS LIST (Rule 2) */}
-          <div className="bg-white rounded-2xl p-5 border border-stone-200 shadow-xs space-y-4">
+          <div className="glass-panel rounded-2xl p-5 shadow-xs space-y-4">
             <div className="flex justify-between items-center pb-2 border-b border-stone-100">
               <h4 className="font-black text-stone-800 font-sans tracking-tight text-xs uppercase flex items-center gap-1.5">
                 <Receipt className="w-4 h-4 text-[#624A3E]" />
@@ -1021,8 +1022,8 @@ export default function CajaModule({
                       }}
                       className={`w-full p-3 rounded-xl border text-left transition-all flex justify-between items-center cursor-pointer ${
                         isSelected 
-                          ? 'border-[#624A3E] bg-[#F5F1E9] ring-2 ring-[#624A3E]/10 shadow-sm'
-                          : 'border-stone-250 bg-white hover:bg-stone-50'
+                          ? 'border-[#E8B800] bg-[#FAF7F0]/90 dark:bg-[#4A2D1B]/40 glow-gold shadow-md'
+                          : 'border-stone-200/50 dark:border-stone-800/55 bg-white/70 dark:bg-stone-900/40 hover:bg-stone-50 dark:hover:bg-stone-800/40'
                       }`}
                     >
                       <div className="space-y-1">
@@ -1072,7 +1073,7 @@ export default function CajaModule({
         <div className="lg:col-span-8">
           
           {selectedPedido ? (
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 bg-white rounded-2xl p-6 border border-stone-200 shadow-xs">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 glass-panel rounded-2xl p-6 shadow-xs">
               
               {/* TICKET OPTIONS CONTROLS (MD: Span 7) */}
               <div className="md:col-span-7 space-y-4 font-sans">
@@ -1226,23 +1227,23 @@ export default function CajaModule({
                       <Users className="w-3.5 h-3.5 text-[#624A3E]" /> Partes Comensales (Partes Iguales)
                     </h5>
                     
-                    <div className="flex items-center justify-between gap-2 bg-white border border-stone-200 p-1.5 rounded-lg">
+                    <div className="flex items-center justify-between gap-2 bg-[#FAF7F0] dark:bg-[#4A2D1B]/40 border border-stone-200/50 p-1.5 rounded-lg">
                       <button
                         onClick={() => {
                           setSplitPayerCount(prev => Math.max(1, prev - 1));
                           setActivePayerIndex(0);
                         }}
-                        className="w-7 h-7 bg-stone-50 hover:bg-stone-100 rounded text-stone-700 font-bold flex items-center justify-center cursor-pointer"
+                        className="w-7 h-7 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold flex items-center justify-center cursor-pointer transition-all active:scale-95 rounded-lg"
                       >
                         -
                       </button>
-                      <span className="text-xs font-mono font-black text-stone-900">{splitPayerCount} pax</span>
+                      <span className="text-xs font-mono font-black text-stone-900 dark:text-stone-100">{splitPayerCount} pax</span>
                       <button
                         onClick={() => {
                           setSplitPayerCount(prev => prev + 1);
                           setActivePayerIndex(0);
                         }}
-                        className="w-7 h-7 bg-stone-50 hover:bg-stone-100 rounded text-stone-700 font-bold flex items-center justify-center cursor-pointer"
+                        className="w-7 h-7 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold flex items-center justify-center cursor-pointer transition-all active:scale-95 rounded-lg"
                       >
                         +
                       </button>
@@ -1301,14 +1302,14 @@ export default function CajaModule({
                 </div>
 
                 {/* PAYMENT TYPE / MIXED PAYMENTS LAYOUT (Rule 4) */}
-                <div className="bg-white border border-stone-200 p-4 rounded-xl space-y-3.5">
+                <div className="glass-panel p-4 rounded-xl space-y-3.5">
                   <div>
                     <label className="text-[10px] font-black text-stone-500 uppercase tracking-widest block mb-1.5">
                       Método de Liquidación Caja
                     </label>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                       {[
-                        { key: 'efectivo', label: 'Efectivo', icon: <Coins className="w-3.5 h-3.5 text-[#624A3E]" /> },
+                        { key: 'efectivo', label: 'Efectivo', icon: <Coins className="w-3.5 h-3.5 text-[#E8B800]" /> },
                         { key: 'tarjeta', label: 'Tarjeta Crédito', icon: <CreditCard className="w-3.5 h-3.5 text-blue-600" /> },
                         { key: 'transferencia', label: 'Transferencia/Deb.', icon: <Coins className="w-3.5 h-3.5 text-purple-600" /> },
                         { key: 'mp_qr', label: 'MercadoPago QR', icon: <Smartphone className="w-3.5 h-3.5 text-teal-600" /> },
@@ -1324,8 +1325,8 @@ export default function CajaModule({
                           }}
                           className={`p-2.5 rounded-xl text-xs font-black flex items-center justify-start gap-2 border transition-all cursor-pointer ${
                             metodoPago === m.key 
-                              ? 'bg-[#624A3E] text-white border-[#624A3E] shadow-xs'
-                              : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100'
+                              ? 'btn-premium-primary glow-gold border-[#E8B800]'
+                              : 'btn-premium-secondary'
                           }`}
                         >
                           {m.icon}
@@ -1474,7 +1475,7 @@ export default function CajaModule({
                           setActivePayerIndex(prev => prev + 1);
                         }
                       }}
-                      className="w-full py-3 bg-[#22C55E] hover:bg-[#16a34a] text-white text-xs uppercase tracking-wider font-extrabold rounded-xl transition-all shadow cursor-pointer flex items-center justify-center gap-2"
+                      className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 hover:scale-[1.01] active:scale-95 text-white text-xs uppercase tracking-wider font-extrabold rounded-xl transition-all shadow-md cursor-pointer flex items-center justify-center gap-2"
                     >
                       <CheckCircle className="w-5 h-5" />
                       Cobrar Parte #{activePayerIndex + 1} de {splitPayerCount} (${(orderBreakdowns.finalTotal / splitPayerCount).toLocaleString('es-AR', { maximumFractionDigits: 1 })})
@@ -1482,9 +1483,9 @@ export default function CajaModule({
                   ) : (
                     <button
                       onClick={handleConfirmCheckout}
-                      className="w-full py-3 bg-[#624A3E] hover:bg-[#503C32] text-white text-xs uppercase tracking-wider font-extrabold rounded-xl transition-all shadow-md cursor-pointer flex items-center justify-center gap-2"
+                      className="btn-premium-primary w-full py-3 text-xs uppercase tracking-wider font-extrabold rounded-xl flex items-center justify-center gap-2 glow-gold cursor-pointer"
                     >
-                      <CheckCircle className="w-5 h-5 text-amber-300" />
+                      <CheckCircle className="w-5 h-5 text-[#E8B800]" />
                       Homologar Cobro y Emitir Comprobante - PDF/Térmico (${orderBreakdowns.finalTotal.toLocaleString('es-AR')} {restaurante.moneda})
                     </button>
                   )}
@@ -1492,17 +1493,17 @@ export default function CajaModule({
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       onClick={triggerPDFDownloadOnly}
-                      className="py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 text-[10px] uppercase font-extrabold rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                      className="btn-premium-secondary py-2 text-[10px] uppercase font-extrabold rounded-xl flex items-center justify-center gap-1.5 cursor-pointer"
                     >
-                      <Download className="w-3.5 h-3.5" />
+                      <Download className="w-3.5 h-3.5 text-[#C8956A]" />
                       Descargar PDF Muestra
                     </button>
                     
                     <button
                       onClick={triggerManualPrint}
-                      className="py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 text-[10px] uppercase font-extrabold rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                      className="btn-premium-secondary py-2 text-[10px] uppercase font-extrabold rounded-xl flex items-center justify-center gap-1.5 cursor-pointer"
                     >
-                      <Printer className="w-3.5 h-3.5" />
+                      <Printer className="w-3.5 h-3.5 text-[#C8956A]" />
                       Imprimir Ticket / Enviar
                     </button>
                   </div>
@@ -1522,13 +1523,21 @@ export default function CajaModule({
               </div>
 
               {/* EPSON TICKET PREVIEW SIMULATOR (MD: Span 5) */}
-              <div className="md:col-span-5 bg-stone-100/60 border border-stone-200/50 p-4 rounded-xl flex flex-col items-center justify-start">
-                <span className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-3 flex items-center gap-1">
-                  <Printer className="w-3.5 h-3.5" /> Simulación de Salida Térmica (80mm)
+              <div className="md:col-span-5 bg-stone-100/40 dark:bg-stone-900/30 border border-stone-200/30 dark:border-stone-800/40 p-4 rounded-xl flex flex-col items-center justify-start">
+                <span className="text-[10px] font-black text-stone-400 dark:text-stone-300 uppercase tracking-widest mb-3 flex items-center gap-1">
+                  <Printer className="w-3.5 h-3.5 text-[#E8B800]" /> Simulación de Salida Térmica (80mm)
                 </span>
 
-                {/* Simulated thermal roll */}
-                <div className="w-full bg-white text-stone-800 p-4 shadow-sm font-mono text-[9px] leading-relaxed border border-stone-200 relative">
+                {/* Simulated thermal roll in 3D container */}
+                <div style={{ perspective: 1200 }} className="w-full overflow-hidden">
+                  <motion.div
+                    key={selectedPedido.id_pedido}
+                    initial={{ rotateX: -30, y: -100, opacity: 0, scaleY: 0.1 }}
+                    animate={{ rotateX: 0, y: 0, opacity: 1, scaleY: 1 }}
+                    transition={{ type: 'spring', damping: 18, stiffness: 70 }}
+                    style={{ transformOrigin: 'top center', transformStyle: 'preserve-3d' }}
+                    className="w-full bg-white text-stone-800 p-4 shadow-md font-mono text-[9px] leading-relaxed border border-stone-200 relative"
+                  >
                   
                   {/* Zig-zag top edge design */}
                   <div className="absolute top-0 inset-x-0 h-1 bg-stone-300 flex overflow-hidden">
@@ -1624,16 +1633,17 @@ export default function CajaModule({
                     {restaurante.mensajePie}
                   </p>
 
+                  </motion.div>
                 </div>
 
-                <div className="mt-3 text-[10px] text-stone-500 max-w-xs text-center font-bold">
+                <div className="mt-3 text-[10px] text-stone-500 dark:text-stone-400 max-w-xs text-center font-bold">
                   ✓ El Patrón POS emitirá este ticket y enviará el string compilado en bytes ESC/POS.
                 </div>
               </div>
 
             </div>
           ) : (
-            <div className="bg-white rounded-2xl p-10 border border-stone-200 shadow-xs text-center flex flex-col justify-center items-center min-h-[450px]">
+            <div className="glass-panel rounded-2xl p-10 shadow-xs text-center flex flex-col justify-center items-center min-h-[450px]">
               <div className="p-4 bg-[#F5F1E9] rounded-2xl text-[#624A3E] mb-4">
                 <Receipt className="w-10 h-10" />
               </div>
@@ -1792,7 +1802,7 @@ export default function CajaModule({
       )}
 
       {/* HISTORICAL SHIFTS LIST */}
-      <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs space-y-4 font-sans">
+      <div className="glass-panel p-5 rounded-2xl shadow-xs space-y-4 font-sans">
         <h4 className="text-xs font-black text-stone-800 uppercase tracking-tight flex items-center gap-1.5 pb-2 border-b border-stone-100">
           <Calendar className="w-4 h-4 text-[#624A3E]" /> Registro de Auditoría de Cierres de Caja Homologados ({sessionInsumos.length})
         </h4>

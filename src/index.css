@@ -44,3 +44,179 @@ video,
 canvas {
   max-width: 100%;
 }
+
+/* Glassmorphism Utilities */
+.glass-panel {
+  background: rgba(255, 253, 248, 0.7);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  border: 1px solid rgba(200, 149, 106, 0.15);
+  transition: background-color 0.3s, border-color 0.3s;
+}
+
+.dark .glass-panel {
+  background: rgba(46, 32, 21, 0.6);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  border: 1px solid rgba(232, 184, 0, 0.12);
+}
+
+.glass-panel-dark {
+  background: rgba(74, 45, 27, 0.65);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  border: 1px solid rgba(232, 184, 0, 0.15);
+}
+
+.glow-gold {
+  box-shadow: 0 0 15px rgba(232, 184, 0, 0.25);
+}
+
+.glow-green {
+  box-shadow: 0 0 15px rgba(34, 197, 94, 0.25);
+}
+
+.glow-red {
+  box-shadow: 0 0 15px rgba(239, 68, 68, 0.25);
+}
+
+/* Premium background radial gradient */
+.bg-premium-dark {
+  background: #FAF7F0 !important;
+  transition: background 0.3s;
+}
+
+.dark .bg-premium-dark {
+  background: radial-gradient(ellipse at top, #1e130c, #0a0604) !important;
+}
+
+/* Custom Scrollbar for floating sidebar */
+.sidebar-scroll-hidden {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.sidebar-scroll-hidden::-webkit-scrollbar {
+  display: none;
+}
+
+/* Premium Buttons Styling */
+.btn-premium-primary {
+  background-color: #4A2D1B;
+  color: #FAF7F0;
+  border: 1px solid rgba(200, 149, 106, 0.3);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-premium-primary:hover {
+  background-color: #5d3a2e;
+  transform: translateY(-1px);
+  box-shadow: 0 10px 15px -3px rgba(74, 45, 27, 0.25);
+  border-color: rgba(232, 184, 0, 0.4);
+}
+
+.btn-premium-primary:active {
+  transform: scale(0.96);
+}
+
+.btn-premium-secondary {
+  background: rgba(255, 253, 248, 0.5);
+  color: #4A2D1B;
+  border: 1px solid rgba(200, 149, 106, 0.25);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dark .btn-premium-secondary {
+  background: rgba(74, 45, 27, 0.3);
+  color: #FAF7F0;
+  border: 1px solid rgba(232, 184, 0, 0.2);
+}
+
+.btn-premium-secondary:hover {
+  background: rgba(255, 253, 248, 0.85);
+  transform: translateY(-1px);
+  border-color: rgba(200, 149, 106, 0.5);
+}
+
+.dark .btn-premium-secondary:hover {
+  background: rgba(74, 45, 27, 0.55);
+  border-color: rgba(232, 184, 0, 0.45);
+}
+
+.btn-premium-secondary:active {
+  transform: scale(0.96);
+}
+
+/* Premium form controls styling */
+input[type="text"],
+input[type="number"],
+input[type="email"],
+input[type="tel"],
+input[type="password"],
+input[type="date"],
+input[type="time"],
+select,
+textarea {
+  transition: all 0.2s ease-in-out;
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus,
+input[type="email"]:focus,
+input[type="tel"]:focus,
+input[type="password"]:focus,
+input[type="date"]:focus,
+input[type="time"]:focus,
+select:focus,
+textarea:focus {
+  border-color: rgba(200, 149, 106, 0.7) !important;
+  box-shadow: 0 0 0 3px rgba(232, 184, 0, 0.15), 0 0 8px rgba(232, 184, 0, 0.2) !important;
+  outline: none !important;
+}
+
+.dark input[type="text"],
+.dark input[type="number"],
+.dark input[type="email"],
+.dark input[type="tel"],
+.dark input[type="password"],
+.dark input[type="date"],
+.dark input[type="time"],
+.dark select,
+.dark textarea {
+  background-color: rgba(46, 32, 21, 0.5) !important;
+  border-color: rgba(232, 184, 0, 0.15) !important;
+  color: #FAF7F0 !important;
+}
+
+.dark input[type="text"]:focus,
+.dark input[type="number"]:focus,
+.dark input[type="email"]:focus,
+.dark input[type="tel"]:focus,
+.dark input[type="password"]:focus,
+.dark input[type="date"]:focus,
+.dark input[type="time"]:focus,
+.dark select:focus,
+.dark textarea:focus {
+  border-color: rgba(232, 184, 0, 0.6) !important;
+  box-shadow: 0 0 0 3px rgba(232, 184, 0, 0.25) !important;
+}
+
+/* Automatic administrative dashboard panels glassmorphism */
+.bg-white.rounded-2xl.border.border-stone-200.shadow-xs,
+.bg-white.rounded-2xl.border.border-slate-100.shadow-sm,
+.bg-white.p-5.rounded-2xl.border.border-stone-200.shadow-xs,
+.bg-white.rounded-2xl.p-5.border.border-stone-200.shadow-xs {
+  background: rgba(255, 253, 248, 0.7) !important;
+  backdrop-filter: blur(16px) saturate(140%) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(140%) !important;
+  border: 1px solid rgba(200, 149, 106, 0.15) !important;
+}
+
+.dark .bg-white.rounded-2xl.border.border-stone-200.shadow-xs,
+.dark .bg-white.rounded-2xl.border.border-slate-100.shadow-sm,
+.dark .bg-white.p-5.rounded-2xl.border.border-stone-200.shadow-xs,
+.dark .bg-white.rounded-2xl.p-5.border.border-stone-200.shadow-xs {
+  background: rgba(46, 32, 21, 0.6) !important;
+  border: 1px solid rgba(232, 184, 0, 0.12) !important;
+}
+
