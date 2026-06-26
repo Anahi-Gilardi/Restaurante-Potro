@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import {
   Loader2,
   ArrowRight,
+  ArrowLeft,
   Mail,
   Lock,
   AlertCircle,
@@ -138,6 +139,14 @@ export default function PythonStreamlitLogin({ onLoginSuccess, onBackToCover }: 
       <div className="absolute bottom-[-25%] right-[-10%] w-[60%] h-[60%] rounded-full bg-[#4A2D1B]/5 blur-3xl" />
 
       <div className="max-w-md w-full bg-[#FFFDF8] rounded-3xl border border-stone-150 shadow-xl shadow-stone-200/40 p-6 sm:p-8 md:p-10 space-y-8 relative z-10">
+        {onBackToCover && (
+          <button
+            onClick={onBackToCover}
+            className="absolute top-5 left-5 flex items-center gap-1 text-[10px] font-extrabold text-stone-500 hover:text-[#4A2D1B] uppercase tracking-wider transition-all cursor-pointer bg-stone-50 hover:bg-stone-100 border border-stone-200/60 py-1.5 px-3 rounded-full shadow-xs"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" /> Volver
+          </button>
+        )}
         <div className="text-center space-y-4 flex flex-col items-center">
           <ElPatronLogo className="w-32 h-32 sm:w-36 sm:h-36 drop-shadow-md" variant="badge" />
           <div className="space-y-1">
