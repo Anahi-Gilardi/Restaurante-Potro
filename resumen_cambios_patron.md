@@ -14,7 +14,7 @@ Se ha implementado con éxito la suite completa de mejoras funcionales, estétic
 
 ## 2. Módulo de Caja: Ticket Térmico Optimizado
 - **Cambios**:
-  - Se refactorizó `generateThermalTicket` en `src/services/pdfService.ts` para soportar dinámicamente anchos de ticketeras de 58mm y 80mm en base a la configuración guardada del usuario en `localStorage` (márgenes ultra estrechos de 3mm para 58mm).
+  - Se refactorizó `generateThermalTicket` in `src/services/pdfService.ts` para soportar dinámicamente anchos de ticketeras de 58mm y 80mm en base a la configuración guardada del usuario en `localStorage` (márgenes ultra estrechos de 3mm para 58mm).
   - Se implementó el auto-ajuste de línea (word-wrap) utilizando `splitTextToSize` ajustado al ancho dinámico de la impresora física.
   - Se calcula el alto del ticket de forma 100% dinámica de acuerdo con la cantidad de líneas reales ocupadas por el texto de los ítems.
   - Se incorporó la visualización del CAE y su vencimiento, y el código QR de AFIP/ARCA generado al pie del ticket térmico físico.
@@ -22,7 +22,7 @@ Se ha implementado con éxito la suite completa de mejoras funcionales, estétic
 ## 3. Módulo de Menú y Mozo: Subdivisión de Bebidas
 - **Cambios**:
   - **Base de Datos**: Se creó y ejecutó el script de migración SQL `supabase/migrations/20260626010000_subdivision_bebidas.sql` para actualizar la categoría de las bebidas en la tabla `productos_menu` a `"Bebidas con Alcohol"` y `"Bebidas sin Alcohol"`.
-  - **Servicios e Initial Data**: Se actualizaron `DEFAULT_CATEGORIAS` en `src/services/categoriasService.ts` and las colecciones en `src/data/initialData.ts`.
+  - **Servicios e Initial Data**: Se actualizaron `DEFAULT_CATEGORIAS` en `src/services/categoriasService.ts` y las colecciones en `src/data/initialData.ts`.
   - **Módulo de Menú**: Se añadieron ambas categorías en `MenuModule.tsx` y se actualizaron las funciones `inferTipo`, `getFallbackImage` y `normalizeCategorySlug` para reconocerlas.
   - **Terminal de Mozos**: Se añadieron los botones de filtro rápido y el renderizado en `MozoTerminal.tsx`.
 
@@ -38,3 +38,4 @@ Se ha implementado con éxito la suite completa de mejoras funcionales, estétic
   - **Estabilidad de Caja**: Se refactorizó `cajaService.ts` moviendo la inicialización del cliente de Supabase dentro del `try` de la función `list()`, evitando bloqueos por excepciones de configuración cuando se corre en modo offline.
   - **Parseo Defensivo**: Se implementó una normalización defensiva de datos numéricos en `getOpenSession()`, previniendo crashes de tipo por valores nulos, indefinidos o almacenados como cadenas de texto.
   - **Manejo de Errores y Visuales de Caja**: Se envolvieron los handlers `handleOpenShift` y `handleCloseShift` en `CajaModule.tsx` con bloques `try/catch` informativos. Se adaptó la interfaz y los inputs de los modales de Apertura y Cierre de caja con total soporte para modo oscuro y excelente contraste visual.
+  - **Blindaje del Checkout y Auditoría**: Se envolvieron en bloques `try/catch` los métodos de `auditoriaService` (`create` y `list`), protegiendo el sistema de interrupciones si Supabase se desconecta. De igual forma, se envolvió `handleConfirmCheckout` y `triggerManualPrint` de `CajaModule.tsx` en bloques try/catch maestros para garantizar que fallos menores de impresora, PDF o red no congelen la pantalla del cajero.
