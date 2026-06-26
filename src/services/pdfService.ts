@@ -104,13 +104,8 @@ export const pdfService = {
   async generateTicketPDF(data: TicketData): Promise<jsPDF> {
     const logo = await loadLogoDataUrl();
     const qrImage = await loadQrDataUrl(data.qrData);
-    const compType = data.tipoComprobante as string;
-    const isA4 = compType === 'factura_a' || compType === 'factura_b' || compType === 'factura_c';
-
-    if (isA4) {
-      return this.generateA4Invoice(data, logo, qrImage);
-    }
-
+    
+    // Always format as a thermal ticket (80mm/58mm roll format) for restaurant ticketer/printer compatibility
     return this.generateThermalTicket(data, logo, qrImage);
   },
 
