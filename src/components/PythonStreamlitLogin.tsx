@@ -142,7 +142,7 @@ export default function PythonStreamlitLogin({ onLoginSuccess, onBackToCover }: 
         {onBackToCover && (
           <button
             onClick={onBackToCover}
-            className="absolute top-5 left-5 flex items-center gap-1 text-[10px] font-extrabold text-stone-500 hover:text-[#4A2D1B] uppercase tracking-wider transition-all cursor-pointer bg-stone-50 hover:bg-stone-100 border border-stone-200/60 py-1.5 px-3 rounded-full shadow-xs"
+            className="absolute top-5 left-5 flex items-center gap-1 text-[10px] font-extrabold text-stone-500 hover:text-[#9B2226] uppercase tracking-wider transition-all cursor-pointer bg-stone-50 hover:bg-stone-100 border border-stone-200/60 py-1.5 px-3 rounded-full shadow-xs font-display-serif"
           >
             <ArrowLeft className="w-3.5 h-3.5" /> Volver
           </button>
@@ -150,12 +150,12 @@ export default function PythonStreamlitLogin({ onLoginSuccess, onBackToCover }: 
         <div className="text-center space-y-4 flex flex-col items-center">
           <ElPatronLogo className="w-32 h-32 sm:w-36 sm:h-36 drop-shadow-md" variant="badge" />
           <div className="space-y-1">
-            <h1 className="text-2xl font-black text-[#4A2D1B] tracking-tight">El Patrón Pro</h1>
-            <p className="text-[10px] uppercase font-bold text-[#6B4A35] tracking-widest">
+            <h1 className="text-2xl font-bold text-[#4A2D1B] tracking-wide font-serif-rustic">El Patrón Pro</h1>
+            <p className="text-[10px] uppercase font-bold text-[#9B2226] tracking-widest font-display-serif">
               Sistema Gestor Gastronómico
             </p>
           </div>
-          <p className="text-xs text-stone-500 font-medium max-w-[280px]">
+          <p className="text-xs text-stone-600 font-serif-rustic italic max-w-[280px]">
             Control operativo de cocina, salón, caja e inventario.
           </p>
         </div>
@@ -245,9 +245,9 @@ export default function PythonStreamlitLogin({ onLoginSuccess, onBackToCover }: 
                 <button
                   type="button"
                   onClick={onBackToCover}
-                  className="text-xs font-bold text-[#4A2D1B] hover:text-[#6B4A35] hover:underline transition-all cursor-pointer flex items-center justify-center gap-1 mx-auto"
+                  className="text-xs font-bold text-[#4A2D1B] hover:text-[#9B2226] hover:underline transition-all cursor-pointer flex items-center justify-center gap-1 mx-auto font-display-serif"
                 >
-                  ← Volver a la Portada Pública
+                  ← Volver al Menú Publicitario
                 </button>
               )}
             </div>

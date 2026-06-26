@@ -15,7 +15,9 @@ import {
   ChevronRight, 
   CheckCircle,
   Menu,
-  X
+  X,
+  Flame,
+  Pizza
 } from 'lucide-react';
 
 interface RestaurantCoverProps {
@@ -77,23 +79,23 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
     {
       id: 'spec_1',
       title: 'Ojo de Bife Madurado',
-      description: 'Corte de 450g madurado en seco durante 28 días, asado a leña de quebracho colorado y servido con chimichurri casero.',
-      tag: 'El Favorito de la Casa',
-      image: '/images/ojo_de_bife_grill.png'
+      description: 'Corte premium de 450g madurado en seco por 28 días, asado a leña de quebracho colorado y servido con chimichurri rústico.',
+      tag: 'Fuegos Criollos',
+      image: '/images/ojo_bife_flames.png'
     },
     {
       id: 'spec_2',
-      title: 'Provoleta al Hierro',
-      description: 'Queso provolone fundido al crocante con oliva, orégano fresco, rodajas de tomate cherry y albahaca.',
-      tag: 'Entrada Caliente',
-      image: '/images/provoleta_hierro.png'
+      title: 'Pizza Margherita Gourmet',
+      description: 'Masa madre madurada 48hs con salsa de tomates italianos, muzzarella de búfala, hojas de albahaca fresca y oliva extra virgen al horno de barro.',
+      tag: 'Horno de Barro',
+      image: '/images/pizza_wood_oven.png'
     },
     {
       id: 'spec_3',
-      title: 'Cintas Caseras al Sepia',
-      description: 'Pasta fresca amasada al huevo con tinta de calamar, salteada con langostinos al ajillo, tomates secos y vino blanco.',
-      tag: 'Pasta de Autor',
-      image: '/images/cintas_sepia_pasta.png'
+      title: 'Empanadas Criollas de Lomo',
+      description: 'Empanadas de lomo cortado a cuchillo, cocidas al horno de barro con cebolla de verdeo, huevo duro y especias seleccionadas.',
+      tag: 'Especialidad de la Casa',
+      image: '/images/empanadas.jpg'
     }
   ];
 
@@ -194,8 +196,8 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
               transition={{ duration: 0.6, delay: 0.1 }}
               className="text-4xl sm:text-5xl lg:text-6xl font-bold font-serif-rustic leading-tight tracking-wide text-[#FAF7F0] drop-shadow-md"
             >
-              El Verdadero Sabor <br />
-              <span className="text-amber-500 italic font-semibold">Del Fuego Criollo</span>
+              Fuegos Criollos & <br />
+              <span className="text-amber-500 italic font-semibold">Pizzas al Horno de Barro</span>
             </motion.h1>
 
             <motion.p 
@@ -204,7 +206,7 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
               transition={{ duration: 0.6, delay: 0.2 }}
               className="text-stone-200 text-sm sm:text-base md:text-lg max-w-xl font-serif-rustic italic leading-relaxed"
             >
-              Carnes seleccionadas maduradas en seco, pastas de autor amasadas a mano diariamente y una exclusiva selección de bodega. Te invitamos a vivir la experiencia de El Patrón.
+              Carnes premium seleccionadas a la leña, pizzas de masa madre cocidas al horno de barro, pastas caseras y empanadas criollas elaboradas en el día. Te invitamos a vivir la experiencia de El Patrón.
             </motion.p>
 
             <motion.div 
@@ -235,19 +237,19 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
       <section className="bg-[#FAF7F0] dark:bg-[#201710] py-8 border-y border-[#624A3E]/10 dark:border-amber-900/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
           <div className="flex flex-col items-center p-3 space-y-1">
-            <Award className="w-7 h-7 text-[#624A3E] dark:text-amber-500" />
-            <span className="font-extrabold text-sm uppercase text-[#624A3E] dark:text-amber-400">Cortes Premium</span>
-            <span className="text-[11px] text-stone-500 dark:text-stone-400">Maduración controlada Dry Aged</span>
+            <Flame className="w-7 h-7 text-[#9B2226] animate-pulse" />
+            <span className="font-extrabold text-sm uppercase text-[#4A2D1B] dark:text-amber-400 font-display-serif tracking-widest">Fuegos Criollos</span>
+            <span className="text-[11px] text-stone-500 dark:text-stone-400 font-serif-rustic italic">Cortes premium a la leña de quebracho</span>
           </div>
           <div className="flex flex-col items-center p-3 space-y-1 border-y sm:border-y-0 sm:border-x border-stone-200 dark:border-stone-800">
-            <ChefHat className="w-7 h-7 text-[#624A3E] dark:text-amber-500" />
-            <span className="font-extrabold text-sm uppercase text-[#624A3E] dark:text-amber-400">Cocina de Autor</span>
-            <span className="text-[11px] text-stone-500 dark:text-stone-400">Pastas frescas y recetas tradicionales</span>
+            <Pizza className="w-7 h-7 text-[#3A5A40]" />
+            <span className="font-extrabold text-sm uppercase text-[#4A2D1B] dark:text-amber-400 font-display-serif tracking-widest">Horno de Barro</span>
+            <span className="text-[11px] text-stone-500 dark:text-stone-400 font-serif-rustic italic">Pizzas de masa madre y empanadas gourmet</span>
           </div>
           <div className="flex flex-col items-center p-3 space-y-1">
-            <Wine className="w-7 h-7 text-[#624A3E] dark:text-amber-500" />
-            <span className="font-extrabold text-sm uppercase text-[#624A3E] dark:text-amber-400">Cava Selecta</span>
-            <span className="text-[11px] text-stone-500 dark:text-stone-400">Vinos de alta gama para maridajes</span>
+            <ChefHat className="w-7 h-7 text-[#C8956A]" />
+            <span className="font-extrabold text-sm uppercase text-[#4A2D1B] dark:text-amber-400 font-display-serif tracking-widest">Pastas de Autor</span>
+            <span className="text-[11px] text-stone-500 dark:text-stone-400 font-serif-rustic italic">Elaboración artesanal amasada en el día</span>
           </div>
         </div>
       </section>
