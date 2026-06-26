@@ -9,6 +9,47 @@ const inferFechaApertura = (idCierre: string) => {
   return new Date().toISOString().replace('T', ' ').slice(0, 19);
 };
 
+const safeSetItem = (key: string, value: string): void => {
+  try {
+    localStorage.setItem(key, value);
+  } catch (err: any) {
+    if (err.name === 'QuotaExceededError' || err.code === 22 || err.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
+      console.warn(`LocalStorage quota exceeded setting key "${key}". Purging non-essential caches...`);
+      try {
+        localStorage.removeItem('el_patron_backups_locales');
+        localStorage.removeItem('el_patron_logs');
+        
+        // Truncate shifts history
+        const rawHistory = localStorage.getItem('el_patron_historial_cierres');
+        if (rawHistory) {
+          try {
+            const parsed = JSON.parse(rawHistory);
+            if (Array.isArray(parsed)) {
+              localStorage.setItem('el_patron_historial_cierres', JSON.stringify(parsed.slice(0, 3)));
+            }
+          } catch {
+            localStorage.removeItem('el_patron_historial_cierres');
+          }
+        }
+        
+        // Retry
+        localStorage.setItem(key, value);
+      } catch (retryErr) {
+        console.warn('LocalStorage still full after partial purge. Executing full clear...');
+        try {
+          localStorage.clear();
+          localStorage.setItem(key, value);
+        } catch (finalErr) {
+          console.error('Failed to set localStorage key even after full clear:', finalErr);
+          throw new Error('El almacenamiento del navegador está completamente lleno. Por favor limpie el historial de navegación para poder operar.');
+        }
+      }
+    } else {
+      throw err;
+    }
+  }
+};
+
 export const cajaService = {
   getOpenSession(): CierreCaja | null {
     const raw = localStorage.getItem('el_patron_caja_activa');
@@ -155,21 +196,7 @@ export const cajaService = {
       }
     };
 
-    try {
-      localStorage.setItem('el_patron_caja_activa', JSON.stringify(session));
-    } catch (err: any) {
-      if (err.name === 'QuotaExceededError' || err.code === 22 || err.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
-        console.warn('LocalStorage quota exceeded. Purging local backups to free space...');
-        try {
-          localStorage.removeItem('el_patron_backups_locales');
-          localStorage.setItem('el_patron_caja_activa', JSON.stringify(session));
-        } catch (retryErr) {
-          throw new Error('No se pudo iniciar el turno en localStorage porque el almacenamiento del navegador está completamente lleno. Por favor limpie el historial de navegación o libere espacio.');
-        }
-      } else {
-        throw err;
-      }
-    }
+    safeSetItem('el_patron_caja_activa', JSON.stringify(session));
 
     // Run remote persistence and predictions asynchronously in the background to prevent UI blockages/freezes
     (async () => {
@@ -230,7 +257,7 @@ export const cajaService = {
       };
     }
 
-    localStorage.setItem('el_patron_caja_activa', JSON.stringify(active));
+    safeSetItem('el_patron_caja_activa', JSON.stringify(active));
 
     // Try live update if possible
     try {
@@ -252,7 +279,7 @@ export const cajaService = {
       active.movimientos_manuales = [];
     }
     active.movimientos_manuales.push(mov);
-    localStorage.setItem('el_patron_caja_activa', JSON.stringify(active));
+    safeSetItem('el_patron_caja_activa', JSON.stringify(active));
 
     try {
       const supabase = getActiveSupabaseClient();
@@ -331,7 +358,7 @@ export const cajaService = {
       }
     }
     const updatedHistory = [closed, ...history.filter(h => h.id_cierre !== closed.id_cierre)];
-    localStorage.setItem('el_patron_historial_cierres', JSON.stringify(updatedHistory));
+    safeSetItem('el_patron_historial_cierres', JSON.stringify(updatedHistory));
 
     // Persist closed session in database
     try {
