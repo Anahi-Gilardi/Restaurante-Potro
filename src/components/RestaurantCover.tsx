@@ -108,7 +108,7 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
             <div className="w-9 h-9 bg-[#624A3E] dark:bg-amber-500 rounded-xl flex items-center justify-center shadow-md">
               <UtensilsCrossed className="w-5 h-5 text-white dark:text-[#1A110B]" />
             </div>
-            <span className="font-extrabold text-lg tracking-tight font-sans text-[#624A3E] dark:text-amber-500">
+            <span className="font-extrabold text-xl tracking-widest font-display-serif text-[#4A2D1B] dark:text-amber-500">
               EL PATRÓN
             </span>
           </div>
@@ -171,10 +171,10 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
       <section className="relative overflow-hidden py-20 lg:py-28 bg-[#1A110B] text-white flex items-center">
         {/* Background Image with Overlay */}
         <div 
-          className="absolute inset-0 bg-cover bg-center opacity-30 select-none pointer-events-none"
-          style={{ backgroundImage: `url('/images/ojo_de_bife_grill.png')` }}
+          className="absolute inset-0 bg-cover bg-center opacity-65 select-none pointer-events-none animate-pulse duration-[4000ms]"
+          style={{ backgroundImage: `url('/images/ojo_bife_flames.png')` }}
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#1A110B] via-[#1A110B]/80 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#1A110B] via-[#1A110B]/60 to-[#1A110B]/20" />
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full z-10">
           <div className="max-w-2xl space-y-6">
@@ -182,7 +182,7 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
-              className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500/10 border border-amber-500/30 rounded-full text-amber-400 text-xs font-bold uppercase tracking-wider"
+              className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500/10 border border-amber-500/30 rounded-full text-amber-400 text-xs font-bold uppercase tracking-wider font-display-serif"
             >
               <Sparkles className="w-3.5 h-3.5" />
               Gastronomía de Autor & Fuegos Criollos
@@ -192,19 +192,19 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.1 }}
-              className="text-4xl sm:text-5xl lg:text-6xl font-black font-sans leading-tight tracking-tight text-[#FAF7F0]"
+              className="text-4xl sm:text-5xl lg:text-6xl font-bold font-serif-rustic leading-tight tracking-wide text-[#FAF7F0] drop-shadow-md"
             >
               El Verdadero Sabor <br />
-              <span className="text-amber-500">Del Fuego Criollo</span>
+              <span className="text-amber-500 italic font-semibold">Del Fuego Criollo</span>
             </motion.h1>
 
             <motion.p 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.2 }}
-              className="text-stone-300 text-sm sm:text-base md:text-lg max-w-xl font-medium leading-relaxed"
+              className="text-stone-200 text-sm sm:text-base md:text-lg max-w-xl font-serif-rustic italic leading-relaxed"
             >
-              Carnes seleccionadas maduradas en seco, pastas amasadas a mano diariamente y una exclusiva selección de bodega. Te invitamos a vivir la experiencia de El Patrón.
+              Carnes seleccionadas maduradas en seco, pastas de autor amasadas a mano diariamente y una exclusiva selección de bodega. Te invitamos a vivir la experiencia de El Patrón.
             </motion.p>
 
             <motion.div 
@@ -255,11 +255,11 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
       {/* 4. SPECIALTIES SECTION */}
       <section id="especialidades" className="py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
         <div className="text-center space-y-3">
-          <span className="text-xs uppercase font-black text-amber-600 dark:text-amber-400 tracking-widest">Nuestra Carta</span>
-          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight font-sans text-stone-900 dark:text-white">
+          <span className="text-xs uppercase font-bold text-[#6B4A35] dark:text-amber-500 tracking-widest font-display-serif">Nuestra Carta</span>
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-wide font-serif-rustic text-[#4A2D1B] dark:text-[#FAF7F0]">
             Especialidades de El Patrón
           </h2>
-          <div className="w-16 h-1 bg-[#624A3E] dark:bg-amber-500 mx-auto rounded-full" />
+          <div className="w-16 h-1 bg-[#4A2D1B] dark:bg-amber-500 mx-auto rounded-full" />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -279,16 +279,16 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
                     (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1544025162-d76694265947?w=600';
                   }}
                 />
-                <span className="absolute top-4 left-4 px-3 py-1 bg-[#624A3E] dark:bg-amber-500 text-white dark:text-[#1A110B] text-[10px] font-black uppercase rounded-lg shadow">
+                <span className="absolute top-4 left-4 px-3 py-1 bg-[#4A2D1B] dark:bg-amber-500 text-[#FAF7F0] dark:text-[#1A110B] text-[10px] font-bold uppercase tracking-wider font-display-serif rounded-lg shadow">
                   {spec.tag}
                 </span>
               </div>
               <div className="p-6 flex-1 flex flex-col justify-between space-y-4">
                 <div className="space-y-2">
-                  <h3 className="text-lg font-bold text-stone-900 dark:text-[#FAF7F0]">
+                  <h3 className="text-lg font-bold font-serif-rustic text-[#4A2D1B] dark:text-[#FAF7F0] tracking-wide">
                     {spec.title}
                   </h3>
-                  <p className="text-xs text-stone-500 dark:text-stone-400 font-medium leading-relaxed">
+                  <p className="text-xs text-stone-600 dark:text-stone-400 font-serif-rustic italic leading-relaxed">
                     {spec.description}
                   </p>
                 </div>
@@ -308,18 +308,18 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
           <div className="lg:col-span-6 space-y-6">
-            <span className="text-xs uppercase font-black text-amber-400 tracking-widest">Maridaje Seleccionado</span>
-            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight font-sans text-[#FAF7F0]">
+            <span className="text-xs uppercase font-bold text-amber-400 tracking-widest font-display-serif">Maridaje Seleccionado</span>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-wide font-serif-rustic text-[#FAF7F0]">
               La Cava de El Patrón
             </h2>
             <div className="w-12 h-1 bg-amber-500 rounded-full" />
-            <p className="text-stone-300 text-xs sm:text-sm font-medium leading-relaxed">
+            <p className="text-stone-200 text-xs sm:text-sm font-serif-rustic italic leading-relaxed">
               Un buen corte merece ser maridado con un gran exponente. Por eso, diseñamos nuestra cava con una amplia colección de varietales argentinos.
             </p>
-            <p className="text-stone-300 text-xs sm:text-sm font-medium leading-relaxed">
+            <p className="text-stone-200 text-xs sm:text-sm font-serif-rustic italic leading-relaxed">
               Contamos con etiquetas exclusivas de la bodega <strong>Rutini</strong>, Malbecs mendocinos intensos con notas de ciruelas rojas y vainilla, y Cabernet Sauvignon madurados en barricas de roble francés, garantizando que cada bocado de carne sea una celebración para el paladar.
             </p>
-            <div className="pt-2 flex items-center gap-4 text-xs font-bold text-amber-400">
+            <div className="pt-2 flex items-center gap-4 text-xs font-bold text-amber-400 font-display-serif">
               <span className="flex items-center gap-1.5">
                 <Wine className="w-4 h-4" /> Cabernet
               </span>
@@ -336,12 +336,12 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
           <div className="lg:col-span-6 flex justify-center">
             {/* Visual Glassmorphic Vineyard info card */}
             <div className="bg-white/5 backdrop-blur-md p-8 rounded-3xl border border-white/10 max-w-sm w-full space-y-4 shadow-2xl">
-              <span className="text-[10px] uppercase font-black text-amber-500 tracking-widest block">Recomendación Sommelier</span>
-              <h4 className="text-xl font-bold font-sans text-[#FAF7F0]">Rutini Colección Malbec</h4>
-              <p className="text-stone-300 text-xs font-medium leading-relaxed">
+              <span className="text-[10px] uppercase font-bold text-amber-500 tracking-widest block font-display-serif">Recomendación Sommelier</span>
+              <h4 className="text-xl font-bold font-serif-rustic text-[#FAF7F0] tracking-wide">Rutini Colección Malbec</h4>
+              <p className="text-stone-200 text-xs font-serif-rustic italic leading-relaxed">
                 De color rojo violáceo concentrado. Ofrece aromas frutados (arándanos, ciruelas) y toques de tabaco aportados por la madera. Excelente cuerpo y taninos maduros y dulces. Ideal para acompañar nuestro Ojo de Bife.
               </p>
-              <div className="flex justify-between items-center pt-2 text-[10px] text-stone-400 font-bold border-t border-white/15">
+              <div className="flex justify-between items-center pt-2 text-[10px] text-stone-400 font-bold border-t border-white/15 font-display-serif">
                 <span>Servido a temperatura óptima: 16-18°C</span>
               </div>
             </div>
@@ -352,14 +352,14 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
       {/* 6. BOOKING WIDGET */}
       <section id="reserva" className="py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
         <div className="text-center space-y-3">
-          <span className="text-xs uppercase font-black text-amber-600 dark:text-amber-400 tracking-widest">Planificá tu Visita</span>
-          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight font-sans text-stone-900 dark:text-white">
+          <span className="text-xs uppercase font-bold text-[#6B4A35] dark:text-amber-500 tracking-widest font-display-serif">Planificá tu Visita</span>
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-wide font-serif-rustic text-[#4A2D1B] dark:text-[#FAF7F0]">
             Solicitud de Reserva Online
           </h2>
-          <p className="text-xs text-stone-500 dark:text-stone-400 max-w-md mx-auto">
-            Reserve su mesa con anticipación. Le enviaremos una confirmación de disponibilidad vía teléfono o correo a la brevedad.
+          <p className="text-xs text-stone-600 dark:text-stone-400 max-w-md mx-auto font-serif-rustic italic">
+            Reserve su mesa con anticipación. Le enviaremos una confirmación de disponibilidad vía teléfono o WhatsApp a la brevedad.
           </p>
-          <div className="w-16 h-1 bg-[#624A3E] dark:bg-amber-500 mx-auto rounded-full" />
+          <div className="w-16 h-1 bg-[#4A2D1B] dark:bg-amber-500 mx-auto rounded-full" />
         </div>
 
         <div className="max-w-2xl mx-auto bg-white dark:bg-[#251B12] rounded-3xl p-6 sm:p-10 border border-stone-200/60 dark:border-stone-850 shadow-lg">
@@ -373,7 +373,7 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
                   placeholder="Ej: Juan Pérez"
                   value={bookingForm.nombre}
                   onChange={(e) => setBookingForm(prev => ({ ...prev, nombre: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-xl border border-stone-250 dark:border-stone-800 bg-[#FAF7F0] dark:bg-[#1E140E] text-stone-850 dark:text-white text-xs font-bold focus:outline-none focus:border-[#624A3E] dark:focus:border-amber-500"
+                  className="w-full px-4 py-3 rounded-xl border border-stone-250 dark:border-stone-800 bg-[#FAF7F0] dark:bg-[#1E140E] text-stone-850 dark:text-white text-xs font-bold focus:outline-none focus:border-[#4A2D1B] dark:focus:border-amber-500"
                 />
               </div>
 
@@ -385,7 +385,7 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
                   placeholder="Ej: +54 9 11 1234-5678"
                   value={bookingForm.telefono}
                   onChange={(e) => setBookingForm(prev => ({ ...prev, telefono: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-xl border border-stone-250 dark:border-stone-800 bg-[#FAF7F0] dark:bg-[#1E140E] text-stone-850 dark:text-white text-xs font-bold focus:outline-none focus:border-[#624A3E] dark:focus:border-amber-500"
+                  className="w-full px-4 py-3 rounded-xl border border-stone-250 dark:border-stone-800 bg-[#FAF7F0] dark:bg-[#1E140E] text-stone-850 dark:text-white text-xs font-bold focus:outline-none focus:border-[#4A2D1B] dark:focus:border-amber-500"
                 />
               </div>
             </div>
@@ -396,7 +396,7 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
                 <select 
                   value={bookingForm.personas}
                   onChange={(e) => setBookingForm(prev => ({ ...prev, personas: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-xl border border-stone-250 dark:border-stone-800 bg-[#FAF7F0] dark:bg-[#1E140E] text-stone-850 dark:text-white text-xs font-bold focus:outline-none focus:border-[#624A3E] dark:focus:border-amber-500 cursor-pointer"
+                  className="w-full px-4 py-3 rounded-xl border border-stone-250 dark:border-stone-800 bg-[#FAF7F0] dark:bg-[#1E140E] text-stone-850 dark:text-white text-xs font-bold focus:outline-none focus:border-[#4A2D1B] dark:focus:border-amber-500 cursor-pointer"
                 >
                   <option value="1">1 Persona</option>
                   <option value="2">2 Personas</option>
@@ -414,7 +414,7 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
                   required
                   value={bookingForm.fecha}
                   onChange={(e) => setBookingForm(prev => ({ ...prev, fecha: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-xl border border-stone-250 dark:border-stone-800 bg-[#FAF7F0] dark:bg-[#1E140E] text-stone-850 dark:text-white text-xs font-bold focus:outline-none focus:border-[#624A3E] dark:focus:border-amber-500 cursor-pointer"
+                  className="w-full px-4 py-3 rounded-xl border border-stone-250 dark:border-stone-800 bg-[#FAF7F0] dark:bg-[#1E140E] text-stone-850 dark:text-white text-xs font-bold focus:outline-none focus:border-[#4A2D1B] dark:focus:border-amber-500 cursor-pointer"
                 />
               </div>
 
@@ -423,7 +423,7 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
                 <select 
                   value={bookingForm.hora}
                   onChange={(e) => setBookingForm(prev => ({ ...prev, hora: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-xl border border-stone-250 dark:border-stone-800 bg-[#FAF7F0] dark:bg-[#1E140E] text-stone-850 dark:text-white text-xs font-bold focus:outline-none focus:border-[#624A3E] dark:focus:border-amber-500 cursor-pointer"
+                  className="w-full px-4 py-3 rounded-xl border border-stone-250 dark:border-stone-800 bg-[#FAF7F0] dark:bg-[#1E140E] text-stone-850 dark:text-white text-xs font-bold focus:outline-none focus:border-[#4A2D1B] dark:focus:border-amber-500 cursor-pointer"
                 >
                   <option value="12:00">12:00 hs (Almuerzo)</option>
                   <option value="13:30">13:30 hs (Almuerzo)</option>
@@ -436,7 +436,7 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
 
             <button
               type="submit"
-              className="w-full py-4 bg-[#624A3E] hover:bg-[#4D352B] dark:bg-amber-500 dark:hover:bg-amber-400 text-white dark:text-[#1A110B] rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-200 cursor-pointer shadow-md flex items-center justify-center gap-2"
+              className="w-full py-4 bg-[#4A2D1B] hover:bg-[#6B4A35] dark:bg-amber-500 dark:hover:bg-amber-400 text-white dark:text-[#1A110B] rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-200 cursor-pointer shadow-md flex items-center justify-center gap-2"
             >
               Solicitar Reservación
               <ChevronRight className="w-4 h-4" />
@@ -455,7 +455,7 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
               <div className="w-8 h-8 bg-amber-500 rounded-lg flex items-center justify-center">
                 <UtensilsCrossed className="w-4 h-4 text-[#1C140E]" />
               </div>
-              <span className="font-extrabold text-base tracking-tight text-white">EL PATRÓN</span>
+              <span className="font-extrabold text-lg tracking-widest text-white font-display-serif">EL PATRÓN</span>
             </div>
             <p className="text-xs text-stone-400 leading-relaxed">
               El verdadero sabor del fuego y las tradiciones criollas, en el corazón de Buenos Aires. Cortes Dry Aged y Cava seleccionada.
@@ -464,30 +464,30 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
 
           {/* Horarios */}
           <div className="space-y-4">
-            <h4 className="text-xs uppercase font-black tracking-wider text-white">Nuestros Horarios</h4>
+            <h4 className="text-xs uppercase font-bold tracking-widest text-white font-display-serif">Nuestros Horarios</h4>
             <ul className="space-y-2 text-xs font-medium">
               <li className="flex justify-between border-b border-[#FAF7F0]/10 pb-1">
                 <span>Martes a Domingo:</span>
-                <span className="text-white">12:00 a 16:00 hs</span>
+                <span className="text-white font-display-serif">12:00 a 16:00 hs</span>
               </li>
               <li className="flex justify-between border-b border-[#FAF7F0]/10 pb-1">
                 <span>Martes a Domingo:</span>
-                <span className="text-white">20:00 a 00:00 hs</span>
+                <span className="text-white font-display-serif">20:00 a 00:00 hs</span>
               </li>
               <li className="flex justify-between">
                 <span>Lunes:</span>
-                <span className="text-stone-500">Cerrado</span>
+                <span className="text-stone-500 font-display-serif">Cerrado</span>
               </li>
             </ul>
           </div>
 
           {/* Contacto Info */}
           <div className="space-y-4">
-            <h4 className="text-xs uppercase font-black tracking-wider text-white">Contacto & Reservas</h4>
+            <h4 className="text-xs uppercase font-bold tracking-widest text-white font-display-serif">Contacto & Reservas</h4>
             <ul className="space-y-3 text-xs">
               <li className="flex items-start gap-2">
                 <Phone className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                <span>+54 11 4802-9988</span>
+                <span className="font-display-serif">+54 11 4802-9988</span>
               </li>
               <li className="flex items-start gap-2">
                 <Mail className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
@@ -502,13 +502,13 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
 
           {/* Acceso Staff */}
           <div className="space-y-4">
-            <h4 className="text-xs uppercase font-black tracking-wider text-white">Área de Personal</h4>
+            <h4 className="text-xs uppercase font-bold tracking-widest text-white font-display-serif">Área de Personal</h4>
             <p className="text-[11px] text-stone-400">
               Uso exclusivo para mozos, personal de cocina, cajeros y administración.
             </p>
             <button
               onClick={onEnterSystem}
-              className="w-full py-2 bg-white/5 hover:bg-white/10 border border-white/15 text-white rounded-xl text-[10px] uppercase font-black tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5"
+              className="w-full py-2 bg-white/5 hover:bg-white/10 border border-white/15 text-white rounded-xl text-[10px] uppercase font-black tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5 font-display-serif"
             >
               🔑 Acceso Administrativo
             </button>
@@ -544,20 +544,20 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
               </div>
               
               <div className="space-y-2">
-                <h3 className="text-xl font-extrabold text-stone-900 dark:text-white">
+                <h3 className="text-xl font-bold font-serif-rustic text-[#4A2D1B] dark:text-white tracking-wide">
                   ¡Solicitud Enviada!
                 </h3>
-                <p className="text-xs text-stone-500 dark:text-stone-400 leading-relaxed font-medium">
+                <p className="text-xs text-stone-600 dark:text-stone-400 leading-relaxed font-serif-rustic italic">
                   Se ha generado tu solicitud de reserva para <strong>{bookingForm.personas} personas</strong> a las <strong>{bookingForm.hora} hs</strong>.
                 </p>
-                <p className="text-[11px] text-stone-400 italic">
+                <p className="text-[11px] text-stone-400 font-serif-rustic italic">
                   Te hemos redirigido a WhatsApp para enviar el mensaje pre-completado de confirmación. ¡Muchas gracias!
                 </p>
               </div>
 
               <button
                 onClick={closeBookingSuccess}
-                className="w-full py-3 bg-[#624A3E] hover:bg-[#4D352B] dark:bg-amber-500 dark:hover:bg-amber-400 text-white dark:text-[#1A110B] rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer"
+                className="w-full py-3 bg-[#4A2D1B] hover:bg-[#6B4A35] dark:bg-amber-500 dark:hover:bg-amber-400 text-white dark:text-[#1A110B] rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer font-display-serif"
               >
                 Entendido
               </button>
