@@ -130,7 +130,7 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
   const accentColor = coverTab === 'parrilla' ? '#4A2D1B' : '#9B2226';
   const hoverAccentColor = coverTab === 'parrilla' ? '#6B4A35' : '#B22226';
 
-  const heroBackground = coverTab === 'parrilla' ? '/images/ojo_de_bife_grill.png' : '/images/pizza_wood_oven.png';
+  const heroBackground = coverTab === 'parrilla' ? '/images/ojo_bife_flames.png' : '/images/pizza_wood_oven.png';
   const heroBadge = coverTab === 'parrilla' ? 'Gastronomía de Autor & Fuegos Criollos' : 'Pizzería & Horno Artesanal';
   const heroTitleStart = coverTab === 'parrilla' ? 'El Verdadero Sabor' : 'Pizzas de Masa Madre';
   const heroTitleHighlight = coverTab === 'parrilla' ? 'Del Fuego Criollo' : 'al Horno de Barro';
@@ -245,7 +245,7 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
       <section className="relative overflow-hidden py-20 lg:py-28 bg-[#1A110B] text-white flex items-center">
         {/* Background Image with Overlay */}
         <div 
-          className="absolute inset-0 bg-cover bg-center opacity-60 select-none pointer-events-none transition-all duration-700 ease-in-out"
+          className={`absolute inset-0 bg-cover bg-center select-none pointer-events-none transition-all duration-700 ease-in-out ${coverTab === 'parrilla' ? 'opacity-80' : 'opacity-60'}`}
           style={{ backgroundImage: `url('${heroBackground}')` }}
         />
         <div className="absolute inset-0 bg-gradient-to-r from-[#1A110B] via-[#1A110B]/60 to-[#1A110B]/20" />
