@@ -453,12 +453,18 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
       <div className="flex gap-2 overflow-x-auto pb-1">
         <button onClick={() => setShowBulkEditor(false)}
           className={`px-4 py-2 text-xs font-extrabold rounded-xl transition-all cursor-pointer border shrink-0 ${
-            !showBulkEditor ? 'bg-[#624A3E] text-white border-[#624A3E]' : 'bg-white text-stone-600 border-stone-200 hover:bg-stone-50'}`}>
+            !showBulkEditor
+              ? 'bg-[#4A2D1B] dark:bg-[#C8956A] text-white dark:text-[#4A2D1B] border-[#4A2D1B] dark:border-[#C8956A] shadow-md'
+              : 'bg-white/70 dark:bg-white/5 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-white/10 hover:bg-stone-50 dark:hover:bg-white/10'
+          }`}>
           <UtensilsCrossed className="w-3.5 h-3.5 inline mr-1" /> Catalogo
         </button>
         <button onClick={() => setShowBulkEditor(true)}
           className={`px-4 py-2 text-xs font-extrabold rounded-xl transition-all cursor-pointer border shrink-0 ${
-            showBulkEditor ? 'bg-[#624A3E] text-white border-[#624A3E]' : 'bg-white text-stone-600 border-stone-200 hover:bg-stone-50'}`}>
+            showBulkEditor
+              ? 'bg-[#4A2D1B] dark:bg-[#C8956A] text-white dark:text-[#4A2D1B] border-[#4A2D1B] dark:border-[#C8956A] shadow-md'
+              : 'bg-white/70 dark:bg-white/5 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-white/10 hover:bg-stone-50 dark:hover:bg-white/10'
+          }`}>
           <DollarSign className="w-3.5 h-3.5 inline mr-1" /> Precios masivos
         </button>
       </div>
@@ -467,80 +473,80 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
         <BulkPriceEditor items={items} onItemsChange={handleBulkItemsChange} addLog={addLog} />
       ) : (
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 md:gap-6">
-        <div className="bg-white p-4 sm:p-6 rounded-2xl border border-stone-200 shadow-xs space-y-4">
-          <h3 className="text-sm font-black text-stone-800 uppercase tracking-tight flex items-center gap-2">
-            <Plus className="w-4 h-4 text-[#624A3E]" />
+        <div className="glass-panel p-4 sm:p-6 rounded-2xl shadow-sm space-y-4">
+          <h3 className="text-sm font-black text-stone-850 dark:text-[#FAF7F0] uppercase tracking-tight flex items-center gap-2">
+            <Plus className="w-4 h-4 text-[#4A2D1B] dark:text-[#C8956A]" />
             Nuevo plato / bebida
           </h3>
           <form onSubmit={handleCreateItem} className="space-y-3">
             <div>
-              <label className="text-[10px] font-black text-stone-500 uppercase tracking-wider block mb-1">Nombre comercial</label>
+              <label className="text-[10px] font-black text-stone-500 dark:text-stone-300 uppercase tracking-wider block mb-1">Nombre comercial</label>
               <input
                 type="text"
                 value={nombre}
                 onChange={e => setNombre(e.target.value)}
                 placeholder="Ej. Ojo de Bife Criollo"
-                className="w-full min-h-11 text-sm p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none focus:ring-2 focus:ring-[#624A3E]/30"
+                className="w-full min-h-11 text-sm p-2.5 rounded-xl border border-stone-200 dark:border-white/10 bg-stone-50/50 dark:bg-white/5 text-stone-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#C8956A]/30 dark:focus:ring-[#C8956A]/50 dark:placeholder-stone-400/60"
                 disabled={isBusy}
                 required
               />
             </div>
             <div>
-              <label className="text-[10px] font-black text-stone-500 uppercase tracking-wider block mb-1">Precio de venta ($)</label>
+              <label className="text-[10px] font-black text-stone-500 dark:text-stone-300 uppercase tracking-wider block mb-1">Precio de venta ($)</label>
               <input
                 type="number"
                 inputMode="decimal"
                 value={precio}
                 onChange={e => setPrecio(e.target.value)}
                 placeholder="Ej. 18500"
-                className="w-full min-h-11 text-sm p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none focus:ring-2 focus:ring-[#624A3E]/30"
+                className="w-full min-h-11 text-sm p-2.5 rounded-xl border border-stone-200 dark:border-white/10 bg-stone-50/50 dark:bg-white/5 text-stone-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#C8956A]/30 dark:focus:ring-[#C8956A]/50 dark:placeholder-stone-400/60"
                 disabled={isBusy}
                 required
               />
             </div>
             <div>
-              <label className="text-[10px] font-black text-stone-500 uppercase tracking-wider block mb-1">Descripcion</label>
+              <label className="text-[10px] font-black text-stone-500 dark:text-stone-300 uppercase tracking-wider block mb-1">Descripcion</label>
               <textarea
                 value={descripcion}
                 onChange={e => setDescripcion(e.target.value)}
                 placeholder="Ingredientes u observaciones..."
                 rows={2}
-                className="w-full text-sm p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none focus:ring-2 focus:ring-[#624A3E]/30 resize-none"
+                className="w-full text-sm p-2.5 rounded-xl border border-stone-200 dark:border-white/10 bg-stone-50/50 dark:bg-white/5 text-stone-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#C8956A]/30 dark:focus:ring-[#C8956A]/50 dark:placeholder-stone-400/60 resize-none"
                 disabled={isBusy}
               />
             </div>
             <div>
-              <label className="text-[10px] font-black text-stone-500 uppercase tracking-wider block mb-1">Categoria</label>
+              <label className="text-[10px] font-black text-stone-500 dark:text-stone-300 uppercase tracking-wider block mb-1">Categoria</label>
               <select
                 value={categoria}
                 onChange={e => setCategoria(e.target.value)}
-                className="w-full min-h-11 text-sm p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none focus:ring-2 focus:ring-[#624A3E]/30 cursor-pointer font-bold text-stone-700"
+                className="w-full min-h-11 text-sm p-2.5 rounded-xl border border-stone-200 dark:border-white/10 bg-stone-50/50 dark:bg-[#2e2015] text-stone-700 dark:text-[#FAF7F0] focus:outline-none focus:ring-2 focus:ring-[#C8956A]/30 dark:focus:ring-[#C8956A]/50 cursor-pointer font-bold"
                 disabled={isBusy}
               >
-                {categories.map(cat => <option key={cat.id} value={cat.nombre}>{cat.nombre}</option>)}
+                {categories.map(cat => <option key={cat.id} value={cat.nombre} className="dark:bg-[#2e2015] dark:text-[#FAF7F0]">{cat.nombre}</option>)}
               </select>
             </div>
             
             {/* Extended attributes: cooking time and kitchen requirement */}
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="text-[10px] font-black text-stone-500 uppercase tracking-wider block mb-1">Min. Prep.</label>
+                <label className="text-[10px] font-black text-stone-500 dark:text-stone-300 uppercase tracking-wider block mb-1">Min. Prep.</label>
                 <input
                   type="number"
                   value={tiempoPreparacion}
                   onChange={e => setTiempoPreparacion(e.target.value)}
                   placeholder="12"
-                  className="w-full min-h-11 text-sm p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none focus:ring-2 focus:ring-[#624A3E]/30"
+                  className="w-full min-h-11 text-sm p-2.5 rounded-xl border border-stone-200 dark:border-white/10 bg-stone-50/50 dark:bg-white/5 text-stone-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#C8956A]/30 dark:focus:ring-[#C8956A]/50 dark:placeholder-stone-400/60"
                   disabled={isBusy || !requiereCocina}
                 />
               </div>
               <div className="flex flex-col justify-end">
-                <label className="flex items-center gap-1.5 min-h-11 cursor-pointer select-none font-bold text-stone-700 text-xs">
+                <label className="flex items-center gap-1.5 min-h-11 cursor-pointer select-none font-bold text-stone-700 dark:text-stone-200 text-xs">
                   <input
                     type="checkbox"
                     checked={requiereCocina}
                     onChange={e => setRequiereCocina(e.target.checked)}
-                    className="w-4 h-4 rounded text-[#624A3E] focus:ring-[#624A3E]"
+                    className="w-4 h-4 rounded text-[#4A2D1B] dark:text-[#C8956A] focus:ring-[#4A2D1B] dark:focus:ring-[#C8956A] bg-stone-50 dark:bg-white/5 border-stone-200 dark:border-white/10"
                     disabled={isBusy}
                   />
                   Cocina
@@ -550,7 +556,7 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
 
             {/* Allergen selector */}
             <div>
-              <label className="text-[10px] font-black text-stone-500 uppercase tracking-wider block mb-1.5">Alérgenos</label>
+              <label className="text-[10px] font-black text-stone-500 dark:text-stone-300 uppercase tracking-wider block mb-1.5">Alérgenos</label>
               <div className="flex flex-wrap gap-1">
                 {ALLERGENS_LIST.map(alg => {
                   const active = selectedAllergens.includes(alg.id);
@@ -561,8 +567,8 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
                       onClick={() => toggleAllergen(alg.id, false)}
                       className={`px-2 py-1 text-[9px] font-black rounded-lg border uppercase tracking-wide cursor-pointer transition-all ${
                         active
-                          ? 'bg-rose-500 text-white border-rose-600'
-                          : 'bg-stone-50 text-stone-500 border-stone-200 hover:bg-stone-100'
+                          ? 'bg-rose-500 border-rose-600 text-white dark:bg-rose-500/20 dark:text-rose-300 dark:border-rose-500/30'
+                          : 'bg-stone-50 dark:bg-white/5 text-stone-500 dark:text-stone-400 border-stone-200 dark:border-white/10 hover:bg-stone-100 dark:hover:bg-white/10'
                       }`}
                     >
                       {alg.label}
@@ -574,14 +580,14 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
 
             {/* Canvas express image resize and uploader */}
             <div>
-              <label className="text-[10px] font-black text-stone-500 uppercase tracking-wider block mb-1">Imagen del plato (Manual / Auto)</label>
+              <label className="text-[10px] font-black text-stone-500 dark:text-stone-300 uppercase tracking-wider block mb-1">Imagen del plato (Manual / Auto)</label>
               <div className="space-y-2">
                 <input
                   type="text"
                   value={imagenUrl}
                   onChange={e => setImagenUrl(e.target.value)}
                   placeholder="Pegue una URL de imagen..."
-                  className="w-full min-h-10 text-xs p-2.5 rounded-xl border border-stone-200 bg-stone-50/30 focus:outline-none focus:ring-1 focus:ring-[#624A3E]/30"
+                  className="w-full min-h-10 text-xs p-2.5 rounded-xl border border-stone-200 dark:border-white/10 bg-stone-50/30 dark:bg-white/5 text-stone-800 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#C8956A]/30 dark:placeholder-stone-400/60"
                   disabled={isBusy}
                 />
                 <input
@@ -595,26 +601,26 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="flex-1 min-h-10 flex items-center justify-center gap-1 border border-dashed border-stone-300 hover:border-stone-400 bg-stone-50 rounded-xl text-[11px] font-bold text-stone-600 cursor-pointer"
+                    className="flex-1 min-h-10 flex items-center justify-center gap-1 border border-dashed border-stone-300 dark:border-white/15 hover:border-stone-450 dark:hover:border-white/30 bg-stone-50 dark:bg-white/5 rounded-xl text-[11px] font-bold text-stone-600 dark:text-stone-300 cursor-pointer transition-colors"
                   >
                     <Image className="w-3.5 h-3.5 text-stone-450" />
-                    Subir Archivo (Canvas)
+                    Subir Archivo
                   </button>
                   <button
                     type="button"
                     onClick={() => handleAutoGenerateImage(nombre, categoria, false)}
-                    className="flex-1 min-h-10 bg-amber-50 hover:bg-amber-100/80 border border-amber-200 text-amber-800 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                    className="flex-1 min-h-10 bg-amber-50 dark:bg-amber-500/10 hover:bg-amber-100/80 dark:hover:bg-amber-500/20 border border-amber-200 dark:border-amber-500/20 text-amber-800 dark:text-amber-300 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors"
                   >
                     🪄 Auto Generar
                   </button>
                 </div>
                 {imagenUrl && (
-                  <div className="relative w-16 h-16 rounded-xl border border-stone-200 overflow-hidden">
+                  <div className="relative w-16 h-16 rounded-xl border border-stone-200 dark:border-white/10 overflow-hidden">
                     <img src={imagenUrl} className="w-full h-full object-cover" alt="Vista previa" />
                     <button
                       type="button"
                       onClick={() => setImagenUrl('')}
-                      className="absolute -top-1 -right-1 bg-stone-850/80 text-white rounded-full p-0.5"
+                      className="absolute -top-1 -right-1 bg-stone-850/80 text-white rounded-full p-0.5 cursor-pointer"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
@@ -626,18 +632,18 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
             <button
               type="submit"
               disabled={isBusy}
-              className="w-full min-h-11 py-2.5 bg-[#624A3E] hover:bg-[#503C32] disabled:bg-stone-300 disabled:cursor-not-allowed text-white text-xs font-extrabold rounded-xl transition-all shadow-md shadow-[#624A3E]/10 cursor-pointer active:scale-[0.98]"
+              className="w-full min-h-11 py-2.5 bg-[#4A2D1B] hover:bg-[#5d3a2e] dark:bg-[#C8956A] dark:hover:bg-[#d5a67c] text-[#FAF7F0] dark:text-[#4A2D1B] border border-[#FAF7F0]/10 dark:border-[#C8956A]/20 transition-all font-extrabold text-xs rounded-xl shadow-md cursor-pointer active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {pendingAction === 'create' ? 'Registrando...' : 'Registrar en carta'}
             </button>
           </form>
         </div>
 
-        <div className="bg-white p-4 sm:p-6 rounded-2xl border border-stone-200 shadow-xs lg:col-span-3 space-y-4">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-stone-100">
-            <h3 className="text-sm font-black text-stone-800 uppercase tracking-tight flex items-center gap-2">
-              <UtensilsCrossed className="w-5 h-5 text-[#624A3E]" />
-              Catalogo de menu ({filtered.length})
+        <div className="glass-panel p-4 sm:p-6 rounded-2xl shadow-sm lg:col-span-3 space-y-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-stone-100 dark:border-white/10">
+            <h3 className="text-sm font-black text-stone-850 dark:text-[#FAF7F0] uppercase tracking-tight flex items-center gap-2">
+              <UtensilsCrossed className="w-5 h-5 text-[#4A2D1B] dark:text-[#C8956A]" />
+              Catálogo de menú ({filtered.length})
             </h3>
 
             <div className="flex flex-wrap gap-1">
@@ -645,8 +651,8 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
                 onClick={() => setSelectedCategoria('todos')}
                 className={`px-2.5 py-1.5 text-[10px] font-black rounded-lg uppercase tracking-wide cursor-pointer transition-all border ${
                   selectedCategoria === 'todos'
-                    ? 'bg-[#624A3E] text-white border-[#5d3a2e]'
-                    : 'bg-stone-50 text-stone-600 border-stone-200 hover:bg-stone-100'
+                    ? 'bg-[#4A2D1B] dark:bg-[#C8956A] text-white dark:text-[#4A2D1B] border-[#4A2D1B] dark:border-[#C8956A] shadow-xs'
+                    : 'bg-stone-50 dark:bg-stone-850/80 text-stone-650 dark:text-stone-250 border-stone-200 dark:border-stone-750/80 hover:bg-[#F5F1E9] dark:hover:bg-stone-750/50'
                 }`}
               >
                 Todos
@@ -657,8 +663,8 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
                   onClick={() => setSelectedCategoria(cat.slug.toLowerCase())}
                   className={`px-2.5 py-1.5 text-[10px] font-black rounded-lg uppercase tracking-wide cursor-pointer transition-all border ${
                     selectedCategoria.toLowerCase() === cat.slug.toLowerCase()
-                      ? 'bg-[#624A3E] text-white border-[#5d3a2e]'
-                      : 'bg-stone-50 text-stone-600 border-stone-200 hover:bg-stone-100'
+                      ? 'bg-[#4A2D1B] dark:bg-[#C8956A] text-white dark:text-[#4A2D1B] border-[#4A2D1B] dark:border-[#C8956A] shadow-xs'
+                      : 'bg-stone-50 dark:bg-stone-850/80 text-stone-650 dark:text-stone-250 border-stone-200 dark:border-stone-750/80 hover:bg-[#F5F1E9] dark:hover:bg-stone-750/50'
                   }`}
                 >
                   {cat.nombre}
@@ -668,13 +674,13 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
           </div>
 
           <div className="relative">
-            <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-stone-400 dark:text-stone-300 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Buscar platillo, vino o postre..."
-              className="w-full min-h-11 text-sm pl-9 pr-4 py-3 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none focus:ring-2 focus:ring-[#624A3E]/30"
+              className="w-full min-h-11 text-sm pl-9 pr-4 py-3 rounded-xl border border-stone-200 dark:border-white/10 bg-stone-50/50 dark:bg-white/5 text-stone-800 dark:text-[#FAF7F0] focus:outline-none focus:ring-2 focus:ring-[#C8956A]/30 dark:focus:ring-[#C8956A]/50 dark:placeholder-stone-400/60"
             />
           </div>
 
@@ -694,9 +700,11 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
               return (
               <div
                 key={item.id_producto}
-                className={`p-3 bg-[#F5F1E9]/30 border rounded-2xl flex flex-col justify-between gap-3 transition-colors hover:bg-[#F5F1E9]/60 ${
-                  item.activo ? 'border-stone-150' : 'border-rose-105 bg-rose-50/10 opacity-70'
-                } ${itemBusy ? 'ring-2 ring-[#624A3E]/20' : ''}`}
+                className={`p-3 bg-[#F5F1E9]/30 dark:bg-white/5 border rounded-2xl flex flex-col justify-between gap-3 transition-all hover:bg-[#F5F1E9]/60 dark:hover:bg-white/10 ${
+                  item.activo 
+                    ? 'border-stone-200 dark:border-white/10' 
+                    : 'border-rose-200 bg-rose-50/15 dark:border-rose-950/30 dark:bg-rose-950/10 opacity-75'
+                } ${itemBusy ? 'ring-2 ring-[#C8956A]/30' : ''}`}
               >
                 <div className="flex gap-3">
                   <img
@@ -704,20 +712,20 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
                     alt={item.nombre}
                     loading="lazy" decoding="async"
                     referrerPolicy="no-referrer"
-                    className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-cover shrink-0 bg-stone-100 border border-stone-200"
+                    className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-cover shrink-0 bg-stone-100 dark:bg-stone-900 border border-stone-200 dark:border-white/10"
                     onError={e => { (e.currentTarget as HTMLImageElement).src = getFallbackImage(item.categoria); }}
                   />
                   <div className="flex-1 flex flex-col justify-between min-w-0">
                     <div className="space-y-0.5">
                       <div className="flex items-center justify-between">
-                        <span className="text-[8px] font-black uppercase text-[#624A3E]">{item.categoria}</span>
+                        <span className="text-[8px] font-black uppercase text-[#4A2D1B] dark:text-[#C8956A]">{item.categoria}</span>
                         {item.tiempo_preparacion_estimado && (
-                          <span className="text-[8px] font-black text-stone-500 uppercase tracking-tight">⏱️ {item.tiempo_preparacion_estimado} min</span>
+                          <span className="text-[8px] font-black text-stone-500 dark:text-stone-400 uppercase tracking-tight">⏱️ {item.tiempo_preparacion_estimado} min</span>
                         )}
                       </div>
-                      <h4 className="text-sm font-extrabold text-stone-900 tracking-tight leading-snug truncate" title={item.nombre}>{item.nombre}</h4>
+                      <h4 className="text-sm font-extrabold text-stone-900 dark:text-white tracking-tight leading-snug truncate" title={item.nombre}>{item.nombre}</h4>
                       {item.descripcion && (
-                        <p className="text-[10px] sm:text-xs text-stone-500 leading-snug line-clamp-2 mt-0.5" title={item.descripcion}>
+                        <p className="text-[10px] sm:text-xs text-stone-500 dark:text-stone-200 leading-snug line-clamp-2 mt-0.5" title={item.descripcion}>
                           {item.descripcion}
                         </p>
                       )}
@@ -726,7 +734,7 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
                       {item.alergenos && item.alergenos.length > 0 && (
                         <div className="flex flex-wrap gap-0.5 mt-1">
                           {item.alergenos.map(alg => (
-                            <span key={alg} className="px-1 py-0.5 bg-rose-50 border border-rose-100 rounded text-[7px] font-bold text-rose-600">
+                            <span key={alg} className="px-1.5 py-0.5 bg-rose-50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/30 rounded text-[7px] font-bold text-rose-600 dark:text-rose-450">
                               {ALLERGENS_LIST.find(x => x.id === alg)?.label || alg}
                             </span>
                           ))}
@@ -736,37 +744,37 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
                       {editingId === item.id_producto ? (
                         <div className="space-y-2 mt-1.5 border-t border-stone-250/20 pt-1.5">
                           <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-bold text-stone-700">$</span>
+                            <span className="text-xs font-bold text-stone-700 dark:text-stone-300">$</span>
                             <input type="number" inputMode="decimal" value={editPrecio} onChange={e => setEditPrecio(e.target.value)}
                               disabled={isBusy}
-                              className="w-20 text-sm p-1.5 border border-stone-300 rounded bg-white text-stone-800 font-mono font-bold focus:outline-none focus:ring-1 focus:ring-[#624A3E]" />
+                              className="w-20 text-sm p-1.5 border border-stone-350 dark:border-white/10 rounded bg-white dark:bg-white/5 text-stone-800 dark:text-[#FAF7F0] font-mono font-bold focus:outline-none focus:ring-1 focus:ring-[#C8956A] dark:placeholder-stone-400/60" />
                           </div>
                           <input type="text" value={editNombre} onChange={e => setEditNombre(e.target.value)}
                             disabled={isBusy}
-                            className="w-full text-xs p-1.5 border border-stone-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-[#624A3E]" />
+                            className="w-full text-xs p-1.5 border border-stone-350 dark:border-white/10 rounded bg-white dark:bg-white/5 text-stone-800 dark:text-[#FAF7F0] focus:outline-none focus:ring-1 focus:ring-[#C8956A] dark:placeholder-stone-400/60" />
                           <textarea value={editDescripcion} onChange={e => setEditDescripcion(e.target.value)} rows={2}
                             disabled={isBusy}
-                            className="w-full text-xs p-1.5 border border-stone-300 rounded bg-white resize-none focus:outline-none focus:ring-1 focus:ring-[#624A3E]" />
+                            className="w-full text-xs p-1.5 border border-stone-350 dark:border-white/10 rounded bg-white dark:bg-white/5 text-stone-800 dark:text-[#FAF7F0] resize-none focus:outline-none focus:ring-1 focus:ring-[#C8956A] dark:placeholder-stone-400/60" />
                           <div className="grid grid-cols-2 gap-1.5">
                             <select value={editCategoria} onChange={e => setEditCategoria(e.target.value)}
                               disabled={isBusy}
-                              className="w-full text-xs p-1.5 border border-stone-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-[#624A3E]">
-                              {categories.map(cat => <option key={cat.id} value={cat.nombre}>{cat.nombre}</option>)}
+                              className="w-full text-xs p-1.5 border border-stone-350 dark:border-white/10 rounded bg-white dark:bg-[#2e2015] text-stone-800 dark:text-[#FAF7F0] focus:outline-none focus:ring-1 focus:ring-[#C8956A]">
+                              {categories.map(cat => <option key={cat.id} value={cat.nombre} className="dark:bg-[#2e2015] dark:text-[#FAF7F0]">{cat.nombre}</option>)}
                             </select>
                             <input type="number" value={editTiempoPreparacion} onChange={e => setEditTiempoPreparacion(e.target.value)}
                               disabled={isBusy || !editRequiereCocina} placeholder="Minutos"
-                              className="w-full text-xs p-1.5 border border-stone-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-[#624A3E]" />
+                              className="w-full text-xs p-1.5 border border-stone-350 dark:border-white/10 rounded bg-white dark:bg-white/5 text-stone-800 dark:text-[#FAF7F0] focus:outline-none focus:ring-1 focus:ring-[#C8956A] dark:placeholder-stone-400/60" />
                           </div>
                           <div className="flex items-center justify-between">
-                            <label className="flex items-center gap-1 text-[10px] font-bold text-stone-650 cursor-pointer">
+                            <label className="flex items-center gap-1 text-[10px] font-bold text-stone-650 dark:text-stone-300 cursor-pointer select-none">
                               <input type="checkbox" checked={editRequiereCocina} onChange={e => setEditRequiereCocina(e.target.checked)}
-                                className="w-3.5 h-3.5 rounded text-[#624A3E]" /> Cocina
+                                className="w-3.5 h-3.5 rounded text-[#4A2D1B] dark:text-[#C8956A] bg-white dark:bg-white/5 border-stone-350 dark:border-white/10" /> Cocina
                             </label>
                           </div>
                           
                           {/* Edit allergen tags */}
                           <div className="space-y-1">
-                            <span className="text-[9px] font-bold text-stone-500 uppercase">Alérgenos:</span>
+                            <span className="text-[9px] font-bold text-stone-500 dark:text-stone-400 uppercase">Alérgenos:</span>
                             <div className="flex flex-wrap gap-1">
                               {ALLERGENS_LIST.map(alg => {
                                 const active = editSelectedAllergens.includes(alg.id);
@@ -775,10 +783,10 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
                                     type="button"
                                     key={alg.id}
                                     onClick={() => toggleAllergen(alg.id, true)}
-                                    className={`px-1.5 py-0.5 text-[8px] font-bold rounded border uppercase tracking-wide transition-all ${
+                                    className={`px-1.5 py-0.5 text-[8px] font-bold rounded border uppercase tracking-wide transition-all cursor-pointer ${
                                       active
-                                        ? 'bg-rose-500 text-white border-rose-600'
-                                        : 'bg-stone-50 text-stone-500 border-stone-200 hover:bg-stone-100'
+                                        ? 'bg-rose-500 border-rose-600 text-white dark:bg-rose-500/20 dark:text-rose-300 dark:border-rose-500/30 shadow-xs'
+                                        : 'bg-stone-50 dark:bg-white/5 text-stone-500 dark:text-stone-400 border-stone-200 dark:border-white/10 hover:bg-stone-100 dark:hover:bg-white/10'
                                     }`}
                                   >
                                     {alg.label}
@@ -795,7 +803,7 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
                               value={editImagen}
                               onChange={e => setEditImagen(e.target.value)}
                               placeholder="URL de imagen..."
-                              className="w-full text-xs p-1.5 border border-stone-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-[#624A3E]"
+                              className="w-full text-xs p-1.5 border border-stone-350 dark:border-white/10 rounded bg-white dark:bg-white/5 text-stone-850 dark:text-[#FAF7F0] focus:outline-none focus:ring-1 focus:ring-[#C8956A] dark:placeholder-stone-400/60"
                               disabled={isBusy}
                             />
                             <input
@@ -809,14 +817,14 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
                               <button
                                 type="button"
                                 onClick={() => editFileInputRef.current?.click()}
-                                className="flex-1 py-1 bg-stone-50 hover:bg-stone-100 border border-stone-200 rounded text-[9px] font-bold text-stone-650 flex items-center justify-center gap-1 cursor-pointer"
+                                className="flex-1 py-1 bg-stone-50 dark:bg-white/5 hover:bg-stone-100 dark:hover:bg-white/10 border border-stone-200 dark:border-white/10 rounded text-[9px] font-bold text-stone-650 dark:text-stone-300 flex items-center justify-center gap-1 cursor-pointer"
                               >
                                 <Image className="w-3 h-3 text-stone-550" /> Subir
                               </button>
                               <button
                                 type="button"
                                 onClick={() => handleAutoGenerateImage(editNombre, editCategoria, true)}
-                                className="flex-1 py-1 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 rounded text-[9px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                                className="flex-1 py-1 bg-amber-50 dark:bg-amber-500/10 hover:bg-amber-100 dark:hover:bg-amber-500/20 border border-amber-200 dark:border-amber-500/20 text-amber-800 dark:text-amber-300 rounded text-[9px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors"
                               >
                                 🪄 Auto
                               </button>
@@ -827,14 +835,14 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
                             <button onClick={() => void handleSaveEdit(item.id_producto)} disabled={isBusy}
                               className="p-1.5 rounded bg-[#22C55E]/15 hover:bg-[#22C55E]/20 text-[#22C55E] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"><Check className="w-3.5 h-3.5" /></button>
                             <button onClick={resetEditForm} disabled={isBusy}
-                              className="p-1.5 rounded bg-stone-100 hover:bg-stone-200 text-stone-500 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"><X className="w-3.5 h-3.5" /></button>
+                              className="p-1.5 rounded bg-stone-100 dark:bg-white/5 hover:bg-stone-200 dark:hover:bg-white/10 text-stone-500 dark:text-stone-300 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"><X className="w-3.5 h-3.5" /></button>
                           </div>
                         </div>
                       ) : (
                         <div className="flex items-center gap-1.5">
-                          <span className="text-sm font-black text-stone-850 font-mono tracking-tight">${item.precio_venta.toLocaleString('es-AR')}</span>
+                          <span className="text-sm font-black text-stone-850 dark:text-[#FAF7F0] font-mono tracking-tight">${item.precio_venta.toLocaleString('es-AR')}</span>
                           <button onClick={() => handleStartEditing(item)} disabled={isBusy}
-                            className="p-1.5 px-2 rounded hover:bg-stone-200/50 text-stone-400 hover:text-stone-750 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer text-[10px]">
+                            className="p-1.5 px-2 rounded hover:bg-stone-200/50 dark:hover:bg-white/5 text-stone-400 hover:text-stone-750 dark:hover:text-stone-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer text-[10px]">
                             <Edit2 className="w-3 h-3" />
                           </button>
                         </div>
@@ -845,43 +853,43 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
 
                 {/* Recipe escandallo margin visual flags */}
                 {!editingId && (
-                  <div className="mt-2 p-2 bg-stone-50 rounded-xl border border-stone-200/60 flex items-center justify-between text-[9px] sm:text-[10px] font-bold">
+                  <div className="mt-2 p-2 bg-stone-50 dark:bg-white/5 rounded-xl border border-stone-200/60 dark:border-white/10 flex items-center justify-between text-[9px] sm:text-[10px] font-bold text-stone-700 dark:text-stone-300">
                     {hasRecipe ? (
                       <>
-                        <span className="text-stone-500">Costo: <strong className="font-mono">${recipeCost.toFixed(1)}</strong></span>
+                        <span className="text-stone-500 dark:text-stone-400">Costo: <strong className="font-mono text-stone-800 dark:text-stone-100">${recipeCost.toFixed(1)}</strong></span>
                         {marginPct !== null && (
                           <span className={`px-1.5 py-0.5 rounded-lg text-[9px] font-extrabold uppercase ${
-                            marginLevel === 'high' ? 'bg-emerald-100 text-emerald-700' :
-                            marginLevel === 'medium' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'
+                            marginLevel === 'high' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300' :
+                            marginLevel === 'medium' ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300' : 'bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300'
                           }`}>
                             Margen {marginPct.toFixed(0)}%
                           </span>
                         )}
                       </>
                     ) : (
-                      <span className="text-amber-600 flex items-center gap-1">
+                      <span className="text-amber-600 dark:text-amber-400 flex items-center gap-1">
                         <AlertTriangle className="w-3.5 h-3.5" /> Sin receta vinculada
                       </span>
                     )}
                   </div>
                 )}
 
-                <div className="flex items-center justify-between pt-2 border-t border-stone-200/40 mt-2">
+                <div className="flex items-center justify-between pt-2 border-t border-stone-200/40 dark:border-white/10 mt-2">
                   <button onClick={() => void handleDuplicateItem(item)} disabled={isBusy}
-                    className="text-[9px] sm:text-[10px] font-bold px-2 py-1 rounded cursor-pointer transition-colors bg-stone-50 hover:bg-stone-100 text-stone-500 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1">
+                    className="text-[9px] sm:text-[10px] font-bold px-2 py-1 rounded cursor-pointer transition-colors bg-stone-50 dark:bg-stone-850/80 text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-stone-750/80 hover:bg-[#F5F1E9] dark:hover:bg-stone-750/50 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1">
                     <Copy className="w-3 h-3" /> {pendingAction === `duplicate_${item.id_producto}` ? 'Duplicando...' : 'Duplicar'}
                   </button>
                   <div className="flex items-center gap-1.5">
-                    <span className={`text-[9px] sm:text-[10px] font-bold ${item.activo ? 'text-emerald-600' : 'text-rose-500'}`}>
+                    <span className={`text-[9px] sm:text-[10px] font-bold ${item.activo ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-450'}`}>
                       {item.activo ? 'En carta' : 'Pausado'}
                     </span>
                     <button
                       onClick={() => void handleToggleActivo(item.id_producto)}
                       disabled={isBusy}
-                      className={`text-[9px] sm:text-[10px] font-black px-2 py-1 rounded cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                      className={`text-[9px] sm:text-[10px] font-black px-2 py-1 rounded cursor-pointer transition-all border disabled:opacity-40 disabled:cursor-not-allowed ${
                         item.activo
-                          ? 'bg-rose-50 hover:bg-rose-100 text-rose-600'
-                          : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-600'
+                          ? 'bg-rose-50 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-900/40 text-rose-600 dark:text-rose-400 border-rose-250/50 dark:border-rose-900/50'
+                          : 'bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 border-emerald-250/50 dark:border-emerald-900/50'
                       }`}
                     >
                       {pendingAction === `toggle_${item.id_producto}` ? 'Guardando...' : item.activo ? 'Retirar' : 'Habilitar'}
