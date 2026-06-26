@@ -664,14 +664,14 @@ export default function CajaModule({
       {/* HEADER BAR: Settings & Restaurant Config */}
       <div className="glass-panel rounded-2xl p-4 shadow-xs flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-2 ml-1 bg-[#624A3E]/10 rounded-xl text-[#624A3E]">
+          <div className="p-2 ml-1 bg-[#624A3E]/10 dark:bg-[#FAF7F0]/10 rounded-xl text-[#624A3E] dark:text-[#FAF7F0]">
             <Receipt className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-base font-black text-stone-900 uppercase tracking-tight font-sans">
+            <h1 className="text-base font-black text-stone-900 dark:text-stone-100 uppercase tracking-tight font-sans">
               Terminal de Caja & Facturación Fiscal
             </h1>
-            <p className="text-[11px] text-stone-500 font-medium">
+            <p className="text-[11px] text-stone-500 dark:text-stone-400 font-medium">
               Gestor de comprobantes de salón • {restaurante.nombreComercial}
             </p>
           </div>
@@ -871,14 +871,14 @@ export default function CajaModule({
           <div className="glass-panel rounded-2xl p-5 shadow-xs space-y-4">
             <div className="flex justify-between items-start">
               <div>
-                <span className="text-[9px] uppercase font-black text-stone-400 block tracking-wider">Flujo Contable Diario</span>
-                <h3 className="font-extrabold text-stone-900 text-sm tracking-tight font-sans">Estado de Caja Diaria</h3>
+                <span className="text-[9px] uppercase font-black text-stone-400 dark:text-stone-300 block tracking-wider">Flujo Contable Diario</span>
+                <h3 className="font-extrabold text-stone-900 dark:text-stone-100 text-sm tracking-tight font-sans">Estado de Caja Diaria</h3>
               </div>
               
               <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase flex items-center gap-1 border ${
                 cajaSession 
                   ? 'bg-emerald-50 text-emerald-700 border-emerald-100 animate-pulse' 
-                  : 'bg-stone-50 text-stone-400 border-stone-200'
+                  : 'bg-stone-50 dark:bg-stone-900/60 text-stone-400 dark:text-stone-300 border-stone-200 dark:border-stone-800'
               }`}>
                 {cajaSession ? <Unlock className="w-2.5 h-2.5" /> : <Lock className="w-2.5 h-2.5" />}
                 {cajaSession ? 'Abierta' : 'Cerrada'}
@@ -888,33 +888,33 @@ export default function CajaModule({
             {/* Display detailed figures inside shift */}
             {cajaSession ? (
               <div className="space-y-2">
-                <div className="p-3 bg-[#F5F1E9] rounded-xl border border-stone-200/60 font-sans space-y-2">
-                  <div className="flex justify-between text-xs font-semibold text-stone-600">
+                <div className="p-3 bg-[#F5F1E9] dark:bg-stone-950/60 rounded-xl border border-stone-200/60 dark:border-stone-850 font-sans space-y-2">
+                  <div className="flex justify-between text-xs font-semibold text-stone-600 dark:text-stone-400">
                     <span>Responsable:</span>
-                    <span className="text-stone-900">{cajaSession.usuario_cajero}</span>
+                    <span className="text-stone-900 dark:text-stone-200">{cajaSession.usuario_cajero}</span>
                   </div>
                   
-                  <div className="flex justify-between text-xs font-semibold text-stone-600">
+                  <div className="flex justify-between text-xs font-semibold text-stone-600 dark:text-stone-400">
                     <span>Apertura:</span>
-                    <span className="font-mono text-stone-900">{cajaSession.fecha_apertura}</span>
+                    <span className="font-mono text-stone-900 dark:text-stone-200">{cajaSession.fecha_apertura}</span>
                   </div>
 
-                  <div className="flex justify-between text-xs font-semibold text-stone-600 pt-1 border-t border-stone-150">
+                  <div className="flex justify-between text-xs font-semibold text-stone-600 dark:text-stone-400 pt-1 border-t border-stone-150 dark:border-stone-800">
                     <span>Monto Inicial:</span>
-                    <span className="font-mono text-stone-900">${cajaSession.monto_apertura.toLocaleString('es-AR')}</span>
+                    <span className="font-mono text-stone-900 dark:text-stone-200">${cajaSession.monto_apertura.toLocaleString('es-AR')}</span>
                   </div>
 
-                  <div className="flex justify-between text-[13px] font-black text-[#624A3E] pt-1 border-t border-stone-150">
+                  <div className="flex justify-between text-[13px] font-black text-[#624A3E] dark:text-amber-500 pt-1 border-t border-stone-150 dark:border-stone-800">
                     <span>Ventas registradas:</span>
                     <span className="font-mono">${cajaSession.monto_ventas.toLocaleString('es-AR')}</span>
                   </div>
 
-                  <div className="flex justify-between text-xs font-bold text-stone-900 pt-1 font-mono border-t border-stone-150 border-dotted">
+                  <div className="flex justify-between text-xs font-bold text-stone-900 dark:text-stone-100 pt-1 font-mono border-t border-stone-150 dark:border-stone-800 border-dotted">
                     <span>Arqueo Teórico:</span>
                     <span>${(cajaSession.monto_apertura + cajaSession.monto_ventas).toLocaleString('es-AR')}</span>
                   </div>
 
-                  <div className="flex justify-between text-xs font-black text-emerald-700 pt-1 font-mono border-t border-emerald-100">
+                  <div className="flex justify-between text-xs font-black text-emerald-700 dark:text-emerald-400 pt-1 font-mono border-t border-emerald-100 dark:border-emerald-900/60">
                     <span>Caja esperada:</span>
                     <span>${(cajaSession.monto_apertura + cajaSession.monto_ventas).toLocaleString('es-AR')}</span>
                   </div>
@@ -973,12 +973,12 @@ export default function CajaModule({
 
           {/* ACTIVE UNBILLED COMMANDS LIST (Rule 2) */}
           <div className="glass-panel rounded-2xl p-5 shadow-xs space-y-4">
-            <div className="flex justify-between items-center pb-2 border-b border-stone-100">
-              <h4 className="font-black text-stone-800 font-sans tracking-tight text-xs uppercase flex items-center gap-1.5">
-                <Receipt className="w-4 h-4 text-[#624A3E]" />
+            <div className="flex justify-between items-center pb-2 border-b border-stone-100 dark:border-stone-800/80">
+              <h4 className="font-black text-stone-800 dark:text-stone-100 font-sans tracking-tight text-xs uppercase flex items-center gap-1.5">
+                <Receipt className="w-4 h-4 text-[#624A3E] dark:text-stone-300" />
                 Comandas en Salón
               </h4>
-              <span className="text-[9px] font-bold bg-[#F5F1E9] text-[#624A3E] border border-stone-150 rounded-full px-2 py-0.5 font-mono">
+              <span className="text-[9px] font-bold bg-[#F5F1E9] dark:bg-[#FAF7F0]/10 text-[#624A3E] dark:text-stone-300 border border-stone-150 dark:border-stone-800 rounded-full px-2 py-0.5 font-mono">
                 {activeBills.length} pendientes
               </span>
             </div>
@@ -1043,12 +1043,9 @@ export default function CajaModule({
                       className={`w-full p-3 rounded-xl border text-left transition-all flex justify-between items-center cursor-pointer ${
                         isSelected 
                           ? 'border-[#E8B800] bg-[#FAF7F0]/90 dark:bg-[#4A2D1B]/40 glow-gold shadow-md'
-                          : 'border-stone-200/50 dark:border-stone-800/55 bg-white/70 dark:bg-stone-900/40 hover:bg-stone-50 dark:hover:bg-stone-800/40'
-                      }`}
-                    >
-                      <div className="space-y-1">
+                          : 'border-stone-200/50 dark:border-stone-800/55 bg-white/70 dark:bg-stone-900/40 hover:bg-stone-50 dark:hover:bg-sto                      <div className="space-y-1">
                         <div className="flex items-center gap-1.5">
-                          <span className="font-extrabold text-stone-900 text-xs font-sans tracking-tight">{b.numero_mesa}</span>
+                          <span className="font-extrabold text-stone-900 dark:text-stone-100 text-xs font-sans tracking-tight">{b.numero_mesa}</span>
                           
                           {/* Waiter condition badge mapping */}
                           {isReady ? (
@@ -1062,21 +1059,21 @@ export default function CajaModule({
                           )}
 
                           {b.origen !== 'Mozo' && (
-                            <span className="bg-stone-100 text-[#624A3E] text-[8px] font-extrabold px-1 py-0.2 rounded shrink-0 font-mono">
+                            <span className="bg-stone-100 dark:bg-stone-900/60 text-[#624A3E] dark:text-stone-300 text-[8px] font-extrabold px-1 py-0.2 rounded shrink-0 font-mono border dark:border-stone-800">
                               {b.origen.toUpperCase()}
                             </span>
                           )}
                         </div>
-                        <p className="text-[10px] text-stone-500 font-sans font-medium">
+                        <p className="text-[10px] text-stone-500 dark:text-stone-400 font-sans font-medium">
                           M-#{b.id_pedido} • Mozo: {b.mozo} • {itemsCountSum} ítems
                         </p>
                       </div>
 
                       <div className="text-right space-y-0.5 shrink-0">
-                        <span className="font-mono text-xs font-black text-stone-950 block">
+                        <span className="font-mono text-xs font-black text-stone-955 dark:text-stone-100 block">
                           ${totalPrice.toLocaleString('es-AR')}
                         </span>
-                        <span className="text-[9px] text-[#624A3E] uppercase font-black tracking-wide flex items-center gap-0.5 justify-end">
+                        <span className="text-[9px] text-[#624A3E] dark:text-stone-300 uppercase font-black tracking-wide flex items-center gap-0.5 justify-end">se font-black tracking-wide flex items-center gap-0.5 justify-end">
                           <Clock className="w-2.5 h-2.5" /> {b.minutos_transcurridos}m
                         </span>
                       </div>
@@ -1099,27 +1096,27 @@ export default function CajaModule({
               <div className="md:col-span-7 space-y-4 font-sans">
                 
                 {/* Header detail selected */}
-                <div className="border-b border-stone-200 pb-3 flex justify-between items-start">
+                <div className="border-b border-stone-200 dark:border-stone-800/80 pb-3 flex justify-between items-start">
                   <div>
-                    <span className="text-[11px] text-amber-700 font-black uppercase tracking-wider block">Terminal de Liquidación</span>
-                    <h3 className="font-extrabold text-stone-900 text-sm tracking-tight flex items-center gap-1.5 mt-0.5">
+                    <span className="text-[11px] text-amber-700 dark:text-amber-500 font-black uppercase tracking-wider block">Terminal de Liquidación</span>
+                    <h3 className="font-extrabold text-stone-900 dark:text-stone-100 text-sm tracking-tight flex items-center gap-1.5 mt-0.5">
                       Saldando Cuenta: {selectedPedido.numero_mesa} ({selectedPedido.mozo})
                     </h3>
                   </div>
 
-                  <span className="text-[10px] text-stone-500 font-mono bg-stone-100 px-2 py-0.5 rounded font-black">
+                  <span className="text-[10px] text-stone-500 dark:text-stone-400 font-mono bg-stone-100 dark:bg-stone-900/60 px-2 py-0.5 rounded font-black border dark:border-stone-800">
                     Nro Trans: EP-{selectedPedido.id_pedido}
                   </span>
                 </div>
 
                 {/* Group categories of order items (Rule 3) */}
-                <div className="bg-stone-50 border border-stone-200/60 p-3.5 rounded-xl space-y-2">
-                  <h4 className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">Items del pedido</h4>
+                <div className="bg-stone-50 dark:bg-stone-900/40 border border-stone-200/60 dark:border-stone-850 p-3.5 rounded-xl space-y-2">
+                  <h4 className="text-[10px] font-black text-stone-400 dark:text-stone-300 uppercase tracking-widest mb-1">Items del pedido</h4>
                   
                   <div className="space-y-3 max-h-[160px] overflow-y-auto pr-1 text-xs">
                     {(Object.entries(groupedItemsByCategory) as [string, any[]][]).map(([category, items]) => (
                       <div key={category} className="space-y-1">
-                        <h5 className="text-[9px] font-black text-[#624A3E] uppercase tracking-wider">
+                        <h5 className="text-[9px] font-black text-[#624A3E] dark:text-amber-500 uppercase tracking-wider">
                           ■ {category}
                         </h5>
                         
@@ -1130,7 +1127,7 @@ export default function CajaModule({
                             const isProductSelected = selectedProductsForSplit.includes(it.id_producto);
 
                             return (
-                              <div key={idx} className="flex justify-between items-center text-stone-700 py-0.5 font-medium">
+                              <div key={idx} className="flex justify-between items-center text-stone-700 dark:text-stone-300 py-0.5 font-medium">
                                 <div className="flex items-center gap-2">
                                   {/* Item split selection checkbox (Dividir por productos - Rule 3) */}
                                   {splitByProducts && (
@@ -1149,7 +1146,7 @@ export default function CajaModule({
                                   )}
                                   <span>{it.cantidad}x {it.nombre}</span>
                                 </div>
-                                <span className="font-mono text-stone-900">
+                                <span className="font-mono text-stone-900 dark:text-stone-100">
                                   ${(it.cantidad * unitPrice).toLocaleString('es-AR')}
                                 </span>
                               </div>
@@ -1161,13 +1158,13 @@ export default function CajaModule({
                   </div>
 
                   {/* Division controls helper line */}
-                  <div className="flex justify-between items-center pt-2.5 border-t border-stone-200 font-sans">
+                  <div className="flex justify-between items-center pt-2.5 border-t border-stone-200 dark:border-stone-800 font-sans">
                     <button
                       onClick={() => {
                         setSplitByProducts(!splitByProducts);
                         setSelectedProductsForSplit([]);
                       }}
-                      className="text-[9px] font-extrabold uppercase text-[#624A3E] hover:underline flex items-center gap-1 cursor-pointer"
+                      className="text-[9px] font-extrabold uppercase text-[#624A3E] dark:text-stone-300 hover:underline flex items-center gap-1 cursor-pointer"
                     >
                       <Users className="w-3 h-3" />
                       {splitByProducts ? 'Quitar selector por producto' : 'Dividir o seleccionar ítems indiv.'}
@@ -1193,16 +1190,16 @@ export default function CajaModule({
                 )}
 
                 {/* CLIENT & AFIP TYPE SYSTEM */}
-                <div className="bg-[#ebf1f5]/25 border border-slate-200/60 p-3 rounded-xl space-y-2">
-                  <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Información Tributaria</h4>
+                <div className="bg-[#ebf1f5]/25 dark:bg-slate-900/20 border border-slate-200/60 dark:border-slate-800/60 p-3 rounded-xl space-y-2">
+                  <h4 className="text-[10px] font-black text-slate-500 dark:text-slate-300 uppercase tracking-widest">Información Tributaria</h4>
                   
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
                     <div>
-                      <label className="text-[8px] font-bold uppercase text-stone-500 block mb-0.5">Tipo de Factura</label>
+                      <label className="text-[8px] font-bold uppercase text-stone-500 dark:text-stone-400 block mb-0.5">Tipo de Factura</label>
                       <select
                         value={tipoComprobante}
                         onChange={e => setTipoComprobante(e.target.value as TipoComprobante)}
-                        className="w-full text-xs p-1.5 border border-slate-200 rounded bg-white text-stone-700 font-bold"
+                        className="w-full text-xs p-1.5 border border-slate-200 dark:border-stone-850 rounded bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-200 font-bold"
                       >
                         <option value="factura_b">Factura B (Cons. Final)</option>
                         <option value="factura_a">Factura A (Inscripto)</option>
@@ -1211,7 +1208,7 @@ export default function CajaModule({
                     </div>
 
                     <div>
-                      <label className="text-[8px] font-bold uppercase text-stone-500 block mb-0.5">DNI/CUIT Cliente</label>
+                      <label className="text-[8px] font-bold uppercase text-stone-500 dark:text-stone-400 block mb-0.5">DNI/CUIT Cliente</label>
                       <input 
                         type="text" 
                         value={cuitCliente}
@@ -1222,18 +1219,18 @@ export default function CajaModule({
                             setNombreCliente('Consumidor Final');
                           }
                         }}
-                        className="w-full text-xs p-1.5 border border-slate-200 rounded bg-white text-stone-700 font-mono"
+                        className="w-full text-xs p-1.5 border border-slate-200 dark:border-stone-850 rounded bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-200 font-mono"
                         placeholder="Ej. 20-38449102-1"
                       />
                     </div>
 
                     <div>
-                      <label className="text-[8px] font-bold uppercase text-stone-500 block mb-0.5">Razón Social Cliente</label>
+                      <label className="text-[8px] font-bold uppercase text-stone-500 dark:text-stone-400 block mb-0.5">Razón Social Cliente</label>
                       <input 
                         type="text" 
                         value={nombreCliente}
                         onChange={e => setNombreCliente(e.target.value)}
-                        className="w-full text-xs p-1.5 border border-slate-200 rounded bg-white text-stone-700"
+                        className="w-full text-xs p-1.5 border border-stone-850 rounded bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-200"
                         placeholder="Ej. José de San Martín"
                       />
                     </div>
@@ -1242,9 +1239,9 @@ export default function CajaModule({
 
                 {/* Standard split comensales (Rule 3) */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                  <div className="p-3 bg-[#F5F1E9]/50 border border-stone-200 rounded-xl space-y-2">
-                    <h5 className="text-[10px] font-black text-stone-600 flex items-center gap-1 uppercase tracking-wider">
-                      <Users className="w-3.5 h-3.5 text-[#624A3E]" /> Partes Comensales (Partes Iguales)
+                  <div className="p-3 bg-[#F5F1E9]/50 dark:bg-stone-900/40 border border-stone-200 dark:border-stone-800/60 rounded-xl space-y-2">
+                    <h5 className="text-[10px] font-black text-stone-600 dark:text-stone-300 flex items-center gap-1 uppercase tracking-wider">
+                      <Users className="w-3.5 h-3.5 text-[#624A3E] dark:text-stone-300" /> Partes Comensales (Partes Iguales)
                     </h5>
                     
                     <div className="flex items-center justify-between gap-2 bg-[#FAF7F0] dark:bg-[#4A2D1B]/40 border border-stone-200/50 p-1.5 rounded-lg">
@@ -1664,13 +1661,13 @@ export default function CajaModule({
             </div>
           ) : (
             <div className="glass-panel rounded-2xl p-10 shadow-xs text-center flex flex-col justify-center items-center min-h-[450px]">
-              <div className="p-4 bg-[#F5F1E9] rounded-2xl text-[#624A3E] mb-4">
+              <div className="p-4 bg-[#F5F1E9] dark:bg-stone-900/60 rounded-2xl text-[#624A3E] dark:text-stone-200 mb-4 border dark:border-stone-800">
                 <Receipt className="w-10 h-10" />
               </div>
-              <h3 className="font-black text-[#624A3E] text-lg uppercase tracking-tight">
+              <h3 className="font-black text-[#624A3E] dark:text-stone-100 text-lg uppercase tracking-tight">
                 Terminal de Cobro El Patrón Pro
               </h3>
-              <p className="text-stone-500 text-xs mt-2 max-w-md leading-relaxed font-semibold">
+              <p className="text-stone-500 dark:text-stone-300 text-xs mt-2 max-w-md leading-relaxed font-semibold">
                 Seleccione una mesa ocupada desde la lista lateral. Se iniciará el panel interactivo de check-out, permitiéndole coordinar pagos mixtos, aplicar deducciones manuales, configurar datos de CUIT, fraccionar saldos por comensales u artículos indivisos, y emitir comprobantes en PDF y thermal roll.
               </p>
               
@@ -1823,8 +1820,8 @@ export default function CajaModule({
 
       {/* HISTORICAL SHIFTS LIST */}
       <div className="glass-panel p-5 rounded-2xl shadow-xs space-y-4 font-sans">
-        <h4 className="text-xs font-black text-stone-800 uppercase tracking-tight flex items-center gap-1.5 pb-2 border-b border-stone-100">
-          <Calendar className="w-4 h-4 text-[#624A3E]" /> Registro de Auditoría de Cierres de Caja Homologados ({sessionInsumos.length})
+        <h4 className="text-xs font-black text-stone-800 dark:text-stone-100 uppercase tracking-tight flex items-center gap-1.5 pb-2 border-b border-stone-100 dark:border-stone-800/80">
+          <Calendar className="w-4 h-4 text-[#624A3E] dark:text-stone-300" /> Registro de Auditoría de Cierres de Caja Homologados ({sessionInsumos.length})
         </h4>
 
         {sessionInsumos.length > 0 ? (
