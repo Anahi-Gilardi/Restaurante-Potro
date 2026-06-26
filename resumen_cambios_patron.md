@@ -22,7 +22,7 @@ Se ha implementado con éxito la suite completa de mejoras funcionales, estétic
 ## 3. Módulo de Menú y Mozo: Subdivisión de Bebidas
 - **Cambios**:
   - **Base de Datos**: Se creó y ejecutó el script de migración SQL `supabase/migrations/20260626010000_subdivision_bebidas.sql` para actualizar la categoría de las bebidas en la tabla `productos_menu` a `"Bebidas con Alcohol"` y `"Bebidas sin Alcohol"`.
-  - **Servicios e Initial Data**: Se actualizaron `DEFAULT_CATEGORIAS` en `src/services/categoriasService.ts` y las colecciones en `src/data/initialData.ts`.
+  - **Servicios e Initial Data**: Se actualizaron `DEFAULT_CATEGORIAS` en `src/services/categoriasService.ts` and las colecciones en `src/data/initialData.ts`.
   - **Módulo de Menú**: Se añadieron ambas categorías en `MenuModule.tsx` y se actualizaron las funciones `inferTipo`, `getFallbackImage` y `normalizeCategorySlug` para reconocerlas.
   - **Terminal de Mozos**: Se añadieron los botones de filtro rápido y el renderizado en `MozoTerminal.tsx`.
 
@@ -31,7 +31,10 @@ Se ha implementado con éxito la suite completa de mejoras funcionales, estétic
   - Se eliminó el bloque visual completo de "Operaciones Rápidas" en `src/components/InventoryModule.tsx`.
   - Se eliminó el método muerto `handleRestockTodo` en `src/App.tsx` y se removió la propiedad correspondiente.
 
-## 5. Corrección de Accesibilidad y Contraste Global
+## 5. Corrección de Accesibilidad, Contraste Global y Solución en Módulo de Caja
 - **Cambios**:
-  - Se auditaron y reemplazaron todos los estilos de texto claro (`text-stone-400`, `text-stone-500`) por tonos legibles de alto contraste (`text-stone-700`, `text-stone-800` / `dark:text-stone-300`, `dark:text-white`) en `PromocionesModule.tsx` and `ReservasModule.tsx`.
+  - Se auditaron y reemplazaron todos los estilos de texto claro (`text-stone-400`, `text-stone-500`) por tonos legibles de alto contraste (`text-stone-700`, `text-stone-800` / `dark:text-stone-300`, `dark:text-white`) en `PromocionesModule.tsx` y `ReservasModule.tsx`.
   - Se rediseñaron los badges de estado (`statusBg`) de reservas para que mantengan un contraste alto y sean amigables con el modo oscuro.
+  - **Estabilidad de Caja**: Se refactorizó `cajaService.ts` moviendo la inicialización del cliente de Supabase dentro del `try` de la función `list()`, evitando bloqueos por excepciones de configuración cuando se corre en modo offline.
+  - **Parseo Defensivo**: Se implementó una normalización defensiva de datos numéricos en `getOpenSession()`, previniendo crashes de tipo por valores nulos, indefinidos o almacenados como cadenas de texto.
+  - **Manejo de Errores y Visuales de Caja**: Se envolvieron los handlers `handleOpenShift` y `handleCloseShift` en `CajaModule.tsx` con bloques `try/catch` informativos. Se adaptó la interfaz y los inputs de los modales de Apertura y Cierre de caja con total soporte para modo oscuro y excelente contraste visual.
