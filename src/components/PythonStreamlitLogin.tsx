@@ -23,6 +23,7 @@ import DiagnosticsTester from './DiagnosticsTester';
 
 interface PythonStreamlitLoginProps {
   onLoginSuccess: (user: Usuario) => void;
+  onBackToCover?: () => void;
 }
 
 const getRuntimeEnv = (): Record<string, unknown> => (
@@ -44,7 +45,7 @@ const getDemoUsers = (): Usuario[] => {
   ];
 };
 
-export default function PythonStreamlitLogin({ onLoginSuccess }: PythonStreamlitLoginProps) {
+export default function PythonStreamlitLogin({ onLoginSuccess, onBackToCover }: PythonStreamlitLoginProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -222,7 +223,7 @@ export default function PythonStreamlitLogin({ onLoginSuccess }: PythonStreamlit
               <ArrowRight className="w-5 h-5" />
             </button>
             
-            <div className="pt-2 text-center">
+            <div className="pt-2 text-center space-y-3">
               <button
                 type="button"
                 onClick={() => setShowDiagnostics(true)}
@@ -230,6 +231,16 @@ export default function PythonStreamlitLogin({ onLoginSuccess }: PythonStreamlit
               >
                 🔧 ¿Problemas de conexión? Ejecutar diagnóstico
               </button>
+
+              {onBackToCover && (
+                <button
+                  type="button"
+                  onClick={onBackToCover}
+                  className="text-xs font-bold text-[#4A2D1B] hover:text-[#6B4A35] hover:underline transition-all cursor-pointer flex items-center justify-center gap-1 mx-auto"
+                >
+                  ← Volver a la Portada Pública
+                </button>
+              )}
             </div>
           </form>
         )}

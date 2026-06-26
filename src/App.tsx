@@ -632,6 +632,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     window.sessionStorage.removeItem('el_patron_session');
     getSupabaseClient()?.auth.signOut().catch(() => undefined);
     setIsStreamlitLoggedIn(false);
+    setShowCover(true);
   };
 
   // --- Handlers for Kitchen View ---
@@ -1113,7 +1114,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
   if (!isStreamlitLoggedIn) {
     return (
       <ErrorBoundary>
-        <PythonStreamlitLogin onLoginSuccess={handleLoginSuccess} />
+        <PythonStreamlitLogin onLoginSuccess={handleLoginSuccess} onBackToCover={() => setShowCover(true)} />
       </ErrorBoundary>
     );
   }
