@@ -42,6 +42,23 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
       alert('Por favor complete los campos obligatorios para solicitar su mesa.');
       return;
     }
+
+    // Format date from YYYY-MM-DD to DD/MM/YYYY
+    const parts = bookingForm.fecha.split('-');
+    const formattedDate = parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : bookingForm.fecha;
+
+    const cleanPhone = '5491148029988'; // El Patron WhatsApp line
+    const text = `¡Hola El Patrón! Me gustaría solicitar una reserva:\n\n` +
+      `• Nombre: ${bookingForm.nombre}\n` +
+      `• Teléfono: ${bookingForm.telefono}\n` +
+      `• Comensales: ${bookingForm.personas} ${parseInt(bookingForm.personas) === 1 ? 'persona' : 'personas'}\n` +
+      `• Fecha: ${formattedDate}\n` +
+      `• Hora: ${bookingForm.hora} hs\n\n` +
+      `¡Muchas gracias!`;
+
+    const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
+
     setShowBookingSuccess(true);
   };
 
@@ -528,13 +545,13 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
               
               <div className="space-y-2">
                 <h3 className="text-xl font-extrabold text-stone-900 dark:text-white">
-                  ¡Solicitud Recibida!
+                  ¡Solicitud Enviada!
                 </h3>
                 <p className="text-xs text-stone-500 dark:text-stone-400 leading-relaxed font-medium">
-                  Gracias <strong>{bookingForm.nombre}</strong>. Hemos registrado tu solicitud de reserva para <strong>{bookingForm.personas} personas</strong> el día <strong>{bookingForm.fecha}</strong> a las <strong>{bookingForm.hora} hs</strong>.
+                  Se ha generado tu solicitud de reserva para <strong>{bookingForm.personas} personas</strong> a las <strong>{bookingForm.hora} hs</strong>.
                 </p>
                 <p className="text-[11px] text-stone-400 italic">
-                  Te enviaremos un mensaje de confirmación al <strong>{bookingForm.telefono}</strong> a la brevedad.
+                  Te hemos redirigido a WhatsApp para enviar el mensaje pre-completado de confirmación. ¡Muchas gracias!
                 </p>
               </div>
 
