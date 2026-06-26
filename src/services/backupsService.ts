@@ -82,13 +82,27 @@ const readLocalBackups = (): Checkpoint[] => {
 
 const writeLocalBackups = (backups: Checkpoint[]) => {
   if (typeof localStorage === 'undefined') return;
-  localStorage.setItem(LOCAL_BACKUPS_KEY, JSON.stringify(backups));
+  try {
+    localStorage.setItem(LOCAL_BACKUPS_KEY, JSON.stringify(backups));
+  } catch (err: any) {
+    console.error('Failed to save local backups in localStorage:', err);
+    try {
+      if (backups.length > 1) {
+        localStorage.setItem(LOCAL_BACKUPS_KEY, JSON.stringify(backups.slice(0, 1)));
+      }
+    } catch {
+      localStorage.removeItem(LOCAL_BACKUPS_KEY);
+    }
+  }
 };
 
 const cacheCheckpoint = (checkpoint: Checkpoint) => {
   const merged = new Map(readLocalBackups().map(item => [item.id_cp, item]));
   merged.set(checkpoint.id_cp, checkpoint);
-  writeLocalBackups(Array.from(merged.values()));
+  const sorted = Array.from(merged.values())
+    .sort((a, b) => b.id_cp.localeCompare(a.id_cp))
+    .slice(0, 2);
+  writeLocalBackups(sorted);
 };
 
 export const mergeCheckpoints = (remote: Checkpoint[], local: Checkpoint[]) => {

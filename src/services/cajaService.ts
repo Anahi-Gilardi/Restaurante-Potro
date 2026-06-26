@@ -155,7 +155,21 @@ export const cajaService = {
       }
     };
 
-    localStorage.setItem('el_patron_caja_activa', JSON.stringify(session));
+    try {
+      localStorage.setItem('el_patron_caja_activa', JSON.stringify(session));
+    } catch (err: any) {
+      if (err.name === 'QuotaExceededError' || err.code === 22 || err.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
+        console.warn('LocalStorage quota exceeded. Purging local backups to free space...');
+        try {
+          localStorage.removeItem('el_patron_backups_locales');
+          localStorage.setItem('el_patron_caja_activa', JSON.stringify(session));
+        } catch (retryErr) {
+          throw new Error('No se pudo iniciar el turno en localStorage porque el almacenamiento del navegador está completamente lleno. Por favor limpie el historial de navegación o libere espacio.');
+        }
+      } else {
+        throw err;
+      }
+    }
 
     // Run remote persistence and predictions asynchronously in the background to prevent UI blockages/freezes
     (async () => {
