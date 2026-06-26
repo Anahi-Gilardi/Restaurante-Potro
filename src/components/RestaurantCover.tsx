@@ -61,7 +61,6 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
       id: 'spec_1',
       title: 'Ojo de Bife Madurado',
       description: 'Corte de 450g madurado en seco durante 28 días, asado a leña de quebracho colorado y servido con chimichurri casero.',
-      price: '$18.500',
       tag: 'El Favorito de la Casa',
       image: '/images/ojo_de_bife_grill.png'
     },
@@ -69,17 +68,15 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
       id: 'spec_2',
       title: 'Provoleta al Hierro',
       description: 'Queso provolone fundido al crocante con oliva, orégano fresco, rodajas de tomate cherry y albahaca.',
-      price: '$6.200',
       tag: 'Entrada Caliente',
-      image: '/images/provoleta.jpg'
+      image: '/images/provoleta_hierro.png'
     },
     {
       id: 'spec_3',
       title: 'Cintas Caseras al Sepia',
       description: 'Pasta fresca amasada al huevo con tinta de calamar, salteada con langostinos al ajillo, tomates secos y vino blanco.',
-      price: '$11.800',
       tag: 'Pasta de Autor',
-      image: '/images/cintas_sepia.jpg'
+      image: '/images/cintas_sepia_pasta.png'
     }
   ];
 
@@ -277,12 +274,6 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
                   <p className="text-xs text-stone-500 dark:text-stone-400 font-medium leading-relaxed">
                     {spec.description}
                   </p>
-                </div>
-                <div className="flex justify-between items-center pt-3 border-t border-stone-100 dark:border-stone-800">
-                  <span className="text-[11px] font-bold text-stone-400 uppercase">Precio Estimado</span>
-                  <span className="text-lg font-black text-[#624A3E] dark:text-amber-400 font-mono">
-                    {spec.price}
-                  </span>
                 </div>
               </div>
             </motion.div>
