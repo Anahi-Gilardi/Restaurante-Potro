@@ -347,210 +347,220 @@ export default function CajaModule({
       return;
     }
 
-    // Validations: No double billing, validate calculations
-    if (orderBreakdowns.finalTotal <= 0) {
-      alert('No se permite emitir comprobantes por un valor negativo o cero.');
-      return;
-    }
-
-    // Payment method logic validation
-    let pays: { metodo: string; monto: number }[] = [];
-    if (metodoPago === 'mixto') {
-      if (Math.abs(mixedSum - orderBreakdowns.finalTotal) > 0.5) {
-        alert(`Monto incompleto en forma mixta. Total ticket: $${orderBreakdowns.finalTotal.toLocaleString('es-AR')}. Tíquet en queue: $${mixedSum.toLocaleString('es-AR')}. Saldo faltante: $${rawRemainingMixedBalance.toLocaleString('es-AR')}`);
-        return;
-      }
-      pays = [...mixedPayments];
-    } else {
-      pays = [{ metodo: metodoPago, monto: orderBreakdowns.finalTotal }];
-    }
-
-    // Check if cash received covers the total
-    if (metodoPago === 'efectivo' && montoEntregadoEfectivo) {
-      const delivered = parseFloat(montoEntregadoEfectivo);
-      if (!isNaN(delivered) && delivered < orderBreakdowns.finalTotal) {
-        alert('El efectivo entregado es menor que el total de la cuenta.');
-        return;
-      }
-    }
-
-    const compiledTicketNo = `T-0001-${Math.floor(Math.random() * 900000 + 100000)}`;
-
-    // Build standard unified ticket structure
-    const dataTicket: TicketData = {
-      nombreComercial: restaurante.nombreComercial,
-      razonSocial: restaurante.razonSocial,
-      cuit: restaurante.cuit,
-      direccion: restaurante.direccion,
-      telefono: restaurante.telefono,
-      email: restaurante.email,
-      nroComprobante: compiledTicketNo,
-      idPedido: selectedPedido.id_pedido,
-      mesa: selectedPedido.numero_mesa,
-      mozo: selectedPedido.mozo,
-      cajero: cajaSession.usuario_cajero,
-      fechaHora: new Date().toLocaleDateString('es-AR') + ' ' + new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + 'hs',
-      items: selectedPedido.items.map(it => {
-        const prod = productosMenu.find(pm => pm.id_producto === it.id_producto);
-        const uni = prod ? prod.precio_venta : 0;
-        return {
-          cantidad: it.cantidad,
-          descripcion: it.nombre,
-          precio_unitario: uni,
-          subtotal: it.cantidad * uni
-        };
-      }),
-      subtotal: orderBreakdowns.subtotal,
-      descuento: orderBreakdowns.promoDeduction + orderBreakdowns.manualDeduction,
-      propina: orderBreakdowns.propinaValue,
-      iva: orderBreakdowns.ivaValue,
-      total: orderBreakdowns.finalTotal,
-      metodosPago: pays,
-      vuelto: calculatedChange,
-      tipoComprobante: tipoComprobante,
-      mensajePie: restaurante.mensajePie
-    };
-
-    // 1. Create Factura row
-    const idFactura = `fac_${Date.now()}`;
-    const mappedMedio = pays.map(p => p.metodo.toUpperCase()).join(' + ');
-
-    const newFactura: FacturaDb = {
-      id_factura: idFactura,
-      id_pedido: selectedPedido.id_pedido,
-      numero_factura: compiledTicketNo,
-      tipo_comprobante: tipoComprobante === 'factura_a' ? 'Factura A' : (tipoComprobante === 'factura_b' ? 'Factura B' : 'Ticket Consumo'),
-      total: orderBreakdowns.finalTotal,
-      metodo_pago: mappedMedio,
-      cuit_cliente: cuitCliente,
-      fecha_emision: new Date().toISOString()
-    };
-
     try {
-      // Use existing services
-      await facturacionService.create({
-        id_factura: idFactura,
-        nro_ticket: compiledTicketNo,
-        cliente: nombreCliente === 'Consumidor Final' ? 'Consumidor Final' : nombreCliente + ` (CUIT ${cuitCliente})`,
-        cuit: cuitCliente,
+      // Validations: No double billing, validate calculations
+      if (orderBreakdowns.finalTotal <= 0) {
+        alert('No se permite emitir comprobantes por un valor negativo o cero.');
+        return;
+      }
+
+      // Payment method logic validation
+      let pays: { metodo: string; monto: number }[] = [];
+      if (metodoPago === 'mixto') {
+        if (Math.abs(mixedSum - orderBreakdowns.finalTotal) > 0.5) {
+          alert(`Monto incompleto en forma mixta. Total ticket: $${orderBreakdowns.finalTotal.toLocaleString('es-AR')}. Tíquet en queue: $${mixedSum.toLocaleString('es-AR')}. Saldo faltante: $${rawRemainingMixedBalance.toLocaleString('es-AR')}`);
+          return;
+        }
+        pays = [...mixedPayments];
+      } else {
+        pays = [{ metodo: metodoPago, monto: orderBreakdowns.finalTotal }];
+      }
+
+      // Check if cash received covers the total
+      if (metodoPago === 'efectivo' && montoEntregadoEfectivo) {
+        const delivered = parseFloat(montoEntregadoEfectivo);
+        if (!isNaN(delivered) && delivered < orderBreakdowns.finalTotal) {
+          alert('El efectivo entregado es menor que el total de la cuenta.');
+          return;
+        }
+      }
+
+      const compiledTicketNo = `T-0001-${Math.floor(Math.random() * 900000 + 100000)}`;
+
+      // Build standard unified ticket structure
+      const dataTicket: TicketData = {
+        nombreComercial: restaurante.nombreComercial,
+        razonSocial: restaurante.razonSocial,
+        cuit: restaurante.cuit,
+        direccion: restaurante.direccion,
+        telefono: restaurante.telefono,
+        email: restaurante.email,
+        nroComprobante: compiledTicketNo,
+        idPedido: selectedPedido.id_pedido,
+        mesa: selectedPedido.numero_mesa,
+        mozo: selectedPedido.mozo,
+        cajero: cajaSession.usuario_cajero,
+        fechaHora: new Date().toLocaleDateString('es-AR') + ' ' + new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + 'hs',
+        items: selectedPedido.items.map(it => {
+          const prod = productosMenu.find(pm => pm.id_producto === it.id_producto);
+          const uni = prod ? prod.precio_venta : 0;
+          return {
+            cantidad: it.cantidad,
+            descripcion: it.nombre,
+            precio_unitario: uni,
+            subtotal: it.cantidad * uni
+          };
+        }),
+        subtotal: orderBreakdowns.subtotal,
+        descuento: orderBreakdowns.promoDeduction + orderBreakdowns.manualDeduction,
+        propina: orderBreakdowns.propinaValue,
+        iva: orderBreakdowns.ivaValue,
         total: orderBreakdowns.finalTotal,
-        iva_veintiuno: orderBreakdowns.ivaValue,
-        medio_pago: metodoPago === 'efectivo' ? 'efectivo' : (metodoPago === 'tarjeta' ? 'tarjeta' : (metodoPago === 'transferencia' ? 'debito' : 'mp_qr')),
-        fecha: new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + ' hs',
-        estado: 'emitido'
+        metodosPago: pays,
+        vuelto: calculatedChange,
+        tipoComprobante: tipoComprobante,
+        mensajePie: restaurante.mensajePie
+      };
+
+      // 1. Create Factura row
+      const idFactura = `fac_${Date.now()}`;
+      const mappedMedio = pays.map(p => p.metodo.toUpperCase()).join(' + ');
+
+      const newFactura: FacturaDb = {
+        id_factura: idFactura,
+        id_pedido: selectedPedido.id_pedido,
+        numero_factura: compiledTicketNo,
+        tipo_comprobante: tipoComprobante === 'factura_a' ? 'Factura A' : (tipoComprobante === 'factura_b' ? 'Factura B' : 'Ticket Consumo'),
+        total: orderBreakdowns.finalTotal,
+        metodo_pago: mappedMedio,
+        cuit_cliente: cuitCliente,
+        fecha_emision: new Date().toISOString()
+      };
+
+      try {
+        // Use existing services
+        await facturacionService.create({
+          id_factura: idFactura,
+          nro_ticket: compiledTicketNo,
+          cliente: nombreCliente === 'Consumidor Final' ? 'Consumidor Final' : nombreCliente + ` (CUIT ${cuitCliente})`,
+          cuit: cuitCliente,
+          total: orderBreakdowns.finalTotal,
+          iva_veintiuno: orderBreakdowns.ivaValue,
+          medio_pago: metodoPago === 'efectivo' ? 'efectivo' : (metodoPago === 'tarjeta' ? 'tarjeta' : (metodoPago === 'transferencia' ? 'debito' : 'mp_qr')),
+          fecha: new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + ' hs',
+          estado: 'emitido'
+        });
+      } catch (err) {
+        console.warn('Network offline backup creation:', err);
+      }
+
+      // 2. Create Pago rows
+      const paymentRows: PagoDb[] = pays.map((p, idx) => ({
+        id_pago: `pag_${Date.now()}_${idx}`,
+        id_factura: idFactura,
+        monto: p.monto,
+        metodo: p.metodo,
+        fecha: new Date().toISOString()
+      }));
+
+      try {
+        await pagosService.bulkCreate(paymentRows);
+      } catch {
+        // fallbacked
+      }
+
+      // 3. Update Sales stats in Cash register daily shift
+      const paymentDesglosesCount = {
+        efectivo: pays.filter(p => p.metodo === 'efectivo').reduce((s, c) => s + c.monto, 0),
+        debito: pays.filter(p => p.metodo === 'transferencia' || p.metodo === 'debito').reduce((s, c) => s + c.monto, 0),
+        credito: pays.filter(p => p.metodo === 'tarjeta' || p.metodo === 'credito').reduce((s, c) => s + c.monto, 0),
+        transferencia: pays.filter(p => p.metodo === 'transferencia').reduce((s, c) => s + c.monto, 0),
+        mercadopago: pays.filter(p => p.metodo === 'mp_qr' || p.metodo === 'mercadopago').reduce((s, c) => s + c.monto, 0)
+      };
+
+      await cajaService.updateSales(orderBreakdowns.finalTotal, paymentDesglosesCount);
+
+      // 4. Libera Mesa, actualiza pedido de la comanda
+      onFacturarMesa(selectedPedido.id_pedido);
+
+      // 5. Register log events audit tracker
+      await auditoriaService.create({
+        id: `aud_${Date.now()}`,
+        tipo: 'sistema',
+        mensaje: `Cobro Exitoso Mesa ${selectedPedido.numero_mesa}. Factura Nº: ${compiledTicketNo}. Total: $${orderBreakdowns.finalTotal.toLocaleString('es-AR')}. Pago: ${mappedMedio}`,
+        timestamp: new Date()
       });
-    } catch (err) {
-      console.warn('Network offline backup creation:', err);
+
+      addLog('sistema', `CAJA: Cobro finalizado correctamente para Mesa ${selectedPedido.numero_mesa}. Transacción Fiscal ${compiledTicketNo} registrada. `);
+
+      // Trigger auto printing of PDF & physical printer if configured
+      await pdfService.exportToPDF(dataTicket);
+      await printerService.sendToPrinter(dataTicket, printerConfig);
+
+      // Reset checkout states
+      setSelectedPedidoId(null);
+      setMixedPayments([]);
+      setMontoEntregadoEfectivo('');
+      setDescuentoPorcentaje(0);
+      setPropinaPorcentaje(10);
+      setSplitByProducts(false);
+      setSelectedProductsForSplit([]);
+      await loadCajaState();
+
+      alert(`¡TICKET EMITIDO CON ÉXITO!\n\nSe cobró: $${orderBreakdowns.finalTotal.toLocaleString('es-AR')}\n\n1. Comprobante PDF generado y descargado.\n2. Mesa liberada.\n3. Recaudado comercial del turno diario actualizado.`);
+    } catch (err: any) {
+      console.error('Error confirming checkout:', err);
+      alert(`Ocurrió un error al procesar el cobro de la mesa: ${err?.message || err}`);
     }
-
-    // 2. Create Pago rows
-    const paymentRows: PagoDb[] = pays.map((p, idx) => ({
-      id_pago: `pag_${Date.now()}_${idx}`,
-      id_factura: idFactura,
-      monto: p.monto,
-      metodo: p.metodo,
-      fecha: new Date().toISOString()
-    }));
-
-    try {
-      await pagosService.bulkCreate(paymentRows);
-    } catch {
-      // fallbacked
-    }
-
-    // 3. Update Sales stats in Cash register daily shift
-    const paymentDesglosesCount = {
-      efectivo: pays.filter(p => p.metodo === 'efectivo').reduce((s, c) => s + c.monto, 0),
-      debito: pays.filter(p => p.metodo === 'transferencia' || p.metodo === 'debito').reduce((s, c) => s + c.monto, 0),
-      credito: pays.filter(p => p.metodo === 'tarjeta' || p.metodo === 'credito').reduce((s, c) => s + c.monto, 0),
-      transferencia: pays.filter(p => p.metodo === 'transferencia').reduce((s, c) => s + c.monto, 0),
-      mercadopago: pays.filter(p => p.metodo === 'mp_qr' || p.metodo === 'mercadopago').reduce((s, c) => s + c.monto, 0)
-    };
-
-    await cajaService.updateSales(orderBreakdowns.finalTotal, paymentDesglosesCount);
-
-    // 4. Libera Mesa, actualiza pedido de la comanda
-    onFacturarMesa(selectedPedido.id_pedido);
-
-    // 5. Register log events audit tracker
-    await auditoriaService.create({
-      id: `aud_${Date.now()}`,
-      tipo: 'sistema',
-      mensaje: `Cobro Exitoso Mesa ${selectedPedido.numero_mesa}. Factura Nº: ${compiledTicketNo}. Total: $${orderBreakdowns.finalTotal.toLocaleString('es-AR')}. Pago: ${mappedMedio}`,
-      timestamp: new Date()
-    });
-
-    addLog('sistema', `CAJA: Cobro finalizado correctamente para Mesa ${selectedPedido.numero_mesa}. Transacción Fiscal ${compiledTicketNo} registrada. `);
-
-    // Trigger auto printing of PDF & physical printer if configured
-    await pdfService.exportToPDF(dataTicket);
-    await printerService.sendToPrinter(dataTicket, printerConfig);
-
-    // Reset checkout states
-    setSelectedPedidoId(null);
-    setMixedPayments([]);
-    setMontoEntregadoEfectivo('');
-    setDescuentoPorcentaje(0);
-    setPropinaPorcentaje(10);
-    setSplitByProducts(false);
-    setSelectedProductsForSplit([]);
-    loadCajaState();
-
-    alert(`¡TICKET EMITIDO CON ÉXITO!\n\nSe cobró: $${orderBreakdowns.finalTotal.toLocaleString('es-AR')}\n\n1. Comprobante PDF generado y descargado.\n2. Mesa liberada.\n3. Recaudado comercial del turno diario actualizado.`);
   };
 
   // Print simulator fallback directly from active layout receipt
   const triggerManualPrint = async () => {
     if (!selectedPedido || !cajaSession) return;
 
-    const dataTicket: TicketData = {
-      nombreComercial: restaurante.nombreComercial,
-      razonSocial: restaurante.razonSocial,
-      cuit: restaurante.cuit,
-      direccion: restaurante.direccion,
-      telefono: restaurante.telefono,
-      email: restaurante.email,
-      nroComprobante: `SIM-${Math.floor(Math.random() * 900 + 100)}`,
-      idPedido: selectedPedido.id_pedido,
-      mesa: selectedPedido.numero_mesa,
-      mozo: selectedPedido.mozo,
-      cajero: cajaSession.usuario_cajero,
-      fechaHora: new Date().toLocaleDateString('es-AR') + ' ' + new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }),
-      items: selectedPedido.items.map(it => {
-        const prod = productosMenu.find(pm => pm.id_producto === it.id_producto);
-        const uni = prod ? prod.precio_venta : 0;
-        return {
-          cantidad: it.cantidad,
-          descripcion: it.nombre,
-          precio_unitario: uni,
-          subtotal: it.cantidad * uni
-        };
-      }),
-      subtotal: orderBreakdowns.subtotal,
-      descuento: orderBreakdowns.promoDeduction + orderBreakdowns.manualDeduction,
-      propina: orderBreakdowns.propinaValue,
-      iva: orderBreakdowns.ivaValue,
-      total: orderBreakdowns.finalTotal,
-      metodosPago: [{ metodo: metodoPago, monto: orderBreakdowns.finalTotal }],
-      vuelto: calculatedChange,
-      tipoComprobante: tipoComprobante,
-      mensajePie: restaurante.mensajePie
-    };
+    try {
+      const dataTicket: TicketData = {
+        nombreComercial: restaurante.nombreComercial,
+        razonSocial: restaurante.razonSocial,
+        cuit: restaurante.cuit,
+        direccion: restaurante.direccion,
+        telefono: restaurante.telefono,
+        email: restaurante.email,
+        nroComprobante: `SIM-${Math.floor(Math.random() * 900 + 100)}`,
+        idPedido: selectedPedido.id_pedido,
+        mesa: selectedPedido.numero_mesa,
+        mozo: selectedPedido.mozo,
+        cajero: cajaSession.usuario_cajero,
+        fechaHora: new Date().toLocaleDateString('es-AR') + ' ' + new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }),
+        items: selectedPedido.items.map(it => {
+          const prod = productosMenu.find(pm => pm.id_producto === it.id_producto);
+          const uni = prod ? prod.precio_venta : 0;
+          return {
+            cantidad: it.cantidad,
+            descripcion: it.nombre,
+            precio_unitario: uni,
+            subtotal: it.cantidad * uni
+          };
+        }),
+        subtotal: orderBreakdowns.subtotal,
+        descuento: orderBreakdowns.promoDeduction + orderBreakdowns.manualDeduction,
+        propina: orderBreakdowns.propinaValue,
+        iva: orderBreakdowns.ivaValue,
+        total: orderBreakdowns.finalTotal,
+        metodosPago: [{ metodo: metodoPago, monto: orderBreakdowns.finalTotal }],
+        vuelto: calculatedChange,
+        tipoComprobante: tipoComprobante,
+        mensajePie: restaurante.mensajePie
+      };
 
-    const res = await printerService.sendToPrinter(dataTicket, printerConfig);
-    
-    // audit logs
-    await auditoriaService.create({
-      id: `aud_${Date.now()}`,
-      tipo: 'sistema',
-      mensaje: `Envío a Impresora Ticket: ${res.methodUsed}. Destino: ${printerConfig.printerName}. Resultado: ${res.success ? 'OK' : 'Fallo/Simulación'}`,
-      timestamp: new Date()
-    });
+      const res = await printerService.sendToPrinter(dataTicket, printerConfig);
+      
+      // audit logs
+      await auditoriaService.create({
+        id: `aud_${Date.now()}`,
+        tipo: 'sistema',
+        mensaje: `Envío a Impresora Ticket: ${res.methodUsed}. Destino: ${printerConfig.printerName}. Resultado: ${res.success ? 'OK' : 'Fallo/Simulación'}`,
+        timestamp: new Date()
+      });
 
-    if (res.success) {
-      alert(res.message);
-    } else {
-      alert(`${res.message}\n\nDetalle ESC/POS compilado enviado a la cola:\n\n${res.rawText}`);
+      if (res.success) {
+        alert(res.message);
+      } else {
+        alert(`${res.message}\n\nDetalle ESC/POS compilado enviado a la cola:\n\n${res.rawText}`);
+      }
+    } catch (err: any) {
+      console.error('Manual print failed:', err);
+      alert(`Error al imprimir comprobante manual: ${err?.message || err}`);
     }
   };
 
