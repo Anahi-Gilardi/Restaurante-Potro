@@ -267,66 +267,76 @@ export default function CajaModule({
   // Open cashier register session
   const handleOpenShift = async (e: React.FormEvent) => {
     e.preventDefault();
-    const amt = parseFloat(openingCashInput);
-    if (isNaN(amt) || amt < 0) {
-      alert('Monto de inicio no válido.');
-      return;
-    }
+    try {
+      const amt = parseFloat(openingCashInput);
+      if (isNaN(amt) || amt < 0) {
+        alert('Monto de inicio no válido.');
+        return;
+      }
 
-    const session = await cajaService.open(amt, cashierNameInput);
-    setCajaSession(session);
-    setShowOpenModal(false);
-    addLog('sistema', `CAJA: Turno fiscal de caja iniciado por ${cashierNameInput}. Monto inicial: ARS $${amt.toLocaleString('es-AR')}`);
-    loadCajaState();
-    alert('La jornada fiscal diaria ha sido abierta con éxito.');
+      const session = await cajaService.open(amt, cashierNameInput);
+      setCajaSession(session);
+      setShowOpenModal(false);
+      addLog('sistema', `CAJA: Turno fiscal de caja iniciado por ${cashierNameInput}. Monto inicial: ARS $${amt.toLocaleString('es-AR')}`);
+      await loadCajaState();
+      alert('La jornada fiscal diaria ha sido abierta con éxito.');
+    } catch (err: any) {
+      console.error('Error opening register session:', err);
+      alert(`No se pudo iniciar el turno de caja: ${err?.message || err}`);
+    }
   };
 
   // Close shift cashier session
   const handleCloseShift = async (e: React.FormEvent) => {
     e.preventDefault();
-    const money = parseFloat(closingPhysicalCashInput);
-    if (isNaN(money) || money < 0) {
-      alert('Monto de arqueo físico ingresado no es válido.');
-      return;
+    try {
+      const money = parseFloat(closingPhysicalCashInput);
+      if (isNaN(money) || money < 0) {
+        alert('Monto de arqueo físico ingresado no es válido.');
+        return;
+      }
+
+      if (!cajaSession) return;
+
+      // Execute close
+      const finalShift = await cajaService.close(money, closingObservationsInput);
+      
+      addLog('sistema', `CAJA: Turno fiscal cerrado por ${finalShift.usuario_cajero}. Arqueo Real: $${finalShift.monto_real?.toLocaleString('es-AR')}. Diferencia: ARS $${finalShift.diferencia?.toLocaleString('es-AR')}`);
+
+      // Export CSV representation report of the closed daily cashier
+      const csvRows = [
+        ['EL PATRON GRILL - REPORTE DE BALANCE DIARIO'],
+        ['Cajero Responsable', finalShift.usuario_cajero],
+        ['Apertura', finalShift.fecha_apertura],
+        ['Cierre de Turno', finalShift.fecha_cierre || 'N/A'],
+        ['Monto Inicial de Caja ($)', finalShift.monto_apertura.toFixed(2)],
+        ['Total de Ventas Turno ($)', finalShift.monto_ventas.toFixed(2)],
+        ['Arqueo Físico Caja ($)', finalShift.monto_real ? finalShift.monto_real.toFixed(2) : '0.00'],
+        ['Diferencia Conciliación ($)', finalShift.diferencia ? finalShift.diferencia.toFixed(2) : '0.00'],
+        ['Observaciones Turno', finalShift.observaciones],
+        ['']
+      ];
+
+      const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + csvRows.map(e => e.join(";")).join("\n");
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `Arqueo_Turno_Caja_${finalShift.id_cierre}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // Reset states
+      setCajaSession(null);
+      setShowCloseModal(false);
+      setClosingPhysicalCashInput('');
+      setClosingObservationsInput('Facturación normal del turno');
+      await loadCajaState();
+      alert('Jornada finalizada comercialmente. El arqueo ha sido homologado y el balance de conciliación final exportado en formato CSV.');
+    } catch (err: any) {
+      console.error('Error closing register session:', err);
+      alert(`No se pudo finalizar el turno de caja: ${err?.message || err}`);
     }
-
-    if (!cajaSession) return;
-
-    // Execute close
-    const finalShift = await cajaService.close(money, closingObservationsInput);
-    
-    addLog('sistema', `CAJA: Turno fiscal cerrado por ${finalShift.usuario_cajero}. Arqueo Real: $${finalShift.monto_real?.toLocaleString('es-AR')}. Diferencia: ARS $${finalShift.diferencia?.toLocaleString('es-AR')}`);
-
-    // Export CSV representation report of the closed daily cashier
-    const csvRows = [
-      ['EL PATRON GRILL - REPORTE DE BALANCE DIARIO'],
-      ['Cajero Responsable', finalShift.usuario_cajero],
-      ['Apertura', finalShift.fecha_apertura],
-      ['Cierre de Turno', finalShift.fecha_cierre || 'N/A'],
-      ['Monto Inicial de Caja ($)', finalShift.monto_apertura.toFixed(2)],
-      ['Total de Ventas Turno ($)', finalShift.monto_ventas.toFixed(2)],
-      ['Arqueo Físico Caja ($)', finalShift.monto_real ? finalShift.monto_real.toFixed(2) : '0.00'],
-      ['Diferencia Conciliación ($)', finalShift.diferencia ? finalShift.diferencia.toFixed(2) : '0.00'],
-      ['Observaciones Turno', finalShift.observaciones],
-      ['']
-    ];
-
-    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + csvRows.map(e => e.join(";")).join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `Arqueo_Turno_Caja_${finalShift.id_cierre}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    // Reset states
-    setCajaSession(null);
-    setShowCloseModal(false);
-    setClosingPhysicalCashInput('');
-    setClosingObservationsInput('Facturación normal del turno');
-    loadCajaState();
-    alert('Jornada finalizada comercialmente. El arqueo ha sido homologado y el balance de conciliación final exportado en formato CSV.');
   };
 
   // MAIN TRANSACTION PROCESSOR (Step 8, 9 & 14)
@@ -1672,38 +1682,38 @@ export default function CajaModule({
 
       {/* SHIFT OPEN MODAL Dialog (Rule 1) */}
       {showOpenModal && (
-        <div className="fixed inset-0 bg-stone-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl border border-stone-200 max-w-md w-full p-6 animate-scaleIn space-y-4 shadow-lg font-sans">
-            <h3 className="text-sm font-black text-stone-900 uppercase tracking-tight flex items-center gap-2">
+        <div className="fixed inset-0 bg-stone-950/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-[#1e1b18] rounded-2xl border border-stone-200 dark:border-stone-800 max-w-md w-full p-6 animate-scaleIn space-y-4 shadow-lg font-sans">
+            <h3 className="text-sm font-black text-stone-900 dark:text-stone-100 uppercase tracking-tight flex items-center gap-2">
               <Unlock className="w-5 h-5 text-emerald-600" />
               Apertura de Caja Diaria
             </h3>
             
-            <p className="text-[11px] text-stone-500 leading-normal font-medium">
+            <p className="text-[11px] text-stone-600 dark:text-stone-400 leading-normal font-medium">
               Por favor, ingrese el saldo inicial físico depositado en el cajón portamonedas para el cambio comercial, y su nombre de operador de caja.
             </p>
 
             <form onSubmit={handleOpenShift} className="space-y-3">
               <div>
-                <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Monto Inicial ($ ARS)</label>
+                <label className="text-[10px] font-black text-stone-700 dark:text-stone-300 uppercase block mb-1">Monto Inicial ($ ARS)</label>
                 <input 
                   type="number"
                   required
                   value={openingCashInput}
                   onChange={e => setOpeningCashInput(e.target.value)}
-                  className="w-full text-xs p-2.5 rounded-xl border border-stone-200 font-mono font-extrabold focus:ring-1 focus:ring-[#624A3E] focus:outline-none bg-stone-50"
+                  className="w-full text-xs p-2.5 rounded-xl border border-stone-200 dark:border-stone-800 font-mono font-extrabold focus:ring-1 focus:ring-[#624A3E] focus:outline-none bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100"
                   placeholder="Ej. 25000"
                 />
               </div>
 
               <div>
-                <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Operador Responsable (Cajero)</label>
+                <label className="text-[10px] font-black text-stone-700 dark:text-stone-300 uppercase block mb-1">Operador Responsable (Cajero)</label>
                 <input 
                   type="text"
                   required
                   value={cashierNameInput}
                   onChange={e => setCashierNameInput(e.target.value)}
-                  className="w-full text-xs p-2.5 rounded-xl border border-stone-200 focus:ring-1 focus:ring-[#624A3E] focus:outline-none"
+                  className="w-full text-xs p-2.5 rounded-xl border border-stone-200 dark:border-stone-800 focus:ring-1 focus:ring-[#624A3E] focus:outline-none bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100"
                   placeholder="Ej. Sofía Colombo"
                 />
               </div>
@@ -1712,7 +1722,7 @@ export default function CajaModule({
                 <button
                   type="button"
                   onClick={() => setShowOpenModal(false)}
-                  className="w-1/2 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-600 text-xs font-black uppercase rounded-xl"
+                  className="w-1/2 py-2.5 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-200 text-xs font-black uppercase rounded-xl"
                 >
                   Cancelar
                 </button>
@@ -1730,19 +1740,19 @@ export default function CajaModule({
 
       {/* SHIFT CLOSE MODAL Dialog (Rule 1) */}
       {showCloseModal && (
-        <div className="fixed inset-0 bg-stone-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl border border-stone-200 max-w-md w-full p-6 animate-scaleIn space-y-4 shadow-lg font-sans">
-            <h3 className="text-sm font-black text-stone-900 uppercase tracking-tight flex items-center gap-2">
-              <Lock className="w-5 h-5 text-stone-900" />
+        <div className="fixed inset-0 bg-stone-955/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-[#1e1b18] rounded-2xl border border-stone-200 dark:border-stone-800 max-w-md w-full p-6 animate-scaleIn space-y-4 shadow-lg font-sans">
+            <h3 className="text-sm font-black text-stone-900 dark:text-stone-100 uppercase tracking-tight flex items-center gap-2">
+              <Lock className="w-5 h-5 text-stone-900 dark:text-stone-100" />
               Cierre de turno & Conciliación (Arqueo)
             </h3>
             
-            <p className="text-[11px] text-stone-500 leading-normal font-medium">
+            <p className="text-[11px] text-stone-600 dark:text-stone-400 leading-normal font-medium">
               Al procesar este cierre se sumarán las ventas totales de este turno. Por favor cuente físicamente el dinero de caja e ingréselo a continuación. El sistema computará el descuadre o diferencia automáticamente.
             </p>
 
             {cajaSession && (
-              <div className="bg-stone-50 p-3 rounded-xl border border-stone-150 text-[10px] font-mono space-y-1 text-stone-600">
+              <div className="bg-stone-50 dark:bg-stone-950 p-3 rounded-xl border border-stone-150 dark:border-stone-850 text-[10px] font-mono space-y-1 text-stone-600 dark:text-stone-400">
                 <div className="flex justify-between">
                   <span>Monto inicial:</span>
                   <span>${cajaSession.monto_apertura.toLocaleString('es-AR')}</span>
@@ -1751,7 +1761,7 @@ export default function CajaModule({
                   <span>Ventas acumuladas:</span>
                   <span>${cajaSession.monto_ventas.toLocaleString('es-AR')}</span>
                 </div>
-                <div className="flex justify-between font-bold text-stone-900 pt-1 border-t border-stone-200 border-dotted text-xs font-sans">
+                <div className="flex justify-between font-bold text-stone-900 dark:text-stone-100 pt-1 border-t border-stone-200 dark:border-stone-800 border-dotted text-xs font-sans">
                   <span>Total Esperado:</span>
                   <span>${(cajaSession.monto_apertura + cajaSession.monto_ventas).toLocaleString('es-AR')}</span>
                 </div>
@@ -1760,23 +1770,23 @@ export default function CajaModule({
 
             <form onSubmit={handleCloseShift} className="space-y-3">
               <div>
-                <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Monto Real Físico de Arqueo ($ ARS)</label>
+                <label className="text-[10px] font-black text-stone-750 dark:text-stone-300 uppercase block mb-1">Monto Real Físico de Arqueo ($ ARS)</label>
                 <input 
                   type="number"
                   required
                   value={closingPhysicalCashInput}
                   onChange={e => setClosingPhysicalCashInput(e.target.value)}
-                  className="w-full text-xs p-2.5 rounded-xl border border-stone-200 font-mono font-extrabold focus:ring-1 focus:ring-[#624A3E] focus:outline-none bg-stone-50"
+                  className="w-full text-xs p-2.5 rounded-xl border border-stone-200 dark:border-stone-800 font-mono font-extrabold focus:ring-1 focus:ring-[#624A3E] focus:outline-none bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100"
                   placeholder="Ej. 120000"
                 />
               </div>
 
               <div>
-                <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Observaciones Finales</label>
+                <label className="text-[10px] font-black text-stone-750 dark:text-stone-300 uppercase block mb-1">Observaciones Finales</label>
                 <textarea 
                   value={closingObservationsInput}
                   onChange={e => setClosingObservationsInput(e.target.value)}
-                  className="w-full h-16 text-xs p-2.5 rounded-xl border border-stone-200 focus:ring-1 focus:ring-[#624A3E] focus:outline-none"
+                  className="w-full h-16 text-xs p-2.5 rounded-xl border border-stone-200 dark:border-stone-800 focus:ring-1 focus:ring-[#624A3E] focus:outline-none bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100"
                   placeholder="Ex. Todo perfectamente conciliado"
                 />
               </div>
@@ -1785,13 +1795,13 @@ export default function CajaModule({
                 <button
                   type="button"
                   onClick={() => setShowCloseModal(false)}
-                  className="w-1/2 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-600 text-xs font-black uppercase rounded-xl"
+                  className="w-1/2 py-2.5 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-200 text-xs font-black uppercase rounded-xl"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="w-1/2 py-2.5 bg-stone-900 hover:bg-stone-850 text-white text-xs font-black uppercase rounded-xl shadow cursor-pointer border border-[#ddd7ce]"
+                  className="w-1/2 py-2.5 bg-stone-900 hover:bg-stone-850 dark:bg-stone-100 dark:hover:bg-stone-200 text-white dark:text-stone-900 text-xs font-black uppercase rounded-xl shadow cursor-pointer border border-[#ddd7ce] dark:border-stone-800"
                 >
                   Confirmar Arqueo & Cerrar
                 </button>

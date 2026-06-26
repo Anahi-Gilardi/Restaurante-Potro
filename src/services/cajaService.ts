@@ -14,7 +14,32 @@ export const cajaService = {
     const raw = localStorage.getItem('el_patron_caja_activa');
     if (raw) {
       try {
-        return JSON.parse(raw);
+        const parsed = JSON.parse(raw);
+        if (parsed) {
+          return {
+            ...parsed,
+            monto_apertura: Number(parsed.monto_apertura) || 0,
+            monto_ventas: Number(parsed.monto_ventas) || 0,
+            monto_real: parsed.monto_real !== null && parsed.monto_real !== undefined ? Number(parsed.monto_real) : null,
+            diferencia: parsed.diferencia !== null && parsed.diferencia !== undefined ? Number(parsed.diferencia) : null,
+            usuario_cajero: parsed.usuario_cajero || 'Cajero',
+            fecha_apertura: parsed.fecha_apertura || new Date().toISOString().replace('T', ' ').slice(0, 19),
+            observaciones: parsed.observaciones || 'Sesión Activa - En Turno',
+            registros_totales: parsed.registros_totales ? {
+              efectivo: Number(parsed.registros_totales.efectivo) || 0,
+              debito: Number(parsed.registros_totales.debito) || 0,
+              credito: Number(parsed.registros_totales.credito) || 0,
+              transferencia: Number(parsed.registros_totales.transferencia) || 0,
+              mercadopago: Number(parsed.registros_totales.mercadopago) || 0
+            } : {
+              efectivo: 0,
+              debito: 0,
+              credito: 0,
+              transferencia: 0,
+              mercadopago: 0
+            }
+          };
+        }
       } catch {
         return null;
       }
@@ -23,8 +48,8 @@ export const cajaService = {
   },
 
   async list(): Promise<CierreCaja[]> {
-    const supabase = getActiveSupabaseClient();
     try {
+      const supabase = getActiveSupabaseClient();
       const { data, error } = await supabase
         .from('cierres_caja')
         .select('*')
