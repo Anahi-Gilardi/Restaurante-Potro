@@ -29,7 +29,6 @@ interface InventoryModuleProps {
   mermas: Merma[];
   onRegistrarMerma: (idInsumo: string, cantidad: number, motivo: Merma['motivo']) => void;
   onRestockInsumo: (idInsumo: string, cantidad: number) => void;
-  onRestockTodo: () => void;
   addLog: (tipo: 'pedido_creado' | 'descuento_stock' | 'alerta_stock' | 'comanda_estado' | 'merma_registrada' | 'sistema', mensaje: string) => void;
 }
 
@@ -40,7 +39,6 @@ export default function InventoryModule({
   mermas,
   onRegistrarMerma,
   onRestockInsumo,
-  onRestockTodo,
   addLog
 }: InventoryModuleProps) {
   
@@ -342,25 +340,6 @@ export default function InventoryModule({
             <ArrowUpDown className="w-4 h-4 text-amber-500" />
             Historial de Movimientos
           </button>
-        </div>
-
-        {/* Global actions */}
-        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm space-y-3">
-          <h5 className="text-xs font-bold text-slate-800 flex items-center gap-1">
-            <Sliders className="w-3.5 h-3.5 text-slate-500" />
-            Operaciones Rápidas
-          </h5>
-          <button
-            onClick={onRestockTodo}
-            className="w-full py-2 px-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 hover:text-slate-900 font-semibold text-xs rounded-xl flex items-center justify-center gap-2 transition-all"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-            Reabastecer todo (Demo)
-          </button>
-          <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 text-[11px] text-slate-500 leading-snug font-sans">
-            <Info className="w-4 h-4 text-slate-400 mb-1" />
-            Utilice las fichas secundarias para asentar ingresos por lotes de proveedores ó auditar egresos en el historial exportable.
-          </div>
         </div>
       </div>
 

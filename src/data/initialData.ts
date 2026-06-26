@@ -970,7 +970,7 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     nombre: 'Whisky Macallan 12 Años (Medida)',
     descripcion: 'Medida selecta de whisky Single Malt escocés servido en copa clásica.',
     precio_venta: 7500.00,
-    categoria: 'Bebidas',
+    categoria: 'Bebidas con Alcohol',
     subcategoria: 'Tragos / Destilados',
     activo: true,
     imagen: 'https://images.unsplash.com/photo-1514218247612-9c1122aa4f7a?w=400&q=80',
@@ -982,7 +982,7 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     nombre: 'Gin Tonic Heráclito',
     descripcion: 'Gin nacional premium, agua tónica, bayas de enebro y rodaja de limón.',
     precio_venta: 4800.00,
-    categoria: 'Bebidas',
+    categoria: 'Bebidas con Alcohol',
     subcategoria: 'Tragos / Destilados',
     activo: true,
     imagen: 'https://images.unsplash.com/photo-1514218247612-9c1122aa4f7a?w=400&q=80',
@@ -994,7 +994,7 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     nombre: 'Fernet Branca Estilo Patrón',
     descripcion: 'Clásico fernet italiano con gaseosa de cola y abundante hielo (70/30).',
     precio_venta: 4500.00,
-    categoria: 'Bebidas',
+    categoria: 'Bebidas con Alcohol',
     subcategoria: 'Tragos / Destilados',
     activo: true,
     imagen: 'https://images.unsplash.com/photo-1514218247612-9c1122aa4f7a?w=400&q=80',
@@ -1006,7 +1006,7 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     nombre: 'Aperol Spritz',
     descripcion: 'Aperitivo Aperol, espumante extra brut, golpe de soda y rodaja de naranja fresca.',
     precio_venta: 4900.00,
-    categoria: 'Bebidas',
+    categoria: 'Bebidas con Alcohol',
     subcategoria: 'Tragos / Destilados',
     activo: true,
     imagen: 'https://images.unsplash.com/photo-1514218247612-9c1122aa4f7a?w=400&q=80',
@@ -1018,7 +1018,7 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     nombre: 'Gaseosa Línea Cola Fría',
     descripcion: 'Lata 354ml bien helada en mesa (Coca-Cola, Zero, Sprite, Fanta).',
     precio_venta: 1200.00,
-    categoria: 'Bebidas',
+    categoria: 'Bebidas sin Alcohol',
     subcategoria: 'Gaseosas',
     activo: true,
     imagen: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&q=80',
@@ -1030,7 +1030,7 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     nombre: 'Agua Mineral Glaciar Con/Sin Gas',
     descripcion: 'Botella de agua de manantial 500ml.',
     precio_venta: 950.00,
-    categoria: 'Bebidas',
+    categoria: 'Bebidas sin Alcohol',
     subcategoria: 'Aguas',
     activo: true,
     imagen: 'https://images.unsplash.com/photo-1616118132534-381148898bb4?w=400&q=80',
@@ -1042,7 +1042,7 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     nombre: 'Café Espresso Doble',
     descripcion: 'Intenso café espresso de grano de especialidad colombiano.',
     precio_venta: 2400.00,
-    categoria: 'Bebidas',
+    categoria: 'Bebidas sin Alcohol',
     subcategoria: 'Cafetería',
     activo: true,
     imagen: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=400&q=80',
@@ -1177,7 +1177,7 @@ export const INITIAL_PEDIDOS: Pedido[] = [
     items: [
       { id_producto: 'prod_ent_charcuteria', nombre: 'Charcutería de elaboración propia', cantidad: 1, categoria: 'Entradas' },
       { id_producto: 'prod_pas_lasagna_pollo', nombre: 'Lasagna de pollo y espinaca al forno', cantidad: 1, categoria: 'Pastas' },
-      { id_producto: 'prod_agua', nombre: 'Agua Mineral Glaciar Con/Sin Gas', cantidad: 2, categoria: 'Bebidas' }
+      { id_producto: 'prod_agua', nombre: 'Agua Mineral Glaciar Con/Sin Gas', cantidad: 2, categoria: 'Bebidas sin Alcohol' }
     ],
     observaciones: 'El agua sin gas, por favor.',
     fecha_hora: new Date(Date.now() - 30 * 60 * 1000), // Hace 30 min
@@ -1224,7 +1224,7 @@ export const INITIAL_PEDIDOS: Pedido[] = [
     estado_comanda: 'pendiente',
     items: [
       { id_producto: 'prod_cri_lentejas', nombre: 'Guiso de lentejas tradicional', cantidad: 1, categoria: 'Comidas Criollas' },
-      { id_producto: 'prod_gaseosa', nombre: 'Gaseosa Línea Cola Fría', cantidad: 1, categoria: 'Bebidas' }
+      { id_producto: 'prod_gaseosa', nombre: 'Gaseosa Línea Cola Fría', cantidad: 1, categoria: 'Bebidas sin Alcohol' }
     ],
     observaciones: 'Sin aderezos extras.',
     fecha_hora: new Date(Date.now() - 1 * 60 * 1000),

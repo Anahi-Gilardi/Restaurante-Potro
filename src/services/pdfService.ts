@@ -111,7 +111,7 @@ export const pdfService = {
       return this.generateA4Invoice(data, logo, qrImage);
     }
 
-    return this.generateThermalTicket(data, logo);
+    return this.generateThermalTicket(data, logo, qrImage);
   },
 
   generateA4Invoice(data: TicketData, logo: string | null, qrImage: string | null): jsPDF {
@@ -382,16 +382,45 @@ export const pdfService = {
     return doc;
   },
 
-  generateThermalTicket(data: TicketData, logo: string | null): jsPDF {
-    const wrappedRows = data.items.map(item => ({
-      item,
-      lines: Math.max(1, Math.ceil(item.descripcion.length / 22))
-    }));
+  generateThermalTicket(data: TicketData, logo: string | null, qrImage: string | null = null): jsPDF {
+    const rawConfig = typeof window !== 'undefined' ? localStorage.getItem('el_patron_printer_config') : null;
+    let is58 = false;
+    if (rawConfig) {
+      try {
+        const parsed = JSON.parse(rawConfig);
+        if (parsed.paperWidth === '58mm') {
+          is58 = true;
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    const pageWidth = is58 ? 58 : 80;
+    const margin = is58 ? 3 : 5;
+    const rightAlignX = pageWidth - margin;
+    const centerAlignX = pageWidth / 2;
+    const wrapWidth = pageWidth - (margin * 2);
+
+    // Dummy document to calculate dimensions precisely
+    const dummy = new jsPDF('p', 'mm', [pageWidth, 300]);
+    dummy.setFont('helvetica', 'bold');
+    dummy.setFontSize(7.5);
+    const wrappedRows = data.items.map(item => {
+      const lines = dummy.splitTextToSize(item.descripcion, wrapWidth - 2) as string[];
+      return lines.length;
+    });
+
+    const qrHeight = qrImage ? (is58 ? 26 : 32) : 0;
+    const caeHeight = data.cae ? 10 : 0;
+
     const ticketHeight = Math.max(
-      180,
-      110 + wrappedRows.reduce((sum, row) => sum + row.lines * 4.2 + 8, 0) + data.metodosPago.length * 5
+      is58 ? 160 : 180,
+      110 + wrappedRows.reduce((sum, linesCount) => sum + linesCount * 3.8 + 8, 0) + 
+      data.metodosPago.length * 5 + qrHeight + caeHeight
     );
-    const doc = new jsPDF('p', 'mm', [80, ticketHeight]);
+
+    const doc = new jsPDF('p', 'mm', [pageWidth, ticketHeight]);
     let y = 6;
 
     const center = (text: string, size = 8, bold = false) => {
@@ -399,20 +428,24 @@ export const pdfService = {
       doc.setFontSize(size);
       const lines = String(text).split('\n');
       lines.forEach(lineText => {
-        doc.text(lineText, 40, y, { align: 'center' });
-        y += size * 0.45 + 1.2;
+        const wrapped = doc.splitTextToSize(lineText, wrapWidth) as string[];
+        wrapped.forEach(wLine => {
+          doc.text(wLine, centerAlignX, y, { align: 'center' });
+          y += size * 0.45 + 1.2;
+        });
       });
     };
 
     const line = (offset = 0) => {
       doc.setDrawColor(...BRAND.line);
       doc.setLineWidth(0.15);
-      doc.line(5, y + offset, 75, y + offset);
+      doc.line(margin, y + offset, rightAlignX, y + offset);
       y += 3;
     };
 
     if (logo) {
-      addLogo(doc, logo, 29, y, 22);
+      const logoX = centerAlignX - 11;
+      addLogo(doc, logo, logoX, y, 22);
       y += 24;
     } else {
       y += 2;
@@ -432,19 +465,19 @@ export const pdfService = {
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7.5);
-    doc.text(`TICKET Nº: ${data.nroComprobante}`, 5, y);
+    doc.text(`TICKET Nº: ${data.nroComprobante}`, margin, y);
     y += 4;
     
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7);
     doc.setTextColor(...BRAND.muted);
-    doc.text(`Fecha: ${data.fechaHora}`, 5, y);
+    doc.text(`Fecha: ${data.fechaHora}`, margin, y);
     y += 4;
-    doc.text(`Mesa: ${data.mesa.toUpperCase()}`, 5, y);
-    doc.text(`Mozo: ${data.mozo}`, 75, y, { align: 'right' });
+    doc.text(`Mesa: ${data.mesa.toUpperCase()}`, margin, y);
+    doc.text(`Mozo: ${data.mozo}`, rightAlignX, y, { align: 'right' });
     y += 4;
-    doc.text(`Cajero: ${data.cajero}`, 5, y);
-    doc.text(`Pedido ID: EP-${data.idPedido}`, 75, y, { align: 'right' });
+    doc.text(`Cajero: ${data.cajero}`, margin, y);
+    doc.text(`Pedido ID: EP-${data.idPedido}`, rightAlignX, y, { align: 'right' });
     y += 4.5;
     line();
 
@@ -452,8 +485,8 @@ export const pdfService = {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7.5);
     doc.setTextColor(...BRAND.dark);
-    doc.text('Cant.  Producto', 5, y);
-    doc.text('Importe', 75, y, { align: 'right' });
+    doc.text('Cant.  Producto', margin, y);
+    doc.text('Importe', rightAlignX, y, { align: 'right' });
     y += 3.5;
     line(-1);
 
@@ -468,9 +501,10 @@ export const pdfService = {
       doc.setFontSize(7.5);
       doc.setTextColor(...BRAND.dark);
       
-      const lines = doc.splitTextToSize(descripcion, 48) as string[];
+      const itemWrapWidth = wrapWidth - 2;
+      const lines = doc.splitTextToSize(descripcion, itemWrapWidth) as string[];
       lines.forEach((text, index) => {
-        doc.text(text, 5, y + index * 3.8);
+        doc.text(text, margin, y + index * 3.8);
       });
       y += (lines.length - 1) * 3.8;
 
@@ -481,12 +515,12 @@ export const pdfService = {
       doc.setTextColor(...BRAND.muted);
       
       const priceStr = `   ${cantidad} x ${money(unitPrice)}`;
-      doc.text(priceStr, 5, y);
+      doc.text(priceStr, margin, y);
       
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(7.5);
       doc.setTextColor(...BRAND.dark);
-      doc.text(money(subtotal), 75, y, { align: 'right' });
+      doc.text(money(subtotal), rightAlignX, y, { align: 'right' });
       
       y += 5;
     });
@@ -498,8 +532,8 @@ export const pdfService = {
       doc.setFont('helvetica', bold ? 'bold' : 'normal');
       doc.setFontSize(bold ? 8.5 : 7);
       doc.setTextColor(bold ? BRAND.brown[0] : BRAND.dark[0], bold ? BRAND.brown[1] : BRAND.dark[1], bold ? BRAND.brown[2] : BRAND.dark[2]);
-      doc.text(label, 5, y);
-      doc.text(value, 75, y, { align: 'right' });
+      doc.text(label, margin, y);
+      doc.text(value, rightAlignX, y, { align: 'right' });
       y += bold ? 5.5 : 4.5;
     };
 
@@ -511,7 +545,7 @@ export const pdfService = {
     y += 1;
     doc.setDrawColor(...BRAND.brown);
     doc.setLineWidth(0.4);
-    doc.line(5, y, 75, y);
+    doc.line(margin, y, rightAlignX, y);
     y += 4.5;
     
     sum('TOTAL GENERAL:', money(data.total), true);
@@ -519,7 +553,7 @@ export const pdfService = {
     y += 1;
     doc.setDrawColor(...BRAND.brown);
     doc.setLineWidth(0.4);
-    doc.line(5, y, 75, y);
+    doc.line(margin, y, rightAlignX, y);
     y += 5;
 
     doc.setTextColor(...BRAND.dark);
@@ -535,6 +569,34 @@ export const pdfService = {
 
     y += 2;
     line();
+
+    // CAE, Vencimiento and QR Code
+    if (data.cae) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.setTextColor(...BRAND.dark);
+      doc.text(`CAE: ${data.cae}`, margin, y);
+      y += 4;
+    }
+    if (data.vto) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7);
+      doc.setTextColor(...BRAND.muted);
+      doc.text(`Vencimiento CAE: ${data.vto}`, margin, y);
+      y += 4.5;
+    }
+    if (qrImage) {
+      y += 1;
+      const qrSize = is58 ? 22 : 28;
+      const qrX = centerAlignX - (qrSize / 2);
+      try {
+        doc.addImage(qrImage, 'PNG', qrX, y, qrSize, qrSize);
+        y += qrSize + 4;
+      } catch (err) {
+        console.warn('Error adding QR image to thermal ticket:', err);
+      }
+    }
+
     center(data.mensajePie || 'Gracias por su visita.', 7);
     center('El Patron Restaurante', 7.5, true);
     center('Conserve este comprobante', 6.2);

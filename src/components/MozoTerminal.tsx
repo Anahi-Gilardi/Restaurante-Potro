@@ -42,7 +42,7 @@ function getWineMapping(p: ProductoMenu): WineMapping {
     } else {
       macro = 'tintas';
     }
-  } else if (p.categoria === 'Bebidas') {
+  } else if (p.categoria === 'Bebidas' || p.categoria === 'Bebidas con Alcohol' || p.categoria === 'Bebidas sin Alcohol') {
     const sub = (p.subcategoria || '').toLowerCase();
     if (sub.includes('whisky') || sub.includes('gin') || sub.includes('fernet') || sub.includes('aperitivos') || name.includes('macallan') || name.includes('gin') || name.includes('fernet') || name.includes('aperol') || name.includes('spritz')) {
       macro = 'destilados';
@@ -673,7 +673,8 @@ export default function MozoTerminal({
               { id: 'Pescados', label: 'Pescados 🐟' },
               { id: 'Comidas Criollas', label: 'Criollas 🥧' },
               { id: 'Postres', label: 'Postres 🍰' },
-              { id: 'Bebidas', label: 'Bebidas 🥤' },
+              { id: 'Bebidas con Alcohol', label: 'Bebidas C/A 🍺' },
+              { id: 'Bebidas sin Alcohol', label: 'Bebidas S/A 🥤' },
               { id: 'Bodega', label: 'Bodega 🍷' }
             ].map(cat => {
               const isActive = selectedCategoria === cat.id;
@@ -805,7 +806,7 @@ export default function MozoTerminal({
                   
                   {/* Category icon badge */}
                   <div className="absolute top-2 left-2 p-1.5 rounded-lg backdrop-blur-md bg-white/90 shadow-sm border border-stone-100">
-                    {p.categoria === 'bebidas' ? (
+                    {p.categoria.toLowerCase().includes('bebida') ? (
                       <Wine className="w-3.5 h-3.5 text-[#4A2D1B]" />
                     ) : (
                       <UtensilsCrossed className="w-3.5 h-3.5 text-[#4A2D1B]" />

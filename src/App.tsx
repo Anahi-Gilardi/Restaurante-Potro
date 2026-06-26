@@ -499,14 +499,15 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     if (existingActivePedido) {
       const updatedItems = [...existingActivePedido.items];
       newPedidoData.items.forEach(newItem => {
-        const existingItemIdx = updatedItems.findIndex(it => it.id_producto === newItem.id_producto);
+        const existingItemIdx = updatedItems.findIndex(it => it.id_producto === newItem.id_producto && (it.estado === 'pendiente' || !it.estado));
         if (existingItemIdx > -1) {
           updatedItems[existingItemIdx] = {
             ...updatedItems[existingItemIdx],
-            cantidad: updatedItems[existingItemIdx].cantidad + newItem.cantidad
+            cantidad: updatedItems[existingItemIdx].cantidad + newItem.cantidad,
+            estado: 'pendiente'
           };
         } else {
-          updatedItems.push({ ...newItem });
+          updatedItems.push({ ...newItem, estado: 'pendiente' });
         }
       });
 
@@ -787,7 +788,21 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
 
     setPedidos(prev => prev.map(p => {
       if (p.id_pedido === idPedido) {
-        const updated: Pedido = { ...p, estado_comanda: nuevoEstado };
+        const updatedItems = p.items.map(it => {
+          const itemEstado = it.estado ?? 'pendiente';
+          let nextEstado = itemEstado;
+          if (nuevoEstado === 'en_cocina' && itemEstado === 'pendiente') {
+            nextEstado = 'en_cocina';
+          } else if (nuevoEstado === 'listo' && (itemEstado === 'pendiente' || itemEstado === 'en_cocina')) {
+            nextEstado = 'listo';
+          } else if ((nuevoEstado === 'entregado' || nuevoEstado === 'entregado_cobrado') && (itemEstado === 'pendiente' || itemEstado === 'en_cocina' || itemEstado === 'listo')) {
+            nextEstado = 'entregado';
+          } else if (nuevoEstado === 'cancelado') {
+            nextEstado = 'cancelado';
+          }
+          return { ...it, estado: nextEstado };
+        });
+        const updated: Pedido = { ...p, estado_comanda: nuevoEstado, items: updatedItems };
         if (nuevoEstado === 'en_cocina') {
           updated.fecha_inicio_cocina = new Date();
           if (!p.stock_descontado) {
@@ -961,19 +976,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     }
   }, [insumos, addLog]);
 
-  const handleRestockTodo = () => {
-    const updatedInsumos = insumos.map(i => {
-      const restockAmt = i.unidad_medida === 'unidades' ? 10 : 3000;
-      return {
-        ...i,
-        stock_actual: i.stock_actual + restockAmt
-      };
-    });
-    setInsumos(updatedInsumos);
-    addLog('sistema', `REPOSICIÓN GENERAL: Abastecimiento global automático de todos los insumos y materias primas.`);
 
-    dbUpsertInsumos(updatedInsumos);
-  };
 
   const handleReservaEstadoChange = useCallback((reserva: Reserva, estado: Reserva['estado']) => {
     if (!reserva.id_mesa) return;
@@ -1278,7 +1281,6 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
               <InventoryModule insumos={insumos} productosMenu={productosMenu} recetas={recetas} mermas={mermas}
                 onRegistrarMerma={handleRegistrarMerma}
                 onRestockInsumo={handleRestockInsumo}
-                onRestockTodo={handleRestockTodo}
                 addLog={addLog}
               />
             )}

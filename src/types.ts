@@ -107,6 +107,7 @@ export interface PedidoItem {
     categoria: string;
     /** Precio unitario al momento del pedido (snapshot) */
   precio_unitario?: number;
+  estado?: 'pendiente' | 'en_cocina' | 'listo' | 'entregado' | 'cancelado';
 }
 
 export interface Pedido {

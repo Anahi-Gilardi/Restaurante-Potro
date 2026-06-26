@@ -8,7 +8,8 @@ export const DEFAULT_CATEGORIAS: Categoria[] = [
   { id: 'cat_pescados', nombre: 'Pescados', slug: 'pescados', orden: 4, activa: true, icono: 'Fish' },
   { id: 'cat_criollas', nombre: 'Comidas Criollas', slug: 'comidas-criollas', orden: 5, activa: true, icono: 'Utensils' },
   { id: 'cat_postres', nombre: 'Postres', slug: 'postres', orden: 6, activa: true, icono: 'Coffee' },
-  { id: 'cat_bebidas', nombre: 'Bebidas', slug: 'bebidas', orden: 7, activa: true, icono: 'Wine' },
+  { id: 'cat_bebidas_con_alcohol', nombre: 'Bebidas con Alcohol', slug: 'bebidas-con-alcohol', orden: 7, activa: true, icono: 'Wine' },
+  { id: 'cat_bebidas_sin_alcohol', nombre: 'Bebidas sin Alcohol', slug: 'bebidas-sin-alcohol', orden: 7.5, activa: true, icono: 'Wine' },
   { id: 'cat_bodega', nombre: 'Bodega', slug: 'bodega', orden: 8, activa: true, icono: 'Wine' }
 ];
 

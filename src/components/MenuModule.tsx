@@ -20,7 +20,7 @@ interface MenuModuleProps {
 
 type PendingAction = 'create' | `toggle_${string}` | `edit_${string}` | `duplicate_${string}`;
 
-const CATEGORIAS = ['Entradas', 'Pastas', 'Carnes', 'Pescados', 'Comidas Criollas', 'Postres', 'Bebidas', 'Bodega'] as const;
+const CATEGORIAS = ['Entradas', 'Pastas', 'Carnes', 'Pescados', 'Comidas Criollas', 'Postres', 'Bebidas con Alcohol', 'Bebidas sin Alcohol', 'Bodega'] as const;
 const FILTER_CATEGORIAS = ['todos', ...CATEGORIAS] as const;
 
 const ALLERGENS_LIST = [
@@ -36,7 +36,7 @@ const normalizeText = (value: string) => value.trim().toLowerCase();
 
 const inferTipo = (categoria: string): ProductoMenu['tipo'] => {
   const normalized = normalizeText(categoria);
-  if (normalized === 'bebidas') return 'bebida';
+  if (normalized === 'bebidas' || normalized.includes('bebida')) return 'bebida';
   if (normalized === 'bodega') return 'vino';
   if (normalized === 'postres') return 'postre';
   return 'plato';
@@ -44,7 +44,7 @@ const inferTipo = (categoria: string): ProductoMenu['tipo'] => {
 
 const getFallbackImage = (categoria: string) => {
   const normalized = normalizeText(categoria);
-  if (normalized === 'bebidas' || normalized === 'bodega') {
+  if (normalized === 'bebidas' || normalized.includes('bebida') || normalized === 'bodega') {
     return 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&q=80';
   }
   if (normalized === 'postres') {
@@ -104,8 +104,20 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/(^-|-$)+/g, '');
 
-    if (norm.includes('bebida') || norm.includes('bodega') || norm.includes('vino') || norm.includes('cerveza') || norm.includes('gaseosa')) {
-      return 'bebidas';
+    if (norm.includes('bebida-con-alcohol') || norm.includes('bebidas-con-alcohol')) {
+      return 'bebidas-con-alcohol';
+    }
+    if (norm.includes('bebida-sin-alcohol') || norm.includes('bebidas-sin-alcohol')) {
+      return 'bebidas-sin-alcohol';
+    }
+    if (norm.includes('bodega') || norm.includes('vino')) {
+      return 'bodega';
+    }
+    if (norm.includes('cerveza')) {
+      return 'bebidas-con-alcohol';
+    }
+    if (norm.includes('gaseosa')) {
+      return 'bebidas-sin-alcohol';
     }
     if (norm.includes('postre') || norm.includes('dulce') || norm.includes('helado')) {
       return 'postres';

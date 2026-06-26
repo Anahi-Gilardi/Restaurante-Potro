@@ -9,7 +9,10 @@ const parseHeaderItems = (items: unknown): PedidoItem[] => {
 
   try {
     const parsed = typeof items === 'string' ? JSON.parse(items) : items;
-    return Array.isArray(parsed) ? parsed : [];
+    return (Array.isArray(parsed) ? parsed : []).map(item => ({
+      ...item,
+      estado: item.estado ?? 'pendiente'
+    }));
   } catch (error) {
     console.warn('Failed to parse items fallback JSON:', error);
     return [];
@@ -32,7 +35,8 @@ export const hydratePedido = (
         readonly: true,
         cantidad: detail.cantidad,
         categoria: detail.categoria,
-        precio_unitario: detail.precio_unitario ?? matchingHeaderItem?.precio_unitario ?? undefined
+        precio_unitario: detail.precio_unitario ?? matchingHeaderItem?.precio_unitario ?? undefined,
+        estado: detail.estado ?? 'pendiente'
       };
     });
 
@@ -87,6 +91,7 @@ export const serializePedidoDetails = (pedido: Pedido) => pedido.items.map((item
   cantidad: item.cantidad,
   categoria: item.categoria,
   precio_unitario: item.precio_unitario ?? null,
+  estado: item.estado ?? 'pendiente'
 }));
 
 export const pedidosService = {
@@ -435,7 +440,8 @@ export const pedidosService = {
       readonly: true,
       cantidad: d.cantidad,
       categoria: d.categoria,
-      precio_unitario: d.precio_unitario ?? undefined
+      precio_unitario: d.precio_unitario ?? undefined,
+      estado: d.estado ?? 'pendiente'
     }));
 
     const { error: updateError } = await supabase

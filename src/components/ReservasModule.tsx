@@ -465,46 +465,46 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
             </h3>
             <form onSubmit={handleCreateReserva} className="space-y-3">
               <div>
-                <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Fecha</label>
+                <label className="text-[10px] font-black text-stone-750 dark:text-stone-300 uppercase block mb-1">Fecha</label>
                 <input type="date" value={formularioDate} onChange={e => setFormularioDate(e.target.value)}
                   className="w-full text-xs p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none focus:ring-1 focus:ring-[#624A3E]" required />
               </div>
               <div>
-                <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Nombre y Apellido</label>
+                <label className="text-[10px] font-black text-stone-750 dark:text-stone-300 uppercase block mb-1">Nombre y Apellido</label>
                 <input type="text" value={nombre} onChange={e => setNombre(e.target.value)}
                   placeholder="Ej. Gisela Scaglia"
                   className="w-full text-xs p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none focus:ring-1 focus:ring-[#624A3E]" required />
               </div>
               <div>
-                <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Celular / WhatsApp</label>
+                <label className="text-[10px] font-black text-stone-750 dark:text-stone-300 uppercase block mb-1">Celular / WhatsApp</label>
                 <input type="text" value={telefono} onChange={e => setTelefono(e.target.value)}
                   placeholder="Ej. +54 11 9382-3844"
                   className="w-full text-xs p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none focus:ring-1 focus:ring-[#624A3E]" required />
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Pax</label>
+                  <label className="text-[10px] font-black text-stone-750 dark:text-stone-300 uppercase block mb-1">Pax</label>
                   <select value={pax} onChange={e => setPax(e.target.value)}
                     className="w-full text-xs p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none cursor-pointer focus:ring-1 focus:ring-[#624A3E] font-semibold text-stone-700">
                     {[1, 2, 3, 4, 5, 6, 7, 8].map(n => <option key={n} value={n}>{n} {n === 1 ? 'Persona' : 'Personas'}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Hora</label>
+                  <label className="text-[10px] font-black text-stone-750 dark:text-stone-300 uppercase block mb-1">Hora</label>
                   <input type="time" value={hora} onChange={e => setHora(e.target.value)}
                     className="w-full text-xs p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none focus:ring-1 focus:ring-[#624A3E]" required />
                 </div>
               </div>
               <div>
-                <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Mesa preferida</label>
+                <label className="text-[10px] font-black text-stone-750 dark:text-stone-300 uppercase block mb-1">Mesa preferida</label>
                 <select value={nombreMesa} onChange={e => setNombreMesa(e.target.value)}
                   className="w-full text-xs p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none cursor-pointer focus:ring-1 focus:ring-[#624A3E] font-semibold text-stone-700">
                   {mesas.map(m => <option key={m.id_mesa} value={m.numero_mesa}>{m.numero_mesa} ({m.comensales ?? '?'} pax)</option>)}
                 </select>
-                <p className="text-[9px] text-stone-400 mt-1">{disponiblesHoy.length} mesas libres para el dia seleccionado</p>
+                <p className="text-[9px] text-stone-600 dark:text-stone-400 mt-1">{disponiblesHoy.length} mesas libres para el dia seleccionado</p>
               </div>
               <div>
-                <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Observaciones</label>
+                <label className="text-[10px] font-black text-stone-750 dark:text-stone-300 uppercase block mb-1">Observaciones</label>
                 <textarea value={observaciones} onChange={e => setObservaciones(e.target.value)}
                   placeholder="Ej. Alergia al mani, mesa cerca de ventana..."
                   rows={2}
@@ -539,16 +539,16 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
               <Armchair className="w-4 h-4 text-[#624A3E]" /> Disponibilidad
             </h4>
             <div className="flex items-center justify-between text-xs">
-              <span className="text-stone-500 font-semibold">Fecha:</span>
+              <span className="text-stone-700 dark:text-stone-300 font-semibold">Fecha:</span>
               <span className="font-bold text-stone-800">{selectedDate}</span>
             </div>
             <div className="flex items-center justify-between text-xs">
-              <span className="text-stone-500 font-semibold">Mesas libres:</span>
+              <span className="text-stone-700 dark:text-stone-300 font-semibold">Mesas libres:</span>
               <span className="font-bold text-emerald-600">{disponiblesHoy.length} / {mesas.length}</span>
             </div>
             {listaEsperaGlobal.length > 0 && (
               <div className="flex items-center justify-between text-xs">
-                <span className="text-stone-500 font-semibold">En espera:</span>
+                <span className="text-stone-700 dark:text-stone-300 font-semibold">En espera:</span>
                 <span className="font-bold text-amber-600">{listaEsperaGlobal.length}</span>
               </div>
             )}
@@ -584,11 +584,11 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
               <div className="flex items-center gap-2">
                 <div className="flex bg-stone-100 p-0.5 rounded-lg border border-stone-200">
                   <button onClick={() => setCalendarView('month')}
-                    className={`px-2 py-1 text-[10px] font-bold rounded-md cursor-pointer transition-all ${calendarView === 'month' ? 'bg-white text-stone-900 shadow-xs' : 'text-stone-500 hover:text-stone-800'}`}>
+                    className={`px-2 py-1 text-[10px] font-bold rounded-md cursor-pointer transition-all ${calendarView === 'month' ? 'bg-white text-stone-900 shadow-xs' : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'}`}>
                     <CalendarDays className="w-3.5 h-3.5 inline mr-1" />Mes
                   </button>
                   <button onClick={() => setCalendarView('week')}
-                    className={`px-2 py-1 text-[10px] font-bold rounded-md cursor-pointer transition-all ${calendarView === 'week' ? 'bg-white text-stone-900 shadow-xs' : 'text-stone-500 hover:text-stone-800'}`}>
+                    className={`px-2 py-1 text-[10px] font-bold rounded-md cursor-pointer transition-all ${calendarView === 'week' ? 'bg-white text-stone-900 shadow-xs' : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'}`}>
                     <List className="w-3.5 h-3.5 inline mr-1" />Semana
                   </button>
                 </div>
@@ -599,14 +599,14 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
                     } else {
                       setWeekStart(prev => addDays(prev, -7));
                     }
-                  }} className="p-1 rounded-lg hover:bg-stone-100 text-stone-500 cursor-pointer"><ChevronLeft className="w-4 h-4" /></button>
+                  }} className="p-1 rounded-lg hover:bg-stone-100 text-stone-700 dark:text-stone-300 cursor-pointer"><ChevronLeft className="w-4 h-4" /></button>
                   <button onClick={() => {
                     if (calendarView === 'month') {
                       setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
                     } else {
                       setWeekStart(prev => addDays(prev, 7));
                     }
-                  }} className="p-1 rounded-lg hover:bg-stone-100 text-stone-500 cursor-pointer"><ChevronRight className="w-4 h-4" /></button>
+                  }} className="p-1 rounded-lg hover:bg-stone-100 text-stone-700 dark:text-stone-300 cursor-pointer"><ChevronRight className="w-4 h-4" /></button>
                 </div>
               </div>
             </div>
@@ -616,7 +616,7 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
               <div>
                 <div className="grid grid-cols-7 gap-1 mb-1">
                   {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map(d => (
-                    <div key={d} className="text-center text-[10px] font-black text-stone-400 uppercase py-1">{d}</div>
+                    <div key={d} className="text-center text-[10px] font-black text-stone-600 dark:text-stone-400 uppercase py-1">{d}</div>
                   ))}
                 </div>
                 <div className="grid grid-cols-7 gap-1">
@@ -649,8 +649,8 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
                   })}
                 </div>
                 <div className="flex items-center gap-3 mt-3 pt-2 border-t border-stone-100">
-                  <span className="flex items-center gap-1 text-[9px] text-stone-500 font-semibold"><span className="w-2 h-2 rounded-full bg-[#624A3E]" />Reservado</span>
-                  <span className="flex items-center gap-1 text-[9px] text-stone-500 font-semibold"><span className="w-2 h-2 rounded-full bg-rose-500" />Sin capacidad</span>
+                  <span className="flex items-center gap-1 text-[9px] text-stone-700 dark:text-stone-300 font-semibold"><span className="w-2 h-2 rounded-full bg-[#624A3E]" />Reservado</span>
+                  <span className="flex items-center gap-1 text-[9px] text-stone-700 dark:text-stone-300 font-semibold"><span className="w-2 h-2 rounded-full bg-rose-500" />Sin capacidad</span>
                 </div>
               </div>
             )}
@@ -671,7 +671,7 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
                       </div>
                       <div className="flex-1">
                         {dayReservas.length === 0 ? (
-                          <span className={`text-[10px] font-medium ${isSel ? 'text-white/70' : 'text-stone-400 italic'}`}>Sin reservas</span>
+                          <span className={`text-[10px] font-medium ${isSel ? 'text-white/70' : 'text-stone-600 dark:text-stone-450 italic'}`}>Sin reservas</span>
                         ) : (
                           <div className="flex gap-1.5 flex-wrap">
                             {dayReservas.slice(0, 5).map(r => (
@@ -728,7 +728,7 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
               </h3>
               <div className="flex items-center gap-3">
                 <div className="relative">
-                  <Search className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                  <Search className="w-3.5 h-3.5 text-stone-500 dark:text-stone-450 absolute left-2.5 top-1/2 -translate-y-1/2" />
                   <input type="text" value={search} onChange={e => setSearch(e.target.value)}
                     placeholder="Buscar..."
                     className="pl-8 pr-2 py-1 text-[10px] border border-stone-200 rounded-lg bg-stone-50 focus:outline-none focus:ring-1 focus:ring-[#624A3E] w-36" />
@@ -745,15 +745,15 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
               ) : filtered.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 gap-2">
                   <Calendar className="w-8 h-8 text-stone-300" />
-                  <p className="text-xs text-stone-400 italic">Sin reservas para esta fecha.</p>
+                  <p className="text-xs text-stone-600 dark:text-stone-450 italic">Sin reservas para esta fecha.</p>
                 </div>
               ) : (
                 filtered.map(r => {
-                  let statusBg = 'bg-stone-50 text-stone-600 border-stone-200';
-                  if (r.estado === 'sentada') statusBg = 'bg-emerald-50 text-emerald-800 border-emerald-100';
-                  if (r.estado === 'confirmada') statusBg = 'bg-blue-50 text-blue-800 border-blue-100';
-                  if (r.estado === 'pendiente') statusBg = 'bg-amber-50 text-amber-800 border-amber-100';
-                  if (r.estado === 'completada') statusBg = 'bg-stone-100 text-stone-500 border-stone-200';
+                  let statusBg = 'bg-stone-100 text-stone-850 border-stone-300 dark:bg-stone-850 dark:text-stone-250 dark:border-stone-700';
+                  if (r.estado === 'sentada') statusBg = 'bg-emerald-100 text-emerald-950 border-emerald-250 dark:bg-emerald-950/40 dark:text-emerald-350 dark:border-emerald-900';
+                  if (r.estado === 'confirmada') statusBg = 'bg-blue-100 text-blue-950 border-blue-250 dark:bg-blue-950/40 dark:text-blue-350 dark:border-blue-900';
+                  if (r.estado === 'pendiente') statusBg = 'bg-amber-100 text-amber-950 border-amber-250 dark:bg-amber-950/40 dark:text-amber-350 dark:border-amber-900';
+                  if (r.estado === 'completada') statusBg = 'bg-stone-200 text-stone-750 border-stone-350 dark:bg-stone-800 dark:text-stone-300 dark:border-stone-700';
 
                   return (
                     <div key={r.id_reserva} onClick={() => handleEdit(r)}
@@ -763,14 +763,14 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
                           <h4 className="font-extrabold text-stone-900 text-sm tracking-tight">{r.nombre_cliente}</h4>
                           <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full border ${statusBg}`}>{r.estado}</span>
                         </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1 text-xs text-stone-500 font-medium">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1 text-xs text-stone-700 dark:text-stone-300 font-medium">
                           <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5 text-stone-400" />{r.hora}</span>
                           <span className="flex items-center gap-1"><Phone className="w-3.5 h-3.5 text-stone-400" />{r.telefono || '-'}</span>
                           <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5 text-stone-400" />{r.pax} personas</span>
                           <span className="flex items-center gap-1"><Armchair className="w-3.5 h-3.5 text-stone-400" />{r.nombre_mesa}</span>
                         </div>
                         {r.email && (
-                          <p className="text-[10px] text-stone-500 mt-1">{r.email}</p>
+                          <p className="text-[10px] text-stone-700 dark:text-stone-300 mt-1">{r.email}</p>
                         )}
                         {r.observaciones && (
                           <p className="text-[10px] text-amber-700 italic mt-1">{r.observaciones}</p>
@@ -832,11 +832,11 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
           {/* Tabs */}
           <div className="flex bg-stone-100 p-0.5 rounded-xl border border-stone-200">
             <button onClick={() => setTab('reservas')}
-              className={`flex-1 py-2 text-[10px] font-extrabold rounded-lg cursor-pointer transition-all ${tab === 'reservas' ? 'bg-white text-stone-900 shadow-xs' : 'text-stone-500 hover:text-stone-800'}`}>
+              className={`flex-1 py-2 text-[10px] font-extrabold rounded-lg cursor-pointer transition-all ${tab === 'reservas' ? 'bg-white text-stone-900 shadow-xs' : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'}`}>
               Proximas
             </button>
             <button onClick={() => setTab('espera')}
-              className={`flex-1 py-2 text-[10px] font-extrabold rounded-lg cursor-pointer transition-all flex items-center justify-center gap-1.5 ${tab === 'espera' ? 'bg-white text-stone-900 shadow-xs' : 'text-stone-500 hover:text-stone-800'}`}>
+              className={`flex-1 py-2 text-[10px] font-extrabold rounded-lg cursor-pointer transition-all flex items-center justify-center gap-1.5 ${tab === 'espera' ? 'bg-white text-stone-900 shadow-xs' : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'}`}>
               Lista de espera
               {listaEsperaGlobal.length > 0 && (
                 <span className="bg-amber-500 text-white text-[9px] w-4 h-4 flex items-center justify-center rounded-full font-bold">{listaEsperaGlobal.length}</span>
@@ -849,13 +849,13 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
               <h4 className="text-xs font-black text-stone-800 uppercase flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-amber-600" /> Clientes en espera ({listaEsperaGlobal.length})
               </h4>
-              <p className="text-[10px] text-stone-500 leading-snug">Ordenados por prioridad (primero en llegar). Asigne una mesa disponible para confirmar la reserva.</p>
+              <p className="text-[10px] text-stone-700 dark:text-stone-300 leading-snug">Ordenados por prioridad (primero en llegar). Asigne una mesa disponible para confirmar la reserva.</p>
 
               <div className="space-y-2.5">
                 {listaEsperaGlobal.length === 0 ? (
                   <div className="py-6 flex flex-col items-center gap-2">
                     <Users className="w-8 h-8 text-stone-300" />
-                    <p className="text-xs text-stone-400 italic">No hay clientes en lista de espera.</p>
+                    <p className="text-xs text-stone-600 dark:text-stone-450 italic">No hay clientes en lista de espera.</p>
                   </div>
                 ) : (
                   listaEsperaGlobal.map((r, idx) => (
@@ -865,9 +865,9 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
                           <span className="w-5 h-5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-black flex items-center justify-center">{idx + 1}</span>
                           <h5 className="text-xs font-extrabold text-stone-900">{r.nombre_cliente}</h5>
                         </div>
-                        <span className="text-[9px] font-bold text-stone-500 bg-stone-100 px-1.5 py-0.5 rounded">{r.pax} pax</span>
+                        <span className="text-[9px] font-bold text-stone-700 bg-stone-150 dark:text-stone-300 dark:bg-stone-800 px-1.5 py-0.5 rounded">{r.pax} pax</span>
                       </div>
-                      <div className="text-[10px] text-stone-500 flex items-center gap-3 font-medium">
+                      <div className="text-[10px] text-stone-750 dark:text-stone-300 flex items-center gap-3 font-medium">
                         <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{r.fecha}</span>
                         <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{r.hora}</span>
                       </div>
@@ -922,7 +922,7 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-[11px] font-bold text-stone-800 truncate">{r.nombre_cliente}</p>
-                        <p className="text-[9px] text-stone-500 flex items-center gap-1"><Clock className="w-3 h-3" />{r.hora} &middot; {r.nombre_mesa} &middot; {r.pax} pax</p>
+                        <p className="text-[9px] text-stone-750 dark:text-stone-300 flex items-center gap-1"><Clock className="w-3 h-3" />{r.hora} &middot; {r.nombre_mesa} &middot; {r.pax} pax</p>
                       </div>
                     </button>
                   ))}
@@ -936,19 +936,19 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
             <div className="grid grid-cols-2 gap-2 text-center">
               <div className="bg-stone-50 p-2 rounded-xl border border-stone-100">
                 <span className="text-base font-black text-stone-900">{reservas.filter(r => r.estado === 'confirmada' && !r.lista_espera).length}</span>
-                <p className="text-[9px] text-stone-500 font-bold mt-0.5">Confirmadas</p>
+                <p className="text-[9px] text-stone-700 dark:text-stone-300 font-bold mt-0.5">Confirmadas</p>
               </div>
               <div className="bg-stone-50 p-2 rounded-xl border border-stone-100">
                 <span className="text-base font-black text-stone-900">{listaEsperaGlobal.length}</span>
-                <p className="text-[9px] text-stone-500 font-bold mt-0.5">En espera</p>
+                <p className="text-[9px] text-stone-700 dark:text-stone-300 font-bold mt-0.5">En espera</p>
               </div>
               <div className="bg-stone-50 p-2 rounded-xl border border-stone-100">
                 <span className="text-base font-black text-stone-900">{reservas.filter(r => r.estado === 'sentada' && !r.lista_espera).length}</span>
-                <p className="text-[9px] text-stone-500 font-bold mt-0.5">Sentadas</p>
+                <p className="text-[9px] text-stone-700 dark:text-stone-300 font-bold mt-0.5">Sentadas</p>
               </div>
               <div className="bg-stone-50 p-2 rounded-xl border border-stone-100">
                 <span className="text-base font-black text-stone-900">{reservas.filter(r => r.estado === 'cancelada').length}</span>
-                <p className="text-[9px] text-stone-500 font-bold mt-0.5">Canceladas</p>
+                <p className="text-[9px] text-stone-700 dark:text-stone-300 font-bold mt-0.5">Canceladas</p>
               </div>
             </div>
           </div>

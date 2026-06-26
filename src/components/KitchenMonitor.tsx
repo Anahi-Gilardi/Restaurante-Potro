@@ -62,9 +62,35 @@ export default function KitchenMonitor({
     insumos
   });
 
-  const ordersPendientes = useMemo(() => activeKitchenOrders.filter(p => p.estado_comanda === 'pendiente'), [activeKitchenOrders]);
-  const ordersEnCocina = useMemo(() => activeKitchenOrders.filter(p => p.estado_comanda === 'en_cocina'), [activeKitchenOrders]);
-  const ordersListo = useMemo(() => activeKitchenOrders.filter(p => p.estado_comanda === 'listo'), [activeKitchenOrders]);
+  const ordersPendientes = useMemo(() => {
+    return activeKitchenOrders
+      .filter(p => p.estado_comanda === 'pendiente')
+      .map(p => ({
+        ...p,
+        items: p.items.filter(it => (it.estado ?? 'pendiente') === 'pendiente')
+      }))
+      .filter(p => p.items.length > 0);
+  }, [activeKitchenOrders]);
+
+  const ordersEnCocina = useMemo(() => {
+    return activeKitchenOrders
+      .filter(p => p.estado_comanda === 'en_cocina')
+      .map(p => ({
+        ...p,
+        items: p.items.filter(it => (it.estado ?? 'pendiente') === 'en_cocina')
+      }))
+      .filter(p => p.items.length > 0);
+  }, [activeKitchenOrders]);
+
+  const ordersListo = useMemo(() => {
+    return activeKitchenOrders
+      .filter(p => p.estado_comanda === 'listo')
+      .map(p => ({
+        ...p,
+        items: p.items.filter(it => (it.estado ?? 'pendiente') === 'listo')
+      }))
+      .filter(p => p.items.length > 0);
+  }, [activeKitchenOrders]);
   const renderTicket = (p: Pedido, estado: Pedido['estado_comanda']) => {
     const sem = estado === 'pendiente' || estado === 'en_cocina' ? getSemaforoInfo(p.minutos_transcurridos, p) : null;
     const cold = estado === 'listo' && isColdPlate(p);

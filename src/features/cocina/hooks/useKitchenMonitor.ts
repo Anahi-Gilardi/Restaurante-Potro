@@ -76,7 +76,8 @@ export function useKitchenMonitor({
     activeKitchenOrders.forEach(p => {
       if (p.estado_comanda === 'pendiente' || p.estado_comanda === 'en_cocina') {
         p.items.forEach(item => {
-          if (isKitchenItem(item)) {
+          const itemEstado = item.estado ?? 'pendiente';
+          if (isKitchenItem(item) && (itemEstado === 'pendiente' || itemEstado === 'en_cocina')) {
             if (!totals[item.nombre]) {
               totals[item.nombre] = { cantidad: 0, categoria: item.categoria };
             }
