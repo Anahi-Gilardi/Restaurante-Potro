@@ -35,6 +35,7 @@ import RecetasErrorBoundary from './components/RecetasErrorBoundary';
 import Skeleton from './components/Skeleton';
 import { tryGetActiveSupabaseClient } from './lib/supabaseClient';
 import DiagnosticsTester from './components/DiagnosticsTester';
+import RestaurantCover from './components/RestaurantCover';
 
 
 import type { BackupSnapshotData } from './services/backupsService';
@@ -109,6 +110,7 @@ export default function App() {
   const [isStreamlitLoggedIn, setIsStreamlitLoggedIn] = useState<boolean>(() => (
     typeof window !== 'undefined' && window.sessionStorage.getItem('el_patron_session') === 'active'
   ));
+  const [showCover, setShowCover] = useState<boolean>(true);
   const [permitirVentaSinStock, setPermitirVentaSinStock] = useState<boolean>(false);
   const [usuarios, setUsuarios] = useState<Usuario[]>(INITIAL_USUARIOS);
   const [mesas, setMesas] = useState<Mesa[]>(INITIAL_MESAS);
@@ -1099,6 +1101,14 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     }
     return () => { if (interval) clearInterval(interval); };
   }, [autoTimerRunning]);
+
+  if (showCover) {
+    return (
+      <ErrorBoundary>
+        <RestaurantCover onEnterSystem={() => setShowCover(false)} />
+      </ErrorBoundary>
+    );
+  }
 
   if (!isStreamlitLoggedIn) {
     return (
