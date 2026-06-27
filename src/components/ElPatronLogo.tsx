@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 
-const DEFAULT_LOGO_SRC = '/logo-el-patron.jpeg?v=4';
+const DEFAULT_LOGO_SRC = '/logo-el-patron.jpeg?v=5';
 const LOGO_STORAGE_KEY = 'el_potro_custom_logo';
 const LEGACY_LOGO_STORAGE_KEY = 'el_patron_custom_logo';
 const LOGO_CHANGE_EVENT = 'el_patron_logo_changed';

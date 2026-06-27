@@ -149,9 +149,7 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           {/* Logo Brand */}
           <div className="flex items-center gap-2.5 cursor-pointer">
-            <div className="w-9 h-9 bg-[#624A3E] dark:bg-amber-500 rounded-xl flex items-center justify-center shadow-md">
-              <UtensilsCrossed className="w-5 h-5 text-white dark:text-[#1A110B]" />
-            </div>
+            <img src="/logo-el-patron.jpeg" alt="Logo El Patrón" className="w-9 h-9 object-cover rounded-full shadow-md" />
             <span className="font-extrabold text-xl tracking-widest font-display-serif text-[#4A2D1B] dark:text-amber-500">
               EL PATRÓN
             </span>
@@ -159,21 +157,6 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
 
           {/* Desktop Navigation links */}
           <nav className="hidden md:flex items-center gap-6 text-sm font-semibold text-stone-600 dark:text-stone-300">
-            {/* Toggle Button */}
-            <div className="flex bg-[#FAF7F0] dark:bg-[#1E140E] p-1 rounded-full border border-stone-200 dark:border-stone-850 shadow-xs mr-2">
-              <button
-                onClick={() => setCoverTab('parrilla')}
-                className={`px-3 py-1 rounded-full text-[10px] font-extrabold transition-all uppercase tracking-wider cursor-pointer ${coverTab === 'parrilla' ? 'bg-[#4A2D1B] text-white shadow-xs' : 'text-stone-500 hover:text-[#4A2D1B] dark:hover:text-[#FAF7F0]'}`}
-              >
-                🥩 Parrilla
-              </button>
-              <button
-                onClick={() => setCoverTab('pizzeria')}
-                className={`px-3 py-1 rounded-full text-[10px] font-extrabold transition-all uppercase tracking-wider cursor-pointer ${coverTab === 'pizzeria' ? 'bg-[#9B2226] text-white shadow-xs' : 'text-stone-500 hover:text-[#9B2226] dark:hover:text-[#FAF7F0]'}`}
-              >
-                🍕 Pizzería
-              </button>
-            </div>
             <a href="#especialidades" className={`transition-colors ${coverTab === 'parrilla' ? 'hover:text-[#624A3E]' : 'hover:text-[#9B2226]'}`}>Especialidades</a>
             <a href="#experiencia" className={`transition-colors ${coverTab === 'parrilla' ? 'hover:text-[#624A3E]' : 'hover:text-[#9B2226]'}`}>Bodega</a>
             <a href="#reserva" className={`transition-colors ${coverTab === 'parrilla' ? 'hover:text-[#624A3E]' : 'hover:text-[#9B2226]'}`}>Reservas</a>
@@ -218,21 +201,6 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
             exit={{ opacity: 0, y: -20 }}
             className="md:hidden w-full bg-[#FAF7F0] dark:bg-[#1C140E] border-b border-[#624A3E]/10 px-6 py-4 space-y-3 flex flex-col font-medium"
           >
-            {/* Mobile Toggle inside Drawer */}
-            <div className="flex bg-stone-100 dark:bg-stone-900 p-1 rounded-full border border-stone-200 dark:border-stone-800 shadow-inner w-full max-w-[220px] mx-auto mb-1">
-              <button
-                onClick={() => { setCoverTab('parrilla'); setMobileMenuOpen(false); }}
-                className={`flex-1 py-1.5 rounded-full text-[10px] font-extrabold transition-all uppercase tracking-wider cursor-pointer ${coverTab === 'parrilla' ? 'bg-[#4A2D1B] text-white shadow-sm' : 'text-stone-500'}`}
-              >
-                🥩 Parrilla
-              </button>
-              <button
-                onClick={() => { setCoverTab('pizzeria'); setMobileMenuOpen(false); }}
-                className={`flex-1 py-1.5 rounded-full text-[10px] font-extrabold transition-all uppercase tracking-wider cursor-pointer ${coverTab === 'pizzeria' ? 'bg-[#9B2226] text-white shadow-sm' : 'text-stone-500'}`}
-              >
-                🍕 Pizzería
-              </button>
-            </div>
             <a href="#especialidades" onClick={() => setMobileMenuOpen(false)} className="py-2 text-stone-700 dark:text-stone-300 border-b border-stone-100 dark:border-stone-850">Especialidades</a>
             <a href="#experiencia" onClick={() => setMobileMenuOpen(false)} className="py-2 text-stone-700 dark:text-stone-300 border-b border-stone-100 dark:border-stone-850">Bodega</a>
             <a href="#reserva" onClick={() => setMobileMenuOpen(false)} className="py-2 text-stone-700 dark:text-stone-300 border-b border-stone-100 dark:border-stone-850">Reservas</a>
@@ -564,9 +532,7 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
           {/* Logo & Brand description */}
           <div className="space-y-4">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-amber-500 rounded-lg flex items-center justify-center">
-                <UtensilsCrossed className="w-4 h-4 text-[#1C140E]" />
-              </div>
+              <img src="/logo-el-patron.jpeg" alt="Logo El Patrón" className="w-8 h-8 object-cover rounded-full" />
               <span className="font-extrabold text-lg tracking-widest text-white font-display-serif">EL PATRÓN</span>
             </div>
             <p className="text-xs text-stone-400 leading-relaxed">
