@@ -146,11 +146,11 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
       
       {/* 1. FLOATING HEADER */}
       <header className="sticky top-0 z-50 w-full backdrop-blur-md bg-[#FAF7F0]/80 dark:bg-[#1A110B]/80 border-b border-[#624A3E]/10 dark:border-amber-900/10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 flex items-center justify-between">
           {/* Logo Brand */}
-          <div className="flex items-center gap-2.5 cursor-pointer">
-            <img src="/logo-el-patron.jpeg" alt="Logo El Patrón" className="w-12 h-12 object-cover rounded-full shadow-md" />
-            <span className="font-extrabold text-xl tracking-widest font-display-serif text-[#4A2D1B] dark:text-amber-500">
+          <div className="flex items-center gap-3.5 cursor-pointer">
+            <img src="/logo-el-patron.jpeg" alt="Logo El Patrón" className="w-20 h-20 object-cover rounded-full shadow-lg border border-[#624A3E]/10" />
+            <span className="font-extrabold text-2xl tracking-widest font-display-serif text-[#4A2D1B] dark:text-amber-500">
               EL PATRÓN
             </span>
           </div>
@@ -531,9 +531,9 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
           
           {/* Logo & Brand description */}
           <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <img src="/logo-el-patron.jpeg" alt="Logo El Patrón" className="w-10 h-10 object-cover rounded-full" />
-              <span className="font-extrabold text-lg tracking-widest text-white font-display-serif">EL PATRÓN</span>
+            <div className="flex items-center gap-3.5">
+              <img src="/logo-el-patron.jpeg" alt="Logo El Patrón" className="w-16 h-16 object-cover rounded-full border border-white/10" />
+              <span className="font-extrabold text-xl tracking-widest text-white font-display-serif">EL PATRÓN</span>
             </div>
             <p className="text-xs text-stone-400 leading-relaxed">
               Gastronomía familiar, cocina de hogar, carnes seleccionadas, pastas caseras con recetas originales de la abuela y amplia selección de bodega.
