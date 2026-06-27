@@ -115,7 +115,7 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
     });
   };
 
-  const [coverTab, setCoverTab] = useState<'parrilla' | 'pizzeria'>('pizzeria');
+  const [coverTab, setCoverTab] = useState<'parrilla' | 'pizzeria'>('parrilla');
 
   const specialtiesParrilla = [
     {
