@@ -19,8 +19,8 @@ test('resuelve credenciales Supabase desde variables de entorno primero', () => 
         VITE_SUPABASE_ANON_KEY: 'env-key',
       },
       {
-        SUPABASE_URL: 'https://local.supabase.co',
-        SUPABASE_ANON_KEY: 'local-key',
+        el_patron_supabase_url: 'https://local.supabase.co',
+        el_patron_supabase_anon_key: 'local-key',
       },
     ),
     { url: 'https://env.supabase.co', key: 'env-key' },
@@ -30,16 +30,16 @@ test('resuelve credenciales Supabase desde variables de entorno primero', () => 
 test('acepta publishable key y usa configuracion local como fallback', () => {
   assert.deepEqual(
     resolveSupabaseConfig({ VITE_SUPABASE_PUBLISHABLE_KEY: 'publishable-key' }, {
-      SUPABASE_URL: 'https://local.supabase.co',
-      SUPABASE_ANON_KEY: 'local-key',
+      el_patron_supabase_url: 'https://local.supabase.co',
+      el_patron_supabase_anon_key: 'local-key',
     }),
     { url: 'https://local.supabase.co', key: 'publishable-key' },
   );
 
   assert.deepEqual(
     resolveSupabaseConfig({}, {
-      SUPABASE_URL: 'https://local.supabase.co',
-      SUPABASE_ANON_KEY: 'local-key',
+      el_patron_supabase_url: 'https://local.supabase.co',
+      el_patron_supabase_anon_key: 'local-key',
     }),
     { url: 'https://local.supabase.co', key: 'local-key' },
   );

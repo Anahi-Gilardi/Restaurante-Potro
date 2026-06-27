@@ -16,7 +16,11 @@ import {
   Wine, 
   DollarSign, 
   Receipt,
-  UserCheck
+  UserCheck,
+  Mic,
+  MicOff,
+  Volume2,
+  X
 } from 'lucide-react';
 import { Mesa, Insumo, ProductoMenu, RecetaEscandallo, Pedido, PedidoItem } from '../types';
 
@@ -256,6 +260,87 @@ export default function MozoTerminal({
   // Current order cart
   const [cart, setCart] = useState<{ [id_producto: string]: number }>({});
   const [observaciones, setObservaciones] = useState('');
+
+  // Voice Command States
+  const [isListening, setIsListening] = useState(false);
+  const [voiceResult, setVoiceResult] = useState<VoiceCommandResult | null>(null);
+  const [voiceText, setVoiceText] = useState('');
+  const recognitionRef = React.useRef<any>(null);
+
+  const startListening = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert('Tu navegador no soporta control por voz. Probá con Google Chrome.');
+      return;
+    }
+
+    try {
+      const rec = new SpeechRecognition();
+      rec.lang = 'es-AR';
+      rec.interimResults = false;
+      rec.maxAlternatives = 1;
+
+      rec.onstart = () => {
+        setIsListening(true);
+      };
+
+      rec.onresult = (e: any) => {
+        const transcript = e.results[0][0].transcript;
+        setVoiceText(transcript);
+        const parsed = parseVoiceCommand(transcript, productosMenu);
+        setVoiceResult(parsed);
+      };
+
+      rec.onerror = (e: any) => {
+        console.error('Speech recognition error:', e);
+        alert('No se pudo escuchar con claridad. Por favor reintentá.');
+        setIsListening(false);
+      };
+
+      rec.onend = () => {
+        setIsListening(false);
+      };
+
+      recognitionRef.current = rec;
+      rec.start();
+    } catch (err) {
+      console.error(err);
+      setIsListening(false);
+    }
+  };
+
+  const stopListening = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+    }
+    setIsListening(false);
+  };
+
+  const handleConfirmVoiceCommand = () => {
+    if (!voiceResult) return;
+
+    // 1. If mesa is detected, set it as selected
+    if (voiceResult.mesa !== null) {
+      const targetMesa = mesas.find(m => parseInt(m.numero_mesa, 10) === voiceResult.mesa);
+      if (targetMesa) {
+        setSelectedMesaId(targetMesa.id_mesa);
+      } else {
+        alert(`La Mesa ${voiceResult.mesa} no existe o no está activa.`);
+      }
+    }
+
+    // 2. Add items to cart
+    setCart(prev => {
+      const next = { ...prev };
+      voiceResult.items.forEach(item => {
+        const prodId = item.product.id_producto;
+        next[prodId] = (next[prodId] || 0) + item.quantity;
+      });
+      return next;
+    });
+
+    setVoiceResult(null);
+  };
 
   // Bill splitting state
   const [splittingPedidoId, setSplittingPedidoId] = useState<number | null>(null);
@@ -651,17 +736,32 @@ export default function MozoTerminal({
       {/* CENTRAL COLUMN: Product Catalog */}
       <div className="lg:col-span-5 space-y-4">
         <div className="glass-panel rounded-3xl p-5 shadow-sm space-y-3.5">
-          <div className="flex flex-col md:flex-row gap-3 justify-between items-center">
+          <div className="flex flex-col md:flex-row gap-3 justify-between items-center w-full">
             <h3 className="font-extrabold text-xs text-[#4A2D1B] dark:text-[#C8956A] tracking-wider uppercase">Filtro de Categorías Premium</h3>
-            <div className="relative w-full md:w-56">
-              <Search className="w-4 h-4 text-[#C8956A] absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Buscar plato o bebida..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 bg-[#4A2D1B]/5 dark:bg-[#1E140E]/50 border border-stone-200/80 dark:border-[#C8956A]/20 rounded-xl text-xs text-stone-750 dark:text-stone-200 placeholder-stone-450 focus:outline-none focus:ring-1 focus:ring-[#C8956A] focus:border-[#C8956A] transition-all"
-              />
+            <div className="relative w-full md:w-56 flex gap-2">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 text-[#C8956A] absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Buscar plato o bebida..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-3 py-1.5 bg-[#4A2D1B]/5 dark:bg-[#1E140E]/50 border border-stone-200/80 dark:border-[#C8956A]/20 rounded-xl text-xs text-stone-750 dark:text-stone-200 placeholder-stone-450 focus:outline-none focus:ring-1 focus:ring-[#C8956A] focus:border-[#C8956A] transition-all"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={isListening ? stopListening : startListening}
+                className={`px-3 rounded-xl border flex items-center justify-center transition-all cursor-pointer shadow-sm ${
+                  isListening 
+                    ? 'bg-rose-600 text-white border-rose-600 animate-pulse' 
+                    : 'bg-stone-50 dark:bg-white/5 text-stone-500 border-stone-200 dark:border-white/10 hover:bg-stone-100 dark:hover:bg-white/10 hover:text-stone-700'
+                }`}
+                style={{ minHeight: '34px' }}
+                title={isListening ? "Detener dictado por voz" : "Dictar comanda por voz"}
+              >
+                {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+              </button>
             </div>
           </div>
 
@@ -1151,6 +1251,237 @@ export default function MozoTerminal({
           </div>
         </div>
       )}
+
+      {/* Voice Command Confirmation Modal */}
+      {voiceResult && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl border border-stone-105">
+            <div className="bg-[#624A3E] text-white p-5 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
+                <Volume2 className="w-5 h-5 text-amber-300 animate-bounce" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-sm tracking-wider uppercase">Confirmar Comanda por Voz</h3>
+                <p className="text-[10px] text-amber-200 font-medium">Revisá y confirmá los detalles interpretados</p>
+              </div>
+              <button 
+                onClick={() => setVoiceResult(null)}
+                className="ml-auto w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center cursor-pointer transition-colors"
+              >
+                <X className="w-4.5 h-4.5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
+              {/* Transcribed Text */}
+              <div className="bg-stone-50 p-3.5 rounded-2xl border border-stone-100">
+                <span className="text-[9px] uppercase font-bold text-stone-400 tracking-wider block mb-1">Texto Dictado</span>
+                <p className="text-xs text-stone-650 italic">"{voiceText}"</p>
+              </div>
+
+              {/* Detected Mesa */}
+              <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+                <span className="text-xs font-bold text-stone-500">Mesa Detectada:</span>
+                <span className="bg-stone-100 border border-stone-200 text-stone-700 font-extrabold text-xs px-3 py-1 rounded-xl">
+                  {voiceResult.mesa !== null ? `Mesa ${voiceResult.mesa}` : selectedMesaId !== null ? `Mesa Actual (${mesas.find(m => m.id_mesa === selectedMesaId)?.numero_mesa})` : 'Ninguna (Se aplicará a mesa seleccionada)'}
+                </span>
+              </div>
+
+              {/* Detected Items */}
+              <div>
+                <span className="text-[9px] uppercase font-bold text-stone-400 tracking-wider block mb-2">Platos Interpretados</span>
+                {voiceResult.items.length === 0 ? (
+                  <div className="text-center py-4 text-xs text-stone-400 italic">No se detectaron platos válidos en el dictado.</div>
+                ) : (
+                  <div className="space-y-2">
+                    {voiceResult.items.map((item, idx) => (
+                      <div key={idx} className="flex items-center justify-between bg-stone-50 border border-stone-205 p-3 rounded-2xl">
+                        <div className="min-w-0 pr-2 col-span-1">
+                          <span className="text-xs font-bold text-stone-750 block truncate">{item.product.nombre}</span>
+                          <span className="text-[10px] text-stone-450 block">${item.product.precio_venta} c/u</span>
+                        </div>
+                        <div className="flex items-center gap-2.5 shrink-0">
+                          <button
+                            onClick={() => {
+                              setVoiceResult(prev => {
+                                if (!prev) return null;
+                                const updatedItems = [...prev.items];
+                                if (updatedItems[idx].quantity > 1) {
+                                  updatedItems[idx].quantity -= 1;
+                                } else {
+                                  updatedItems.splice(idx, 1);
+                                }
+                                return { ...prev, items: updatedItems };
+                              });
+                            }}
+                            className="w-7 h-7 rounded-lg border border-stone-200 bg-white hover:bg-stone-50 flex items-center justify-center text-stone-550 cursor-pointer"
+                          >
+                            <Minus className="w-3.5 h-3.5" />
+                          </button>
+                          <span className="text-xs font-black text-stone-850 w-5 text-center">{item.quantity}</span>
+                          <button
+                            onClick={() => {
+                              setVoiceResult(prev => {
+                                if (!prev) return null;
+                                const updatedItems = [...prev.items];
+                                updatedItems[idx].quantity += 1;
+                                return { ...prev, items: updatedItems };
+                              });
+                            }}
+                            className="w-7 h-7 rounded-lg border border-stone-200 bg-white hover:bg-stone-50 flex items-center justify-center text-stone-550 cursor-pointer"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Unrecognized items alert */}
+              {voiceResult.unrecognized.length > 0 && (
+                <div className="bg-amber-500/10 border border-amber-500/20 text-amber-700 p-3 rounded-2xl flex items-start gap-2.5">
+                  <AlertTriangle className="w-4 h-4 shrink-0 text-amber-500 mt-0.5" />
+                  <div className="text-[10px] leading-relaxed">
+                    <span className="font-bold block mb-0.5">Texto no reconocido:</span>
+                    <p className="italic">"{voiceResult.unrecognized.join(', ')}"</p>
+                    <p className="mt-1 text-stone-400">Verificá si el nombre del plato coincide exactamente con la carta.</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 border-t border-stone-100 bg-stone-50 flex gap-2.5 justify-end">
+              <button
+                onClick={() => setVoiceResult(null)}
+                className="px-4 py-2 bg-stone-200 text-stone-650 rounded-xl text-xs font-extrabold hover:bg-stone-300 cursor-pointer transition-colors"
+              >
+                Descartar
+              </button>
+              <button
+                onClick={handleConfirmVoiceCommand}
+                disabled={voiceResult.items.length === 0}
+                className="px-5 py-2 bg-emerald-600 text-white rounded-xl text-xs font-black hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-sm flex items-center gap-1.5"
+              >
+                <CheckCircle className="w-3.5 h-3.5" />
+                Confirmar y Cargar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
+export interface VoiceCommandResult {
+  mesa: number | null;
+  items: { product: ProductoMenu; quantity: number }[];
+  unrecognized: string[];
+}
+
+export const parseVoiceCommand = (text: string, productosMenu: ProductoMenu[]): VoiceCommandResult => {
+  const lower = text.toLowerCase();
+  
+  // 1. Detect table number
+  let mesa: number | null = null;
+  const mesaMatch = lower.match(/\b(?:mesa|tabla)\s*(\d{1,2})\b/) || lower.match(/\b(?:mesa|tabla)\s*(uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\b/);
+  if (mesaMatch) {
+    const rawVal = mesaMatch[1] || mesaMatch[2] || '';
+    if (/^\d+$/.test(rawVal)) {
+      mesa = parseInt(rawVal, 10);
+    } else {
+      const wordsMap: Record<string, number> = {
+        uno: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10
+      };
+      mesa = wordsMap[rawVal] || null;
+    }
+  }
+
+  // 2. Numbers maps
+  const numbersWordMap: Record<string, number> = {
+    un: 1, uno: 1, una: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10
+  };
+
+  // Split sentence by connector words like "y", "," or "con"
+  const segments = lower.split(/\b(?:y|,|con)\b/);
+  const items: { product: ProductoMenu; quantity: number }[] = [];
+  const unrecognized: string[] = [];
+
+  segments.forEach(segment => {
+    const cleanSegment = segment.trim();
+    if (!cleanSegment || cleanSegment.startsWith('mesa') || cleanSegment.startsWith('tabla')) return;
+
+    // Try to extract quantity at the beginning
+    let qty = 1;
+    const qtyMatch = cleanSegment.match(/^(\d+)\s*(.*)$/) || cleanSegment.match(/^([a-z]+)\s*(.*)$/);
+    let potentialProductName = cleanSegment;
+
+    if (qtyMatch) {
+      const potentialQty = qtyMatch[1];
+      const rest = qtyMatch[2];
+      if (/^\d+$/.test(potentialQty)) {
+        qty = parseInt(potentialQty, 10);
+        potentialProductName = rest;
+      } else if (numbersWordMap[potentialQty]) {
+        qty = numbersWordMap[potentialQty];
+        potentialProductName = rest;
+      }
+    }
+
+    // Clean potential product name (remove plural "s" at the end, etc.)
+    const cleanProdName = potentialProductName.trim().replace(/s$/, '').replace(/s\b/g, '');
+
+    if (!cleanProdName) return;
+
+    // Search for best matching product
+    let bestProduct: ProductoMenu | null = null;
+    let maxMatchScore = 0;
+
+    const segmentTokens = cleanProdName.split(/\s+/).filter(t => t.length > 2);
+
+    productosMenu.forEach(p => {
+      const pNameLower = p.nombre.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const cleanSegLower = cleanProdName.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      
+      // Direct exact or substring match is highest priority
+      if (pNameLower === cleanSegLower) {
+        bestProduct = p;
+        maxMatchScore = 100;
+        return;
+      }
+      
+      if (pNameLower.includes(cleanSegLower) || cleanSegLower.includes(pNameLower)) {
+        bestProduct = p;
+        maxMatchScore = 90;
+        return;
+      }
+
+      // Token count matching
+      const pTokens = pNameLower.split(/\s+/).filter(t => t.length > 2);
+      let matchCount = 0;
+      segmentTokens.forEach(t => {
+        if (pNameLower.includes(t)) {
+          matchCount++;
+        }
+      });
+
+      if (pTokens.length > 0 && matchCount > 0) {
+        const score = (matchCount / pTokens.length) * 80;
+        if (score > maxMatchScore) {
+          maxMatchScore = score;
+          bestProduct = p;
+        }
+      }
+    });
+
+    if (bestProduct && maxMatchScore >= 40) {
+      items.push({ product: bestProduct, quantity: qty });
+    } else {
+      unrecognized.push(cleanSegment);
+    }
+  });
+
+  return { mesa, items, unrecognized };
+};

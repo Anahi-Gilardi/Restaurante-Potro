@@ -206,8 +206,8 @@ export default function SupabaseManager({
 
     try {
       // Temporarily store in local storage to initialize correct client instance
-      localStorage.setItem('SUPABASE_URL', testUrl);
-      localStorage.setItem('SUPABASE_ANON_KEY', testKey);
+      localStorage.setItem('el_patron_supabase_url', testUrl);
+      localStorage.setItem('el_patron_supabase_anon_key', testKey);
       resetSupabaseInstance();
 
       const client = getSupabaseClient();
@@ -246,8 +246,8 @@ export default function SupabaseManager({
   };
 
   const handleClearConfig = () => {
-    localStorage.removeItem('SUPABASE_URL');
-    localStorage.removeItem('SUPABASE_ANON_KEY');
+    localStorage.removeItem('el_patron_supabase_url');
+    localStorage.removeItem('el_patron_supabase_anon_key');
     setUrl('');
     setAnonKey('');
     resetSupabaseInstance();
