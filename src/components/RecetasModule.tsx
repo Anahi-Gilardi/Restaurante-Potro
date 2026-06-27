@@ -16,9 +16,9 @@ import {
 } from '../lib/recetas';
 
 const marginToneClass = {
-  high: 'text-emerald-600',
-  medium: 'text-amber-600',
-  low: 'text-red-500',
+  high: 'text-emerald-600 dark:text-emerald-400',
+  medium: 'text-amber-600 dark:text-amber-400',
+  low: 'text-red-500 dark:text-red-400',
 } as const;
 
 function parseMinutesFromText(text: string): number | null {
@@ -98,8 +98,8 @@ function StepTimer({ text }: { text: string }) {
   };
 
   return (
-    <div className="mt-1.5 flex items-center gap-2 bg-stone-150/40 p-1.5 rounded-lg border border-stone-200 w-fit shrink-0">
-      <span className="text-[10px] font-bold text-stone-600 flex items-center gap-1 font-mono">
+    <div className="mt-1.5 flex items-center gap-2 bg-stone-150/40 dark:bg-stone-900/40 p-1.5 rounded-lg border border-stone-200 dark:border-stone-800 w-fit shrink-0">
+      <span className="text-[10px] font-bold text-stone-600 dark:text-stone-300 flex items-center gap-1 font-mono">
         ⏱️ {timeLeft !== null ? formatTime(timeLeft) : `${minutes} min`}
       </span>
       <div className="flex gap-1">
@@ -457,7 +457,7 @@ export default function RecetasModule({
               
                 {/* ── Selector de producto ── */}
                       <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs space-y-3">
-                                <h3 className="text-xs font-black text-stone-500 uppercase tracking-wider">Recetarios Habilitados</h3>
+                                <h3 className="text-xs font-black text-stone-500 dark:text-stone-300 uppercase tracking-wider">Recetarios Habilitados</h3>
                                 <div className="relative mb-2">
                                             <Search className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                                             <input
@@ -465,7 +465,7 @@ export default function RecetasModule({
                                                             value={searchProduct}
                                                             onChange={e => setSearchProduct(e.target.value)}
                                                             placeholder="Buscar producto..."
-                                                            className="w-full pl-8 pr-2 py-1.5 text-xs border border-stone-200 rounded-lg bg-stone-50 focus:outline-none focus:ring-1 focus:ring-[#624A3E]"
+                                                            className="w-full pl-8 pr-2 py-1.5 text-xs border border-stone-200 dark:border-stone-750 rounded-lg bg-stone-50 dark:bg-stone-900 text-stone-700 dark:text-stone-200 focus:outline-none focus:ring-1 focus:ring-[#624A3E]"
                                                             aria-label="Buscar producto en recetario"
                                                           />
                                 </div>
@@ -480,7 +480,7 @@ export default function RecetasModule({
                                                               className={`w-full p-3 rounded-xl border text-left transition-all flex items-center justify-between cursor-pointer ${
                                                                                     isSelected
                                                                                       ? 'bg-[#624A3E] text-white border-[#5d3a2e] shadow-sm'
-                                                                                      : 'bg-stone-50 hover:bg-[#F5F1E9]/50 text-stone-700 border-stone-200'
+                                                                                      : 'bg-stone-50 hover:bg-[#F5F1E9]/50 dark:bg-stone-900/40 dark:hover:bg-stone-800/40 text-stone-700 dark:text-stone-300 border-stone-200 dark:border-stone-800'
                                                               }`}
                                                               aria-pressed={isSelected}
                                                             >
@@ -495,7 +495,7 @@ export default function RecetasModule({
                                                                                 <span className="text-xs font-semibold truncate">{p.nombre}</span>
                                                             </div>
                                                             <span className={`text-[10px] font-black shrink-0 ml-2 px-1.5 py-0.5 rounded-full ${
-                                                                                  isSelected ? 'bg-white/20 text-white' : 'bg-stone-200 text-stone-600'
+                                                                                  isSelected ? 'bg-white/20 text-white' : 'bg-stone-200 dark:bg-stone-800 text-stone-600 dark:text-stone-300'
                                                             }`}>
                                                               {count}
                                                             </span>
@@ -536,8 +536,8 @@ export default function RecetasModule({
                                       )}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                                    <h2 className="font-black text-stone-900 text-base">{selectedProduct.nombre}</h2>
-                                                    <p className="text-xs text-stone-500 mb-1">{selectedProduct.categoria}</p>
+                                                    <h2 className="font-black text-stone-900 dark:text-white text-base">{selectedProduct.nombre}</h2>
+                                                    <p className="text-xs text-stone-500 dark:text-stone-300 mb-1">{selectedProduct.categoria}</p>
                                                     {pendingImage && (
                                                       <div className="flex gap-1.5 mt-1">
                                                         <button
@@ -558,12 +558,12 @@ export default function RecetasModule({
                                                     )}
                                     </div>
                                     <div className="text-right shrink-0 space-y-0.5">
-                                                    <div className="text-xs text-stone-400">Precio venta</div>
-                                                    <div className="font-black text-stone-900 font-mono text-sm">
+                                                    <div className="text-xs text-stone-400 dark:text-stone-300">Precio venta</div>
+                                                    <div className="font-black text-stone-900 dark:text-white font-mono text-sm">
                                                                       ${selectedProduct.precio_venta.toLocaleString('es-AR')}
                                                     </div>
-                                                    <div className="text-xs text-stone-400">Costo estimado</div>
-                                                    <div className={`font-black font-mono text-sm ${calculatedCost > 0 ? 'text-amber-700' : 'text-stone-400'}`}>
+                                                    <div className="text-xs text-stone-400 dark:text-stone-300">Costo estimado</div>
+                                                    <div className={`font-black font-mono text-sm ${calculatedCost > 0 ? 'text-[#c68a4c] dark:text-[#e2a86b]' : 'text-stone-400 dark:text-stone-500'}`}>
                                                                       ${calculatedCost.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                     </div>
                                       {marginPct !== null && marginLevel !== null && (
@@ -577,8 +577,8 @@ export default function RecetasModule({
                       
                         {/* Lista de ingredientes */}
                                 <div className="bg-white rounded-2xl border border-stone-200 shadow-xs overflow-hidden">
-                                            <div className="px-5 py-3 border-b border-stone-100 flex items-center justify-between">
-                                                          <h3 className="text-xs font-black text-stone-600 uppercase tracking-wider flex items-center gap-2">
+                                            <div className="px-5 py-3 border-b border-stone-100 dark:border-stone-800 flex items-center justify-between">
+                                                          <h3 className="text-xs font-black text-stone-600 dark:text-stone-300 uppercase tracking-wider flex items-center gap-2">
                                                                           <Scale className="w-3.5 h-3.5" /> Ingredientes ({currentRecipeItems.length})
                                                           </h3>
                                             </div>
@@ -589,7 +589,7 @@ export default function RecetasModule({
                                         <p className="text-xs">Sin ingredientes. Agregá el primero abajo.</p>
                         </div>
                       ) : (
-                        <div className="divide-y divide-stone-50">
+                        <div className="divide-y divide-stone-50 dark:divide-stone-800">
                           {currentRecipeItems.map(rec => {
                                             const ins        = insumos.find(i => i.id_insumo === rec.id_insumo);
                                             const stockOk    = ins ? ins.stock_actual >= rec.cantidad_a_descontar : false;
@@ -597,15 +597,15 @@ export default function RecetasModule({
                                             const isBusy     = !!pendingAction;
                           
                                             return (
-                                                                  <div key={rec.id_receta} className="px-5 py-3 flex items-center gap-3 hover:bg-stone-50/50 transition-colors">
+                                                                  <div key={rec.id_receta} className="px-5 py-3 flex items-center gap-3 hover:bg-stone-50/50 dark:hover:bg-stone-800/20 transition-colors">
                                                                     {/* Indicador de stock */}
                                                                                         <div className={`w-2 h-2 rounded-full shrink-0 ${ins ? (stockOk ? 'bg-emerald-500' : 'bg-red-400') : 'bg-stone-300'}`}
                                                                                                                      title={ins ? (stockOk ? 'Stock OK' : 'Stock insuficiente') : 'Insumo no encontrado'} />
                                                                   
                                                                                         <div className="flex-1 min-w-0">
-                                                                                                                <p className="text-sm font-semibold text-stone-800 truncate">{ins?.nombre ?? rec.id_insumo}</p>
+                                                                                                                <p className="text-sm font-semibold text-stone-800 dark:text-white truncate">{ins?.nombre ?? rec.id_insumo}</p>
                                                                                           {ins && (
-                                                                                              <p className="text-[11px] text-stone-400">
+                                                                                              <p className="text-[11px] text-stone-400 dark:text-stone-300">
                                                                                                                           Stock: {ins.stock_actual} {ins.unidad_medida}
                                                                                                 {ins.costo_unitario ? ` · $${ins.costo_unitario}/u` : ''}
                                                                                                 </p>
@@ -627,14 +627,14 @@ export default function RecetasModule({
                                                                                                                                                                                       if (e.key === 'Escape') setEditCantidadId(null);
                                                                                                                                                         }}
                                                                                                                                                       autoFocus
-                                                                                                                                                      className="w-16 px-1.5 py-1 text-xs border border-[#624A3E]/30 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#624A3E]"
+                                                                                                                                                      className="w-16 px-1.5 py-1 text-xs border border-[#624A3E]/30 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#624A3E] bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-100"
                                                                                                                                                       aria-label={`Editar cantidad de ${ins?.nombre ?? rec.id_insumo}`}
                                                                                                                                                     />
-                                                                                                                        <span className="text-[9px] text-stone-500">{ins?.unidad_medida}</span>
+                                                                                                                        <span className="text-[9px] text-stone-500 dark:text-stone-400">{ins?.unidad_medida}</span>
                                                                                                                       </div>
 
                                                                                                                       <div className="flex items-center gap-0.5">
-                                                                                                                        <span className="text-[9px] text-stone-400">Rend:</span>
+                                                                                                                        <span className="text-[9px] text-stone-400 dark:text-stone-500">Rend:</span>
                                                                                                                         <input
                                                                                                                                                       type="number"
                                                                                                                                                       min="1"
@@ -645,10 +645,10 @@ export default function RecetasModule({
                                                                                                                                                                                       if (e.key === 'Enter') handleSaveEditCantidad(rec);
                                                                                                                                                                                       if (e.key === 'Escape') setEditCantidadId(null);
                                                                                                                                                         }}
-                                                                                                                                                      className="w-12 px-1.5 py-1 text-xs border border-[#624A3E]/30 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#624A3E] font-mono text-center"
+                                                                                                                                                      className="w-12 px-1.5 py-1 text-xs border border-[#624A3E]/30 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#624A3E] font-mono text-center bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-100"
                                                                                                                                                       placeholder="100"
                                                                                                                                                     />
-                                                                                                                        <span className="text-[9px] text-stone-550">%</span>
+                                                                                                                        <span className="text-[9px] text-stone-550 dark:text-stone-400">%</span>
                                                                                                                       </div>
 
                                                                                                                       <button
@@ -669,10 +669,10 @@ export default function RecetasModule({
                                                                                             </div>
                                                                                           ) : (
                                                                                             <div className="flex items-center gap-2 shrink-0">
-                                                                                                                      <span className="text-sm font-mono font-bold text-stone-700">
+                                                                                                                      <span className="text-sm font-mono font-bold text-stone-700 dark:text-stone-200">
                                                                                                                         {rec.cantidad_a_descontar} {ins?.unidad_medida ?? rec.unidad_medida ?? ''}
                                                                                                                       </span>
-                                                                                                                      <span className="text-[10px] font-mono text-stone-500 bg-stone-100 rounded px-1.5 py-0.5" title="Rendimiento culinario de la materia prima">
+                                                                                                                      <span className="text-[10px] font-mono text-stone-500 dark:text-stone-300 bg-stone-100 dark:bg-stone-800 rounded px-1.5 py-0.5" title="Rendimiento culinario de la materia prima">
                                                                                                                         Rend: {rec.rendimiento ?? 100}%
                                                                                                                       </span>
                                                                                                                       <button
@@ -704,16 +704,16 @@ export default function RecetasModule({
                       
                         {/* Formulario agregar ingrediente */}
                                 <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs">
-                                            <h4 className="text-xs font-black text-stone-600 uppercase tracking-wider mb-3 flex items-center gap-2">
+                                            <h4 className="text-xs font-black text-stone-600 dark:text-stone-300 uppercase tracking-wider mb-3 flex items-center gap-2">
                                                           <Plus className="w-3.5 h-3.5" /> Agregar ingrediente
                                             </h4>
                                             <form onSubmit={handleAddIngredient} className="flex flex-wrap gap-2 items-end">
                                                           <div className="flex-1 min-w-[160px]">
-                                                                          <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Insumo</label>
+                                                                          <label className="text-[10px] font-black text-stone-500 dark:text-stone-300 uppercase block mb-1">Insumo</label>
                                                                           <select
                                                                                               value={selectedInsumoId}
                                                                                               onChange={e => setSelectedInsumoId(e.target.value)}
-                                                                                              className="w-full border border-stone-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#624A3E]/30 cursor-pointer"
+                                                                                              className="w-full border border-stone-200 dark:border-stone-750 rounded-xl px-3 py-2 text-sm bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-[#624A3E]/30 cursor-pointer"
                                                                                               aria-label="Seleccionar insumo"
                                                                                             >
                                                                                             <option value="">Seleccionar insumo…</option>
@@ -725,7 +725,7 @@ export default function RecetasModule({
                                                                           </select>
                                                           </div>
                                                           <div>
-                                                                          <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Cantidad</label>
+                                                                          <label className="text-[10px] font-black text-stone-500 dark:text-stone-300 uppercase block mb-1">Cantidad</label>
                                                                           <input
                                                                                               type="number"
                                                                                               min="0.01"
@@ -733,12 +733,12 @@ export default function RecetasModule({
                                                                                               value={cantidadUsar}
                                                                                               onChange={e => setCantidadUsar(e.target.value)}
                                                                                               placeholder="0"
-                                                                                              className="w-24 border border-stone-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#624A3E]/30"
+                                                                                              className="w-24 border border-stone-200 dark:border-stone-750 rounded-xl px-3 py-2 text-sm bg-white dark:bg-stone-900 text-stone-850 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-[#624A3E]/30"
                                                                                               aria-label="Cantidad del insumo"
                                                                                             />
                                                           </div>
                                                           <div>
-                                                                          <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Rend. %</label>
+                                                                          <label className="text-[10px] font-black text-stone-500 dark:text-stone-300 uppercase block mb-1">Rend. %</label>
                                                                           <input
                                                                                               type="number"
                                                                                               min="1"
@@ -746,7 +746,7 @@ export default function RecetasModule({
                                                                                               value={rendimientoUsar}
                                                                                               onChange={e => setRendimientoUsar(e.target.value)}
                                                                                               placeholder="100"
-                                                                                              className="w-20 border border-stone-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#624A3E]/30"
+                                                                                              className="w-20 border border-stone-200 dark:border-stone-750 rounded-xl px-3 py-2 text-sm bg-white dark:bg-stone-900 text-stone-850 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-[#624A3E]/30"
                                                                                               aria-label="Rendimiento del insumo"
                                                                                             />
                                                           </div>
@@ -764,18 +764,18 @@ export default function RecetasModule({
                                 {/* SIMULADOR DE MARGEN Y PRECIO SUGERIDO */}
                                 {selectedProduct && calculatedCost > 0 && (
                                   <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs space-y-3.5">
-                                    <h3 className="text-xs font-black text-[#624A3E] uppercase tracking-wider flex items-center gap-2 border-b border-stone-100 pb-2">
+                                    <h3 className="text-xs font-black text-[#624A3E] dark:text-stone-100 uppercase tracking-wider flex items-center gap-2 border-b border-stone-100 dark:border-stone-800 pb-2">
                                       📊 Simulador de Precios e Ingeniería de Menú
                                     </h3>
                                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                       <div>
-                                        <span className="text-[10px] font-bold text-stone-550 block mb-1 uppercase">Costo Receta Neto</span>
-                                        <span className="text-base font-black text-stone-900 font-mono">
+                                        <span className="text-[10px] font-bold text-stone-550 dark:text-stone-300 block mb-1 uppercase">Costo Receta Neto</span>
+                                        <span className="text-base font-black text-stone-900 dark:text-stone-100 font-mono">
                                           ${calculatedCost.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                                         </span>
                                       </div>
                                       <div>
-                                        <label className="text-[10px] font-bold text-stone-550 block mb-1 uppercase">Margen Objetivo %</label>
+                                        <label className="text-[10px] font-bold text-stone-550 dark:text-stone-300 block mb-1 uppercase">Margen Objetivo %</label>
                                         <div className="flex items-center gap-1.5">
                                           <input
                                             type="number"
@@ -783,14 +783,14 @@ export default function RecetasModule({
                                             max="95"
                                             value={targetMarginInput}
                                             onChange={e => setTargetMarginInput(e.target.value)}
-                                            className="w-16 px-2.5 py-1.5 text-xs font-bold border border-stone-200 rounded-lg bg-stone-50 text-stone-700 font-mono"
+                                            className="w-16 px-2.5 py-1.5 text-xs font-bold border border-stone-200 dark:border-stone-750 rounded-lg bg-stone-50 dark:bg-stone-900 text-stone-700 dark:text-stone-200 font-mono"
                                           />
-                                          <span className="text-xs text-stone-550 font-bold">%</span>
+                                          <span className="text-xs text-stone-550 dark:text-stone-300 font-bold">%</span>
                                         </div>
                                       </div>
                                       <div>
-                                        <span className="text-[10px] font-bold text-stone-550 block mb-1 uppercase">Precio Sugerido Venta</span>
-                                        <span className="text-base font-black text-emerald-750 font-mono">
+                                        <span className="text-[10px] font-bold text-stone-550 dark:text-stone-300 block mb-1 uppercase">Precio Sugerido Venta</span>
+                                        <span className="text-base font-black text-emerald-750 dark:text-emerald-400 font-mono">
                                           ${suggestedPrice.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                                         </span>
                                       </div>
@@ -799,34 +799,29 @@ export default function RecetasModule({
                                       onClick={handleApplySuggestedPrice}
                                       className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[10px] font-black uppercase transition-all cursor-pointer shadow-sm flex items-center justify-center gap-1.5"
                                     >
-                                      Aplicar Precio Sugerido al Menú
+                                      Aplicar Precio
                                     </button>
-                                  </div>
-                                )}
-
-                                {/* CALCULADORA DE PRODUCCIÓN / ABASTECIMIENTO */}
-                                {selectedProduct && currentRecipeItems.length > 0 && (
-                                  <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs space-y-4">
-                                    <h3 className="text-xs font-black text-[#624A3E] uppercase tracking-wider flex items-center gap-2 border-b border-stone-100 pb-2">
+                                    
+                                    <h3 className="text-xs font-black text-[#624A3E] dark:text-stone-100 uppercase tracking-wider flex items-center gap-2 border-b border-stone-100 dark:border-stone-800 pb-2">
                                       🍳 Calculadora de Abastecimiento de Producción
                                     </h3>
-                                    <div className="flex items-center gap-3 bg-stone-50 p-3 rounded-xl border border-stone-200/50">
+                                    <div className="flex items-center gap-3 bg-stone-50 dark:bg-stone-900/30 p-3 rounded-xl border border-stone-200/50 dark:border-stone-800/85">
                                       <div className="flex-1">
-                                        <label className="text-[10px] font-black text-stone-550 block mb-1 uppercase">Cantidad de Porciones a Preparar</label>
+                                        <label className="text-[10px] font-black text-stone-550 dark:text-stone-300 block mb-1 uppercase">Cantidad de Porciones a Preparar</label>
                                         <input
                                           type="number"
                                           min="1"
                                           value={portionsInput}
                                           onChange={e => setPortionsInput(e.target.value)}
-                                          className="w-full px-3 py-2 text-xs font-bold border border-stone-200 rounded-lg bg-white text-stone-700"
+                                          className="w-full px-3 py-2 text-xs font-bold border border-stone-200 dark:border-stone-750 rounded-lg bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-200"
                                           placeholder="Ej: 50"
                                         />
                                       </div>
                                     </div>
                                     
                                     <div className="space-y-2">
-                                      <span className="text-[10px] font-bold text-stone-500 uppercase block">Necesidad de Ingredientes Consolidada</span>
-                                      <div className="divide-y divide-stone-100 border border-stone-200 rounded-xl overflow-hidden text-xs">
+                                      <span className="text-[10px] font-bold text-stone-500 dark:text-stone-300 uppercase block">Necesidad de Ingredientes Consolidada</span>
+                                      <div className="divide-y divide-stone-100 dark:divide-stone-800 border border-stone-200 dark:border-stone-800 rounded-xl overflow-hidden text-xs">
                                         {currentRecipeItems.map(rec => {
                                           const ins = insumos.find(i => i.id_insumo === rec.id_insumo);
                                           const portions = parseInt(portionsInput) || 0;
@@ -841,21 +836,21 @@ export default function RecetasModule({
                                           const buyNeeded = Math.max(0, totalGrossNeeded - stock);
                                           
                                           return (
-                                            <div key={rec.id_receta} className="p-3 bg-white flex justify-between items-center hover:bg-stone-50/40">
+                                            <div key={rec.id_receta} className="p-3 bg-white dark:bg-stone-900/10 flex justify-between items-center hover:bg-stone-50/40 dark:hover:bg-stone-800/20">
                                               <div>
-                                                <p className="font-bold text-stone-850">{ins?.nombre ?? rec.id_insumo}</p>
-                                                <p className="text-[10px] text-stone-400">
+                                                <p className="font-bold text-stone-850 dark:text-stone-100">{ins?.nombre ?? rec.id_insumo}</p>
+                                                <p className="text-[10px] text-stone-400 dark:text-stone-300">
                                                   Por porción: {netQtyPerPortion} {ins?.unidad_medida} (Bruto: {grossQtyPerPortion.toFixed(1)} {ins?.unidad_medida})
                                                 </p>
                                               </div>
                                               <div className="text-right">
-                                                <p className="font-semibold text-stone-700">Requerido: <span className="font-mono font-bold">{totalGrossNeeded.toLocaleString('es-AR', { maximumFractionDigits: 1 })} {ins?.unidad_medida}</span></p>
+                                                <p className="font-semibold text-stone-700 dark:text-stone-300">Requerido: <span className="font-mono font-bold">{totalGrossNeeded.toLocaleString('es-AR', { maximumFractionDigits: 1 })} {ins?.unidad_medida}</span></p>
                                                 {buyNeeded > 0 ? (
-                                                  <p className="text-[10px] text-rose-600 font-bold">
+                                                  <p className="text-[10px] text-rose-600 dark:text-rose-400 font-bold">
                                                     Faltante: {buyNeeded.toLocaleString('es-AR', { maximumFractionDigits: 1 })} {ins?.unidad_medida} (Comprar)
                                                   </p>
                                                 ) : (
-                                                  <p className="text-[10px] text-emerald-600 font-bold">Stock suficiente</p>
+                                                  <p className="text-[10px] text-emerald-600 dark:text-emerald-450 font-bold">Stock suficiente</p>
                                                 )}
                                               </div>
                                             </div>
@@ -868,7 +863,7 @@ export default function RecetasModule({
 
                                 {/* ── Ficha Técnica del Chef ── */}
                                 <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs space-y-4">
-                                  <h3 className="text-xs font-black text-[#624A3E] uppercase tracking-wider flex items-center gap-2 border-b border-stone-100 pb-2">
+                                  <h3 className="text-xs font-black text-[#624A3E] dark:text-stone-100 uppercase tracking-wider flex items-center gap-2 border-b border-stone-100 dark:border-stone-800 pb-2">
                                     📖 Ficha Técnica y Pasos de Cocina
                                   </h3>
                                   
@@ -876,7 +871,7 @@ export default function RecetasModule({
                                     <div className="space-y-4 font-sans text-sm text-stone-700">
                                       {/* Alérgenos */}
                                       <div>
-                                        <label className="text-[10px] font-black text-stone-500 uppercase tracking-wider block mb-1.5">
+                                        <label className="text-[10px] font-black text-stone-500 dark:text-stone-300 uppercase tracking-wider block mb-1.5">
                                           ⚠️ Alérgenos Declarados
                                         </label>
                                         <div className="flex flex-wrap gap-2">
@@ -901,8 +896,8 @@ export default function RecetasModule({
                                                 }}
                                                 className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
                                                   hasAl
-                                                    ? 'bg-amber-50 text-amber-800 border-amber-300 shadow-sm font-black'
-                                                    : 'bg-stone-50 border-stone-200 text-stone-450 hover:bg-stone-100'
+                                                    ? 'bg-amber-50 dark:bg-amber-955/40 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700 shadow-sm font-black'
+                                                    : 'bg-stone-50 dark:bg-stone-900/40 border-stone-200 dark:border-stone-800 text-stone-450 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800'
                                                 }`}
                                               >
                                                 {al}
@@ -914,7 +909,7 @@ export default function RecetasModule({
 
                                       {/* Consejos de emplatado */}
                                       <div>
-                                        <label className="text-[10px] font-black text-stone-500 uppercase tracking-wider block mb-1">
+                                        <label className="text-[10px] font-black text-stone-500 dark:text-stone-300 uppercase tracking-wider block mb-1">
                                           🍽️ Sugerencia de Emplatado y Vajilla
                                         </label>
                                         <textarea
@@ -934,22 +929,22 @@ export default function RecetasModule({
                                             }
                                           }}
                                           placeholder="Ej: Servir en plato plano precalentado con un ramito de romero fresco a la derecha..."
-                                          className="w-full text-xs p-2.5 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#624A3E]/30 bg-stone-50 text-stone-850"
+                                          className="w-full text-xs p-2.5 border border-stone-200 dark:border-stone-750 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#624A3E]/30 bg-stone-50 dark:bg-stone-900 text-stone-850 dark:text-stone-100"
                                         />
                                       </div>
 
                                       {/* Pasos de preparación */}
                                       <div>
-                                        <label className="text-[10px] font-black text-stone-500 uppercase tracking-wider block mb-2">
+                                        <label className="text-[10px] font-black text-stone-500 dark:text-stone-300 uppercase tracking-wider block mb-2">
                                           🍳 Instrucciones de Cocción Paso a Paso
                                         </label>
                                         <div className="space-y-2.5">
                                           {(selectedProduct.pasos_preparacion || []).map((step, idx) => (
-                                            <div key={idx} className="flex gap-2.5 items-start text-xs bg-stone-50 p-2.5 rounded-xl border border-stone-150">
+                                            <div key={idx} className="flex gap-2.5 items-start text-xs bg-stone-50 dark:bg-stone-900/30 p-2.5 rounded-xl border border-stone-150 dark:border-stone-800/80">
                                               <span className="w-5 h-5 rounded-full bg-[#624A3E] text-white flex items-center justify-center shrink-0 font-bold text-[10px] font-mono">
                                                 {idx + 1}
                                               </span>
-                                              <span className="flex-1 leading-relaxed text-stone-750 font-medium">
+                                              <span className="flex-1 leading-relaxed text-stone-750 dark:text-stone-200 font-medium">
                                                 {step}
                                                 <StepTimer text={step} />
                                               </span>
@@ -997,7 +992,7 @@ export default function RecetasModule({
                                               type="text"
                                               name="nuevoPasoInput"
                                               placeholder="Ej: Sellar a fuego fuerte por 3 minutos..."
-                                              className="flex-1 text-xs px-3 py-2 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#624A3E]/30 bg-white"
+                                              className="flex-1 text-xs px-3 py-2 border border-stone-200 dark:border-stone-750 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#624A3E]/30 bg-white dark:bg-stone-900 text-stone-850 dark:text-stone-100"
                                             />
                                             <button
                                               type="submit"
