@@ -1411,7 +1411,19 @@ export const parseVoiceCommand = (text: string, productosMenu: ProductoMenu[]): 
     }
   }
 
-  // 2. Numbers maps
+  // 2. Helper to normalize name for comparison (removes accents, plurals, special characters)
+  const normalizeName = (name: string): string => {
+    return name
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "") // remove accents
+      .replace(/s\b/g, "")            // remove plural 's' at word boundaries
+      .replace(/s$/g, "")             // remove trailing 's'
+      .replace(/[^a-z0-9\s]/g, "")    // remove special chars
+      .replace(/\s+/g, " ")           // collapse spaces
+      .trim();
+  };
+
   const numbersWordMap: Record<string, number> = {
     un: 1, uno: 1, una: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10
   };
@@ -1425,13 +1437,13 @@ export const parseVoiceCommand = (text: string, productosMenu: ProductoMenu[]): 
     const cleanSegment = segment.trim();
     if (!cleanSegment || cleanSegment.startsWith('mesa') || cleanSegment.startsWith('tabla')) return;
 
-    // Try to extract quantity at the beginning
+    // Try to extract quantity at the beginning (only match numbers or known number words followed by a space)
     let qty = 1;
-    const qtyMatch = cleanSegment.match(/^(\d+)\s*(.*)$/) || cleanSegment.match(/^([a-z]+)\s*(.*)$/);
+    const qtyMatch = cleanSegment.match(/^(\d+)\s+(.*)$/) || cleanSegment.match(/^(un|uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\s+(.*)$/i);
     let potentialProductName = cleanSegment;
 
     if (qtyMatch) {
-      const potentialQty = qtyMatch[1];
+      const potentialQty = qtyMatch[1].toLowerCase();
       const rest = qtyMatch[2];
       if (/^\d+$/.test(potentialQty)) {
         qty = parseInt(potentialQty, 10);
@@ -1442,39 +1454,44 @@ export const parseVoiceCommand = (text: string, productosMenu: ProductoMenu[]): 
       }
     }
 
-    // Clean potential product name (remove plural "s" at the end, etc.)
-    const cleanProdName = potentialProductName.trim().replace(/s$/, '').replace(/s\b/g, '');
-
+    const cleanProdName = potentialProductName.trim();
     if (!cleanProdName) return;
+
+    // Normalize target product query
+    const targetNormalized = normalizeName(cleanProdName);
+    if (!targetNormalized) return;
 
     // Search for best matching product
     let bestProduct: ProductoMenu | null = null;
     let maxMatchScore = 0;
 
-    const segmentTokens = cleanProdName.split(/\s+/).filter(t => t.length > 2);
+    const segmentTokens = targetNormalized.split(/\s+/).filter(t => t.length > 1);
 
     productosMenu.forEach(p => {
-      const pNameLower = p.nombre.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-      const cleanSegLower = cleanProdName.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const pNormalized = normalizeName(p.nombre);
       
-      // Direct exact or substring match is highest priority
-      if (pNameLower === cleanSegLower) {
+      // 1. Direct exact match (highest priority)
+      if (pNormalized === targetNormalized) {
         bestProduct = p;
         maxMatchScore = 100;
         return;
       }
       
-      if (pNameLower.includes(cleanSegLower) || cleanSegLower.includes(pNameLower)) {
-        bestProduct = p;
-        maxMatchScore = 90;
+      // 2. Substring matching
+      if (pNormalized.includes(targetNormalized) || targetNormalized.includes(pNormalized)) {
+        const score = pNormalized.includes(targetNormalized) ? 90 : 85;
+        if (score > maxMatchScore) {
+          maxMatchScore = score;
+          bestProduct = p;
+        }
         return;
       }
 
-      // Token count matching
-      const pTokens = pNameLower.split(/\s+/).filter(t => t.length > 2);
+      // 3. Token count matching (for partial dictations)
+      const pTokens = pNormalized.split(/\s+/).filter(t => t.length > 1);
       let matchCount = 0;
       segmentTokens.forEach(t => {
-        if (pNameLower.includes(t)) {
+        if (pNormalized.includes(t)) {
           matchCount++;
         }
       });
@@ -1488,7 +1505,7 @@ export const parseVoiceCommand = (text: string, productosMenu: ProductoMenu[]): 
       }
     });
 
-    if (bestProduct && maxMatchScore >= 40) {
+    if (bestProduct && maxMatchScore >= 35) {
       items.push({ product: bestProduct, quantity: qty });
     } else {
       unrecognized.push(cleanSegment);
