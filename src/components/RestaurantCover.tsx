@@ -149,7 +149,7 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           {/* Logo Brand */}
           <div className="flex items-center gap-2.5 cursor-pointer">
-            <img src="/logo-el-patron.jpeg" alt="Logo El Patrón" className="w-9 h-9 object-cover rounded-full shadow-md" />
+            <img src="/logo-el-patron.jpeg" alt="Logo El Patrón" className="w-12 h-12 object-cover rounded-full shadow-md" />
             <span className="font-extrabold text-xl tracking-widest font-display-serif text-[#4A2D1B] dark:text-amber-500">
               EL PATRÓN
             </span>
@@ -532,7 +532,7 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
           {/* Logo & Brand description */}
           <div className="space-y-4">
             <div className="flex items-center gap-2">
-              <img src="/logo-el-patron.jpeg" alt="Logo El Patrón" className="w-8 h-8 object-cover rounded-full" />
+              <img src="/logo-el-patron.jpeg" alt="Logo El Patrón" className="w-10 h-10 object-cover rounded-full" />
               <span className="font-extrabold text-lg tracking-widest text-white font-display-serif">EL PATRÓN</span>
             </div>
             <p className="text-xs text-stone-400 leading-relaxed">
