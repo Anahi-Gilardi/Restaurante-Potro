@@ -81,6 +81,15 @@ import { reservasService } from './services/reservasService';
 import { stockEngine } from './services/stock/stockEngine';
 
 function isSameTable(p1: { id_mesa?: any; numero_mesa?: string }, p2: { id_mesa?: any; numero_mesa?: string }): boolean {
+  const isP1Delivery = String(p1.numero_mesa || '').toUpperCase().startsWith('DELIVERY');
+  const isP2Delivery = String(p2.numero_mesa || '').toUpperCase().startsWith('DELIVERY');
+  
+  if (isP1Delivery || isP2Delivery) {
+    const norm1 = String(p1.numero_mesa || '').toLowerCase().trim();
+    const norm2 = String(p2.numero_mesa || '').toLowerCase().trim();
+    return norm1 !== '' && norm1 === norm2;
+  }
+
   if (p1.id_mesa !== undefined && p1.id_mesa !== null && p2.id_mesa !== undefined && p2.id_mesa !== null) {
     if (String(p1.id_mesa) === String(p2.id_mesa)) return true;
   }

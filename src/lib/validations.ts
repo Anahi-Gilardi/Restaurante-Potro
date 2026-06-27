@@ -65,8 +65,11 @@ export const insumoSchema = z.object({
     categoria:      z.enum(['bodega', 'frescos', 'secos']),
     costo_unitario: z.number().min(0, 'El costo no puede ser negativo').optional(),
 }).refine(
-    data => data.stock_minimo <= data.stock_actual || data.stock_actual === 0,
-  { message: 'El stock mínimo no puede superar al stock actual (a menos que sea 0)', path: ['stock_minimo'] }
+    data => {
+      if (data.stock_minimo === undefined || data.stock_actual === undefined) return true;
+      return data.stock_minimo <= data.stock_actual || data.stock_actual === 0;
+    },
+    { message: 'El stock mínimo no puede superar al stock actual (a menos que sea 0)', path: ['stock_minimo'] }
   );
 
 // ── Ítem de receta (escandallo) ───────────────────────────────────────────────
