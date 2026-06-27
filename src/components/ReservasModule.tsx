@@ -459,7 +459,7 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
             ═══════════════════════════════ */}
         <div className="xl:col-span-3 space-y-5">
           <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs h-fit space-y-4">
-            <h3 className="text-sm font-black text-stone-800 uppercase tracking-tight flex items-center gap-2">
+            <h3 className="text-sm font-black text-stone-800 dark:text-white uppercase tracking-tight flex items-center gap-2">
               <Plus className="w-4 h-4 text-[#624A3E]" />
               {editingId ? 'Editar Reserva' : 'Nueva Reserva'}
             </h3>
@@ -467,39 +467,39 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
               <div>
                 <label className="text-[10px] font-black text-stone-750 dark:text-stone-300 uppercase block mb-1">Fecha</label>
                 <input type="date" value={formularioDate} onChange={e => setFormularioDate(e.target.value)}
-                  className="w-full text-xs p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none focus:ring-1 focus:ring-[#624A3E]" required />
+                  className="w-full text-xs p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-800 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-[#624A3E]" required />
               </div>
               <div>
                 <label className="text-[10px] font-black text-stone-750 dark:text-stone-300 uppercase block mb-1">Nombre y Apellido</label>
                 <input type="text" value={nombre} onChange={e => setNombre(e.target.value)}
                   placeholder="Ej. Gisela Scaglia"
-                  className="w-full text-xs p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none focus:ring-1 focus:ring-[#624A3E]" required />
+                  className="w-full text-xs p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-800 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-[#624A3E]" required />
               </div>
               <div>
                 <label className="text-[10px] font-black text-stone-750 dark:text-stone-300 uppercase block mb-1">Celular / WhatsApp</label>
                 <input type="text" value={telefono} onChange={e => setTelefono(e.target.value)}
                   placeholder="Ej. +54 11 9382-3844"
-                  className="w-full text-xs p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none focus:ring-1 focus:ring-[#624A3E]" required />
+                  className="w-full text-xs p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-800 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-[#624A3E]" required />
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="text-[10px] font-black text-stone-750 dark:text-stone-300 uppercase block mb-1">Pax</label>
                   <select value={pax} onChange={e => setPax(e.target.value)}
-                    className="w-full text-xs p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none cursor-pointer focus:ring-1 focus:ring-[#624A3E] font-semibold text-stone-700">
-                    {[1, 2, 3, 4, 5, 6, 7, 8].map(n => <option key={n} value={n}>{n} {n === 1 ? 'Persona' : 'Personas'}</option>)}
+                    className="w-full text-xs p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-755 text-stone-700 dark:text-stone-200 focus:outline-none cursor-pointer focus:ring-1 focus:ring-[#624A3E] font-semibold">
+                    {[1, 2, 3, 4, 5, 6, 7, 8].map(n => <option key={n} value={n} className="bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-100">{n} {n === 1 ? 'Persona' : 'Personas'}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="text-[10px] font-black text-stone-750 dark:text-stone-300 uppercase block mb-1">Hora</label>
                   <input type="time" value={hora} onChange={e => setHora(e.target.value)}
-                    className="w-full text-xs p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none focus:ring-1 focus:ring-[#624A3E]" required />
+                    className="w-full text-xs p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-800 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-[#624A3E]" required />
                 </div>
               </div>
               <div>
                 <label className="text-[10px] font-black text-stone-750 dark:text-stone-300 uppercase block mb-1">Mesa preferida</label>
                 <select value={nombreMesa} onChange={e => setNombreMesa(e.target.value)}
-                  className="w-full text-xs p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none cursor-pointer focus:ring-1 focus:ring-[#624A3E] font-semibold text-stone-700">
-                  {mesas.map(m => <option key={m.id_mesa} value={m.numero_mesa}>{m.numero_mesa} ({m.comensales ?? '?'} pax)</option>)}
+                  className="w-full text-xs p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-755 text-stone-700 dark:text-stone-200 focus:outline-none cursor-pointer focus:ring-1 focus:ring-[#624A3E] font-semibold">
+                  {mesas.map(m => <option key={m.id_mesa} value={m.numero_mesa} className="bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-100">{m.numero_mesa} ({m.comensales ?? '?'} pax)</option>)}
                 </select>
                 <p className="text-[9px] text-stone-600 dark:text-stone-400 mt-1">{disponiblesHoy.length} mesas libres para el dia seleccionado</p>
               </div>
@@ -552,15 +552,15 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
                 <span className="font-bold text-amber-600">{listaEsperaGlobal.length}</span>
               </div>
             )}
-            <div className="pt-2 border-t border-stone-100 flex flex-wrap gap-1">
+            <div className="pt-2 border-t border-stone-100 dark:border-stone-800 flex flex-wrap gap-1">
               {mesas.map(m => {
                 const estaLibre = disponiblesHoy.some(d => d.id_mesa === m.id_mesa);
                 const estaReservada = reservas.some(
                   r => r.fecha === selectedDate && r.id_mesa === m.id_mesa && r.estado !== 'cancelada' && !r.lista_espera
                 );
-                let bg = 'bg-stone-100 text-stone-400';
-                if (estaLibre) bg = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
-                else if (estaReservada) bg = 'bg-amber-50 text-amber-700 border border-amber-200';
+                let bg = 'bg-stone-100 dark:bg-stone-900 text-stone-400 dark:text-stone-500';
+                if (estaLibre) bg = 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/50';
+                else if (estaReservada) bg = 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-900/50';
                 return (
                   <span key={m.id_mesa} className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-md ${bg}`}>{m.numero_mesa}</span>
                 );
@@ -721,8 +721,8 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
 
           {/* ============ TARJETAS DE RESERVAS DEL DÍA ============ */}
           <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-stone-100">
-              <h3 className="text-sm font-black text-stone-800 uppercase tracking-tight flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-stone-100 dark:border-stone-800">
+              <h3 className="text-sm font-black text-stone-800 dark:text-white uppercase tracking-tight flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-[#624A3E]" />
                 Reservas {new Date(selectedDate + 'T00:00:00').toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })} ({reservasDelDia.length})
               </h3>
@@ -731,7 +731,7 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
                   <Search className="w-3.5 h-3.5 text-stone-500 dark:text-stone-450 absolute left-2.5 top-1/2 -translate-y-1/2" />
                   <input type="text" value={search} onChange={e => setSearch(e.target.value)}
                     placeholder="Buscar..."
-                    className="pl-8 pr-2 py-1 text-[10px] border border-stone-200 rounded-lg bg-stone-50 focus:outline-none focus:ring-1 focus:ring-[#624A3E] w-36" />
+                    className="pl-8 pr-2 py-1 text-[10px] border border-stone-200 dark:border-stone-750 rounded-lg bg-stone-50 dark:bg-stone-900 text-stone-800 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-[#624A3E] w-36" />
                 </div>
               </div>
             </div>
@@ -906,7 +906,7 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
 
           {tab === 'reservas' && (
             <div className="bg-white rounded-2xl border border-stone-200 shadow-xs p-5 space-y-3">
-              <h4 className="text-xs font-black text-stone-800 uppercase flex items-center gap-2">
+              <h4 className="text-xs font-black text-stone-800 dark:text-white uppercase flex items-center gap-2">
                 <Clock className="w-4 h-4 text-[#624A3E]" /> Proximas reservas
               </h4>
               <div className="space-y-2">
@@ -916,12 +916,12 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
                   .slice(0, 8)
                   .map(r => (
                     <button key={r.id_reserva} onClick={() => { setSelectedDate(r.fecha || todayStr); setTab('reservas'); }}
-                      className="w-full flex items-center gap-2 p-2.5 rounded-xl bg-stone-50 hover:bg-stone-100 border border-stone-100 transition-all cursor-pointer text-left">
+                      className="w-full flex items-center gap-2 p-2.5 rounded-xl bg-stone-50 dark:bg-stone-900 hover:bg-stone-105 hover:bg-stone-100 dark:hover:bg-stone-800 border border-stone-100 dark:border-stone-800 transition-all cursor-pointer text-left">
                       <div className="w-8 h-8 rounded-lg bg-[#624A3E] text-white flex items-center justify-center text-[10px] font-black shrink-0">
                         {r.fecha?.slice(8)}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-[11px] font-bold text-stone-800 truncate">{r.nombre_cliente}</p>
+                        <p className="text-[11px] font-bold text-stone-800 dark:text-stone-100 truncate">{r.nombre_cliente}</p>
                         <p className="text-[9px] text-stone-750 dark:text-stone-300 flex items-center gap-1"><Clock className="w-3 h-3" />{r.hora} &middot; {r.nombre_mesa} &middot; {r.pax} pax</p>
                       </div>
                     </button>

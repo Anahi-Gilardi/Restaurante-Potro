@@ -291,7 +291,7 @@ export default function InventoryModule({
             className={`w-full py-2.5 px-3 rounded-xl text-xs font-black font-sans text-left flex items-center justify-between transition-all cursor-pointer ${
               activeSubTab === 'deposito'
                 ? 'bg-[#624A3E] text-white shadow-md shadow-[#624A3E]/20 border border-[#5d3a2e]'
-                : 'text-slate-600 hover:bg-slate-50'
+                : 'text-slate-600 dark:text-stone-300 hover:bg-slate-50 dark:hover:bg-stone-800/40'
             }`}
           >
             <span className="flex items-center gap-2">
@@ -310,7 +310,7 @@ export default function InventoryModule({
             className={`w-full py-2.5 px-3 rounded-xl text-xs font-black font-sans text-left flex items-center gap-2 transition-all cursor-pointer ${
               activeSubTab === 'escandallo'
                 ? 'bg-[#624A3E] text-white shadow-md shadow-[#624A3E]/20 border border-[#5d3a2e]'
-                : 'text-slate-600 hover:bg-slate-50'
+                : 'text-slate-600 dark:text-stone-300 hover:bg-slate-50 dark:hover:bg-stone-800/40'
             }`}
           >
             <Beaker className="w-4 h-4 text-amber-500" />
@@ -322,7 +322,7 @@ export default function InventoryModule({
             className={`w-full py-2.5 px-3 rounded-xl text-xs font-black font-sans text-left flex items-center gap-2 transition-all cursor-pointer ${
               activeSubTab === 'compras'
                 ? 'bg-[#624A3E] text-white shadow-md shadow-[#624A3E]/20 border border-[#5d3a2e]'
-                : 'text-slate-600 hover:bg-slate-50'
+                : 'text-slate-600 dark:text-stone-300 hover:bg-slate-50 dark:hover:bg-stone-800/40'
             }`}
           >
             <Truck className="w-4 h-4 text-emerald-500" />
@@ -334,7 +334,7 @@ export default function InventoryModule({
             className={`w-full py-2.5 px-3 rounded-xl text-xs font-black font-sans text-left flex items-center gap-2 transition-all cursor-pointer ${
               activeSubTab === 'movimientos'
                 ? 'bg-[#624A3E] text-white shadow-md shadow-[#624A3E]/20 border border-[#5d3a2e]'
-                : 'text-slate-600 hover:bg-slate-50'
+                : 'text-slate-600 dark:text-stone-300 hover:bg-slate-50 dark:hover:bg-stone-800/40'
             }`}
           >
             <ArrowUpDown className="w-4 h-4 text-amber-500" />
@@ -361,7 +361,7 @@ export default function InventoryModule({
                     placeholder="Filtrar ingredientes..."
                     value={inventorySearch}
                     onChange={(e) => setInventorySearch(e.target.value)}
-                    className="w-full pl-9 pr-3 py-1.5 bg-slate-50 rounded-xl text-xs text-slate-755 text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-900 transition-colors"
+                    className="w-full pl-9 pr-3 py-1.5 bg-slate-50 dark:bg-stone-900/60 rounded-xl text-xs text-slate-700 dark:text-stone-200 placeholder-slate-400 dark:placeholder-stone-500 focus:outline-none focus:ring-1 focus:ring-slate-900 transition-colors"
                   />
                 </div>
                 
@@ -372,8 +372,8 @@ export default function InventoryModule({
                       onClick={() => setFilterCategory(catName)}
                       className={`py-1 px-3 text-xs font-semibold rounded-lg capitalize transition-colors ${
                         filterCategory === catName 
-                          ? 'bg-slate-100 text-slate-800' 
-                          : 'text-slate-500 hover:bg-slate-50'
+                          ? 'bg-slate-100 dark:bg-stone-800 text-slate-800 dark:text-stone-200' 
+                          : 'text-slate-500 dark:text-stone-400 hover:bg-slate-50 dark:hover:bg-stone-800/30'
                       }`}
                     >
                       {catName}
@@ -386,14 +386,14 @@ export default function InventoryModule({
               <div className="border border-slate-50 rounded-xl overflow-hidden max-h-[500px] overflow-y-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="bg-slate-50/75 border-b border-slate-100 text-slate-500 text-[10px] uppercase font-bold tracking-wider">
+                    <tr className="bg-slate-50/75 dark:bg-stone-900/30 border-b border-slate-100 dark:border-stone-800 text-slate-500 dark:text-stone-300 text-[10px] uppercase font-bold tracking-wider">
                       <th className="p-3">Insumo / Depósito</th>
                       <th className="p-3">Existencia Física</th>
                       <th className="p-3">Estado</th>
                       <th className="p-3 text-right">Inyección</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-50 text-xs">
+                  <tbody className="divide-y divide-slate-50 dark:divide-stone-850 text-xs">
                     {filteredInsumos.map(ins => {
                       const isLow = ins.stock_actual <= ins.stock_minimo;
                       const isZero = ins.stock_actual <= 0;
@@ -402,14 +402,14 @@ export default function InventoryModule({
                       const currentPct = Math.min(100, (ins.stock_actual / maxHealthyCap) * 100);
 
                       return (
-                        <tr key={ins.id_insumo} className="hover:bg-slate-50/50 transition-colors">
+                        <tr key={ins.id_insumo} className="hover:bg-slate-50/50 dark:hover:bg-stone-800/10 transition-colors">
                           <td className="p-3">
-                            <div className="font-semibold text-slate-800">{ins.nombre}</div>
-                            <div className="text-[10px] text-slate-400 capitalize">{ins.categoria} • Min: {ins.stock_minimo}{ins.unidad_medida}</div>
+                            <div className="font-semibold text-slate-800 dark:text-white">{ins.nombre}</div>
+                            <div className="text-[10px] text-slate-400 dark:text-stone-350 capitalize">{ins.categoria} • Min: {ins.stock_minimo}{ins.unidad_medida}</div>
                           </td>
-                          <td className="p-3 font-mono font-bold text-slate-700">
+                          <td className="p-3 font-mono font-bold text-slate-700 dark:text-stone-200">
                             {ins.stock_actual.toLocaleString('es-AR')} {ins.unidad_medida}
-                            <div className="w-24 bg-slate-100 h-1 rounded-full overflow-hidden mt-1 relative">
+                            <div className="w-24 bg-slate-100 dark:bg-stone-800 h-1 rounded-full overflow-hidden mt-1 relative">
                               <div 
                                 className={`h-full rounded-full ${isZero ? 'bg-red-600' : isLow ? 'bg-amber-500' : 'bg-emerald-500'}`}
                                 style={{ width: `${currentPct}%` }}
@@ -445,7 +445,7 @@ export default function InventoryModule({
                                   ...prev
                                 ]);
                               }}
-                              className="text-[10px] font-bold text-slate-900 border border-slate-200 py-1 px-2.5 rounded bg-white hover:bg-slate-50 shadow-xs"
+                              className="text-[10px] font-bold text-slate-900 dark:text-stone-200 border border-slate-200 dark:border-stone-700 py-1 px-2.5 rounded bg-white dark:bg-stone-900 hover:bg-slate-50 dark:hover:bg-stone-800 shadow-xs"
                             >
                               + Abastecer
                             </button>
@@ -462,29 +462,29 @@ export default function InventoryModule({
             {/* REGISTER WASTE AND ADJUSTMENTS TABS (Lg Span 4) */}
             <div className="lg:col-span-4 bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex flex-col justify-between">
               <div>
-                <h4 className="font-extrabold text-sm text-slate-800 font-sans tracking-tight flex items-center gap-1.5 mb-2">
+                <h4 className="font-extrabold text-sm text-slate-800 dark:text-white font-sans tracking-tight flex items-center gap-1.5 mb-2">
                   <Sliders className="w-4.5 h-4.5 text-rose-600" />
                   Ajustes y Desperdicios
                 </h4>
-                <p className="text-[11px] text-slate-400 font-sans mb-3 leading-normal">
+                <p className="text-[11px] text-slate-400 dark:text-stone-300 font-sans mb-3 leading-normal">
                   Fichas directas para corregir auditorias físicas ó asentar roturas para la conciliación de stock.
                 </p>
 
                 {/* Sub-form splits */}
-                <div className="border-b border-slate-100 flex gap-2 pb-2 mb-3">
-                  <button onClick={() => setAjusteOperacion('sumar')} className={`text-[10px] font-bold px-2 py-1 rounded cursor-pointer ${ajusteOperacion === 'sumar' ? 'bg-[#624A3E] text-white shadow-sm' : 'text-slate-500 bg-slate-50'}`}>Ajustar Stock</button>
-                  <button onClick={() => setAjusteOperacion('restar')} className={`text-[10px] font-bold px-2 py-1 rounded cursor-pointer ${ajusteOperacion === 'restar' ? 'bg-[#EF4444] text-white shadow-sm' : 'text-slate-500 bg-slate-50'}`}>Merma manual</button>
+                <div className="border-b border-slate-100 dark:border-stone-850 flex gap-2 pb-2 mb-3">
+                  <button onClick={() => setAjusteOperacion('sumar')} className={`text-[10px] font-bold px-2 py-1 rounded cursor-pointer ${ajusteOperacion === 'sumar' ? 'bg-[#624A3E] text-white shadow-sm' : 'text-slate-500 dark:text-stone-350 bg-slate-50 dark:bg-stone-900/50'}`}>Ajustar Stock</button>
+                  <button onClick={() => setAjusteOperacion('restar')} className={`text-[10px] font-bold px-2 py-1 rounded cursor-pointer ${ajusteOperacion === 'restar' ? 'bg-[#EF4444] text-white shadow-sm' : 'text-slate-500 dark:text-stone-350 bg-slate-50 dark:bg-stone-900/50'}`}>Merma manual</button>
                 </div>
 
                 {ajusteOperacion === 'sumar' ? (
                   // ADJUSTMENT FORM
                   <form onSubmit={submitAjusteForm} className="space-y-3">
                     <div>
-                      <label className="text-[10px] font-bold text-slate-505 text-slate-500 uppercase font-sans">Insumo a Ajustar</label>
+                      <label className="text-[10px] font-bold text-slate-500 dark:text-stone-300 uppercase font-sans">Insumo a Ajustar</label>
                       <select
                         value={ajusteInsumoId}
                         onChange={(e) => setAjusteInsumoId(e.target.value)}
-                        className="w-full text-xs text-slate-700 bg-slate-50 p-2 border border-slate-100 rounded-lg focus:outline-none"
+                        className="w-full text-xs text-slate-700 dark:text-stone-200 bg-slate-50 dark:bg-stone-900 p-2 border border-slate-100 dark:border-stone-850 rounded-lg focus:outline-none"
                       >
                         <option value="">-- Seleccionar --</option>
                         {insumos.map(i => (
@@ -497,9 +497,9 @@ export default function InventoryModule({
 
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="text-[10px] font-bold text-slate-500 uppercase font-sans">Op.</label>
+                        <label className="text-[10px] font-bold text-slate-500 dark:text-stone-300 uppercase font-sans">Op.</label>
                         <select
-                          className="w-full text-xs text-slate-700 bg-slate-50 p-2 border border-slate-100 rounded-lg focus:outline-none"
+                          className="w-full text-xs text-slate-700 dark:text-stone-200 bg-slate-50 dark:bg-stone-900 p-2 border border-slate-100 dark:border-stone-850 rounded-lg focus:outline-none"
                           value={ajusteOperacion}
                           onChange={(e) => setAjusteOperacion(e.target.value as 'sumar' | 'restar')}
                         >
@@ -508,24 +508,24 @@ export default function InventoryModule({
                         </select>
                       </div>
                       <div>
-                        <label className="text-[10px] font-bold text-slate-500 uppercase font-sans">Cantidad</label>
+                        <label className="text-[10px] font-bold text-slate-500 dark:text-stone-300 uppercase font-sans">Cantidad</label>
                         <input
                           type="number"
                           value={ajusteCantidad || ''}
                           onChange={(e) => setAjusteCantidad(parseFloat(e.target.value))}
                           placeholder="Q."
-                          className="w-full text-xs p-2 bg-slate-50 border border-slate-100 rounded-lg text-slate-800"
+                          className="w-full text-xs p-2 bg-slate-50 dark:bg-stone-900 border border-slate-100 dark:border-stone-850 rounded-lg text-slate-800 dark:text-stone-200"
                         />
                       </div>
                     </div>
 
                     <div>
-                      <label className="text-[10px] font-bold text-slate-500 uppercase font-sans">Motivo Justificativo</label>
+                      <label className="text-[10px] font-bold text-slate-500 dark:text-stone-300 uppercase font-sans">Motivo Justificativo</label>
                       <input
                         type="text"
                         value={ajusteMotivo}
                         onChange={(e) => setAjusteMotivo(e.target.value)}
-                        className="w-full text-xs p-2 bg-slate-50 border border-slate-100 rounded-lg text-slate-800"
+                        className="w-full text-xs p-2 bg-slate-50 dark:bg-stone-900 border border-slate-100 dark:border-stone-850 rounded-lg text-slate-800 dark:text-stone-200"
                         placeholder="Ej: Arqueo fin de turno"
                       />
                     </div>
@@ -541,11 +541,11 @@ export default function InventoryModule({
                   // MERMA FORM
                   <form onSubmit={submitMermaForm} className="space-y-3">
                     <div>
-                      <label className="text-[10px] font-bold text-slate-500 uppercase font-sans">Ingrediente Afectado</label>
+                      <label className="text-[10px] font-bold text-slate-500 dark:text-stone-300 uppercase font-sans">Ingrediente Afectado</label>
                       <select
                         value={mermaInsumoId}
                         onChange={(e) => setMermaInsumoId(e.target.value)}
-                        className="w-full text-xs text-slate-700 bg-slate-50 p-2 border border-slate-100 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-900"
+                        className="w-full text-xs text-slate-700 dark:text-stone-200 bg-slate-50 dark:bg-stone-900 p-2 border border-slate-100 dark:border-stone-850 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-900"
                       >
                         <option value="">-- Seleccionar insumo --</option>
                         {insumos.map(i => (
@@ -557,7 +557,7 @@ export default function InventoryModule({
                     </div>
 
                     <div>
-                      <label className="text-[10px] font-bold text-slate-500 uppercase font-sans">Cantidad a Descartar</label>
+                      <label className="text-[10px] font-bold text-slate-500 dark:text-stone-300 uppercase font-sans">Cantidad a Descartar</label>
                       <div className="relative">
                         <input
                           type="number"
@@ -565,21 +565,21 @@ export default function InventoryModule({
                           step="0.01"
                           value={mermaCantidad || ''}
                           onChange={(e) => setMermaCantidad(parseFloat(e.target.value))}
-                          className="w-full text-xs p-2 pr-12 bg-slate-50 border border-slate-100 rounded-lg focus:outline-none text-slate-800"
+                          className="w-full text-xs p-2 pr-12 bg-slate-50 dark:bg-stone-900 border border-slate-100 dark:border-stone-850 rounded-lg focus:outline-none text-slate-800 dark:text-stone-200"
                           placeholder="Ej: 500"
                         />
-                        <span className="text-[10px] font-mono text-slate-400 absolute right-3 top-1/2 -translate-y-1/2">
+                        <span className="text-[10px] font-mono text-slate-400 dark:text-stone-500 absolute right-3 top-1/2 -translate-y-1/2">
                           {mermaInsumoId ? insumos.find(i => i.id_insumo === mermaInsumoId)?.unidad_medida : ''}
                         </span>
                       </div>
                     </div>
 
                     <div>
-                      <label className="text-[10px] font-bold text-slate-500 uppercase font-sans">Motivo del Descarte</label>
+                      <label className="text-[10px] font-bold text-slate-500 dark:text-stone-300 uppercase font-sans">Motivo del Descarte</label>
                       <select
                         value={mermaMotivo}
                         onChange={(e) => setMermaMotivo(e.target.value as Merma['motivo'])}
-                        className="w-full text-xs text-slate-700 bg-slate-50 p-2 border border-slate-100 rounded-lg focus:outline-none"
+                        className="w-full text-xs text-slate-700 dark:text-stone-200 bg-slate-50 dark:bg-stone-900 p-2 border border-slate-100 dark:border-stone-850 rounded-lg focus:outline-none"
                       >
                         <option value="vencimiento">Producto Vencido / Descartado</option>
                         <option value="rotura">Rotura / Envase Dañado</option>
@@ -599,15 +599,15 @@ export default function InventoryModule({
               </div>
 
               {/* RECENT HISTORIC LOST LOGS */}
-              <div className="mt-4 pt-4 border-t border-slate-55 border-slate-100">
-                <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Últimas pérdidas registradas</h5>
+              <div className="mt-4 pt-4 border-t border-slate-55 border-slate-100 dark:border-stone-850">
+                <h5 className="text-[10px] font-bold text-slate-400 dark:text-stone-300 uppercase tracking-wider mb-2">Últimas pérdidas registradas</h5>
                 {mermas.length === 0 ? (
-                  <p className="text-[10px] italic text-slate-400">Ningún desperdicio registrado hoy.</p>
+                  <p className="text-[10px] italic text-slate-400 dark:text-stone-400">Ningún desperdicio registrado hoy.</p>
                 ) : (
                   <div className="space-y-1.5 max-h-24 overflow-y-auto pr-1">
                     {mermas.slice(-3).reverse().map((m, idx) => (
-                      <div key={idx} className="flex justify-between items-center text-[10px] bg-slate-50 p-1.5 border border-slate-100 rounded-lg">
-                        <span className="text-slate-650 font-sans line-clamp-1">-{m.cantidad} {m.unidad_medida} de {m.nombre_insumo}</span>
+                      <div key={idx} className="flex justify-between items-center text-[10px] bg-slate-50 dark:bg-stone-900/40 p-1.5 border border-slate-100 dark:border-stone-800 rounded-lg">
+                        <span className="text-slate-650 dark:text-stone-300 font-sans line-clamp-1">-{m.cantidad} {m.unidad_medida} de {m.nombre_insumo}</span>
                         <span className="text-rose-600 uppercase font-bold text-[8px] font-mono">{m.motivo}</span>
                       </div>
                     ))}
@@ -624,15 +624,15 @@ export default function InventoryModule({
         {activeSubTab === 'escandallo' && (
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-6">
             
-            <div className="flex border-b border-slate-50 pb-4">
-              <div className="p-2 bg-purple-50 text-purple-600 rounded-xl mr-3 h-10 w-10 flex items-center justify-center">
+            <div className="flex border-b border-slate-50 dark:border-stone-850 pb-4">
+              <div className="p-2 bg-purple-50 dark:bg-purple-950/30 text-purple-600 dark:text-purple-400 rounded-xl mr-3 h-10 w-10 flex items-center justify-center">
                 <Beaker className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-extrabold text-base text-slate-900 font-sans tracking-tight">
+                <h3 className="font-extrabold text-base text-slate-900 dark:text-white font-sans tracking-tight">
                   Diseñador Técnico de Escandallos (Fórmulas de Platos)
                 </h3>
-                <p className="text-xs text-slate-400 font-sans">
+                <p className="text-xs text-slate-400 dark:text-stone-350 font-sans">
                   Cada plato vendido en carta posee una receta base que descuenta su gramaje correspondiente al marcarse como Producida en Cocina.
                 </p>
               </div>
@@ -642,7 +642,7 @@ export default function InventoryModule({
               
               {/* Left Selector of Plate */}
               <div className="lg:col-span-4 space-y-2">
-                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider pl-1 font-sans">
+                <h4 className="text-[10px] font-bold text-slate-400 dark:text-stone-300 uppercase tracking-wider pl-1 font-sans">
                   Seleccione Plato Oficial
                 </h4>
                 <div className="space-y-1.5 max-h-[350px] overflow-y-auto pr-1">
@@ -652,8 +652,8 @@ export default function InventoryModule({
                       onClick={() => setSelectedEscandalloDishId(p.id_producto)}
                       className={`w-full p-2.5 rounded-xl border text-left text-xs font-sans transition-all flex items-center gap-2.5 ${
                         selectedEscandalloDishId === p.id_producto
-                          ? 'border-slate-900 bg-slate-50 font-bold shadow-xs'
-                          : 'border-slate-100 hover:bg-slate-50 text-slate-600'
+                          ? 'border-slate-900 dark:border-stone-400 bg-slate-50 dark:bg-stone-850 font-bold shadow-xs'
+                          : 'border-slate-100 dark:border-stone-800 hover:bg-slate-50 dark:hover:bg-stone-800/30 text-slate-600 dark:text-stone-300'
                       }`}
                     >
                       <img
@@ -662,8 +662,8 @@ export default function InventoryModule({
                         className="w-8 h-8 rounded-lg object-cover"
                       />
                       <div className="flex-1 min-w-0">
-                        <p className="truncate text-slate-800">{p.nombre}</p>
-                        <p className="text-[10px] text-slate-400 text-mono">${p.precio_venta.toLocaleString('es-AR')}</p>
+                        <p className="truncate text-slate-800 dark:text-stone-200">{p.nombre}</p>
+                        <p className="text-[10px] text-slate-400 dark:text-stone-300 text-mono">${p.precio_venta.toLocaleString('es-AR')}</p>
                       </div>
                     </button>
                   ))}
@@ -671,17 +671,17 @@ export default function InventoryModule({
               </div>
 
               {/* Right Formula Specification & Yield simulator (Lg Span 8) */}
-              <div className="lg:col-span-8 bg-slate-50/50 p-5 rounded-2xl border border-slate-100 space-y-5">
+              <div className="lg:col-span-8 bg-slate-50/50 dark:bg-stone-900/30 p-5 rounded-2xl border border-slate-100 dark:border-stone-800 space-y-5">
                 
                 {selectedProduct && (
-                  <div className="flex justify-between items-center bg-white p-3.5 border border-slate-50 rounded-xl shadow-xs">
+                  <div className="flex justify-between items-center bg-white dark:bg-stone-900/60 p-3.5 border border-slate-50 dark:border-stone-800 rounded-xl shadow-xs">
                     <div>
-                      <span className="text-[9px] uppercase font-bold tracking-wider text-slate-400 font-sans">Plato Seleccionado</span>
-                      <h4 className="font-extrabold text-sm text-slate-800 font-sans">{selectedProduct.nombre}</h4>
+                      <span className="text-[9px] uppercase font-bold tracking-wider text-slate-400 dark:text-stone-300 font-sans">Plato Seleccionado</span>
+                      <h4 className="font-extrabold text-sm text-slate-800 dark:text-stone-200 font-sans">{selectedProduct.nombre}</h4>
                     </div>
                     <div className="text-right">
-                      <span className="text-[9px] uppercase font-bold tracking-wider text-slate-400 font-sans">Precio de Venta</span>
-                      <p className="font-mono text-sm font-extrabold text-slate-900">${selectedProduct.precio_venta.toLocaleString('es-AR')}</p>
+                      <span className="text-[9px] uppercase font-bold tracking-wider text-slate-400 dark:text-stone-300 font-sans">Precio de Venta</span>
+                      <p className="font-mono text-sm font-extrabold text-slate-900 dark:text-white">${selectedProduct.precio_venta.toLocaleString('es-AR')}</p>
                     </div>
                   </div>
                 )}
@@ -695,20 +695,20 @@ export default function InventoryModule({
                       const hasEnough = ing.stock_actual >= totalSimulatedReduction;
 
                       return (
-                        <div key={index} className="bg-white border border-slate-100 rounded-xl p-3 flex justify-between items-center text-xs shadow-xs">
+                        <div key={index} className="bg-white dark:bg-stone-900/60 border border-slate-100 dark:border-stone-800 rounded-xl p-3 flex justify-between items-center text-xs shadow-xs">
                           <div className="flex items-center gap-2">
                             <Layers className="w-4 h-4 text-slate-400" />
                             <div>
-                              <p className="font-bold text-slate-800">{ing.nombre_insumo}</p>
-                              <p className="text-[10px] text-slate-400">Consumo técnico: {ing.cantidad_a_descontar}{ing.unidad_medida}</p>
+                              <p className="font-bold text-slate-800 dark:text-stone-200">{ing.nombre_insumo}</p>
+                              <p className="text-[10px] text-slate-400 dark:text-stone-300">Consumo técnico: {ing.cantidad_a_descontar}{ing.unidad_medida}</p>
                             </div>
                           </div>
 
                           <div className="text-right space-y-1">
-                            <div className="font-semibold text-slate-750 text-slate-700">
-                              Simulado: <span className="font-bold font-mono text-slate-900">-{totalSimulatedReduction}{ing.unidad_medida}</span>
+                            <div className="font-semibold text-slate-750 text-slate-700 dark:text-stone-200">
+                              Simulado: <span className="font-bold font-mono text-slate-900 dark:text-white">-{totalSimulatedReduction}{ing.unidad_medida}</span>
                             </div>
-                            <div className="text-[10px] leading-none text-slate-500">
+                            <div className="text-[10px] leading-none text-slate-500 dark:text-stone-300">
                               Depósito: <span className="font-bold font-sans">{ing.stock_actual}{ing.unidad_medida}</span> •{' '}
                               <span className={hasEnough ? 'text-emerald-600 font-bold' : 'text-red-500 font-bold'}>
                                 {hasEnough ? 'Suficiente ✓' : 'Insuficiente ✗'}
@@ -725,20 +725,20 @@ export default function InventoryModule({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                   
                   {/* Portions multiplier input */}
-                  <div className="bg-white border border-slate-100 p-4 rounded-xl shadow-xs space-y-2">
-                    <h5 className="text-[10px] font-bold uppercase tracking-wider font-sans text-slate-500">Simulador de Multiporciones</h5>
-                    <p className="text-[10px] leading-none text-slate-400">Ajustar volumen teórico:</p>
-                    <div className="flex items-center gap-3 bg-slate-50 p-1 border rounded-lg max-w-[150px]">
+                  <div className="bg-white dark:bg-stone-900/60 border border-slate-100 dark:border-stone-800 p-4 rounded-xl shadow-xs space-y-2">
+                    <h5 className="text-[10px] font-bold uppercase tracking-wider font-sans text-slate-500 dark:text-stone-300">Simulador de Multiporciones</h5>
+                    <p className="text-[10px] leading-none text-slate-400 dark:text-stone-350">Ajustar volumen teórico:</p>
+                    <div className="flex items-center gap-3 bg-slate-50 dark:bg-stone-900 border border-slate-150 dark:border-stone-850 rounded-lg max-w-[150px]">
                       <button 
                         onClick={() => setSimulatePortions(p => Math.max(1, p - 1))}
-                        className="w-6 h-6 rounded bg-white font-bold flex items-center justify-center text-xs"
+                        className="w-6 h-6 rounded bg-white dark:bg-stone-800 dark:text-white font-bold flex items-center justify-center text-xs"
                       >
                         -
                       </button>
-                      <span className="font-mono font-bold text-xs flex-1 text-center">{simulatePortions}</span>
+                      <span className="font-mono font-bold text-xs flex-1 text-center dark:text-white">{simulatePortions}</span>
                       <button 
                         onClick={() => setSimulatePortions(p => p + 1)}
-                        className="w-6 h-6 rounded bg-white font-bold flex items-center justify-center text-xs"
+                        className="w-6 h-6 rounded bg-white dark:bg-stone-800 dark:text-white font-bold flex items-center justify-center text-xs"
                       >
                         +
                       </button>
@@ -774,20 +774,20 @@ export default function InventoryModule({
             
             {/* Purchase Order Form (Lg Span 5) */}
             <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-4">
-              <h4 className="font-extrabold text-sm text-slate-800 font-sans tracking-tight flex items-center gap-2">
+              <h4 className="font-extrabold text-sm text-slate-800 dark:text-white font-sans tracking-tight flex items-center gap-2">
                 <Truck className="w-5 h-5 text-emerald-600" />
                 Órden de Compra & Restock
               </h4>
-              <p className="text-xs text-slate-400 font-sans leading-normal">
+              <p className="text-xs text-slate-400 dark:text-stone-300 font-sans leading-normal">
                 Genere un pedido formal de abastecimiento. Se sumará al stock físico de manera inmediata en la simulación.
               </p>
 
               <form onSubmit={handleIngresarCompraProveedor} className="space-y-3">
                 
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase">Seleccionar Proveedor</label>
+                  <label className="text-[10px] font-bold text-slate-500 dark:text-stone-300 uppercase">Seleccionar Proveedor</label>
                   <select
-                    className="w-full text-xs text-slate-700 bg-slate-50 p-2.5 border border-slate-150 rounded-lg"
+                    className="w-full text-xs text-slate-700 dark:text-stone-200 bg-slate-50 dark:bg-stone-900 p-2.5 border border-slate-150 dark:border-stone-850 rounded-lg"
                     value={selectedProveedor}
                     onChange={(e) => setSelectedProveedor(e.target.value)}
                   >
@@ -798,9 +798,9 @@ export default function InventoryModule({
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase">Material a Abastecer</label>
+                  <label className="text-[10px] font-bold text-slate-500 dark:text-stone-300 uppercase">Material a Abastecer</label>
                   <select
-                    className="w-full text-xs text-slate-700 bg-slate-50 p-2.5 border border-slate-150 rounded-lg"
+                    className="w-full text-xs text-slate-700 dark:text-stone-200 bg-slate-50 dark:bg-stone-900 p-2.5 border border-slate-150 dark:border-stone-850 rounded-lg"
                     value={compraInsumoId}
                     onChange={(e) => setCompraInsumoId(e.target.value)}
                   >
@@ -813,11 +813,11 @@ export default function InventoryModule({
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase">Cantidad a Comprar</label>
+                  <label className="text-[10px] font-bold text-slate-500 dark:text-stone-300 uppercase">Cantidad a Comprar</label>
                   <div className="relative">
                     <input
                       type="number"
-                      className="w-full text-xs p-2.5 bg-slate-50 border border-slate-150 rounded-lg text-slate-850"
+                      className="w-full text-xs p-2.5 bg-slate-50 dark:bg-stone-900 border border-slate-150 dark:border-stone-850 rounded-lg text-slate-850 dark:text-stone-200"
                       value={compraCantidad || ''}
                       onChange={(e) => setCompraCantidad(Math.max(1, parseFloat(e.target.value)))}
                       placeholder="Ej: 2000"
@@ -840,11 +840,11 @@ export default function InventoryModule({
 
               {/* SUPPLIER LOG CONTACTS */}
               <div className="pt-2">
-                <h5 className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-2">Directorio de Contactos</h5>
+                <h5 className="text-[10px] uppercase font-bold text-slate-400 dark:text-stone-300 tracking-wider mb-2">Directorio de Contactos</h5>
                 <div className="space-y-1.5">
                   {proveedores.map((p, idx) => (
-                    <div key={idx} className="bg-slate-50 p-2 rounded-lg border text-[9px] text-slate-500 leading-snug">
-                      <p className="font-bold text-slate-800">{p.nombre}</p>
+                    <div key={idx} className="bg-slate-50 dark:bg-stone-900/40 p-2 rounded-lg border border-slate-150 dark:border-stone-800 text-[9px] text-slate-500 dark:text-stone-300 leading-snug">
+                      <p className="font-bold text-slate-800 dark:text-stone-200">{p.nombre}</p>
                       <p>Email: {p.contacto} • Tel: {p.telefono}</p>
                     </div>
                   ))}
@@ -855,33 +855,33 @@ export default function InventoryModule({
 
             {/* Simulated Purchase Orders lists (Lg Span 7) */}
             <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-4">
-              <h4 className="font-extrabold text-xs text-slate-800 uppercase tracking-wider font-sans">
+              <h4 className="font-extrabold text-xs text-slate-800 dark:text-stone-150 uppercase tracking-wider font-sans">
                 Historial de Compras de Bodega & Insumos
               </h4>
 
-              <div className="border rounded-xl bg-slate-50/50 p-2 text-[11px] text-indigo-750 flex items-center gap-2">
+              <div className="border rounded-xl bg-slate-50/50 p-2 text-[11px] text-indigo-755 text-indigo-750 flex items-center gap-2">
                 <Info className="w-5 h-5 text-indigo-600" />
                 <span>Simulación de cadena de frío y recepción de remitos para restaurante en tiempo real.</span>
               </div>
 
               <div className="space-y-2 max-h-[380px] overflow-y-auto">
                 {comprasHistorial.map((oc, idx) => (
-                  <div key={idx} className="bg-white border rounded-xl p-3.5 shadow-xs flex justify-between items-center text-xs">
+                  <div key={idx} className="bg-white dark:bg-stone-900/60 border border-slate-100 dark:border-stone-800 rounded-xl p-3.5 shadow-xs flex justify-between items-center text-xs">
                     <div>
                       <div className="flex items-center gap-1.5">
-                        <span className="font-bold text-slate-800 font-sans">{oc.proveedor}</span>
+                        <span className="font-bold text-slate-800 dark:text-stone-200 font-sans">{oc.proveedor}</span>
                         <span className="bg-slate-150 text-slate-650 text-[8px] font-bold px-1.5 rounded-full uppercase">
                           {oc.id}
                         </span>
                       </div>
-                      <p className="text-[10px] text-slate-400 mt-1">
-                        Insumo: {oc.insumo} • Cantidad: <strong className="text-slate-700">{oc.cantidad}</strong>
+                      <p className="text-[10px] text-slate-400 dark:text-stone-300 mt-1">
+                        Insumo: {oc.insumo} • Cantidad: <strong className="text-slate-700 dark:text-stone-200">{oc.cantidad}</strong>
                       </p>
-                      <p className="text-[9px] text-slate-400">Fecha de Arribo: {oc.fecha}</p>
+                      <p className="text-[9px] text-slate-400 dark:text-stone-300">Fecha de Arribo: {oc.fecha}</p>
                     </div>
 
                     <div className="text-right">
-                      <span className="font-mono font-bold text-slate-900 block">${oc.costo.toLocaleString('es-AR')}</span>
+                      <span className="font-mono font-bold text-slate-900 dark:text-white block">${oc.costo.toLocaleString('es-AR')}</span>
                       <span className="bg-emerald-50 text-emerald-800 text-[9px] font-bold px-2 py-0.5 rounded-full inline-block mt-1">
                         {oc.estado}
                       </span>
@@ -901,10 +901,10 @@ export default function InventoryModule({
             
             <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
               <div>
-                <h3 className="font-extrabold text-base text-slate-900 font-sans tracking-tight">
+                <h3 className="font-extrabold text-base text-slate-900 dark:text-white font-sans tracking-tight">
                   Libro Diario de Control de Stock
                 </h3>
-                <p className="text-xs text-slate-400 font-sans">
+                <p className="text-xs text-slate-400 dark:text-stone-300 font-sans">
                   Registro cronológico de movimientos de bodega (Egresos KDS comanda, desajustes y mermas directas).
                 </p>
               </div>
@@ -918,10 +918,10 @@ export default function InventoryModule({
               </button>
             </div>
 
-            <div className="border border-slate-100 rounded-xl overflow-hidden max-h-[450px] overflow-y-auto">
+            <div className="border border-slate-100 dark:border-stone-800 rounded-xl overflow-hidden max-h-[450px] overflow-y-auto">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="bg-slate-50 border-b border-slate-100 text-[10px] text-slate-500 uppercase font-bold tracking-wider">
+                  <tr className="bg-slate-50 dark:bg-stone-900/30 border-b border-slate-100 dark:border-stone-800 text-[10px] text-slate-500 dark:text-stone-300 uppercase font-bold tracking-wider">
                     <th className="p-3">Ref ID</th>
                     <th className="p-3">Insumo</th>
                     <th className="p-3">Cantidad</th>
@@ -930,14 +930,14 @@ export default function InventoryModule({
                     <th className="p-3">Timestamp Fiscal</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-100 dark:divide-stone-850">
                   {movimientosLocales.map((m, idx) => {
                     const isDescuento = m.operacion === 'Descuento' || m.operacion === 'Descarte/Merma';
                     return (
-                      <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="p-3 font-mono font-bold text-slate-400">{m.id}</td>
-                        <td className="p-3 font-semibold text-slate-800">{m.insumo}</td>
-                        <td className={`p-3 font-mono font-extrabold ${isDescuento ? 'text-rose-700' : 'text-emerald-700'}`}>
+                      <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-stone-800/20 transition-colors">
+                        <td className="p-3 font-mono font-bold text-slate-400 dark:text-stone-350">{m.id}</td>
+                        <td className="p-3 font-semibold text-slate-800 dark:text-stone-200">{m.insumo}</td>
+                        <td className={`p-3 font-mono font-extrabold ${isDescuento ? 'text-rose-750 dark:text-rose-400' : 'text-emerald-750 dark:text-emerald-400'}`}>
                           {m.cantidad}
                         </td>
                         <td className="p-3">
@@ -951,8 +951,8 @@ export default function InventoryModule({
                             {m.operacion}
                           </span>
                         </td>
-                        <td className="p-3 font-sans text-slate-550 text-slate-600">{m.motivo}</td>
-                        <td className="p-3 text-slate-400 font-mono text-[10px]">{m.fecha}</td>
+                        <td className="p-3 font-sans text-slate-550 text-slate-600 dark:text-stone-300">{m.motivo}</td>
+                        <td className="p-3 text-slate-400 dark:text-stone-300 font-mono text-[10px]">{m.fecha}</td>
                       </tr>
                     );
                   })}

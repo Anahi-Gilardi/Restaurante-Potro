@@ -228,13 +228,13 @@ Administración de "El Patrón"`;
           <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input type="text" value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Buscar proveedor o contacto..."
-            className="w-full pl-9 pr-3 py-2 text-xs bg-white border border-stone-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#624A3E]" />
+            className="w-full pl-9 pr-3 py-2 text-xs bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-750 rounded-xl text-stone-800 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-[#624A3E]" />
         </div>
         <div className="flex gap-1.5 flex-wrap">
           {['todas', ...categories].map(c => (
             <button key={c} onClick={() => setFilterCat(c)}
               className={`px-2.5 py-1 text-[10px] font-bold rounded-lg uppercase cursor-pointer border transition-all ${
-                filterCat === c ? 'bg-[#624A3E] text-white border-[#624A3E]' : 'bg-stone-50 text-stone-600 border-stone-200 hover:bg-stone-100'}`}>
+                filterCat === c ? 'bg-[#624A3E] text-white border-[#624A3E]' : 'bg-stone-50 dark:bg-stone-900/40 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-stone-800 hover:bg-stone-100 dark:hover:bg-stone-800'}`}>
               {c}
             </button>
           ))}
@@ -243,39 +243,39 @@ Administración de "El Patrón"`;
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-xs space-y-4 h-fit">
-          <h3 className="text-sm font-black text-stone-800 uppercase tracking-tight flex items-center gap-2">
+          <h3 className="text-sm font-black text-stone-800 dark:text-white uppercase tracking-tight flex items-center gap-2">
             <Plus className="w-4 h-4 text-[#624A3E]" />
             {editingId ? 'Editar Proveedor' : 'Adicionar Proveedor'}
           </h3>
           <form onSubmit={editingId ? (e => { e.preventDefault(); handleSaveEdit(); }) : handleCreateProveedor} className="space-y-3">
             <div>
-              <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Razón Social</label>
+              <label className="text-[10px] font-black text-stone-500 dark:text-stone-300 uppercase block mb-1">Razón Social</label>
               <input type="text" value={nombre} onChange={e => setNombre(e.target.value)}
                 placeholder="Ej. Frigorífico Central S.A."
-                className="w-full text-xs p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none focus:ring-1 focus:ring-[#624A3E]" required />
+                className="w-full text-xs p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-800 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-[#624A3E]" required />
             </div>
             <div>
-              <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Nombre de Contacto</label>
+              <label className="text-[10px] font-black text-stone-500 dark:text-stone-300 uppercase block mb-1">Nombre de Contacto</label>
               <input type="text" value={contacto} onChange={e => setContacto(e.target.value)}
                 placeholder="Ej. Federico Balestra"
-                className="w-full text-xs p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none focus:ring-1 focus:ring-[#624A3E]" required />
+                className="w-full text-xs p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-800 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-[#624A3E]" required />
             </div>
             <div>
-              <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Teléfono Directo</label>
+              <label className="text-[10px] font-black text-stone-500 dark:text-stone-300 uppercase block mb-1">Teléfono Directo</label>
               <input type="text" value={telefono} onChange={e => setTelefono(e.target.value)}
                 placeholder="Ej. +54 11 4488-2993"
-                className="w-full text-xs p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none focus:ring-1 focus:ring-[#624A3E]" required />
+                className="w-full text-xs p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-800 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-[#624A3E]" required />
             </div>
             <div>
-              <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Correo Electrónico</label>
+              <label className="text-[10px] font-black text-stone-500 dark:text-stone-300 uppercase block mb-1">Correo Electrónico</label>
               <input type="email" value={correo} onChange={e => setCorreo(e.target.value)}
                 placeholder="pedidos@empresa.com"
-                className="w-full text-xs p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none focus:ring-1 focus:ring-[#624A3E]" />
+                className="w-full text-xs p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-800 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-[#624A3E]" />
             </div>
             <div>
-              <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Categoría</label>
+              <label className="text-[10px] font-black text-stone-500 dark:text-stone-300 uppercase block mb-1">Categoría</label>
               <select value={categoria} onChange={e => setCategoria(e.target.value as any)}
-                className="w-full text-xs p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none cursor-pointer focus:ring-1 focus:ring-[#624A3E] font-semibold text-stone-700">
+                className="w-full text-xs p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-700 dark:text-stone-200 focus:outline-none cursor-pointer focus:ring-1 focus:ring-[#624A3E] font-semibold text-stone-700">
                 <option value="carnes">Cortes de Carnes y Frescos</option>
                 <option value="verduras">Verduras y Frutas del Día</option>
                 <option value="bebidas">Vinos, Agua y Gaseosas</option>
@@ -284,9 +284,9 @@ Administración de "El Patrón"`;
               </select>
             </div>
             <div>
-              <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Plazo de Despacho</label>
+              <label className="text-[10px] font-black text-stone-500 dark:text-stone-300 uppercase block mb-1">Plazo de Despacho</label>
               <select value={tiempo} onChange={e => setTiempo(e.target.value)}
-                className="w-full text-xs p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none cursor-pointer focus:ring-1 focus:ring-[#624A3E] font-semibold text-stone-700">
+                className="w-full text-xs p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-700 dark:text-stone-200 focus:outline-none cursor-pointer focus:ring-1 focus:ring-[#624A3E] font-semibold text-stone-700">
                 <option value="1">Siguiente día (Inmediato)</option>
                 <option value="2">48 Horas hábiles</option>
                 <option value="3">72 Horas hábiles</option>
@@ -298,7 +298,7 @@ Administración de "El Patrón"`;
             </button>
             {editingId && (
               <button type="button" onClick={() => { setEditingId(null); setNombre(''); setContacto(''); setTelefono(''); setCorreo(''); setTiempo('1'); }}
-                className="w-full py-2 text-xs font-bold text-stone-500 hover:text-stone-700 transition-colors cursor-pointer">
+                className="w-full py-2 text-xs font-bold text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 transition-colors cursor-pointer">
                 Cancelar edición
               </button>
             )}
@@ -307,11 +307,11 @@ Administración de "El Patrón"`;
 
         <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-xs lg:col-span-3 space-y-4">
           <div className="flex justify-between items-center pb-2 border-b border-stone-100">
-            <h3 className="text-sm font-black text-stone-800 uppercase tracking-tight flex items-center gap-2 font-sans">
+            <h3 className="text-sm font-black text-stone-800 dark:text-white uppercase tracking-tight flex items-center gap-2 font-sans">
               <Truck className="w-5 h-5 text-[#624A3E]" />
               Proveedores ({filtered.length})
             </h3>
-            <span className="text-[9px] bg-stone-100 text-stone-500 font-bold px-2 py-0.5 rounded-full font-mono">Red de Suministro</span>
+            <span className="text-[9px] bg-stone-100 dark:bg-stone-900 text-stone-505 text-stone-500 dark:text-stone-300 font-bold px-2 py-0.5 rounded-full font-mono">Red de Suministro</span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -335,11 +335,11 @@ Administración de "El Patrón"`;
               const lowStockCount = supplierInsumos.filter(i => i.stock_actual <= i.stock_minimo).length;
 
               return (
-                <div key={p.id_proveedor} className="p-4 bg-[#F5F1E9]/40 border border-stone-150 rounded-2xl flex flex-col justify-between hover:bg-[#F5F1E9]/75 transition-all shadow-xs">
+                <div key={p.id_proveedor} className="p-4 bg-[#F5F1E9]/40 dark:bg-stone-900/30 border border-stone-150 dark:border-stone-800/80 rounded-2xl flex flex-col justify-between hover:bg-[#F5F1E9]/75 dark:hover:bg-stone-800/20 transition-all shadow-xs">
                   <div className="space-y-3">
                     <div className="flex justify-between items-start">
                       <div>
-                        <h4 className="font-black text-[#624A3E] text-sm tracking-tight leading-snug">{p.nombre}</h4>
+                        <h4 className="font-black text-[#624A3E] dark:text-stone-100 text-sm tracking-tight leading-snug">{p.nombre}</h4>
                         <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full border inline-block mt-1 ${tagColor}`}>{p.categoria}</span>
                       </div>
                       <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full border shadow-2xs ${scorecard.tierColor}`}>
@@ -348,7 +348,7 @@ Administración de "El Patrón"`;
                     </div>
 
                     {/* Scorecard Mini Panel */}
-                    <div className="grid grid-cols-2 gap-1 bg-white/60 p-2 rounded-xl border border-stone-150/40 text-[10px] text-stone-600 font-sans">
+                    <div className="grid grid-cols-2 gap-1 bg-white/60 dark:bg-stone-900/50 p-2 rounded-xl border border-stone-150/40 dark:border-stone-800/60 text-[10px] text-stone-600 dark:text-stone-300 font-sans">
                       <div className="flex items-center gap-1">
                         <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
                         <span>Rating: <strong>{scorecard.score}</strong></span>
@@ -358,19 +358,19 @@ Administración de "El Patrón"`;
                       </div>
                     </div>
 
-                    <div className="space-y-1 text-xs text-stone-600">
+                    <div className="space-y-1 text-xs text-stone-600 dark:text-stone-300">
                       <p className="flex items-center gap-1.5 font-medium">
-                        <Phone className="w-3.5 h-3.5 text-[#624A3E] opacity-70" />
+                        <Phone className="w-3.5 h-3.5 text-[#624A3E] dark:text-stone-400 opacity-70" />
                         <strong>{p.contacto}:</strong> {p.telefono}
                       </p>
-                      <p className="text-[11px] font-mono opacity-85 text-stone-500 pl-5">{p.correo || p.email}</p>
+                      <p className="text-[11px] font-mono opacity-85 text-stone-500 dark:text-stone-400 pl-5">{p.correo || p.email}</p>
                     </div>
 
                     {/* Alarms and Quick status */}
                     <div className="flex gap-2">
                       <button
                         onClick={() => setInsumosModalProv(p)}
-                        className="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-1 cursor-pointer"
+                        className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 font-bold flex items-center gap-1 cursor-pointer"
                       >
                         <Layers className="w-3 h-3" />
                         Insumos ({supplierInsumos.length})
@@ -383,7 +383,7 @@ Administración de "El Patrón"`;
 
                       <button
                         onClick={() => setHistoryModalProv(p)}
-                        className="text-[10px] text-slate-500 hover:text-slate-800 font-bold flex items-center gap-1 cursor-pointer"
+                        className="text-[10px] text-slate-500 dark:text-stone-300 hover:text-slate-800 dark:hover:text-stone-100 font-bold flex items-center gap-1 cursor-pointer"
                       >
                         <FileText className="w-3 h-3" />
                         Órdenes
@@ -393,7 +393,7 @@ Administración de "El Patrón"`;
 
                   <div className="flex justify-between items-center mt-5 pt-3 border-t border-stone-200/50">
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-stone-500 font-bold">Despacho: <strong>{p.tiempo_entrega_dias} d</strong></span>
+                      <span className="text-[10px] text-stone-500 dark:text-stone-300 font-bold">Despacho: <strong>{p.tiempo_entrega_dias} d</strong></span>
                       <button onClick={() => handleEdit(p)} className="p-1 text-stone-400 hover:text-blue-500 rounded-lg hover:bg-stone-200 transition-colors cursor-pointer" title="Editar">
                         <Edit2 className="w-3 h-3" />
                       </button>
@@ -436,17 +436,17 @@ Administración de "El Patrón"`;
     {/* MODAL 1: CATALOG OF ASSOCIATED INSUMOS */}
     {insumosModalProv && (
       <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
-        <div className="bg-white rounded-3xl border border-stone-200 shadow-xl max-w-lg w-full overflow-hidden flex flex-col max-h-[85vh]">
-          <div className="p-5 border-b border-stone-100 flex justify-between items-center bg-[#F5F1E9]/40">
+        <div className="bg-white dark:bg-[#1e1b18] rounded-3xl border border-stone-200 dark:border-stone-800 shadow-xl max-w-lg w-full overflow-hidden flex flex-col max-h-[85vh]">
+          <div className="p-5 border-b border-stone-100 dark:border-stone-800 flex justify-between items-center bg-[#F5F1E9]/40 dark:bg-stone-900/60">
             <div>
-              <span className="text-[9px] uppercase font-black tracking-widest text-[#624A3E] block">Catálogo de Suministros</span>
-              <h3 className="text-sm font-black text-stone-950 font-sans leading-none mt-1">
+              <span className="text-[9px] uppercase font-black tracking-widest text-[#624A3E] dark:text-stone-300 block">Catálogo de Suministros</span>
+              <h3 className="text-sm font-black text-stone-950 dark:text-white font-sans leading-none mt-1">
                 {insumosModalProv.nombre}
               </h3>
             </div>
             <button 
               onClick={() => setInsumosModalProv(null)}
-              className="p-1.5 text-stone-400 hover:text-stone-700 bg-stone-100 hover:bg-stone-200 rounded-full cursor-pointer transition-colors"
+              className="p-1.5 text-stone-400 hover:text-stone-700 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 rounded-full cursor-pointer transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
@@ -460,7 +460,7 @@ Administración de "El Patrón"`;
               (ins.categoria === 'frescos' && insumosModalProv.categoria === 'verduras') || 
               (ins.categoria === 'secos' && insumosModalProv.categoria === 'viveres')
             ).length === 0 ? (
-              <p className="text-xs text-stone-500 italic text-center py-6">No hay insumos catalogados de este proveedor actualmente.</p>
+              <p className="text-xs text-stone-500 dark:text-stone-400 italic text-center py-6">No hay insumos catalogados de este proveedor actualmente.</p>
             ) : (
               insumos.filter(
                 ins => ins.proveedor === insumosModalProv.nombre || 
@@ -471,13 +471,13 @@ Administración de "El Patrón"`;
               ).map((ins) => {
                 const isLow = ins.stock_actual <= ins.stock_minimo;
                 return (
-                  <div key={ins.id_insumo} className="p-3 bg-stone-50 border border-stone-150/60 rounded-xl flex justify-between items-center text-xs">
+                  <div key={ins.id_insumo} className="p-3 bg-stone-50 dark:bg-stone-900 border border-stone-150/60 dark:border-stone-850 rounded-xl flex justify-between items-center text-xs">
                     <div>
-                      <p className="font-bold text-stone-900">{ins.nombre}</p>
-                      <p className="text-[10px] text-stone-400 uppercase tracking-tight">{ins.categoria} • Medida: {ins.unidad_medida}</p>
+                      <p className="font-bold text-stone-900 dark:text-stone-100">{ins.nombre}</p>
+                      <p className="text-[10px] text-stone-400 dark:text-stone-300 uppercase tracking-tight">{ins.categoria} • Medida: {ins.unidad_medida}</p>
                     </div>
                     <div className="text-right">
-                      <p className="font-mono font-bold text-stone-900">
+                      <p className="font-mono font-bold text-stone-900 dark:text-white">
                         {ins.stock_actual} / <span className="text-stone-400">{ins.stock_minimo} (mín)</span>
                       </p>
                       {isLow ? (
@@ -495,10 +495,10 @@ Administración de "El Patrón"`;
               })
             )}
           </div>
-          <div className="p-4 border-t border-stone-100 bg-stone-50 flex justify-end">
+          <div className="p-4 border-t border-stone-100 dark:border-stone-800 bg-stone-50 dark:bg-stone-900 flex justify-end">
             <button 
               onClick={() => setInsumosModalProv(null)}
-              className="px-4 py-2 bg-stone-900 hover:bg-stone-850 text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
+              className="px-4 py-2 bg-stone-900 dark:bg-stone-800 hover:bg-stone-850 dark:hover:bg-stone-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
             >
               Cerrar Catálogo
             </button>
@@ -510,17 +510,17 @@ Administración de "El Patrón"`;
     {/* MODAL 2: LINKED PURCHASE HISTORY */}
     {historyModalProv && (
       <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
-        <div className="bg-white rounded-3xl border border-stone-200 shadow-xl max-w-lg w-full overflow-hidden flex flex-col max-h-[85vh]">
-          <div className="p-5 border-b border-stone-100 flex justify-between items-center bg-[#F5F1E9]/40">
+        <div className="bg-white dark:bg-[#1e1b18] rounded-3xl border border-stone-200 dark:border-stone-800 shadow-xl max-w-lg w-full overflow-hidden flex flex-col max-h-[85vh]">
+          <div className="p-5 border-b border-stone-100 dark:border-stone-800 flex justify-between items-center bg-[#F5F1E9]/40 dark:bg-stone-900/60">
             <div>
-              <span className="text-[9px] uppercase font-black tracking-widest text-[#624A3E] block">Historial de Órdenes</span>
-              <h3 className="text-sm font-black text-stone-950 font-sans leading-none mt-1">
+              <span className="text-[9px] uppercase font-black tracking-widest text-[#624A3E] dark:text-stone-300 block">Historial de Órdenes</span>
+              <h3 className="text-sm font-black text-stone-950 dark:text-white font-sans leading-none mt-1">
                 Órdenes del Proveedor: {historyModalProv.nombre}
               </h3>
             </div>
             <button 
               onClick={() => setHistoryModalProv(null)}
-              className="p-1.5 text-stone-400 hover:text-stone-700 bg-stone-100 hover:bg-stone-200 rounded-full cursor-pointer transition-colors"
+              className="p-1.5 text-stone-400 hover:text-stone-700 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 rounded-full cursor-pointer transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
@@ -531,9 +531,9 @@ Administración de "El Patrón"`;
               mov => mov.tipo_movimiento === 'entrada' && 
               (mov.id_insumo && insumos.find(i => i.id_insumo === mov.id_insumo)?.proveedor === historyModalProv.nombre)
             ).length === 0 ? (
-              <div className="text-center py-8 text-stone-400 text-xs italic space-y-2">
+              <div className="text-center py-8 text-stone-400 dark:text-stone-300 text-xs italic space-y-2">
                 <p>No se registran entregas completadas de este proveedor en la base de datos.</p>
-                <div className="bg-amber-50 text-amber-800 text-[10px] p-3 rounded-lg border border-amber-200 not-italic">
+                <div className="bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 text-[10px] p-3 rounded-lg border border-amber-200 not-italic">
                   💡 Registre nuevas compras ingresando insumos desde el panel de inventario compras para ver las transacciones reales.
                 </div>
               </div>
@@ -544,13 +544,13 @@ Administración de "El Patrón"`;
               ).map((mov, idx) => {
                 const insName = insumos.find(i => i.id_insumo === mov.id_insumo)?.nombre || mov.id_insumo;
                 return (
-                  <div key={mov.id_movimiento || idx} className="p-3 bg-stone-50 border border-stone-150/60 rounded-xl flex justify-between items-center text-xs">
+                  <div key={mov.id_movimiento || idx} className="p-3 bg-stone-50 dark:bg-stone-900 border border-stone-150/60 dark:border-stone-850 rounded-xl flex justify-between items-center text-xs">
                     <div>
-                      <p className="font-bold text-stone-900">{insName}</p>
-                      <p className="text-[10px] text-stone-400">Cantidad ingresada: <strong className="text-stone-700">+{mov.cantidad}</strong></p>
+                      <p className="font-bold text-stone-900 dark:text-stone-100">{insName}</p>
+                      <p className="text-[10px] text-stone-400 dark:text-stone-300">Cantidad ingresada: <strong className="text-stone-700 dark:text-stone-200">+{mov.cantidad}</strong></p>
                     </div>
                     <div className="text-right">
-                      <span className="text-[10px] font-mono text-stone-500 block">
+                      <span className="text-[10px] font-mono text-stone-500 dark:text-stone-400 block">
                         {new Date(mov.fecha).toLocaleDateString('es-AR')}
                       </span>
                       <span className="bg-emerald-50 text-emerald-800 text-[8px] font-bold px-2 py-0.5 rounded-full inline-block mt-1">
@@ -562,10 +562,10 @@ Administración de "El Patrón"`;
               })
             )}
           </div>
-          <div className="p-4 border-t border-stone-100 bg-stone-50 flex justify-end">
+          <div className="p-4 border-t border-stone-100 dark:border-stone-800 bg-stone-50 dark:bg-stone-900 flex justify-end">
             <button 
               onClick={() => setHistoryModalProv(null)}
-              className="px-4 py-2 bg-stone-900 hover:bg-stone-850 text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
+              className="px-4 py-2 bg-stone-900 dark:bg-stone-800 hover:bg-stone-850 dark:hover:bg-stone-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
             >
               Cerrar Historial
             </button>
@@ -577,20 +577,20 @@ Administración de "El Patrón"`;
     {/* MODAL 3: REQUISITION DRAFT & SUBMISSION */}
     {requisitionModalProv && (
       <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
-        <div className="bg-white rounded-3xl border border-stone-200 shadow-xl max-w-xl w-full overflow-hidden flex flex-col max-h-[90vh]">
-          <div className="p-5 border-b border-stone-100 flex justify-between items-center bg-[#F5F1E9]/40">
+        <div className="bg-white dark:bg-[#1e1b18] rounded-3xl border border-stone-200 dark:border-stone-800 shadow-xl max-w-xl w-full overflow-hidden flex flex-col max-h-[90vh]">
+          <div className="p-5 border-b border-stone-100 dark:border-stone-800 flex justify-between items-center bg-[#F5F1E9]/40 dark:bg-stone-900/60">
             <div className="flex items-center gap-2">
               <Mail className="w-5 h-5 text-[#624A3E]" />
               <div>
-                <span className="text-[9px] uppercase font-black tracking-widest text-[#624A3E] block">Solicitud de Pedido de Insumos</span>
-                <h3 className="text-sm font-black text-stone-950 font-sans leading-none mt-1">
+                <span className="text-[9px] uppercase font-black tracking-widest text-[#624A3E] dark:text-stone-300 block">Solicitud de Pedido de Insumos</span>
+                <h3 className="text-sm font-black text-stone-950 dark:text-white font-sans leading-none mt-1">
                   Generador de Pedido: {requisitionModalProv.nombre}
                 </h3>
               </div>
             </div>
             <button 
               onClick={() => setRequisitionModalProv(null)}
-              className="p-1.5 text-stone-400 hover:text-stone-700 bg-stone-100 hover:bg-stone-200 rounded-full cursor-pointer transition-colors"
+              className="p-1.5 text-stone-400 hover:text-stone-700 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 rounded-full cursor-pointer transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
@@ -606,20 +606,20 @@ Administración de "El Patrón"`;
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-stone-500 uppercase block">Mensaje de Cotización/Pedido</label>
+              <label className="text-[10px] font-black text-stone-500 dark:text-stone-300 uppercase block">Mensaje de Cotización/Pedido</label>
               <textarea 
                 value={requisitionText}
                 onChange={(e) => setRequisitionText(e.target.value)}
                 rows={10}
-                className="w-full text-xs p-3 rounded-xl border border-stone-250 bg-stone-50 font-mono text-stone-800 focus:outline-none focus:ring-1 focus:ring-[#624A3E] leading-relaxed resize-y"
+                className="w-full text-xs p-3 rounded-xl border border-stone-250 dark:border-stone-750 bg-stone-50 dark:bg-stone-900 font-mono text-stone-800 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-[#624A3E] leading-relaxed resize-y"
               />
             </div>
           </div>
 
-          <div className="p-4 border-t border-stone-100 bg-stone-50 flex justify-between gap-3 flex-wrap">
+          <div className="p-4 border-t border-stone-100 dark:border-stone-800 bg-stone-50 dark:bg-stone-900 flex justify-between gap-3 flex-wrap">
             <button 
               onClick={handleCopyRequisition}
-              className="px-4 py-2 border border-stone-300 bg-white hover:bg-stone-50 text-stone-800 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
+              className="px-4 py-2 border border-stone-300 bg-white dark:bg-stone-800 hover:bg-stone-50 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
             >
               {isCopied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
               {isCopied ? '¡Copiado!' : 'Copiar Borrador'}
@@ -628,7 +628,7 @@ Administración de "El Patrón"`;
             <div className="flex gap-2">
               <button 
                 onClick={() => setRequisitionModalProv(null)}
-                className="px-4 py-2 text-stone-500 hover:text-stone-850 hover:bg-stone-100 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                className="px-4 py-2 text-stone-500 dark:text-stone-400 hover:text-stone-850 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-xl text-xs font-bold transition-all cursor-pointer"
               >
                 Cancelar
               </button>
