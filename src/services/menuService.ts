@@ -34,7 +34,7 @@ const normalizeProductoMenu = (prod: DbProductoMenu): ProductoMenu => {
     categoria,
     subcategoria: readString(prod.subcategoria) || undefined,
     activo: prod.activo !== false,
-    imagen: readString(prod.imagen, '/logo-el-patron.jpeg?v=3'),
+    imagen: readString(prod.imagen, '/logo-el-patron.jpeg?v=4'),
     tipo,
     tiempo_preparacion_estimado: readNumber(prod.tiempo_preparacion_estimado) || undefined,
     requiere_cocina: typeof prod.requiere_cocina === 'boolean'

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 
-const DEFAULT_LOGO_SRC = '/logo-el-patron.jpeg?v=3';
+const DEFAULT_LOGO_SRC = '/logo-el-patron.jpeg?v=4';
 const LOGO_STORAGE_KEY = 'el_potro_custom_logo';
 const LEGACY_LOGO_STORAGE_KEY = 'el_patron_custom_logo';
 const LOGO_CHANGE_EVENT = 'el_patron_logo_changed';
@@ -15,9 +15,9 @@ const readStoredLogo = () => {
   try {
     localStorage.removeItem(LEGACY_LOGO_STORAGE_KEY);
     // Force one-time cleanup of old custom/cached logos to display the new official horse logo
-    if (!localStorage.getItem('el_patron_logo_v3_migrated')) {
+    if (!localStorage.getItem('el_patron_logo_v4_migrated')) {
       localStorage.removeItem(LOGO_STORAGE_KEY);
-      localStorage.setItem('el_patron_logo_v3_migrated', 'true');
+      localStorage.setItem('el_patron_logo_v4_migrated', 'true');
     }
     return localStorage.getItem(LOGO_STORAGE_KEY);
   } catch {
