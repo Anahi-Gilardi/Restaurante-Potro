@@ -1,5 +1,6 @@
 import { getActiveSupabaseClient } from '../lib/supabaseClient';
 import { Insumo, PedidoItem, RecetaEscandallo } from '../types';
+import { insumoSchema } from '../lib/validations';
 
 export function calcularDescuentosInventario(items: PedidoItem[], recetas: RecetaEscandallo[]): Record<string, number> {
   const descuentos: Record<string, number> = {};
@@ -35,6 +36,7 @@ export const insumosService = {
   },
 
   async create(insumo: Insumo): Promise<Insumo> {
+    insumoSchema.passthrough().parse(insumo);
     const supabase = getActiveSupabaseClient();
     const { data, error } = await supabase.from('insumos').insert([insumo]).select().single();
     if (error) {
@@ -45,6 +47,7 @@ export const insumosService = {
   },
 
   async update(id: string, insumo: Partial<Insumo>): Promise<Insumo> {
+    insumoSchema.partial().passthrough().parse(insumo);
     const supabase = getActiveSupabaseClient();
     let previousCost = 0;
     try {
@@ -61,7 +64,6 @@ export const insumosService = {
       console.error('Error updating insumo:', error);
       throw error;
     }
-
     const newCost = insumo.costo_unitario;
     if (newCost !== undefined && newCost !== null && newCost !== previousCost) {
       try {
@@ -88,6 +90,7 @@ export const insumosService = {
   },
 
   async upsert(insumos: Insumo[]): Promise<Insumo[]> {
+    insumos.forEach(i => insumoSchema.passthrough().parse(i));
     const supabase = getActiveSupabaseClient();
     const existingMap = new Map<string, number>();
     try {

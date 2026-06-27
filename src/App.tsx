@@ -78,6 +78,7 @@ import { AppView, canAccessView, getAllowedViews } from './lib/permissions';
 import { createClientPedidoId } from './lib/pedidoIds';
 import { cajaService } from './services/cajaService';
 import { reservasService } from './services/reservasService';
+import { stockEngine } from './services/stock/stockEngine';
 
 function isSameTable(p1: { id_mesa?: any; numero_mesa?: string }, p2: { id_mesa?: any; numero_mesa?: string }): boolean {
   if (p1.id_mesa !== undefined && p1.id_mesa !== null && p2.id_mesa !== undefined && p2.id_mesa !== null) {
@@ -453,49 +454,50 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
       return match;
     });
 
+    // Validar items con el motor de stock
+    try {
+      newPedidoData.items.forEach(item => stockEngine.validatePedidoItem(item));
+    } catch (validationErr: any) {
+      toast.error(validationErr.message);
+      return;
+    }
+
+    let updatedInsumos = insumos;
+    let stockDescontado = false;
     let itemsDescontados: string[] = [];
     let alarmasBajoStock: string[] = [];
-    const stockMovements: Array<{
-      id_insumo: string;
-      tipo_movimiento: 'salida_comanda';
-      cantidad: number;
-      stock_anterior: number;
-      stock_nuevo: number;
-    }> = [];
+    const stockMovements: any[] = [];
 
-    const updatedInsumos = insumos.map(ins => ({ ...ins }));
+    const isAdvancedState = ['en_cocina', 'listo', 'entregado', 'entregado_cobrado'].includes(newPedidoData.estado_comanda || 'pendiente');
 
-    newPedidoData.items.forEach(pItem => {
-      const qtyPlates = pItem.cantidad;
-      const matchingRecetas = recetas.filter(r => r.id_producto === pItem.id_producto);
+    if (isAdvancedState) {
+      try {
+        const dummyPedido: Pedido = {
+          id_pedido: 0,
+          ...newPedidoData,
+          origen: newPedidoData.origen || 'Mozo',
+          items: newPedidoData.items,
+          fecha_hora: new Date(),
+          minutos_transcurridos: 0,
+          estado_comanda: newPedidoData.estado_comanda || 'pendiente'
+        };
+        const stockResult = stockEngine.deductStockForPedido(
+          dummyPedido,
+          insumos,
+          recetas,
+          permitirVentaSinStock
+        );
+        updatedInsumos = stockResult.updatedInsumos;
+        stockDescontado = stockResult.itemsDescontados.length > 0;
+        itemsDescontados = stockResult.itemsDescontados;
+        alarmasBajoStock = stockResult.alarmasBajoStock;
+        stockResult.stockMovements.forEach(m => stockMovements.push(m));
+      } catch (err: any) {
+        toast.error(`No es posible crear pedido: ${err.message}`);
+        return;
+      }
+    }
 
-      matchingRecetas.forEach(rec => {
-        const insIdx = updatedInsumos.findIndex(ins => ins.id_insumo === rec.id_insumo);
-        if (insIdx === -1) return;
-
-        const currentIns = updatedInsumos[insIdx];
-        const discountAmt = parseFloat((rec.cantidad_a_descontar * qtyPlates).toFixed(2));
-        const stockAnterior = currentIns.stock_actual;
-        const updatedStock = parseFloat((Math.max(permitirVentaSinStock ? -999999 : 0, stockAnterior - discountAmt)).toFixed(2));
-
-        updatedInsumos[insIdx].stock_actual = updatedStock;
-        itemsDescontados.push(`${currentIns.nombre} (-${discountAmt} ${currentIns.unidad_medida})`);
-
-        stockMovements.push({
-          id_insumo: currentIns.id_insumo,
-          tipo_movimiento: 'salida_comanda',
-          cantidad: discountAmt,
-          stock_anterior: stockAnterior,
-          stock_nuevo: updatedStock
-        });
-
-        if (updatedStock <= currentIns.stock_minimo) {
-          alarmasBajoStock.push(`${currentIns.nombre} (Stock actual: ${updatedStock}${currentIns.unidad_medida})`);
-        }
-      });
-    });
-
-    const stockDescontado = itemsDescontados.length > 0;
     let finalPedido: Pedido;
 
     if (existingActivePedido) {
@@ -652,138 +654,55 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
       if (pObj.stock_descontado) {
         console.log(`[Escandallo] El pedido #${idPedido} ya tiene stock descontado.`);
       } else {
-        let canDeduct = true;
-        let itemsDescontados: string[] = [];
-        let alarmasBajoStock: string[] = [];
-
-        if (!permitirVentaSinStock) {
-          for (const item of pObj.items) {
-            const qtyPlates = item.cantidad;
-            const matchingRecetas = recetas.filter(r => r.id_producto === item.id_producto);
-
-            if (matchingRecetas.length === 0) {
-              addLog('sistema', `ADVERTENCIA RECETA: El producto '${item.nombre}' no tiene receta asociada.`);
-              continue;
-            }
-
-            for (const rec of matchingRecetas) {
-              const insumo = insumos.find(i => i.id_insumo === rec.id_insumo);
-              if (!insumo) {
-                addLog('sistema', `ADVERTENCIA RECETA: No existe el insumo con ID '${rec.id_insumo}' solicitado por receta.`);
-                continue;
-              }
-              const requiredAmt = rec.cantidad_a_descontar * qtyPlates;
-              if (insumo.stock_actual < requiredAmt) {
-                canDeduct = false;
-                errorMsg = `Insumo crítico agotado para '${insumo.nombre}' (Disponible: ${insumo.stock_actual}${insumo.unidad_medida}, Requerido: ${requiredAmt}${insumo.unidad_medida}).`;
-                break;
-              }
-            }
-            if (!canDeduct) break;
+        try {
+          const result = stockEngine.deductStockForPedido(
+            pObj,
+            insumos,
+            recetas,
+            permitirVentaSinStock
+          );
+          
+          setInsumos(result.updatedInsumos);
+          dbUpsertInsumos(result.updatedInsumos);
+          
+          if (result.itemsDescontados.length > 0) {
+            addLog('descuento_stock', `ESCANDALLO: Pedido #${idPedido} cambió a EN_COCINA. Descuento automático de: ${result.itemsDescontados.join(', ')}`);
           }
-        }
-
-        if (!canDeduct) {
-          toast.error(`No es posible iniciar cocción: ${errorMsg}`);
-          addLog('alerta_stock', `RECHAZADO FUEGO: Pedido #${idPedido} bloqueado por falta de stock. ${errorMsg}`);
+          result.alarmasBajoStock.forEach(alertStr => {
+            addLog('alerta_stock', `CRÍTICO REPOSICIÓN: El insumo '${alertStr}' cayó por debajo del stock mínimo estipulado.`);
+          });
+          result.stockMovements.forEach(m => {
+            dbRecordMovement(m).catch(console.error);
+          });
+        } catch (err: any) {
+          toast.error(`No es posible iniciar cocción: ${err.message}`);
+          addLog('alerta_stock', `RECHAZADO FUEGO: Pedido #${idPedido} bloqueado por falta de stock. ${err.message}`);
           return;
         }
-
-        let updatedInsumos: Insumo[] = [];
-        setInsumos(prevInsumos => {
-          const copy = prevInsumos.map(ins => ({ ...ins }));
-
-          pObj.items.forEach(item => {
-            const qtyPlates = item.cantidad;
-            const matchingRecetas = recetas.filter(r => r.id_producto === item.id_producto);
-
-            matchingRecetas.forEach(rec => {
-              const insIdx = copy.findIndex(ins => ins.id_insumo === rec.id_insumo);
-              if (insIdx !== -1) {
-                const currentIns = copy[insIdx];
-                const discountAmt = parseFloat((rec.cantidad_a_descontar * qtyPlates).toFixed(2));
-                const stockAnterior = currentIns.stock_actual;
-                const updatedStock = parseFloat((Math.max(permitirVentaSinStock ? -999999 : 0, stockAnterior - discountAmt)).toFixed(2));
-
-                copy[insIdx].stock_actual = updatedStock;
-                itemsDescontados.push(`${currentIns.nombre} (-${discountAmt} ${currentIns.unidad_medida})`);
-
-                if (updatedStock <= currentIns.stock_minimo) {
-                  alarmasBajoStock.push(`${currentIns.nombre} (Stock actual: ${updatedStock}${currentIns.unidad_medida})`);
-                }
-
-                dbRecordMovement({
-                  id_insumo: currentIns.id_insumo,
-                  tipo_movimiento: 'salida_comanda',
-                  cantidad: discountAmt,
-                  stock_anterior: stockAnterior,
-                  stock_nuevo: updatedStock
-                }).catch(console.error);
-              } else {
-                addLog('sistema', `ADVERTENCIA: No existe insumo '${rec.id_insumo}' solicitado por la receta.`);
-              }
-            });
-          });
-
-          updatedInsumos = copy;
-          return copy;
-        });
-
-        if (itemsDescontados.length > 0) {
-          addLog('descuento_stock', `ESCANDALLO: Pedido #${idPedido} cambió a EN_COCINA. Descuento automático de: ${itemsDescontados.join(', ')}`);
-        }
-
-        alarmasBajoStock.forEach(alertStr => {
-          addLog('alerta_stock', `CRÍTICO REPOSICIÓN: El insumo '${alertStr}' cayó por debajo del stock mínimo estipulado.`);
-        });
-
-        dbUpsertInsumos(updatedInsumos);
       }
     }
 
     if (nuevoEstado === 'cancelado' && pObj) {
       if (pObj.stock_descontado) {
-        let itemsReversados: string[] = [];
-        let updatedInsumos: Insumo[] = [];
-
-        setInsumos(prevInsumos => {
-          const copy = prevInsumos.map(ins => ({ ...ins }));
-
-          pObj.items.forEach(pItem => {
-            const qtyPlates = pItem.cantidad;
-            const matchingRecetas = recetas.filter(r => r.id_producto === pItem.id_producto);
-
-            matchingRecetas.forEach(rec => {
-              const insIdx = copy.findIndex(ins => ins.id_insumo === rec.id_insumo);
-              if (insIdx !== -1) {
-                const currentIns = copy[insIdx];
-                const restoreAmt = parseFloat((rec.cantidad_a_descontar * qtyPlates).toFixed(2));
-                const stockAnterior = currentIns.stock_actual;
-                const updatedStock = parseFloat((stockAnterior + restoreAmt).toFixed(2));
-
-                copy[insIdx].stock_actual = updatedStock;
-                itemsReversados.push(`${currentIns.nombre} (+${restoreAmt} ${currentIns.unidad_medida})`);
-
-                dbRecordMovement({
-                  id_insumo: currentIns.id_insumo,
-                  tipo_movimiento: 'entrada',
-                  cantidad: restoreAmt,
-                  stock_anterior: stockAnterior,
-                  stock_nuevo: updatedStock
-                }).catch(console.error);
-              }
-            });
+        try {
+          const result = stockEngine.reverseStockForPedido(
+            pObj,
+            insumos,
+            recetas
+          );
+          
+          setInsumos(result.updatedInsumos);
+          dbUpsertInsumos(result.updatedInsumos);
+          
+          if (result.itemsReversados.length > 0) {
+            addLog('descuento_stock', `REVERSO ESCANDALLO: Pedido #${idPedido} CANCELADO. Reintegro automático de: ${result.itemsReversados.join(', ')}`);
+          }
+          result.stockMovements.forEach(m => {
+            dbRecordMovement(m).catch(console.error);
           });
-
-          updatedInsumos = copy;
-          return copy;
-        });
-
-        if (itemsReversados.length > 0) {
-          addLog('descuento_stock', `REVERSO ESCANDALLO: Pedido #${idPedido} CANCELADO. Reintegro automático de: ${itemsReversados.join(', ')}`);
+        } catch (err: any) {
+          console.error('Failed to reverse stock:', err);
         }
-
-        dbUpsertInsumos(updatedInsumos);
       } else {
         addLog('sistema', `CANCELACIÓN: Pedido #${idPedido} cancelado sin descuento de stock previo.`);
       }
