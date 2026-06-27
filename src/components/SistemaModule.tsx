@@ -78,7 +78,7 @@ export default function SistemaModule({
           const cleaned = parsed.map((p: any) => {
             if (p.imagen && p.imagen.startsWith('data:')) {
               count++;
-              return { ...p, imagen: '/logo-el-patron.jpeg' };
+              return { ...p, imagen: '/logo-el-patron.jpeg?v=3' };
             }
             return p;
           });

@@ -30,7 +30,7 @@ const loadLogoDataUrl = async () => {
       }
     }
 
-    const response = await fetch('/logo-el-patron.jpeg');
+    const response = await fetch('/logo-el-patron.jpeg?v=3');
     const blob = await response.blob();
     logoDataUrlCache = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
