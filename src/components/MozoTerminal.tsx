@@ -321,11 +321,15 @@ export default function MozoTerminal({
 
     // 1. If mesa is detected, set it as selected
     if (voiceResult.mesa !== null) {
-      const targetMesa = mesas.find(m => parseInt(m.numero_mesa, 10) === voiceResult.mesa);
-      if (targetMesa) {
-        setSelectedMesaId(targetMesa.id_mesa);
+      if (voiceResult.mesa === 'delivery') {
+        setSelectedMesaId(999);
       } else {
-        alert(`La Mesa ${voiceResult.mesa} no existe o no está activa.`);
+        const targetMesa = mesas.find(m => parseInt(m.numero_mesa, 10) === voiceResult.mesa);
+        if (targetMesa) {
+          setSelectedMesaId(targetMesa.id_mesa);
+        } else {
+          alert(`La Mesa ${voiceResult.mesa} no existe o no está activa.`);
+        }
       }
     }
 
@@ -1283,7 +1287,11 @@ export default function MozoTerminal({
               <div className="flex items-center justify-between border-b border-stone-100 pb-3">
                 <span className="text-xs font-bold text-stone-500">Mesa Detectada:</span>
                 <span className="bg-stone-100 border border-stone-200 text-stone-700 font-extrabold text-xs px-3 py-1 rounded-xl">
-                  {voiceResult.mesa !== null ? `Mesa ${voiceResult.mesa}` : selectedMesaId !== null ? `Mesa Actual (${mesas.find(m => m.id_mesa === selectedMesaId)?.numero_mesa})` : 'Ninguna (Se aplicará a mesa seleccionada)'}
+                  {voiceResult.mesa !== null 
+                    ? (voiceResult.mesa === 'delivery' ? 'Pedido Delivery' : `Mesa ${voiceResult.mesa}`) 
+                    : selectedMesaId !== null 
+                      ? (selectedMesaId === 999 ? 'Mesa Actual (DELIVERY)' : `Mesa Actual (${mesas.find(m => m.id_mesa === selectedMesaId)?.numero_mesa})`) 
+                      : 'Ninguna (Se aplicará a mesa seleccionada)'}
                 </span>
               </div>
 
@@ -1376,7 +1384,7 @@ export default function MozoTerminal({
 }
 
 export interface VoiceCommandResult {
-  mesa: number | null;
+  mesa: number | 'delivery' | null;
   items: { product: ProductoMenu; quantity: number }[];
   unrecognized: string[];
 }
@@ -1384,18 +1392,22 @@ export interface VoiceCommandResult {
 export const parseVoiceCommand = (text: string, productosMenu: ProductoMenu[]): VoiceCommandResult => {
   const lower = text.toLowerCase();
   
-  // 1. Detect table number
-  let mesa: number | null = null;
-  const mesaMatch = lower.match(/\b(?:mesa|tabla)\s*(\d{1,2})\b/) || lower.match(/\b(?:mesa|tabla)\s*(uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\b/);
-  if (mesaMatch) {
-    const rawVal = mesaMatch[1] || mesaMatch[2] || '';
-    if (/^\d+$/.test(rawVal)) {
-      mesa = parseInt(rawVal, 10);
-    } else {
-      const wordsMap: Record<string, number> = {
-        uno: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10
-      };
-      mesa = wordsMap[rawVal] || null;
+  // 1. Detect table number or delivery
+  let mesa: number | 'delivery' | null = null;
+  if (lower.includes('delivery') || lower.includes('envio') || lower.includes('envió') || lower.includes('para llevar')) {
+    mesa = 'delivery';
+  } else {
+    const mesaMatch = lower.match(/\b(?:mesa|tabla)\s*(\d{1,2})\b/) || lower.match(/\b(?:mesa|tabla)\s*(uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\b/);
+    if (mesaMatch) {
+      const rawVal = mesaMatch[1] || mesaMatch[2] || '';
+      if (/^\d+$/.test(rawVal)) {
+        mesa = parseInt(rawVal, 10);
+      } else {
+        const wordsMap: Record<string, number> = {
+          uno: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10
+        };
+        mesa = wordsMap[rawVal] || null;
+      }
     }
   }
 
