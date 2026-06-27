@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import {
   Loader2,
   ArrowRight,
+  ArrowLeft,
   Mail,
   Lock,
   AlertCircle,
@@ -23,6 +24,7 @@ import DiagnosticsTester from './DiagnosticsTester';
 
 interface PythonStreamlitLoginProps {
   onLoginSuccess: (user: Usuario) => void;
+  onBackToCover?: () => void;
 }
 
 const getRuntimeEnv = (): Record<string, unknown> => (
@@ -44,7 +46,7 @@ const getDemoUsers = (): Usuario[] => {
   ];
 };
 
-export default function PythonStreamlitLogin({ onLoginSuccess }: PythonStreamlitLoginProps) {
+export default function PythonStreamlitLogin({ onLoginSuccess, onBackToCover }: PythonStreamlitLoginProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -137,15 +139,23 @@ export default function PythonStreamlitLogin({ onLoginSuccess }: PythonStreamlit
       <div className="absolute bottom-[-25%] right-[-10%] w-[60%] h-[60%] rounded-full bg-[#4A2D1B]/5 blur-3xl" />
 
       <div className="max-w-md w-full bg-[#FFFDF8] rounded-3xl border border-stone-150 shadow-xl shadow-stone-200/40 p-6 sm:p-8 md:p-10 space-y-8 relative z-10">
+        {onBackToCover && (
+          <button
+            onClick={onBackToCover}
+            className="absolute top-5 left-5 flex items-center gap-1 text-[10px] font-extrabold text-stone-500 hover:text-[#9B2226] uppercase tracking-wider transition-all cursor-pointer bg-stone-50 hover:bg-stone-100 border border-stone-200/60 py-1.5 px-3 rounded-full shadow-xs font-display-serif"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" /> Volver
+          </button>
+        )}
         <div className="text-center space-y-4 flex flex-col items-center">
           <ElPatronLogo className="w-32 h-32 sm:w-36 sm:h-36 drop-shadow-md" variant="badge" />
           <div className="space-y-1">
-            <h1 className="text-2xl font-black text-[#4A2D1B] tracking-tight">El Patrón Pro</h1>
-            <p className="text-[10px] uppercase font-bold text-[#6B4A35] tracking-widest">
+            <h1 className="text-2xl font-bold text-[#4A2D1B] tracking-wide font-serif-rustic">El Patrón Pro</h1>
+            <p className="text-[10px] uppercase font-bold text-[#9B2226] tracking-widest font-display-serif">
               Sistema Gestor Gastronómico
             </p>
           </div>
-          <p className="text-xs text-stone-500 font-medium max-w-[280px]">
+          <p className="text-xs text-stone-600 font-serif-rustic italic max-w-[280px]">
             Control operativo de cocina, salón, caja e inventario.
           </p>
         </div>
@@ -222,7 +232,7 @@ export default function PythonStreamlitLogin({ onLoginSuccess }: PythonStreamlit
               <ArrowRight className="w-5 h-5" />
             </button>
             
-            <div className="pt-2 text-center">
+            <div className="pt-2 text-center space-y-3">
               <button
                 type="button"
                 onClick={() => setShowDiagnostics(true)}
@@ -230,6 +240,16 @@ export default function PythonStreamlitLogin({ onLoginSuccess }: PythonStreamlit
               >
                 🔧 ¿Problemas de conexión? Ejecutar diagnóstico
               </button>
+
+              {onBackToCover && (
+                <button
+                  type="button"
+                  onClick={onBackToCover}
+                  className="text-xs font-bold text-[#4A2D1B] hover:text-[#9B2226] hover:underline transition-all cursor-pointer flex items-center justify-center gap-1 mx-auto font-display-serif"
+                >
+                  ← Volver al Menú Publicitario
+                </button>
+              )}
             </div>
           </form>
         )}

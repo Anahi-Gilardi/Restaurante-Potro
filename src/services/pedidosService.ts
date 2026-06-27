@@ -1,5 +1,6 @@
 import { tryGetActiveSupabaseClient } from '../lib/supabaseClient';
 import { Pedido, PedidoItem } from '../types';
+import { stockEngine } from './stock/stockEngine';
 
 type PedidoHeaderRow = Record<string, any>;
 type PedidoDetailRow = Record<string, any>;
@@ -133,6 +134,7 @@ export const pedidosService = {
   },
 
   async create(pedido: Pedido): Promise<Pedido> {
+    pedido.items.forEach(item => stockEngine.validatePedidoItem(item));
     try {
       await this.upsert([pedido]);
     } catch (err) {
@@ -252,6 +254,7 @@ export const pedidosService = {
     }
     
     for (const ped of pedidos) {
+      pedidoItemsValidation: ped.items.forEach(item => stockEngine.validatePedidoItem(item));
       try {
         let activeId: number | null = null;
         let isExisting = false;

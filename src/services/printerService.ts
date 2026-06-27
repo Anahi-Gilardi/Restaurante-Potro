@@ -114,6 +114,20 @@ export const printerService = {
     return esc;
   },
 
+  getFailedPrints(): { id: string; data: TicketData; timestamp: string }[] {
+    if (typeof localStorage === 'undefined') return [];
+    try {
+      return JSON.parse(localStorage.getItem('el_patron_failed_prints') || '[]');
+    } catch {
+      return [];
+    }
+  },
+
+  saveFailedPrints(queue: any[]): void {
+    if (typeof localStorage === 'undefined') return;
+    localStorage.setItem('el_patron_failed_prints', JSON.stringify(queue));
+  },
+
   /**
    * Secure integration layer for remote thermal printings.
    * If there is no physical local socket, it returns a descriptive simulation outcome allowing PDF falling back.
@@ -130,7 +144,7 @@ export const printerService = {
     // Simulated network or physical bridges check
     try {
       const controller = new AbortController();
-      const id = setTimeout(() => controller.abort(), 100); // very fast check
+      const id = setTimeout(() => controller.abort(), 1000);
       
       const response = await fetch('http://localhost:8012/print', {
         method: 'POST',
@@ -153,12 +167,59 @@ export const printerService = {
       // safe bypass
     }
 
-    // Default Fallback
+    // Default Fallback: Add to queue of failed prints
+    const failedItem = {
+      id: `print_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+      data,
+      timestamp: new Date().toISOString()
+    };
+    const queue = this.getFailedPrints();
+    queue.push(failedItem);
+    this.saveFailedPrints(queue);
+
     return {
       success: false,
-      message: `La ticketera física "${config.printerName}" no está enlazada o levantada en red en este momento. Se utilizará el sistema de descarga limpia en PDF de 80mm o la terminal virtual del navegador.`,
-      methodUsed: 'FallbackSystemPDF',
+      message: `La ticketera física "${config.printerName}" no está enlazada en red. Se guardó el ticket en la cola de impresión local.`,
+      methodUsed: 'QueueThermalTicket',
       rawText
     };
+  },
+
+  async retryFailedPrints(config: PrinterConfig): Promise<{ successCount: number; failedCount: number }> {
+    const queue = this.getFailedPrints();
+    if (queue.length === 0) return { successCount: 0, failedCount: 0 };
+
+    let successCount = 0;
+    let failedCount = 0;
+    const remaining: any[] = [];
+
+    for (const item of queue) {
+      const rawText = this.generateEscPosText(item.data, config);
+      try {
+        const controller = new AbortController();
+        const id = setTimeout(() => controller.abort(), 1000);
+        const response = await fetch('http://localhost:8012/print', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rawText, config }),
+          signal: controller.signal
+        }).catch(() => null);
+
+        clearTimeout(id);
+
+        if (response && response.ok) {
+          successCount++;
+        } else {
+          failedCount++;
+          remaining.push(item);
+        }
+      } catch {
+        failedCount++;
+        remaining.push(item);
+      }
+    }
+
+    this.saveFailedPrints(remaining);
+    return { successCount, failedCount };
   }
 };

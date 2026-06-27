@@ -70,39 +70,98 @@ const SNAPSHOT_KEYS: Array<keyof BackupSnapshotData> = [
   'logs'
 ];
 
-const readLocalBackups = (): Checkpoint[] => {
-  if (typeof localStorage === 'undefined') return [];
+// Native IndexedDB Helper
+const openBackupsDB = (): Promise<IDBDatabase> => {
+  return new Promise((resolve, reject) => {
+    if (typeof indexedDB === 'undefined') {
+      reject(new Error('IndexedDB is not supported'));
+      return;
+    }
+    const request = indexedDB.open('el_patron_backups_db', 1);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains('backups')) {
+        db.createObjectStore('backups', { keyPath: 'id_cp' });
+      }
+    };
+  });
+};
+
+const readLocalBackups = async (): Promise<Checkpoint[]> => {
   try {
-    const parsed = JSON.parse(localStorage.getItem(LOCAL_BACKUPS_KEY) || '[]');
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
+    const db = await openBackupsDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction('backups', 'readonly');
+      const store = transaction.objectStore('backups');
+      const request = store.getAll();
+      request.onsuccess = () => resolve(request.result || []);
+      request.onerror = () => reject(request.error);
+    });
+  } catch (err) {
+    console.warn('[IndexedDB] Falling back to localStorage due to Node.js/Unsupported environment:', err);
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(LOCAL_BACKUPS_KEY) || '[]');
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
     return [];
   }
 };
 
-const writeLocalBackups = (backups: Checkpoint[]) => {
-  if (typeof localStorage === 'undefined') return;
+const writeLocalBackups = async (backups: Checkpoint[]) => {
   try {
-    localStorage.setItem(LOCAL_BACKUPS_KEY, JSON.stringify(backups));
-  } catch (err: any) {
-    console.error('Failed to save local backups in localStorage:', err);
-    try {
-      if (backups.length > 1) {
-        localStorage.setItem(LOCAL_BACKUPS_KEY, JSON.stringify(backups.slice(0, 1)));
+    const db = await openBackupsDB();
+    return new Promise<void>((resolve, reject) => {
+      const transaction = db.transaction('backups', 'readwrite');
+      const store = transaction.objectStore('backups');
+      
+      const clearRequest = store.clear();
+      clearRequest.onsuccess = () => {
+        if (backups.length === 0) {
+          resolve();
+          return;
+        }
+        let count = 0;
+        let failed = false;
+        backups.forEach(backup => {
+          const putRequest = store.put(backup);
+          putRequest.onsuccess = () => {
+            count++;
+            if (count === backups.length && !failed) resolve();
+          };
+          putRequest.onerror = () => {
+            failed = true;
+            reject(putRequest.error);
+          };
+        });
+      };
+      clearRequest.onerror = () => reject(clearRequest.error);
+    });
+  } catch (err) {
+    console.warn('[IndexedDB] Falling back to localStorage write:', err);
+    if (typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem(LOCAL_BACKUPS_KEY, JSON.stringify(backups));
+      } catch (storageErr) {
+        console.error('LocalStorage write failed:', storageErr);
       }
-    } catch {
-      localStorage.removeItem(LOCAL_BACKUPS_KEY);
     }
   }
 };
 
-const cacheCheckpoint = (checkpoint: Checkpoint) => {
-  const merged = new Map(readLocalBackups().map(item => [item.id_cp, item]));
+const cacheCheckpoint = async (checkpoint: Checkpoint) => {
+  const localList = await readLocalBackups();
+  const merged = new Map(localList.map(item => [item.id_cp, item]));
   merged.set(checkpoint.id_cp, checkpoint);
   const sorted = Array.from(merged.values())
     .sort((a, b) => b.id_cp.localeCompare(a.id_cp))
-    .slice(0, 2);
-  writeLocalBackups(sorted);
+    .slice(0, 10);
+  await writeLocalBackups(sorted);
 };
 
 export const mergeCheckpoints = (remote: Checkpoint[], local: Checkpoint[]) => {
@@ -167,7 +226,7 @@ export const parseBackupContent = (contenido?: string): BackupSnapshotData => {
 
 export const backupsService = {
   async list(): Promise<Checkpoint[]> {
-    const local = readLocalBackups();
+    const local = await readLocalBackups();
     try {
       const supabase = getActiveSupabaseClient();
       const { data, error } = await supabase.from('backups').select('*').order('fecha', { ascending: false });
@@ -205,7 +264,7 @@ export const backupsService = {
       ubicacion: 'local'
     };
 
-    cacheCheckpoint(checkpoint);
+    await cacheCheckpoint(checkpoint);
 
     try {
       const supabase = getActiveSupabaseClient();
@@ -219,7 +278,7 @@ export const backupsService = {
       }]);
       if (error) throw error;
       checkpoint.ubicacion = 'cloud';
-      cacheCheckpoint(checkpoint);
+      await cacheCheckpoint(checkpoint);
     } catch (error) {
       console.warn('Backup guardado localmente; no se pudo sincronizar con Supabase.', error);
     }
@@ -260,7 +319,8 @@ export const backupsService = {
   },
 
   async remove(id: string): Promise<boolean> {
-    writeLocalBackups(readLocalBackups().filter(item => item.id_cp !== id));
+    const local = await readLocalBackups();
+    await writeLocalBackups(local.filter(item => item.id_cp !== id));
     try {
       const supabase = getActiveSupabaseClient();
       const { error } = await supabase.from('backups').delete().eq('id_backup', id);

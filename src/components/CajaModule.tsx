@@ -120,6 +120,11 @@ export default function CajaModule({
   // Printer configuration states
   const [printerConfig, setPrinterConfig] = useState<PrinterConfig>(printerService.getDefaultConfig());
   const [showPrinterSettings, setShowPrinterSettings] = useState(false);
+  const [failedPrintsCount, setFailedPrintsCount] = useState(0);
+
+  const refreshFailedPrintsCount = () => {
+    setFailedPrintsCount(printerService.getFailedPrints().length);
+  };
 
   // Sync historical shifts and current state
   const loadCajaState = async () => {
@@ -137,6 +142,7 @@ export default function CajaModule({
 
   useEffect(() => {
     loadCajaState();
+    refreshFailedPrintsCount();
   }, []);
 
   // Filter commands by active state waiting checkout
@@ -486,6 +492,7 @@ export default function CajaModule({
       // Trigger auto printing of PDF & physical printer if configured
       await pdfService.exportToPDF(dataTicket);
       await printerService.sendToPrinter(dataTicket, printerConfig);
+      refreshFailedPrintsCount();
 
       // Reset checkout states
       setSelectedPedidoId(null);
@@ -544,6 +551,7 @@ export default function CajaModule({
       };
 
       const res = await printerService.sendToPrinter(dataTicket, printerConfig);
+      refreshFailedPrintsCount();
       
       // audit logs
       await auditoriaService.create({
@@ -966,6 +974,38 @@ export default function CajaModule({
                 >
                   <Unlock className="w-3.5 h-3.5 text-amber-300" />
                   Abrir Caja Diaria
+                </button>
+              </div>
+            )}
+
+            {/* Print queue retry card */}
+            {failedPrintsCount > 0 && (
+              <div className="p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/60 rounded-xl space-y-2 mt-2">
+                <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300">
+                  <AlertTriangle className="w-4 h-4 shrink-0 animate-pulse text-amber-500" />
+                  <span className="text-[10px] font-black uppercase tracking-wider">Cola de Impresión</span>
+                </div>
+                <p className="text-[10px] text-amber-700 dark:text-amber-400 font-medium">
+                  Hay <strong>{failedPrintsCount}</strong> {failedPrintsCount === 1 ? 'ticket pendiente' : 'tickets pendientes'} de impresión física local.
+                </p>
+                <button
+                  onClick={async () => {
+                    try {
+                      const res = await printerService.retryFailedPrints(printerConfig);
+                      refreshFailedPrintsCount();
+                      if (res.successCount > 0) {
+                        alert(`¡Se imprimieron con éxito ${res.successCount} ticket(s) de la cola!`);
+                      } else if (res.failedCount > 0) {
+                        alert(`No se pudo imprimir. Siguen pendientes ${res.failedCount} ticket(s). Verifique la conexión del bridge local en el puerto 8012.`);
+                      }
+                    } catch (err: any) {
+                      alert(`Error al reintentar impresión: ${err.message}`);
+                    }
+                  }}
+                  className="w-full py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-[10px] uppercase font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-xs border border-amber-500"
+                >
+                  <Printer className="w-3.5 h-3.5 text-amber-200" />
+                  Reintentar Impresión ({failedPrintsCount})
                 </button>
               </div>
             )}
