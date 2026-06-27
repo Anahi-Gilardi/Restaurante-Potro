@@ -20,6 +20,46 @@ import {
   Pizza
 } from 'lucide-react';
 
+export interface RestaurantCoverTheme {
+  accentColor: string;
+  hoverAccentColor: string;
+  heroBackground: string;
+  heroBadge: string;
+  heroTitleStart: string;
+  heroTitleHighlight: string;
+  heroDescription: string;
+  specSubtitle: string;
+  specTitle: string;
+}
+
+export function getRestaurantCoverTheme(coverTab: 'parrilla' | 'pizzeria'): RestaurantCoverTheme {
+  const accentColor = coverTab === 'parrilla' ? '#B45309' : '#9B2226';
+  const hoverAccentColor = coverTab === 'parrilla' ? '#D97706' : '#B22226';
+
+  const heroBackground = coverTab === 'parrilla' ? '/images/fachada_patron.jpg' : '/images/pizza_wood_oven.png';
+  const heroBadge = coverTab === 'parrilla' ? 'Gastronomía familiar • Casa de comidas y vinos' : 'Pizzería & Horno Artesanal';
+  const heroTitleStart = coverTab === 'parrilla' ? 'EL PATRÓN' : 'Pizzas de Masa Madre';
+  const heroTitleHighlight = coverTab === 'parrilla' ? 'Cocina de hogar' : 'al Horno de Barro';
+  const heroDescription = coverTab === 'parrilla' 
+    ? 'Carnes seleccionadas, pastas con recetas originales de la abuela y amplia selección de bodega.'
+    : 'Pizzas artesanales fermentadas por 48 horas, empanadas cocidas a leña y postres tradicionales criollos respetando el sabor auténtico.';
+
+  const specSubtitle = coverTab === 'parrilla' ? 'Nuestra Carta' : 'El Horno de Barro';
+  const specTitle = coverTab === 'parrilla' ? 'Especialidades de El Patrón' : 'Pizzas & Empanadas';
+
+  return {
+    accentColor,
+    hoverAccentColor,
+    heroBackground,
+    heroBadge,
+    heroTitleStart,
+    heroTitleHighlight,
+    heroDescription,
+    specSubtitle,
+    specTitle
+  };
+}
+
 interface RestaurantCoverProps {
   onEnterSystem: () => void;
 }
@@ -75,7 +115,7 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
     });
   };
 
-  const [coverTab, setCoverTab] = useState<'parrilla' | 'pizzeria'>('parrilla');
+  const [coverTab, setCoverTab] = useState<'parrilla' | 'pizzeria'>('pizzeria');
 
   const specialtiesParrilla = [
     {
@@ -127,19 +167,18 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
 
   const specialties = coverTab === 'parrilla' ? specialtiesParrilla : specialtiesPizzeria;
 
-  const accentColor = coverTab === 'parrilla' ? '#B45309' : '#9B2226';
-  const hoverAccentColor = coverTab === 'parrilla' ? '#D97706' : '#B22226';
-
-  const heroBackground = coverTab === 'parrilla' ? '/images/fachada_patron.jpg' : '/images/pizza_wood_oven.png';
-  const heroBadge = coverTab === 'parrilla' ? 'Gastronomía familiar • Casa de comidas y vinos' : 'Pizzería & Horno Artesanal';
-  const heroTitleStart = coverTab === 'parrilla' ? 'EL PATRÓN' : 'Pizzas de Masa Madre';
-  const heroTitleHighlight = coverTab === 'parrilla' ? 'Cocina de hogar' : 'al Horno de Barro';
-  const heroDescription = coverTab === 'parrilla' 
-    ? 'Carnes seleccionadas, pastas con recetas originales de la abuela y amplia selección de bodega.'
-    : 'Pizzas artesanales fermentadas por 48 horas, empanadas cocidas a leña y postres tradicionales criollos respetando el sabor auténtico.';
-
-  const specSubtitle = coverTab === 'parrilla' ? 'Nuestra Carta' : 'El Horno de Barro';
-  const specTitle = coverTab === 'parrilla' ? 'Especialidades de El Patrón' : 'Pizzas & Empanadas';
+  const theme = getRestaurantCoverTheme(coverTab);
+  const {
+    accentColor,
+    hoverAccentColor,
+    heroBackground,
+    heroBadge,
+    heroTitleStart,
+    heroTitleHighlight,
+    heroDescription,
+    specSubtitle,
+    specTitle
+  } = theme;
 
   return (
     <div className="min-h-screen bg-[#FAF7F0] dark:bg-[#1A110B] text-stone-900 dark:text-[#FAF7F0] font-sans selection:bg-[#624A3E] selection:text-white transition-colors duration-300">
