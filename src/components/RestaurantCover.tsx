@@ -127,13 +127,13 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
 
   const specialties = coverTab === 'parrilla' ? specialtiesParrilla : specialtiesPizzeria;
 
-  const accentColor = coverTab === 'parrilla' ? '#4A2D1B' : '#9B2226';
-  const hoverAccentColor = coverTab === 'parrilla' ? '#6B4A35' : '#B22226';
+  const accentColor = coverTab === 'parrilla' ? '#B45309' : '#9B2226';
+  const hoverAccentColor = coverTab === 'parrilla' ? '#D97706' : '#B22226';
 
   const heroBackground = coverTab === 'parrilla' ? '/images/fachada_patron.jpg' : '/images/pizza_wood_oven.png';
-  const heroBadge = coverTab === 'parrilla' ? 'Gastronomía familiar & Casa de comidas y vinos' : 'Pizzería & Horno Artesanal';
-  const heroTitleStart = coverTab === 'parrilla' ? 'El Verdadero Sabor' : 'Pizzas de Masa Madre';
-  const heroTitleHighlight = coverTab === 'parrilla' ? 'de la Cocina de Hogar' : 'al Horno de Barro';
+  const heroBadge = coverTab === 'parrilla' ? 'Gastronomía familiar • Casa de comidas y vinos' : 'Pizzería & Horno Artesanal';
+  const heroTitleStart = coverTab === 'parrilla' ? 'EL PATRÓN' : 'Pizzas de Masa Madre';
+  const heroTitleHighlight = coverTab === 'parrilla' ? 'Cocina de hogar' : 'al Horno de Barro';
   const heroDescription = coverTab === 'parrilla' 
     ? 'Carnes seleccionadas, pastas con recetas originales de la abuela y amplia selección de bodega.'
     : 'Pizzas artesanales fermentadas por 48 horas, empanadas cocidas a leña y postres tradicionales criollos respetando el sabor auténtico.';
@@ -242,23 +242,23 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
       </AnimatePresence>
 
       {/* 2. HERO SECTION */}
-      <section className="relative overflow-hidden py-20 lg:py-28 bg-[#1A110B] text-white flex items-center">
+      <section className="relative overflow-hidden py-24 lg:py-32 bg-[#1A110B] text-white flex items-center justify-center">
         {/* Background Image with Overlay */}
         <div 
-          className={`absolute inset-0 bg-cover bg-center select-none pointer-events-none transition-all duration-700 ease-in-out ${coverTab === 'parrilla' ? 'opacity-80' : 'opacity-60'}`}
+          className={`absolute inset-0 bg-cover select-none pointer-events-none transition-all duration-700 ease-in-out ${coverTab === 'parrilla' ? 'opacity-90 bg-[position:center_30%]' : 'opacity-60 bg-center'}`}
           style={{ backgroundImage: `url('${heroBackground}')` }}
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#1A110B] via-[#1A110B]/60 to-[#1A110B]/20" />
+        <div className="absolute inset-0 bg-black/55" />
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full z-10">
-          <div className="max-w-2xl space-y-6">
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full z-10 flex flex-col items-center text-center">
+          <div className="max-w-3xl space-y-6 flex flex-col items-center">
             <motion.div 
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
-              className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/5 border border-white/10 rounded-full text-stone-300 text-xs font-bold uppercase tracking-wider font-display-serif"
+              className="inline-flex items-center gap-1.5 px-4.5 py-1.5 bg-black/45 border border-white/10 rounded-full text-stone-250 text-xs font-bold uppercase tracking-wider font-display-serif shadow-inner"
             >
-              <Sparkles className="w-3.5 h-3.5" />
+              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
               {heroBadge}
             </motion.div>
 
@@ -266,17 +266,25 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.1 }}
-              className="text-4xl sm:text-5xl lg:text-6xl font-bold font-serif-rustic leading-tight tracking-wide text-[#FAF7F0] drop-shadow-md"
+              className="text-5xl sm:text-7xl lg:text-8xl font-black font-display-serif leading-none tracking-widest text-amber-500 drop-shadow-2xl"
             >
-              {heroTitleStart} <br />
-              <span className={`italic font-semibold transition-all ${coverTab === 'parrilla' ? 'text-amber-500' : 'text-amber-400'}`}>{heroTitleHighlight}</span>
+              {heroTitleStart}
             </motion.h1>
+
+            <motion.h2
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.15 }}
+              className="text-2xl sm:text-3xl lg:text-4xl font-serif-rustic italic font-semibold text-[#FAF7F0] drop-shadow-md"
+            >
+              {heroTitleHighlight}
+            </motion.h2>
 
             <motion.p 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.2 }}
-              className="text-stone-200 text-sm sm:text-base md:text-lg max-w-xl font-serif-rustic italic leading-relaxed"
+              className="text-stone-200 text-sm sm:text-base md:text-lg max-w-2xl font-serif-rustic italic leading-relaxed"
             >
               {heroDescription}
             </motion.p>
@@ -285,7 +293,7 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.3 }}
-              className="flex flex-wrap items-center gap-4 pt-4"
+              className="flex flex-wrap items-center justify-center gap-4 pt-4"
             >
               <a 
                 href="#reserva"
