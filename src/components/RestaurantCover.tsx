@@ -130,12 +130,12 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
   const accentColor = coverTab === 'parrilla' ? '#4A2D1B' : '#9B2226';
   const hoverAccentColor = coverTab === 'parrilla' ? '#6B4A35' : '#B22226';
 
-  const heroBackground = coverTab === 'parrilla' ? '/images/ojo_bife_flames.png' : '/images/pizza_wood_oven.png';
-  const heroBadge = coverTab === 'parrilla' ? 'Gastronomía de Autor & Fuegos Criollos' : 'Pizzería & Horno Artesanal';
+  const heroBackground = coverTab === 'parrilla' ? '/images/fachada_patron.jpg' : '/images/pizza_wood_oven.png';
+  const heroBadge = coverTab === 'parrilla' ? 'Gastronomía familiar & Casa de comidas y vinos' : 'Pizzería & Horno Artesanal';
   const heroTitleStart = coverTab === 'parrilla' ? 'El Verdadero Sabor' : 'Pizzas de Masa Madre';
-  const heroTitleHighlight = coverTab === 'parrilla' ? 'Del Fuego Criollo' : 'al Horno de Barro';
+  const heroTitleHighlight = coverTab === 'parrilla' ? 'de la Cocina de Hogar' : 'al Horno de Barro';
   const heroDescription = coverTab === 'parrilla' 
-    ? 'Carnes seleccionadas maduradas en seco, pastas de autor amasadas a mano diariamente y una exclusiva selección de bodega. Te invitamos a vivir la experiencia de El Patrón.'
+    ? 'Carnes seleccionadas, pastas con recetas originales de la abuela y amplia selección de bodega.'
     : 'Pizzas artesanales fermentadas por 48 horas, empanadas cocidas a leña y postres tradicionales criollos respetando el sabor auténtico.';
 
   const specSubtitle = coverTab === 'parrilla' ? 'Nuestra Carta' : 'El Horno de Barro';
@@ -562,7 +562,7 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
               <span className="font-extrabold text-lg tracking-widest text-white font-display-serif">EL PATRÓN</span>
             </div>
             <p className="text-xs text-stone-400 leading-relaxed">
-              El verdadero sabor del fuego y las tradiciones criollas, en el corazón de Buenos Aires. Cortes Dry Aged y Cava seleccionada.
+              Gastronomía familiar, cocina de hogar, carnes seleccionadas, pastas caseras con recetas originales de la abuela y amplia selección de bodega.
             </p>
           </div>
 
