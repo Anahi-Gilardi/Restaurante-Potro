@@ -452,9 +452,7 @@ export const pdfService = {
 
     doc.setTextColor(...BRAND.dark);
     center(data.razonSocial, 7);
-    center(`CUIT ${data.cuit}`, 7);
     center(data.direccion.slice(0, 42), 6.5);
-    center(`Tel: ${data.telefono}`, 6.5);
     y += 1.5;
     line();
 
