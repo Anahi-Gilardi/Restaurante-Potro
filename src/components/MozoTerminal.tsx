@@ -25,7 +25,7 @@ import {
 import { Mesa, Insumo, ProductoMenu, RecetaEscandallo, Pedido, PedidoItem } from '../types';
 
 interface WineMapping {
-  macro: 'tintas' | 'blancas' | 'champagne' | 'destilados' | null;
+  macro: 'tintas' | 'blancas' | 'champagne' | 'copas' | 'destilados' | null;
   varietales: string[];
 }
 
@@ -41,6 +41,8 @@ function getWineMapping(p: ProductoMenu): WineMapping {
     const sub = (p.subcategoria || '').toLowerCase();
     if (sub.includes('espumantes') || sub.includes('champagne') || name.includes('champagne') || name.includes('chandon') || name.includes('baron b') || name.includes('aluda') || name.includes('rosé') || name.includes('brut')) {
       macro = 'champagne';
+    } else if (name.includes('copa') || name.includes('copas')) {
+      macro = 'copas';
     } else if (
       sub.includes('blancos') || 
       name.includes('sauvignon blanc') || name.includes('sauvignon-blanc') || name.includes('sb') ||
@@ -216,7 +218,7 @@ export default function MozoTerminal({
   const [selectedCategoria, setSelectedCategoria] = useState<string>('todo');
   
   // Bodega hierarchy states
-  const [selectedWineMacro, setSelectedWineMacro] = useState<'tintas' | 'blancas' | 'champagne' | 'destilados' | 'todo'>('todo');
+  const [selectedWineMacro, setSelectedWineMacro] = useState<'tintas' | 'blancas' | 'champagne' | 'copas' | 'destilados' | 'todo'>('todo');
   const [selectedWineVarietal, setSelectedWineVarietal] = useState<string>('todo');
   
   // Current order cart
@@ -783,6 +785,7 @@ export default function MozoTerminal({
                   { id: 'todo', label: 'Todo Bodega 🍷' },
                   { id: 'tintas', label: 'Bodegas Tintas 🍷' },
                   { id: 'blancas', label: 'Bodegas Blancas 🥂' },
+                  { id: 'copas', label: 'Copas de Vino 🍷' },
                   { id: 'champagne', label: 'Champagne & Espumantes 🍾' },
                   { id: 'destilados', label: 'Destilados & Aperitivos 🥃' }
                 ].map(macro => (
