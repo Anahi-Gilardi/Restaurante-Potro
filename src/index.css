@@ -118,12 +118,12 @@ canvas {
 
 /* Premium background radial gradient */
 .bg-premium-dark {
-  background: #FAF7F0 !important;
+  background: #F4EBE1 !important;
   transition: background 0.3s;
 }
 
 .dark .bg-premium-dark {
-  background: radial-gradient(ellipse at top, #1e130c, #0a0604) !important;
+  background: #F4EBE1 !important;
 }
 
 /* Custom Scrollbar for floating sidebar */

@@ -103,19 +103,10 @@ function isSameTable(p1: { id_mesa?: any; numero_mesa?: string }, p2: { id_mesa?
 export default function App() {
   const { toast, toasts, removeToast } = useToast();
 
-  // System theme detection and class toggling for class-based dark mode
+  // System theme detection disabled to prevent automatic dark mode from altering the design.
+  // The app now uses a unified warm beige/light brown theme.
   useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleChange = (e: MediaQueryListEvent | MediaQueryList) => {
-      if (e.matches) {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
-    };
-    handleChange(mediaQuery);
-    mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
+    document.documentElement.classList.remove('dark');
   }, []);
 
   // --- Global Synced States ---
