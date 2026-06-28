@@ -913,7 +913,7 @@ export default function MozoTerminal({
                 {/* Content */}
                 <div className="p-3 flex justify-between items-center bg-white dark:bg-[#4A2D1B]/40">
                   <div className="min-w-0 flex-1">
-                    <h4 className="font-extrabold text-stone-850 dark:text-white text-xs font-sans line-clamp-1 leading-snug group-hover:text-[#4A2D1B] dark:group-hover:text-[#E8B800] transition-colors">
+                    <h4 className="font-extrabold text-stone-850 dark:text-white text-xs font-sans leading-snug group-hover:text-[#4A2D1B] dark:group-hover:text-[#E8B800] transition-colors">
                       {p.nombre}
                     </h4>
                     <div className="mt-1 flex items-center gap-1.5">
@@ -990,7 +990,7 @@ export default function MozoTerminal({
                   return (
                     <div key={prodId} className="flex justify-between items-center text-xs bg-stone-50 dark:bg-[#1E140E] p-2.5 rounded-xl border border-stone-200 dark:border-[#C8956A]/15 hover:border-[#C8956A]/45 transition-all">
                       <div className="flex-1 pr-1 font-sans">
-                        <span className="font-bold text-[#4A2D1B] dark:text-[#FAF7F0] line-clamp-1">{p.nombre}</span>
+                        <span className="font-bold text-[#4A2D1B] dark:text-[#FAF7F0]">{p.nombre}</span>
                         <span className="text-[10px] text-stone-500 dark:text-stone-350 font-mono">${(p.precio_venta).toLocaleString('es-AR')} u.</span>
                       </div>
                       
@@ -1274,7 +1274,7 @@ export default function MozoTerminal({
                     {voiceResult.items.map((item, idx) => (
                       <div key={idx} className="flex items-center justify-between bg-stone-50 border border-stone-205 p-3 rounded-2xl">
                         <div className="min-w-0 pr-2 col-span-1">
-                          <span className="text-xs font-bold text-stone-750 block truncate">{item.product.nombre}</span>
+                          <span className="text-xs font-bold text-stone-750 block">{item.product.nombre}</span>
                           <span className="text-[10px] text-stone-450 block">${item.product.precio_venta} c/u</span>
                         </div>
                         <div className="flex items-center gap-2.5 shrink-0">
