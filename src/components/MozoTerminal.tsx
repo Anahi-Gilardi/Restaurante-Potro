@@ -41,7 +41,16 @@ function getWineMapping(p: ProductoMenu): WineMapping {
     const sub = (p.subcategoria || '').toLowerCase();
     if (sub.includes('espumantes') || sub.includes('champagne') || name.includes('champagne') || name.includes('chandon') || name.includes('baron b') || name.includes('aluda') || name.includes('rosé') || name.includes('brut')) {
       macro = 'champagne';
-    } else if (sub.includes('blancos') || name.includes('sauvignon') || name.includes('chardonnay') || name.includes('viognier') || name.includes('torrontés') || name.includes('torrontes') || name.includes('riesling') || name.includes('gewurztraminer') || name.includes('albariño')) {
+    } else if (
+      sub.includes('blancos') || 
+      name.includes('sauvignon blanc') || name.includes('sauvignon-blanc') || name.includes('sb') ||
+      name.includes('chardonnay') || 
+      name.includes('viognier') || 
+      name.includes('torrontés') || name.includes('torrontes') || 
+      name.includes('riesling') || 
+      name.includes('gewurztraminer') || 
+      name.includes('albariño')
+    ) {
       macro = 'blancas';
     } else {
       macro = 'tintas';
@@ -796,11 +805,11 @@ export default function MozoTerminal({
 
               {/* Varietals sub-menu for Tintas and Blancas */}
               {(selectedWineMacro === 'tintas' || selectedWineMacro === 'blancas') && (
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none flex-nowrap bg-[#FAF7F0] dark:bg-[#1C140E] p-1.5 rounded-lg border border-stone-200 dark:border-[#C8956A]/10">
-                  <span className="text-[9px] text-[#4A2D1B] dark:text-[#E8B800] font-black uppercase tracking-wider shrink-0 mr-1">Varietal:</span>
+                <div className="flex flex-wrap items-center gap-1.5 bg-[#FAF7F0] dark:bg-[#1C140E] p-2 rounded-lg border border-stone-200 dark:border-[#C8956A]/10">
+                  <span className="text-[11px] text-[#4A2D1B] dark:text-[#E8B800] font-black uppercase tracking-wider shrink-0 mr-1.5">Varietal:</span>
                   <button
                     onClick={() => setSelectedWineVarietal('todo')}
-                    className={`py-0.5 px-2.5 text-[9px] font-black rounded transition-all cursor-pointer ${
+                    className={`py-1 px-3 text-[11px] font-bold rounded transition-all cursor-pointer ${
                       selectedWineVarietal === 'todo'
                         ? 'bg-amber-900/10 dark:bg-amber-500/10 text-[#4A2D1B] dark:text-[#C8956A] border border-amber-900/20 dark:border-amber-500/20'
                         : 'bg-transparent text-stone-650 dark:text-stone-300 hover:bg-stone-100 hover:text-stone-700 dark:hover:text-stone-100'
@@ -815,7 +824,7 @@ export default function MozoTerminal({
                     <button
                       key={varName}
                       onClick={() => setSelectedWineVarietal(varName)}
-                      className={`py-0.5 px-2.5 text-[9px] font-black rounded whitespace-nowrap transition-all cursor-pointer ${
+                      className={`py-1 px-3 text-[11px] font-bold rounded whitespace-nowrap transition-all cursor-pointer ${
                         selectedWineVarietal === varName
                           ? 'bg-[#4A2D1B] text-white shadow-sm'
                           : 'bg-transparent text-stone-650 dark:text-stone-300 hover:bg-stone-100 hover:text-stone-700 dark:hover:text-stone-100'
