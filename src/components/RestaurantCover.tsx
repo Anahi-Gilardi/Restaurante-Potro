@@ -94,13 +94,13 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
 
     const cleanPhone = '5493584373711'; // El Patron WhatsApp line
     const text = `*SOLICITUD DE RESERVA - EL PATRÓN*\n\n` +
-      `Estimado equipo de El Patrón, me gustaría solicitar una mesa para mi visita:\n\n` +
-      `- *Nombre:* ${bookingForm.nombre}\n` +
-      `- *Teléfono:* ${bookingForm.telefono}\n` +
-      `- *Comensales:* ${bookingForm.personas} ${parseInt(bookingForm.personas) === 1 ? 'persona' : 'personas'}\n` +
-      `- *Fecha:* ${formattedDate}\n` +
-      `- *Hora:* ${bookingForm.hora} hs\n\n` +
-      `Agradezco de antemano su confirmación. ¡Muchas gracias!`;
+      `Hola! Me gustaría solicitar una mesa para reservar:\n\n` +
+      `• *Nombre:* ${bookingForm.nombre}\n` +
+      `• *Teléfono:* ${bookingForm.telefono}\n` +
+      `• *Comensales:* ${bookingForm.personas} ${parseInt(bookingForm.personas) === 1 ? 'persona' : 'personas'}\n` +
+      `• *Fecha:* ${formattedDate}\n` +
+      `• *Hora:* ${bookingForm.hora} hs\n\n` +
+      `¡Muchas gracias!`;
 
     const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
