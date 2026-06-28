@@ -26,6 +26,7 @@ export interface RestaurantCoverTheme {
   heroBackground: string;
   heroBadge: string;
   heroTitleStart: string;
+  heroTitleSub?: string;
   heroTitleHighlight: string;
   heroDescription: string;
   specSubtitle: string;
@@ -37,11 +38,12 @@ export function getRestaurantCoverTheme(coverTab: 'parrilla' | 'pizzeria'): Rest
   const hoverAccentColor = coverTab === 'parrilla' ? '#D97706' : '#B22226';
 
   const heroBackground = coverTab === 'parrilla' ? '/images/fachada_patron.jpg' : '/images/pizza_wood_oven.png';
-  const heroBadge = coverTab === 'parrilla' ? 'Gastronomía familiar • Casa de comidas y vinos' : 'Pizzería & Horno Artesanal';
+  const heroBadge = coverTab === 'parrilla' ? 'Gastronomía familiar' : 'Pizzería & Horno Artesanal';
   const heroTitleStart = coverTab === 'parrilla' ? 'EL PATRÓN' : 'Pizzas de Masa Madre';
+  const heroTitleSub = coverTab === 'parrilla' ? 'Casa de comidas y vinos' : undefined;
   const heroTitleHighlight = coverTab === 'parrilla' ? 'Cocina de hogar' : 'al Horno de Barro';
   const heroDescription = coverTab === 'parrilla' 
-    ? 'Carnes seleccionadas, pastas con recetas originales de la abuela y amplia selección de bodega.'
+    ? 'Carnes seleccionadas, pastas con recetas originales de la abuela y amplia selección de bodega. Te invitamos a vivir la experiencia de El Patrón.'
     : 'Pizzas artesanales fermentadas por 48 horas, empanadas cocidas a leña y postres tradicionales criollos respetando el sabor auténtico.';
 
   const specSubtitle = coverTab === 'parrilla' ? 'Nuestra Carta' : 'El Horno de Barro';
@@ -53,6 +55,7 @@ export function getRestaurantCoverTheme(coverTab: 'parrilla' | 'pizzeria'): Rest
     heroBackground,
     heroBadge,
     heroTitleStart,
+    heroTitleSub,
     heroTitleHighlight,
     heroDescription,
     specSubtitle,
@@ -174,6 +177,7 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
     heroBackground,
     heroBadge,
     heroTitleStart,
+    heroTitleSub,
     heroTitleHighlight,
     heroDescription,
     specSubtitle,
@@ -278,11 +282,22 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
               {heroTitleStart}
             </motion.h1>
 
+            {heroTitleSub && (
+              <motion.h2
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.12 }}
+                className="text-2xl sm:text-3xl lg:text-4xl font-serif-rustic italic font-semibold text-[#FAF7F0] drop-shadow-md"
+              >
+                {heroTitleSub}
+              </motion.h2>
+            )}
+
             <motion.h2
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.15 }}
-              className="text-2xl sm:text-3xl lg:text-4xl font-serif-rustic italic font-semibold text-[#FAF7F0] drop-shadow-md"
+              className="text-2xl sm:text-3xl lg:text-4xl font-serif-rustic italic font-semibold text-[#FAF7F0]/90 drop-shadow-md"
             >
               {heroTitleHighlight}
             </motion.h2>
