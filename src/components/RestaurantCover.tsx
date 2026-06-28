@@ -124,22 +124,22 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
   const specialtiesParrilla = [
     {
       id: 'spec_1',
-      title: 'Ojo de Bife Madurado',
-      description: 'Corte de 450g madurado en seco durante 28 días, asado a leña de quebracho colorado y servido con chimichurri casero.',
+      title: 'Ojo de Bife Seleccionado',
+      description: 'Corte de 400g de carne de vacuno seleccionado, servido con cremoso aligot y salsa criolla.',
       tag: 'El Favorito de la Casa',
       image: '/images/ojo_de_bife_grill.png'
     },
     {
       id: 'spec_2',
       title: 'Provoleta al Hierro',
-      description: 'Queso provolone fundido al crocante con oliva, orégano fresco, rodajas de tomate cherry y albahaca.',
+      description: 'Queso provolone fundido con mermelada de tomate y pesto de albahaca.',
       tag: 'Entrada Caliente',
       image: '/images/provoleta_hierro.png'
     },
     {
       id: 'spec_3',
-      title: 'Cintas Caseras al Sepia',
-      description: 'Pasta fresca amasada al huevo con tinta de calamar, salteada con langostinos al ajillo, tomates secos y vino blanco.',
+      title: 'Cinta ancha en tinta de sepia',
+      description: 'Pasta fresca con tinta de sepia, salteada con crema de mariscos.',
       tag: 'Pasta de Autor',
       image: '/images/cintas_sepia_pasta.png'
     }
@@ -344,12 +344,12 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
               <div className="flex flex-col items-center p-3 space-y-1">
                 <Flame className="w-7 h-7 text-[#4A2D1B] dark:text-amber-500 animate-pulse" />
                 <span className="font-extrabold text-sm uppercase text-[#4A2D1B] dark:text-amber-400 font-display-serif tracking-widest">Cortes Premium</span>
-                <span className="text-[11px] text-stone-500 dark:text-stone-400 font-serif-rustic italic">Maduración controlada Dry Aged</span>
+                <span className="text-[11px] text-stone-500 dark:text-stone-400 font-serif-rustic italic">Cortes seleccionados</span>
               </div>
               <div className="flex flex-col items-center p-3 space-y-1 border-y sm:border-y-0 sm:border-x border-stone-200 dark:border-stone-850">
                 <ChefHat className="w-7 h-7 text-[#4A2D1B] dark:text-amber-500" />
                 <span className="font-extrabold text-sm uppercase text-[#4A2D1B] dark:text-amber-400 font-display-serif tracking-widest">Cocina de Autor</span>
-                <span className="text-[11px] text-stone-500 dark:text-stone-400 font-serif-rustic italic">Pastas frescas y recetas tradicionales</span>
+                <span className="text-[11px] text-stone-500 dark:text-stone-400 font-serif-rustic italic">Recetas tradicionales</span>
               </div>
               <div className="flex flex-col items-center p-3 space-y-1">
                 <Wine className="w-7 h-7 text-[#C8956A]" />
@@ -436,51 +436,23 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
       {/* 5. WINE / CELLAR SECTION (EXPERIENCIA) */}
       <section id="experiencia" className="relative py-20 lg:py-24 bg-[#1E130B] text-white overflow-hidden">
         <div 
-          className="absolute inset-0 bg-cover bg-center opacity-25 select-none pointer-events-none"
+          className="absolute inset-0 bg-cover bg-center opacity-15 select-none pointer-events-none"
           style={{ backgroundImage: `url('/images/rutini_malbec_cellar.png')` }}
         />
-        <div className="absolute inset-0 bg-gradient-to-l from-[#1E130B] via-[#1E130B]/90 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#1E130B] via-[#1E130B]/90 to-[#1E130B]" />
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-          <div className="lg:col-span-6 space-y-6">
-            <span className="text-xs uppercase font-bold text-amber-400 tracking-widest font-display-serif">Maridaje Seleccionado</span>
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-wide font-serif-rustic text-[#FAF7F0]">
-              La Cava de El Patrón
-            </h2>
-            <div className="w-12 h-1 bg-amber-500 rounded-full" />
-            <p className="text-stone-200 text-xs sm:text-sm font-serif-rustic italic leading-relaxed">
-              Un buen corte merece ser maridado con un gran exponente. Por eso, diseñamos nuestra cava con una amplia colección de varietales argentinos.
-            </p>
-            <p className="text-stone-200 text-xs sm:text-sm font-serif-rustic italic leading-relaxed">
-              Contamos con etiquetas exclusivas de la bodega <strong>Rutini</strong>, Malbecs mendocinos intensos con notas de ciruelas rojas y vainilla, y Cabernet Sauvignon madurados en barricas de roble francés, garantizando que cada bocado de carne sea una celebración para el paladar.
-            </p>
-            <div className="pt-2 flex items-center gap-4 text-xs font-bold text-amber-400 font-display-serif">
-              <span className="flex items-center gap-1.5">
-                <Wine className="w-4 h-4" /> Cabernet
-              </span>
-              <span className="w-1.5 h-1.5 bg-stone-500 rounded-full" />
-              <span className="flex items-center gap-1.5">
-                <Wine className="w-4 h-4" /> Malbec
-              </span>
-              <span className="w-1.5 h-1.5 bg-stone-500 rounded-full" />
-              <span className="flex items-center gap-1.5">
-                <Wine className="w-4 h-4" /> Blend de Selección
-              </span>
-            </div>
-          </div>
-          <div className="lg:col-span-6 flex justify-center">
-            {/* Visual Glassmorphic Vineyard info card */}
-            <div className="bg-white/5 backdrop-blur-md p-8 rounded-3xl border border-white/10 max-w-sm w-full space-y-4 shadow-2xl">
-              <span className="text-[10px] uppercase font-bold text-amber-500 tracking-widest block font-display-serif">Recomendación Sommelier</span>
-              <h4 className="text-xl font-bold font-serif-rustic text-[#FAF7F0] tracking-wide">Rutini Colección Malbec</h4>
-              <p className="text-stone-200 text-xs font-serif-rustic italic leading-relaxed">
-                De color rojo violáceo concentrado. Ofrece aromas frutados (arándanos, ciruelas) y toques de tabaco aportados por la madera. Excelente cuerpo y taninos maduros y dulces. Ideal para acompañar nuestro Ojo de Bife.
-              </p>
-              <div className="flex justify-between items-center pt-2 text-[10px] text-stone-400 font-bold border-t border-white/15 font-display-serif">
-                <span>Servido a temperatura óptima: 16-18°C</span>
-              </div>
-            </div>
-          </div>
+        <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-6">
+          <span className="text-xs uppercase font-bold text-amber-400 tracking-widest font-display-serif">Maridaje Seleccionado</span>
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-wide font-serif-rustic text-[#FAF7F0]">
+            La Cava de El Patrón
+          </h2>
+          <div className="w-12 h-1 bg-amber-500 rounded-full mx-auto" />
+          <p className="text-stone-250 text-xs sm:text-sm font-serif-rustic italic leading-relaxed max-w-2xl mx-auto">
+            Un buen corte merece ser maridado con un gran exponente. Por eso, diseñamos nuestra cava con una amplia colección de varietales argentinos.
+          </p>
+          <p className="text-stone-250 text-xs sm:text-sm font-serif-rustic italic leading-relaxed max-w-2xl mx-auto">
+            Contamos con una amplia gama de etiquetas y varietales seleccionados para ofrecer el maridaje perfecto con nuestros platos, garantizando que cada copa sea una celebración para el paladar.
+          </p>
         </div>
       </section>
 
