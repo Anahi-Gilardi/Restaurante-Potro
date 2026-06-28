@@ -605,9 +605,9 @@ export const pdfService = {
     const isReporteX = !data.fecha_cierre || data.fecha_cierre.toLowerCase().includes('curso');
 
     let nombreFantasia = 'El Patrón';
-    let direccion = 'Alvear 1362, X5800 Río Cuarto, Córdoba';
-    let telefono = '+54 358 4123456';
-    let email = 'contacto@elpatron.com.ar';
+    let direccion = 'Fotheringham 33, Rio Cuarto, Córdoba';
+    let telefono = '+54 9 3584 37-3711';
+    let email = 'bellaoriana47@gmail.com';
     try {
       const saved = localStorage.getItem('el_patron_restaurante_info');
       if (saved) {

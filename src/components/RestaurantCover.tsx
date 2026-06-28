@@ -92,7 +92,7 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
     const parts = bookingForm.fecha.split('-');
     const formattedDate = parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : bookingForm.fecha;
 
-    const cleanPhone = '5491148029988'; // El Patron WhatsApp line
+    const cleanPhone = '5493584373711'; // El Patron WhatsApp line
     const text = `¡Hola El Patrón! Me gustaría solicitar una reserva:\n\n` +
       `• Nombre: ${bookingForm.nombre}\n` +
       `• Teléfono: ${bookingForm.telefono}\n` +
@@ -619,15 +619,15 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
             <ul className="space-y-3 text-xs">
               <li className="flex items-start gap-2">
                 <Phone className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                <span className="font-display-serif">+54 11 4802-9988</span>
+                <span className="font-display-serif">+54 9 3584 37-3711</span>
               </li>
               <li className="flex items-start gap-2">
                 <Mail className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                <span>contacto@elpatronrestaurante.com.ar</span>
+                <span>bellaoriana47@gmail.com</span>
               </li>
               <li className="flex items-start gap-2">
                 <MapPin className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                <span>Av. Figueroa Alcorta 3420, Palermo, CABA</span>
+                <span>Fotheringham 33, Rio Cuarto, Córdoba</span>
               </li>
             </ul>
           </div>
