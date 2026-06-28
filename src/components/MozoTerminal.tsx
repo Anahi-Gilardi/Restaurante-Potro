@@ -55,88 +55,41 @@ function getWineMapping(p: ProductoMenu): WineMapping {
 
   if (macro === 'tintas') {
     // Malbec
-    if (
-      name.includes('trumpeter malbec') || name.includes('trumpeter (botella)') || name.includes('trumpeter (copa)') ||
-      name.includes('encuentro malbec') ||
-      name.includes('rutini') ||
-      name.includes('escorihuela') ||
-      name.includes('capítulo 2') || name.includes('ruca malén') ||
-      name.includes('st felicien') || name.includes('saint felicien') ||
-      name.includes('nicasia') ||
-      name.includes('padrillo') ||
-      name.includes('d.v. catena') || name.includes('dv catena') ||
-      name.includes('enemigo') ||
-      name.includes('tikal') || name.includes('tical') ||
-      name.includes('angélica zapata') || name.includes('angelica zapata') ||
-      name.includes('argentino') ||
-      name.includes('luca') ||
-      name.includes('perdices') ||
-      name.includes('don juan') ||
-      name.includes('exploración') || name.includes('exploracion') ||
-      name.includes('alae') ||
-      name.includes('portillo') ||
-      name.includes('pyros') ||
-      name.includes('numina') ||
-      name.includes('primus')
-    ) {
+    if (name.includes('malbec')) {
       varietales.push('Malbec');
     }
 
     // Cabernet Sauvignon
-    if (
-      name.includes('escorihuela') ||
-      name.includes('capítulo 2') || name.includes('ruca malén') ||
-      name.includes('st felicien') || name.includes('saint felicien') ||
-      name.includes('d.v. catena') || name.includes('dv catena') ||
-      name.includes('angélica zapata') || name.includes('angelica zapata') ||
-      name.includes('perdices') ||
-      name.includes('exploración') || name.includes('exploracion') ||
-      name.includes('encuentro cs') || name.includes('padrillo cs')
-    ) {
+    if (name.includes('cabernet sauvignon') || name.includes('cab-sauv') || name.includes('cs')) {
       varietales.push('Cabernet Sauvignon');
     }
 
-    // Red Blend
-    if (
-      name.includes('trumpeter red blend') || name.includes('alamos') || name.includes('nicasia red blend') || name.includes('nicasia blend') || name.includes('eg gran reserva') || name.includes('gran reserva red blend')
-    ) {
-      varietales.push('Red Blend');
-    }
-
     // Cabernet Franc
-    if (
-      name.includes('rutini') ||
-      name.includes('pequeñas producciones') || name.includes('pequenas prod') ||
-      name.includes('enemigo') ||
-      name.includes('ala colorada') ||
-      name.includes('numina')
-    ) {
+    if (name.includes('cabernet franc') || name.includes('cf')) {
       varietales.push('Cabernet Franc');
     }
 
     // Merlot
-    if (
-      name.includes('rutini') ||
-      name.includes('angélica zapata') || name.includes('angelica zapata')
-    ) {
+    if (name.includes('merlot')) {
       varietales.push('Merlot');
     }
 
     // Pinot Noir
-    if (
-      name.includes('escorihuela') ||
-      name.includes('padrillo') ||
-      name.includes('d.v. catena') || name.includes('dv catena') ||
-      name.includes('perdices') ||
-      name.includes('luca pinot') ||
-      name.includes('numina')
-    ) {
+    if (name.includes('pinot noir') || name.includes('pinot')) {
       varietales.push('Pinot Noir');
     }
 
-    // Otros Varietales Tintos
+    // Red Blend
+    if (name.includes('red blend') || name.includes('blend') || name.includes('gran reserva')) {
+      varietales.push('Red Blend');
+    }
+
+    // Otros Varietales Tintos (Ancellotta, Tannat, Petit Verdot)
     if (
-      name.includes('ala colorada') || name.includes('ancelotta') || name.includes('tannat') || name.includes('petit verdot')
+      name.includes('ancelotta') || 
+      name.includes('tannat') || 
+      name.includes('petit verdot') || 
+      name.includes('ala colorada')
     ) {
       varietales.push('Otros Varietales Tintos');
     }

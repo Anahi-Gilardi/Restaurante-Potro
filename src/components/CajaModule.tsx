@@ -24,7 +24,8 @@ import {
   Info,
   ChevronRight,
   RefreshCw,
-  Smartphone
+  Smartphone,
+  X
 } from 'lucide-react';
 import { 
   Pedido, 
@@ -121,6 +122,32 @@ export default function CajaModule({
   const [printerConfig, setPrinterConfig] = useState<PrinterConfig>(printerService.getDefaultConfig());
   const [showPrinterSettings, setShowPrinterSettings] = useState(false);
   const [failedPrintsCount, setFailedPrintsCount] = useState(0);
+  const [selectedShiftForDetail, setSelectedShiftForDetail] = useState<CierreCaja | null>(null);
+
+  const handleExportCSV = (cierre: CierreCaja) => {
+    const movs = cierre.movimientos_manuales || [];
+    if (movs.length === 0) {
+      alert("No hay movimientos de caja chica en esta sesión para exportar.");
+      return;
+    }
+    const headers = ["ID", "Fecha", "Tipo", "Monto", "Concepto"];
+    const rows = movs.map(m => [
+      m.id_movimiento,
+      new Date(m.fecha).toISOString(),
+      m.tipo,
+      m.monto,
+      `"${m.concepto.replace(/"/g, '""')}"`
+    ]);
+    const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `movimientos-caja-${cierre.id_cierre}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const refreshFailedPrintsCount = () => {
     setFailedPrintsCount(printerService.getFailedPrints().length);
@@ -190,16 +217,16 @@ export default function CajaModule({
     let promoDeduction = 0;
     
     const hasOjoBife = selectedPedido.items.some(it => it.id_producto === 'prod_car_lomo_pimienta' || it.id_producto === 'prod_car_bondiola_ahumada');
-    const hasVino = selectedPedido.items.some(it => it.id_producto === 'prod_vin_trumpeter_botella' || it.id_producto === 'prod_vin_rutini_botella');
+    const hasVino = selectedPedido.items.some(it => (it.id_producto.startsWith('prod_vin_trumpeter_') && !it.id_producto.includes('copa')) || it.id_producto.startsWith('prod_vin_rutini_'));
     const hasBurger = selectedPedido.items.some(it => it.id_producto === 'prod_car_mila_entrecot' || it.id_producto === 'prod_cri_lentejas');
     const hasGaseosa = selectedPedido.items.some(it => it.id_insumo === 'ins_beb_gaseosa' || it.nombre.toLowerCase().includes('gaseosa') || it.id_producto === 'prod_gaseosa');
 
     // Promos apply only if we are paying the whole ticket or paying those items
-    const qualifiesForBifeVino = hasOjoBife && hasVino && (!splitByProducts || (selectedProductsForSplit.some(id => id === 'prod_car_lomo_pimienta' || id === 'prod_car_bondiola_ahumada') && (selectedProductsForSplit.includes('prod_vin_trumpeter_botella') || selectedProductsForSplit.includes('prod_vin_rutini_botella'))));
+    const qualifiesForBifeVino = hasOjoBife && hasVino && (!splitByProducts || (selectedProductsForSplit.some(id => id === 'prod_car_lomo_pimienta' || id === 'prod_car_bondiola_ahumada') && selectedProductsForSplit.some(id => (id.startsWith('prod_vin_trumpeter_') && !id.includes('copa')) || id.startsWith('prod_vin_rutini_'))));
     const qualifiesForBurgerGaseosa = hasBurger && hasGaseosa && (!splitByProducts || (selectedProductsForSplit.some(id => id === 'prod_car_mila_entrecot' || id === 'prod_cri_lentejas') && (selectedProductsForSplit.includes('ins_beb_gaseosa') || selectedProductsForSplit.includes('prod_gaseosa'))));
 
     if (qualifiesForBifeVino) {
-      const vinoItem = selectedPedido.items.find(it => it.id_producto === 'prod_vin_trumpeter_botella' || it.id_producto === 'prod_vin_rutini_botella');
+      const vinoItem = selectedPedido.items.find(it => (it.id_producto.startsWith('prod_vin_trumpeter_') && !it.id_producto.includes('copa')) || it.id_producto.startsWith('prod_vin_rutini_'));
       const prodVino = productosMenu.find(pr => pr.id_producto === vinoItem?.id_producto);
       if (prodVino && vinoItem) {
         promoDeduction += (prodVino.precio_venta * 0.15) * vinoItem.cantidad;
@@ -1221,7 +1248,7 @@ export default function CajaModule({
                 </div>
 
                 {/* Automated Promotions Detector flag box */}
-                {((selectedPedido.items.some(it => it.id_producto === 'prod_car_lomo_pimienta' || it.id_producto === 'prod_car_bondiola_ahumada') && selectedPedido.items.some(it => it.id_producto === 'prod_vin_trumpeter_botella' || it.id_producto === 'prod_vin_rutini_botella')) || 
+                {((selectedPedido.items.some(it => it.id_producto === 'prod_car_lomo_pimienta' || it.id_producto === 'prod_car_bondiola_ahumada') && selectedPedido.items.some(it => (it.id_producto.startsWith('prod_vin_trumpeter_') && !it.id_producto.includes('copa')) || it.id_producto.startsWith('prod_vin_rutini_'))) || 
                  (selectedPedido.items.some(it => it.id_producto === 'prod_car_mila_entrecot' || it.id_producto === 'prod_cri_lentejas') && selectedPedido.items.some(it => it.id_insumo === 'ins_beb_gaseosa' || it.id_producto === 'prod_gaseosa'))) && (
                   <div className="bg-emerald-50 border border-emerald-100 p-3 rounded-lg flex items-start gap-2 text-emerald-800">
                     <Percent className="w-4 h-4 text-emerald-700 mt-0.5 shrink-0" />
@@ -1888,19 +1915,19 @@ export default function CajaModule({
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2 sm:text-right shrink-0">
-                    <div className="bg-white p-2 rounded border border-stone-150 min-w-[100px] text-center">
+                    <div className="bg-white dark:bg-stone-900 p-2 rounded border border-stone-150 dark:border-stone-800 min-w-[100px] text-center">
                       <span className="text-[8px] text-stone-400 block font-black uppercase">Ventas Turno</span>
-                      <span className="font-mono font-bold text-stone-900">${cs.monto_ventas.toLocaleString('es-AR')}</span>
+                      <span className="font-mono font-bold text-stone-900 dark:text-stone-100">${cs.monto_ventas.toLocaleString('es-AR')}</span>
                     </div>
 
-                    <div className="bg-white p-2 rounded border border-stone-150 min-w-[100px] text-center">
+                    <div className="bg-white dark:bg-stone-900 p-2 rounded border border-stone-150 dark:border-stone-800 min-w-[100px] text-center">
                       <span className="text-[8px] text-stone-400 block font-black uppercase">Monto Real</span>
-                      <span className="font-mono font-bold text-stone-900">${(cs.monto_real || 0).toLocaleString('es-AR')}</span>
+                      <span className="font-mono font-bold text-stone-900 dark:text-stone-100">${(cs.monto_real || 0).toLocaleString('es-AR')}</span>
                     </div>
 
                     {hasDiff && (
                       <div className={`p-2 rounded border min-w-[90px] text-center ${
-                        hasDiffErr ? 'bg-rose-50 text-rose-700 border-rose-100' : 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                        hasDiffErr ? 'bg-rose-50 text-rose-700 border-rose-100 dark:bg-rose-950/20 dark:text-rose-400 dark:border-rose-900/30' : 'bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30'
                       }`}>
                         <span className="text-[8px] block font-black uppercase">Diferencia</span>
                         <span className="font-mono font-bold">
@@ -1908,6 +1935,13 @@ export default function CajaModule({
                         </span>
                       </div>
                     )}
+
+                    <button
+                      onClick={() => setSelectedShiftForDetail(cs)}
+                      className="px-3 py-2 bg-[#624A3E] hover:bg-[#523e34] dark:bg-[#C8956A] dark:hover:bg-[#b8855a] text-white dark:text-[#4A2D1B] text-[10px] font-black uppercase rounded-xl transition-all cursor-pointer shadow-xs active:scale-95 shrink-0"
+                    >
+                      Detalle
+                    </button>
                   </div>
                 </div>
               );
@@ -1918,6 +1952,134 @@ export default function CajaModule({
         )}
       </div>
 
+      {selectedShiftForDetail && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="glass-panel rounded-[20px] p-6 w-full max-w-2xl shadow-2xl border border-stone-200/40 dark:border-stone-800/40 text-stone-850 dark:text-stone-100 bg-white dark:bg-stone-900 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-start border-b border-stone-200/50 dark:border-stone-800/60 pb-3 mb-4">
+              <div>
+                <h3 className="font-serif font-black text-lg text-[#624A3E] dark:text-[#C8956A]">Detalle de Turno y Cierre</h3>
+                <p className="text-[10px] text-stone-500 font-bold uppercase mt-0.5">ID Sesión: {selectedShiftForDetail.id_cierre}</p>
+              </div>
+              <button 
+                onClick={() => setSelectedShiftForDetail(null)}
+                className="p-1.5 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-full text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              <div className="space-y-1.5 bg-stone-50 dark:bg-stone-950 p-3.5 rounded-xl border border-stone-100 dark:border-stone-850">
+                <span className="text-[9px] font-black text-stone-455 text-stone-400 uppercase block">Información General</span>
+                <p className="font-bold">Cajero: <span className="font-normal text-stone-700 dark:text-stone-300">{selectedShiftForDetail.usuario_cajero}</span></p>
+                <p className="font-bold">Apertura: <span className="font-mono font-normal text-stone-700 dark:text-stone-300">{new Date(selectedShiftForDetail.fecha_apertura).toLocaleString('es-AR')}</span></p>
+                <p className="font-bold">Cierre: <span className="font-mono font-normal text-stone-700 dark:text-stone-300">{selectedShiftForDetail.fecha_cierre ? new Date(selectedShiftForDetail.fecha_cierre).toLocaleString('es-AR') : 'SESIÓN ABIERTA'}</span></p>
+              </div>
+
+              <div className="space-y-1.5 bg-stone-50 dark:bg-stone-950 p-3.5 rounded-xl border border-stone-100 dark:border-stone-850">
+                <span className="text-[9px] font-black text-stone-455 text-stone-400 uppercase block">Arqueo Financiero</span>
+                <p className="font-bold">Caja Inicial: <span className="font-mono font-normal text-stone-700 dark:text-stone-300">${selectedShiftForDetail.monto_apertura.toLocaleString('es-AR')}</span></p>
+                <p className="font-bold">Ventas Registradas: <span className="font-mono font-normal text-stone-700 dark:text-stone-300">${selectedShiftForDetail.monto_ventas.toLocaleString('es-AR')}</span></p>
+                {selectedShiftForDetail.monto_real !== null && (
+                  <>
+                    <p className="font-bold">Efectivo Físico Arqueado: <span className="font-mono font-normal text-stone-700 dark:text-stone-300">${selectedShiftForDetail.monto_real.toLocaleString('es-AR')}</span></p>
+                    <p className="font-bold">Diferencia detectada: <span className={`font-mono font-extrabold ${selectedShiftForDetail.diferencia && selectedShiftForDetail.diferencia < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>${selectedShiftForDetail.diferencia?.toLocaleString('es-AR')}</span></p>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {selectedShiftForDetail.registros_totales && (
+              <div className="mt-4 bg-stone-50 dark:bg-stone-950 p-3.5 rounded-xl text-xs space-y-2 border border-stone-100 dark:border-stone-850">
+                <span className="text-[9px] font-black text-stone-455 text-stone-400 uppercase block">Desglose de Medios de Pago</span>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 font-mono">
+                  <div className="bg-white dark:bg-stone-900 p-2 rounded text-center border border-stone-200/50 dark:border-stone-800">
+                    <span className="text-[8px] text-stone-400 block uppercase font-sans font-bold">Efectivo</span>
+                    <span>${selectedShiftForDetail.registros_totales.efectivo.toLocaleString('es-AR')}</span>
+                  </div>
+                  <div className="bg-white dark:bg-stone-900 p-2 rounded text-center border border-stone-200/50 dark:border-stone-800">
+                    <span className="text-[8px] text-stone-400 block uppercase font-sans font-bold">Débito</span>
+                    <span>${selectedShiftForDetail.registros_totales.debito.toLocaleString('es-AR')}</span>
+                  </div>
+                  <div className="bg-white dark:bg-stone-900 p-2 rounded text-center border border-stone-200/50 dark:border-stone-800">
+                    <span className="text-[8px] text-stone-400 block uppercase font-sans font-bold">Crédito</span>
+                    <span>${selectedShiftForDetail.registros_totales.credito.toLocaleString('es-AR')}</span>
+                  </div>
+                  <div className="bg-white dark:bg-stone-900 p-2 rounded text-center border border-stone-200/50 dark:border-stone-800">
+                    <span className="text-[8px] text-stone-400 block uppercase font-sans font-bold">Transf.</span>
+                    <span>${selectedShiftForDetail.registros_totales.transferencia.toLocaleString('es-AR')}</span>
+                  </div>
+                  <div className="bg-white dark:bg-stone-900 p-2 rounded text-center border border-stone-200/50 dark:border-stone-800 col-span-2 sm:col-span-1">
+                    <span className="text-[8px] text-stone-400 block uppercase font-sans font-bold">QR / MP</span>
+                    <span>${selectedShiftForDetail.registros_totales.mercadopago.toLocaleString('es-AR')}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Manual movements table */}
+            <div className="mt-4 text-xs space-y-2">
+              <span className="text-[9px] font-black text-stone-455 text-stone-400 uppercase block">Movimientos de Caja Chica</span>
+              {(selectedShiftForDetail.movimientos_manuales || []).length > 0 ? (
+                <div className="border border-stone-200/60 dark:border-stone-800 rounded-xl overflow-hidden shadow-2xs">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr className="bg-stone-50 dark:bg-stone-950 text-stone-500 font-bold border-b border-stone-200/60 dark:border-stone-850">
+                        <th className="py-2 px-3 text-left">Hora</th>
+                        <th className="py-2 px-3 text-left">Tipo</th>
+                        <th className="py-2 px-3 text-left">Concepto</th>
+                        <th className="py-2 px-3 text-right">Monto</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(selectedShiftForDetail.movimientos_manuales || []).map((m: any, mIdx: number) => (
+                        <tr key={mIdx} className="border-b border-stone-100 dark:border-stone-900 last:border-none hover:bg-stone-50/50 dark:hover:bg-stone-950/30">
+                          <td className="py-2 px-3 font-mono text-stone-500">{new Date(m.fecha).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })} hs</td>
+                          <td className="py-2 px-3 uppercase font-extrabold" style={{ color: m.tipo === 'ingreso' ? '#10B981' : '#EF4444' }}>{m.tipo}</td>
+                          <td className="py-2 px-3 truncate max-w-[200px] text-stone-700 dark:text-stone-300" title={m.concepto}>{m.concepto}</td>
+                          <td className="py-2 px-3 text-right font-mono font-bold text-stone-900 dark:text-stone-100">${m.monto.toLocaleString('es-AR')}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="text-[10px] text-stone-400 italic bg-stone-50 dark:bg-stone-950 p-3.5 rounded-xl text-center border border-dashed border-stone-200/60 dark:border-stone-850">No se registraron entradas ni salidas de caja chica.</p>
+              )}
+            </div>
+
+            {selectedShiftForDetail.observaciones && (
+              <div className="mt-4 text-xs space-y-1 bg-amber-500/5 border border-amber-500/25 p-3.5 rounded-xl">
+                <span className="text-[9px] font-black text-amber-600 dark:text-amber-450 uppercase block font-sans">Observaciones del Cajero</span>
+                <p className="italic text-stone-600 dark:text-stone-300">"{selectedShiftForDetail.observaciones}"</p>
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-2.5 pt-4 border-t border-stone-200/50 dark:border-stone-800 mt-5">
+              <button
+                onClick={() => pdfService.exportCierreCajaPDF(selectedShiftForDetail, restaurante)}
+                className="px-4 py-2.5 bg-[#624A3E] hover:bg-[#523e34] dark:bg-[#C8956A] dark:hover:bg-[#b8855a] text-white dark:text-[#4A2D1B] text-xs font-black uppercase rounded-xl flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95 transition-all"
+              >
+                <Download className="w-4 h-4" /> Exportar PDF
+              </button>
+              {(selectedShiftForDetail.movimientos_manuales || []).length > 0 && (
+                <button
+                  onClick={() => handleExportCSV(selectedShiftForDetail)}
+                  className="px-4 py-2.5 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-200 text-xs font-black uppercase rounded-xl flex items-center gap-1.5 cursor-pointer active:scale-95 transition-all"
+                >
+                  <FileText className="w-4 h-4" /> Exportar CSV
+                </button>
+              )}
+              <button
+                onClick={() => setSelectedShiftForDetail(null)}
+                className="ml-auto px-4 py-2.5 bg-stone-200 hover:bg-stone-250 dark:bg-stone-850 dark:hover:bg-stone-800 text-stone-800 dark:text-stone-200 text-xs font-black uppercase rounded-xl cursor-pointer"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

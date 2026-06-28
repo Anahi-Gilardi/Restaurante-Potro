@@ -131,8 +131,7 @@ export const INITIAL_INSUMOS: Insumo[] = [
   { id_insumo: "ins_vin_las_perdices_reserva_chardonnay", nombre: "Las Perdices Reserva Chardonnay Botella", stock_actual: 20.0, stock_minimo: 4.0, unidad_medida: "unidades", categoria: "bodega", subcategoria: "Vinos blancos", proveedor: "Las Perdices S.A.", costo_unitario: 4600.0, es_bebida_directa: true },
   { id_insumo: "ins_vin_las_perdices_reserva_sauvignon_blanc", nombre: "Las Perdices Reserva Sauvignon Blanc Botella", stock_actual: 20.0, stock_minimo: 4.0, unidad_medida: "unidades", categoria: "bodega", subcategoria: "Vinos blancos", proveedor: "Las Perdices S.A.", costo_unitario: 4600.0, es_bebida_directa: true },
   { id_insumo: "ins_vin_las_perdices_don_juan_malbec", nombre: "Las Perdices Don Juan Malbec Botella", stock_actual: 20.0, stock_minimo: 4.0, unidad_medida: "unidades", categoria: "bodega", subcategoria: "Vinos tintos", proveedor: "Las Perdices S.A.", costo_unitario: 16000.0, es_bebida_directa: true },
-  { id_insumo: "ins_vin_las_perdices_exploracion_las_compuertas", nombre: "Las Perdices Exploración Las Compuertas Botella", stock_actual: 20.0, stock_minimo: 4.0, unidad_medida: "unidades", categoria: "bodega", subcategoria: "Vinos tintos", proveedor: "Las Perdices S.A.", costo_unitario: 6500.0, es_bebida_directa: true },
-  { id_insumo: "ins_vin_las_perdices_exploracion_chacayes", nombre: "Las Perdices Exploración Chacayes Botella", stock_actual: 20.0, stock_minimo: 4.0, unidad_medida: "unidades", categoria: "bodega", subcategoria: "Vinos tintos", proveedor: "Las Perdices S.A.", costo_unitario: 6500.0, es_bebida_directa: true },
+  { id_insumo: "ins_vin_las_perdices_exploracion_cabernet_sauvignon", nombre: "Las Perdices Exploración Cabernet Sauvignon Botella", stock_actual: 20.0, stock_minimo: 4.0, unidad_medida: "unidades", categoria: "bodega", subcategoria: "Vinos tintos", proveedor: "Las Perdices S.A.", costo_unitario: 6500.0, es_bebida_directa: true },
   { id_insumo: "ins_vin_las_perdices_exploracion_albarino", nombre: "Las Perdices Exploración Albariño Botella", stock_actual: 20.0, stock_minimo: 4.0, unidad_medida: "unidades", categoria: "bodega", subcategoria: "Vinos blancos", proveedor: "Las Perdices S.A.", costo_unitario: 5800.0, es_bebida_directa: true },
   { id_insumo: "ins_vin_las_perdices_exploracion_riesling", nombre: "Las Perdices Exploración Riesling Botella", stock_actual: 20.0, stock_minimo: 4.0, unidad_medida: "unidades", categoria: "bodega", subcategoria: "Vinos blancos", proveedor: "Las Perdices S.A.", costo_unitario: 5800.0, es_bebida_directa: true },
   { id_insumo: "ins_vin_las_perdices_exploracion_gewurztraminer", nombre: "Las Perdices Exploración Gewurztraminer Botella", stock_actual: 20.0, stock_minimo: 4.0, unidad_medida: "unidades", categoria: "bodega", subcategoria: "Vinos blancos", proveedor: "Las Perdices S.A.", costo_unitario: 5900.0, es_bebida_directa: true },
@@ -140,7 +139,6 @@ export const INITIAL_INSUMOS: Insumo[] = [
   { id_insumo: "ins_vin_las_perdices_ala_colorada_cabernet_franc", nombre: "Las Perdices Ala Colorada Cabernet Franc Botella", stock_actual: 20.0, stock_minimo: 4.0, unidad_medida: "unidades", categoria: "bodega", subcategoria: "Vinos tintos", proveedor: "Las Perdices S.A.", costo_unitario: 7200.0, es_bebida_directa: true },
   { id_insumo: "ins_vin_las_perdices_ala_colorada_tannat", nombre: "Las Perdices Ala Colorada Tannat Botella", stock_actual: 20.0, stock_minimo: 4.0, unidad_medida: "unidades", categoria: "bodega", subcategoria: "Vinos tintos", proveedor: "Las Perdices S.A.", costo_unitario: 7200.0, es_bebida_directa: true },
   { id_insumo: "ins_vin_las_perdices_ala_colorada_petit_verdot", nombre: "Las Perdices Ala Colorada Petit Verdot Botella", stock_actual: 20.0, stock_minimo: 4.0, unidad_medida: "unidades", categoria: "bodega", subcategoria: "Vinos tintos", proveedor: "Las Perdices S.A.", costo_unitario: 7200.0, es_bebida_directa: true },
-  { id_insumo: "ins_vin_las_perdices_alae_malbec", nombre: "Las Perdices Alae Malbec Botella", stock_actual: 20.0, stock_minimo: 4.0, unidad_medida: "unidades", categoria: "bodega", subcategoria: "Vinos tintos", proveedor: "Las Perdices S.A.", costo_unitario: 28000.0, es_bebida_directa: true },
   // Salentein
   { id_insumo: "ins_vin_portillo_malbec", nombre: "Portillo Malbec Botella", stock_actual: 20.0, stock_minimo: 4.0, unidad_medida: "unidades", categoria: "bodega", subcategoria: "Vinos tintos", proveedor: "Salentein S.A.", costo_unitario: 2100.0, es_bebida_directa: true },
   { id_insumo: "ins_vin_portillo_sauvignon_blanc", nombre: "Portillo Sauvignon Blanc Botella", stock_actual: 20.0, stock_minimo: 4.0, unidad_medida: "unidades", categoria: "bodega", subcategoria: "Vinos blancos", proveedor: "Salentein S.A.", costo_unitario: 2100.0, es_bebida_directa: true },
@@ -527,10 +525,10 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     requiere_cocina: true
   },
 
-  // ================= 7. BODEGA & BEBIDAS GENERALES =================
-  // La Rural
+    // ================= 7. BODEGA & BEBIDAS GENERALES =================
+  // BODEGA LA RURAL: TINTOS
   {
-    id_producto: 'prod_vin_trumpeter_botella',
+    id_producto: 'prod_vin_trumpeter_malbec',
     nombre: 'Trumpeter Malbec (Botella)',
     descripcion: 'Bodega La Rural. Robusto con aromas a frutos silvestres y madurado en roble.',
     precio_venta: 12500.00,
@@ -542,73 +540,9 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     requiere_cocina: false
   },
   {
-    id_producto: 'prod_vin_rutini_botella',
-    nombre: 'Rutini Cab-Malbec 750ml',
-    descripcion: 'Bodega La Rural. Un clásico de gran cuerpo y complejidad.',
-    precio_venta: 21500.00,
-    categoria: 'Bodega',
-    subcategoria: 'Vinos tintos',
-    activo: true,
-    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
-    tipo: 'vino',
-    requiere_cocina: false
-  },
-  {
-    id_producto: 'prod_vin_encuentro_botella',
-    nombre: 'Encuentro CS Botella La Rural',
-    descripcion: 'Bodega La Rural. Exquisito Cabernet Sauvignon especiado.',
-    precio_venta: 15500.00,
-    categoria: 'Bodega',
-    subcategoria: 'Vinos tintos',
-    activo: true,
-    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
-    tipo: 'vino',
-    requiere_cocina: false
-  },
-
-  // Escorihuela Gascón
-  {
-    id_producto: 'prod_vin_escorihuela_gascon',
-    nombre: 'Escorihuela Gascón Malbec 750ml',
-    descripcion: 'Bodega Escorihuela. Notas florales y frutales muy equilibradas.',
-    precio_venta: 14500.00,
-    categoria: 'Bodega',
-    subcategoria: 'Vinos tintos',
-    activo: true,
-    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
-    tipo: 'vino',
-    requiere_cocina: false
-  },
-  {
-    id_producto: 'prod_vin_eg_gran_reserva',
-    nombre: 'E.G Gran Reserva Red Blend',
-    descripcion: 'Bodega Escorihuela Gascón. Ensamble tinto premium madurado en barricas.',
-    precio_venta: 24000.00,
-    categoria: 'Bodega',
-    subcategoria: 'Vinos tintos',
-    activo: true,
-    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
-    tipo: 'vino',
-    requiere_cocina: false
-  },
-  {
-    id_producto: 'prod_vin_pequenas_prod_cf',
-    nombre: 'Pequeñas Producciones Cabernet Franc',
-    descripcion: 'Bodega Escorihuela Gascón. De gran concentración aromática y cuerpo.',
-    precio_venta: 32000.00,
-    categoria: 'Bodega',
-    subcategoria: 'Vinos tintos',
-    activo: true,
-    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
-    tipo: 'vino',
-    requiere_cocina: false
-  },
-
-  // Ruca Malén
-  {
-    id_producto: 'prod_vin_ruca_cap2',
-    nombre: 'Ruca Malén Capítulo 2 Malbec',
-    descripcion: 'Bodega Ruca Malén. Notas de frutas rojas maduras con paso elegante.',
+    id_producto: 'prod_vin_trumpeter_red_blend',
+    nombre: 'Trumpeter Red Blend (Botella)',
+    descripcion: 'Bodega La Rural. Elegante ensamble de varietales tintos con gran complejidad.',
     precio_venta: 11500.00,
     categoria: 'Bodega',
     subcategoria: 'Vinos tintos',
@@ -617,170 +551,10 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     tipo: 'vino',
     requiere_cocina: false
   },
-
-  // Catena Zapata
   {
-    id_producto: 'prod_vin_alamos_botella',
-    nombre: 'Alamos Red Blend 750ml',
-    descripcion: 'Bodega Alamos. Complejo y balanceado, ideal para carnes rojas.',
-    precio_venta: 7800.00,
-    categoria: 'Bodega',
-    subcategoria: 'Vinos tintos',
-    activo: true,
-    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
-    tipo: 'vino',
-    requiere_cocina: false
-  },
-  {
-    id_producto: 'prod_vin_st_felicien_botella',
-    nombre: 'Saint Felicien Sauvignon Blanc',
-    descripcion: 'Bodega Catena Zapata. Varietal blanco, fresco y cítrico.',
-    precio_venta: 15500.00,
-    categoria: 'Bodega',
-    subcategoria: 'Vinos blancos',
-    activo: true,
-    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
-    tipo: 'vino',
-    requiere_cocina: false
-  },
-  {
-    id_producto: 'prod_vin_nicasia_malbec',
-    nombre: 'Nicasia Malbec 750ml',
-    descripcion: 'Bodega Catena Zapata. Redondo y frutado con taninos dulces.',
-    precio_venta: 13500.00,
-    categoria: 'Bodega',
-    subcategoria: 'Vinos tintos',
-    activo: true,
-    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
-    tipo: 'vino',
-    requiere_cocina: false
-  },
-  {
-    id_producto: 'prod_vin_padrillo_cs',
-    nombre: 'Padrillo Cabernet Sauvignon',
-    descripcion: 'Bodega Ernesto Catena. Intenso con notas de pimienta y pimientos.',
-    precio_venta: 9800.00,
-    categoria: 'Bodega',
-    subcategoria: 'Vinos tintos',
-    activo: true,
-    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
-    tipo: 'vino',
-    requiere_cocina: false
-  },
-  {
-    id_producto: 'prod_vin_dv_catena_botella',
-    nombre: 'D.V. Catena Malbec-Malbec 750ml',
-    descripcion: 'Bodega Catena Zapata. Blend de viñedos de altura, concentrado y complejo.',
-    precio_venta: 25500.00,
-    categoria: 'Bodega',
-    subcategoria: 'Vinos tintos',
-    activo: true,
-    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
-    tipo: 'vino',
-    requiere_cocina: false
-  },
-  {
-    id_producto: 'prod_vin_el_enemigo_botella',
-    nombre: 'El Enemigo Malbec 750ml',
-    descripcion: 'Bodega Aleanna. Gran exponente de Gualtallary, mineral y estructurado.',
-    precio_venta: 28500.00,
-    categoria: 'Bodega',
-    subcategoria: 'Vinos tintos',
-    activo: true,
-    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
-    tipo: 'vino',
-    requiere_cocina: false
-  },
-  {
-    id_producto: 'prod_vin_tikal_natural',
-    nombre: 'Tikal Natural Organic Blend',
-    descripcion: 'Ernesto Catena Vineyards. Orgánico certificado, expresivo y balanceado.',
-    precio_venta: 22000.00,
-    categoria: 'Bodega',
-    subcategoria: 'Vinos tintos',
-    activo: true,
-    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
-    tipo: 'vino',
-    requiere_cocina: false
-  },
-  {
-    id_producto: 'prod_vin_angelica_zapata',
-    nombre: 'Angélica Zapata Malbec Alta',
-    descripcion: 'Bodega Catena Zapata. De gran concentración, elegancia y final prolongado.',
-    precio_venta: 39000.00,
-    categoria: 'Bodega',
-    subcategoria: 'Vinos tintos',
-    activo: true,
-    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
-    tipo: 'vino',
-    requiere_cocina: false
-  },
-  {
-    id_producto: 'prod_vin_catena_argentino',
-    nombre: 'Catena Zapata Argentino Malbec',
-    descripcion: 'Bodega Catena Zapata. Obra de arte vitícola, superlativo y de colección.',
-    precio_venta: 85000.00,
-    categoria: 'Bodega',
-    subcategoria: 'Vinos tintos',
-    activo: true,
-    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
-    tipo: 'vino',
-    requiere_cocina: false
-  },
-  {
-    id_producto: 'prod_vin_luca_pinot',
-    nombre: 'Luca Pinot Noir',
-    descripcion: 'Bodega Luca Wines. Elegante Pinot Noir de Tupungato con sutil crianza.',
-    precio_venta: 24500.00,
-    categoria: 'Bodega',
-    subcategoria: 'Vinos tintos',
-    activo: true,
-    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
-    tipo: 'vino',
-    requiere_cocina: false
-  },
-
-  // Las Perdices
-  {
-    id_producto: 'prod_vin_perdices_malbec',
-    nombre: 'Las Perdices Malbec 750ml',
-    descripcion: 'Bodega Las Perdices. Notas de ciruelas y guindas, taninos suaves.',
-    precio_venta: 9500.00,
-    categoria: 'Bodega',
-    subcategoria: 'Vinos tintos',
-    activo: true,
-    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
-    tipo: 'vino',
-    requiere_cocina: false
-  },
-  {
-    id_producto: 'prod_vin_perdices_reserva',
-    nombre: 'Las Perdices Reserva Malbec 750ml',
-    descripcion: 'Bodega Las Perdices. Criado 1 año en barricas, complejo e intenso.',
-    precio_venta: 14800.00,
-    categoria: 'Bodega',
-    subcategoria: 'Vinos tintos',
-    activo: true,
-    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
-    tipo: 'vino',
-    requiere_cocina: false
-  },
-  {
-    id_producto: 'prod_vin_don_juan_blend',
-    nombre: 'Don Juan Blend Las Perdices',
-    descripcion: 'Bodega Las Perdices. Corte ícono de la bodega de gran complejidad.',
-    precio_venta: 42000.00,
-    categoria: 'Bodega',
-    subcategoria: 'Vinos tintos',
-    activo: true,
-    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
-    tipo: 'vino',
-    requiere_cocina: false
-  },
-  {
-    id_producto: 'prod_vin_perdices_exploracion',
-    nombre: 'Exploración Pinot Noir Gualtallary',
-    descripcion: 'Bodega Las Perdices. Exponente fresco y elegante de terruño de altura.',
+    id_producto: 'prod_vin_encuentro_malbec',
+    nombre: 'Encuentro Malbec (Botella)',
+    descripcion: 'Bodega La Rural. Gran cuerpo, taninos maduros y aromas frutales.',
     precio_venta: 18500.00,
     categoria: 'Bodega',
     subcategoria: 'Vinos tintos',
@@ -790,12 +564,600 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     requiere_cocina: false
   },
   {
-    id_producto: 'prod_vin_ala_colorada_cf',
-    nombre: 'Ala Colorada Cabernet Franc',
-    descripcion: 'Bodega Las Perdices. Gran Cabernet Franc con carácter especiado y paso redondo.',
+    id_producto: 'prod_vin_rutini_malbec',
+    nombre: 'Rutini Malbec (Botella)',
+    descripcion: 'Bodega La Rural. Concentrado, con aromas frutados y toques de tabaco y vainilla.',
+    precio_venta: 26500.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_rutini_cabernet_sauvignon',
+    nombre: 'Rutini Cabernet Sauvignon (Botella)',
+    descripcion: 'Bodega La Rural. Robusto, de gran estructura y persistencia.',
+    precio_venta: 26500.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_rutini_cabernet_franc',
+    nombre: 'Rutini Cabernet Franc (Botella)',
+    descripcion: 'Bodega La Rural. Expresivo, con notas de pimiento rojo y especias.',
+    precio_venta: 28000.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_rutini_merlot',
+    nombre: 'Rutini Merlot (Botella)',
+    descripcion: 'Bodega La Rural. Sedoso, frutado y de final sumamente elegante.',
+    precio_venta: 25500.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+
+  // BODEGA ESCORIHUELA GASCÓN: TINTOS
+  {
+    id_producto: 'prod_vin_escorihuela_gascon_malbec',
+    nombre: 'Escorihuela Gascón Malbec (Botella)',
+    descripcion: 'Bodega Escorihuela Gascón. Notas florales y de frutos rojos muy equilibradas.',
+    precio_venta: 16500.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_escorihuela_gascon_cabernet_sauvignon',
+    nombre: 'Escorihuela Gascón Cabernet Sauvignon (Botella)',
+    descripcion: 'Bodega Escorihuela Gascón. Excelente estructura y notas especiadas.',
+    precio_venta: 16500.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_escorihuela_gascon_pinot_noir',
+    nombre: 'Escorihuela Gascón Pinot Noir (Botella)',
+    descripcion: 'Bodega Escorihuela Gascón. Delicado, fresco y con sutil aroma a frutas del bosque.',
+    precio_venta: 17500.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_eg_gran_reserva_malbec',
+    nombre: 'Escorihuela Gascón Gran Reserva Malbec (Botella)',
+    descripcion: 'Bodega Escorihuela Gascón. Crianza en roble, gran complejidad y elegancia.',
+    precio_venta: 26500.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_pequenas_producciones_malbec',
+    nombre: 'Escorihuela Gascón Pequeñas Producciones Malbec (Botella)',
+    descripcion: 'Bodega Escorihuela Gascón. Edición limitada de gran concentración y cuerpo.',
+    precio_venta: 36500.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_pequenas_producciones_cabernet_franc',
+    nombre: 'Escorihuela Gascón Pequeñas Producciones Cabernet Franc (Botella)',
+    descripcion: 'Bodega Escorihuela Gascón. Intenso, de gran carácter varietal y final largo.',
+    precio_venta: 36500.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+
+  // BODEGA RUCA MALEN: TINTOS
+  {
+    id_producto: 'prod_vin_capitulo_2_malbec',
+    nombre: 'Capítulo 2 Malbec (Botella)',
+    descripcion: 'Bodega Ruca Malén. Expresivo, con notas de frutos rojos y paso sedoso.',
+    precio_venta: 14500.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_capitulo_2_cabernet_sauvignon',
+    nombre: 'Capítulo 2 Cabernet Sauvignon (Botella)',
+    descripcion: 'Bodega Ruca Malén. Equilibrio perfecto entre fruta y notas de barrica.',
+    precio_venta: 14500.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+
+  // BODEGA CATENA ZAPATA: TINTOS
+  {
+    id_producto: 'prod_vin_alamos_red_blend',
+    nombre: 'Alamos Red Blend (Botella)',
+    descripcion: 'Bodega Alamos. Ensamble redondo y sabroso, ideal para carnes rojas.',
+    precio_venta: 9500.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_saint_felicien_malbec',
+    nombre: 'Saint Felicien Malbec (Botella)',
+    descripcion: 'Bodega Catena Zapata. Elegante, con taninos redondos y gran presencia de fruta.',
+    precio_venta: 20500.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_saint_felicien_cabernet_sauvignon',
+    nombre: 'Saint Felicien Cabernet Sauvignon (Botella)',
+    descripcion: 'Bodega Catena Zapata. Complejo, estructurado y de gran final.',
+    precio_venta: 20500.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_nicasia_red_blend',
+    nombre: 'Nicasia Red Blend (Botella)',
+    descripcion: 'Bodega Catena Zapata. Elegante corte de viñedos seleccionados.',
+    precio_venta: 17500.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_nicasia_malbec',
+    nombre: 'Nicasia Malbec (Botella)',
+    descripcion: 'Bodega Catena Zapata. Frutado, untuoso y de taninos dulces.',
+    precio_venta: 17500.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_padrillo_malbec',
+    nombre: 'Padrillo Malbec (Botella)',
+    descripcion: 'Bodega Ernesto Catena. Joven, fresco y con marcado carácter varietal.',
+    precio_venta: 12000.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_padrillo_pinot_noir',
+    nombre: 'Padrillo Pinot Noir (Botella)',
+    descripcion: 'Bodega Ernesto Catena. Notas terrosas, frutos secos y acidez equilibrada.',
+    precio_venta: 12000.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_dv_catena_malbec',
+    nombre: 'DV Catena Malbec (Botella)',
+    descripcion: 'Bodega Catena Zapata. Blend de viñedos de altura, concentrado y complejo.',
+    precio_venta: 34500.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_dv_catena_cabernet_sauvignon',
+    nombre: 'DV Catena Cabernet Sauvignon (Botella)',
+    descripcion: 'Bodega Catena Zapata. De gran persistencia, estructura e intensidad aromática.',
+    precio_venta: 34500.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_dv_catena_pinot_noir',
+    nombre: 'DV Catena Pinot Noir (Botella)',
+    descripcion: 'Bodega Catena Zapata. Elegante, con notas de frutos rojos maduros y vainilla.',
+    precio_venta: 35500.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_el_enemigo_malbec',
+    nombre: 'Enemigo Malbec (Botella)',
+    descripcion: 'Bodega Aleanna. Gran exponente de Gualtallary, mineral y estructurado.',
+    precio_venta: 38000.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_el_enemigo_cabernet_franc',
+    nombre: 'Enemigo Cabernet Franc (Botella)',
+    descripcion: 'Bodega Aleanna. Especiado, complejo, con taninos firmes y elegantes.',
+    precio_venta: 38000.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_tikal_natural_malbec',
+    nombre: 'Tikal Malbec (Botella)',
+    descripcion: 'Ernesto Catena Vineyards. Expresivo, frutado, orgánico y con gran final.',
+    precio_venta: 29500.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_angelica_zapata_malbec',
+    nombre: 'Angélica Zapata Malbec (Botella)',
+    descripcion: 'Bodega Catena Zapata. De gran concentración, elegancia y maduración en roble.',
+    precio_venta: 56000.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_angelica_zapata_merlot',
+    nombre: 'Angélica Zapata Merlot (Botella)',
+    descripcion: 'Bodega Catena Zapata. Complejo, con notas de chocolate, cuero y frutos secos.',
+    precio_venta: 56000.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_catena_zapata_argentino_malbec',
+    nombre: 'Argentino Malbec (Botella)',
+    descripcion: 'Bodega Catena Zapata. Obra de arte vitícola, superlativo y de colección.',
+    precio_venta: 98000.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_luca_malbec',
+    nombre: 'Luca Malbec (Botella)',
+    descripcion: 'Bodega Luca Wines. Intenso, concentrado, con taninos sedosos.',
+    precio_venta: 32000.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+
+  // BODEGA LAS PERDICES: TINTOS
+  {
+    id_producto: 'prod_vin_las_perdices_malbec',
+    nombre: 'Las Perdices Malbec (Botella)',
+    descripcion: 'Bodega Las Perdices. Notas de ciruelas y guindas, taninos suaves.',
+    precio_venta: 13000.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_las_perdices_cabernet_sauvignon',
+    nombre: 'Las Perdices Cabernet Sauvignon (Botella)',
+    descripcion: 'Bodega Las Perdices. Robusto y especiado, con taninos estructurados.',
+    precio_venta: 13000.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_las_perdices_reserva_malbec',
+    nombre: 'Las Perdices Reserva Malbec (Botella)',
+    descripcion: 'Bodega Las Perdices. Criado 1 año en barricas, complejo e intenso.',
+    precio_venta: 18500.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_las_perdices_reserva_cabernet_sauvignon',
+    nombre: 'Las Perdices Reserva Cabernet Sauvignon (Botella)',
+    descripcion: 'Bodega Las Perdices. Notas de pimienta negra y frutos negros con crianza.',
+    precio_venta: 18500.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_las_perdices_reserva_pinot_noir',
+    nombre: 'Las Perdices Reserva Pinot Noir (Botella)',
+    descripcion: 'Bodega Las Perdices. Delicado, elegante, con fruits rojas maduras.',
     precio_venta: 19500.00,
     categoria: 'Bodega',
     subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_las_perdices_don_juan_malbec',
+    nombre: 'Don Juan Malbec (Botella)',
+    descripcion: 'Bodega Las Perdices. Vino ícono, elegante y con prolongado final.',
+    precio_venta: 62000.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_las_perdices_exploracion_cabernet_sauvignon',
+    nombre: 'Las Perdices Exploración Cabernet Sauvignon (Botella)',
+    descripcion: 'Bodega Las Perdices. Gran varietal con la tipicidad del terruño seleccionado.',
+    precio_venta: 25000.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_las_perdices_ala_colorada_ancelotta',
+    nombre: 'Ala Colorada Ancelotta (Botella)',
+    descripcion: 'Bodega Las Perdices. Cepa no tradicional. Exótico, intenso y de gran estructura.',
+    precio_venta: 28000.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_las_perdices_ala_colorada_cabernet_franc',
+    nombre: 'Ala Colorada Cabernet Franc (Botella)',
+    descripcion: 'Bodega Las Perdices. Carácter especiado distintivo y gran cuerpo.',
+    precio_venta: 28000.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_las_perdices_ala_colorada_tannat',
+    nombre: 'Ala Colorada Tannat (Botella)',
+    descripcion: 'Bodega Las Perdices. Potente, tánico y de prolongada permanencia.',
+    precio_venta: 28000.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_las_perdices_ala_colorada_petit_verdot',
+    nombre: 'Ala Colorada Petit Verdot (Botella)',
+    descripcion: 'Bodega Las Perdices. De color muy concentrado, especiado e intenso.',
+    precio_venta: 28000.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+
+  // BODEGA SALENTEIN: TINTOS
+  {
+    id_producto: 'prod_vin_portillo_malbec',
+    nombre: 'Portillo Malbec (Botella)',
+    descripcion: 'Bodega Salentein. Tinto joven y frutado, excelente para el día a día.',
+    precio_venta: 8000.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_salentein_reserva_malbec',
+    nombre: 'Reserva Malbec (Botella)',
+    descripcion: 'Bodega Salentein. Aromas a bayas rojas y toques florales, sedoso.',
+    precio_venta: 17000.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_salentein_reserva_pinot_noir',
+    nombre: 'Reserva Pinot Noir (Botella)',
+    descripcion: 'Bodega Salentein. Elegante con notas de cereza y roble francés.',
+    precio_venta: 17500.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_salentein_pyros',
+    nombre: 'Pyros Malbec (Botella)',
+    descripcion: 'Valle de Pedernal. Especiado, con taninos firmes y excelente acidez.',
+    precio_venta: 26500.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_salentein_numina_malbec',
+    nombre: 'Numina Malbec (Botella)',
+    descripcion: 'Bodega Salentein. Frutos negros maduros, toques minerales y vainilla.',
+    precio_venta: 31500.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_salentein_numina_cabernet_franc',
+    nombre: 'Numina Cabernet Franc (Botella)',
+    descripcion: 'Bodega Salentein. Notas de pimiento asado y pimienta, muy robusto.',
+    precio_venta: 31500.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_salentein_numina_pinot_noir',
+    nombre: 'Numina Pinot Noir (Botella)',
+    descripcion: 'Bodega Salentein. Aromas complejos de trufa, frutas rojas y vainilla.',
+    precio_venta: 32500.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_salentein_primus',
+    nombre: 'Primus Malbec (Botella)',
+    descripcion: 'Bodega Salentein. Malbec ícono, refinado, amplio y de gran persistencia.',
+    precio_venta: 85000.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+
+  // VINOS BLANCOS
+  {
+    id_producto: 'prod_vin_st_felicien_botella',
+    nombre: 'Saint Felicien Sauvignon Blanc',
+    descripcion: 'Bodega Catena Zapata. Varietal blanco, fresco y cítrico.',
+    precio_venta: 15500.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos blancos',
     activo: true,
     imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
     tipo: 'vino',
@@ -813,8 +1175,6 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     tipo: 'vino',
     requiere_cocina: false
   },
-
-  // Salentein
   {
     id_producto: 'prod_vin_portillo_sb_botella',
     nombre: 'Portillo Sauvignon Blanc 750ml',
@@ -828,60 +1188,12 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     requiere_cocina: false
   },
   {
-    id_producto: 'prod_vin_portillo_malbec',
-    nombre: 'Portillo Malbec 750ml',
-    descripcion: 'Bodega Salentein. Tinto joven y frutado, excelente para el día a día.',
-    precio_venta: 6500.00,
-    categoria: 'Bodega',
-    subcategoria: 'Vinos tintos',
-    activo: true,
-    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
-    tipo: 'vino',
-    requiere_cocina: false
-  },
-  {
     id_producto: 'prod_vin_salentein_res_ch',
     nombre: 'Salentein Reserva Chardonnay',
     descripcion: 'Bodega Salentein. Con paso por barrica, untuoso y de gran equilibrio cítrico.',
     precio_venta: 13500.00,
     categoria: 'Bodega',
     subcategoria: 'Vinos blancos',
-    activo: true,
-    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
-    tipo: 'vino',
-    requiere_cocina: false
-  },
-  {
-    id_producto: 'prod_vin_salentein_pyros',
-    nombre: 'Pyros Single Vineyard Syrah',
-    descripcion: 'Valle de Pedernal. Intenso, especiado, con taninos firmes and elegantes.',
-    precio_venta: 21500.00,
-    categoria: 'Bodega',
-    subcategoria: 'Vinos tintos',
-    activo: true,
-    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
-    tipo: 'vino',
-    requiere_cocina: false
-  },
-  {
-    id_producto: 'prod_vin_salentein_numina',
-    nombre: 'Salentein Numina Cabernet Franc',
-    descripcion: 'Bodega Salentein. De gran estructura, con notas de frutos negros y pimentón ahumado.',
-    precio_venta: 24500.00,
-    categoria: 'Bodega',
-    subcategoria: 'Vinos tintos',
-    activo: true,
-    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
-    tipo: 'vino',
-    requiere_cocina: false
-  },
-  {
-    id_producto: 'prod_vin_salentein_primus',
-    nombre: 'Salentein Primus Malbec',
-    descripcion: 'Bodega Salentein. Malbec ícono, elegante, complejo y de prolongada persistencia.',
-    precio_venta: 62000.00,
-    categoria: 'Bodega',
-    subcategoria: 'Vinos tintos',
     activo: true,
     imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop',
     tipo: 'vino',
@@ -1062,38 +1374,75 @@ export const INITIAL_RECETAS_ESCANDALLO: RecetaEscandallo[] = [
   // Locro tradicional
   { id_receta: 'esc_loc_car', id_producto: 'prod_cri_locro', id_insumo: 'ins_lomo_carne', cantidad_a_descontar: 100.00, unidad_medida: 'g' },
 
-  // Bebidas directas
-  { id_receta: 'esc_beb_trump_bot_dir', id_producto: 'prod_vin_trumpeter_botella', id_insumo: 'ins_vin_trumpeter', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
-  { id_receta: 'esc_beb_rutini_bot_dir', id_producto: 'prod_vin_rutini_botella', id_insumo: 'ins_vin_rutini', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
-  { id_receta: 'esc_beb_encu_bot_dir', id_producto: 'prod_vin_encuentro_botella', id_insumo: 'ins_vin_encuentro', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
-  { id_receta: 'esc_beb_escor_bot_dir', id_producto: 'prod_vin_escorihuela_gascon', id_insumo: 'ins_vin_escorihuela', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
-  { id_receta: 'esc_beb_eg_bot_dir', id_producto: 'prod_vin_eg_gran_reserva', id_insumo: 'ins_vin_eg_gran_reserva', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
-  { id_receta: 'esc_beb_peq_bot_dir', id_producto: 'prod_vin_pequenas_prod_cf', id_insumo: 'ins_vin_pequenas_prod', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
-  { id_receta: 'esc_beb_ruca_bot_dir', id_producto: 'prod_vin_ruca_cap2', id_insumo: 'ins_vin_ruca_cap2', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
-  { id_receta: 'esc_beb_alam_bot_dir', id_producto: 'prod_vin_alamos_botella', id_insumo: 'ins_vin_alamos', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
-  { id_receta: 'esc_beb_st_bot_dir', id_producto: 'prod_vin_st_felicien_botella', id_insumo: 'ins_vin_st_felicien', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
-  { id_receta: 'esc_beb_nica_bot_dir', id_producto: 'prod_vin_nicasia_malbec', id_insumo: 'ins_vin_nicasia', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
-  { id_receta: 'esc_beb_pad_bot_dir', id_producto: 'prod_vin_padrillo_cs', id_insumo: 'ins_vin_padrillo', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
-  { id_receta: 'esc_beb_dv_bot_dir', id_producto: 'prod_vin_dv_catena_botella', id_insumo: 'ins_vin_dv_catena', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
-  { id_receta: 'esc_beb_ene_bot_dir', id_producto: 'prod_vin_el_enemigo_botella', id_insumo: 'ins_vin_enemigo', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
-  { id_receta: 'esc_beb_tik_bot_dir', id_producto: 'prod_vin_tikal_natural', id_insumo: 'ins_vin_tikal', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
-  { id_receta: 'esc_beb_ang_bot_dir', id_producto: 'prod_vin_angelica_zapata', id_insumo: 'ins_vin_angelica', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
-  { id_receta: 'esc_beb_arg_bot_dir', id_producto: 'prod_vin_catena_argentino', id_insumo: 'ins_vin_argentino', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
-  { id_receta: 'esc_beb_luc_bot_dir', id_producto: 'prod_vin_luca_pinot', id_insumo: 'ins_vin_luca', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
-  
-  { id_receta: 'esc_beb_perd_bot_dir', id_producto: 'prod_vin_perdices_malbec', id_insumo: 'ins_vin_perdices', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
-  { id_receta: 'esc_beb_pres_bot_dir', id_producto: 'prod_vin_perdices_reserva', id_insumo: 'ins_vin_perdices_reserva', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
-  { id_receta: 'esc_beb_don_bot_dir', id_producto: 'prod_vin_don_juan_blend', id_insumo: 'ins_vin_don_juan', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
-  { id_receta: 'esc_beb_exp_bot_dir', id_producto: 'prod_vin_perdices_exploracion', id_insumo: 'ins_vin_exploracion', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
-  { id_receta: 'esc_beb_ala_color_dir', id_producto: 'prod_vin_ala_colorada_cf', id_insumo: 'ins_vin_ala_colorada', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
-  { id_receta: 'esc_beb_ala_viog_dir', id_producto: 'prod_vin_ala_viognier', id_insumo: 'ins_vin_ala_viognier', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+    // Bebidas directas
+  // BODEGA LA RURAL: TINTOS
+  { id_receta: 'esc_beb_trump_mal_bot_dir', id_producto: 'prod_vin_trumpeter_malbec', id_insumo: 'ins_vin_trumpeter_malbec', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_trump_rb_bot_dir', id_producto: 'prod_vin_trumpeter_red_blend', id_insumo: 'ins_vin_trumpeter_red_blend', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_encu_mal_bot_dir', id_producto: 'prod_vin_encuentro_malbec', id_insumo: 'ins_vin_encuentro_malbec', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_rutini_mal_bot_dir', id_producto: 'prod_vin_rutini_malbec', id_insumo: 'ins_vin_rutini_malbec', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_rutini_cs_bot_dir', id_producto: 'prod_vin_rutini_cabernet_sauvignon', id_insumo: 'ins_vin_rutini_cabernet_sauvignon', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_rutini_cf_bot_dir', id_producto: 'prod_vin_rutini_cabernet_franc', id_insumo: 'ins_vin_rutini_cabernet_franc', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_rutini_mer_bot_dir', id_producto: 'prod_vin_rutini_merlot', id_insumo: 'ins_vin_rutini_merlot', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
 
+  // BODEGA ESCORIHUELA GASCÓN: TINTOS
+  { id_receta: 'esc_beb_escor_mal_bot_dir', id_producto: 'prod_vin_escorihuela_gascon_malbec', id_insumo: 'ins_vin_escorihuela_gascon_malbec', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_escor_cs_bot_dir', id_producto: 'prod_vin_escorihuela_gascon_cabernet_sauvignon', id_insumo: 'ins_vin_escorihuela_gascon_cabernet_sauvignon', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_escor_pn_bot_dir', id_producto: 'prod_vin_escorihuela_gascon_pinot_noir', id_insumo: 'ins_vin_escorihuela_gascon_pinot_noir', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_eg_gr_bot_dir', id_producto: 'prod_vin_eg_gran_reserva_malbec', id_insumo: 'ins_vin_eg_gran_reserva_malbec', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_peq_mal_bot_dir', id_producto: 'prod_vin_pequenas_producciones_malbec', id_insumo: 'ins_vin_pequenas_producciones_malbec', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_peq_cf_bot_dir', id_producto: 'prod_vin_pequenas_producciones_cabernet_franc', id_insumo: 'ins_vin_pequenas_producciones_cabernet_franc', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+
+  // BODEGA RUCA MALEN: TINTOS
+  { id_receta: 'esc_beb_ruca_c2_mal_bot_dir', id_producto: 'prod_vin_capitulo_2_malbec', id_insumo: 'ins_vin_capitulo_2_malbec', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_ruca_c2_cs_bot_dir', id_producto: 'prod_vin_capitulo_2_cabernet_sauvignon', id_insumo: 'ins_vin_capitulo_2_cabernet_sauvignon', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+
+  // BODEGA CATENA ZAPATA: TINTOS
+  { id_receta: 'esc_beb_alam_rb_bot_dir', id_producto: 'prod_vin_alamos_red_blend', id_insumo: 'ins_vin_alamos_red_blend', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_st_mal_bot_dir', id_producto: 'prod_vin_saint_felicien_malbec', id_insumo: 'ins_vin_saint_felicien_malbec', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_st_cs_bot_dir', id_producto: 'prod_vin_saint_felicien_cabernet_sauvignon', id_insumo: 'ins_vin_saint_felicien_cabernet_sauvignon', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_nica_rb_bot_dir', id_producto: 'prod_vin_nicasia_red_blend', id_insumo: 'ins_vin_nicasia_red_blend', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_nica_mal_bot_dir', id_producto: 'prod_vin_nicasia_malbec', id_insumo: 'ins_vin_nicasia_malbec', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_pad_mal_bot_dir', id_producto: 'prod_vin_padrillo_malbec', id_insumo: 'ins_vin_padrillo_malbec', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_pad_pn_bot_dir', id_producto: 'prod_vin_padrillo_pinot_noir', id_insumo: 'ins_vin_padrillo_pinot_noir', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_dv_mal_bot_dir', id_producto: 'prod_vin_dv_catena_malbec', id_insumo: 'ins_vin_dv_catena_malbec', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_dv_cs_bot_dir', id_producto: 'prod_vin_dv_catena_cabernet_sauvignon', id_insumo: 'ins_vin_dv_catena_cabernet_sauvignon', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_dv_pn_bot_dir', id_producto: 'prod_vin_dv_catena_pinot_noir', id_insumo: 'ins_vin_dv_catena_pinot_noir', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_ene_mal_bot_dir', id_producto: 'prod_vin_el_enemigo_malbec', id_insumo: 'ins_vin_el_enemigo_malbec', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_ene_cf_bot_dir', id_producto: 'prod_vin_el_enemigo_cabernet_franc', id_insumo: 'ins_vin_el_enemigo_cabernet_franc', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_tik_mal_bot_dir', id_producto: 'prod_vin_tikal_natural_malbec', id_insumo: 'ins_vin_tikal_natural_malbec', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_ang_mal_bot_dir', id_producto: 'prod_vin_angelica_zapata_malbec', id_insumo: 'ins_vin_angelica_zapata_malbec', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_ang_mer_bot_dir', id_producto: 'prod_vin_angelica_zapata_merlot', id_insumo: 'ins_vin_angelica_zapata_merlot', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_arg_mal_bot_dir', id_producto: 'prod_vin_catena_zapata_argentino_malbec', id_insumo: 'ins_vin_catena_zapata_argentino_malbec', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_luc_mal_bot_dir', id_producto: 'prod_vin_luca_malbec', id_insumo: 'ins_vin_luca_malbec', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+
+  // BODEGA LAS PERDICES: TINTOS
+  { id_receta: 'esc_beb_perd_mal_bot_dir', id_producto: 'prod_vin_las_perdices_malbec', id_insumo: 'ins_vin_las_perdices_malbec', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_perd_cs_bot_dir', id_producto: 'prod_vin_las_perdices_cabernet_sauvignon', id_insumo: 'ins_vin_las_perdices_cabernet_sauvignon', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_perd_res_mal_bot_dir', id_producto: 'prod_vin_las_perdices_reserva_malbec', id_insumo: 'ins_vin_las_perdices_reserva_malbec', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_perd_res_cs_bot_dir', id_producto: 'prod_vin_las_perdices_reserva_cabernet_sauvignon', id_insumo: 'ins_vin_las_perdices_reserva_cabernet_sauvignon', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_perd_res_pn_bot_dir', id_producto: 'prod_vin_las_perdices_reserva_pinot_noir', id_insumo: 'ins_vin_las_perdices_reserva_pinot_noir', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_don_mal_bot_dir', id_producto: 'prod_vin_las_perdices_don_juan_malbec', id_insumo: 'ins_vin_las_perdices_don_juan_malbec', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_exp_cs_bot_dir', id_producto: 'prod_vin_las_perdices_exploracion_cabernet_sauvignon', id_insumo: 'ins_vin_las_perdices_exploracion_cabernet_sauvignon', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_ala_col_anc_bot_dir', id_producto: 'prod_vin_las_perdices_ala_colorada_ancelotta', id_insumo: 'ins_vin_las_perdices_ala_colorada_ancelotta', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_ala_col_cf_bot_dir', id_producto: 'prod_vin_las_perdices_ala_colorada_cabernet_franc', id_insumo: 'ins_vin_las_perdices_ala_colorada_cabernet_franc', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_ala_col_tan_bot_dir', id_producto: 'prod_vin_las_perdices_ala_colorada_tannat', id_insumo: 'ins_vin_las_perdices_ala_colorada_tannat', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_ala_col_pv_bot_dir', id_producto: 'prod_vin_las_perdices_ala_colorada_petit_verdot', id_insumo: 'ins_vin_las_perdices_ala_colorada_petit_verdot', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+
+  // BODEGA SALENTEIN: TINTOS
+  { id_receta: 'esc_beb_port_mal_bot_dir', id_producto: 'prod_vin_portillo_malbec', id_insumo: 'ins_vin_portillo_malbec', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_sal_res_mal_bot_dir', id_producto: 'prod_vin_salentein_reserva_malbec', id_insumo: 'ins_vin_salentein_reserva_malbec', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_sal_res_pn_bot_dir', id_producto: 'prod_vin_salentein_reserva_pinot_noir', id_insumo: 'ins_vin_salentein_reserva_pinot_noir', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_sal_py_mal_bot_dir', id_producto: 'prod_vin_salentein_pyros', id_insumo: 'ins_vin_pyros_malbec', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_sal_num_mal_bot_dir', id_producto: 'prod_vin_salentein_numina_malbec', id_insumo: 'ins_vin_salentein_numina_malbec', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_sal_num_cf_bot_dir', id_producto: 'prod_vin_salentein_numina_cabernet_franc', id_insumo: 'ins_vin_salentein_numina_cabernet_franc', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_sal_num_pn_bot_dir', id_producto: 'prod_vin_salentein_numina_pinot_noir', id_insumo: 'ins_vin_salentein_numina_pinot_noir', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_sal_pr_mal_bot_dir', id_producto: 'prod_vin_salentein_primus', id_insumo: 'ins_vin_salentein_primus_malbec', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+
+  // White wine recipes (original)
+  { id_receta: 'esc_beb_st_bot_dir', id_producto: 'prod_vin_st_felicien_botella', id_insumo: 'ins_vin_st_felicien', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
   { id_receta: 'esc_beb_portsb_bot_dir', id_producto: 'prod_vin_portillo_sb_botella', id_insumo: 'ins_vin_portillo', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
-  { id_receta: 'esc_beb_portmb_bot_dir', id_producto: 'prod_vin_portillo_malbec', id_insumo: 'ins_vin_portillo', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
   { id_receta: 'esc_beb_salch_bot_dir', id_producto: 'prod_vin_salentein_res_ch', id_insumo: 'ins_vin_salentein_reserva', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
-  { id_receta: 'esc_beb_salpy_bot_dir', id_producto: 'prod_vin_salentein_pyros', id_insumo: 'ins_vin_pyros', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
-  { id_receta: 'esc_beb_salnu_bot_dir', id_producto: 'prod_vin_salentein_numina', id_insumo: 'ins_vin_numina', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
-  { id_receta: 'esc_beb_salpr_bot_dir', id_producto: 'prod_vin_salentein_primus', id_insumo: 'ins_vin_primus', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_ala_viog_dir', id_producto: 'prod_vin_ala_viognier', id_insumo: 'ins_vin_ala_viognier', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
 
   { id_receta: 'esc_beb_baronb_champ_dir', id_producto: 'prod_vin_baron_b_extra_brut', id_insumo: 'ins_champ_baron_b', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
   { id_receta: 'esc_beb_aluda_champ_dir', id_producto: 'prod_vin_aluda_brut', id_insumo: 'ins_champ_aluda', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
@@ -1102,7 +1451,7 @@ export const INITIAL_RECETAS_ESCANDALLO: RecetaEscandallo[] = [
   { id_receta: 'esc_beb_chand_champ_dir', id_producto: 'prod_vin_chandon_extra_brut', id_insumo: 'ins_champ_chandon', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
 
   // Copa
-  { id_receta: 'esc_beb_trump_copa_recipe', id_producto: 'prod_vin_trumpeter_copa', id_insumo: 'ins_vin_trumpeter', cantidad_a_descontar: 0.20, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_trump_copa_recipe', id_producto: 'prod_vin_trumpeter_copa', id_insumo: 'ins_vin_trumpeter_malbec', cantidad_a_descontar: 0.20, unidad_medida: 'unidades' },
 
   // Drinks
   { id_receta: 'esc_whisky_medida', id_producto: 'prod_beb_whisky', id_insumo: 'ins_whisky_maca', cantidad_a_descontar: 0.05, unidad_medida: 'unidades' },
@@ -1209,7 +1558,7 @@ export const INITIAL_PEDIDOS: Pedido[] = [
     estado_comanda: 'pendiente',
     items: [
       { id_producto: 'prod_car_lomo_pimienta', nombre: 'Lomo en demiglace de pimienta', cantidad: 1, categoria: 'Carnes' },
-      { id_producto: 'prod_vin_rutini_botella', nombre: 'Rutini Cab-Malbec 750ml', cantidad: 1, categoria: 'Bodega' }
+      { id_producto: 'prod_vin_rutini_malbec', nombre: 'Rutini Malbec (Botella)', cantidad: 1, categoria: 'Bodega' }
     ],
     observaciones: 'Lomo bien a punto (jugoso por dentro).',
     fecha_hora: new Date(Date.now() - 2 * 60 * 1000),
