@@ -53,27 +53,26 @@ const toDbProductoMenu = (prod: ProductoMenu | Partial<ProductoMenu>) => ({
 
 export const menuService = {
   async list(): Promise<ProductoMenu[]> {
-    const cached = localStorage.getItem('el_patron_cache_menu');
     const client = tryGetActiveSupabaseClient();
+    const cached = localStorage.getItem('el_patron_cache_menu');
+
+    if (client) {
+      try {
+        const { data, error } = await client.from('productos_menu').select('*').order('id_producto', { ascending: true });
+        if (!error && data) {
+          try {
+            localStorage.setItem('el_patron_cache_menu', JSON.stringify(data));
+          } catch (storageError) {
+            console.warn('LocalStorage quota exceeded on background update:', storageError);
+          }
+          return data.map(normalizeProductoMenu);
+        }
+      } catch (e) {
+        console.warn('Failed fetching fresh menu, falling back to cache:', e);
+      }
+    }
 
     if (cached) {
-      if (client) {
-        setTimeout(async () => {
-          try {
-            const { data, error } = await client.from('productos_menu').select('*').order('id_producto', { ascending: true });
-            if (!error && data) {
-              try {
-                localStorage.setItem('el_patron_cache_menu', JSON.stringify(data));
-              } catch (storageError) {
-                console.warn('LocalStorage quota exceeded on background update:', storageError);
-              }
-            }
-          } catch (e) {
-            console.warn('Background menu cache refresh failed:', e);
-          }
-        }, 500);
-      }
-
       try {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed) && parsed.length > 0) {
@@ -84,28 +83,13 @@ export const menuService = {
       }
     }
 
-    if (!client) {
-      // Local/Offline Mode seed cache
-      try {
-        localStorage.setItem('el_patron_cache_menu', JSON.stringify(INITIAL_PRODUCTOS_MENU));
-      } catch (storageError) {
-        console.warn('LocalStorage quota exceeded on offline seed:', storageError);
-      }
-      return INITIAL_PRODUCTOS_MENU;
-    }
-
-    const { data, error } = await client.from('productos_menu').select('*').order('id_producto', { ascending: true });
-    if (error) {
-      console.error('Error fetching productos_menu:', error);
-      throw error;
-    }
-    const normalized = (data || []).map(normalizeProductoMenu);
+    // Local/Offline Mode seed cache if no cache is present
     try {
-      localStorage.setItem('el_patron_cache_menu', JSON.stringify(data || []));
+      localStorage.setItem('el_patron_cache_menu', JSON.stringify(INITIAL_PRODUCTOS_MENU));
     } catch (storageError) {
-      console.warn('LocalStorage quota exceeded on sync:', storageError);
+      console.warn('LocalStorage quota exceeded on offline seed:', storageError);
     }
-    return normalized;
+    return INITIAL_PRODUCTOS_MENU;
   },
 
   async getById(id: string): Promise<ProductoMenu | null> {

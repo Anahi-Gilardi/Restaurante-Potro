@@ -111,7 +111,7 @@ export default function App() {
 
   // --- Global Synced States ---
   const [isStreamlitLoggedIn, setIsStreamlitLoggedIn] = useState<boolean>(() => (
-    typeof window !== 'undefined' && window.sessionStorage.getItem('el_patron_session') === 'active'
+    typeof window !== 'undefined' && window.localStorage.getItem('el_patron_session') === 'active'
   ));
   const [showCover, setShowCover] = useState<boolean>(true);
   const [permitirVentaSinStock, setPermitirVentaSinStock] = useState<boolean>(false);
@@ -614,7 +614,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
   };
 
   const handleLoginSuccess = (user: Usuario) => {
-    window.sessionStorage.setItem('el_patron_session', 'active');
+    window.localStorage.setItem('el_patron_session', 'active');
     setActiveMozo(user.nombre);
     setActiveView('home');
 
@@ -633,7 +633,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
   };
 
   const handleLogout = () => {
-    window.sessionStorage.removeItem('el_patron_session');
+    window.localStorage.removeItem('el_patron_session');
     getSupabaseClient()?.auth.signOut().catch(() => undefined);
     setIsStreamlitLoggedIn(false);
     setShowCover(true);
