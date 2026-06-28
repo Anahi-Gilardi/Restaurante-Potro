@@ -805,34 +805,38 @@ export default function MozoTerminal({
 
               {/* Varietals sub-menu for Tintas and Blancas */}
               {(selectedWineMacro === 'tintas' || selectedWineMacro === 'blancas') && (
-                <div className="flex flex-wrap items-center gap-1.5 bg-[#FAF7F0] dark:bg-[#1C140E] p-2 rounded-lg border border-stone-200 dark:border-[#C8956A]/10">
-                  <span className="text-[11px] text-[#4A2D1B] dark:text-[#E8B800] font-black uppercase tracking-wider shrink-0 mr-1.5">Varietal:</span>
-                  <button
-                    onClick={() => setSelectedWineVarietal('todo')}
-                    className={`py-1 px-3 text-[11px] font-bold rounded transition-all cursor-pointer ${
-                      selectedWineVarietal === 'todo'
-                        ? 'bg-amber-900/10 dark:bg-amber-500/10 text-[#4A2D1B] dark:text-[#C8956A] border border-amber-900/20 dark:border-amber-500/20'
-                        : 'bg-transparent text-stone-650 dark:text-stone-300 hover:bg-stone-100 hover:text-stone-700 dark:hover:text-stone-100'
-                    }`}
-                  >
-                    Todos
-                  </button>
-                  {(selectedWineMacro === 'tintas'
-                    ? ['Malbec', 'Cabernet Sauvignon', 'Red Blend', 'Cabernet Franc', 'Merlot', 'Pinot Noir', 'Otros Varietales Tintos']
-                    : ['Chardonnay', 'Sauvignon Blanc', 'Torrontés', 'Riesling', 'Gewurztraminer', 'Albariño']
-                  ).map(varName => (
+                <div className="space-y-2 bg-[#FAF7F0] dark:bg-[#1C140E] p-3 rounded-lg border border-stone-200 dark:border-[#C8956A]/10">
+                  <div className="text-[11px] text-[#4A2D1B] dark:text-[#E8B800] font-black uppercase tracking-wider">
+                    Filtrar por Varietal:
+                  </div>
+                  <div className="flex flex-wrap gap-2">
                     <button
-                      key={varName}
-                      onClick={() => setSelectedWineVarietal(varName)}
-                      className={`py-1 px-3 text-[11px] font-bold rounded whitespace-nowrap transition-all cursor-pointer ${
-                        selectedWineVarietal === varName
-                          ? 'bg-[#4A2D1B] text-white shadow-sm'
-                          : 'bg-transparent text-stone-650 dark:text-stone-300 hover:bg-stone-100 hover:text-stone-700 dark:hover:text-stone-100'
+                      onClick={() => setSelectedWineVarietal('todo')}
+                      className={`py-1.5 px-3 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
+                        selectedWineVarietal === 'todo'
+                          ? 'bg-[#4A2D1B] text-white border-[#4A2D1B] shadow-sm'
+                          : 'bg-white dark:bg-[#251B12] text-stone-700 dark:text-stone-300 border-stone-200 dark:border-[#C8956A]/20 hover:bg-stone-50 dark:hover:bg-[#2F2217]'
                       }`}
                     >
-                      {varName}
+                      Todos
                     </button>
-                  ))}
+                    {(selectedWineMacro === 'tintas'
+                      ? ['Malbec', 'Cabernet Sauvignon', 'Red Blend', 'Cabernet Franc', 'Merlot', 'Pinot Noir', 'Otros Varietales Tintos']
+                      : ['Chardonnay', 'Sauvignon Blanc', 'Torrontés', 'Riesling', 'Gewurztraminer', 'Albariño']
+                    ).map(varName => (
+                      <button
+                        key={varName}
+                        onClick={() => setSelectedWineVarietal(varName)}
+                        className={`py-1.5 px-3 text-xs font-bold rounded-lg border whitespace-nowrap transition-all cursor-pointer ${
+                          selectedWineVarietal === varName
+                            ? 'bg-[#4A2D1B] text-white border-[#4A2D1B] shadow-sm'
+                            : 'bg-white dark:bg-[#251B12] text-stone-700 dark:text-stone-300 border-stone-200 dark:border-[#C8956A]/20 hover:bg-stone-50 dark:hover:bg-[#2F2217]'
+                        }`}
+                      >
+                        {varName}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
