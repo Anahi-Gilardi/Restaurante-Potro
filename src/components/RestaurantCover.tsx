@@ -93,14 +93,14 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
     const formattedDate = parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : bookingForm.fecha;
 
     const cleanPhone = '5493584373711'; // El Patron WhatsApp line
-    const text = `✨ *SOLICITUD DE RESERVA - EL PATRÓN* ✨\n\n` +
-      `Estimado equipo de *El Patrón*, me gustaría solicitar una mesa para mi visita:\n\n` +
+    const text = `🍷 *RESERVA EN EL PATRÓN* 🍷\n\n` +
+      `Estimado equipo de El Patrón, me gustaría solicitar una mesa para mi visita:\n\n` +
       `👤 *Nombre:* ${bookingForm.nombre}\n` +
       `📞 *Teléfono:* ${bookingForm.telefono}\n` +
       `👥 *Comensales:* ${bookingForm.personas} ${parseInt(bookingForm.personas) === 1 ? 'persona' : 'personas'}\n` +
       `📅 *Fecha:* ${formattedDate}\n` +
-      `⏰ *Hora:* ${bookingForm.hora} hs\n\n` +
-      `Agradezco de antemano su confirmación. ¡Muchas gracias! 🙏🍷`;
+      `🕒 *Hora:* ${bookingForm.hora} hs\n\n` +
+      `¡Muchas gracias! 🙏`;
 
     const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
@@ -549,6 +549,16 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
                   required
                   value={bookingForm.fecha}
                   onChange={(e) => setBookingForm(prev => ({ ...prev, fecha: e.target.value }))}
+                  onClick={(e) => {
+                    try {
+                      (e.target as HTMLInputElement).showPicker?.();
+                    } catch (err) {}
+                  }}
+                  onFocus={(e) => {
+                    try {
+                      (e.target as HTMLInputElement).showPicker?.();
+                    } catch (err) {}
+                  }}
                   className="w-full px-4 py-3 rounded-xl border border-stone-250 dark:border-stone-800 bg-[#FAF7F0] dark:bg-[#1E140E] text-stone-850 dark:text-white text-xs font-bold focus:outline-none focus:border-[#4A2D1B] dark:focus:border-amber-500 cursor-pointer"
                 />
               </div>
