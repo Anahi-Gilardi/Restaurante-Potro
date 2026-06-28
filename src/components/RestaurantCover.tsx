@@ -343,18 +343,15 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
             <>
               <div className="flex flex-col items-center p-3 space-y-1">
                 <Flame className="w-7 h-7 text-[#4A2D1B] dark:text-amber-500 animate-pulse" />
-                <span className="font-extrabold text-sm uppercase text-[#4A2D1B] dark:text-amber-400 font-display-serif tracking-widest">Cortes Premium</span>
-                <span className="text-[11px] text-stone-500 dark:text-stone-400 font-serif-rustic italic">Cortes seleccionados</span>
+                <span className="font-extrabold text-sm uppercase text-[#4A2D1B] dark:text-amber-400 font-display-serif tracking-widest">Cortes seleccionados</span>
               </div>
               <div className="flex flex-col items-center p-3 space-y-1 border-y sm:border-y-0 sm:border-x border-stone-200 dark:border-stone-850">
                 <ChefHat className="w-7 h-7 text-[#4A2D1B] dark:text-amber-500" />
-                <span className="font-extrabold text-sm uppercase text-[#4A2D1B] dark:text-amber-400 font-display-serif tracking-widest">Cocina de Autor</span>
-                <span className="text-[11px] text-stone-500 dark:text-stone-400 font-serif-rustic italic">Recetas tradicionales</span>
+                <span className="font-extrabold text-sm uppercase text-[#4A2D1B] dark:text-amber-400 font-display-serif tracking-widest">Recetas tradicionales</span>
               </div>
               <div className="flex flex-col items-center p-3 space-y-1">
                 <Wine className="w-7 h-7 text-[#C8956A]" />
                 <span className="font-extrabold text-sm uppercase text-[#4A2D1B] dark:text-amber-400 font-display-serif tracking-widest">Cava Selecta</span>
-                <span className="text-[11px] text-stone-500 dark:text-stone-400 font-serif-rustic italic">Vinos de alta gama para maridajes</span>
               </div>
             </>
           ) : (
