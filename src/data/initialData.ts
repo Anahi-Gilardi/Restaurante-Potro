@@ -1278,9 +1278,69 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
   // Copas Individuales
   {
     id_producto: 'prod_vin_trumpeter_copa',
-    nombre: 'Trumpeter Malbec (Copa)',
-    descripcion: 'Servida por copa, ideal para degustar en comidas individuales.',
+    nombre: 'Copa de Trumpeter Malbec',
+    descripcion: 'Selección de la casa. Copa de vino tinto joven y frutado.',
     precio_venta: 2800.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_rutini_cs_copa',
+    nombre: 'Copa de Rutini Cabernet Sauvignon',
+    descripcion: 'Selección de la casa. Copa de vino tinto estructurado y elegante.',
+    precio_venta: 5900.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_escorihuela_pn_copa',
+    nombre: 'Copa de Escorihuela Gascón Pinot Noir',
+    descripcion: 'Selección de la casa. Copa de vino tinto ligero, fresco y aromático.',
+    precio_venta: 4500.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_cap2_malbec_copa',
+    nombre: 'Copa de Capítulo 2 Malbec',
+    descripcion: 'Selección de la casa. Copa de vino tinto con buena concentración y frescura.',
+    precio_venta: 3500.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_alamos_rb_copa',
+    nombre: 'Copa de Alamos Red Blend',
+    descripcion: 'Selección de la casa. Copa de blend tinto complejo y equilibrado.',
+    precio_venta: 3000.00,
+    categoria: 'Bodega',
+    subcategoria: 'Vinos tintos',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_las_perdices_res_malbec_copa',
+    nombre: 'Copa de Las Perdices Reserva Malbec',
+    descripcion: 'Selección de la casa. Copa de vino tinto maduro con notas de madera.',
+    precio_venta: 4200.00,
     categoria: 'Bodega',
     subcategoria: 'Vinos tintos',
     activo: true,
@@ -1464,8 +1524,13 @@ export const INITIAL_RECETAS_ESCANDALLO: RecetaEscandallo[] = [
   { id_receta: 'esc_beb_salchamp_champ_dir', id_producto: 'prod_vin_salentein_champagne', id_insumo: 'ins_champ_salentein', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
   { id_receta: 'esc_beb_chand_champ_dir', id_producto: 'prod_vin_chandon_extra_brut', id_insumo: 'ins_champ_chandon', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
 
-  // Copa
+  // Copas
   { id_receta: 'esc_beb_trump_copa_recipe', id_producto: 'prod_vin_trumpeter_copa', id_insumo: 'ins_vin_trumpeter_malbec', cantidad_a_descontar: 0.20, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_rutini_cs_copa_recipe', id_producto: 'prod_vin_rutini_cs_copa', id_insumo: 'ins_vin_rutini_cabernet_sauvignon', cantidad_a_descontar: 0.20, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_escorihuela_pn_copa_recipe', id_producto: 'prod_vin_escorihuela_pn_copa', id_insumo: 'ins_vin_escorihuela_gascon_pinot_noir', cantidad_a_descontar: 0.20, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_cap2_malbec_copa_recipe', id_producto: 'prod_vin_cap2_malbec_copa', id_insumo: 'ins_vin_capitulo_2_malbec', cantidad_a_descontar: 0.20, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_alamos_rb_copa_recipe', id_producto: 'prod_vin_alamos_rb_copa', id_insumo: 'ins_vin_alamos_red_blend', cantidad_a_descontar: 0.20, unidad_medida: 'unidades' },
+  { id_receta: 'esc_beb_las_perdices_res_malbec_copa_recipe', id_producto: 'prod_vin_las_perdices_res_malbec_copa', id_insumo: 'ins_vin_las_perdices_reserva_malbec', cantidad_a_descontar: 0.20, unidad_medida: 'unidades' },
 
   // Drinks
   { id_receta: 'esc_whisky_medida', id_producto: 'prod_beb_whisky', id_insumo: 'ins_whisky_maca', cantidad_a_descontar: 0.05, unidad_medida: 'unidades' },
