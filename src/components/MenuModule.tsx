@@ -735,7 +735,7 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
                           <span className="text-[8px] font-black text-stone-500 dark:text-stone-400 uppercase tracking-tight">⏱️ {item.tiempo_preparacion_estimado} min</span>
                         )}
                       </div>
-                      <h4 className="text-sm font-extrabold text-stone-900 dark:text-white tracking-tight leading-snug truncate" title={item.nombre}>{item.nombre}</h4>
+                      <h4 className="text-sm font-extrabold text-stone-900 dark:text-white tracking-tight leading-snug break-words whitespace-normal" title={item.nombre}>{item.nombre}</h4>
                       {item.descripcion && (
                         <p className="text-[10px] sm:text-xs text-stone-500 dark:text-stone-200 leading-snug line-clamp-2 mt-0.5" title={item.descripcion}>
                           {item.descripcion}

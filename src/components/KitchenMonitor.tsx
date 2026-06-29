@@ -229,7 +229,7 @@ export default function KitchenMonitor({
                 <span className="text-lg font-black text-[#a0522d] dark:text-[#E8B800] font-mono shrink-0">
                   {it.cantidad}x
                 </span>
-                <span className="flex-1 font-bold text-[#4b3621] dark:text-stone-100 text-sm leading-snug truncate">
+                <span className="flex-1 font-bold text-[#4b3621] dark:text-stone-100 text-sm leading-snug break-words whitespace-normal">
                   {it.nombre}
                 </span>
                 <button

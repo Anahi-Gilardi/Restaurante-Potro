@@ -913,7 +913,7 @@ export default function MozoTerminal({
                 {/* Content */}
                 <div className="p-3 flex justify-between items-center bg-[#4A2D1B]/80 dark:bg-[#4A2D1B]/40">
                   <div className="min-w-0 flex-1">
-                    <h4 className="font-extrabold text-white dark:text-white text-xs font-sans line-clamp-1 leading-snug group-hover:text-[#E8B800] dark:group-hover:text-[#E8B800] transition-colors">
+                    <h4 className="font-extrabold text-white dark:text-white text-xs font-sans break-words whitespace-normal leading-snug group-hover:text-[#E8B800] dark:group-hover:text-[#E8B800] transition-colors">
                       {p.nombre}
                     </h4>
                     <div className="mt-1 flex items-center gap-1.5">
