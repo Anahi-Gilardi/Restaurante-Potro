@@ -322,7 +322,7 @@ export default function MozoTerminal({
   // Find active order of the selected table if any (to split or pay)
   const activePedidoDeMesa = useMemo(() => {
     if (!selectedMesaId) return null;
-    return pedidos.find(p => p.id_mesa === selectedMesaId && p.estado_comanda !== 'entregado_cobrado') || null;
+    return pedidos.find(p => p.id_mesa === selectedMesaId && p.estado_comanda !== 'entregado_cobrado' && p.estado_comanda !== 'cancelado') || null;
   }, [selectedMesaId, pedidos]);
 
   // Filter products by category and search (with hierarchical wine/beverage browsing)

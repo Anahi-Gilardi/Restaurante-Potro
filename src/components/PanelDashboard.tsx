@@ -237,7 +237,7 @@ export default function PanelDashboard({
                                 </div>
                                 <div className="space-y-2 max-h-64 overflow-y-auto">
                                   {pedidos
-                                                  .filter(p => p.estado_comanda !== 'entregado_cobrado')
+                                                  .filter(p => p.estado_comanda !== 'entregado_cobrado' && p.estado_comanda !== 'cancelado')
                                                   .slice(0, 8)
                                                   .map(p => {
                                                                     const total = calcularTotalPedido(p);
@@ -262,7 +262,7 @@ export default function PanelDashboard({
                                                                                           </div>
                                                                                       );
                                                   })}
-                                  {pedidos.filter(p => p.estado_comanda !== 'entregado_cobrado').length === 0 && (
+                                  {pedidos.filter(p => p.estado_comanda !== 'entregado_cobrado' && p.estado_comanda !== 'cancelado').length === 0 && (
                         <p className="text-[11px] text-stone-400 text-center py-6">Sin pedidos activos</p>
                                             )}
                                 </div>
