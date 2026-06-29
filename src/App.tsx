@@ -643,7 +643,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     window.sessionStorage.removeItem('el_patron_session');
     getSupabaseClient()?.auth.signOut().catch(() => undefined);
     setIsStreamlitLoggedIn(false);
-    setShowCover(true);
+    setShowCover(false);
   };
 
   // --- Handlers for Kitchen View ---
@@ -1076,9 +1076,9 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
       >
         {/* Logo */}
         <div 
-          onClick={() => setShowDiagnostics(true)}
+          onClick={handleLogout}
           className={`flex items-center border-b border-[#FAF7F0]/10 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-4'} py-5 cursor-pointer hover:bg-white/5 transition-colors select-none`}
-          title="Ver estado de conexión"
+          title="Cerrar sesión"
         >
           <div className="w-9 h-9 bg-white rounded-xl flex items-center justify-center shadow-lg border border-[#C8956A]/30 p-0.5 overflow-hidden shrink-0 relative">
             <ElPatronLogo className="w-8 h-8 object-contain rounded" variant="icon" color="#4A2D1B" />

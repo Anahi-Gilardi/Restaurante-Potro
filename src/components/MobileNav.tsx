@@ -98,9 +98,9 @@ export default function MobileNav({
         </button>
 
         <div 
-          onClick={() => setShowDiagnostics(true)}
+          onClick={onLogout}
           className="flex items-center gap-2 min-w-0 flex-1 justify-center px-2 cursor-pointer select-none active:opacity-75"
-          title="Ver estado de conexión"
+          title="Cerrar sesión"
         >
           <div className="w-7 h-7 bg-white/80 rounded-lg flex items-center justify-center p-0.5 border border-[#A67550]/40 overflow-hidden shrink-0 relative">
             <ElPatronLogo className="w-6 h-6 object-contain rounded" variant="icon" color="#4A2D1B" />
@@ -143,9 +143,9 @@ export default function MobileNav({
             {/* Drawer header */}
             <div className="p-3 border-b border-[#A67550]/40 flex items-center justify-between">
               <div 
-                onClick={() => { setShowDiagnostics(true); setOpen(false); }}
+                onClick={() => { onLogout(); setOpen(false); }}
                 className="flex items-center gap-2.5 cursor-pointer hover:opacity-85 select-none active:scale-[0.98]"
-                title="Abrir Diagnóstico"
+                title="Cerrar sesión"
               >
                 <div className="w-9 h-9 bg-white/80 rounded-lg flex items-center justify-center p-0.5 border border-[#A67550]/40 overflow-hidden shrink-0 relative">
                   <ElPatronLogo className="w-8 h-8 object-contain rounded" variant="icon" color="#4A2D1B" />

@@ -942,13 +942,13 @@ export default function MozoTerminal({
                 </div>
 
                 {/* Content */}
-                <div className="p-3 flex justify-between items-center bg-white dark:bg-[#4A2D1B]/40">
+                <div className="p-3 flex justify-between items-center bg-[#4A2D1B]/80 dark:bg-[#4A2D1B]/40">
                   <div className="min-w-0 flex-1">
-                    <h4 className="font-extrabold text-stone-850 dark:text-white text-xs font-sans line-clamp-1 leading-snug group-hover:text-[#4A2D1B] dark:group-hover:text-[#E8B800] transition-colors">
+                    <h4 className="font-extrabold text-white dark:text-white text-xs font-sans line-clamp-1 leading-snug group-hover:text-[#E8B800] dark:group-hover:text-[#E8B800] transition-colors">
                       {p.nombre}
                     </h4>
                     <div className="mt-1 flex items-center gap-1.5">
-                      <span className="text-stone-900 dark:text-stone-100 font-mono text-xs font-black">
+                      <span className="text-white/90 dark:text-stone-100 font-mono text-xs font-black">
                         ${p.precio_venta.toLocaleString('es-AR')}
                       </span>
                       {currentInCart > 0 && (
@@ -981,7 +981,7 @@ export default function MozoTerminal({
       <div className="lg:col-span-3">
         <div className="glass-panel rounded-3xl p-5 shadow-sm flex flex-col h-[520px] sticky top-6">
           <div className="flex items-center justify-between pb-3 border-b border-stone-200/30">
-            <h3 className="font-bold text-[#4A2D1B] dark:text-stone-105 text-sm font-sans flex items-center gap-2">
+            <h3 className="font-bold text-white dark:text-white text-sm font-sans flex items-center gap-2">
               <ShoppingBag className="w-4 h-4 text-[#C8956A]" />
               Nueva Comanda
             </h3>
@@ -997,8 +997,8 @@ export default function MozoTerminal({
               <div className="w-12 h-12 bg-stone-100 dark:bg-white/5 text-stone-400 dark:text-stone-500 rounded-full flex items-center justify-center mb-3">
                 <UtensilsCrossed className="w-5 h-5" />
               </div>
-              <h4 className="font-bold text-stone-700 dark:text-stone-300 text-xs">Seleccione Mesa</h4>
-              <p className="text-stone-500 dark:text-stone-400 text-[10px] mt-1 max-w-[180px] font-serif-rustic italic">
+              <h4 className="font-bold text-white dark:text-white text-xs">Seleccione Mesa</h4>
+              <p className="text-stone-300 dark:text-stone-300 text-[10px] mt-1 max-w-[180px] font-serif-rustic italic">
                 Marque una mesa disponible en el plano izquierdo para iniciar la comanda.
               </p>
             </div>
@@ -1007,8 +1007,8 @@ export default function MozoTerminal({
               <div className="w-12 h-12 bg-[#FAF7F0] dark:bg-[#4A2D1B]/55 text-[#C8956A] rounded-full flex items-center justify-center mb-3 shadow-inner border border-stone-200 dark:border-white/5">
                 <Sparkles className="w-5 h-5 text-[#C8956A] dark:text-[#E8B800]" />
               </div>
-              <h4 className="font-bold text-[#4A2D1B] dark:text-[#FAF7F0] text-xs">Comanda Vacía</h4>
-              <p className="text-stone-550 dark:text-stone-400 text-[10px] mt-1 max-w-[180px] font-serif-rustic italic px-2 leading-relaxed">
+              <h4 className="font-bold text-white dark:text-white text-xs">Comanda Vacía</h4>
+              <p className="text-stone-300 dark:text-stone-300 text-[10px] mt-1 max-w-[180px] font-serif-rustic italic px-2 leading-relaxed">
                 Toque los platos de la carta central para cargarlos a la mesa de forma interactiva.
               </p>
             </div>

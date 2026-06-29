@@ -471,8 +471,8 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
 
   const Metric = ({ label, value, tone = 'stone' }: { label: string; value: string; tone?: 'stone' | 'green' | 'brown' | 'rose' }) => (
     <div className={`bg-white p-5 rounded-2xl border shadow-xs ${tone === 'green' ? 'border-l-4 border-l-emerald-600' : tone === 'rose' ? 'border-rose-100' : 'border-stone-200'}`}>
-      <span className="text-[10px] text-stone-400 font-bold uppercase tracking-wider block">{label}</span>
-      <h4 className={`text-2xl font-black font-mono mt-1 ${tone === 'green' ? 'text-emerald-600' : tone === 'brown' ? 'text-[#624A3E]' : tone === 'rose' ? 'text-rose-600' : 'text-stone-900'}`}>{value}</h4>
+      <span className="text-[10px] text-stone-400 dark:text-stone-300 font-bold uppercase tracking-wider block">{label}</span>
+      <h4 className={`text-2xl font-black font-mono mt-1 ${tone === 'green' ? 'text-emerald-600 dark:text-emerald-400' : tone === 'brown' ? 'text-[#624A3E] dark:text-[#C8956A]' : tone === 'rose' ? 'text-rose-600 dark:text-rose-450' : 'text-stone-900 dark:text-white'}`}>{value}</h4>
     </div>
   );
 
@@ -489,11 +489,11 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
             <ScanLine className={`w-5 h-5 ${isArcaConfigured() ? 'animate-pulse' : ''}`} />
           </div>
           <div className="text-left">
-            <h3 className="text-sm font-bold text-stone-900 tracking-tight flex items-center gap-2">
+            <h3 className="text-sm font-bold text-stone-900 dark:text-white tracking-tight flex items-center gap-2">
               Conexión Fiscal Electrónica (ARCA)
               <span className={`w-2 h-2 rounded-full ${isArcaConfigured() ? 'bg-emerald-500 animate-ping' : 'bg-amber-500'}`} />
             </h3>
-            <p className="text-xs text-stone-500 mt-0.5">
+            <p className="text-xs text-stone-500 dark:text-stone-355 dark:text-stone-300 mt-0.5">
               {isArcaConfigured() 
                 ? `Operativo - Modo Homologación (Pto Vta: 0001 - CUIT: ${(import.meta as any).env?.VITE_ARCA_CUIT || '30-71649251-4'})` 
                 : 'Modo Simulación / Desconectado - Emitiendo comprobantes locales sin CAE'
@@ -503,11 +503,11 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
         </div>
         <div className="flex items-center gap-2">
           {isArcaConfigured() ? (
-            <span className="text-[10px] uppercase font-black px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-100">
+            <span className="text-[10px] uppercase font-black px-3 py-1 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-300 rounded-full border border-emerald-100 dark:border-emerald-900/50">
               Conectado
             </span>
           ) : (
-            <span className="text-[10px] uppercase font-black px-3 py-1 bg-amber-50 text-amber-700 rounded-full border border-amber-100">
+            <span className="text-[10px] uppercase font-black px-3 py-1 bg-amber-50 dark:bg-amber-955/20 text-amber-700 dark:text-amber-300 rounded-full border border-amber-100 dark:border-amber-900/50">
               Demo / Simulado
             </span>
           )}
@@ -532,7 +532,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
             <button
               key={key as string}
               onClick={() => setActiveTab(key as TabKey)}
-              className={`px-4 py-2 rounded-xl text-xs font-black uppercase flex items-center gap-2 transition-all ${activeTab === key ? 'bg-[#624A3E] text-white shadow' : 'bg-stone-50 text-stone-600 hover:bg-stone-100'}`}
+              className={`px-4 py-2 rounded-xl text-xs font-black uppercase flex items-center gap-2 transition-all ${activeTab === key ? 'bg-[#624A3E] text-white shadow' : 'bg-stone-50 dark:bg-stone-900 text-stone-605 text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-850'}`}
             >
               <ActiveIcon className="w-4 h-4" />
               {label as string}
@@ -544,15 +544,15 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
       {activeTab === 'manual' && (
         <div className="bg-white rounded-2xl border border-stone-200 shadow-xs p-6 space-y-5">
           <div>
-            <h3 className="text-sm font-black text-stone-900 uppercase tracking-tight flex items-center gap-2">
-              <FileText className="w-5 h-5 text-[#624A3E]" /> Emitir comprobante manual
+            <h3 className="text-sm font-black text-stone-900 dark:text-white uppercase tracking-tight flex items-center gap-2">
+              <FileText className="w-5 h-5 text-[#624A3E] dark:text-[#C8956A]" /> Emitir comprobante manual
             </h3>
-            <p className="text-xs text-stone-500 font-semibold mt-1">Para ventas externas, ajustes comerciales o comprobantes no asociados a una mesa.</p>
+            <p className="text-xs text-stone-500 dark:text-stone-300 font-semibold mt-1">Para ventas externas, ajustes comerciales o comprobantes no asociados a una mesa.</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <label className="space-y-1">
-              <span className="text-[10px] font-black uppercase text-stone-500">Tipo</span>
-              <select value={manualTipo} onChange={e => setManualTipo(e.target.value as any)} className="w-full p-2.5 rounded-xl border border-stone-200 text-xs font-bold">
+              <span className="text-[10px] font-black uppercase text-stone-500 dark:text-stone-300">Tipo</span>
+              <select value={manualTipo} onChange={e => setManualTipo(e.target.value as any)} className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-700 dark:text-stone-200 text-xs font-bold">
                 <option value="ticket">Ticket</option>
                 <option value="B">Factura B</option>
                 <option value="A">Factura A</option>
@@ -560,16 +560,16 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
               </select>
             </label>
             <label className="space-y-1">
-              <span className="text-[10px] font-black uppercase text-stone-500">Cliente</span>
-              <input value={manualCliente} onChange={e => setManualCliente(e.target.value)} className="w-full p-2.5 rounded-xl border border-stone-200 text-xs font-bold" />
+              <span className="text-[10px] font-black uppercase text-stone-500 dark:text-stone-300">Cliente</span>
+              <input value={manualCliente} onChange={e => setManualCliente(e.target.value)} className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-800 dark:text-stone-100 text-xs font-bold" />
             </label>
             <label className="space-y-1">
-              <span className="text-[10px] font-black uppercase text-stone-500">CUIT / DNI</span>
-              <input value={manualCuit} onChange={e => setManualCuit(e.target.value)} className="w-full p-2.5 rounded-xl border border-stone-200 text-xs font-mono font-bold" />
+              <span className="text-[10px] font-black uppercase text-stone-500 dark:text-stone-300">CUIT / DNI</span>
+              <input value={manualCuit} onChange={e => setManualCuit(e.target.value)} className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-800 dark:text-stone-100 text-xs font-mono font-bold" />
             </label>
             <label className="space-y-1">
-              <span className="text-[10px] font-black uppercase text-stone-500">Medio</span>
-              <select value={manualMedio} onChange={e => setManualMedio(e.target.value as Factura['medio_pago'])} className="w-full p-2.5 rounded-xl border border-stone-200 text-xs font-bold">
+              <span className="text-[10px] font-black uppercase text-stone-500 dark:text-stone-300">Medio</span>
+              <select value={manualMedio} onChange={e => setManualMedio(e.target.value as Factura['medio_pago'])} className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-700 dark:text-stone-200 text-xs font-bold">
                 <option value="efectivo">Efectivo</option>
                 <option value="debito">Debito</option>
                 <option value="tarjeta">Tarjeta</option>
@@ -581,20 +581,20 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <label className="space-y-1">
-              <span className="text-[10px] font-black uppercase text-stone-500">Total final</span>
-              <input type="number" value={manualTotal} onChange={e => setManualTotal(e.target.value)} className="w-full p-2.5 rounded-xl border border-stone-200 text-xs font-mono font-black" />
+              <span className="text-[10px] font-black uppercase text-stone-500 dark:text-stone-300">Total final</span>
+              <input type="number" value={manualTotal} onChange={e => setManualTotal(e.target.value)} className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-800 dark:text-stone-100 text-xs font-mono font-black" />
             </label>
-            <label className="flex items-center gap-2 pt-6 text-xs font-bold text-stone-600">
+            <label className="flex items-center gap-2 pt-6 text-xs font-bold text-stone-600 dark:text-stone-300">
               <input type="checkbox" checked={manualIva} onChange={e => setManualIva(e.target.checked)} className="accent-[#624A3E]" />
               Calcular IVA 21% incluido
             </label>
-            <div className="p-3 bg-stone-50 rounded-xl border border-stone-200 text-xs">
-              <span className="text-[10px] uppercase font-black text-stone-400">Vista previa</span>
-              <p className="font-mono font-black text-stone-900">{nextNumber(facturas, manualTipo)}</p>
-              <p className="text-stone-500">IVA: {money(calcIvaIncluido(Number(manualTotal || 0), manualIva).iva)}</p>
+            <div className="p-3 bg-stone-50 dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-800 text-xs">
+              <span className="text-[10px] uppercase font-black text-stone-400 dark:text-stone-300">Vista previa</span>
+              <p className="font-mono font-black text-stone-900 dark:text-white">{nextNumber(facturas, manualTipo)}</p>
+              <p className="text-stone-500 dark:text-stone-300">IVA: {money(calcIvaIncluido(Number(manualTotal || 0), manualIva).iva)}</p>
             </div>
           </div>
-          <textarea value={manualObs} onChange={e => setManualObs(e.target.value)} placeholder="Observaciones, pedido externo, forma de pago detallada..." className="w-full h-20 p-3 rounded-xl border border-stone-200 text-xs" />
+          <textarea value={manualObs} onChange={e => setManualObs(e.target.value)} placeholder="Observaciones, pedido externo, forma de pago detallada..." className="w-full h-20 p-3 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-800 dark:text-stone-100 text-xs" />
           <button disabled={isEmitting} onClick={emitManual} className="w-full md:w-auto px-5 py-3 rounded-xl bg-[#624A3E] text-white text-xs font-black uppercase shadow disabled:opacity-60 disabled:cursor-not-allowed">
             {isEmitting ? 'Emitiendo comprobante...' : 'Emitir y descargar comprobante PDF'}
           </button>
@@ -602,50 +602,50 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
       )}
 
       {activeTab === 'pagos' && (
-        <div className="bg-white rounded-2xl border border-stone-200 shadow-xs p-6 space-y-5">
+        <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs p-6 space-y-5">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
             <div>
-              <h3 className="text-sm font-black text-stone-900 uppercase tracking-tight flex items-center gap-2">
-                <CreditCard className="w-5 h-5 text-[#624A3E]" /> Facturar pagos de caja
+              <h3 className="text-sm font-black text-stone-900 dark:text-white uppercase tracking-tight flex items-center gap-2">
+                <CreditCard className="w-5 h-5 text-[#624A3E] dark:text-[#C8956A]" /> Facturar pagos de caja
               </h3>
-              <p className="text-xs text-stone-500 font-semibold mt-1">Convierte pedidos/pagos disponibles en ticket o factura con PDF descargable.</p>
+              <p className="text-xs text-stone-500 dark:text-stone-300 font-semibold mt-1">Convierte pedidos/pagos disponibles en ticket o factura con PDF descargable.</p>
             </div>
             <div className="grid grid-cols-2 gap-2 text-center">
-              <div className="px-4 py-2 rounded-xl bg-stone-50 border border-stone-200">
-                <span className="text-[9px] block font-black uppercase text-stone-400">Pendientes</span>
-                <b className="font-mono">{pagosPendientes.length}</b>
+              <div className="px-4 py-2 rounded-xl bg-stone-50 dark:bg-stone-900 border border-stone-200 dark:border-stone-800">
+                <span className="text-[9px] block font-black uppercase text-stone-400 dark:text-stone-300">Pendientes</span>
+                <b className="font-mono text-stone-900 dark:text-white">{pagosPendientes.length}</b>
               </div>
-              <div className="px-4 py-2 rounded-xl bg-stone-50 border border-stone-200">
-                <span className="text-[9px] block font-black uppercase text-stone-400">Importe</span>
-                <b className="font-mono">{money(pagosPendientes.reduce((s, p) => s + p.total, 0))}</b>
+              <div className="px-4 py-2 rounded-xl bg-stone-50 dark:bg-stone-900 border border-stone-200 dark:border-stone-800">
+                <span className="text-[9px] block font-black uppercase text-stone-400 dark:text-stone-300">Importe</span>
+                <b className="font-mono text-stone-900 dark:text-white">{money(pagosPendientes.reduce((s, p) => s + p.total, 0))}</b>
               </div>
             </div>
           </div>
 
           {selectedPending ? (
             <>
-              <select value={selectedPending.pedido.id_pedido} onChange={e => setPedidoSeleccionado(Number(e.target.value))} className="w-full p-3 rounded-xl border border-stone-200 text-xs font-bold">
+              <select value={selectedPending.pedido.id_pedido} onChange={e => setPedidoSeleccionado(Number(e.target.value))} className="w-full p-3 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-800 dark:text-stone-100 text-xs font-bold">
                 {pagosPendientes.map(({ pedido, total }) => (
-                  <option key={pedido.id_pedido} value={pedido.id_pedido}>
+                  <option key={pedido.id_pedido} value={pedido.id_pedido} className="bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-100">
                     Pedido #{pedido.id_pedido} - {pedido.numero_mesa} - {pedido.mozo} - {money(total)}
                   </option>
                 ))}
               </select>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <div className="rounded-xl border border-stone-200 overflow-hidden">
-                  <div className="bg-stone-50 px-3 py-2 text-[10px] font-black uppercase text-stone-500">Detalle del pago</div>
+                <div className="rounded-xl border border-stone-200 dark:border-stone-800 overflow-hidden">
+                  <div className="bg-stone-50 dark:bg-stone-900 px-3 py-2 text-[10px] font-black uppercase text-stone-500 dark:text-stone-300">Detalle del pago</div>
                   {selectedPending.pedido.items.map(item => {
                     const prod = productosMenu.find(p => p.id_producto === item.id_producto);
                     const unit = prod ? prod.precio_venta : 0;
                     return (
-                      <div key={`${selectedPending.pedido.id_pedido}-${item.id_producto}`} className="px-3 py-2 border-t border-stone-100 flex justify-between text-xs">
+                      <div key={`${selectedPending.pedido.id_pedido}-${item.id_producto}`} className="px-3 py-2 border-t border-stone-100 dark:border-stone-850 flex justify-between text-xs text-stone-800 dark:text-stone-200">
                         <span><b>{item.cantidad}x</b> {item.nombre}</span>
                         <b className="font-mono">{money(unit * item.cantidad)}</b>
                       </div>
                     );
                   })}
-                  <div className="px-3 py-3 border-t border-stone-200 flex justify-between text-sm font-black">
+                  <div className="px-3 py-3 border-t border-stone-200 dark:border-stone-800 flex justify-between text-sm font-black text-stone-900 dark:text-white">
                     <span>Total</span>
                     <span className="font-mono">{money(selectedPending.total)}</span>
                   </div>
@@ -654,8 +654,8 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
                 <div className="space-y-3">
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <label className="space-y-1">
-                      <span className="text-[10px] font-black uppercase text-stone-500">Tipo</span>
-                      <select value={pagoTipo} onChange={e => setPagoTipo(e.target.value as any)} className="w-full p-2.5 rounded-xl border border-stone-200 text-xs font-bold">
+                      <span className="text-[10px] font-black uppercase text-stone-500 dark:text-stone-300">Tipo</span>
+                      <select value={pagoTipo} onChange={e => setPagoTipo(e.target.value as any)} className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-700 dark:text-stone-200 text-xs font-bold">
                         <option value="ticket">Ticket</option>
                         <option value="B">Factura B</option>
                         <option value="A">Factura A</option>
@@ -663,15 +663,15 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
                       </select>
                     </label>
                     <label className="space-y-1">
-                      <span className="text-[10px] font-black uppercase text-stone-500">Cliente</span>
-                      <input value={pagoCliente} onChange={e => setPagoCliente(e.target.value)} className="w-full p-2.5 rounded-xl border border-stone-200 text-xs font-bold" />
+                      <span className="text-[10px] font-black uppercase text-stone-500 dark:text-stone-300">Cliente</span>
+                      <input value={pagoCliente} onChange={e => setPagoCliente(e.target.value)} className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-800 dark:text-stone-100 text-xs font-bold" />
                     </label>
                     <label className="space-y-1">
-                      <span className="text-[10px] font-black uppercase text-stone-500">CUIT</span>
-                      <input value={pagoCuit} onChange={e => setPagoCuit(e.target.value)} className="w-full p-2.5 rounded-xl border border-stone-200 text-xs font-mono font-bold" />
+                      <span className="text-[10px] font-black uppercase text-stone-500 dark:text-stone-300">CUIT</span>
+                      <input value={pagoCuit} onChange={e => setPagoCuit(e.target.value)} className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-800 dark:text-stone-100 text-xs font-mono font-bold" />
                     </label>
                   </div>
-                  <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-xl text-xs text-emerald-800 font-bold">
+                  <div className="p-3 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/50 rounded-xl text-xs text-emerald-800 dark:text-emerald-300 font-bold">
                     Al emitir se descarga el PDF y el comprobante queda en Archivo fiscal.
                   </div>
                   <button disabled={isEmitting} onClick={emitFromPedido} className="w-full px-5 py-3 rounded-xl bg-emerald-600 text-white text-xs font-black uppercase shadow disabled:opacity-60 disabled:cursor-not-allowed">
@@ -681,19 +681,19 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
               </div>
             </>
           ) : (
-            <div className="p-8 rounded-xl border border-dashed border-stone-200 bg-stone-50 text-center">
+            <div className="p-8 rounded-xl border border-dashed border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-900 text-center">
               <BadgeCheck className="w-8 h-8 mx-auto text-emerald-600 mb-2" />
-              <p className="text-xs font-black uppercase text-stone-700">No hay pagos pendientes de facturar.</p>
+              <p className="text-xs font-black uppercase text-stone-700 dark:text-stone-300">No hay pagos pendientes de facturar.</p>
             </div>
           )}
         </div>
       )}
 
       {activeTab === 'archivo' && (
-        <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-xs space-y-4">
-          <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-3 pb-3 border-b border-stone-100">
-            <h3 className="text-sm font-black text-stone-800 uppercase tracking-tight flex items-center gap-2">
-              <Receipt className="w-5 h-5 text-[#624A3E]" />
+        <div className="bg-white dark:bg-stone-900 p-6 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs space-y-4">
+          <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-3 pb-3 border-b border-stone-100 dark:border-stone-800">
+            <h3 className="text-sm font-black text-stone-800 dark:text-white uppercase tracking-tight flex items-center gap-2">
+              <Receipt className="w-5 h-5 text-[#624A3E] dark:text-[#C8956A]" />
               Archivo fiscal y auditoria de comprobantes
             </h3>
             <div className="flex flex-col sm:flex-row gap-2 w-full xl:w-auto">
@@ -704,10 +704,10 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
                   placeholder="Buscar cliente, CUIT, ticket o medio..."
                   value={search}
                   onChange={e => setSearch(e.target.value)}
-                  className="w-full text-xs pl-9 pr-3 py-2 rounded-xl border border-stone-200 bg-stone-50/50 focus:outline-none focus:ring-1 focus:ring-[#624A3E]"
+                  className="w-full text-xs pl-9 pr-3 py-2 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-800 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-[#624A3E]"
                 />
               </div>
-              <button onClick={downloadCsv} className="px-3 py-2 rounded-xl bg-stone-50 border border-stone-200 text-xs font-black flex items-center justify-center gap-2">
+              <button onClick={downloadCsv} className="px-3 py-2 rounded-xl bg-stone-50 dark:bg-stone-900 border border-stone-200 dark:border-stone-800 text-stone-605 text-stone-600 dark:text-stone-300 font-black flex items-center justify-center gap-2 hover:bg-stone-100 dark:hover:bg-stone-850">
                 <Download className="w-4 h-4" /> CSV
               </button>
               <button onClick={downloadLibroIva} className="px-3 py-2 rounded-xl bg-[#624A3E] text-white text-xs font-black flex items-center justify-center gap-2">
@@ -718,8 +718,8 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <label className="space-y-1">
-              <span className="text-[10px] font-black uppercase text-stone-500 flex items-center gap-1"><Filter className="w-3 h-3" /> Tipo</span>
-              <select value={tipoFiltro} onChange={e => setTipoFiltro(e.target.value as TipoFiltro)} className="w-full p-2.5 rounded-xl border border-stone-200 text-xs font-bold">
+              <span className="text-[10px] font-black uppercase text-stone-500 dark:text-stone-300 flex items-center gap-1"><Filter className="w-3 h-3" /> Tipo</span>
+              <select value={tipoFiltro} onChange={e => setTipoFiltro(e.target.value as TipoFiltro)} className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-700 dark:text-stone-200 text-xs font-bold">
                 <option value="todos">Todos</option>
                 <option value="ticket">Ticket</option>
                 <option value="A">Factura A</option>
@@ -728,16 +728,16 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
               </select>
             </label>
             <label className="space-y-1">
-              <span className="text-[10px] font-black uppercase text-stone-500">Estado</span>
-              <select value={estadoFiltro} onChange={e => setEstadoFiltro(e.target.value as EstadoFiltro)} className="w-full p-2.5 rounded-xl border border-stone-200 text-xs font-bold">
+              <span className="text-[10px] font-black uppercase text-stone-500 dark:text-stone-300">Estado</span>
+              <select value={estadoFiltro} onChange={e => setEstadoFiltro(e.target.value as EstadoFiltro)} className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-700 dark:text-stone-200 text-xs font-bold">
                 <option value="todos">Todos</option>
                 <option value="emitido">Validos</option>
                 <option value="nota_credito">Anulados / NC</option>
               </select>
             </label>
             <label className="space-y-1">
-              <span className="text-[10px] font-black uppercase text-stone-500">Medio</span>
-              <select value={medioFiltro} onChange={e => setMedioFiltro(e.target.value as MedioFiltro)} className="w-full p-2.5 rounded-xl border border-stone-200 text-xs font-bold">
+              <span className="text-[10px] font-black uppercase text-stone-500 dark:text-stone-300">Medio</span>
+              <select value={medioFiltro} onChange={e => setMedioFiltro(e.target.value as MedioFiltro)} className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-700 dark:text-stone-200 text-xs font-bold">
                 <option value="todos">Todos</option>
                 <option value="efectivo">Efectivo</option>
                 <option value="debito">Debito</option>
@@ -750,19 +750,19 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-            <div className="rounded-xl border border-stone-200 overflow-hidden">
-              <div className="bg-stone-50 px-3 py-2 text-[10px] font-black uppercase text-stone-500">Resumen por tipo</div>
+            <div className="rounded-xl border border-stone-200 dark:border-stone-800 overflow-hidden">
+              <div className="bg-stone-50 dark:bg-stone-900 px-3 py-2 text-[10px] font-black uppercase text-stone-500 dark:text-stone-300">Resumen por tipo</div>
               {resumenPorTipo.map(r => (
-                <div key={r.tipo} className="px-3 py-2 border-t border-stone-100 flex justify-between text-xs">
+                <div key={r.tipo} className="px-3 py-2 border-t border-stone-100 dark:border-stone-850 flex justify-between text-xs text-stone-800 dark:text-stone-200">
                   <span>{r.tipo === 'ticket' ? 'Ticket' : `Factura ${r.tipo}`}</span>
                   <b className="font-mono">{r.cantidad} - {money(r.total)}</b>
                 </div>
               ))}
             </div>
-            <div className="rounded-xl border border-stone-200 overflow-hidden">
-              <div className="bg-stone-50 px-3 py-2 text-[10px] font-black uppercase text-stone-500">Resumen por medio</div>
+            <div className="rounded-xl border border-stone-200 dark:border-stone-800 overflow-hidden">
+              <div className="bg-stone-50 dark:bg-stone-900 px-3 py-2 text-[10px] font-black uppercase text-stone-500 dark:text-stone-300">Resumen por medio</div>
               {resumenPorMedio.map(r => (
-                <div key={r.medio} className="px-3 py-2 border-t border-stone-100 flex justify-between text-xs">
+                <div key={r.medio} className="px-3 py-2 border-t border-stone-100 dark:border-stone-850 flex justify-between text-xs text-stone-800 dark:text-stone-200">
                   <span>{medioLabel(r.medio)}</span>
                   <b className="font-mono">{r.cantidad} - {money(r.total)}</b>
                 </div>
@@ -773,7 +773,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
           <div className="overflow-x-auto w-full">
             <table className="w-full text-left text-xs border-collapse responsive-table">
               <thead>
-                <tr className="border-b border-stone-150 text-stone-400 uppercase text-[9px] font-black tracking-wider">
+                <tr className="border-b border-stone-150 dark:border-stone-800 text-stone-400 dark:text-stone-300 uppercase text-[9px] font-black tracking-wider">
                   <th className="py-2.5 px-3">Nro</th>
                   <th className="py-2.5 px-3">Fecha</th>
                   <th className="py-2.5 px-3">Cliente / CUIT</th>
@@ -789,29 +789,29 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
                   const isNCD = f.estado === 'nota_credito';
                   const { neto } = calcIvaIncluido(f.total, f.iva_veintiuno > 0);
                   return (
-                    <tr key={f.id_factura} className={`border-b border-stone-100 hover:bg-stone-50/50 transition-colors ${isNCD ? 'opacity-60 bg-red-50/10' : ''}`}>
-                      <td data-label="Nro" className="py-3 px-3 font-mono font-bold text-stone-800">
+                    <tr key={f.id_factura} className={`border-b border-stone-100 dark:border-stone-850 hover:bg-stone-50/50 dark:hover:bg-stone-800/20 transition-colors ${isNCD ? 'opacity-60 bg-red-50/10' : ''}`}>
+                      <td data-label="Nro" className="py-3 px-3 font-mono font-bold text-stone-800 dark:text-stone-100">
                         {f.nro_ticket}
                         {f.arcaCae && <span className="block text-[8px] text-emerald-600 font-medium">CAE: {f.arcaCae}</span>}
                       </td>
-                      <td data-label="Fecha" className="py-3 px-3 font-medium text-stone-400">{f.fecha}</td>
+                      <td data-label="Fecha" className="py-3 px-3 font-medium text-stone-400 dark:text-stone-300">{f.fecha}</td>
                       <td data-label="Cliente" className="py-3 px-3">
-                        <span className="font-extrabold text-stone-900 block">{f.cliente}</span>
-                        <span className="text-[10px] text-stone-400 font-mono">{f.cuit}</span>
+                        <span className="font-extrabold text-stone-900 dark:text-white block">{f.cliente}</span>
+                        <span className="text-[10px] text-stone-400 dark:text-stone-300 font-mono">{f.cuit}</span>
                       </td>
-                      <td data-label="Neto" className="py-3 px-3 text-right font-mono text-stone-550">{money(neto)}</td>
-                      <td data-label="IVA" className="py-3 px-3 text-right font-mono text-stone-400">{money(f.iva_veintiuno)}</td>
-                      <td data-label="Total" className={`py-3 px-3 text-right font-mono font-extrabold ${isNCD ? 'text-red-500 line-through' : 'text-stone-900'}`}>{money(f.total)}</td>
+                      <td data-label="Neto" className="py-3 px-3 text-right font-mono text-stone-550 dark:text-stone-300">{money(neto)}</td>
+                      <td data-label="IVA" className="py-3 px-3 text-right font-mono text-stone-400 dark:text-stone-300">{money(f.iva_veintiuno)}</td>
+                      <td data-label="Total" className={`py-3 px-3 text-right font-mono font-extrabold ${isNCD ? 'text-red-500 line-through' : 'text-stone-900 dark:text-white'}`}>{money(f.total)}</td>
                       <td data-label="Estado" className="py-3 px-3 text-center">
                         <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full border ${isNCD ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-emerald-50 text-emerald-700 border-emerald-100'}`}>
                           {isNCD ? 'Anulado' : f.arcaCae ? 'CAE ✓' : 'Valido'}
                         </span>
                       </td>
                       <td data-label="Acciones" className="py-3 px-3 text-right space-x-1.5 whitespace-nowrap">
-                        <button onClick={() => downloadFacturaPdf(f)} className="p-1.5 rounded-lg bg-stone-50 hover:bg-[#624A3E]/10 text-stone-500 hover:text-[#624A3E] transition-all" title="Descargar PDF">
+                        <button onClick={() => downloadFacturaPdf(f)} className="p-1.5 rounded-lg bg-stone-50 dark:bg-stone-900 hover:bg-[#624A3E]/10 text-stone-500 dark:text-stone-300 hover:text-[#624A3E] transition-all" title="Descargar PDF">
                           <Download className="w-3.5 h-3.5" />
                         </button>
-                        <button onClick={() => downloadFacturaPdf(f)} className="p-1.5 rounded-lg bg-stone-50 hover:bg-[#624A3E]/10 text-stone-500 hover:text-[#624A3E] transition-all" title="Reimprimir">
+                        <button onClick={() => downloadFacturaPdf(f)} className="p-1.5 rounded-lg bg-stone-50 dark:bg-stone-900 hover:bg-[#624A3E]/10 text-stone-500 dark:text-stone-300 hover:text-[#624A3E] transition-all" title="Reimprimir">
                           <Printer className="w-3.5 h-3.5" />
                         </button>
                         {!isNCD && (
@@ -826,7 +826,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
               </tbody>
             </table>
             {filtered.length === 0 && (
-              <div className="p-8 text-center text-xs text-stone-500">
+              <div className="p-8 text-center text-xs text-stone-550 text-stone-500 dark:text-stone-300">
                 <AlertTriangle className="w-6 h-6 mx-auto mb-2 text-amber-500" />
                 Sin comprobantes para los filtros seleccionados.
               </div>
@@ -834,7 +834,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
           </div>
 
           <div className="flex justify-between items-center">
-            <div className="text-[10px] text-stone-400 font-bold uppercase">
+            <div className="text-[10px] text-stone-400 dark:text-stone-305 dark:text-stone-300 font-bold uppercase">
               Numeracion fiscal PV 0001 - Ticket {nextNumber(facturas, 'ticket')} - A {nextNumber(facturas, 'A')} - B {nextNumber(facturas, 'B')} - X {nextNumber(facturas, 'X')} - Anulados {anuladas}
             </div>
             {filtered.length > 0 && (
