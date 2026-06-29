@@ -181,7 +181,7 @@ export default function KitchenMonitor({
     return (
       <div
         key={p.id_pedido}
-        className={`rounded-[20px] border border-stone-200/50 dark:border-stone-850/50 glass-panel shadow-[0_8px_15px_rgba(0,0,0,0.1)] overflow-hidden relative ${sem?.border || ''} border-l-4 ${glowClass} transition-all duration-300 hover:scale-[1.01] hover:shadow-lg`}
+        className={`rounded-[20px] border border-stone-200/50 dark:border-stone-850/50 glass-panel shadow-[0_8px_15px_rgba(0,0,0,0.1)] overflow-hidden relative ${sem?.border || ''} border-l-4 ${glowClass} transition-all duration-300 hover:scale-[1.01] hover:shadow-lg max-h-[400px] flex flex-col`}
       >
         {cold && (
           <div className="bg-[#c0392b] text-[#f4ecd8] text-[9px] uppercase font-black tracking-wider px-4 py-1.5 flex items-center gap-1.5 shadow">
@@ -219,8 +219,8 @@ export default function KitchenMonitor({
           </div>
         </div>
 
-        <div className="p-4 space-y-3">
-          <div className="space-y-2">
+        <div className="p-4 space-y-3 flex-1 flex flex-col justify-between overflow-hidden">
+          <div className="space-y-2 overflow-y-auto pr-1 flex-1 no-scrollbar max-h-[185px]">
             {p.items.map((it, idx) => (
               <div
                 key={idx}

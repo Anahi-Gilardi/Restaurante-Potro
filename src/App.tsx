@@ -113,7 +113,9 @@ export default function App() {
   const [isStreamlitLoggedIn, setIsStreamlitLoggedIn] = useState<boolean>(() => (
     typeof window !== 'undefined' && window.localStorage.getItem('el_patron_session') === 'active'
   ));
-  const [showCover, setShowCover] = useState<boolean>(true);
+  const [showCover, setShowCover] = useState<boolean>(() => (
+    typeof window !== 'undefined' && window.localStorage.getItem('el_patron_session') === 'active'
+  ));
   const [permitirVentaSinStock, setPermitirVentaSinStock] = useState<boolean>(false);
   const [usuarios, setUsuarios] = useState<Usuario[]>(INITIAL_USUARIOS);
   const [mesas, setMesas] = useState<Mesa[]>(INITIAL_MESAS);
@@ -639,6 +641,13 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     setShowCover(true);
   };
 
+  const handleLogoClickToLogin = () => {
+    window.localStorage.removeItem('el_patron_session');
+    getSupabaseClient()?.auth.signOut().catch(() => undefined);
+    setIsStreamlitLoggedIn(false);
+    setShowCover(false);
+  };
+
   // --- Handlers for Kitchen View ---
   const handleCambiarEstadoPedido = (idPedido: number, nuevoEstado: Pedido['estado_comanda']) => {
     let updatedPedido: Pedido | null = null;
@@ -1056,6 +1065,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
         onNavigate={handleNavigate}
         onMozoChange={handleMozoChange}
         onLogout={handleLogout}
+        onLogoClick={handleLogoClickToLogin}
         onToggleAutoTimer={handleToggleAutoTimer}
         onAdvanceTime={handleAdvanceTime}
       />
@@ -1069,9 +1079,9 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
       >
         {/* Logo */}
         <div 
-          onClick={() => setShowDiagnostics(true)}
+          onClick={handleLogoClickToLogin}
           className={`flex items-center border-b border-[#FAF7F0]/10 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-4'} py-5 cursor-pointer hover:bg-white/5 transition-colors select-none`}
-          title="Ver estado de conexión"
+          title="Cerrar Sesión / Ir al Login"
         >
           <div className="w-9 h-9 bg-white rounded-xl flex items-center justify-center shadow-lg border border-[#C8956A]/30 p-0.5 overflow-hidden shrink-0 relative">
             <ElPatronLogo className="w-8 h-8 object-contain rounded" variant="icon" color="#4A2D1B" />

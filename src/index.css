@@ -268,3 +268,12 @@ textarea:focus {
   border: 1px solid rgba(232, 184, 0, 0.12) !important;
 }
 
+/* Hide scrollbar utility class */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
