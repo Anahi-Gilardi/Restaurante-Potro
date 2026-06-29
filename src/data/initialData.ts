@@ -1388,6 +1388,138 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     tipo: 'vino',
     requiere_cocina: false
   },
+  {
+    id_producto: 'prod_vin_las_perdices_sauvignon_blanc',
+    nombre: 'Las Perdices Sauvignon Blanc (Botella)',
+    precio_venta: 9500.00,
+    categoria: 'Bodega',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1569919650476-f54f285d15a9?w=400&q=80&auto=format&fit=crop',
+    descripcion: 'Bodega Las Perdices. Línea Las Perdices. Notas cítricas y de ruda.',
+    subcategoria: 'Vinos blancos',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_las_perdices_torrontes',
+    nombre: 'Las Perdices Torrontes (Botella)',
+    precio_venta: 9500.00,
+    categoria: 'Bodega',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1569919650476-f54f285d15a9?w=400&q=80&auto=format&fit=crop',
+    descripcion: 'Bodega Las Perdices. Línea Las Perdices. Muy aromático y floral.',
+    subcategoria: 'Vinos blancos',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_las_perdices_torrontes_dulce',
+    nombre: 'Las Perdices Torrontes Dulce (Botella)',
+    precio_venta: 9900.00,
+    categoria: 'Bodega',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1569919650476-f54f285d15a9?w=400&q=80&auto=format&fit=crop',
+    descripcion: 'Bodega Las Perdices. Línea Las Perdices. Dulce natural con notas amables.',
+    subcategoria: 'Vinos blancos',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_las_perdices_reserva_chardonnay',
+    nombre: 'Las Perdices Reserva Chardonnay (Botella)',
+    precio_venta: 13500.00,
+    categoria: 'Bodega',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1569919650476-f54f285d15a9?w=400&q=80&auto=format&fit=crop',
+    descripcion: 'Bodega Las Perdices. Línea Las Perdices Reserva. Untuoso con notas a vainilla.',
+    subcategoria: 'Vinos blancos',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_las_perdices_reserva_sauvignon_blanc',
+    nombre: 'Las Perdices Reserva Sauvignon Blanc (Botella)',
+    precio_venta: 13500.00,
+    categoria: 'Bodega',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1569919650476-f54f285d15a9?w=400&q=80&auto=format&fit=crop',
+    descripcion: 'Bodega Las Perdices. Línea Las Perdices Reserva. Sauvignon Blanc refinado y complejo.',
+    subcategoria: 'Vinos blancos',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_las_perdices_exploracion_albarino',
+    nombre: 'Las Perdices Exploración Albariño (Botella)',
+    precio_venta: 17500.00,
+    categoria: 'Bodega',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1569919650476-f54f285d15a9?w=400&q=80&auto=format&fit=crop',
+    descripcion: 'Bodega Las Perdices. Línea Exploración. Albariño fresco con acidez vibrante.',
+    subcategoria: 'Vinos blancos',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_las_perdices_exploracion_riesling',
+    nombre: 'Las Perdices Exploración Riesling (Botella)',
+    precio_venta: 17500.00,
+    categoria: 'Bodega',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1569919650476-f54f285d15a9?w=400&q=80&auto=format&fit=crop',
+    descripcion: 'Bodega Las Perdices. Línea Exploración. Riesling con sutiles notas minerales.',
+    subcategoria: 'Vinos blancos',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_las_perdices_exploracion_gewurztraminer',
+    nombre: 'Las Perdices Exploración Gewurztraminer (Botella)',
+    precio_venta: 18500.00,
+    categoria: 'Bodega',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1569919650476-f54f285d15a9?w=400&q=80&auto=format&fit=crop',
+    descripcion: 'Bodega Las Perdices. Línea Exploración. Gewürztraminer de aromas florales intensos.',
+    subcategoria: 'Vinos blancos',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_salentein_reserva_chardonnay',
+    nombre: 'Salentein Reserva Chardonnay (Botella)',
+    precio_venta: 13900.00,
+    categoria: 'Bodega',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1569919650476-f54f285d15a9?w=400&q=80&auto=format&fit=crop',
+    descripcion: 'Bodega Salentein. Línea Salentein Reserva. Chardonnay elegante con notas frutales.',
+    subcategoria: 'Vinos blancos',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_salentein_reserva_sauvignon_blanc',
+    nombre: 'Salentein Reserva Sauvignon Blanc (Botella)',
+    precio_venta: 13900.00,
+    categoria: 'Bodega',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1569919650476-f54f285d15a9?w=400&q=80&auto=format&fit=crop',
+    descripcion: 'Bodega Salentein. Línea Salentein Reserva. Sauvignon Blanc equilibrado y persistente.',
+    subcategoria: 'Vinos blancos',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_trumpeter_dulce',
+    nombre: 'Trumpeter Dulce (Botella)',
+    precio_venta: 12900.00,
+    categoria: 'Bodega',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1569919650476-f54f285d15a9?w=400&q=80&auto=format&fit=crop',
+    descripcion: 'Bodega La Rural. Línea Trumpeter. Dulce natural delicado y refinado.',
+    subcategoria: 'Vinos blancos',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
 
   // Champagne / Espumantes
   {
