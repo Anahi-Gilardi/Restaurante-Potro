@@ -733,7 +733,7 @@ export default function MozoTerminal({
             </div>
           </div>
 
-          <div className="flex gap-1.5 w-full overflow-x-auto py-1 scroll-smooth border-t border-stone-200/30 pt-3 no-scrollbar">
+          <div className="flex gap-1.5 w-full overflow-x-auto py-1 scroll-smooth border-t border-stone-200/30 pt-3 pb-2.5">
             {[
               { id: 'todo', label: 'Todos 🍽️' },
               { id: 'Entradas', label: 'Entradas 🥗' },
@@ -780,7 +780,7 @@ export default function MozoTerminal({
           {selectedCategoria === 'Bodega' && (
             <div className="space-y-2.5 pt-3 border-t border-stone-250/30 transition-all duration-300">
               {/* Macro categories */}
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-2.5">
                 {[
                   { id: 'todo', label: 'Todo Bodega 🍷' },
                   { id: 'tintas', label: 'Bodegas Tintas 🍷' },
