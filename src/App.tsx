@@ -1099,7 +1099,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
 
 
         {/* Nav items */}
-        <nav className="flex-1 overflow-y-auto overscroll-contain py-4 sidebar-scroll-hidden space-y-1 px-2">
+        <nav className="flex-1 overflow-y-auto overscroll-contain py-4 space-y-1 px-2">
           {[
             { id: 'home', label: 'Inicio', icon: '🏠' },
             { id: 'mozo', label: 'Mozo', icon: '📱' },
