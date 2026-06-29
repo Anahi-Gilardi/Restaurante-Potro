@@ -175,6 +175,14 @@ export const INITIAL_INSUMOS: Insumo[] = [
   { id_insumo: "ins_beb_fanta", nombre: "Lata Fanta Naranja 354ml", stock_actual: 90.0, stock_minimo: 20.0, unidad_medida: "unidades", categoria: "bodega", subcategoria: "Gaseosas", proveedor: "Coca-Cola Andina", costo_unitario: 650.0, es_bebida_directa: true },
   { id_insumo: "ins_beb_agua", nombre: "Botella Agua de Manantial 500ml", stock_actual: 150.0, stock_minimo: 40.0, unidad_medida: "unidades", categoria: "bodega", subcategoria: "Agua", proveedor: "Cervecería Quilmes", costo_unitario: 450.0, es_bebida_directa: true },
   { id_insumo: "ins_cafe_grano", nombre: "Café de especialidad grano tostado", stock_actual: 10000.0, stock_minimo: 2000.0, unidad_medida: "g", categoria: "secos", subcategoria: "Cafetería", proveedor: "Caffé Zatti", costo_unitario: 15.0, es_bebida_directa: false },
+  // Vinos Blancos Nuevos (Insumos)
+  { id_insumo: "ins_vin_escorihuela_gascon_blanco", nombre: "Escorihuela Gascón Blanco Botella", stock_actual: 20.0, stock_minimo: 4.0, unidad_medida: "unidades", categoria: "bodega", subcategoria: "Vinos blancos", proveedor: "Escorihuela Gascón S.A.", costo_unitario: 4100.0, es_bebida_directa: true },
+  { id_insumo: "ins_vin_escorihuela_gascon_sauvignon", nombre: "Escorihuela Gascón Sauvignon Botella", stock_actual: 20.0, stock_minimo: 4.0, unidad_medida: "unidades", categoria: "bodega", subcategoria: "Vinos blancos", proveedor: "Escorihuela Gascón S.A.", costo_unitario: 4100.0, es_bebida_directa: true },
+  { id_insumo: "ins_vin_saint_felicien_sauvignon", nombre: "Saint Felicien Sauvignon Botella", stock_actual: 20.0, stock_minimo: 4.0, unidad_medida: "unidades", categoria: "bodega", subcategoria: "Vinos blancos", proveedor: "Catena Zapata Winery", costo_unitario: 4900.0, es_bebida_directa: true },
+  { id_insumo: "ins_vin_las_perdices_blanco", nombre: "Las Perdices Blanco Botella", stock_actual: 20.0, stock_minimo: 4.0, unidad_medida: "unidades", categoria: "bodega", subcategoria: "Vinos blancos", proveedor: "Las Perdices S.A.", costo_unitario: 3200.0, es_bebida_directa: true },
+  { id_insumo: "ins_vin_las_perdices_reserva_blanco", nombre: "Las Perdices Reserva Blanco Botella", stock_actual: 20.0, stock_minimo: 4.0, unidad_medida: "unidades", categoria: "bodega", subcategoria: "Vinos blancos", proveedor: "Las Perdices S.A.", costo_unitario: 4600.0, es_bebida_directa: true },
+  { id_insumo: "ins_vin_las_perdices_exploracion", nombre: "Las Perdices Exploración Blanco Botella", stock_actual: 20.0, stock_minimo: 4.0, unidad_medida: "unidades", categoria: "bodega", subcategoria: "Vinos blancos", proveedor: "Las Perdices S.A.", costo_unitario: 5800.0, es_bebida_directa: true },
+  { id_insumo: "ins_vin_salentein_reserva_blanco", nombre: "Salentein Reserva Blanco Botella", stock_actual: 20.0, stock_minimo: 4.0, unidad_medida: "unidades", categoria: "bodega", subcategoria: "Vinos blancos", proveedor: "Salentein S.A.", costo_unitario: 4400.0, es_bebida_directa: true },
 ];
 
 export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
@@ -1212,6 +1220,174 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     tipo: 'vino',
     requiere_cocina: false
   },
+  {
+    id_producto: 'prod_vin_trumpeter_chardonnay',
+    nombre: 'Trumpeter Chardonnay / Dulce (Botella)',
+    precio_venta: 12000.00,
+    categoria: 'Bodega',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1569919650476-f54f285d15a9?w=400&q=80&auto=format&fit=crop',
+    descripcion: 'Bodega La Rural. Vino blanco de uvas Chardonnay y notas dulces.',
+    subcategoria: 'Vinos blancos',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_escorihuela_gascon_blanco',
+    nombre: 'Escorihuela Gascón Blanco (Botella)',
+    precio_venta: 12000.00,
+    categoria: 'Bodega',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1569919650476-f54f285d15a9?w=400&q=80&auto=format&fit=crop',
+    descripcion: 'Bodega Escorihuela Gascón. Blend de Chardonnay y Sauvignon Blanc.',
+    subcategoria: 'Vinos blancos',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_escorihuela_gascon_chardonnay',
+    nombre: 'Escorihuela Gascón Chardonnay (Botella)',
+    precio_venta: 12000.00,
+    categoria: 'Bodega',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1569919650476-f54f285d15a9?w=400&q=80&auto=format&fit=crop',
+    descripcion: 'Bodega Escorihuela Gascón. Varietal 100% Chardonnay de gran frescura.',
+    subcategoria: 'Vinos blancos',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_escorihuela_gascon_sauvignon',
+    nombre: 'Escorihuela Gascón Sauvignon Blanc (Botella)',
+    precio_venta: 12000.00,
+    categoria: 'Bodega',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1569919650476-f54f285d15a9?w=400&q=80&auto=format&fit=crop',
+    descripcion: 'Bodega Escorihuela Gascón. Sauvignon Blanc con notas cítricas y herbáceas.',
+    subcategoria: 'Vinos blancos',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_saint_felicien_chardonnay',
+    nombre: 'Saint Felicien Chardonnay (Botella)',
+    precio_venta: 12000.00,
+    categoria: 'Bodega',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1569919650476-f54f285d15a9?w=400&q=80&auto=format&fit=crop',
+    descripcion: 'Bodega Catena Zapata. Elegante Chardonnay con sutil crianza en roble.',
+    subcategoria: 'Vinos blancos',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_saint_felicien_sauvignon',
+    nombre: 'Saint Felicien Sauvignon Blanc (Botella)',
+    precio_venta: 12000.00,
+    categoria: 'Bodega',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1569919650476-f54f285d15a9?w=400&q=80&auto=format&fit=crop',
+    descripcion: 'Bodega Catena Zapata. Varietal Sauvignon Blanc de gran tipicidad y frescura.',
+    subcategoria: 'Vinos blancos',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_angelica_zapata_chardonnay',
+    nombre: 'Angélica Zapata Chardonnay (Botella)',
+    precio_venta: 12000.00,
+    categoria: 'Bodega',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1569919650476-f54f285d15a9?w=400&q=80&auto=format&fit=crop',
+    descripcion: 'Bodega Catena Zapata. Vino blanco alta gama 100% Chardonnay.',
+    subcategoria: 'Vinos blancos',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_luca_chardonnay',
+    nombre: 'Luca Chardonnay (Botella)',
+    precio_venta: 12000.00,
+    categoria: 'Bodega',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1569919650476-f54f285d15a9?w=400&q=80&auto=format&fit=crop',
+    descripcion: 'Bodega Catena Zapata. Exclusivo varietal 100% Chardonnay.',
+    subcategoria: 'Vinos blancos',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_las_perdices_blanco',
+    nombre: 'Las Perdices Blanco (Botella)',
+    precio_venta: 12000.00,
+    categoria: 'Bodega',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1569919650476-f54f285d15a9?w=400&q=80&auto=format&fit=crop',
+    descripcion: 'Bodega Viña Las Perdices. Vino blanco fresco y equilibrado.',
+    subcategoria: 'Vinos blancos',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_las_perdices_reserva_blanco',
+    nombre: 'Las Perdices Reserva Blanco (Botella)',
+    precio_venta: 12000.00,
+    categoria: 'Bodega',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1569919650476-f54f285d15a9?w=400&q=80&auto=format&fit=crop',
+    descripcion: 'Bodega Viña Las Perdices. Reserva especial de uvas blancas.',
+    subcategoria: 'Vinos blancos',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_las_perdices_exploracion',
+    nombre: 'Las Perdices Exploración Blanco (Botella)',
+    precio_venta: 12000.00,
+    categoria: 'Bodega',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1569919650476-f54f285d15a9?w=400&q=80&auto=format&fit=crop',
+    descripcion: 'Bodega Viña Las Perdices. Línea exploración varietal blanco.',
+    subcategoria: 'Vinos blancos',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_portillo_sauvignon_blanc',
+    nombre: 'Portillo Sauvignon Blanc (Botella)',
+    precio_venta: 12000.00,
+    categoria: 'Bodega',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1569919650476-f54f285d15a9?w=400&q=80&auto=format&fit=crop',
+    descripcion: 'Bodega Salentein. Joven y frutado Sauvignon Blanc.',
+    subcategoria: 'Vinos blancos',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_salentein_reserva_blanco',
+    nombre: 'Salentein Reserva Blanco (Botella)',
+    precio_venta: 12000.00,
+    categoria: 'Bodega',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1569919650476-f54f285d15a9?w=400&q=80&auto=format&fit=crop',
+    descripcion: 'Bodega Salentein. Blend reserva de uvas blancas seleccionadas.',
+    subcategoria: 'Vinos blancos',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
+  {
+    id_producto: 'prod_vin_pyros_sauvignon_blanc',
+    nombre: 'Pyros Sauvignon Blanc (Botella)',
+    precio_venta: 12000.00,
+    categoria: 'Bodega',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1569919650476-f54f285d15a9?w=400&q=80&auto=format&fit=crop',
+    descripcion: 'Bodega Pyros. Sauvignon Blanc del Valle de Pedernal con gran mineralidad.',
+    subcategoria: 'Vinos blancos',
+    tipo: 'vino',
+    requiere_cocina: false
+  },
 
   // Champagne / Espumantes
   {
@@ -1457,6 +1633,22 @@ export const INITIAL_RECETAS_ESCANDALLO: RecetaEscandallo[] = [
   { id_receta: 'esc_beb_portsb_bot_dir', id_producto: 'prod_vin_portillo_sb_botella', id_insumo: 'ins_vin_portillo', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
   { id_receta: 'esc_beb_salch_bot_dir', id_producto: 'prod_vin_salentein_res_ch', id_insumo: 'ins_vin_salentein_reserva', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
   { id_receta: 'esc_beb_ala_viog_dir', id_producto: 'prod_vin_ala_viognier', id_insumo: 'ins_vin_ala_viognier', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+
+  // Recetas Vinos Blancos Nuevos
+  { id_receta: 'esc_vin_trumpeter_chardonnay', id_producto: 'prod_vin_trumpeter_chardonnay', id_insumo: 'ins_vin_trumpeter_chardonnay', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_vin_escorihuela_gascon_blanco', id_producto: 'prod_vin_escorihuela_gascon_blanco', id_insumo: 'ins_vin_escorihuela_gascon_blanco', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_vin_escorihuela_gascon_chardonnay', id_producto: 'prod_vin_escorihuela_gascon_chardonnay', id_insumo: 'ins_vin_escorihuela_gascon_chardonnay', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_vin_escorihuela_gascon_sauvignon', id_producto: 'prod_vin_escorihuela_gascon_sauvignon', id_insumo: 'ins_vin_escorihuela_gascon_sauvignon', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_vin_saint_felicien_chardonnay', id_producto: 'prod_vin_saint_felicien_chardonnay', id_insumo: 'ins_vin_saint_felicien_chardonnay', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_vin_saint_felicien_sauvignon', id_producto: 'prod_vin_saint_felicien_sauvignon', id_insumo: 'ins_vin_saint_felicien_sauvignon', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_vin_angelica_zapata_chardonnay', id_producto: 'prod_vin_angelica_zapata_chardonnay', id_insumo: 'ins_vin_angelica_zapata_chardonnay', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_vin_luca_chardonnay', id_producto: 'prod_vin_luca_chardonnay', id_insumo: 'ins_vin_luca_chardonnay', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_vin_las_perdices_blanco', id_producto: 'prod_vin_las_perdices_blanco', id_insumo: 'ins_vin_las_perdices_blanco', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_vin_las_perdices_reserva_blanco', id_producto: 'prod_vin_las_perdices_reserva_blanco', id_insumo: 'ins_vin_las_perdices_reserva_blanco', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_vin_las_perdices_exploracion', id_producto: 'prod_vin_las_perdices_exploracion', id_insumo: 'ins_vin_las_perdices_exploracion', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_vin_portillo_sauvignon_blanc', id_producto: 'prod_vin_portillo_sauvignon_blanc', id_insumo: 'ins_vin_portillo_sauvignon_blanc', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_vin_salentein_reserva_blanco', id_producto: 'prod_vin_salentein_reserva_blanco', id_insumo: 'ins_vin_salentein_reserva_blanco', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
+  { id_receta: 'esc_vin_pyros_sauvignon_blanc', id_producto: 'prod_vin_pyros_sauvignon_blanc', id_insumo: 'ins_vin_pyros_sauvignon_blanc', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
 
   { id_receta: 'esc_beb_baronb_champ_dir', id_producto: 'prod_vin_baron_b_extra_brut', id_insumo: 'ins_champ_baron_b', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
   { id_receta: 'esc_beb_aluda_champ_dir', id_producto: 'prod_vin_aluda_brut', id_insumo: 'ins_champ_aluda', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },

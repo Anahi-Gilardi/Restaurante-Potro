@@ -10,7 +10,7 @@ const source = readFileSync(file, 'utf8');
 const checks: Array<[string, boolean]> = [
   [
     'RecetasModule keeps the production-safe heading JSX',
-    source.includes('<h3 className="text-xs font-black text-stone-500 uppercase tracking-wider">Recetarios Habilitados</h3>'),
+    source.includes('<h3 className="text-xs font-black text-stone-500 dark:text-stone-300 uppercase tracking-wider">Recetarios Habilitados</h3>'),
   ],
   ['No spaced opening JSX tag fragments remain', !/<\s+[A-Za-z]/.test(source)],
   ['No spaced closing JSX tag fragments remain', !/<\s*\/\s+[A-Za-z]/.test(source)],
