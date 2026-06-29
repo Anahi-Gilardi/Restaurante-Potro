@@ -309,26 +309,35 @@ export default function App() {
     if (client) {
       const activeChannel = client.channel('realtime_pedidos_app');
       channel = activeChannel;
+
+      // Simple debounce function to prevent multiple rapid database requests
+      const debounce = <T extends (...args: any[]) => any>(fn: T, delay: number) => {
+        let timeoutId: any = null;
+        return (...args: Parameters<T>) => {
+          if (timeoutId) clearTimeout(timeoutId);
+          timeoutId = setTimeout(() => fn(...args), delay);
+        };
+      };
+
+      const fetchAndSetPedidos = async () => {
+        try {
+          const refreshed = await dbFetchPedidos();
+          if (refreshed && active) {
+            setPedidos(refreshed);
+          }
+        } catch (err) {
+          console.warn('Realtime fetch for pedidos failed:', err);
+        }
+      };
+
+      const debouncedFetchPedidos = debounce(fetchAndSetPedidos, 400);
+
       activeChannel
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos_cabecera' }, async () => {
-          try {
-            const refreshed = await dbFetchPedidos();
-            if (refreshed && active) {
-              setPedidos(refreshed);
-            }
-          } catch (err) {
-            console.warn('Realtime fetch for pedidos failed:', err);
-          }
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos_cabecera' }, () => {
+          debouncedFetchPedidos();
         })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'pedido_detalle' }, async () => {
-          try {
-            const refreshed = await dbFetchPedidos();
-            if (refreshed && active) {
-              setPedidos(refreshed);
-            }
-          } catch (err) {
-            console.warn('Realtime fetch for pedido_detalle failed:', err);
-          }
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'pedido_detalle' }, () => {
+          debouncedFetchPedidos();
         })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'mesas' }, async () => {
           try {
@@ -764,9 +773,13 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
 
     setTimeout(() => {
       if (updatedPedido) {
-        dbSavePedidoComplex(updatedPedido);
+        dbSavePedidoComplex(updatedPedido).catch(err => {
+          console.warn('dbSavePedidoComplex async error:', err);
+        });
       } else if (pObj) {
-        dbSavePedidoComplex({ ...pObj, estado_comanda: nuevoEstado });
+        dbSavePedidoComplex({ ...pObj, estado_comanda: nuevoEstado }).catch(err => {
+          console.warn('dbSavePedidoComplex async error:', err);
+        });
       }
     }, 50);
 
