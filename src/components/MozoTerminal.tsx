@@ -541,7 +541,7 @@ export default function MozoTerminal({
                 className={`py-2 px-3 rounded-lg text-sm font-extrabold transition-all cursor-pointer ${
                   activeMozo === mozoName 
                     ? 'bg-[#4A2D1B] text-white shadow-md border border-[#C8956A]/30 glow-gold scale-[1.02]' 
-                    : 'bg-stone-50 dark:bg-white/10 text-stone-700 dark:text-white border border-stone-200 dark:border-white/15 hover:bg-[#F5F1E9] dark:hover:bg-white/20'
+                    : 'bg-white/60 dark:bg-white/5 text-[#4A2D1B] dark:text-stone-200 border border-[#4A2D1B]/20 dark:border-white/10 hover:bg-[#4A2D1B]/10 hover:text-[#4A2D1B] dark:hover:bg-white/15 dark:hover:text-stone-50'
                 }`}
               >
                 {mozoName}
@@ -557,7 +557,7 @@ export default function MozoTerminal({
               <UtensilsCrossed className="w-4 h-4 text-[#C8956A] dark:text-[#C8956A]" />
               Distribución de Mesas
             </h3>
-            <span className="text-[11px] font-mono bg-[#4A2D1B]/10 dark:bg-amber-500/10 text-[#4A2D1B] dark:text-[#C8956A] px-2 py-0.5 rounded font-bold">
+            <span className="text-[10px] font-sans bg-[#4A2D1B] text-white px-2.5 py-0.5 rounded-lg font-black uppercase tracking-wider shadow-sm">
               {mesas.filter(m => m.estado === 'ocupada').length} Ocupadas
             </span>
           </div>
@@ -601,16 +601,16 @@ export default function MozoTerminal({
                   }}
                   className={`p-2.5 rounded-xl flex flex-col justify-between items-center transition-all aspect-square border cursor-pointer ${stateClasses}`}
                 >
-                  <span className="text-xs font-black font-sans">{m.numero_mesa}</span>
+                  <span className={`text-xs font-black font-sans ${isSelected ? 'text-white' : 'text-[#4A2D1B] dark:text-stone-105'}`}>{m.numero_mesa}</span>
                   {isOcupada ? (
                     <div className="flex items-center gap-0.5 mt-2">
-                      <Users className={`w-3 h-3 ${isSelected ? 'text-white' : 'text-[#9B2226] dark:text-red-400'}`} />
-                      <span className="text-[10px] font-bold">{m.comensales || 0}</span>
+                      <Users className={`w-3 h-3 ${isSelected ? 'text-white font-black' : 'text-[#9B2226] dark:text-red-400'}`} />
+                      <span className={`text-[10px] font-black ${isSelected ? 'text-white font-black' : 'text-[#9B2226] dark:text-red-400'}`}>{m.comensales || 0}</span>
                     </div>
                   ) : isInCuenta ? (
-                    <span className="text-[8px] uppercase tracking-wider font-extrabold text-amber-600 dark:text-amber-400">Salar</span>
+                    <span className={`text-[8px] uppercase tracking-wider font-black ${isSelected ? 'text-white font-black' : 'text-amber-700 dark:text-amber-400'}`}>Salar</span>
                   ) : (
-                    <span className={`text-[8px] uppercase tracking-wider font-semibold opacity-80 ${isSelected ? 'text-white/60' : ''}`}>{labelText}</span>
+                    <span className={`text-[8px] uppercase tracking-wider font-black ${isSelected ? 'text-white/80' : 'text-stone-600 dark:text-stone-400'}`}>{labelText}</span>
                   )}
                 </button>
               );
@@ -714,7 +714,7 @@ export default function MozoTerminal({
                   placeholder="Buscar plato o bebida..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-3 py-1.5 bg-[#4A2D1B]/5 dark:bg-[#1E140E]/50 border border-stone-200/80 dark:border-[#C8956A]/20 rounded-xl text-xs text-stone-750 dark:text-stone-200 placeholder-stone-450 focus:outline-none focus:ring-1 focus:ring-[#C8956A] focus:border-[#C8956A] transition-all"
+                  className="w-full pl-9 pr-3 py-1.5 bg-white/60 dark:bg-[#1E140E]/50 border border-[#4A2D1B]/25 dark:border-[#C8956A]/20 rounded-xl text-xs text-[#4A2D1B] dark:text-stone-200 placeholder-[#4A2D1B]/55 dark:placeholder-stone-450 focus:outline-none focus:ring-1 focus:ring-[#C8956A] focus:border-[#C8956A] transition-all"
                 />
               </div>
               <button
@@ -760,7 +760,7 @@ export default function MozoTerminal({
                   className={`relative py-1.5 px-3 text-xs font-extrabold rounded-lg whitespace-nowrap transition-all duration-150 cursor-pointer active:scale-95 flex items-center gap-1 shrink-0 z-10 ${
                     isActive 
                       ? 'text-white font-black' 
-                      : 'text-stone-700 dark:text-stone-200 hover:text-stone-900 dark:hover:text-stone-50'
+                      : 'text-[#4A2D1B] dark:text-stone-200 bg-white/60 dark:bg-white/5 border border-[#4A2D1B]/25 dark:border-white/10 hover:bg-[#4A2D1B]/10 hover:text-white dark:hover:bg-white/15'
                   }`}
                 >
                   {isActive && (
@@ -798,7 +798,7 @@ export default function MozoTerminal({
                     className={`py-1 px-2.5 text-[10px] md:text-[11px] font-black rounded-lg transition-all cursor-pointer ${
                       selectedWineMacro === macro.id
                         ? 'bg-[#4A2D1B] text-white shadow-sm'
-                        : 'bg-stone-100/50 dark:bg-[#1E140E]/80 text-stone-600 dark:text-stone-300 hover:bg-stone-100 hover:text-[#4A2D1B] dark:hover:bg-[#251B12] dark:hover:text-white border border-stone-200/60 dark:border-[#C8956A]/20'
+                        : 'bg-white/60 dark:bg-white/5 text-[#4A2D1B] dark:text-stone-200 hover:bg-[#4A2D1B]/10 hover:text-[#4A2D1B] dark:hover:bg-white/15 border border-[#4A2D1B]/25 dark:border-white/10'
                     }`}
                   >
                     {macro.label}
@@ -818,7 +818,7 @@ export default function MozoTerminal({
                       className={`py-1.5 px-3 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
                         selectedWineVarietal === 'todo'
                           ? 'bg-[#4A2D1B] text-white border-[#4A2D1B] shadow-sm'
-                          : 'bg-white dark:bg-[#251B12] text-stone-700 dark:text-stone-300 border-stone-200 dark:border-[#C8956A]/20 hover:bg-stone-50 dark:hover:bg-[#2F2217]'
+                          : 'bg-white/60 dark:bg-white/5 text-[#4A2D1B] dark:text-stone-200 border border-[#4A2D1B]/25 dark:border-white/10 hover:bg-[#4A2D1B]/10 hover:text-[#4A2D1B] dark:hover:bg-white/15'
                       }`}
                     >
                       Todos
@@ -833,7 +833,7 @@ export default function MozoTerminal({
                         className={`py-1.5 px-3 text-xs font-bold rounded-lg border whitespace-nowrap transition-all cursor-pointer ${
                           selectedWineVarietal === varName
                             ? 'bg-[#4A2D1B] text-white border-[#4A2D1B] shadow-sm'
-                            : 'bg-white dark:bg-[#251B12] text-stone-700 dark:text-stone-300 border-stone-200 dark:border-[#C8956A]/20 hover:bg-stone-50 dark:hover:bg-[#2F2217]'
+                            : 'bg-white/60 dark:bg-white/5 text-[#4A2D1B] dark:text-stone-200 border border-[#4A2D1B]/25 dark:border-white/10 hover:bg-[#4A2D1B]/10 hover:text-[#4A2D1B] dark:hover:bg-white/15'
                         }`}
                       >
                         {varName}
@@ -950,7 +950,7 @@ export default function MozoTerminal({
       <div className="lg:col-span-3">
         <div className="glass-panel rounded-3xl p-5 shadow-sm flex flex-col h-[520px] sticky top-6">
           <div className="flex items-center justify-between pb-3 border-b border-stone-200/30">
-            <h3 className="font-bold text-white dark:text-white text-sm font-sans flex items-center gap-2">
+            <h3 className="font-bold text-[#4A2D1B] dark:text-white text-sm font-sans flex items-center gap-2">
               <ShoppingBag className="w-4 h-4 text-[#C8956A]" />
               Nueva Comanda
             </h3>
@@ -966,8 +966,8 @@ export default function MozoTerminal({
               <div className="w-12 h-12 bg-stone-100 dark:bg-white/5 text-stone-400 dark:text-stone-500 rounded-full flex items-center justify-center mb-3">
                 <UtensilsCrossed className="w-5 h-5" />
               </div>
-              <h4 className="font-bold text-white dark:text-white text-xs">Seleccione Mesa</h4>
-              <p className="text-stone-300 dark:text-stone-300 text-[10px] mt-1 max-w-[180px] font-serif-rustic italic">
+              <h4 className="font-bold text-[#4A2D1B] dark:text-white text-xs">Seleccione Mesa</h4>
+              <p className="text-stone-600 dark:text-stone-400 text-[10px] mt-1 max-w-[180px] font-serif-rustic italic">
                 Marque una mesa disponible en el plano izquierdo para iniciar la comanda.
               </p>
             </div>
@@ -976,8 +976,8 @@ export default function MozoTerminal({
               <div className="w-12 h-12 bg-[#FAF7F0] dark:bg-[#4A2D1B]/55 text-[#C8956A] rounded-full flex items-center justify-center mb-3 shadow-inner border border-stone-200 dark:border-white/5">
                 <Sparkles className="w-5 h-5 text-[#C8956A] dark:text-[#E8B800]" />
               </div>
-              <h4 className="font-bold text-white dark:text-white text-xs">Comanda Vacía</h4>
-              <p className="text-stone-300 dark:text-stone-300 text-[10px] mt-1 max-w-[180px] font-serif-rustic italic px-2 leading-relaxed">
+              <h4 className="font-bold text-[#4A2D1B] dark:text-white text-xs">Comanda Vacía</h4>
+              <p className="text-stone-600 dark:text-stone-400 text-[10px] mt-1 max-w-[180px] font-serif-rustic italic px-2 leading-relaxed">
                 Toque los platos de la carta central para cargarlos a la mesa de forma interactiva.
               </p>
             </div>
