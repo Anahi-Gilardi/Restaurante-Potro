@@ -1047,7 +1047,13 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
   if (showCover) {
     return (
       <ErrorBoundary>
-        <RestaurantCover onEnterSystem={() => setShowCover(false)} />
+        <RestaurantCover 
+          onEnterSystem={() => {
+            window.localStorage.removeItem('el_patron_session');
+            setIsStreamlitLoggedIn(false);
+            setShowCover(false);
+          }} 
+        />
       </ErrorBoundary>
     );
   }
