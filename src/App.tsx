@@ -113,9 +113,7 @@ export default function App() {
   const [isStreamlitLoggedIn, setIsStreamlitLoggedIn] = useState<boolean>(() => (
     typeof window !== 'undefined' && window.localStorage.getItem('el_patron_session') === 'active'
   ));
-  const [showCover, setShowCover] = useState<boolean>(() => (
-    typeof window !== 'undefined' && window.localStorage.getItem('el_patron_session') === 'active'
-  ));
+  const [showCover, setShowCover] = useState<boolean>(true);
   const [permitirVentaSinStock, setPermitirVentaSinStock] = useState<boolean>(false);
   const [usuarios, setUsuarios] = useState<Usuario[]>(INITIAL_USUARIOS);
   const [mesas, setMesas] = useState<Mesa[]>(INITIAL_MESAS);
