@@ -43,18 +43,32 @@ export function useCaja({
   toast
 }: UseCajaProps) {
   // Configurable Restaurant Details
-  const [restaurante, setRestaurante] = useState({
-    nombreComercial: 'El Patrón Restaurante',
-    razonSocial: 'Gastronomía El Patrón S.A.S.',
-    cuit: '30-71649251-4',
-    direccion: 'Av. Pres. Figueroa Alcorta 3420, CABA',
-    telefono: '+54 11 4802-9988',
-    email: 'facturas@elpatronrestaurante.com.ar',
-    inicioActividades: '15/04/2022',
-    condicionIva: 'Responsable Inscripto',
-    mensajePie: 'Gracias por su visita al verdadero rincón criollo.',
-    moneda: 'ARS'
+  const [restaurante, setRestaurante] = useState(() => {
+    const cached = localStorage.getItem('el_patron_restaurante_config');
+    if (cached) {
+      try {
+        return JSON.parse(cached);
+      } catch {
+        // fallback
+      }
+    }
+    return {
+      nombreComercial: 'El Patrón Restaurante',
+      razonSocial: 'Gastronomía El Patrón S.A.S.',
+      cuit: '30-71649251-4',
+      direccion: 'Fotheringham 33, Rio Cuarto, Córdoba',
+      telefono: '+54 9 3584 37-3711',
+      email: 'bellaoriana47@gmail.com',
+      inicioActividades: '15/04/2022',
+      condicionIva: 'Responsable Inscripto',
+      mensajePie: 'Gracias por su visita al verdadero rincón criollo.',
+      moneda: 'ARS'
+    };
   });
+
+  useEffect(() => {
+    localStorage.setItem('el_patron_restaurante_config', JSON.stringify(restaurante));
+  }, [restaurante]);
 
   const [editRestauranteMode, setEditRestauranteMode] = useState(false);
 
