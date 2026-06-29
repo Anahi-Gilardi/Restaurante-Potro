@@ -147,7 +147,7 @@ export function useKitchenMonitor({
         next.delete(idPedido);
         return next;
       });
-    }, 1500);
+    }, 7000);
   }, [onCambiarEstadoPedido]);
 
   const getEffectiveStatus = useCallback((pedido: Pedido): Pedido['estado_comanda'] => {
