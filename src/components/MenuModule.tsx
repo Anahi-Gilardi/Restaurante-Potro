@@ -462,7 +462,7 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
     <div className="space-y-4 md:space-y-6">
       <ToastContainer toasts={toasts} removeToast={removeToast} />
 
-      <div className="flex gap-2 overflow-x-auto pb-1">
+      <div className="flex gap-2 overflow-x-auto pb-2.5">
         <button onClick={() => setShowBulkEditor(false)}
           className={`px-4 py-2 text-xs font-extrabold rounded-xl transition-all cursor-pointer border shrink-0 ${
             !showBulkEditor

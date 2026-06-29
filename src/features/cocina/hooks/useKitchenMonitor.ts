@@ -48,8 +48,26 @@ export function useKitchenMonitor({
 
   const activeKitchenOrders = useMemo(() => {
     let filtered = pedidos.map(p => {
-      const effective = optimisticUpdates.get(p.id_pedido)?.estado || p.estado_comanda;
-      return { ...p, estado_comanda: effective };
+      const optimistic = optimisticUpdates.get(p.id_pedido);
+      if (optimistic) {
+        const nuevoEstado = optimistic.estado;
+        const updatedItems = p.items.map(it => {
+          const itemEstado = it.estado ?? 'pendiente';
+          let nextEstado = itemEstado;
+          if (nuevoEstado === 'en_cocina' && itemEstado === 'pendiente') {
+            nextEstado = 'en_cocina';
+          } else if (nuevoEstado === 'listo' && (itemEstado === 'pendiente' || itemEstado === 'en_cocina')) {
+            nextEstado = 'listo';
+          } else if ((nuevoEstado === 'entregado' || nuevoEstado === 'entregado_cobrado') && (itemEstado === 'pendiente' || itemEstado === 'en_cocina' || itemEstado === 'listo')) {
+            nextEstado = 'entregado';
+          } else if (nuevoEstado === 'cancelado') {
+            nextEstado = 'cancelado';
+          }
+          return { ...it, estado: nextEstado };
+        });
+        return { ...p, estado_comanda: nuevoEstado, items: updatedItems };
+      }
+      return p;
     }).filter(p => {
       return p.estado_comanda !== 'entregado_cobrado' && p.estado_comanda !== 'entregado' && p.estado_comanda !== 'cancelado';
     });
@@ -147,7 +165,7 @@ export function useKitchenMonitor({
         next.delete(idPedido);
         return next;
       });
-    }, 1500);
+    }, 7000);
   }, [onCambiarEstadoPedido]);
 
   const getEffectiveStatus = useCallback((pedido: Pedido): Pedido['estado_comanda'] => {

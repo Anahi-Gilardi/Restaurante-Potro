@@ -69,6 +69,16 @@ import { syncQueueService } from './services/syncQueueService';
 // Initialize offline background sync queue
 syncQueueService.initBackgroundSync();
 
+// Auto-reload page when new service worker takes control (PWA autoUpdate)
+if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (refreshing) return;
+    refreshing = true;
+    window.location.reload();
+  });
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary moduleName="ROOT">

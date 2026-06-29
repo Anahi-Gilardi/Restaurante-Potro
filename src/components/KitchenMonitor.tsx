@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import {
   AlertTriangle,
   Flame,
@@ -62,6 +62,23 @@ export default function KitchenMonitor({
     insumos
   });
 
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('el_patron_cocina_sonido');
+      return saved !== 'false';
+    }
+    return true;
+  });
+
+  // Guardar preferencia de sonido en local storage
+  const handleToggleSound = () => {
+    setSoundEnabled(prev => {
+      localStorage.setItem('el_patron_cocina_sonido', String(!prev));
+      return !prev;
+    });
+  };
+
+  // Filtrar pedidos pendientes de cocina
   const ordersPendientes = useMemo(() => {
     return activeKitchenOrders
       .filter(p => p.estado_comanda === 'pendiente')
@@ -71,6 +88,49 @@ export default function KitchenMonitor({
       }))
       .filter(p => p.items.length > 0);
   }, [activeKitchenOrders]);
+
+  const prevPendingCount = useRef(ordersPendientes.length);
+
+  // Reproductor de sonido de campana (ding ding) sintetizado
+  const playKitchenBell = () => {
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return;
+      const audioCtx = new AudioContextClass();
+      
+      const playDing = (delay: number, frequency: number, duration: number) => {
+        setTimeout(() => {
+          const osc = audioCtx.createOscillator();
+          const gainNode = audioCtx.createGain();
+          
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+          
+          gainNode.gain.setValueAtTime(0.12, audioCtx.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+          
+          osc.connect(gainNode);
+          gainNode.connect(audioCtx.destination);
+          
+          osc.start();
+          osc.stop(audioCtx.currentTime + duration);
+        }, delay);
+      };
+
+      playDing(0, 880, 0.4);
+      playDing(150, 1100, 0.6);
+    } catch (e) {
+      console.warn('Web Audio API bell error:', e);
+    }
+  };
+
+  // Reproducir campana cuando el conteo de pedidos de cocina pendientes aumenta
+  useEffect(() => {
+    if (soundEnabled && ordersPendientes.length > prevPendingCount.current) {
+      playKitchenBell();
+    }
+    prevPendingCount.current = ordersPendientes.length;
+  }, [ordersPendientes.length, soundEnabled]);
 
   const ordersEnCocina = useMemo(() => {
     return activeKitchenOrders
@@ -121,7 +181,7 @@ export default function KitchenMonitor({
     return (
       <div
         key={p.id_pedido}
-        className={`rounded-[20px] border border-stone-200/50 dark:border-stone-850/50 glass-panel shadow-[0_8px_15px_rgba(0,0,0,0.1)] overflow-hidden relative ${sem?.border || ''} border-l-4 ${glowClass} transition-all duration-300 hover:scale-[1.01] hover:shadow-lg`}
+        className={`rounded-[20px] border border-stone-200/50 dark:border-stone-850/50 glass-panel shadow-[0_8px_15px_rgba(0,0,0,0.1)] overflow-hidden relative ${sem?.border || ''} border-l-4 ${glowClass} transition-all duration-300 hover:scale-[1.01] hover:shadow-lg max-h-[400px] flex flex-col`}
       >
         {cold && (
           <div className="bg-[#c0392b] text-[#f4ecd8] text-[9px] uppercase font-black tracking-wider px-4 py-1.5 flex items-center gap-1.5 shadow">
@@ -159,8 +219,8 @@ export default function KitchenMonitor({
           </div>
         </div>
 
-        <div className="p-4 space-y-3">
-          <div className="space-y-2">
+        <div className="p-4 space-y-3 flex-1 flex flex-col justify-between overflow-hidden">
+          <div className="space-y-2 overflow-y-auto pr-1 flex-1 max-h-[185px]">
             {p.items.map((it, idx) => (
               <div
                 key={idx}
@@ -279,7 +339,7 @@ export default function KitchenMonitor({
           </span>
         </div>
 
-        <div className="space-y-4 max-h-[700px] overflow-y-auto pr-1">
+        <div className="space-y-4 max-h-[calc(100vh-350px)] min-h-[300px] overflow-y-auto pr-1">
           {orders.length === 0 ? (
             <div className="h-36 border-2 border-dashed border-stone-200/50 dark:border-stone-800/40 rounded-[20px] flex flex-col justify-center items-center text-center p-4 opacity-70 glass-panel">
               {emptyMessages[estado].icon}
@@ -346,17 +406,30 @@ export default function KitchenMonitor({
             className="w-full min-h-11 pl-9 pr-3 py-2 bg-white/70 dark:bg-stone-900/40 border border-stone-200/50 dark:border-stone-850/50 rounded-xl text-sm text-[#4b3621] dark:text-stone-100 placeholder:text-stone-450 focus:outline-none focus:ring-2 focus:ring-[#E8B800]/30"
           />
         </div>
-        <button
-          onClick={() => setShowOnlyKitchen(!showOnlyKitchen)}
-          className={`min-h-11 flex items-center justify-center gap-1.5 py-2 px-4 rounded-xl text-sm font-black transition-all cursor-pointer border ${
-            showOnlyKitchen
-              ? 'btn-premium-primary glow-gold border-[#E8B800]'
-              : 'btn-premium-secondary'
-          }`}
-        >
-          <Filter className="w-3.5 h-3.5" />
-          {showOnlyKitchen ? 'Solo Cocina' : 'Todo'}
-        </button>
+        <div className="flex gap-2.5">
+          <button
+            onClick={handleToggleSound}
+            className={`min-h-11 flex items-center justify-center gap-1.5 py-2 px-4 rounded-xl text-sm font-black transition-all cursor-pointer border ${
+              soundEnabled
+                ? 'bg-amber-500/10 text-amber-700 border-amber-300 dark:bg-amber-500/25 dark:text-amber-400 dark:border-amber-500/30'
+                : 'bg-stone-100 text-stone-500 border-stone-250 dark:bg-stone-900/40 dark:text-stone-400 dark:border-stone-850/50'
+            }`}
+          >
+            <span>{soundEnabled ? '🔊 Sonido' : '🔇 Silenciado'}</span>
+          </button>
+          
+          <button
+            onClick={() => setShowOnlyKitchen(!showOnlyKitchen)}
+            className={`min-h-11 flex items-center justify-center gap-1.5 py-2 px-4 rounded-xl text-sm font-black transition-all cursor-pointer border ${
+              showOnlyKitchen
+                ? 'btn-premium-primary glow-gold border-[#E8B800]'
+                : 'btn-premium-secondary'
+            }`}
+          >
+            <Filter className="w-3.5 h-3.5" />
+            {showOnlyKitchen ? 'Solo Cocina' : 'Todo'}
+          </button>
+        </div>
       </div>
 
       {/* Columnas */}

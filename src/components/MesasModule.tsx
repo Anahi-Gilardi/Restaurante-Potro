@@ -651,197 +651,59 @@ export default function MesasModule({ mesas, onMesasChange, addLog = () => {} }:
   };
 
   const renderSvg = () => {
-    // 1. Draw connection lines between child tables and parents (united tables)
-    const unionConnectionLines = visualMesas
-      .filter(m => m.parent_id != null)
-      .map(child => {
-        const parent = visualMesas.find(p => p.id_mesa === child.parent_id);
-        if (!parent) return null;
-        const cx1 = child.posicion.x + child.posicion.width / 2;
-        const cy1 = child.posicion.y + child.posicion.height / 2;
-        const cx2 = parent.posicion.x + parent.posicion.width / 2;
-        const cy2 = parent.posicion.y + parent.posicion.height / 2;
-        return (
-          <line
-            key={`link-${child.id_mesa}-${parent.id_mesa}`}
-            x1={cx1} y1={cy1} x2={cx2} y2={cy2}
-            stroke="#4A5568" strokeWidth={3} strokeDasharray="5,4"
-            pointerEvents="none" opacity="0.85"
-          />
-        );
-      });
-
-    const mesaElements = visualMesas.map(m => {
-      const reserva = reservasHoy.find(r => r.id_mesa === m.id_mesa && r.estado === 'confirmada');
-      const fill = ESTADO_FILL[m.estado];
-      const stroke = ESTADO_STROKE[m.estado];
-      const textColor = ESTADO_TEXT[m.estado];
-      const isSelected = unionMode && selectedForUnion.some(s => s.id_mesa === m.id_mesa);
-      const { x, y, width, height, rx } = m.posicion;
-
-      return (
-        <g key={m.id} data-mesa-id={m.id}
-           className={`transition-opacity ${editorMode ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer hover:opacity-95'}`}
-           onClick={(e: React.MouseEvent) => {
-             e.stopPropagation();
-             if (editorMode || draggingMesa) return;
-             if (unionMode) toggleUnionSelection(m);
-             else openModal(m);
-           }}
-        >
-          {renderSillas(m)}
-          <rect
-            x={x} y={y} width={width} height={height} rx={rx}
-            fill={fill} stroke={isSelected ? '#3B82F6' : stroke} strokeWidth={isSelected ? 4 : 2.5}
-            pointerEvents="all"
-            onMouseDown={(e: React.MouseEvent) => editorMode ? startDrag(m, e) : undefined}
-            onTouchStart={(e: React.TouchEvent) => editorMode ? startDrag(m, e) : undefined}
-          />
-          <text x={x + width / 2} y={y + height / 2 - 2} textAnchor="middle" fontSize={Math.min(18, width / 3.5)} fontWeight={800} fill={textColor} fontFamily="Arial, sans-serif" pointerEvents="none">{m.numero_mesa}</text>
-          <text x={x + width / 2} y={y + height / 2 + 14} textAnchor="middle" fontSize={9} fill={textColor} fontFamily="Arial, sans-serif" opacity={0.8} fontWeight={500} pointerEvents="none">Mesa</text>
-          
-          {/* Reservation calendar icon on table */}
-          {reserva && (
-            <g transform={`translate(${x + 4}, ${y + 4})`} pointerEvents="none">
-              <rect width="10" height="10" rx="2" fill="#D97706" />
-              <path d="M2 3 h6 M3 2 v2 M7 2 v2" stroke="white" strokeWidth="1" />
-            </g>
-          )}
-
-          {editorMode && (
-            <g pointerEvents="none">
-              <circle cx={x + width - 8} cy={y + 8} r={5} fill="#3B82F6" />
-              <path d={`M${x + width - 10} ${y + 8} L${x + width - 6} ${y + 8} M${x + width - 8} ${y + 6} L${x + width - 8} ${y + 10}`} stroke="white" strokeWidth={1.5} />
-            </g>
-          )}
-        </g>
-      );
-    });
-
     return (
-      <div className="w-full flex justify-center py-2">
-        <div className="w-full max-w-[360px] md:max-w-[550px] lg:max-w-[650px] aspect-[430/620] transition-all duration-300">
-          <svg ref={svgRef} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 430 620" preserveAspectRatio="xMidYMid meet" className="w-full h-full drop-shadow-xl"
-            onMouseMove={handleSvgMouseMove}
-            onTouchMove={handleSvgTouchMove}
-            onMouseUp={handleSvgMouseUp}
-            onTouchEnd={handleSvgMouseUp}
-            onMouseLeave={handleSvgMouseUp}
-          >
-            <defs>
-              {/* Architectural Grid pattern */}
-              <pattern id="gridPattern" width="20" height="20" patternUnits="userSpaceOnUse">
-                <rect width="20" height="20" fill="none" />
-                <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#F1EFE9" strokeWidth="0.75" />
-              </pattern>
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 p-6 bg-[#FAF7F0] dark:bg-[#1E140E]/60 rounded-2xl border border-stone-250 dark:border-white/5">
+        {visualMesas.map(m => {
+          const reserva = reservasHoy.find(r => r.id_mesa === m.id_mesa && r.estado === 'confirmada');
+          
+          // Colors & labels based on status
+          const estadoStyles: Record<Mesa['estado'], { bg: string, border: string, text: string, label: string }> = {
+            libre: { bg: 'bg-emerald-50/80 dark:bg-emerald-950/20', border: 'border-emerald-250 dark:border-emerald-800/40', text: 'text-emerald-700 dark:text-emerald-400', label: 'Libre' },
+            ocupada: { bg: 'bg-red-50/80 dark:bg-red-950/20', border: 'border-red-250 dark:border-red-800/40', text: 'text-red-700 dark:text-red-400', label: 'Ocupada' },
+            reservada: { bg: 'bg-amber-50/80 dark:bg-amber-950/20', border: 'border-amber-250 dark:border-amber-800/40', text: 'text-amber-700 dark:text-amber-400', label: 'Reservada' },
+            esperando_cuenta: { bg: 'bg-teal-50/80 dark:bg-teal-950/20', border: 'border-teal-250 dark:border-teal-800/40', text: 'text-teal-700 dark:text-teal-400', label: 'Cuenta' },
+            limpiando: { bg: 'bg-blue-50/80 dark:bg-blue-950/20', border: 'border-blue-250 dark:border-blue-800/40', text: 'text-blue-700 dark:text-blue-400', label: 'Limpiando' },
+            unida: { bg: 'bg-stone-100/80 dark:bg-stone-900/40', border: 'border-stone-200 dark:border-stone-800/40', text: 'text-stone-600 dark:text-stone-400', label: 'Unida' },
+            sucia: { bg: 'bg-stone-50/80 dark:bg-stone-900/20', border: 'border-stone-200 dark:border-stone-850/40', text: 'text-stone-700 dark:text-stone-450', label: 'Sucia' },
+          };
+
+          const styles = estadoStyles[m.estado] || estadoStyles.libre;
+          const isSelected = unionMode && selectedForUnion.some(s => s.id_mesa === m.id_mesa);
+
+          return (
+            <div
+              key={m.id}
+              onClick={() => {
+                if (unionMode) toggleUnionSelection(m);
+                else openModal(m);
+              }}
+              className={`p-4 rounded-xl border-2 flex flex-col justify-between h-28 cursor-pointer transition-all duration-200 ${styles.bg} ${isSelected ? 'border-blue-500 ring-2 ring-blue-200' : styles.border} hover:scale-[1.02] shadow-xs`}
+            >
+              <div className="flex justify-between items-start">
+                <div>
+                  <span className="text-sm font-black text-stone-855 dark:text-white">Mesa {m.numero_mesa}</span>
+                  <span className="text-[10px] text-stone-500 dark:text-stone-400 block">{m.capacidad} pax • {capitalize(m.zona || '')}</span>
+                </div>
+                {reserva && (
+                  <span className="p-1 bg-amber-500 text-white rounded-md flex items-center justify-center" title="Tiene Reserva">
+                    <Calendar size={10} />
+                  </span>
+                )}
+              </div>
               
-              {/* Premium Gradients for Tables */}
-              <linearGradient id="freeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#ECFDF5" />
-                <stop offset="100%" stopColor="#D1FAE5" />
-              </linearGradient>
-              <linearGradient id="occupiedGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#FFF5F5" />
-                <stop offset="100%" stopColor="#FEE2E2" />
-              </linearGradient>
-              <linearGradient id="reservedGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#FFFBEB" />
-                <stop offset="100%" stopColor="#FEF3C7" />
-              </linearGradient>
-              <linearGradient id="dirtyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#FAFAF9" />
-                <stop offset="100%" stopColor="#F5F5F4" />
-              </linearGradient>
-              <linearGradient id="cleaningGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#EFF6FF" />
-                <stop offset="100%" stopColor="#DBEAFE" />
-              </linearGradient>
-              <linearGradient id="waitingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#F0FDF4" />
-                <stop offset="100%" stopColor="#D1FAE5" />
-              </linearGradient>
-              <linearGradient id="unitedGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#F9FAFB" />
-                <stop offset="100%" stopColor="#E5E7EB" />
-              </linearGradient>
-            </defs>
-
-            {/* Layout Canvas border */}
-            <rect x="10" y="10" width="410" height="600" rx="6" fill="none" stroke="#4E3629" strokeWidth="4.5"/>
-            
-            {/* Left Corridor (Pasillo) */}
-            <rect x="10" y="10" width="80" height="600" rx="4" fill="#3D2B1F"/>
-            <text x="50" y="200" textAnchor="middle" fontSize="11" fill="#C9A96E" fontFamily="Georgia, serif" fontWeight="700" transform="rotate(-90, 50, 200)" letterSpacing="3">RESTAURANTE</text>
-            <rect x="24" y="120" width="32" height="28" rx="6" fill="none" stroke="#C9A96E" strokeWidth="1.5" opacity="0.4"/>
-            <rect x="24" y="175" width="32" height="28" rx="6" fill="none" stroke="#C9A96E" strokeWidth="1.5" opacity="0.4"/>
-            <rect x="24" y="230" width="32" height="28" rx="6" fill="none" stroke="#C9A96E" strokeWidth="1.5" opacity="0.4"/>
-            <text x="50" y="510" textAnchor="middle" fontSize="9" fill="#C9A96E" fontFamily="Arial, sans-serif" letterSpacing="1.5" transform="rotate(-90, 50, 510)">PASILLO</text>
-
-            {/* COMEDOR Zone */}
-            <rect x="90" y="10" width="330" height="255" fill="#FAF8F5"/>
-            <rect x="90" y="10" width="330" height="255" fill="url(#gridPattern)" opacity="0.75" />
-            <text x="255" y="34" textAnchor="middle" fontSize="12" fontWeight="800" fill="#7A5C44" fontFamily="Arial, sans-serif" letterSpacing="3">COMEDOR</text>
-            <line x1="90" y1="265" x2="420" y2="265" stroke="#4E3629" strokeWidth="3"/>
-
-            {/* CAJA Module */}
-            <rect x="340" y="18" width="70" height="90" rx="8" fill="#FFFDF9" stroke="#8C6D58" strokeWidth="2.5"/>
-            <text x="375" y="55" textAnchor="middle" fontSize="10" fontWeight="800" fill="#624A3E" fontFamily="Arial, sans-serif" letterSpacing="1.5">CAJA</text>
-            <rect x="346" y="72" width="58" height="8" rx="3.5" fill="#8C6D58" opacity="0.45"/>
-
-            {/* SALÓN Zone */}
-            <rect x="90" y="265" width="330" height="345" fill="#FAF7F0"/>
-            <rect x="90" y="265" width="330" height="345" fill="url(#gridPattern)" opacity="0.75" />
-            <text x="255" y="292" textAnchor="middle" fontSize="12" fontWeight="800" fill="#7A5C44" fontFamily="Arial, sans-serif" letterSpacing="3">SALÓN</text>
-
-            {/* INGRESO Zone */}
-            <rect x="90" y="575" width="80" height="35" fill="#FAF2E5" stroke="#4E3629" strokeWidth="2"/>
-            <text x="130" y="596" textAnchor="middle" fontSize="7.5" fill="#624A3E" fontFamily="Arial, sans-serif" fontWeight="800" letterSpacing="0.5">INGRESO</text>
-            
-            {/* Architectural swing doors */}
-            {/* Comedor doorway swing */}
-            <path d="M 90 120 A 25 25 0 0 1 115 145" fill="none" stroke="#7A5C44" strokeWidth="1.5" strokeDasharray="3,3" />
-            <line x1="90" y1="120" x2="90" y2="145" stroke="#7A5C44" strokeWidth="2.5" />
-            
-            {/* Salón doorway swing */}
-            <path d="M 90 400 A 25 25 0 0 1 115 425" fill="none" stroke="#7A5C44" strokeWidth="1.5" strokeDasharray="3,3" />
-            <line x1="90" y1="400" x2="90" y2="425" stroke="#7A5C44" strokeWidth="2.5" />
-            
-            {/* Entrance swing doors */}
-            <path d="M 110 575 A 20 20 0 0 0 130 555" fill="none" stroke="#4E3629" strokeWidth="1.5" strokeDasharray="2.5,2" />
-            <line x1="110" y1="575" x2="130" y2="575" stroke="#4E3629" strokeWidth="2.5" />
-            <path d="M 150 575 A 20 20 0 0 1 130 555" fill="none" stroke="#4E3629" strokeWidth="1.5" strokeDasharray="2.5,2" />
-            <line x1="150" y1="575" x2="130" y2="575" stroke="#4E3629" strokeWidth="2.5" />
-
-            {/* Plants container decorations (plants in corners) */}
-            {/* Top-Right Plant */}
-            <g transform="translate(400, 25)">
-              <circle cx="0" cy="0" r="10" fill="#DCFCE7" stroke="#10B981" strokeWidth="1.5" />
-              <circle cx="0" cy="0" r="6" fill="#10B981" />
-              <path d="M -3 0 L 3 0 M 0 -3 L 0 3" stroke="#047857" strokeWidth="1" />
-            </g>
-            {/* Bottom-Right Plant */}
-            <g transform="translate(400, 550)">
-              <circle cx="0" cy="0" r="10" fill="#DCFCE7" stroke="#10B981" strokeWidth="1.5" />
-              <circle cx="0" cy="0" r="6" fill="#10B981" />
-              <path d="M -3 0 L 3 0 M 0 -3 L 0 3" stroke="#047857" strokeWidth="1" />
-            </g>
-
-            <text x="418" y="140" textAnchor="middle" fontSize="9" fill="#7A5C44" fontFamily="Arial, sans-serif" transform="rotate(90, 418, 140)" letterSpacing="2" opacity="0.6">FACHADA</text>
-
-            {unionConnectionLines}
-            {mesaElements}
-
-            {/* Leyenda */}
-            <rect x="155" y="580" width="12" height="12" rx="3" fill="url(#freeGrad)" stroke="#10B981" strokeWidth="2"/>
-            <text x="172" y="589" fontSize="8.5" fill="#44403C" fontWeight="700" fontFamily="Arial, sans-serif">Libre</text>
-            <rect x="205" y="580" width="12" height="12" rx="3" fill="url(#occupiedGrad)" stroke="#EF4444" strokeWidth="2"/>
-            <text x="222" y="589" fontSize="8.5" fill="#44403C" fontWeight="700" fontFamily="Arial, sans-serif">Ocupado</text>
-            <rect x="255" y="580" width="12" height="12" rx="3" fill="url(#reservedGrad)" stroke="#F59E0B" strokeWidth="2"/>
-            <text x="272" y="589" fontSize="8.5" fill="#44403C" fontWeight="700" fontFamily="Arial, sans-serif">Reserva</text>
-            <rect x="305" y="580" width="12" height="12" rx="3" fill="url(#dirtyGrad)" stroke="#78716C" strokeWidth="2"/>
-            <text x="322" y="589" fontSize="8.5" fill="#44403C" fontWeight="700" fontFamily="Arial, sans-serif">Sucia</text>
-          </svg>
-        </div>
+              <div className="flex justify-between items-center mt-2">
+                <span className={`text-[10px] font-bold uppercase tracking-wider ${styles.text}`}>
+                  {styles.label}
+                </span>
+                {m.comensales ? (
+                  <span className="text-[9px] font-bold bg-stone-200 dark:bg-stone-800 text-stone-700 dark:text-stone-300 px-1.5 py-0.5 rounded">
+                    {m.comensales} pax
+                  </span>
+                ) : null}
+              </div>
+            </div>
+          );
+        })}
       </div>
     );
   };
@@ -865,14 +727,6 @@ export default function MesasModule({ mesas, onMesasChange, addLog = () => {} }:
         </div>
         <div className="flex gap-2 flex-wrap">
           <button
-            onClick={() => { setEditorMode(!editorMode); setUnionMode(false); setSelectedForUnion([]); }}
-            className={`px-3 py-2 rounded-xl text-xs font-bold cursor-pointer transition-colors ${
-              editorMode ? 'bg-blue-600 text-white' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
-            }`}
-          >
-            {editorMode ? 'Salir del editor' : 'Mover mesas'}
-          </button>
-          <button
             onClick={() => { setUnionMode(!unionMode); setEditorMode(false); setSelectedForUnion([]); }}
             className={`px-3 py-2 rounded-xl text-xs font-bold cursor-pointer transition-colors ${
               unionMode ? 'bg-blue-600 text-white' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
@@ -887,12 +741,6 @@ export default function MesasModule({ mesas, onMesasChange, addLog = () => {} }:
           )}
         </div>
       </div>
-
-      {editorMode && (
-        <div className="bg-blue-50 text-blue-800 text-xs p-3 rounded-xl border border-blue-200">
-          📱 Modo editor activo: arrastra las mesas dentro del plano. Alineación asistida a la cuadrícula activa.
-        </div>
-      )}
 
       {unionMode && (
         <div className="bg-blue-50 text-blue-800 text-xs p-3 rounded-xl border border-blue-200">

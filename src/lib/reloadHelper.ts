@@ -33,8 +33,8 @@ export async function forceCleanReload(): Promise<boolean> {
       await Promise.all(keys.map(key => caches.delete(key)));
     }
     
-    // Clear session storage of active session to refresh states
-    window.sessionStorage.removeItem('el_patron_session');
+    // Clear local storage of active session to refresh states
+    window.localStorage.removeItem('el_patron_session');
   } catch (e) {
     console.warn('[PWA] Error clearing SW or caches:', e);
   }

@@ -25,7 +25,7 @@ import {
 import { Mesa, Insumo, ProductoMenu, RecetaEscandallo, Pedido, PedidoItem } from '../types';
 
 interface WineMapping {
-  macro: 'tintas' | 'blancas' | 'champagne' | 'destilados' | null;
+  macro: 'tintas' | 'blancas' | 'champagne' | 'copas' | 'destilados' | null;
   varietales: string[];
 }
 
@@ -41,7 +41,18 @@ function getWineMapping(p: ProductoMenu): WineMapping {
     const sub = (p.subcategoria || '').toLowerCase();
     if (sub.includes('espumantes') || sub.includes('champagne') || name.includes('champagne') || name.includes('chandon') || name.includes('baron b') || name.includes('aluda') || name.includes('rosé') || name.includes('brut')) {
       macro = 'champagne';
-    } else if (sub.includes('blancos') || name.includes('sauvignon') || name.includes('chardonnay') || name.includes('viognier') || name.includes('torrontés') || name.includes('torrontes') || name.includes('riesling') || name.includes('gewurztraminer') || name.includes('albariño')) {
+    } else if (name.includes('copa') || name.includes('copas')) {
+      macro = 'copas';
+    } else if (
+      sub.includes('blancos') || 
+      name.includes('sauvignon blanc') || name.includes('sauvignon-blanc') || name.includes('sb') ||
+      name.includes('chardonnay') || 
+      name.includes('viognier') || 
+      name.includes('torrontés') || name.includes('torrontes') || 
+      name.includes('riesling') || 
+      name.includes('gewurztraminer') || 
+      name.includes('albariño')
+    ) {
       macro = 'blancas';
     } else {
       macro = 'tintas';
@@ -55,88 +66,41 @@ function getWineMapping(p: ProductoMenu): WineMapping {
 
   if (macro === 'tintas') {
     // Malbec
-    if (
-      name.includes('trumpeter malbec') || name.includes('trumpeter (botella)') || name.includes('trumpeter (copa)') ||
-      name.includes('encuentro malbec') ||
-      name.includes('rutini') ||
-      name.includes('escorihuela') ||
-      name.includes('capítulo 2') || name.includes('ruca malén') ||
-      name.includes('st felicien') || name.includes('saint felicien') ||
-      name.includes('nicasia') ||
-      name.includes('padrillo') ||
-      name.includes('d.v. catena') || name.includes('dv catena') ||
-      name.includes('enemigo') ||
-      name.includes('tikal') || name.includes('tical') ||
-      name.includes('angélica zapata') || name.includes('angelica zapata') ||
-      name.includes('argentino') ||
-      name.includes('luca') ||
-      name.includes('perdices') ||
-      name.includes('don juan') ||
-      name.includes('exploración') || name.includes('exploracion') ||
-      name.includes('alae') ||
-      name.includes('portillo') ||
-      name.includes('pyros') ||
-      name.includes('numina') ||
-      name.includes('primus')
-    ) {
+    if (name.includes('malbec')) {
       varietales.push('Malbec');
     }
 
     // Cabernet Sauvignon
-    if (
-      name.includes('escorihuela') ||
-      name.includes('capítulo 2') || name.includes('ruca malén') ||
-      name.includes('st felicien') || name.includes('saint felicien') ||
-      name.includes('d.v. catena') || name.includes('dv catena') ||
-      name.includes('angélica zapata') || name.includes('angelica zapata') ||
-      name.includes('perdices') ||
-      name.includes('exploración') || name.includes('exploracion') ||
-      name.includes('encuentro cs') || name.includes('padrillo cs')
-    ) {
+    if (name.includes('cabernet sauvignon') || name.includes('cab-sauv') || name.includes('cs')) {
       varietales.push('Cabernet Sauvignon');
     }
 
-    // Red Blend
-    if (
-      name.includes('trumpeter red blend') || name.includes('alamos') || name.includes('nicasia red blend') || name.includes('nicasia blend') || name.includes('eg gran reserva') || name.includes('gran reserva red blend')
-    ) {
-      varietales.push('Red Blend');
-    }
-
     // Cabernet Franc
-    if (
-      name.includes('rutini') ||
-      name.includes('pequeñas producciones') || name.includes('pequenas prod') ||
-      name.includes('enemigo') ||
-      name.includes('ala colorada') ||
-      name.includes('numina')
-    ) {
+    if (name.includes('cabernet franc') || name.includes('cf')) {
       varietales.push('Cabernet Franc');
     }
 
     // Merlot
-    if (
-      name.includes('rutini') ||
-      name.includes('angélica zapata') || name.includes('angelica zapata')
-    ) {
+    if (name.includes('merlot')) {
       varietales.push('Merlot');
     }
 
     // Pinot Noir
-    if (
-      name.includes('escorihuela') ||
-      name.includes('padrillo') ||
-      name.includes('d.v. catena') || name.includes('dv catena') ||
-      name.includes('perdices') ||
-      name.includes('luca pinot') ||
-      name.includes('numina')
-    ) {
+    if (name.includes('pinot noir') || name.includes('pinot')) {
       varietales.push('Pinot Noir');
     }
 
-    // Otros Varietales Tintos
+    // Red Blend
+    if (name.includes('red blend') || name.includes('blend') || name.includes('gran reserva')) {
+      varietales.push('Red Blend');
+    }
+
+    // Otros Varietales Tintos (Ancellotta, Tannat, Petit Verdot)
     if (
-      name.includes('ala colorada') || name.includes('ancelotta') || name.includes('tannat') || name.includes('petit verdot')
+      name.includes('ancelotta') || 
+      name.includes('tannat') || 
+      name.includes('petit verdot') || 
+      name.includes('ala colorada')
     ) {
       varietales.push('Otros Varietales Tintos');
     }
@@ -254,7 +218,7 @@ export default function MozoTerminal({
   const [selectedCategoria, setSelectedCategoria] = useState<string>('todo');
   
   // Bodega hierarchy states
-  const [selectedWineMacro, setSelectedWineMacro] = useState<'tintas' | 'blancas' | 'champagne' | 'destilados' | 'todo'>('todo');
+  const [selectedWineMacro, setSelectedWineMacro] = useState<'tintas' | 'blancas' | 'champagne' | 'copas' | 'destilados' | 'todo'>('todo');
   const [selectedWineVarietal, setSelectedWineVarietal] = useState<string>('todo');
   
   // Current order cart
@@ -358,7 +322,7 @@ export default function MozoTerminal({
   // Find active order of the selected table if any (to split or pay)
   const activePedidoDeMesa = useMemo(() => {
     if (!selectedMesaId) return null;
-    return pedidos.find(p => p.id_mesa === selectedMesaId && p.estado_comanda !== 'entregado_cobrado') || null;
+    return pedidos.find(p => p.id_mesa === selectedMesaId && p.estado_comanda !== 'entregado_cobrado' && p.estado_comanda !== 'cancelado') || null;
   }, [selectedMesaId, pedidos]);
 
   // Filter products by category and search (with hierarchical wine/beverage browsing)
@@ -769,7 +733,7 @@ export default function MozoTerminal({
             </div>
           </div>
 
-          <div className="flex gap-1.5 w-full overflow-x-auto py-1 scrollbar-thin scroll-smooth border-t border-stone-200/30 pt-3">
+          <div className="flex gap-1.5 w-full overflow-x-auto py-1 scroll-smooth border-t border-stone-200/30 pt-3 pb-2.5">
             {[
               { id: 'todo', label: 'Todos 🍽️' },
               { id: 'Entradas', label: 'Entradas 🥗' },
@@ -816,11 +780,12 @@ export default function MozoTerminal({
           {selectedCategoria === 'Bodega' && (
             <div className="space-y-2.5 pt-3 border-t border-stone-250/30 transition-all duration-300">
               {/* Macro categories */}
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-2.5">
                 {[
                   { id: 'todo', label: 'Todo Bodega 🍷' },
                   { id: 'tintas', label: 'Bodegas Tintas 🍷' },
                   { id: 'blancas', label: 'Bodegas Blancas 🥂' },
+                  { id: 'copas', label: 'Copas de Vino 🍷' },
                   { id: 'champagne', label: 'Champagne & Espumantes 🍾' },
                   { id: 'destilados', label: 'Destilados & Aperitivos 🥃' }
                 ].map(macro => (
@@ -843,34 +808,38 @@ export default function MozoTerminal({
 
               {/* Varietals sub-menu for Tintas and Blancas */}
               {(selectedWineMacro === 'tintas' || selectedWineMacro === 'blancas') && (
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none flex-nowrap bg-[#FAF7F0] dark:bg-[#1C140E] p-1.5 rounded-lg border border-stone-200 dark:border-[#C8956A]/10">
-                  <span className="text-[9px] text-[#4A2D1B] dark:text-[#E8B800] font-black uppercase tracking-wider shrink-0 mr-1">Varietal:</span>
-                  <button
-                    onClick={() => setSelectedWineVarietal('todo')}
-                    className={`py-0.5 px-2.5 text-[9px] font-black rounded transition-all cursor-pointer ${
-                      selectedWineVarietal === 'todo'
-                        ? 'bg-amber-900/10 dark:bg-amber-500/10 text-[#4A2D1B] dark:text-[#C8956A] border border-amber-900/20 dark:border-amber-500/20'
-                        : 'bg-transparent text-stone-650 dark:text-stone-300 hover:bg-stone-100 hover:text-stone-700 dark:hover:text-stone-100'
-                    }`}
-                  >
-                    Todos
-                  </button>
-                  {(selectedWineMacro === 'tintas'
-                    ? ['Malbec', 'Cabernet Sauvignon', 'Red Blend', 'Cabernet Franc', 'Merlot', 'Pinot Noir', 'Otros Varietales Tintos']
-                    : ['Chardonnay', 'Sauvignon Blanc', 'Torrontés', 'Riesling', 'Gewurztraminer', 'Albariño']
-                  ).map(varName => (
+                <div className="space-y-2 bg-[#FAF7F0] dark:bg-[#1C140E] p-3 rounded-lg border border-stone-200 dark:border-[#C8956A]/10">
+                  <div className="text-[11px] text-[#4A2D1B] dark:text-[#E8B800] font-black uppercase tracking-wider">
+                    Filtrar por Varietal:
+                  </div>
+                  <div className="flex flex-wrap gap-2">
                     <button
-                      key={varName}
-                      onClick={() => setSelectedWineVarietal(varName)}
-                      className={`py-0.5 px-2.5 text-[9px] font-black rounded whitespace-nowrap transition-all cursor-pointer ${
-                        selectedWineVarietal === varName
-                          ? 'bg-[#4A2D1B] text-white shadow-sm'
-                          : 'bg-transparent text-stone-650 dark:text-stone-300 hover:bg-stone-100 hover:text-stone-700 dark:hover:text-stone-100'
+                      onClick={() => setSelectedWineVarietal('todo')}
+                      className={`py-1.5 px-3 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
+                        selectedWineVarietal === 'todo'
+                          ? 'bg-[#4A2D1B] text-white border-[#4A2D1B] shadow-sm'
+                          : 'bg-white dark:bg-[#251B12] text-stone-700 dark:text-stone-300 border-stone-200 dark:border-[#C8956A]/20 hover:bg-stone-50 dark:hover:bg-[#2F2217]'
                       }`}
                     >
-                      {varName}
+                      Todos
                     </button>
-                  ))}
+                    {(selectedWineMacro === 'tintas'
+                      ? ['Malbec', 'Cabernet Sauvignon', 'Red Blend', 'Cabernet Franc', 'Merlot', 'Pinot Noir', 'Otros Varietales Tintos']
+                      : ['Chardonnay', 'Sauvignon Blanc', 'Torrontés', 'Riesling', 'Gewurztraminer', 'Albariño']
+                    ).map(varName => (
+                      <button
+                        key={varName}
+                        onClick={() => setSelectedWineVarietal(varName)}
+                        className={`py-1.5 px-3 text-xs font-bold rounded-lg border whitespace-nowrap transition-all cursor-pointer ${
+                          selectedWineVarietal === varName
+                            ? 'bg-[#4A2D1B] text-white border-[#4A2D1B] shadow-sm'
+                            : 'bg-white dark:bg-[#251B12] text-stone-700 dark:text-stone-300 border-stone-200 dark:border-[#C8956A]/20 hover:bg-stone-50 dark:hover:bg-[#2F2217]'
+                        }`}
+                      >
+                        {varName}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -1021,7 +990,7 @@ export default function MozoTerminal({
                   return (
                     <div key={prodId} className="flex justify-between items-center text-xs bg-stone-50 dark:bg-[#1E140E] p-2.5 rounded-xl border border-stone-200 dark:border-[#C8956A]/15 hover:border-[#C8956A]/45 transition-all">
                       <div className="flex-1 pr-1 font-sans">
-                        <span className="font-bold text-[#4A2D1B] dark:text-[#FAF7F0] line-clamp-1">{p.nombre}</span>
+                        <span className="font-bold text-[#4A2D1B] dark:text-[#FAF7F0]">{p.nombre}</span>
                         <span className="text-[10px] text-stone-500 dark:text-stone-350 font-mono">${(p.precio_venta).toLocaleString('es-AR')} u.</span>
                       </div>
                       
@@ -1305,7 +1274,7 @@ export default function MozoTerminal({
                     {voiceResult.items.map((item, idx) => (
                       <div key={idx} className="flex items-center justify-between bg-stone-50 border border-stone-205 p-3 rounded-2xl">
                         <div className="min-w-0 pr-2 col-span-1">
-                          <span className="text-xs font-bold text-stone-750 block truncate">{item.product.nombre}</span>
+                          <span className="text-xs font-bold text-stone-750 block">{item.product.nombre}</span>
                           <span className="text-[10px] text-stone-450 block">${item.product.precio_venta} c/u</span>
                         </div>
                         <div className="flex items-center gap-2.5 shrink-0">

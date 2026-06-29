@@ -15,7 +15,9 @@ export type AppView =
   | 'reservas'
   | 'facturacion'
   | 'sistema'
-  | 'backups';
+  | 'backups'
+  | 'analytics'
+  | 'clientes';
 
 export const ALL_APP_VIEWS: AppView[] = [
   'home',
@@ -32,7 +34,9 @@ export const ALL_APP_VIEWS: AppView[] = [
   'reservas',
   'facturacion',
   'sistema',
-  'backups'
+  'backups',
+  'analytics',
+  'clientes'
 ];
 
 const MODULOS_SOLO_SUPERADMIN: AppView[] = ['sistema'];

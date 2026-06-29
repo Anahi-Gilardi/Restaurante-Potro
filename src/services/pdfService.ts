@@ -452,9 +452,7 @@ export const pdfService = {
 
     doc.setTextColor(...BRAND.dark);
     center(data.razonSocial, 7);
-    center(`CUIT ${data.cuit}`, 7);
     center(data.direccion.slice(0, 42), 6.5);
-    center(`Tel: ${data.telefono}`, 6.5);
     y += 1.5;
     line();
 
@@ -607,9 +605,9 @@ export const pdfService = {
     const isReporteX = !data.fecha_cierre || data.fecha_cierre.toLowerCase().includes('curso');
 
     let nombreFantasia = 'El Patrón';
-    let direccion = 'Alvear 1362, X5800 Río Cuarto, Córdoba';
-    let telefono = '+54 358 4123456';
-    let email = 'contacto@elpatron.com.ar';
+    let direccion = 'Fotheringham 33, Rio Cuarto, Córdoba';
+    let telefono = '+54 9 3584 37-3711';
+    let email = 'bellaoriana47@gmail.com';
     try {
       const saved = localStorage.getItem('el_patron_restaurante_info');
       if (saved) {
@@ -1114,5 +1112,168 @@ export const pdfService = {
     }
 
     doc.save(`comanda-${tipo}-${pedido.id_pedido}.pdf`);
+  },
+
+  async exportCierreCajaPDF(cierre: any, configRestaurante: any): Promise<void> {
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const margin = 14;
+    let y = 14;
+    
+    // Header banner
+    doc.setFillColor(98, 74, 62);
+    doc.rect(margin, y, 182, 1.5, 'F');
+    y += 8;
+
+    doc.setTextColor(98, 74, 62);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.text('REPORTE DE ARQUEO Y CIERRE DE CAJA', margin, y);
+    y += 6;
+
+    doc.setTextColor(35, 31, 28);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text(`Establecimiento: ${configRestaurante.nombreComercial || 'El Patrón'}`, margin, y);
+    doc.text(`Cajero: ${cierre.usuario_cajero}`, margin + 100, y);
+    y += 5;
+
+    doc.text(`Fecha Apertura: ${new Date(cierre.fecha_apertura).toLocaleString('es-AR')}`, margin, y);
+    doc.text(`Fecha Cierre: ${cierre.fecha_cierre ? new Date(cierre.fecha_cierre).toLocaleString('es-AR') : 'SESIÓN ABIERTA'}`, margin + 100, y);
+    y += 8;
+
+    doc.setDrawColor(219, 213, 204);
+    doc.setLineWidth(0.2);
+    doc.line(margin, y, margin + 182, y);
+    y += 8;
+
+    // Resumen financiero
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text('RESUMEN FINANCIERO', margin, y);
+    y += 6;
+
+    const money = (val: number) => `$${Number(val || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text('Caja Inicial (Apertura):', margin, y);
+    doc.setFont('helvetica', 'bold');
+    doc.text(money(cierre.monto_apertura), margin + 60, y);
+
+    doc.setFont('helvetica', 'normal');
+    doc.text('Total Ventas Registradas:', margin + 100, y);
+    doc.setFont('helvetica', 'bold');
+    doc.text(money(cierre.monto_ventas), margin + 150, y);
+    y += 6;
+
+    // Manual movements calculation
+    const movs = cierre.movimientos_manuales || [];
+    const ingresos = movs.filter((m: any) => m.tipo === 'ingreso').reduce((s: number, m: any) => s + m.monto, 0);
+    const egresos = movs.filter((m: any) => m.tipo === 'egreso').reduce((s: number, m: any) => s + m.monto, 0);
+
+    doc.setFont('helvetica', 'normal');
+    doc.text('Ingresos de Caja Chica (+):', margin, y);
+    doc.text(money(ingresos), margin + 60, y);
+
+    doc.text('Egresos de Caja Chica (-):', margin + 100, y);
+    doc.text(money(egresos), margin + 150, y);
+    y += 8;
+
+    doc.line(margin, y, margin + 182, y);
+    y += 8;
+
+    const cajaEsperada = cierre.monto_apertura + cierre.monto_ventas + ingresos - egresos;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Saldo Esperado en Caja:', margin, y);
+    doc.text(money(cajaEsperada), margin + 60, y);
+
+    if (cierre.fecha_cierre) {
+      doc.text('Saldo Físico Registrado:', margin + 100, y);
+      doc.text(money(cierre.monto_real || 0), margin + 150, y);
+      y += 6;
+
+      const dif = cierre.diferencia ?? 0;
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(dif < 0 ? 220 : (dif > 0 ? 34 : 35), dif < 0 ? 53 : (dif > 0 ? 197 : 31), dif < 0 ? 69 : (dif > 0 ? 94 : 28));
+      doc.text('Diferencia de Arqueo:', margin, y);
+      doc.text(money(dif), margin + 60, y);
+      doc.setTextColor(35, 31, 28);
+    }
+    y += 10;
+
+    doc.line(margin, y, margin + 182, y);
+    y += 8;
+
+    // Desglose de pagos
+    if (cierre.registros_totales) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.text('VENTAS POR MEDIO DE PAGO', margin, y);
+      y += 6;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      const reg = cierre.registros_totales;
+      doc.text(`Efectivo: ${money(reg.efectivo)}`, margin, y);
+      doc.text(`Débito: ${money(reg.debito)}`, margin + 65, y);
+      doc.text(`Crédito: ${money(reg.credito)}`, margin + 130, y);
+      y += 6;
+      doc.text(`Transferencia: ${money(reg.transferencia)}`, margin, y);
+      doc.text(`MercadoPago/QR: ${money(reg.mercadopago)}`, margin + 65, y);
+      y += 10;
+      doc.line(margin, y, margin + 182, y);
+      y += 8;
+    }
+
+    // Movimientos manuales detalle
+    if (movs.length > 0) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.text('MOVIMIENTOS DE CAJA CHICA', margin, y);
+      y += 6;
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.text('Fecha', margin, y);
+      doc.text('Tipo', margin + 35, y);
+      doc.text('Concepto', margin + 60, y);
+      doc.text('Monto', margin + 150, y);
+      y += 4;
+      doc.line(margin, y, margin + 182, y);
+      y += 4;
+
+      doc.setFont('helvetica', 'normal');
+      movs.forEach((m: any) => {
+        if (y > 270) {
+          doc.addPage();
+          y = 20;
+        }
+        const fTime = new Date(m.fecha).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + ' hs';
+        doc.text(fTime, margin, y);
+        doc.text(m.tipo.toUpperCase(), margin + 35, y);
+        doc.text(m.concepto.substring(0, 45), margin + 60, y);
+        doc.text(money(m.monto), margin + 150, y);
+        y += 5;
+      });
+      y += 5;
+      doc.line(margin, y, margin + 182, y);
+      y += 8;
+    }
+
+    // Observaciones
+    if (cierre.observaciones) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.text('OBSERVACIONES DEL CIERRE', margin, y);
+      y += 6;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      const splitObs = doc.splitTextToSize(cierre.observaciones, 180);
+      doc.text(splitObs, margin, y);
+    }
+
+    const filename = `cierre-caja-${cierre.id_cierre}.pdf`;
+    doc.save(filename);
   }
 };

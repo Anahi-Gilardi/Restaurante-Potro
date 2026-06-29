@@ -56,6 +56,8 @@ const PromocionesModule = lazy(() => import('./components/PromocionesModule'));
 const ReservasModule = lazy(() => import('./components/ReservasModule'));
 const FacturacionModule = lazy(() => import('./components/FacturacionModule'));
 const BackupsModule = lazy(() => import('./components/BackupsModule'));
+const BusinessIntelligence = lazy(() => import('./components/BusinessIntelligence'));
+const ClientesModule = lazy(() => import('./components/ClientesModule'));
 import { 
   getSupabaseClient,
   resetSupabaseInstance,
@@ -101,24 +103,15 @@ function isSameTable(p1: { id_mesa?: any; numero_mesa?: string }, p2: { id_mesa?
 export default function App() {
   const { toast, toasts, removeToast } = useToast();
 
-  // System theme detection and class toggling for class-based dark mode
+  // System theme detection disabled to prevent automatic dark mode from altering the design.
+  // The app now uses a unified warm beige/light brown theme.
   useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleChange = (e: MediaQueryListEvent | MediaQueryList) => {
-      if (e.matches) {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
-    };
-    handleChange(mediaQuery);
-    mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
+    document.documentElement.classList.remove('dark');
   }, []);
 
   // --- Global Synced States ---
   const [isStreamlitLoggedIn, setIsStreamlitLoggedIn] = useState<boolean>(() => (
-    typeof window !== 'undefined' && window.sessionStorage.getItem('el_patron_session') === 'active'
+    typeof window !== 'undefined' && window.localStorage.getItem('el_patron_session') === 'active'
   ));
   const [showCover, setShowCover] = useState<boolean>(true);
   const [permitirVentaSinStock, setPermitirVentaSinStock] = useState<boolean>(false);
@@ -316,26 +309,35 @@ export default function App() {
     if (client) {
       const activeChannel = client.channel('realtime_pedidos_app');
       channel = activeChannel;
+
+      // Simple debounce function to prevent multiple rapid database requests
+      const debounce = <T extends (...args: any[]) => any>(fn: T, delay: number) => {
+        let timeoutId: any = null;
+        return (...args: Parameters<T>) => {
+          if (timeoutId) clearTimeout(timeoutId);
+          timeoutId = setTimeout(() => fn(...args), delay);
+        };
+      };
+
+      const fetchAndSetPedidos = async () => {
+        try {
+          const refreshed = await dbFetchPedidos();
+          if (refreshed && active) {
+            setPedidos(refreshed);
+          }
+        } catch (err) {
+          console.warn('Realtime fetch for pedidos failed:', err);
+        }
+      };
+
+      const debouncedFetchPedidos = debounce(fetchAndSetPedidos, 400);
+
       activeChannel
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos_cabecera' }, async () => {
-          try {
-            const refreshed = await dbFetchPedidos();
-            if (refreshed && active) {
-              setPedidos(refreshed);
-            }
-          } catch (err) {
-            console.warn('Realtime fetch for pedidos failed:', err);
-          }
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos_cabecera' }, () => {
+          debouncedFetchPedidos();
         })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'pedido_detalle' }, async () => {
-          try {
-            const refreshed = await dbFetchPedidos();
-            if (refreshed && active) {
-              setPedidos(refreshed);
-            }
-          } catch (err) {
-            console.warn('Realtime fetch for pedido_detalle failed:', err);
-          }
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'pedido_detalle' }, () => {
+          debouncedFetchPedidos();
         })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'mesas' }, async () => {
           try {
@@ -621,7 +623,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
   };
 
   const handleLoginSuccess = (user: Usuario) => {
-    window.sessionStorage.setItem('el_patron_session', 'active');
+    window.localStorage.setItem('el_patron_session', 'active');
     setActiveMozo(user.nombre);
     setActiveView('home');
 
@@ -640,7 +642,14 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
   };
 
   const handleLogout = () => {
-    window.sessionStorage.removeItem('el_patron_session');
+    window.localStorage.removeItem('el_patron_session');
+    getSupabaseClient()?.auth.signOut().catch(() => undefined);
+    setIsStreamlitLoggedIn(false);
+    setShowCover(false);
+  };
+
+  const handleLogoClickToLogin = () => {
+    window.localStorage.removeItem('el_patron_session');
     getSupabaseClient()?.auth.signOut().catch(() => undefined);
     setIsStreamlitLoggedIn(false);
     setShowCover(false);
@@ -764,9 +773,13 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
 
     setTimeout(() => {
       if (updatedPedido) {
-        dbSavePedidoComplex(updatedPedido);
+        dbSavePedidoComplex(updatedPedido).catch(err => {
+          console.warn('dbSavePedidoComplex async error:', err);
+        });
       } else if (pObj) {
-        dbSavePedidoComplex({ ...pObj, estado_comanda: nuevoEstado });
+        dbSavePedidoComplex({ ...pObj, estado_comanda: nuevoEstado }).catch(err => {
+          console.warn('dbSavePedidoComplex async error:', err);
+        });
       }
     }, 50);
 
@@ -1063,6 +1076,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
         onNavigate={handleNavigate}
         onMozoChange={handleMozoChange}
         onLogout={handleLogout}
+        onLogoClick={handleLogoClickToLogin}
         onToggleAutoTimer={handleToggleAutoTimer}
         onAdvanceTime={handleAdvanceTime}
       />
@@ -1076,9 +1090,9 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
       >
         {/* Logo */}
         <div 
-          onClick={handleLogout}
+          onClick={handleLogoClickToLogin}
           className={`flex items-center border-b border-[#FAF7F0]/10 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-4'} py-5 cursor-pointer hover:bg-white/5 transition-colors select-none`}
-          title="Cerrar sesión"
+          title="Cerrar Sesión / Ir al Login"
         >
           <div className="w-9 h-9 bg-white rounded-xl flex items-center justify-center shadow-lg border border-[#C8956A]/30 p-0.5 overflow-hidden shrink-0 relative">
             <ElPatronLogo className="w-8 h-8 object-contain rounded" variant="icon" color="#4A2D1B" />
@@ -1098,7 +1112,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
 
 
         {/* Nav items */}
-        <nav className="flex-1 overflow-y-auto overscroll-contain py-4 sidebar-scroll-hidden space-y-1 px-2">
+        <nav className="flex-1 overflow-y-auto overscroll-contain py-4 space-y-1 px-2">
           {[
             { id: 'home', label: 'Inicio', icon: '🏠' },
             { id: 'mozo', label: 'Mozo', icon: '📱' },
@@ -1112,6 +1126,8 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
             { id: 'promociones', label: 'Promociones', icon: '🏷️' },
             { id: 'reservas', label: 'Reservas', icon: '📅' },
             { id: 'facturacion', label: 'Facturación', icon: '🧾' },
+            { id: 'clientes', label: 'Clientes', icon: '👥' },
+            { id: 'analytics', label: 'Métricas / BI', icon: '📊' },
             { id: 'usuarios', label: 'Usuarios', icon: '👥' },
             { id: 'sistema', label: 'Sistema', icon: '💻' },
             { id: 'backups', label: 'Backups', icon: '🗄️' },
@@ -1261,6 +1277,20 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
                 operationalData={{ usuarios, mesas, insumos, productosMenu, recetas, pedidos, mermas, logs }}
                 onRestoreData={handleRestoreBackupData}
                 addLog={addLog}
+              />
+            )}
+            {activeView === 'analytics' && (
+              <BusinessIntelligence 
+                productosMenu={productosMenu} 
+                logs={logs} 
+                pedidos={pedidos} 
+                recetas={recetas} 
+                insumos={insumos} 
+              />
+            )}
+            {activeView === 'clientes' && (
+              <ClientesModule 
+                addLog={addLog} 
               />
             )}
           </Suspense>
