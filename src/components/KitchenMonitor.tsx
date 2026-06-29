@@ -220,7 +220,7 @@ export default function KitchenMonitor({
         </div>
 
         <div className="p-4 space-y-3 flex-1 flex flex-col justify-between overflow-hidden">
-          <div className="space-y-2 overflow-y-auto pr-1 flex-1 no-scrollbar max-h-[185px]">
+          <div className="space-y-2 overflow-y-auto pr-1 flex-1 max-h-[185px]">
             {p.items.map((it, idx) => (
               <div
                 key={idx}
@@ -339,7 +339,7 @@ export default function KitchenMonitor({
           </span>
         </div>
 
-        <div className="space-y-4 max-h-[700px] overflow-y-auto pr-1">
+        <div className="space-y-4 max-h-[calc(100vh-350px)] min-h-[300px] overflow-y-auto pr-1">
           {orders.length === 0 ? (
             <div className="h-36 border-2 border-dashed border-stone-200/50 dark:border-stone-800/40 rounded-[20px] flex flex-col justify-center items-center text-center p-4 opacity-70 glass-panel">
               {emptyMessages[estado].icon}
