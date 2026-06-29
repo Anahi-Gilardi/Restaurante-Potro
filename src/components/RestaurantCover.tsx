@@ -6,7 +6,6 @@ import {
   Clock, 
   Phone, 
   Mail, 
-  ArrowRight, 
   UtensilsCrossed, 
   Award, 
   Sparkles, 
@@ -192,7 +191,7 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
       <header className="sticky top-0 z-50 w-full backdrop-blur-md bg-[#FAF7F0]/80 dark:bg-[#1A110B]/80 border-b border-[#624A3E]/10 dark:border-amber-900/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 flex items-center justify-between">
           {/* Logo Brand */}
-          <div className="flex items-center gap-3.5 cursor-pointer">
+          <div onClick={onEnterSystem} className="flex items-center gap-3.5 cursor-pointer" title="El Patrón">
             <img src="/logo-el-patron.jpeg" alt="Logo El Patrón" className="w-20 h-20 object-cover rounded-full shadow-lg border border-[#624A3E]/10" />
             <span className="font-extrabold text-2xl tracking-widest font-display-serif text-[#4A2D1B] dark:text-amber-500">
               EL PATRÓN
@@ -207,25 +206,8 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
             <a href="#contacto" className={`transition-colors ${coverTab === 'parrilla' ? 'hover:text-[#624A3E]' : 'hover:text-[#9B2226]'}`}>Ubicación</a>
           </nav>
 
-          {/* Action Gateway Button */}
-          <div className="hidden md:flex items-center gap-3">
-            <button
-              onClick={onEnterSystem}
-              className="px-4 py-2 bg-[#624A3E] hover:bg-[#4A2D1B] dark:bg-amber-500 dark:hover:bg-amber-400 text-white dark:text-[#1A110B] rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-200 cursor-pointer shadow-md hover:shadow-lg flex items-center gap-2"
-            >
-              Acceder al Sistema
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
           {/* Mobile Menu Toggle */}
           <div className="md:hidden flex items-center gap-2">
-            <button
-              onClick={onEnterSystem}
-              className="px-3 py-1.5 bg-[#624A3E] dark:bg-amber-500 text-white dark:text-[#1A110B] rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1"
-            >
-              Acceder
-            </button>
             <button 
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="p-1.5 rounded-lg text-stone-700 dark:text-stone-300 hover:bg-[#624A3E]/10"
@@ -563,13 +545,12 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
         </div>
       </section>
 
-      {/* 7. CONTACT & FOOTER */}
       <footer id="contacto" className="bg-[#1C140E] text-[#FAF7F0]/80 py-16 border-t border-[#624A3E]/10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-4 gap-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-3 gap-12">
           
           {/* Logo & Brand description */}
           <div className="space-y-4">
-            <div className="flex items-center gap-3.5">
+            <div onClick={onEnterSystem} className="flex items-center gap-3.5 cursor-pointer" title="El Patrón">
               <img src="/logo-el-patron.jpeg" alt="Logo El Patrón" className="w-16 h-16 object-cover rounded-full border border-white/10" />
               <span className="font-extrabold text-xl tracking-widest text-white font-display-serif">EL PATRÓN</span>
             </div>
@@ -614,20 +595,6 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
                 <span>Fotheringham 33, Rio Cuarto, Córdoba</span>
               </li>
             </ul>
-          </div>
-
-          {/* Acceso Staff */}
-          <div className="space-y-4">
-            <h4 className="text-xs uppercase font-bold tracking-widest text-white font-display-serif">Área de Personal</h4>
-            <p className="text-[11px] text-stone-400">
-              Uso exclusivo para mozos, personal de cocina, cajeros y administración.
-            </p>
-            <button
-              onClick={onEnterSystem}
-              className="w-full py-2 bg-white/5 hover:bg-white/10 border border-white/15 text-white rounded-xl text-[10px] uppercase font-black tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5 font-display-serif"
-            >
-              🔑 Acceso Administrativo
-            </button>
           </div>
         </div>
 
