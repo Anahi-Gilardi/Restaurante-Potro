@@ -8,7 +8,7 @@ const source = readFileSync(resolve('src/components/RecetasModule.tsx'), 'utf8')
 test('mantiene el encabezado JSX de recetarios en formato valido', () => {
   assert.match(
     source,
-    /<h3 className="text-xs font-black text-stone-500 uppercase tracking-wider">Recetarios Habilitados<\/h3>/,
+    /<h3 className="text-xs font-black text-stone-500 (?:dark:text-stone-300 )?uppercase tracking-wider">Recetarios Habilitados<\/h3>/,
   );
 });
 

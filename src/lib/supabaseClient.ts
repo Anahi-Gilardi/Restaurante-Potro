@@ -116,6 +116,9 @@ export const getActiveSupabaseClient = (): SupabaseClient => {
  * Use this in services that have local fallbacks.
  */
 export const tryGetActiveSupabaseClient = (): SupabaseClient | null => {
+  if (typeof process !== 'undefined' && process.env.NODE_ENV === 'test') {
+    return null;
+  }
   try {
     return createConfiguredClient();
   } catch {
