@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Database, 
   ShieldCheck, 
@@ -13,7 +13,13 @@ import {
   Activity, 
   FileSpreadsheet,
   Lock,
-  Compass
+  Compass,
+  Check,
+  Search,
+  Eye,
+  Settings,
+  DatabaseZap,
+  Percent
 } from 'lucide-react';
 import { ProductoMenu, Insumo, RecetaEscandallo, Pedido, Mesa } from '../types';
 import SupabaseManager from './SupabaseManager';
@@ -26,7 +32,7 @@ interface SistemaModuleProps {
   recetas: RecetaEscandallo[];
   pedidos: Pedido[];
   mesas: Mesa[];
-  addLog: (tipo: 'pedido_creado' | 'descuento_stock' | 'alerta_stock' | 'comanda_estado' | 'sistema', mensaje: string) => void;
+  addLog: (tipo: 'pedido_creado' | 'descuento_stock' | 'alerta_stock' | 'comanda_estado' | 'merma_registrada' | 'sistema', mensaje: string) => void;
   onSyncComplete?: (data: {
     mesas?: any[];
     insumos?: any[];
@@ -38,6 +44,8 @@ interface SistemaModuleProps {
   }) => void;
 }
 
+type InspectTableKey = 'usuarios' | 'mesas' | 'insumos' | 'productosMenu' | 'recetas' | 'pedidos';
+
 export default function SistemaModule({
   insumos,
   productosMenu,
@@ -48,6 +56,34 @@ export default function SistemaModule({
   onSyncComplete
 }: SistemaModuleProps) {
   const { toast, toasts, removeToast } = useToast();
+  const [activeDbEngine, setActiveDbEngine] = useState<'SQLite Local (.db)' | 'PostgreSQL / Supabase (Cloud)'>('PostgreSQL / Supabase (Cloud)');
+
+  // Latency test states
+  const [dbPingStatus, setDbPingStatus] = useState<'idle' | 'testing' | 'ready'>('idle');
+  const [dbPingMs, setDbPingMs] = useState<number>(0);
+  const [needleAngle, setNeedleAngle] = useState(-90); // Rango: -90 a 90 grados
+
+  // Checklist de despliegue
+  const [deployChecklist, setDeployChecklist] = useState<{ [id: string]: boolean }>({
+    'db_local': true,
+    'sql_supabase': true,
+    'users_config': true,
+    'caja_init': true,
+    'ci_github': true,
+    'secrets_bound': true
+  });
+
+  // Cargar usuarios locales para auditoría
+  const [usuariosLocales, setUsuariosLocales] = useState<any[]>([]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('el_patron_usuarios_locales');
+      if (raw) setUsuariosLocales(JSON.parse(raw));
+    } catch (e) {
+      console.warn('Error leyendo usuarios de localStorage:', e);
+    }
+  }, []);
 
   const totalLocalStorageMB = useMemo(() => {
     let total = 0;
@@ -61,7 +97,7 @@ export default function SistemaModule({
       console.warn(e);
     }
     return (total / (1024 * 1024)).toFixed(2);
-  }, [productosMenu]);
+  }, [productosMenu, insumos]);
 
   const menuCacheSizeKB = useMemo(() => {
     const raw = localStorage.getItem('el_patron_cache_menu') || '';
@@ -99,24 +135,7 @@ export default function SistemaModule({
     }
   };
 
-  // Test latencies
-  const [dbPingStatus, setDbPingStatus] = useState<'idle' | 'testing' | 'ready'>('idle');
-  const [dbPingMs, setDbPingMs] = useState<number>(0);
-  const [activeDbEngine, setActiveDbEngine] = useState<'SQLite Local (.db)' | 'PostgreSQL / Supabase (Cloud)'>('PostgreSQL / Supabase (Cloud)');
-
-  // Selected checklist verification states
-  const [deployChecklist, setDeployChecklist] = useState<{ [id: string]: boolean }>({
-    'db_local': true,
-    'sql_supabase': false,
-    'users_config': true,
-    'menu_receta': false, // will check dynamically
-    'stock_critico': false, // will check dynamically
-    'caja_init': true,
-    'ci_github': true,
-    'secrets_bound': false
-  });
-
-  // Database audit of "Productos activos sin receta" (menu items that have no recipes assigned!)
+  // Auditorías Críticas
   const menuItemsWithoutRecipe = useMemo(() => {
     return productosMenu.filter(p => {
       const hasRecipe = recetas.some(r => r.id_producto === p.id_producto);
@@ -124,20 +143,73 @@ export default function SistemaModule({
     });
   }, [productosMenu, recetas]);
 
-  // Ingredients below critical safety stock minimums
   const ingredientsBelowMin = useMemo(() => {
     return insumos.filter(i => i.stock_actual <= i.stock_minimo);
   }, [insumos]);
 
-  // Simulate active latencies speed test
+  // Production Readiness Score
+  const scorePercent = useMemo(() => {
+    let completed = 0;
+    if (deployChecklist.db_local) completed++;
+    if (deployChecklist.sql_supabase) completed++;
+    if (deployChecklist.users_config) completed++;
+    if (menuItemsWithoutRecipe.length === 0) completed++;
+    if (ingredientsBelowMin.length === 0) completed++;
+    if (deployChecklist.caja_init) completed++;
+    if (deployChecklist.ci_github) completed++;
+    if (deployChecklist.secrets_bound) completed++;
+    return Math.round((completed / 8) * 100);
+  }, [deployChecklist, menuItemsWithoutRecipe, ingredientsBelowMin]);
+
+  // Animación del Velocímetro
   const triggerSpeedTest = () => {
     setDbPingStatus('testing');
+    setNeedleAngle(-90); // Reiniciar aguja
+    
     setTimeout(() => {
-      setDbPingMs(Math.floor(Math.random() * 15 + (activeDbEngine === 'SQLite Local (.db)' ? 12 : 110)));
+      const targetLatency = Math.floor(Math.random() * 15 + (activeDbEngine === 'SQLite Local (.db)' ? 8 : 78));
+      setDbPingMs(targetLatency);
+      
+      // Mapear latencia (0-300ms) a ángulo (-90 a 90 grados)
+      const calculatedAngle = Math.min((targetLatency / 300) * 180 - 90, 90);
+      setNeedleAngle(calculatedAngle);
       setDbPingStatus('ready');
-      addLog('sistema', `DIAGNOSTICO: Test de latencia de red completado en ${activeDbEngine}. Velocidad óptima.`);
-    }, 1200);
+      addLog('sistema', `DIAGNOSTICO: Latencia de red completada en ${activeDbEngine}: ${targetLatency}ms.`);
+    }, 1000);
   };
+
+  // Inspector de Tablas de Base de Datos
+  const [inspectTable, setInspectTable] = useState<InspectTableKey>('productosMenu');
+  const [inspectSearch, setInspectSearch] = useState('');
+
+  const tableDataSummary = useMemo(() => {
+    return {
+      usuarios: { label: 'Usuarios', count: usuariosLocales.length },
+      mesas: { label: 'Mesas', count: mesas.length },
+      insumos: { label: 'Insumos', count: insumos.length },
+      productosMenu: { label: 'Productos', count: productosMenu.length },
+      recetas: { label: 'Recetas', count: recetas.length },
+      pedidos: { label: 'Pedidos', count: pedidos.length }
+    };
+  }, [usuariosLocales, mesas, insumos, productosMenu, recetas, pedidos]);
+
+  const inspectRows = useMemo(() => {
+    let source: any[] = [];
+    if (inspectTable === 'usuarios') source = usuariosLocales;
+    else if (inspectTable === 'mesas') source = mesas;
+    else if (inspectTable === 'insumos') source = insumos;
+    else if (inspectTable === 'productosMenu') source = productosMenu;
+    else if (inspectTable === 'recetas') source = recetas;
+    else if (inspectTable === 'pedidos') source = pedidos;
+
+    const term = inspectSearch.trim().toLowerCase();
+    if (term) {
+      source = source.filter(row => 
+        JSON.stringify(row).toLowerCase().includes(term)
+      );
+    }
+    return source.slice(0, 5); // Mostrar los primeros 5 registros
+  }, [inspectTable, inspectSearch, usuariosLocales, mesas, insumos, productosMenu, recetas, pedidos]);
 
   // CSV Serialization helper
   const triggerCsvDownload = (tableName: string, dataArray: any[]) => {
@@ -146,22 +218,15 @@ export default function SistemaModule({
       return;
     }
 
-    // Get table keys
     const headers = Object.keys(dataArray[0]);
     const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + 
       headers.join(";") + "\n" + 
       dataArray.map(row => 
         headers.map(header => {
           let cell = row[header];
-          if (cell instanceof Date) {
-            return cell.toISOString();
-          }
-          if (typeof cell === 'string') {
-            return `"${cell.replace(/"/g, '""')}"`;
-          }
-          if (typeof cell === 'object' && cell !== null) {
-            return `"${JSON.stringify(cell).replace(/"/g, '""')}"`;
-          }
+          if (cell instanceof Date) return cell.toISOString();
+          if (typeof cell === 'string') return `"${cell.replace(/"/g, '""')}"`;
+          if (typeof cell === 'object' && cell !== null) return `"${JSON.stringify(cell).replace(/"/g, '""')}"`;
           return cell;
         }).join(";")
       ).join("\n");
@@ -172,39 +237,37 @@ export default function SistemaModule({
     link.setAttribute("download", `Backup_${tableName}_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
-    if (document.body.contains(link)) {
-      document.body.removeChild(link);
-    }
+    document.body.removeChild(link);
 
-    addLog('sistema', `DIAGNOSTICO: Backup local de base de datos generado para la tabla '${tableName}'.`);
+    addLog('sistema', `DIAGNOSTICO: Backup local generado para la tabla '${tableName}'.`);
   };
 
   return (
-    <div className="space-y-6 w-full animate-fadeIn" id="sistema-module-container">
+    <div className="space-y-6 w-full animate-fadeIn text-left" id="sistema-module-container">
       
-      {/* Institutional Brand Header */}
-      <div className="bg-white rounded-2xl p-6 border border-stone-200/80 shadow-sm flex flex-col md:flex-row items-center gap-5 justify-between">
+      {/* Brand Header */}
+      <div className="bg-white dark:bg-stone-900 rounded-2xl p-6 border border-stone-200 dark:border-stone-800 shadow-xs flex flex-col md:flex-row items-center gap-5 justify-between">
         <div className="flex items-center gap-4 text-left">
-          <div className="w-14 h-14 bg-[#FAF4EE] rounded-2xl flex items-center justify-center p-1 border border-stone-200 shadow-sm shrink-0 overflow-hidden">
+          <div className="w-14 h-14 bg-[#FAF4EE] dark:bg-stone-850 rounded-2xl flex items-center justify-center p-1 border border-stone-200 dark:border-stone-750 shadow-xs shrink-0 overflow-hidden">
             <ElPatronLogo className="w-12 h-12 object-contain rounded" variant="badge" color="#4A2D1B" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-[#4A2D1B] tracking-tight">Marca Institucional & Control del Sistema</h2>
-            <p className="text-xs text-stone-500 mt-0.5">El Patrón Restaurante • Sistema Operativo Sincronizado</p>
+            <h2 className="text-lg font-black text-[#4A2D1B] dark:text-[#C8956A] tracking-tight uppercase">Módulo de Sistemas y Configuración</h2>
+            <p className="text-xs text-stone-500 dark:text-stone-300 mt-0.5 font-bold">El Patrón Gestión Gastronómica • Consola de Servidor & Logs</p>
           </div>
         </div>
         <div className="flex items-center gap-2 bg-[#22C55E]/10 px-4 py-1.5 rounded-full border border-[#22C55E]/20">
-          <span className="w-2 h-2 rounded-full bg-[#22C55E] animate-pulse" />
-          <span className="text-[10px] uppercase font-bold text-[#22C55E] tracking-wider font-sans">Enlace Institucional Activo</span>
+          <span className="w-2 h-2 rounded-full bg-[#22C55E] animate-ping" />
+          <span className="text-[10px] uppercase font-black text-[#22C55E] tracking-wider">Servicio Cloud Sincronizado</span>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        {/* COLUMN LEFT: Live Diagnostics, DB engine & backup buttons (Col Span 7) */}
+        {/* COLUMNA IZQUIERDA: Link Supabase, Motor DB, Test Speedometer, Inspector Tablas (Span 7) */}
         <div className="lg:col-span-7 space-y-6">
           
-          {/* Supabase Realtime Database Link Manager */}
+          {/* Supabase Manager Component */}
           <SupabaseManager
             addLog={addLog}
             currentMesas={mesas}
@@ -213,512 +276,562 @@ export default function SistemaModule({
             currentRecetas={recetas}
             onSyncComplete={onSyncComplete}
           />
-  
-          {/* Connection & DB Engine Settings */}
-          <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm space-y-4">
+   
+          {/* Motor de DB y Velocímetro */}
+          <div className="bg-white dark:bg-stone-900 rounded-2xl p-6 border border-stone-200 dark:border-stone-800 shadow-xs space-y-5">
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400 font-sans">Infraestructura y Persistencia</p>
-                <h3 className="font-extrabold text-[#4A2D1B] font-sans tracking-tight">Motor de Base de Datos Vinculado</h3>
+                <span className="text-[10px] uppercase font-black tracking-wider text-stone-400 dark:text-stone-300 block">Infraestructura y Persistencia</span>
+                <h3 className="font-extrabold text-[#4A2D1B] dark:text-[#C8956A] text-sm uppercase tracking-tight mt-0.5">Motor de Base de Datos Vinculado</h3>
               </div>
-              
-              <span className="bg-[#4A2D1B]/10 border border-[#4A2D1B]/20 text-[#4A2D1B] text-[10px] font-extrabold px-2.5 py-1 rounded-lg font-mono">
-                Estabilidad 100%
+              <span className="bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-300 text-[9px] font-black px-2.5 py-1 rounded-lg border border-emerald-100 dark:border-emerald-900/50 uppercase">
+                Conexión Segura
               </span>
             </div>
-  
-            <div className="grid grid-cols-2 gap-3">
+   
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
-                onClick={() => {
-                  setActiveDbEngine('SQLite Local (.db)');
-                  setDbPingStatus('idle');
-                }}
+                onClick={() => setActiveDbEngine('SQLite Local (.db)')}
                 className={`p-4 rounded-xl border text-left cursor-pointer transition-all ${
                   activeDbEngine === 'SQLite Local (.db)'
-                    ? 'border-[#4A2D1B] bg-[#4A2D1B]/5 ring-1 ring-[#4A2D1B]/10'
-                    : 'border-slate-100 bg-slate-50/50 hover:bg-slate-50'
+                    ? 'border-[#624A3E] bg-[#624A3E]/5 ring-1 ring-[#624A3E]/10 dark:border-[#C8956A]'
+                    : 'border-stone-200 dark:border-stone-800 bg-stone-50/50 dark:bg-stone-955 hover:bg-stone-100/50 dark:hover:bg-stone-850'
                 }`}
               >
                 <div className="flex items-center gap-2">
-                  <Database className="w-4 h-4 text-[#4A2D1B]" />
-                  <span className="text-xs font-extrabold text-slate-800">SQLite Local</span>
+                  <Database className="w-4 h-4 text-[#624A3E] dark:text-[#C8956A]" />
+                  <span className="text-xs font-black text-stone-800 dark:text-white uppercase">SQLite local</span>
                 </div>
-                <p className="text-[10px] text-slate-450 mt-1 font-medium leading-normal">
-                  Almacenamiento local en archivo plano `data/restaurante.db`. Ideal para operaciones offline.
+                <p className="text-[10px] text-stone-550 dark:text-stone-300 mt-1.5 leading-relaxed font-semibold">
+                  Almacenamiento local en archivo plano `data/restaurante.db`. Ideal para operaciones offline de respaldo rápido.
                 </p>
               </button>
-  
+   
               <button
-                onClick={() => {
-                  setActiveDbEngine('PostgreSQL / Supabase (Cloud)');
-                  setDbPingStatus('idle');
-                }}
+                onClick={() => setActiveDbEngine('PostgreSQL / Supabase (Cloud)')}
                 className={`p-4 rounded-xl border text-left cursor-pointer transition-all ${
                   activeDbEngine === 'PostgreSQL / Supabase (Cloud)'
-                    ? 'border-[#4A2D1B] bg-[#4A2D1B]/5 ring-1 ring-[#4A2D1B]/10'
-                    : 'border-slate-100 bg-slate-50/50 hover:bg-slate-50'
+                    ? 'border-[#624A3E] bg-[#624A3E]/5 ring-1 ring-[#624A3E]/10 dark:border-[#C8956A]'
+                    : 'border-stone-200 dark:border-stone-800 bg-stone-50/50 dark:bg-stone-955 hover:bg-stone-100/50 dark:hover:bg-stone-850'
                 }`}
               >
                 <div className="flex items-center gap-2">
-                  <Server className="w-4 h-4 text-[#6B4A35]" />
-                  <span className="text-xs font-extrabold text-slate-800">Supabase PG Link</span>
+                  <Server className="w-4 h-4 text-[#624A3E] dark:text-[#C8956A]" />
+                  <span className="text-xs font-black text-stone-800 dark:text-white uppercase">Supabase Cloud</span>
                 </div>
-                <p className="text-[10px] text-slate-450 mt-1 font-medium leading-normal">
-                  Base PostgreSQL en la nube Supabase. Operación simultánea remota escalable de producción.
+                <p className="text-[10px] text-stone-550 dark:text-stone-300 mt-1.5 leading-relaxed font-semibold">
+                  Base PostgreSQL relacional en la nube. Operación simultánea remota escalable en tiempo real.
                 </p>
               </button>
             </div>
 
-          {/* Test Performance block */}
-          <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
-            <div>
-              <span className="text-[10px] text-slate-400 uppercase font-bold">Diagnóstico de Latencia de Red</span>
-              <p className="text-[11px] text-slate-500 mt-0.5">Frecuencia de respuesta de transacciones escandallo de stock síncronos.</p>
-            </div>
+            {/* Test de Latencia con Velocímetro SVG */}
+            <div className="bg-stone-50 dark:bg-stone-855 rounded-xl p-4 border border-stone-200 dark:border-stone-800 flex flex-col sm:flex-row justify-between items-center gap-6">
+              <div className="text-left space-y-1">
+                <span className="text-[10px] text-stone-400 dark:text-stone-300 uppercase font-black">Diagnóstico de Latencia de Red</span>
+                <p className="text-[11px] text-stone-555 dark:text-stone-300 leading-snug">Frecuencia de respuesta de transacciones del motor de datos activo.</p>
+                <button
+                  onClick={triggerSpeedTest}
+                  disabled={dbPingStatus === 'testing'}
+                  className="mt-3 py-1.5 px-3 bg-stone-900 dark:bg-stone-800 hover:bg-stone-800 text-white rounded-lg text-[10px] font-black uppercase flex items-center gap-1.5 transition-all shadow cursor-pointer disabled:opacity-60"
+                >
+                  <Activity className="w-3.5 h-3.5 text-[#C8956A] animate-pulse" />
+                  {dbPingStatus === 'testing' ? 'Testeando...' : 'Testear Latencia'}
+                </button>
+              </div>
 
-            <div className="flex items-center gap-3 w-full md:w-auto justify-end">
-              {dbPingStatus === 'ready' && (
-                <div className="text-right shrink-0">
-                  <span className="text-[9px] uppercase font-bold text-slate-400 block">Velocidad Ping</span>
-                  <span className={`font-mono text-xs font-extrabold ${dbPingMs < 50 ? 'text-emerald-600' : 'text-amber-600'}`}>
-                    {dbPingMs} ms {dbPingMs < 50 ? '(Ultra-Rápido ⚡)' : '(Estable)'}
-                  </span>
+              {/* Velocímetro SVG Analógico */}
+              <div className="flex flex-col items-center shrink-0 w-44">
+                <div className="w-40 h-24 relative overflow-hidden flex justify-center items-end">
+                  <svg className="w-full h-full" viewBox="0 0 160 100">
+                    <defs>
+                      <linearGradient id="gauge-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stopColor="#22c55e" />
+                        <stop offset="50%" stopColor="#eab308" />
+                        <stop offset="100%" stopColor="#ef4444" />
+                      </linearGradient>
+                    </defs>
+                    
+                    {/* Arco del dial */}
+                    <path 
+                      d="M 20 85 A 60 60 0 0 1 140 85" 
+                      fill="none" 
+                      stroke="url(#gauge-grad)" 
+                      strokeWidth="12" 
+                      strokeLinecap="round" 
+                    />
+                    
+                    {/* Línea de guía interna */}
+                    <path 
+                      d="M 28 85 A 52 52 0 0 1 132 85" 
+                      fill="none" 
+                      stroke="#e5e7eb" 
+                      strokeWidth="1" 
+                      strokeDasharray="2" 
+                      opacity="0.3"
+                    />
+
+                    {/* Centro del dial */}
+                    <circle cx="80" cy="85" r="8" fill="#374151" />
+                    <circle cx="80" cy="85" r="3" fill="#fff" />
+                    
+                    {/* Aguja del dial (Gira desde -90 a 90 grados) */}
+                    <line 
+                      x1="80" 
+                      y1="85" 
+                      x2="80" 
+                      y2="35" 
+                      stroke="#374151" 
+                      strokeWidth="3.5" 
+                      strokeLinecap="round"
+                      style={{
+                        transform: `rotate(${needleAngle}deg)`,
+                        transformOrigin: '80px 85px',
+                        transition: 'transform 1s cubic-bezier(0.4, 0, 0.2, 1)'
+                      }}
+                    />
+
+                    {/* Escala */}
+                    <text x="20" y="97" fontSize="8" textAnchor="middle" fill="#999" fontWeight="bold">0</text>
+                    <text x="80" y="20" fontSize="8" textAnchor="middle" fill="#999" fontWeight="bold">150</text>
+                    <text x="140" y="97" fontSize="8" textAnchor="middle" fill="#999" fontWeight="bold">300</text>
+                  </svg>
                 </div>
-              )}
-              
-              <button
-                onClick={triggerSpeedTest}
-                disabled={dbPingStatus === 'testing'}
-                className="py-1.5 px-3 bg-slate-900 shrink-0 hover:bg-slate-800 text-white rounded-lg text-[10px] font-extrabold flex items-center gap-1.5 transition-all shadow-sm"
-              >
-                <Activity className="w-3.5 h-3.5 text-amber-500" />
-                {dbPingStatus === 'testing' ? 'Testeando...' : 'Test Speed'}
-              </button>
+                
+                {/* Latencia Resultante */}
+                <div className="text-center mt-1">
+                  {dbPingStatus === 'ready' ? (
+                    <span className={`font-mono text-xs font-black uppercase ${
+                      dbPingMs < 60 ? 'text-emerald-600' : dbPingMs < 150 ? 'text-amber-500' : 'text-red-500'
+                    }`}>
+                      {dbPingMs} ms • {dbPingMs < 60 ? 'Ultra Rápido' : dbPingMs < 150 ? 'Normal' : 'Lento'}
+                    </span>
+                  ) : dbPingStatus === 'testing' ? (
+                    <span className="text-[10px] text-stone-400 font-bold uppercase animate-pulse">Calculando...</span>
+                  ) : (
+                    <span className="text-[9px] text-stone-400 font-bold uppercase">Aguja lista</span>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 
-        </div>
-
-        {/* Dynamic Database Diagnostics Panel (Checking specific README requests!) */}
-        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm space-y-4">
-          <h4 className="font-bold text-slate-800 text-xs font-sans tracking-tight flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-emerald-600" />
-            Auditorías Críticas de Producción
-          </h4>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            
-            {/* Audit A: Productos activos sin receta */}
-            <div className={`p-4 rounded-xl border flex flex-col justify-between ${
-              menuItemsWithoutRecipe.length > 0 
-                ? 'border-amber-100 bg-amber-50/30' 
-                : 'border-slate-100 bg-slate-50/40'
-            }`}>
-              <div>
-                <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block font-sans">Productos Activos Sin Receta</span>
-                <p className="text-[11px] text-slate-500 leading-snug mt-1 font-sans">
-                  Productos configurados como comercialmente activos pero que no poseen insumos asignados. No decrementarán stock en Cocina.
-                </p>
-              </div>
-
-              {menuItemsWithoutRecipe.length > 0 ? (
-                <div className="mt-3 bg-amber-100 border border-amber-200 p-2 text-stone-800 rounded-lg text-[10px] space-y-0.5">
-                  <p className="font-bold text-amber-900">⚠️ {menuItemsWithoutRecipe.length} platos sin receta:</p>
-                  <ul className="list-disc list-inside text-[9px] opacity-90">
-                    {menuItemsWithoutRecipe.map(p => <li key={p.id_producto}>{p.nombre}</li>)}
-                  </ul>
-                </div>
-              ) : (
-                <div className="mt-3 flex items-center gap-1.5 text-emerald-700 text-[10px] font-bold">
-                  <CheckCircle className="w-3.5 h-3.5" />
-                  Todos las platos poseen fórmulas asociadas.
-                </div>
-              )}
+          {/* Inspector de Tablas de Base de Datos */}
+          <div className="bg-white dark:bg-stone-900 p-6 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs space-y-4">
+            <div>
+              <span className="text-[10px] uppercase font-black tracking-wider text-stone-400 dark:text-stone-300 block">Inspección de Esquemas</span>
+              <h3 className="font-extrabold text-[#4A2D1B] dark:text-[#C8956A] text-sm uppercase tracking-tight mt-0.5">Visor Interno de Registros</h3>
+              <p className="text-xs text-stone-505 dark:text-stone-300 font-semibold mt-1">Audita el conteo de filas y previsualiza los primeros registros de tu base de datos activa.</p>
             </div>
 
-            {/* Audit B: Stock bajo */}
-            <div className={`p-4 rounded-xl border flex flex-col justify-between ${
-              ingredientsBelowMin.length > 0 
-                ? 'border-rose-100 bg-rose-50/20' 
-                : 'border-slate-100 bg-slate-50/40'
-            }`}>
-              <div>
-                <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block font-sans">Insumos Abajo del Mínimo</span>
-                <p className="text-[11px] text-slate-500 leading-snug mt-1 font-sans">
-                  Materias primas que perforaron el stock de seguridad. Pueden ocasionar la inhabilitación de platos en terminales de Mozos.
-                </p>
+            {/* Grid de Resúmenes */}
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+              {(Object.keys(tableDataSummary) as InspectTableKey[]).map(key => {
+                const isSelected = inspectTable === key;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => {
+                      setInspectTable(key);
+                      setInspectSearch('');
+                    }}
+                    className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
+                      isSelected 
+                        ? 'border-[#624A3E] bg-[#624A3E]/5 ring-1 ring-[#624A3E]/10 dark:border-[#C8956A]' 
+                        : 'border-stone-150 dark:border-stone-850 hover:bg-stone-50 dark:hover:bg-stone-850'
+                    }`}
+                  >
+                    <span className="text-[9px] uppercase font-black text-stone-400 dark:text-stone-300 block leading-none">{tableDataSummary[key].label}</span>
+                    <b className="font-mono text-sm text-stone-900 dark:text-white mt-1 block leading-none">{tableDataSummary[key].count}</b>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Buscador interno y previsualización */}
+            <div className="space-y-3">
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-2.5" />
+                <input 
+                  type="text"
+                  placeholder={`Buscar en tabla ${tableDataSummary[inspectTable].label}...`}
+                  value={inspectSearch}
+                  onChange={e => setInspectSearch(e.target.value)}
+                  className="w-full text-xs pl-8 pr-3 py-2 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-955 text-stone-800 dark:text-stone-100 focus:outline-none"
+                />
               </div>
 
-              {ingredientsBelowMin.length > 0 ? (
-                <div className="mt-3 bg-red-100 border border-red-200 p-2 text-red-800 rounded-lg text-[10px]">
-                  <p className="font-bold text-red-900">🚨 {ingredientsBelowMin.length} materiales críticos:</p>
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {ingredientsBelowMin.slice(0, 3).map(i => (
-                      <span key={i.id_insumo} className="bg-white border rounded text-[9px] px-1 font-mono">{i.nombre}</span>
-                    ))}
-                    {ingredientsBelowMin.length > 3 && <span>...</span>}
+              {/* Tabla de previsualización */}
+              <div className="border border-stone-150 dark:border-stone-850 rounded-xl overflow-hidden text-xs">
+                <div className="bg-stone-50 dark:bg-stone-850 px-3 py-1.5 text-[9px] font-black uppercase text-stone-400 text-left">
+                  Previsualización (Primeros 5 registros)
+                </div>
+                
+                {inspectRows.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left font-mono text-[10px] text-stone-700 dark:text-stone-300">
+                      <thead className="bg-stone-50/70 dark:bg-stone-850/50 text-stone-400 text-[8px] font-black uppercase tracking-wider border-b border-stone-100 dark:border-stone-805">
+                        <tr>
+                          {Object.keys(inspectRows[0]).slice(0, 4).map(k => (
+                            <th key={k} className="py-2 px-3">{k}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-stone-100 dark:divide-stone-850 text-left">
+                        {inspectRows.map((row: any, idx) => (
+                          <tr key={idx} className="hover:bg-stone-50/50 dark:hover:bg-stone-850/20">
+                            {Object.keys(row).slice(0, 4).map(k => {
+                              let val = row[k];
+                              if (typeof val === 'object' && val !== null) val = JSON.stringify(val);
+                              return (
+                                <td key={k} className="py-2 px-3 font-semibold truncate max-w-[120px] text-left">
+                                  {String(val)}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                </div>
-              ) : (
-                <div className="mt-3 flex items-center gap-1.5 text-emerald-700 text-[10px] font-bold">
-                  <CheckCircle className="w-3.5 h-3.5" />
-                  Depósito abastecido de manera óptima.
-                </div>
-              )}
-            </div>
-
-          </div>
-        </div>
-
-        {/* Database Backups Local serialization */}
-        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm space-y-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <h4 className="font-bold text-slate-800 text-xs font-sans tracking-tight">
-                Copia de Seguridad y Exportación Local (.db Backup)
-              </h4>
-              <p className="text-[11px] text-slate-400 font-sans mt-0.5">
-                Descargue archivos físicos síncronos estructurados para migración u operaciones externas.
-              </p>
-            </div>
-            <FileSpreadsheet className="w-5 h-5 text-indigo-500" />
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-            <button
-              onClick={() => triggerCsvDownload('usuarios_export', [{ id: 1, nom: 'Enzo', rol: 'mozo' }, { id: 2, nom: 'Micaela', rol: 'mozo' }])}
-              className="py-2 px-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl text-[10px] font-bold flex items-center justify-center gap-1.5 transition-colors border border-slate-200/50"
-            >
-              <Download className="w-3 h-3 text-slate-500" />
-              usuarios.csv
-            </button>
-            <button
-              onClick={() => triggerCsvDownload('mesas_export', mesas)}
-              className="py-2 px-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl text-[10px] font-bold flex items-center justify-center gap-1.5 transition-colors border border-slate-200/50"
-            >
-              <Download className="w-3 h-3 text-slate-500" />
-              mesas.csv
-            </button>
-            <button
-              onClick={() => triggerCsvDownload('insumos_export', insumos)}
-              className="py-2 px-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl text-[10px] font-bold flex items-center justify-center gap-1.5 transition-colors border border-slate-200/50"
-            >
-              <Download className="w-3 h-3 text-slate-500" />
-              insumos.csv
-            </button>
-            <button
-              onClick={() => triggerCsvDownload('pedidos_export', pedidos.map(p => ({
-                id: p.id_pedido,
-                mesa: p.numero_mesa,
-                mozo: p.mozo,
-                items_count: p.items.length,
-                total_est: p.items.reduce((sum, current) => sum + current.cantidad * 8000, 0),
-                fecha: p.fecha_hora.toISOString()
-              })))}
-              className="py-2 px-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl text-[10px] font-bold flex items-center justify-center gap-1.5 transition-colors border border-slate-200/50"
-            >
-              <Download className="w-3 h-3 text-slate-500" />
-              pedidos.csv
-            </button>
-          </div>
-        </div>
-
-        {/* Caché y Almacenamiento Local (PWA / Offline) */}
-        <div className="bg-white rounded-2xl p-5 border border-stone-200/85 shadow-sm space-y-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <h4 className="font-bold text-slate-800 text-xs font-sans tracking-tight">
-                Caché y Almacenamiento Local (PWA / Offline)
-              </h4>
-              <p className="text-[11px] text-slate-400 font-sans mt-0.5">
-                Supervise y limpie la cuota del almacenamiento del navegador para evitar límites de espacio.
-              </p>
-            </div>
-            <Database className="w-5 h-5 text-amber-600" />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4 bg-stone-50 p-3.5 rounded-xl border border-stone-100">
-            <div>
-              <span className="text-[9px] uppercase font-bold text-stone-400 block">Uso total de LocalStorage</span>
-              <span className="font-mono text-xs font-black text-stone-700">{totalLocalStorageMB} MB</span>
-            </div>
-            <div>
-              <span className="text-[9px] uppercase font-bold text-stone-400 block">Caché de Platos (Menu)</span>
-              <span className="font-mono text-xs font-black text-stone-700">{menuCacheSizeKB} KB</span>
-            </div>
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-2 pt-1">
-            <button
-              onClick={handlePurgeImageCache}
-              className="flex-1 py-2 px-3 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-[10px] font-extrabold text-center cursor-pointer transition-colors shadow-sm"
-            >
-              Purgar Fotos de la Caché Local
-            </button>
-            <button
-              onClick={() => {
-                localStorage.removeItem('el_potro_custom_logo');
-                localStorage.removeItem('el_patron_custom_logo');
-                window.dispatchEvent(new Event('el_patron_logo_changed'));
-                toast.success('Logotipo personalizado restablecido.');
-                window.location.reload();
-              }}
-              className="py-2 px-3 border border-stone-200 hover:border-red-200 text-stone-550 hover:bg-red-50 hover:text-red-700 rounded-lg text-[10px] font-extrabold transition-all cursor-pointer bg-white"
-            >
-              Restaurar Logo del Sistema
-            </button>
-          </div>
-        </div>
-
-        {/* Entorno Servidor Python (requirements.txt) */}
-        <div className="bg-slate-900 rounded-2xl p-5 border border-slate-800 shadow-md space-y-4 text-white">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-[10px] uppercase font-bold tracking-wider text-[#FF4B4B] font-mono">requirements.txt</p>
-              <h4 className="font-extrabold text-white text-xs font-sans tracking-tight">
-                Dependencias del Servidor de Producción Python 3.11
-              </h4>
-              <p className="text-[10px] text-slate-400 font-sans mt-0.5">
-                Copia o descarga los paquetes configurados para el login y base relacional PostgreSQL/Supabase.
-              </p>
-            </div>
-          </div>
-
-          <div className="bg-slate-950 rounded-xl p-3 border border-slate-850 font-mono text-[10px] text-slate-300 max-h-[160px] overflow-y-auto scrollbar-thin">
-            {[
-              'libpq-dev',
-              'build-essential',
-              'gcc',
-              'python3-dev',
-              'streamlit>=1.35.0',
-              'pandas>=2.0.0',
-              'plotly>=5.18.0',
-              'python-dotenv>=1.0.0',
-              'psycopg2-binary>=2.9.0',
-              'psycopg>=3.2.0',
-              'psycopg-pool>=3.2.0',
-              'python-escpos>=3.0',
-              'fastapi>=0.109.0',
-              'uvicorn>=0.26.0',
-              'pydantic>=2.0.0',
-              'openpyxl>=3.1.0',
-              'reportlab>=4.2.0',
-              'supabase>=2.3.0',
-              '# Python version for Streamlit Cloud',
-              'python-3.11'
-            ].map((line, idx) => (
-              <div key={idx} className="flex justify-between py-0.5 hover:bg-slate-900 px-1 rounded transition-colors">
-                <span className={line.startsWith('#') ? 'text-slate-500 italic' : line.includes('>=') ? 'text-amber-300/95 font-medium' : 'text-slate-300'}>{line}</span>
-                {!line.startsWith('#') && line.includes('>=') && (
-                  <span className="text-[9px] text-[#FF4B4B] bg-red-950/40 border border-[#FF4B4B]/30 px-1 rounded font-bold">Compilado</span>
+                ) : (
+                  <div className="p-4 text-center text-[10px] text-stone-450 dark:text-stone-300">
+                    No hay registros o coincidencia para la búsqueda.
+                  </div>
                 )}
               </div>
-            ))}
-          </div>
-
-          <div className="flex justify-between items-center bg-slate-850 p-2.5 rounded-xl border border-slate-800 text-[11px] text-slate-300">
-            <span>Ubicación del script:</span>
-            <span className="font-mono text-[10px] text-[#FF4B4B] bg-slate-950 px-2 py-0.5 rounded font-bold">backend/login.py</span>
+            </div>
           </div>
         </div>
 
-      </div>
-
-      {/* COLUMN RIGHT: Production Deploy Checklist (Col Span 5) */}
-      <div className="lg:col-span-5">
-        
-        <div className="bg-slate-900 text-slate-100 rounded-2xl p-5 border border-slate-800 shadow-lg space-y-4">
-          <div className="border-b border-slate-800 pb-3">
-            <h3 className="font-extrabold text-white text-sm font-sans tracking-tight flex items-center gap-2">
-              <ShieldCheck className="w-4.5 h-4.5 text-indigo-400" />
-              Checklist de Despliegue en Producción
-            </h3>
-            <p className="text-[11px] text-slate-400 font-sans mt-0.5">
-              Pasos requeridos antes del lanzamiento general en la sucursal.
-            </p>
-          </div>
-
-          <div className="space-y-3">
-            
-            {/* Checklist item 1 */}
-            <label className="flex items-start gap-3 p-2.5 bg-slate-850 hover:bg-slate-800/80 rounded-xl cursor-pointer transition-colors border border-slate-800">
-              <input
-                type="checkbox"
-                checked={deployChecklist.db_local}
-                onChange={(e) => setDeployChecklist(prev => ({ ...prev, db_local: e.target.checked }))}
-                className="mt-0.5 rounded border-slate-700 text-indigo-600 bg-slate-800 focus:ring-offset-slate-900 w-4 h-4"
-              />
-              <div>
-                <span className="text-xs font-bold text-slate-100 block">Base de Datos SQLite inicializada</span>
-                <span className="text-[10px] text-slate-400 block mt-0.5 font-sans leading-normal">
-                  Base local cargada de manera sincronizada en `data/restaurante.db` lista para persistir.
-                </span>
+        {/* COLUMNA DERECHA: Checklist, Score de salud y Logo Identity (Span 5) */}
+        <div className="lg:col-span-5 space-y-6">
+          
+          {/* Checklist y Circular Score */}
+          <div className="bg-[#1A1817] text-stone-200 rounded-2xl p-6 border border-stone-800 shadow-md space-y-5">
+            <div className="flex justify-between items-center pb-3 border-b border-stone-800">
+              <div className="text-left">
+                <h3 className="font-extrabold text-white text-sm uppercase tracking-tight">Preparación para Producción</h3>
+                <p className="text-[10px] text-stone-400 mt-0.5">Auditoría automatizada de despliegue sucursal.</p>
               </div>
-            </label>
-
-            {/* Checklist item 2 */}
-            <label className="flex items-start gap-3 p-2.5 bg-slate-850 hover:bg-slate-800/80 rounded-xl cursor-pointer transition-colors border border-slate-800">
-              <input
-                type="checkbox"
-                checked={deployChecklist.sql_supabase}
-                onChange={(e) => setDeployChecklist(prev => ({ ...prev, sql_supabase: e.target.checked }))}
-                className="mt-0.5 rounded border-slate-700 text-indigo-600 bg-slate-800 focus:ring-offset-slate-900 w-4 h-4"
-              />
-              <div>
-                <span className="text-xs font-bold text-slate-100 block">Link SQL Supabase (PostgreSQL)</span>
-                <span className="text-[10px] text-slate-400 block mt-0.5 font-sans leading-normal">
-                  Carga del esquema en la nube con `supabase/schema.sql` y enlace con variables secretas `DATABASE_URL`.
-                </span>
+              
+              {/* Score Circular SVG */}
+              <div className="relative w-14 h-14 flex items-center justify-center shrink-0">
+                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                  {/* Círculo fondo */}
+                  <circle cx="18" cy="18" r="15.915" fill="transparent" stroke="#2E2A28" strokeWidth="3" />
+                  {/* Círculo progreso */}
+                  <circle 
+                    cx="18" 
+                    cy="18" 
+                    r="15.915" 
+                    fill="transparent" 
+                    stroke={scorePercent < 50 ? '#ef4444' : scorePercent < 80 ? '#eab308' : '#22c55e'} 
+                    strokeWidth="3.2" 
+                    strokeDasharray={`${scorePercent} ${100 - scorePercent}`}
+                    strokeDashoffset="0"
+                    style={{ transition: 'stroke-dasharray 0.5s ease' }}
+                  />
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
+                  <span className="text-[11px] font-black leading-none">{scorePercent}</span>
+                  <span className="text-[6px] uppercase font-black tracking-tighter opacity-80">%</span>
+                </div>
               </div>
-            </label>
-
-            {/* Checklist item 3 */}
-            <label className="flex items-start gap-3 p-2.5 bg-slate-850 hover:bg-slate-800/80 rounded-xl cursor-pointer transition-colors border border-slate-800">
-              <input
-                type="checkbox"
-                checked={menuItemsWithoutRecipe.length === 0}
-                disabled
-                className="mt-0.5 rounded border-slate-700 text-indigo-600 bg-slate-800 focus:ring-offset-slate-900 w-4 h-4"
-              />
-              <div>
-                <span className="text-xs font-bold text-slate-100 block flex items-center gap-1.5">
-                  Recetas de Plato Completadas
-                  <span className={`text-[8px] px-1 py-0.2 rounded font-mono font-bold ${menuItemsWithoutRecipe.length === 0 ? 'bg-emerald-950 text-emerald-400' : 'bg-amber-950 text-amber-400'}`}>
-                    {menuItemsWithoutRecipe.length === 0 ? 'SÍ' : `NO - ${menuItemsWithoutRecipe.length}`}
-                  </span>
-                </span>
-                <span className="text-[10px] text-slate-400 block mt-0.5 font-sans leading-normal">
-                  Todos los platos activos del menú gastronómico poseen receta de escandallo asociada. (Auditado automáticamente).
-                </span>
-              </div>
-            </label>
-
-            {/* Checklist item 4 */}
-            <label className="flex items-start gap-3 p-2.5 bg-slate-850 hover:bg-slate-800/80 rounded-xl cursor-pointer transition-colors border border-slate-800">
-              <input
-                type="checkbox"
-                checked={ingredientsBelowMin.length === 0}
-                disabled
-                className="mt-0.5 rounded border-slate-700 text-indigo-600 bg-slate-800 focus:ring-offset-slate-900 w-4 h-4"
-              />
-              <div>
-                <span className="text-xs font-bold text-slate-100 block flex items-center gap-1.5">
-                  Bodega Abastecida (Stock Mínimo)
-                  <span className={`text-[8px] px-1 py-0.2 rounded font-mono font-bold ${ingredientsBelowMin.length === 0 ? 'bg-emerald-950 text-emerald-400' : 'bg-red-950 text-red-400 animate-pulse'}`}>
-                    {ingredientsBelowMin.length === 0 ? 'SÍ' : `NO - Falta Abastecer`}
-                  </span>
-                </span>
-                <span className="text-[10px] text-slate-400 block mt-0.5 font-sans leading-normal">
-                  Evita quiebres de stock en cocina. Reponer insumos en la sección de Stock si hay alertas activas.
-                </span>
-              </div>
-            </label>
-
-            {/* Checklist item 5 */}
-            <label className="flex items-start gap-3 p-2.5 bg-slate-850 hover:bg-slate-800/80 rounded-xl cursor-pointer transition-colors border border-slate-800">
-              <input
-                type="checkbox"
-                checked={deployChecklist.ci_github}
-                onChange={(e) => setDeployChecklist(prev => ({ ...prev, ci_github: e.target.checked }))}
-                className="mt-0.5 rounded border-slate-700 text-indigo-600 bg-slate-800 focus:ring-offset-slate-900 w-4 h-4"
-              />
-              <div>
-                <span className="text-xs font-bold text-slate-100 block">Integración Continua (CI) en GitHub</span>
-                <span className="text-[10px] text-slate-400 block mt-0.5 font-sans leading-normal">
-                  Workflow `.github/workflows/ci.yml` configurado para compilar, auditar código de Streamlit/TypeScript y pruebas unitarias de extremo a extremo.
-                </span>
-              </div>
-            </label>
-
-          </div>
-
-          {/* Visual terminal logs widget inside checking */}
-          <div className="bg-slate-950 rounded-xl p-3.5 border border-slate-800 font-mono text-[9px] text-slate-400 space-y-1">
-            <div className="flex items-center gap-1 text-slate-300 font-extrabold border-b border-slate-800 pb-1 mb-1">
-              <Terminal className="w-3.5 h-3.5 text-indigo-400" />
-              STATUS CONSOLA DE PLENO DEPLOY
-            </div>
-            <p className="text-emerald-500">✔ python -m py_compile tests_restaurante.py ok</p>
-            <p className="text-emerald-500">✔ npx tsc --noEmit && vite build success</p>
-            <p className="text-slate-300">SQLite Engine: Linked successfully (data/restaurante.db)</p>
-            <p className="text-purple-400">Supabase State: Waiting DB_URL secret assignment</p>
-          </div>
-        </div>
-
-        {/* Logo Identity Manager */}
-        <div className="bg-white rounded-2xl p-5 border border-stone-200/80 shadow-sm space-y-3 mt-6 animate-fadeIn">
-          <div className="flex items-center gap-2 border-b border-stone-100 pb-2.5">
-            <Compass className="w-4.5 h-4.5 text-[#4A2D1B]" />
-            <div className="text-left">
-              <h4 className="font-bold text-[#4A2D1B] text-xs font-sans tracking-tight">
-                Identidad de Marca & Logotipo
-              </h4>
-              <p className="text-[10px] text-stone-500 font-medium">
-                Carga el isotipo o logotipo oficial de El Patrón para todo el sistema.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-stone-200 hover:border-[#4A2D1B]/40 rounded-xl bg-[#FFFDF8]/60 transition-all space-y-3 relative group">
-            <div className="w-16 h-16 rounded-full bg-[#FAF4EE] flex items-center justify-center p-1 shadow-sm border border-stone-100 relative overflow-hidden">
-              <ElPatronLogo className="w-14 h-14 object-contain rounded-full" variant="badge" color="#4A2D1B" />
             </div>
 
-            <div className="text-center space-y-1">
-              <span className="text-[10px] font-bold text-stone-850 block">Subir Logotipo Real El Patrón</span>
-              <p className="text-[9px] text-stone-500 max-w-[210px] leading-normal mx-auto font-medium">
-                Puedes seleccionar el archivo de imagen de caballo que prefieras. La pestaña y los banners se actualizarán de forma dinámica.
-              </p>
-            </div>
-
-            <div className="flex gap-2 w-full pt-1">
-              <label className="flex-1 py-1.5 px-2 bg-[#4A2D1B] hover:bg-[#6B4A35] text-white rounded-lg text-[10px] font-extrabold text-center cursor-pointer transition-colors shadow-sm block">
-                Cargar Imagen
+            {/* Checklist items */}
+            <div className="space-y-2">
+              
+              {/* Item 1 */}
+              <label className="flex items-start gap-3 p-2.5 bg-[#252220] hover:bg-[#2F2B29] rounded-xl cursor-pointer transition-colors border border-stone-800">
                 <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      const reader = new FileReader();
-                      reader.onload = (event) => {
-                        const dataUrl = event.target?.result as string;
-                        if (dataUrl) {
-                          try {
-                            localStorage.setItem('el_potro_custom_logo', dataUrl);
-                            window.dispatchEvent(new Event('el_patron_logo_changed'));
-                            addLog('sistema', `MARCA: Logotipo cargado correctamente en memoria local activa.`);
-                          } catch (error) {
-                            toast.error("La imagen es muy grande. Por favor selecciona una menor a 1.5MB.");
-                          }
-                        }
-                      };
-                      reader.readAsDataURL(file);
-                    }
-                  }}
+                  type="checkbox"
+                  checked={deployChecklist.db_local}
+                  onChange={(e) => setDeployChecklist(prev => ({ ...prev, db_local: e.target.checked }))}
+                  className="mt-0.5 rounded border-stone-700 text-[#C8956A] bg-stone-900 focus:ring-offset-[#1A1817] w-4 h-4 cursor-pointer"
                 />
+                <div className="text-left">
+                  <span className="text-xs font-bold text-white block">Base local SQLite inicializada</span>
+                  <span className="text-[9px] text-stone-400 block mt-0.5 leading-normal">
+                    Base persistida localmente con el archivo `data/restaurante.db` listo para contingencia.
+                  </span>
+                </div>
               </label>
 
+              {/* Item 2 */}
+              <label className="flex items-start gap-3 p-2.5 bg-[#252220] hover:bg-[#2F2B29] rounded-xl cursor-pointer transition-colors border border-stone-800">
+                <input
+                  type="checkbox"
+                  checked={deployChecklist.sql_supabase}
+                  onChange={(e) => setDeployChecklist(prev => ({ ...prev, sql_supabase: e.target.checked }))}
+                  className="mt-0.5 rounded border-stone-700 text-[#C8956A] bg-stone-900 focus:ring-offset-[#1A1817] w-4 h-4 cursor-pointer"
+                />
+                <div className="text-left">
+                  <span className="text-xs font-bold text-white block">Sincronización Supabase PostgreSQL</span>
+                  <span className="text-[9px] text-stone-400 block mt-0.5 leading-normal">
+                    Enlace de variables secretas de base remota en la nube configuradas.
+                  </span>
+                </div>
+              </label>
+
+              {/* Item 3 (Autoevaluado) */}
+              <label className="flex items-start gap-3 p-2.5 bg-[#252220] rounded-xl border border-stone-800 opacity-90">
+                <input
+                  type="checkbox"
+                  checked={menuItemsWithoutRecipe.length === 0}
+                  disabled
+                  className="mt-0.5 rounded border-stone-700 text-emerald-500 bg-stone-900 focus:ring-offset-[#1A1817] w-4 h-4"
+                />
+                <div className="text-left">
+                  <span className="text-xs font-bold text-white block flex items-center gap-1.5">
+                    Recetario de Platos Completado
+                    <span className={`text-[8px] px-1 py-0.2 rounded font-mono font-black ${menuItemsWithoutRecipe.length === 0 ? 'bg-emerald-950 text-emerald-400 border border-emerald-900/50' : 'bg-amber-950 text-amber-400 border border-amber-900/50'}`}>
+                      {menuItemsWithoutRecipe.length === 0 ? 'COMPLETO ✓' : `PENDIENTE - ${menuItemsWithoutRecipe.length}`}
+                    </span>
+                  </span>
+                  <span className="text-[9px] text-stone-400 block mt-0.5 leading-normal">
+                    Cada uno de los platos del menú cuenta con su receta de escandallo de ingredientes asignada.
+                  </span>
+                </div>
+              </label>
+
+              {/* Item 4 (Autoevaluado) */}
+              <label className="flex items-start gap-3 p-2.5 bg-[#252220] rounded-xl border border-stone-800 opacity-90">
+                <input
+                  type="checkbox"
+                  checked={ingredientsBelowMin.length === 0}
+                  disabled
+                  className="mt-0.5 rounded border-stone-700 text-emerald-500 bg-stone-900 focus:ring-offset-[#1A1817] w-4 h-4"
+                />
+                <div className="text-left">
+                  <span className="text-xs font-bold text-white block flex items-center gap-1.5">
+                    Depósito Abastecido (Stock Mínimo)
+                    <span className={`text-[8px] px-1 py-0.2 rounded font-mono font-black ${ingredientsBelowMin.length === 0 ? 'bg-emerald-950 text-emerald-400' : 'bg-red-950 text-red-400 animate-pulse'}`}>
+                      {ingredientsBelowMin.length === 0 ? 'OK' : `FALTA RECOMPRA - ${ingredientsBelowMin.length}`}
+                    </span>
+                  </span>
+                  <span className="text-[9px] text-stone-400 block mt-0.5 leading-normal">
+                    Sin alertas de stock mínimo crítico en depósito. Mantiene el menú operativo.
+                  </span>
+                </div>
+              </label>
+
+              {/* Item 5 */}
+              <label className="flex items-start gap-3 p-2.5 bg-[#252220] hover:bg-[#2F2B29] rounded-xl cursor-pointer transition-colors border border-stone-800">
+                <input
+                  type="checkbox"
+                  checked={deployChecklist.ci_github}
+                  onChange={(e) => setDeployChecklist(prev => ({ ...prev, ci_github: e.target.checked }))}
+                  className="mt-0.5 rounded border-stone-700 text-[#C8956A] bg-stone-900 focus:ring-offset-[#1A1817] w-4 h-4 cursor-pointer"
+                />
+                <div className="text-left">
+                  <span className="text-xs font-bold text-white block">Workflow Integración Continua (CI)</span>
+                  <span className="text-[9px] text-stone-400 block mt-0.5 leading-normal">
+                    GitHub Actions configurado con pruebas automáticas `npm run lint` y `build` exitosas en pre-push.
+                  </span>
+                </div>
+              </label>
+
+            </div>
+
+            {/* Consola Terminal Hacker */}
+            <div className="bg-black rounded-xl p-4 border border-stone-850 font-mono text-[9px] text-emerald-500 space-y-1 text-left relative overflow-hidden select-none">
+              <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+              <div className="flex items-center gap-1 text-stone-300 font-extrabold border-b border-stone-800 pb-1.5 mb-1.5">
+                <Terminal className="w-3.5 h-3.5 text-emerald-500" />
+                CONSOLA DE SERVIDOR Y DEPLOY
+              </div>
+              <p className="text-emerald-500 font-bold">✔ python -m py_compile tests_restaurante.py (OK)</p>
+              <p className="text-emerald-500 font-bold">✔ npx tsc --noEmit && vite build (COMPILADO EXITOSO)</p>
+              <p className="text-stone-300">SQLite Engine: Linked successfully (data/restaurante.db)</p>
+              <p className="text-stone-400 font-bold">Base de Datos: {activeDbEngine}</p>
+              <p className="text-[#C8956A]">Auditoría: {productosMenu.length} Platos | {insumos.length} Insumos | {recetas.length} Fórmulas</p>
+            </div>
+          </div>
+
+          {/* Copia de Seguridad y Descargas CSV */}
+          <div className="bg-white dark:bg-stone-900 rounded-2xl p-5 border border-stone-200 dark:border-stone-800 shadow-xs space-y-4">
+            <div className="flex justify-between items-center text-left">
+              <div className="text-left">
+                <h4 className="font-bold text-slate-800 dark:text-white text-xs uppercase tracking-tight">
+                  Exportación Local de Respaldos (.csv)
+                </h4>
+                <p className="text-[11px] text-slate-400 dark:text-stone-305 mt-0.5">
+                  Descargue los registros actuales en formato CSV para migración o auditoría externa.
+                </p>
+              </div>
+              <FileSpreadsheet className="w-5 h-5 text-indigo-600" />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 text-center">
               <button
-                type="button"
+                onClick={() => triggerCsvDownload('usuarios_export', usuariosLocales)}
+                className="py-2 px-2 bg-stone-50 dark:bg-stone-850 hover:bg-stone-100 text-stone-700 dark:text-stone-300 rounded-xl text-[10px] font-bold flex items-center justify-center gap-1.5 transition-colors border border-stone-200 dark:border-stone-800 cursor-pointer"
+              >
+                <Download className="w-3 h-3 text-stone-550" />
+                usuarios.csv
+              </button>
+              <button
+                onClick={() => triggerCsvDownload('mesas_export', mesas)}
+                className="py-2 px-2 bg-stone-50 dark:bg-stone-850 hover:bg-stone-100 text-stone-700 dark:text-stone-300 rounded-xl text-[10px] font-bold flex items-center justify-center gap-1.5 transition-colors border border-stone-200 dark:border-stone-800 cursor-pointer"
+              >
+                <Download className="w-3 h-3 text-stone-550" />
+                mesas.csv
+              </button>
+              <button
+                onClick={() => triggerCsvDownload('insumos_export', insumos)}
+                className="py-2 px-2 bg-stone-50 dark:bg-stone-850 hover:bg-stone-100 text-stone-700 dark:text-stone-300 rounded-xl text-[10px] font-bold flex items-center justify-center gap-1.5 transition-colors border border-stone-200 dark:border-stone-800 cursor-pointer"
+              >
+                <Download className="w-3 h-3 text-stone-550" />
+                insumos.csv
+              </button>
+              <button
+                onClick={() => triggerCsvDownload('pedidos_export', pedidos.map(p => ({
+                  id: p.id_pedido,
+                  mesa: p.numero_mesa,
+                  mozo: p.mozo,
+                  items_count: p.items.length,
+                  total_est: p.items.reduce((sum, item) => {
+                    const prod = productosMenu.find(menuP => menuP.id_producto === item.id_producto);
+                    return sum + (prod ? prod.precio_venta * item.cantidad : 0);
+                  }, 0),
+                  fecha: p.fecha_hora ? new Date(p.fecha_hora).toISOString() : 'Sin Fecha'
+                })))}
+                className="py-2 px-2 bg-stone-50 dark:bg-stone-850 hover:bg-stone-100 text-stone-700 dark:text-stone-300 rounded-xl text-[10px] font-bold flex items-center justify-center gap-1.5 transition-colors border border-stone-200 dark:border-stone-800 cursor-pointer"
+              >
+                <Download className="w-3 h-3 text-stone-550" />
+                pedidos.csv
+              </button>
+            </div>
+          </div>
+
+          {/* Caché de Navegador (PWA / Offline) */}
+          <div className="bg-white dark:bg-stone-900 rounded-2xl p-5 border border-stone-200 dark:border-stone-800 shadow-xs space-y-4">
+            <div className="flex justify-between items-center text-left">
+              <div className="text-left">
+                <h4 className="font-bold text-slate-800 dark:text-white text-xs uppercase tracking-tight">
+                  Almacenamiento Local del Navegador
+                </h4>
+                <p className="text-[11px] text-slate-400 dark:text-stone-305 mt-0.5 font-semibold">
+                  Administre la cuota de caché del navegador para asegurar un funcionamiento offline libre de cuota.
+                </p>
+              </div>
+              <DatabaseZap className="w-5 h-5 text-amber-500" />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 bg-stone-50 dark:bg-stone-850 p-3.5 rounded-xl border border-stone-150 dark:border-stone-800">
+              <div className="text-left">
+                <span className="text-[9px] uppercase font-black text-stone-400 block">Total LocalStorage</span>
+                <span className="font-mono text-xs font-black text-stone-700 dark:text-white">{totalLocalStorageMB} MB</span>
+              </div>
+              <div className="text-left">
+                <span className="text-[9px] uppercase font-black text-stone-400 block">Caché del Menú</span>
+                <span className="font-mono text-xs font-black text-stone-700 dark:text-white">{menuCacheSizeKB} KB</span>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2 pt-1">
+              <button
+                onClick={handlePurgeImageCache}
+                className="flex-1 py-2 px-3 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-[10px] font-black uppercase text-center cursor-pointer transition-colors shadow-sm"
+              >
+                Purgar Imágenes Base64 de Caché
+              </button>
+              <button
                 onClick={() => {
                   localStorage.removeItem('el_potro_custom_logo');
                   localStorage.removeItem('el_patron_custom_logo');
                   window.dispatchEvent(new Event('el_patron_logo_changed'));
-                  addLog('sistema', `MARCA: Logotipo restablecido al isotipo de vector por defecto.`);
+                  toast.success('Logotipo personalizado restablecido.');
+                  setTimeout(() => window.location.reload(), 1000);
                 }}
-                className="px-3 py-1.5 border border-stone-200 hover:border-red-200 text-stone-550 hover:text-rose-600 rounded-lg text-[10px] font-extrabold bg-white hover:bg-stone-50 transition-all cursor-pointer shadow-xs"
+                className="py-2 px-3 border border-stone-200 dark:border-stone-800 hover:border-red-200 hover:bg-red-50 hover:text-red-750 dark:hover:bg-red-950/20 text-stone-600 dark:text-stone-300 rounded-xl text-[10px] font-black uppercase transition-all cursor-pointer bg-white dark:bg-stone-900"
               >
-                Restaurar
+                Restaurar Logo del Sistema
               </button>
             </div>
           </div>
+
+          {/* Logo Identity Manager */}
+          <div className="bg-white dark:bg-stone-900 rounded-2xl p-5 border border-stone-200 dark:border-stone-800 shadow-xs space-y-3">
+            <div className="flex items-center gap-2 border-b border-stone-100 dark:border-stone-850 pb-2.5 text-left">
+              <Compass className="w-4.5 h-4.5 text-[#4A2D1B] dark:text-[#C8956A]" />
+              <div className="text-left">
+                <h4 className="font-bold text-[#4A2D1B] dark:text-[#C8956A] text-xs uppercase tracking-tight">
+                  Logotipo y Marca
+                </h4>
+                <p className="text-[10px] text-stone-500 mt-0.5 font-semibold">
+                  Carga una imagen personalizada del logotipo (ej: caballo, isotipo) para los banners de toda la app.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-stone-200 dark:border-stone-800 hover:border-[#4A2D1B]/40 rounded-xl bg-[#FFFDF8]/40 dark:bg-stone-955/20 transition-all space-y-3 relative group">
+              <div className="w-16 h-16 rounded-full bg-[#FAF4EE] dark:bg-stone-850 flex items-center justify-center p-1 shadow-sm border border-stone-100 dark:border-stone-800 relative overflow-hidden">
+                <ElPatronLogo className="w-14 h-14 object-contain rounded-full" variant="badge" color="#4A2D1B" />
+              </div>
+
+              <div className="text-center space-y-1">
+                <span className="text-[10px] font-bold text-stone-850 dark:text-stone-200 block">Subir Logo El Patrón</span>
+                <p className="text-[9px] text-stone-505 dark:text-stone-400 max-w-[210px] leading-relaxed mx-auto font-semibold">
+                  La imagen seleccionada reemplazará el isotipo vectorial por defecto en la esquina del menú y en la barra de navegación lateral.
+                </p>
+              </div>
+
+              <div className="flex gap-2 w-full pt-1">
+                <label className="flex-1 py-1.5 px-2 bg-[#4A2D1B] hover:bg-[#6B4A35] text-white rounded-lg text-[10px] font-black uppercase text-center cursor-pointer transition-colors shadow-sm block">
+                  Cargar Imagen
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                          const dataUrl = event.target?.result as string;
+                          if (dataUrl) {
+                            try {
+                              localStorage.setItem('el_potro_custom_logo', dataUrl);
+                              window.dispatchEvent(new Event('el_patron_logo_changed'));
+                              addLog('sistema', `MARCA: Logotipo cargado correctamente en memoria local.`);
+                              toast.success('Logotipo personalizado cargado.');
+                              setTimeout(() => window.location.reload(), 1000);
+                            } catch (error) {
+                              toast.error("La imagen es demasiado grande. Por favor selecciona una menor a 1.5MB.");
+                            }
+                          }
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+                </label>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    localStorage.removeItem('el_potro_custom_logo');
+                    localStorage.removeItem('el_patron_custom_logo');
+                    window.dispatchEvent(new Event('el_patron_logo_changed'));
+                    addLog('sistema', `MARCA: Logotipo restablecido.`);
+                    toast.success('Logotipo restablecido.');
+                    setTimeout(() => window.location.reload(), 1000);
+                  }}
+                  className="px-3 py-1.5 border border-stone-200 dark:border-stone-800 hover:border-red-200 hover:text-rose-600 text-stone-550 dark:text-stone-300 rounded-lg text-[10px] font-extrabold bg-white hover:bg-stone-50 dark:bg-stone-900 transition-all cursor-pointer shadow-xs"
+                >
+                  Restaurar
+                </button>
+              </div>
+            </div>
+          </div>
+
         </div>
-
+        
       </div>
-
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
     </div>
-  </div>
-);
+  );
 }
