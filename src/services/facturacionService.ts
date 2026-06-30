@@ -15,6 +15,7 @@ export interface Factura {
   afip_vto?: string;
   afip_qr?: string;
   afip_resultado?: 'A' | 'O' | 'R';
+  fecha_completa?: string;
 }
 
 const mapMetodoPagoToDb = (medioPago: Factura['medio_pago']) => {
@@ -88,7 +89,8 @@ export const facturacionService = {
           afip_cae: f.afip_cae,
           afip_vto: f.afip_vto,
           afip_qr: f.afip_qr,
-          afip_resultado: f.afip_resultado
+          afip_resultado: f.afip_resultado,
+          fecha_completa: f.fecha_emision
         };
       });
 
@@ -110,7 +112,7 @@ export const facturacionService = {
       tipo_comprobante: factura.estado === 'nota_credito' ? 'Nota Credito' : 'Factura B',
       metodo_pago: mapMetodoPagoToDb(factura.medio_pago),
       cuit_cliente: factura.cuit,
-      fecha_emision: new Date().toISOString(),
+      fecha_emision: factura.fecha_completa || new Date().toISOString(),
       afip_cae: factura.afip_cae,
       afip_vto: factura.afip_vto,
       afip_qr: factura.afip_qr,
@@ -147,7 +149,7 @@ export const facturacionService = {
         tipo_comprobante: f.estado === 'nota_credito' ? 'Nota Credito' : 'Factura B',
         metodo_pago: mapMetodoPagoToDb(f.medio_pago),
         cuit_cliente: f.cuit,
-        fecha_emision: new Date().toISOString(),
+        fecha_emision: f.fecha_completa || new Date().toISOString(),
         afip_cae: f.afip_cae,
         afip_vto: f.afip_vto,
         afip_qr: f.afip_qr,
