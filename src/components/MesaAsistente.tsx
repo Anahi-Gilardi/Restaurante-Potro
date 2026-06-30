@@ -49,10 +49,13 @@ const parseIntents = (text: string) => {
   const numeros = (lower.match(/\b(mesa\s*)?(\d{1,2})\b/g) || [])
     .map(n => parseInt(n.replace(/\D/g, ''), 10))
     .filter(n => LAYOUT_OFICIAL[n]);
-  const personasMatch = lower.match(/(\d+)\s*(personas?|pax|comensales?)/);
-  const personas = personasMatch ? parseInt(personasMatch[1], 10) : undefined;
+  
+  const personasMatch = lower.match(/(\d+)\s*(personas?|pax|comensales?)/) || lower.match(/(para|con)\s+(\d+)/);
+  const personas = personasMatch 
+    ? parseInt(personasMatch[0].replace(/\D/g, ''), 10) 
+    : undefined;
 
-  const intent = lower.includes('sentar') || lower.includes('ocupar') || lower.includes('asignar')
+  let intent = lower.includes('sentar') || lower.includes('ocupar') || lower.includes('asignar')
     ? 'sentar'
     : lower.includes('liberar') || lower.includes('libre') || lower.includes('liberada')
     ? 'liberar'
@@ -66,8 +69,14 @@ const parseIntents = (text: string) => {
     ? 'unir'
     : 'desconocido';
 
+  // Si se indican personas y un número de mesa sin verbo explícito, asumimos que se quiere sentar
+  if (intent === 'desconocido' && personas !== undefined && numeros.length > 0) {
+    intent = 'sentar';
+  }
+
   return { numeros, personas, intent };
 };
+
 
 export function sugerirAlojamiento(mesaId: number, personas: number, mesas: MesaEstado[]): AccionJson {
   const meta = LAYOUT_OFICIAL[mesaId];
