@@ -10,50 +10,81 @@ const inferFechaApertura = (idCierre: string) => {
   return new Date().toISOString().replace('T', ' ').slice(0, 19);
 };
 
+const memoryStorage: Record<string, string> = {};
+
+const safeStorage = {
+  getItem(key: string): string | null {
+    try {
+      return localStorage.getItem(key);
+    } catch {
+      return memoryStorage[key] || null;
+    }
+  },
+  setItem(key: string, value: string): void {
+    try {
+      localStorage.setItem(key, value);
+    } catch (err: any) {
+      memoryStorage[key] = value;
+      console.warn(`LocalStorage set failed for key "${key}", using memory storage fallback:`, err);
+    }
+  },
+  removeItem(key: string): void {
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      delete memoryStorage[key];
+    }
+  },
+  clear(): void {
+    try {
+      localStorage.clear();
+    } catch {
+      for (const k in memoryStorage) {
+        delete memoryStorage[k];
+      }
+    }
+  }
+};
+
 const safeSetItem = (key: string, value: string): void => {
   try {
-    localStorage.setItem(key, value);
+    safeStorage.setItem(key, value);
   } catch (err: any) {
     if (err.name === 'QuotaExceededError' || err.code === 22 || err.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
       console.warn(`LocalStorage quota exceeded setting key "${key}". Purging non-essential caches...`);
       try {
-        localStorage.removeItem('el_patron_backups_locales');
-        localStorage.removeItem('el_patron_logs');
+        safeStorage.removeItem('el_patron_backups_locales');
+        safeStorage.removeItem('el_patron_logs');
         
         // Truncate shifts history
-        const rawHistory = localStorage.getItem('el_patron_historial_cierres');
+        const rawHistory = safeStorage.getItem('el_patron_historial_cierres');
         if (rawHistory) {
           try {
             const parsed = JSON.parse(rawHistory);
             if (Array.isArray(parsed)) {
-              localStorage.setItem('el_patron_historial_cierres', JSON.stringify(parsed.slice(0, 3)));
+              safeStorage.setItem('el_patron_historial_cierres', JSON.stringify(parsed.slice(0, 3)));
             }
           } catch {
-            localStorage.removeItem('el_patron_historial_cierres');
+            safeStorage.removeItem('el_patron_historial_cierres');
           }
         }
         
         // Retry
-        localStorage.setItem(key, value);
+        safeStorage.setItem(key, value);
       } catch (retryErr) {
-        console.warn('LocalStorage still full after partial purge. Executing full clear...');
-        try {
-          localStorage.clear();
-          localStorage.setItem(key, value);
-        } catch (finalErr) {
-          console.error('Failed to set localStorage key even after full clear:', finalErr);
-          throw new Error('El almacenamiento del navegador está completamente lleno. Por favor limpie el historial de navegación para poder operar.');
-        }
+        console.warn('LocalStorage still full after partial purge. Falling back to memory storage...');
+        memoryStorage[key] = value;
       }
     } else {
-      throw err;
+      memoryStorage[key] = value;
     }
   }
 };
 
 export const cajaService = {
+  safeStorage,
   getOpenSession(): CierreCaja | null {
-    const raw = localStorage.getItem('el_patron_caja_activa');
+    const raw = safeStorage.getItem('el_patron_caja_activa');
     if (raw) {
       try {
         const parsed = JSON.parse(raw);
@@ -115,7 +146,7 @@ export const cajaService = {
       }));
     } catch {
       // Offline fallback lists historical records
-      const raw = localStorage.getItem('el_patron_historial_cierres');
+      const raw = safeStorage.getItem('el_patron_historial_cierres');
       if (raw) {
         try {
           return JSON.parse(raw);
@@ -148,7 +179,7 @@ export const cajaService = {
           usuario_cajero: 'Mariano Closs'
         }
       ];
-      localStorage.setItem('el_patron_historial_cierres', JSON.stringify(defaults));
+      safeStorage.setItem('el_patron_historial_cierres', JSON.stringify(defaults));
       return defaults;
     }
   },
@@ -348,9 +379,9 @@ export const cajaService = {
     };
 
     // Remove active and add to history
-    localStorage.removeItem('el_patron_caja_activa');
+    safeStorage.removeItem('el_patron_caja_activa');
 
-    const raw = localStorage.getItem('el_patron_historial_cierres');
+    const raw = safeStorage.getItem('el_patron_historial_cierres');
     let history: CierreCaja[] = [];
     if (raw) {
       try {

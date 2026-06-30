@@ -44,7 +44,7 @@ export function useCaja({
 }: UseCajaProps) {
   // Configurable Restaurant Details
   const [restaurante, setRestaurante] = useState(() => {
-    const cached = localStorage.getItem('el_patron_restaurante_config');
+    const cached = cajaService.safeStorage.getItem('el_patron_restaurante_config');
     if (cached) {
       try {
         return JSON.parse(cached);
@@ -67,7 +67,7 @@ export function useCaja({
   });
 
   useEffect(() => {
-    localStorage.setItem('el_patron_restaurante_config', JSON.stringify(restaurante));
+    cajaService.safeStorage.setItem('el_patron_restaurante_config', JSON.stringify(restaurante));
   }, [restaurante]);
 
   const [editRestauranteMode, setEditRestauranteMode] = useState(false);
@@ -170,7 +170,7 @@ export function useCaja({
         if (remote) {
           if (remote.fecha_cierre) {
             // The session has been closed remotely on another terminal
-            localStorage.removeItem('el_patron_caja_activa');
+            cajaService.safeStorage.removeItem('el_patron_caja_activa');
             setCajaSession(null);
             toast.info('La sesión de caja fue cerrada desde otro terminal.');
           } else {
@@ -182,7 +182,7 @@ export function useCaja({
               observaciones: remote.observaciones ?? active.observaciones,
               movimientos_manuales: remote.movimientos_manuales ?? active.movimientos_manuales
             };
-            localStorage.setItem('el_patron_caja_activa', JSON.stringify(updatedActive));
+            cajaService.safeStorage.setItem('el_patron_caja_activa', JSON.stringify(updatedActive));
             setCajaSession(updatedActive);
           }
         }
