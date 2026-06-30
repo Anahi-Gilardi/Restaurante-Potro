@@ -3,12 +3,12 @@ import { Send, Users, Table2, Sparkles, AlertCircle } from 'lucide-react';
 
 // Mapa oficial LAYOUT 1 según especificación del negocio
 export const LAYOUT_OFICIAL: Record<number, { zona: 'alta' | 'central' | 'vip'; capacidad: number; vecinas: number[] }> = {
-  1: { zona: 'alta', capacidad: 2, vecinas: [2] },
-  2: { zona: 'alta', capacidad: 2, vecinas: [1, 3] },
+  1: { zona: 'alta', capacidad: 2, vecinas: [2, 5] },
+  2: { zona: 'alta', capacidad: 2, vecinas: [1, 3, 6] },
   3: { zona: 'alta', capacidad: 2, vecinas: [2, 4] },
-  4: { zona: 'alta', capacidad: 2, vecinas: [3, 5] },
-  5: { zona: 'alta', capacidad: 2, vecinas: [4, 6] },
-  6: { zona: 'alta', capacidad: 2, vecinas: [5] },
+  4: { zona: 'alta', capacidad: 2, vecinas: [3] },
+  5: { zona: 'alta', capacidad: 2, vecinas: [1, 6] },
+  6: { zona: 'alta', capacidad: 2, vecinas: [2, 5] },
   7: { zona: 'central', capacidad: 5, vecinas: [] },
   8: { zona: 'central', capacidad: 5, vecinas: [9, 10] },
   9: { zona: 'central', capacidad: 5, vecinas: [8, 11] },
