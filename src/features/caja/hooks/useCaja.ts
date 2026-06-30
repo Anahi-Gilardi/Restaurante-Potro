@@ -168,7 +168,11 @@ export function useCaja({
       try {
         const remote = await cajaService.getOpenSessionRemote(active.id_cierre);
         if (remote) {
-          if (remote.fecha_cierre) {
+          const isClosedRemotely = remote.fecha_cierre && 
+            remote.fecha_cierre !== remote.fecha_apertura && 
+            remote.observaciones !== 'Sesión Activa - En Turno';
+
+          if (isClosedRemotely) {
             // The session has been closed remotely on another terminal
             cajaService.safeStorage.removeItem('el_patron_caja_activa');
             setCajaSession(null);

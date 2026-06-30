@@ -199,7 +199,8 @@ export const cajaService = {
           monto_apertura: parseFloat(data.monto_apertura),
           observaciones: data.observaciones,
           usuario_cajero: data.usuario_cajero,
-          fecha_cierre: data.fecha_cierre
+          fecha_cierre: data.fecha_cierre,
+          fecha_apertura: data.fecha_apertura
         };
       }
     } catch (err) {
