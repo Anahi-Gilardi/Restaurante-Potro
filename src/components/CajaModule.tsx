@@ -170,6 +170,23 @@ export default function CajaModule({
   const [selectedShiftForDetail, setSelectedShiftForDetail] = useState<CierreCaja | null>(null);
   const [failedPrintsCount, setFailedPrintsCount] = useState(0);
 
+  // Calculadora de Billetes para Arqueo Físico
+  const [showBillCounter, setShowBillCounter] = useState<'open' | 'close' | null>(null);
+  const [billCounts, setBillCounts] = useState<{ [denom: number]: number }>({
+    20000: 0,
+    10000: 0,
+    2000: 0,
+    1000: 0,
+    500: 0,
+    200: 0,
+    100: 0,
+    50: 0
+  });
+
+  const billTotal = useMemo(() => {
+    return Object.entries(billCounts).reduce((sum, [denom, count]) => sum + parseInt(denom) * count, 0);
+  }, [billCounts]);
+
   const refreshFailedPrintsCount = () => {
     setFailedPrintsCount(printerService.getFailedPrints().length);
   };
@@ -485,25 +502,53 @@ export default function CajaModule({
 
                 {/* Turn revenue detailed tags */}
                 {cajaSession.registros_totales && (
-                  <div className="p-2 bg-stone-50 rounded-xl space-y-1 text-[9px] font-mono text-stone-500 font-bold border border-stone-200/50">
-                    <p className="font-sans text-[8px] text-stone-400 uppercase tracking-widest block font-black border-b border-stone-100 pb-1 mb-1">
-                      Desglose cobros en turno
-                    </p>
-                    <div className="flex justify-between">
-                      <span>• EFECTIVO:</span>
-                      <span>${cajaSession.registros_totales.efectivo.toLocaleString('es-AR')}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>• TRANS./DÉBITO:</span>
-                      <span>${(cajaSession.registros_totales.debito + cajaSession.registros_totales.transferencia).toLocaleString('es-AR')}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>• TARJETAS CRÉD:</span>
-                      <span>${cajaSession.registros_totales.credito.toLocaleString('es-AR')}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>• MERCADOPAGO QR:</span>
-                      <span>${cajaSession.registros_totales.mercadopago.toLocaleString('es-AR')}</span>
+                  <div className="p-3 bg-stone-50 dark:bg-stone-900/50 border border-stone-200 dark:border-stone-800 rounded-xl space-y-2.5">
+                    <span className="text-[8px] font-black uppercase text-stone-400 dark:text-stone-300 block tracking-wider">Distribución de Cobros</span>
+                    <div className="space-y-2 text-[10px]">
+                      {(() => {
+                        const totals = cajaSession.registros_totales;
+                        const sum = (totals.efectivo || 0) + (totals.debito || 0) + (totals.credito || 0) + (totals.transferencia || 0) + (totals.mercadopago || 0);
+                        const getPct = (val: number) => sum > 0 ? (val / sum) * 100 : 0;
+                        
+                        const items = [
+                          { label: 'Efectivo', val: totals.efectivo, color: 'bg-[#E8B800]', text: 'text-[#E8B800]' },
+                          { label: 'Transf./Deb.', val: totals.debito + totals.transferencia, color: 'bg-purple-500', text: 'text-purple-600' },
+                          { label: 'Crédito', val: totals.credito, color: 'bg-blue-500', text: 'text-blue-600' },
+                          { label: 'QR / MP', val: totals.mercadopago, color: 'bg-teal-500', text: 'text-teal-600' }
+                        ];
+                        
+                        return (
+                          <>
+                            {/* Horizontal visual progress row */}
+                            <div className="w-full h-2 bg-stone-200 dark:bg-stone-800 rounded-full flex overflow-hidden border border-stone-250/20">
+                              {items.map((it, i) => {
+                                const pct = getPct(it.val);
+                                if (pct <= 0) return null;
+                                return (
+                                  <div 
+                                    key={i} 
+                                    className={`h-full ${it.color}`} 
+                                    style={{ width: `${pct}%` }} 
+                                    title={`${it.label}: ${pct.toFixed(1)}%`}
+                                  />
+                                );
+                              })}
+                            </div>
+                            {/* Legend list */}
+                            <div className="grid grid-cols-2 gap-2 text-[9px] font-mono">
+                              {items.map((it, i) => (
+                                <div key={i} className="flex items-center justify-between font-bold border-b border-stone-150/40 pb-1">
+                                  <span className="flex items-center gap-1">
+                                    <span className={`w-1.5 h-1.5 rounded-full ${it.color}`} />
+                                    {it.label}
+                                  </span>
+                                  <span className="text-stone-700 dark:text-stone-300">${it.val.toLocaleString('es-AR')}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
                 )}
@@ -993,6 +1038,64 @@ export default function CajaModule({
                     </div>
                   )}
 
+                  {/* MercadoPago dynamic QR code placeholder */}
+                  {metodoPago === 'mp_qr' && (
+                    <div className="bg-teal-50/50 dark:bg-teal-955/20 border border-teal-200 dark:border-teal-900/40 p-4 rounded-xl space-y-3 animate-fadeIn">
+                      <div className="flex items-center gap-2 text-teal-800 dark:text-teal-300">
+                        <Smartphone className="w-4 h-4 text-teal-600 animate-pulse" />
+                        <span className="text-[10px] font-black uppercase tracking-wider">Código QR de Pago MercadoPago</span>
+                      </div>
+                      <div className="flex flex-col sm:flex-row items-center gap-4 bg-white dark:bg-stone-900 p-3 rounded-lg border border-teal-150/50 dark:border-teal-900/30">
+                        <div className="w-24 h-24 bg-white p-1 rounded-lg border border-stone-250/60 flex items-center justify-center shrink-0">
+                          <svg viewBox="0 0 100 100" className="w-full h-full text-stone-900">
+                            <rect x="0" y="0" width="100" height="100" fill="white" />
+                            <rect x="5" y="5" width="25" height="25" fill="black" />
+                            <rect x="8" y="8" width="19" height="19" fill="white" />
+                            <rect x="12" y="12" width="11" height="11" fill="black" />
+                            
+                            <rect x="70" y="5" width="25" height="25" fill="black" />
+                            <rect x="73" y="8" width="19" height="19" fill="white" />
+                            <rect x="77" y="12" width="11" height="11" fill="black" />
+                            
+                            <rect x="5" y="70" width="25" height="25" fill="black" />
+                            <rect x="8" y="73" width="19" height="19" fill="white" />
+                            <rect x="12" y="77" width="11" height="11" fill="black" />
+                            
+                            <rect x="42" y="42" width="16" height="16" fill="black" rx="3" />
+                            <rect x="45" y="45" width="10" height="10" fill="white" rx="1.5" />
+                            <circle cx="50" cy="50" r="3" fill="#009EE3" />
+                            
+                            <rect x="35" y="10" width="5" height="15" fill="black" />
+                            <rect x="45" y="5" width="10" height="5" fill="black" />
+                            <rect x="60" y="15" width="5" height="10" fill="black" />
+                            <rect x="10" y="35" width="15" height="5" fill="black" />
+                            <rect x="15" y="45" width="5" height="10" fill="black" />
+                            <rect x="30" y="30" width="10" height="10" fill="black" />
+                            <rect x="35" y="45" width="5" height="5" fill="black" />
+                            
+                            <rect x="70" y="35" width="15" height="5" fill="black" />
+                            <rect x="80" y="45" width="10" height="5" fill="black" />
+                            <rect x="85" y="55" width="10" height="10" fill="black" />
+                            <rect x="65" y="60" width="5" height="15" fill="black" />
+                            <rect x="75" y="70" width="15" height="5" fill="black" />
+                            <rect x="70" y="80" width="5" height="10" fill="black" />
+                            <rect x="85" y="80" width="10" height="5" fill="black" />
+                            
+                            <rect x="35" y="65" width="5" height="15" fill="black" />
+                            <rect x="45" y="75" width="15" height="5" fill="black" />
+                            <rect x="55" y="65" width="5" height="10" fill="black" />
+                            <rect x="35" y="85" width="20" height="5" fill="black" />
+                          </svg>
+                        </div>
+                        <div className="flex-1 text-xs text-stone-600 dark:text-stone-300 space-y-1 text-left">
+                          <p className="font-extrabold text-[#624A3E] dark:text-[#C8956A]">Código QR de Cobro</p>
+                          <p className="text-[10px] leading-relaxed">Presente este código QR al comensal para abonar desde cualquier billetera virtual (MercadoPago, MODO, etc.). El importe de <strong className="font-mono text-emerald-600">${orderBreakdowns.finalTotal.toLocaleString('es-AR')}</strong> se cargará automáticamente al escanear.</p>
+                          <span className="inline-block bg-teal-100 text-teal-800 px-2 py-0.5 rounded font-black text-[8px] uppercase tracking-wider mt-1">Sincronizado vía MercadoPago API</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Mixed Payment Rows interface */}
                   {metodoPago === 'mixto' && (
                     <div className="space-y-3.5 bg-slate-50 dark:bg-stone-950 p-3.5 rounded-xl border border-stone-200 dark:border-stone-800">
@@ -1322,7 +1425,19 @@ export default function CajaModule({
 
             <form onSubmit={handleOpenShift} className="space-y-3">
               <div>
-                <label className="text-[10px] font-black text-stone-700 dark:text-stone-300 uppercase block mb-1">Monto Inicial ($ ARS)</label>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-[10px] font-black text-stone-700 dark:text-stone-300 uppercase block">Monto Inicial ($ ARS)</label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBillCounts({ 20000: 0, 10000: 0, 2000: 0, 1000: 0, 500: 0, 200: 0, 100: 0, 50: 0 });
+                      setShowBillCounter(showBillCounter === 'open' ? null : 'open');
+                    }}
+                    className="text-[9px] font-black uppercase text-[#624A3E] dark:text-[#C8956A] hover:underline cursor-pointer flex items-center gap-1"
+                  >
+                    🪙 Calculadora de Billetes
+                  </button>
+                </div>
                 <input 
                   type="number"
                   required
@@ -1332,6 +1447,56 @@ export default function CajaModule({
                   placeholder="Ej. 25000"
                 />
               </div>
+
+              {showBillCounter === 'open' && (
+                <div className="bg-stone-50 dark:bg-stone-950 p-3.5 rounded-xl border border-stone-200 dark:border-stone-850 space-y-3 animate-fadeIn text-left">
+                  <span className="text-[9px] font-black text-[#624A3E] dark:text-amber-500 uppercase block">Conteo Físico por Denominación</span>
+                  <div className="grid grid-cols-2 gap-2 text-[11px]">
+                    {[20000, 10000, 2000, 1000, 500, 200, 100, 50].map(denom => (
+                      <div key={denom} className="flex items-center justify-between bg-white dark:bg-stone-900 p-1.5 rounded border border-stone-150 dark:border-stone-800">
+                        <span className="font-mono font-bold text-stone-600 dark:text-stone-300">${denom.toLocaleString('es-AR')}</span>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setBillCounts(prev => ({ ...prev, [denom]: Math.max(0, (prev[denom] || 0) - 1) }))}
+                            className="w-5 h-5 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 text-stone-700 dark:text-stone-200 font-bold text-xs flex items-center justify-center rounded cursor-pointer border-none"
+                          >
+                            -
+                          </button>
+                          <input
+                            type="number"
+                            min="0"
+                            value={billCounts[denom] || ''}
+                            onChange={e => setBillCounts(prev => ({ ...prev, [denom]: Math.max(0, parseInt(e.target.value) || 0) }))}
+                            className="w-8 text-center text-xs font-mono font-bold border-none bg-transparent focus:outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setBillCounts(prev => ({ ...prev, [denom]: (prev[denom] || 0) + 1 }))}
+                            className="w-5 h-5 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 text-stone-700 dark:text-stone-200 font-bold text-xs flex items-center justify-center rounded cursor-pointer border-none"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex justify-between items-center pt-2 border-t border-stone-150 dark:border-stone-800">
+                    <span className="text-[10px] font-black uppercase text-stone-500">Total Arqueado:</span>
+                    <span className="font-mono text-sm font-black text-emerald-700 dark:text-emerald-400">${billTotal.toLocaleString('es-AR')}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOpeningCashInput(String(billTotal));
+                      setShowBillCounter(null);
+                    }}
+                    className="w-full py-1.5 bg-[#624A3E] hover:bg-[#503C32] text-white text-[10px] font-black uppercase rounded-lg cursor-pointer transition-colors"
+                  >
+                    Aplicar Total de Arqueo
+                  </button>
+                </div>
+              )}
 
               <div>
                 <label className="text-[10px] font-black text-stone-700 dark:text-stone-300 uppercase block mb-1">Operador Responsable (Cajero)</label>
@@ -1405,7 +1570,19 @@ export default function CajaModule({
 
             <form onSubmit={handleCloseShift} className="space-y-3">
               <div>
-                <label className="text-[10px] font-black text-stone-750 dark:text-stone-300 uppercase block mb-1">Monto Real Físico de Arqueo ($ ARS)</label>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-[10px] font-black text-stone-750 dark:text-stone-300 uppercase block">Monto Real Físico de Arqueo ($ ARS)</label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBillCounts({ 20000: 0, 10000: 0, 2000: 0, 1000: 0, 500: 0, 200: 0, 100: 0, 50: 0 });
+                      setShowBillCounter(showBillCounter === 'close' ? null : 'close');
+                    }}
+                    className="text-[9px] font-black uppercase text-[#624A3E] dark:text-[#C8956A] hover:underline cursor-pointer flex items-center gap-1"
+                  >
+                    🪙 Calculadora de Billetes
+                  </button>
+                </div>
                 <input 
                   type="number"
                   required
@@ -1415,6 +1592,56 @@ export default function CajaModule({
                   placeholder="Ej. 120000"
                 />
               </div>
+
+              {showBillCounter === 'close' && (
+                <div className="bg-stone-50 dark:bg-stone-955 p-3.5 rounded-xl border border-stone-150 dark:border-stone-850 space-y-3 animate-fadeIn text-left">
+                  <span className="text-[9px] font-black text-[#624A3E] dark:text-amber-500 uppercase block">Conteo Físico por Denominación</span>
+                  <div className="grid grid-cols-2 gap-2 text-[11px]">
+                    {[20000, 10000, 2000, 1000, 500, 200, 100, 50].map(denom => (
+                      <div key={denom} className="flex items-center justify-between bg-white dark:bg-stone-900 p-1.5 rounded border border-stone-150 dark:border-stone-800">
+                        <span className="font-mono font-bold text-stone-600 dark:text-stone-300">${denom.toLocaleString('es-AR')}</span>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setBillCounts(prev => ({ ...prev, [denom]: Math.max(0, (prev[denom] || 0) - 1) }))}
+                            className="w-5 h-5 bg-stone-100 dark:bg-stone-850 hover:bg-stone-200 text-stone-700 dark:text-stone-200 font-bold text-xs flex items-center justify-center rounded cursor-pointer border-none"
+                          >
+                            -
+                          </button>
+                          <input
+                            type="number"
+                            min="0"
+                            value={billCounts[denom] || ''}
+                            onChange={e => setBillCounts(prev => ({ ...prev, [denom]: Math.max(0, parseInt(e.target.value) || 0) }))}
+                            className="w-8 text-center text-xs font-mono font-bold border-none bg-transparent focus:outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setBillCounts(prev => ({ ...prev, [denom]: (prev[denom] || 0) + 1 }))}
+                            className="w-5 h-5 bg-stone-100 dark:bg-stone-855 hover:bg-stone-200 text-stone-700 dark:text-stone-200 font-bold text-xs flex items-center justify-center rounded cursor-pointer border-none"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex justify-between items-center pt-2 border-t border-stone-150 dark:border-stone-800">
+                    <span className="text-[10px] font-black uppercase text-stone-500">Total Arqueado:</span>
+                    <span className="font-mono text-sm font-black text-emerald-700 dark:text-emerald-400">${billTotal.toLocaleString('es-AR')}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setClosingPhysicalCashInput(String(billTotal));
+                      setShowBillCounter(null);
+                    }}
+                    className="w-full py-1.5 bg-[#624A3E] hover:bg-[#503C32] text-white text-[10px] font-black uppercase rounded-lg cursor-pointer transition-colors"
+                  >
+                    Aplicar Total de Arqueo
+                  </button>
+                </div>
+              )}
 
               <div>
                 <label className="text-[10px] font-black text-stone-750 dark:text-stone-300 uppercase block mb-1">Observaciones Finales</label>
