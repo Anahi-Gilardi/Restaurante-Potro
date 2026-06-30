@@ -151,6 +151,9 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
   // Pestañas del panel lateral derecho
   const [rightPanelTab, setRightPanelTab] = useState<'asistente' | 'gestion'>('asistente');
 
+  // Mesas resaltadas/hovered por sugerencias del asistente
+  const [highlightedMesas, setHighlightedMesas] = useState<number[]>([]);
+
   // Modal reserva
   const [selectedMesa, setSelectedMesa] = useState<MesaVisual | null>(null);
   const [nombre, setNombre] = useState('');
@@ -677,15 +680,17 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
 
     const mesaElements = visualMesas.map(m => {
       const reserva = reservasHoy.find(r => r.id_mesa === m.id_mesa && r.estado === 'confirmada');
-      const fill = ESTADO_FILL[m.estado];
-      const stroke = ESTADO_STROKE[m.estado];
-      const textColor = ESTADO_TEXT[m.estado];
       const isSelected = unionMode && selectedForUnion.some(s => s.id_mesa === m.id_mesa);
+      const isHighlighted = highlightedMesas.includes(m.id_mesa);
+
+      const fill = isHighlighted ? '#DBEAFE' : ESTADO_FILL[m.estado];
+      const stroke = isHighlighted ? '#2563EB' : (isSelected ? '#3B82F6' : ESTADO_STROKE[m.estado]);
+      const textColor = isHighlighted ? '#1E40AF' : ESTADO_TEXT[m.estado];
       const { x, y, width, height, rx } = m.posicion;
 
       return (
         <g key={m.id} data-mesa-id={m.id}
-           className={`transition-opacity ${editorMode ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer hover:opacity-90'}`}
+           className={`transition-all duration-300 ${editorMode ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer hover:opacity-90'}`}
            onClick={(e: React.MouseEvent) => {
              e.stopPropagation();
              if (editorMode || draggingMesa) return;
@@ -696,13 +701,14 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
           {renderSillas(m)}
           <rect
             x={x} y={y} width={width} height={height} rx={rx}
-            fill={fill} stroke={isSelected ? '#3B82F6' : stroke} strokeWidth={isSelected ? 4 : 2.5}
+            fill={fill} stroke={stroke} strokeWidth={isHighlighted ? 5 : (isSelected ? 4 : 2.5)}
+            className="transition-all duration-300"
             pointerEvents="all"
             onMouseDown={(e: React.MouseEvent) => editorMode ? startDrag(m, e) : undefined}
             onTouchStart={(e: React.TouchEvent) => editorMode ? startDrag(m, e) : undefined}
           />
-          <text x={x + width / 2} y={y + height / 2 - 2} textAnchor="middle" fontSize={Math.min(18, width / 3.5)} fontWeight={700} fill={textColor} fontFamily="Arial, sans-serif" pointerEvents="none">{m.numero_mesa}</text>
-          <text x={x + width / 2} y={y + height / 2 + 14} textAnchor="middle" fontSize={9} fill={textColor} fontFamily="Arial, sans-serif" opacity={0.8} pointerEvents="none">Mesa</text>
+          <text x={x + width / 2} y={y + height / 2 - 2} textAnchor="middle" fontSize={Math.min(18, width / 3.5)} fontWeight={700} fill={textColor} fontFamily="Arial, sans-serif" pointerEvents="none" className="transition-all duration-300">{m.numero_mesa}</text>
+          <text x={x + width / 2} y={y + height / 2 + 14} textAnchor="middle" fontSize={9} fill={textColor} fontFamily="Arial, sans-serif" opacity={0.8} pointerEvents="none" className="transition-all duration-300">Mesa</text>
           
           {reserva && (
             <g transform={`translate(${x + 4}, ${y + 4})`} pointerEvents="none">
@@ -844,7 +850,11 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
 
           {/* TAB 1: Asistente natural de salón */}
           {rightPanelTab === 'asistente' && (
-            <MesaAsistente mesas={mesasNormalizadasForAsistente} onAccion={handleAccionAsistente} />
+            <MesaAsistente 
+              mesas={mesasNormalizadasForAsistente} 
+              onAccion={handleAccionAsistente} 
+              onHoverSuggestion={setHighlightedMesas}
+            />
           )}
 
           {/* TAB 2: Gestión tradicional de mesas */}

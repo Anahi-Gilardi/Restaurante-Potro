@@ -42,6 +42,7 @@ interface AccionJson {
 interface MesaAsistenteProps {
   mesas: MesaEstado[];
   onAccion?: (accion: AccionJson) => void;
+  onHoverSuggestion?: (mesaIds: number[]) => void;
 }
 
 const parseIntents = (text: string) => {
@@ -260,7 +261,7 @@ interface HistorialItem {
   parsedAction?: AccionJson;
 }
 
-export default function MesaAsistente({ mesas, onAccion }: MesaAsistenteProps) {
+export default function MesaAsistente({ mesas, onAccion, onHoverSuggestion }: MesaAsistenteProps) {
   const [input, setInput] = useState('');
   const [showJsonMap, setShowJsonMap] = useState<Record<number, boolean>>({});
   const [historial, setHistorial] = useState<HistorialItem[]>([
@@ -302,6 +303,8 @@ export default function MesaAsistente({ mesas, onAccion }: MesaAsistenteProps) {
   };
 
   const handleApplySuggestion = (sug: any, comensales?: number) => {
+    // Clear hover effect on click
+    onHoverSuggestion?.([]);
     if (sug.tipo === 'unir' && sug.mesas) {
       onAccion?.({
         accion: 'combinar_mesas',
@@ -328,6 +331,16 @@ export default function MesaAsistente({ mesas, onAccion }: MesaAsistenteProps) {
     }
   };
 
+  const handleButtonHover = (sug: any, enter: boolean) => {
+    if (!onHoverSuggestion) return;
+    if (!enter) {
+      onHoverSuggestion([]);
+      return;
+    }
+    const ids = sug.mesas || (sug.mesa_id ? [sug.mesa_id] : []);
+    onHoverSuggestion(ids);
+  };
+
   const toggleJson = (idx: number) => {
     setShowJsonMap(prev => ({ ...prev, [idx]: !prev[idx] }));
   };
@@ -345,7 +358,7 @@ export default function MesaAsistente({ mesas, onAccion }: MesaAsistenteProps) {
             <div className={`max-w-[90%] rounded-xl p-3 text-xs ${
               h.tipo === 'user'
                 ? 'bg-[#624A3E] text-white shadow-xs'
-                : 'bg-stone-50 dark:bg-stone-950 text-stone-750 dark:text-stone-300 border border-stone-105 dark:border-stone-850'
+                : 'bg-stone-50 dark:bg-stone-955 text-stone-750 dark:text-stone-300 border border-stone-105 dark:border-stone-850'
             }`}>
               <p className="leading-relaxed font-semibold">{h.texto}</p>
 
@@ -358,7 +371,11 @@ export default function MesaAsistente({ mesas, onAccion }: MesaAsistenteProps) {
                       <button
                         key={sIdx}
                         onClick={() => handleApplySuggestion(sug, h.parsedAction?.comensales)}
-                        className="w-full text-left p-2.5 bg-stone-100 hover:bg-stone-200 dark:bg-stone-900 dark:hover:bg-stone-850 text-stone-805 dark:text-stone-200 rounded-xl font-extrabold text-[10px] uppercase transition-colors cursor-pointer border border-stone-200 dark:border-stone-800"
+                        onMouseEnter={() => handleButtonHover(sug, true)}
+                        onMouseLeave={() => handleButtonHover(sug, false)}
+                        onTouchStart={() => handleButtonHover(sug, true)}
+                        onTouchEnd={() => handleButtonHover(sug, false)}
+                        className="w-full text-left p-2.5 bg-stone-100 hover:bg-[#624A3E]/10 dark:bg-stone-900 dark:hover:bg-stone-850 text-stone-805 dark:text-stone-200 rounded-xl font-extrabold text-[10px] uppercase transition-colors cursor-pointer border border-stone-200 dark:border-stone-800"
                       >
                         {sug.tipo === 'unir' ? '🔗 ' : '🪑 '} {sug.descripcion}
                       </button>
