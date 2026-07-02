@@ -103,10 +103,10 @@ export default function HomeMenuModule({
 
   // Mapear qué mozo está asignado a cada mesa activa
   const mesaMozoMap = useMemo(() => {
-    const map = new Map<number, string>();
+    const map = new Map<string, string>();
     pedidos.forEach(p => {
       if (p.estado_comanda !== 'entregado_cobrado' && p.estado_comanda !== 'cancelado') {
-        map.set(p.id_mesa, p.mozo);
+        map.set(String(p.id_mesa), p.mozo);
       }
     });
     return map;
@@ -593,7 +593,7 @@ export default function HomeMenuModule({
             if (m.estado === 'ocupada') tableStyle = 'bg-rose-50 text-rose-800 border-rose-250 dark:bg-rose-955/20 dark:text-rose-355 dark:border-rose-900/50';
             else if (m.estado === 'esperando_cuenta') tableStyle = 'bg-amber-50 text-amber-800 border-amber-250 dark:bg-amber-950/20 dark:text-amber-300 dark:border-amber-900/50 animate-pulse shadow-md shadow-amber-400/5';
 
-            const mozoAsignado = mesaMozoMap.get(m.id_mesa);
+            const mozoAsignado = mesaMozoMap.get(String(m.id_mesa));
 
             return (
               <button

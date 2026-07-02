@@ -316,13 +316,14 @@ export default function MozoTerminal({
   const [splitItemsChecked, setSplitItemsChecked] = useState<{ [itemIdx: number]: boolean }>({});
 
   const selectedMesa = useMemo(() => {
-    return mesas.find(m => m.id_mesa === selectedMesaId) || null;
+    if (selectedMesaId === null) return null;
+    return mesas.find(m => String(m.id_mesa) === String(selectedMesaId)) || null;
   }, [selectedMesaId, mesas]);
 
   // Find active order of the selected table if any (to split or pay)
   const activePedidoDeMesa = useMemo(() => {
-    if (!selectedMesaId) return null;
-    return pedidos.find(p => p.id_mesa === selectedMesaId && p.estado_comanda !== 'entregado_cobrado' && p.estado_comanda !== 'cancelado') || null;
+    if (selectedMesaId === null) return null;
+    return pedidos.find(p => String(p.id_mesa) === String(selectedMesaId) && p.estado_comanda !== 'entregado_cobrado' && p.estado_comanda !== 'cancelado') || null;
   }, [selectedMesaId, pedidos]);
 
   // Filter products by category and search (with hierarchical wine/beverage browsing)
@@ -564,7 +565,7 @@ export default function MozoTerminal({
 
           <div className="grid grid-cols-4 gap-2.5">
             {mesas.map(m => {
-              const isSelected = m.id_mesa === selectedMesaId;
+              const isSelected = String(m.id_mesa) === String(selectedMesaId);
               const isOcupada = m.estado === 'ocupada';
               const isInCuenta = m.estado === 'esperando_cuenta';
               const isReservada = m.estado === 'reservada';
@@ -1259,7 +1260,7 @@ export default function MozoTerminal({
                   {voiceResult.mesa !== null 
                     ? (voiceResult.mesa === 'delivery' ? 'Pedido Delivery' : `Mesa ${voiceResult.mesa}`) 
                     : selectedMesaId !== null 
-                      ? (selectedMesaId === 999 ? 'Mesa Actual (DELIVERY)' : `Mesa Actual (${mesas.find(m => m.id_mesa === selectedMesaId)?.numero_mesa})`) 
+                      ? (selectedMesaId === 999 ? 'Mesa Actual (DELIVERY)' : `Mesa Actual (${mesas.find(m => String(m.id_mesa) === String(selectedMesaId))?.numero_mesa})`) 
                       : 'Ninguna (Se aplicará a mesa seleccionada)'}
                 </span>
               </div>
