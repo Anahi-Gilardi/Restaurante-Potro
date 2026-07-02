@@ -306,7 +306,7 @@ export default function HomeMenuModule({
       title: 'Salón Comedor',
       description: 'Distribución física del salón comedor, ocupación de mesas y control de capacidad.',
       icon: Users,
-      color: 'from-[#624A3E]/10 to-[#4D3227]/5 hover:border-[#624A3E] border-l-4 border-l-[#624A3E] dark:border-l-[#C8956A]',
+      color: 'from-[#624A3E]/10 to-[#DB9C60]/5 hover:border-[#624A3E] border-l-4 border-l-[#624A3E] dark:border-l-[#C8956A]',
       iconColor: 'text-[#624A3E] dark:text-[#C8956A]',
       badge: {
         text: `${occupiedTables} ocupadas`,
@@ -391,13 +391,13 @@ export default function HomeMenuModule({
     <div className="space-y-8 animate-fadeIn text-left" id="home-operational-menu">
       
       {/* 1. Impact Brand Header Block */}
-      <div className="bg-gradient-to-br from-[#4A2D1B] via-[#6B4A35] to-[#2E190E] rounded-3xl p-6 md:p-10 text-white shadow-2xl relative overflow-hidden flex flex-col md:flex-row items-center gap-6 border border-[#C8956A]/20">
+      <div className="bg-gradient-to-br from-[#DB9C60] via-[#B97F47] to-[#2E190E] rounded-3xl p-6 md:p-10 text-white shadow-2xl relative overflow-hidden flex flex-col md:flex-row items-center gap-6 border border-[#C8956A]/20">
         <div className="absolute right-[-25px] bottom-[-25px] opacity-10 rotate-12 scale-110 pointer-events-none">
           <ElPatronLogo className="w-64 h-64" variant="icon" color="#FFFDF8" />
         </div>
         
         <div className="w-24 h-24 md:w-28 md:h-28 bg-[#FFFDF8] rounded-full flex items-center justify-center p-1.5 shadow-lg border border-white/10 shrink-0 relative z-10">
-          <ElPatronLogo className="w-full h-full object-contain rounded-full" variant="badge" color="#4A2D1B" />
+          <ElPatronLogo className="w-full h-full object-contain rounded-full" variant="badge" color="#DB9C60" />
         </div>
 
         <div className="absolute top-4 right-4 flex items-center gap-2">
@@ -471,7 +471,7 @@ export default function HomeMenuModule({
           <div>
             <span className="text-[10px] font-black text-stone-400 dark:text-stone-555 uppercase tracking-widest block">Operador en Turno</span>
             <div className="flex items-center gap-2 mt-3.5">
-              <div className="w-8 h-8 rounded-xl bg-[#4A2D1B]/10 dark:bg-white/10 border border-stone-200 dark:border-white/15 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-xl bg-[#DB9C60]/10 dark:bg-white/10 border border-stone-200 dark:border-white/15 flex items-center justify-center">
                 <User className="w-4 h-4 text-stone-600 dark:text-stone-300" />
               </div>
               {canChangeUser ? (
@@ -702,7 +702,7 @@ export default function HomeMenuModule({
               >
                 {/* Module Top Row */}
                 <div className="w-full flex items-center justify-between gap-4">
-                  <div className={`p-2.5 rounded-xl bg-white dark:bg-[#4A2D1B]/50 shadow-md border border-stone-200/50 dark:border-white/10 ${item.iconColor}`}>
+                  <div className={`p-2.5 rounded-xl bg-white dark:bg-[#DB9C60]/50 shadow-md border border-stone-200/50 dark:border-white/10 ${item.iconColor}`}>
                     <Icon className="w-6 h-6 shrink-0" />
                   </div>
                   

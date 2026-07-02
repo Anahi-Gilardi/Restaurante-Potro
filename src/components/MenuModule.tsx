@@ -466,7 +466,7 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
         <button onClick={() => setShowBulkEditor(false)}
           className={`px-4 py-2 text-xs font-extrabold rounded-xl transition-all cursor-pointer border shrink-0 ${
             !showBulkEditor
-              ? 'bg-[#4A2D1B] dark:bg-[#C8956A] text-white dark:text-[#4A2D1B] border-[#4A2D1B] dark:border-[#C8956A] shadow-md'
+              ? 'bg-[#DB9C60] dark:bg-[#C8956A] text-white dark:text-[#DB9C60] border-[#DB9C60] dark:border-[#C8956A] shadow-md'
               : 'bg-white/70 dark:bg-white/5 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-white/10 hover:bg-stone-50 dark:hover:bg-white/10'
           }`}>
           <UtensilsCrossed className="w-3.5 h-3.5 inline mr-1" /> Catalogo
@@ -474,7 +474,7 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
         <button onClick={() => setShowBulkEditor(true)}
           className={`px-4 py-2 text-xs font-extrabold rounded-xl transition-all cursor-pointer border shrink-0 ${
             showBulkEditor
-              ? 'bg-[#4A2D1B] dark:bg-[#C8956A] text-white dark:text-[#4A2D1B] border-[#4A2D1B] dark:border-[#C8956A] shadow-md'
+              ? 'bg-[#DB9C60] dark:bg-[#C8956A] text-white dark:text-[#DB9C60] border-[#DB9C60] dark:border-[#C8956A] shadow-md'
               : 'bg-white/70 dark:bg-white/5 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-white/10 hover:bg-stone-50 dark:hover:bg-white/10'
           }`}>
           <DollarSign className="w-3.5 h-3.5 inline mr-1" /> Precios masivos
@@ -487,7 +487,7 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 md:gap-6">
         <div className="glass-panel p-4 sm:p-6 rounded-2xl shadow-sm space-y-4">
           <h3 className="text-sm font-black text-stone-850 dark:text-[#FAF7F0] uppercase tracking-tight flex items-center gap-2">
-            <Plus className="w-4 h-4 text-[#4A2D1B] dark:text-[#C8956A]" />
+            <Plus className="w-4 h-4 text-[#DB9C60] dark:text-[#C8956A]" />
             Nuevo plato / bebida
           </h3>
           <form onSubmit={handleCreateItem} className="space-y-3">
@@ -558,7 +558,7 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
                     type="checkbox"
                     checked={requiereCocina}
                     onChange={e => setRequiereCocina(e.target.checked)}
-                    className="w-4 h-4 rounded text-[#4A2D1B] dark:text-[#C8956A] focus:ring-[#4A2D1B] dark:focus:ring-[#C8956A] bg-stone-50 dark:bg-white/5 border-stone-200 dark:border-white/10"
+                    className="w-4 h-4 rounded text-[#DB9C60] dark:text-[#C8956A] focus:ring-[#DB9C60] dark:focus:ring-[#C8956A] bg-stone-50 dark:bg-white/5 border-stone-200 dark:border-white/10"
                     disabled={isBusy}
                   />
                   Cocina
@@ -644,7 +644,7 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
             <button
               type="submit"
               disabled={isBusy}
-              className="w-full min-h-11 py-2.5 bg-[#4A2D1B] hover:bg-[#5d3a2e] dark:bg-[#C8956A] dark:hover:bg-[#d5a67c] text-[#FAF7F0] dark:text-[#4A2D1B] border border-[#FAF7F0]/10 dark:border-[#C8956A]/20 transition-all font-extrabold text-xs rounded-xl shadow-md cursor-pointer active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
+              className="w-full min-h-11 py-2.5 bg-[#DB9C60] hover:bg-[#5d3a2e] dark:bg-[#C8956A] dark:hover:bg-[#d5a67c] text-[#FAF7F0] dark:text-[#DB9C60] border border-[#FAF7F0]/10 dark:border-[#C8956A]/20 transition-all font-extrabold text-xs rounded-xl shadow-md cursor-pointer active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {pendingAction === 'create' ? 'Registrando...' : 'Registrar en carta'}
             </button>
@@ -654,7 +654,7 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
         <div className="glass-panel p-4 sm:p-6 rounded-2xl shadow-sm lg:col-span-3 space-y-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-stone-100 dark:border-white/10">
             <h3 className="text-sm font-black text-stone-850 dark:text-[#FAF7F0] uppercase tracking-tight flex items-center gap-2">
-              <UtensilsCrossed className="w-5 h-5 text-[#4A2D1B] dark:text-[#C8956A]" />
+              <UtensilsCrossed className="w-5 h-5 text-[#DB9C60] dark:text-[#C8956A]" />
               Catálogo de menú ({filtered.length})
             </h3>
 
@@ -663,7 +663,7 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
                 onClick={() => setSelectedCategoria('todos')}
                 className={`px-2.5 py-1.5 text-[10px] font-black rounded-lg uppercase tracking-wide cursor-pointer transition-all border ${
                   selectedCategoria === 'todos'
-                    ? 'bg-[#4A2D1B] dark:bg-[#C8956A] text-white dark:text-[#4A2D1B] border-[#4A2D1B] dark:border-[#C8956A] shadow-xs'
+                    ? 'bg-[#DB9C60] dark:bg-[#C8956A] text-white dark:text-[#DB9C60] border-[#DB9C60] dark:border-[#C8956A] shadow-xs'
                     : 'bg-stone-50 dark:bg-stone-850/80 text-stone-650 dark:text-stone-250 border-stone-200 dark:border-stone-750/80 hover:bg-[#F5F1E9] dark:hover:bg-stone-750/50'
                 }`}
               >
@@ -675,7 +675,7 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
                   onClick={() => setSelectedCategoria(cat.slug.toLowerCase())}
                   className={`px-2.5 py-1.5 text-[10px] font-black rounded-lg uppercase tracking-wide cursor-pointer transition-all border ${
                     selectedCategoria.toLowerCase() === cat.slug.toLowerCase()
-                      ? 'bg-[#4A2D1B] dark:bg-[#C8956A] text-white dark:text-[#4A2D1B] border-[#4A2D1B] dark:border-[#C8956A] shadow-xs'
+                      ? 'bg-[#DB9C60] dark:bg-[#C8956A] text-white dark:text-[#DB9C60] border-[#DB9C60] dark:border-[#C8956A] shadow-xs'
                       : 'bg-stone-50 dark:bg-stone-850/80 text-stone-650 dark:text-stone-250 border-stone-200 dark:border-stone-750/80 hover:bg-[#F5F1E9] dark:hover:bg-stone-750/50'
                   }`}
                 >
@@ -730,7 +730,7 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
                   <div className="flex-1 flex flex-col justify-between min-w-0">
                     <div className="space-y-0.5">
                       <div className="flex items-center justify-between">
-                        <span className="text-[8px] font-black uppercase text-[#4A2D1B] dark:text-[#C8956A]">{item.categoria}</span>
+                        <span className="text-[8px] font-black uppercase text-[#DB9C60] dark:text-[#C8956A]">{item.categoria}</span>
                         {item.tiempo_preparacion_estimado && (
                           <span className="text-[8px] font-black text-stone-500 dark:text-stone-400 uppercase tracking-tight">⏱️ {item.tiempo_preparacion_estimado} min</span>
                         )}
@@ -780,7 +780,7 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
                           <div className="flex items-center justify-between">
                             <label className="flex items-center gap-1 text-[10px] font-bold text-stone-650 dark:text-stone-300 cursor-pointer select-none">
                               <input type="checkbox" checked={editRequiereCocina} onChange={e => setEditRequiereCocina(e.target.checked)}
-                                className="w-3.5 h-3.5 rounded text-[#4A2D1B] dark:text-[#C8956A] bg-white dark:bg-white/5 border-stone-350 dark:border-white/10" /> Cocina
+                                className="w-3.5 h-3.5 rounded text-[#DB9C60] dark:text-[#C8956A] bg-white dark:bg-white/5 border-stone-350 dark:border-white/10" /> Cocina
                             </label>
                           </div>
                           

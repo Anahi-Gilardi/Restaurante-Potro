@@ -1089,7 +1089,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
 
       {/* LEFT SIDE PANEL - Desktop/Tablet sidebar */}
       <aside
-        className={`fixed left-0 top-0 h-screen z-50 hidden lg:flex flex-col bg-[#4A2D1B] text-[#FAF7F0]/90 border-r border-[#FAF7F0]/10 shadow-2xl backdrop-blur-md transition-all duration-300 ease-in-out ${
+        className={`fixed left-0 top-0 h-screen z-50 hidden lg:flex flex-col bg-[#DB9C60] text-stone-900 border-r border-black/10 shadow-2xl backdrop-blur-md transition-all duration-300 ease-in-out ${
           isSidebarCollapsed ? 'w-16' : 'w-64'
         }`}
         id="sidebar-left-panel"
@@ -1097,19 +1097,19 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
         {/* Logo */}
         <div 
           onClick={handleLogoClickToLogin}
-          className={`flex items-center border-b border-[#FAF7F0]/10 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-4'} py-5 cursor-pointer hover:bg-white/5 transition-colors select-none`}
+          className={`flex items-center border-b border-black/10 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-4'} py-5 cursor-pointer hover:bg-black/5 transition-colors select-none`}
           title="Cerrar Sesión / Ir al Login"
         >
           <div className="w-9 h-9 bg-white rounded-xl flex items-center justify-center shadow-lg border border-[#C8956A]/30 p-0.5 overflow-hidden shrink-0 relative">
-            <ElPatronLogo className="w-8 h-8 object-contain rounded" variant="icon" color="#4A2D1B" />
+            <ElPatronLogo className="w-8 h-8 object-contain rounded" variant="icon" color="#DB9C60" />
             <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white ${
               tryGetActiveSupabaseClient() !== null ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
             }`} />
           </div>
           {!isSidebarCollapsed && (
             <div className="ml-3 min-w-0">
-              <span className="font-extrabold text-sm text-[#FAF7F0] block leading-tight tracking-wide font-sans">El Patrón</span>
-              <span className="text-[7px] uppercase font-black text-[#C8956A] tracking-wider block leading-tight mt-0.5">
+              <span className="font-extrabold text-sm text-stone-950 block leading-tight tracking-wide font-sans">El Patrón</span>
+              <span className="text-[7px] uppercase font-black text-stone-700 tracking-wider block leading-tight mt-0.5">
                 {tryGetActiveSupabaseClient() !== null ? '🟢 Supabase Cloud' : '🟡 Modo Local'}
               </span>
             </div>
@@ -1149,8 +1149,8 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
                   isSidebarCollapsed ? 'justify-center' : 'justify-start'
                 } ${
                   isActive
-                    ? 'bg-[#C8956A] text-[#4A2D1B] font-bold shadow-lg shadow-black/10 scale-[1.01]'
-                    : 'text-[#FAF7F0]/70 hover:text-[#FAF7F0] hover:bg-white/5'
+                    ? 'bg-[#1A110B] text-[#DB9C60] font-bold shadow-lg shadow-black/10 scale-[1.01]'
+                    : 'text-stone-900 hover:text-stone-950 hover:bg-black/5'
                 }`}
               >
                 <span className="text-base shrink-0 leading-none">{item.icon}</span>
@@ -1158,7 +1158,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
                   <span className="text-xs whitespace-nowrap truncate">{item.label}</span>
                 )}
                 {!isSidebarCollapsed && isActive && (
-                  <span className="ml-auto w-1.5 h-1.5 rounded-full bg-[#4A2D1B] shrink-0 animate-pulse" />
+                  <span className="ml-auto w-1.5 h-1.5 rounded-full bg-[#DB9C60] shrink-0 animate-pulse" />
                 )}
               </button>
             );
@@ -1166,22 +1166,22 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
         </nav>
 
         {/* Footer */}
-        <div className="border-t border-[#FAF7F0]/10 p-3 space-y-2">
+        <div className="border-t border-black/10 p-3 space-y-2">
           <button
             onClick={handleLogout}
             title={isSidebarCollapsed ? 'Cerrar sesión' : ''}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-rose-500/10 text-rose-350 transition-colors cursor-pointer ${
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-rose-900/10 text-rose-900 hover:text-rose-950 transition-colors cursor-pointer ${
               isSidebarCollapsed ? 'justify-center' : 'justify-start'
             }`}
           >
-            <LogOut className="w-4 h-4 flex-shrink-0 text-rose-400" />
+            <LogOut className="w-4 h-4 flex-shrink-0 text-rose-800" />
             {!isSidebarCollapsed && <span className="text-xs font-semibold">Cerrar sesión</span>}
           </button>
 
           <button
             onClick={() => setIsSidebarCollapsed(c => !c)}
             title={isSidebarCollapsed ? 'Expandir' : 'Colapsar'}
-            className="w-full flex items-center justify-center p-2 rounded-lg hover:bg-white/5 text-[#FAF7F0]/60 hover:text-[#FAF7F0] transition-colors cursor-pointer"
+            className="w-full flex items-center justify-center p-2 rounded-lg hover:bg-black/5 text-stone-700 hover:text-stone-900 transition-colors cursor-pointer"
           >
             {isSidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
           </button>

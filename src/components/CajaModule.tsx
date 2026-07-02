@@ -728,7 +728,7 @@ export default function CajaModule({
               {/* INTERACTIVE FORMULERS (MD: Span 7) */}
               <div className="md:col-span-7 bg-white dark:bg-stone-900/40 p-5 rounded-2xl border border-stone-200/80 dark:border-stone-800 shadow-sm space-y-4">
                 
-                <div className="flex justify-between items-center bg-[#F5F1E9] dark:bg-[#4A2D1B]/40 p-3 border border-stone-200/50 dark:border-stone-800/80 rounded-xl">
+                <div className="flex justify-between items-center bg-[#F5F1E9] dark:bg-[#DB9C60]/40 p-3 border border-stone-200/50 dark:border-stone-800/80 rounded-xl">
                   <div>
                     <span className="text-[8px] font-black uppercase text-[#624A3E] dark:text-[#C8956A] block">Cuenta Activa</span>
                     <h4 className="font-extrabold text-stone-900 dark:text-stone-100 text-xs font-sans">Mesa {selectedPedido.numero_mesa}</h4>
@@ -897,12 +897,12 @@ export default function CajaModule({
 
                 {/* Standard split comensales */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                  <div className="p-3 bg-[#F5F1E9]/50 dark:bg-[#4A2D1B]/10 border border-stone-200 dark:border-stone-800 rounded-xl space-y-2">
+                  <div className="p-3 bg-[#F5F1E9]/50 dark:bg-[#DB9C60]/10 border border-stone-200 dark:border-stone-800 rounded-xl space-y-2">
                     <h5 className="text-[10px] font-black text-stone-600 dark:text-stone-300 flex items-center gap-1 uppercase tracking-wider">
                       <Users className="w-3.5 h-3.5 text-[#624A3E] dark:text-stone-300" /> Partes Comensales (Partes Iguales)
                     </h5>
                     
-                    <div className="flex items-center justify-between gap-2 bg-[#FAF7F0] dark:bg-[#4A2D1B]/40 border border-stone-200/50 p-1.5 rounded-lg">
+                    <div className="flex items-center justify-between gap-2 bg-[#FAF7F0] dark:bg-[#DB9C60]/40 border border-stone-200/50 p-1.5 rounded-lg">
                       <button
                         onClick={() => {
                           setSplitPayerCount(prev => Math.max(1, prev - 1));
@@ -1794,7 +1794,7 @@ export default function CajaModule({
 
                     <button
                       onClick={() => setSelectedShiftForDetail(cs)}
-                      className="px-3 py-2 bg-[#624A3E] hover:bg-[#523e34] dark:bg-[#C8956A] dark:hover:bg-[#b8855a] text-white dark:text-[#4A2D1B] text-[10px] font-black uppercase rounded-xl transition-all cursor-pointer shadow-xs active:scale-95 shrink-0 border-none"
+                      className="px-3 py-2 bg-[#624A3E] hover:bg-[#523e34] dark:bg-[#C8956A] dark:hover:bg-[#b8855a] text-white dark:text-[#DB9C60] text-[10px] font-black uppercase rounded-xl transition-all cursor-pointer shadow-xs active:scale-95 shrink-0 border-none"
                     >
                       Detalle
                     </button>
@@ -1914,7 +1914,7 @@ export default function CajaModule({
             <div className="flex flex-wrap gap-2.5 pt-4 border-t border-stone-200/50 dark:border-stone-800 mt-5">
               <button
                 onClick={() => pdfService.exportCierreCajaPDF(selectedShiftForDetail, restaurante)}
-                className="px-4 py-2.5 bg-[#624A3E] hover:bg-[#523e34] dark:bg-[#C8956A] dark:hover:bg-[#b8855a] text-white dark:text-[#4A2D1B] text-xs font-black uppercase rounded-xl flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95 transition-all border-none"
+                className="px-4 py-2.5 bg-[#624A3E] hover:bg-[#523e34] dark:bg-[#C8956A] dark:hover:bg-[#b8855a] text-white dark:text-[#DB9C60] text-xs font-black uppercase rounded-xl flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95 transition-all border-none"
               >
                 <Download className="w-4 h-4" /> Exportar PDF
               </button>

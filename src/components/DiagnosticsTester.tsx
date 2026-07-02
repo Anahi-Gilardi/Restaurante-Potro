@@ -303,7 +303,7 @@ export default function DiagnosticsTester({ onClose }: DiagnosticsTesterProps) {
               <Activity className="w-6 h-6 animate-pulse" />
             </div>
             <div>
-              <h2 className="text-xl font-extrabold text-[#4A2D1B]">Tester & Diagnóstico Completo</h2>
+              <h2 className="text-xl font-extrabold text-[#DB9C60]">Tester & Diagnóstico Completo</h2>
               <p className="text-xs text-stone-500">Mapeo del estado de conectividad con Supabase</p>
             </div>
           </div>
@@ -320,7 +320,7 @@ export default function DiagnosticsTester({ onClose }: DiagnosticsTesterProps) {
         {/* Section 1: Resolved Credentials */}
         <div className="bg-stone-50 rounded-2xl p-4 border border-stone-200/80 space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] uppercase font-bold text-[#6B4A35] tracking-wider flex items-center gap-1.5">
+            <span className="text-[11px] uppercase font-bold text-[#B97F47] tracking-wider flex items-center gap-1.5">
               <Server className="w-3.5 h-3.5" /> Credenciales Activas del Cliente
             </span>
             <span className={`text-[10px] uppercase font-black px-2 py-0.5 rounded-full flex items-center gap-1 border ${
@@ -345,7 +345,7 @@ export default function DiagnosticsTester({ onClose }: DiagnosticsTesterProps) {
               {config.key && (
                 <button
                   onClick={() => setShowFullKey(!showFullKey)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold px-2 py-1 bg-stone-100 hover:bg-stone-200 rounded border border-stone-200 text-[#4A2D1B] cursor-pointer"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold px-2 py-1 bg-stone-100 hover:bg-stone-200 rounded border border-stone-200 text-[#DB9C60] cursor-pointer"
                 >
                   {showFullKey ? 'Ocultar' : 'Ver'}
                 </button>
@@ -360,7 +360,7 @@ export default function DiagnosticsTester({ onClose }: DiagnosticsTesterProps) {
             <h3 className="text-xs uppercase font-extrabold tracking-wider text-stone-500">Pruebas en tiempo real</h3>
             <button
               onClick={runDiagnostics}
-              className="py-1.5 px-4 bg-[#4A2D1B] hover:bg-[#6B4A35] text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+              className="py-1.5 px-4 bg-[#DB9C60] hover:bg-[#B97F47] text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
             >
               <RefreshCw className="w-3.5 h-3.5" /> Ejecutar Diagnósticos
             </button>
@@ -481,9 +481,9 @@ export default function DiagnosticsTester({ onClose }: DiagnosticsTesterProps) {
         </div>
 
         {/* Section 3: PWA Cache and Storage Clear */}
-        <div className="bg-[#FAF4EE] rounded-2xl p-4 border border-[#4A2D1B]/15 space-y-3">
+        <div className="bg-[#FAF4EE] rounded-2xl p-4 border border-[#DB9C60]/15 space-y-3">
           <div>
-            <h3 className="text-xs font-black uppercase text-[#4A2D1B] tracking-wider flex items-center gap-1.5">
+            <h3 className="text-xs font-black uppercase text-[#DB9C60] tracking-wider flex items-center gap-1.5">
               <CloudLightning className="w-4 h-4 text-amber-600 animate-pulse" /> Limpieza de Caché y Reset del Dispositivo
             </h3>
             <p className="text-[11px] text-stone-500 mt-1 leading-normal">
@@ -492,7 +492,7 @@ export default function DiagnosticsTester({ onClose }: DiagnosticsTesterProps) {
           </div>
           <button
             onClick={handleForceCacheBust}
-            className="w-full py-3 bg-[#4A2D1B] hover:bg-[#6B4A35] text-white font-extrabold rounded-xl text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm cursor-pointer"
+            className="w-full py-3 bg-[#DB9C60] hover:bg-[#B97F47] text-white font-extrabold rounded-xl text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm cursor-pointer"
           >
             <RotateCcw className="w-4 h-4" /> Forzar Purgado de Caché del Celular & Recargar
           </button>
@@ -561,7 +561,7 @@ export default function DiagnosticsTester({ onClose }: DiagnosticsTesterProps) {
                   value={customUrl}
                   onChange={(e) => setCustomUrl(e.target.value)}
                   placeholder="https://su-proyecto.supabase.co"
-                  className="w-full p-2 bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:border-[#4A2D1B]"
+                  className="w-full p-2 bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:border-[#DB9C60]"
                 />
               </div>
 
@@ -572,7 +572,7 @@ export default function DiagnosticsTester({ onClose }: DiagnosticsTesterProps) {
                   value={customKey}
                   onChange={(e) => setCustomKey(e.target.value)}
                   placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                  className="w-full p-2 bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:border-[#4A2D1B]"
+                  className="w-full p-2 bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:border-[#DB9C60]"
                 />
               </div>
             </div>
