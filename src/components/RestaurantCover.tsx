@@ -185,32 +185,32 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
   } = theme;
 
   return (
-    <div className="min-h-screen bg-[#FAF7F0] dark:bg-[#1A110B] text-stone-900 dark:text-[#FAF7F0] font-sans selection:bg-[#DB9C60] selection:text-white transition-colors duration-300">
+    <div className="min-h-screen bg-[#FAF7F0] dark:bg-[#1A110B] text-stone-900 dark:text-[#FAF7F0] font-sans selection:bg-[#8C6239] selection:text-white transition-colors duration-300">
       
       {/* 1. FLOATING HEADER */}
-      <header className="sticky top-0 z-50 w-full backdrop-blur-md bg-[#FAF7F0]/80 dark:bg-[#1A110B]/80 border-b border-[#DB9C60]/15 dark:border-amber-900/10">
+      <header className="sticky top-0 z-50 w-full backdrop-blur-md bg-[#FAF7F0]/80 dark:bg-[#1A110B]/80 border-b border-[#8C6239]/15 dark:border-amber-900/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 flex items-center justify-between">
           {/* Logo Brand */}
           <div onClick={onEnterSystem} className="flex items-center gap-3.5 cursor-pointer" title="El Patrón">
-            <img src="/logo-el-patron.jpeg" alt="Logo El Patrón" className="w-20 h-20 object-cover rounded-full shadow-lg border border-[#DB9C60]/15" />
-            <span className="font-extrabold text-2xl tracking-widest font-display-serif text-[#DB9C60] dark:text-amber-500">
+            <img src="/logo-el-patron.jpeg" alt="Logo El Patrón" className="w-20 h-20 object-cover rounded-full shadow-lg border border-[#8C6239]/15" />
+            <span className="font-extrabold text-2xl tracking-widest font-display-serif text-[#8C6239] dark:text-amber-500">
               EL PATRÓN
             </span>
           </div>
 
           {/* Desktop Navigation links */}
           <nav className="hidden md:flex items-center gap-6 text-sm font-semibold text-stone-600 dark:text-stone-300">
-            <a href="#especialidades" className={`transition-colors ${coverTab === 'parrilla' ? 'hover:text-[#DB9C60]' : 'hover:text-[#9B2226]'}`}>Especialidades</a>
-            <a href="#experiencia" className={`transition-colors ${coverTab === 'parrilla' ? 'hover:text-[#DB9C60]' : 'hover:text-[#9B2226]'}`}>Bodega</a>
-            <a href="#reserva" className={`transition-colors ${coverTab === 'parrilla' ? 'hover:text-[#DB9C60]' : 'hover:text-[#9B2226]'}`}>Reservas</a>
-            <a href="#contacto" className={`transition-colors ${coverTab === 'parrilla' ? 'hover:text-[#DB9C60]' : 'hover:text-[#9B2226]'}`}>Ubicación</a>
+            <a href="#especialidades" className={`transition-colors ${coverTab === 'parrilla' ? 'hover:text-[#8C6239]' : 'hover:text-[#9B2226]'}`}>Especialidades</a>
+            <a href="#experiencia" className={`transition-colors ${coverTab === 'parrilla' ? 'hover:text-[#8C6239]' : 'hover:text-[#9B2226]'}`}>Bodega</a>
+            <a href="#reserva" className={`transition-colors ${coverTab === 'parrilla' ? 'hover:text-[#8C6239]' : 'hover:text-[#9B2226]'}`}>Reservas</a>
+            <a href="#contacto" className={`transition-colors ${coverTab === 'parrilla' ? 'hover:text-[#8C6239]' : 'hover:text-[#9B2226]'}`}>Ubicación</a>
           </nav>
 
           {/* Mobile Menu Toggle */}
           <div className="md:hidden flex items-center gap-2">
             <button 
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-1.5 rounded-lg text-stone-700 dark:text-stone-300 hover:bg-[#DB9C60]/10"
+              className="p-1.5 rounded-lg text-stone-700 dark:text-stone-300 hover:bg-[#8C6239]/10"
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
@@ -225,7 +225,7 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="md:hidden w-full bg-[#FAF7F0] dark:bg-[#1C140E] border-b border-[#DB9C60]/15 px-6 py-4 space-y-3 flex flex-col font-medium"
+            className="md:hidden w-full bg-[#FAF7F0] dark:bg-[#1C140E] border-b border-[#8C6239]/15 px-6 py-4 space-y-3 flex flex-col font-medium"
           >
             <a href="#especialidades" onClick={() => setMobileMenuOpen(false)} className="py-2 text-stone-700 dark:text-stone-300 border-b border-stone-100 dark:border-stone-850">Especialidades</a>
             <a href="#experiencia" onClick={() => setMobileMenuOpen(false)} className="py-2 text-stone-700 dark:text-stone-300 border-b border-stone-100 dark:border-stone-850">Bodega</a>
@@ -319,21 +319,21 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
       </section>
 
       {/* 3. CORE STATS / VALUES BAR */}
-      <section className="bg-[#FAF7F0] dark:bg-[#201710] py-8 border-y border-[#DB9C60]/15 dark:border-amber-900/10">
+      <section className="bg-[#FAF7F0] dark:bg-[#201710] py-8 border-y border-[#8C6239]/15 dark:border-amber-900/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
           {coverTab === 'parrilla' ? (
             <>
               <div className="flex flex-col items-center p-3 space-y-1">
-                <Flame className="w-7 h-7 text-[#DB9C60] dark:text-amber-500 animate-pulse" />
-                <span className="font-extrabold text-sm uppercase text-[#DB9C60] dark:text-amber-400 font-display-serif tracking-widest">Cortes seleccionados</span>
+                <Flame className="w-7 h-7 text-[#8C6239] dark:text-amber-500 animate-pulse" />
+                <span className="font-extrabold text-sm uppercase text-[#8C6239] dark:text-amber-400 font-display-serif tracking-widest">Cortes seleccionados</span>
               </div>
               <div className="flex flex-col items-center p-3 space-y-1 border-y sm:border-y-0 sm:border-x border-stone-200 dark:border-stone-850">
-                <ChefHat className="w-7 h-7 text-[#DB9C60] dark:text-amber-500" />
-                <span className="font-extrabold text-sm uppercase text-[#DB9C60] dark:text-amber-400 font-display-serif tracking-widest">Recetas tradicionales</span>
+                <ChefHat className="w-7 h-7 text-[#8C6239] dark:text-amber-500" />
+                <span className="font-extrabold text-sm uppercase text-[#8C6239] dark:text-amber-400 font-display-serif tracking-widest">Recetas tradicionales</span>
               </div>
               <div className="flex flex-col items-center p-3 space-y-1">
                 <Wine className="w-7 h-7 text-[#C8956A]" />
-                <span className="font-extrabold text-sm uppercase text-[#DB9C60] dark:text-amber-400 font-display-serif tracking-widest">Cava Selecta</span>
+                <span className="font-extrabold text-sm uppercase text-[#8C6239] dark:text-amber-400 font-display-serif tracking-widest">Cava Selecta</span>
               </div>
             </>
           ) : (
@@ -345,12 +345,12 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
               </div>
               <div className="flex flex-col items-center p-3 space-y-1 border-y sm:border-y-0 sm:border-x border-stone-200 dark:border-stone-850">
                 <Flame className="w-7 h-7 text-[#3A5A40]" />
-                <span className="font-extrabold text-sm uppercase text-[#DB9C60] dark:text-amber-400 font-display-serif tracking-widest">Tradición Criolla</span>
+                <span className="font-extrabold text-sm uppercase text-[#8C6239] dark:text-amber-400 font-display-serif tracking-widest">Tradición Criolla</span>
                 <span className="text-[11px] text-stone-500 dark:text-stone-400 font-serif-rustic italic">Empanadas elaboradas a mano</span>
               </div>
               <div className="flex flex-col items-center p-3 space-y-1">
                 <Wine className="w-7 h-7 text-[#C8956A]" />
-                <span className="font-extrabold text-sm uppercase text-[#DB9C60] dark:text-amber-400 font-display-serif tracking-widest">Maridaje Perfecto</span>
+                <span className="font-extrabold text-sm uppercase text-[#8C6239] dark:text-amber-400 font-display-serif tracking-widest">Maridaje Perfecto</span>
                 <span className="text-[11px] text-stone-500 dark:text-stone-400 font-serif-rustic italic">Cerveza tirada y tragos artesanales</span>
               </div>
             </>
@@ -361,10 +361,10 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
       {/* 4. SPECIALTIES SECTION */}
       <section id="especialidades" className="py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
         <div className="text-center space-y-3">
-          <span className="text-xs uppercase font-bold text-[#DB9C60] dark:text-amber-500 tracking-widest font-display-serif">
+          <span className="text-xs uppercase font-bold text-[#8C6239] dark:text-amber-500 tracking-widest font-display-serif">
             {specSubtitle}
           </span>
-          <h2 className={`text-3xl sm:text-4xl font-bold tracking-wide font-serif-rustic transition-all ${coverTab === 'parrilla' ? 'text-[#DB9C60] dark:text-[#FAF7F0]' : 'text-[#9B2226] dark:text-[#FAF7F0]'}`}>
+          <h2 className={`text-3xl sm:text-4xl font-bold tracking-wide font-serif-rustic transition-all ${coverTab === 'parrilla' ? 'text-[#8C6239] dark:text-[#FAF7F0]' : 'text-[#9B2226] dark:text-[#FAF7F0]'}`}>
             {specTitle}
           </h2>
           <div 
@@ -399,7 +399,7 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
               </div>
               <div className="p-6 flex-1 flex flex-col justify-between space-y-4">
                 <div className="space-y-2">
-                  <h3 className={`text-lg font-bold font-serif-rustic tracking-wide transition-all ${coverTab === 'parrilla' ? 'text-[#DB9C60] dark:text-[#FAF7F0]' : 'text-[#9B2226] dark:text-[#FAF7F0]'}`}>
+                  <h3 className={`text-lg font-bold font-serif-rustic tracking-wide transition-all ${coverTab === 'parrilla' ? 'text-[#8C6239] dark:text-[#FAF7F0]' : 'text-[#9B2226] dark:text-[#FAF7F0]'}`}>
                     {spec.title}
                   </h3>
                   <p className="text-xs text-stone-600 dark:text-stone-400 font-serif-rustic italic leading-relaxed">
@@ -413,12 +413,12 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
       </section>
 
       {/* 5. WINE / CELLAR SECTION (EXPERIENCIA) */}
-      <section id="experiencia" className="relative py-20 lg:py-24 bg-[#DB9C60] text-stone-950 overflow-hidden">
+      <section id="experiencia" className="relative py-20 lg:py-24 bg-[#8C6239] text-stone-950 overflow-hidden">
         <div 
           className="absolute inset-0 bg-cover bg-center opacity-15 select-none pointer-events-none"
           style={{ backgroundImage: `url('/images/rutini_malbec_cellar.png')` }}
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-[#DB9C60] via-[#DB9C60]/90 to-[#DB9C60]" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#8C6239] via-[#8C6239]/90 to-[#8C6239]" />
 
         <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-6 text-stone-950">
           <span className="text-xs uppercase font-bold text-stone-900 tracking-widest font-display-serif">Maridaje Seleccionado</span>
@@ -438,14 +438,14 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
       {/* 6. BOOKING WIDGET */}
       <section id="reserva" className="py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
         <div className="text-center space-y-3">
-          <span className="text-xs uppercase font-bold text-[#DB9C60] dark:text-amber-500 tracking-widest font-display-serif">Planificá tu Visita</span>
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-wide font-serif-rustic text-[#DB9C60] dark:text-[#FAF7F0]">
+          <span className="text-xs uppercase font-bold text-[#8C6239] dark:text-amber-500 tracking-widest font-display-serif">Planificá tu Visita</span>
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-wide font-serif-rustic text-[#8C6239] dark:text-[#FAF7F0]">
             Solicitud de Reserva Online
           </h2>
           <p className="text-xs text-stone-600 dark:text-stone-400 max-w-md mx-auto font-serif-rustic italic">
             Reserve su mesa con anticipación. Le enviaremos una confirmación de disponibilidad vía teléfono o WhatsApp a la brevedad.
           </p>
-          <div className="w-16 h-1 bg-[#DB9C60] dark:bg-amber-500 mx-auto rounded-full" />
+          <div className="w-16 h-1 bg-[#8C6239] dark:bg-amber-500 mx-auto rounded-full" />
         </div>
 
         <div className="max-w-2xl mx-auto bg-white dark:bg-[#251B12] rounded-3xl p-6 sm:p-10 border border-stone-200/60 dark:border-stone-850 shadow-lg">
@@ -459,7 +459,7 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
                   placeholder="Ej: Juan Pérez"
                   value={bookingForm.nombre}
                   onChange={(e) => setBookingForm(prev => ({ ...prev, nombre: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-xl border border-stone-250 dark:border-stone-800 bg-[#FAF7F0] dark:bg-[#1E140E] text-stone-850 dark:text-white text-xs font-bold focus:outline-none focus:border-[#DB9C60] dark:focus:border-amber-500"
+                  className="w-full px-4 py-3 rounded-xl border border-stone-250 dark:border-stone-800 bg-[#FAF7F0] dark:bg-[#1E140E] text-stone-850 dark:text-white text-xs font-bold focus:outline-none focus:border-[#8C6239] dark:focus:border-amber-500"
                 />
               </div>
 
@@ -471,7 +471,7 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
                   placeholder="Ej: +54 9 11 1234-5678"
                   value={bookingForm.telefono}
                   onChange={(e) => setBookingForm(prev => ({ ...prev, telefono: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-xl border border-stone-250 dark:border-stone-800 bg-[#FAF7F0] dark:bg-[#1E140E] text-stone-850 dark:text-white text-xs font-bold focus:outline-none focus:border-[#DB9C60] dark:focus:border-amber-500"
+                  className="w-full px-4 py-3 rounded-xl border border-stone-250 dark:border-stone-800 bg-[#FAF7F0] dark:bg-[#1E140E] text-stone-850 dark:text-white text-xs font-bold focus:outline-none focus:border-[#8C6239] dark:focus:border-amber-500"
                 />
               </div>
             </div>
@@ -482,7 +482,7 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
                 <select 
                   value={bookingForm.personas}
                   onChange={(e) => setBookingForm(prev => ({ ...prev, personas: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-xl border border-stone-250 dark:border-stone-800 bg-[#FAF7F0] dark:bg-[#1E140E] text-stone-850 dark:text-white text-xs font-bold focus:outline-none focus:border-[#DB9C60] dark:focus:border-amber-500 cursor-pointer"
+                  className="w-full px-4 py-3 rounded-xl border border-stone-250 dark:border-stone-800 bg-[#FAF7F0] dark:bg-[#1E140E] text-stone-850 dark:text-white text-xs font-bold focus:outline-none focus:border-[#8C6239] dark:focus:border-amber-500 cursor-pointer"
                 >
                   <option value="1">1 Persona</option>
                   <option value="2">2 Personas</option>
@@ -510,7 +510,7 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
                       (e.target as HTMLInputElement).showPicker?.();
                     } catch (err) {}
                   }}
-                  className="w-full px-4 py-3 rounded-xl border border-stone-250 dark:border-stone-800 bg-[#FAF7F0] dark:bg-[#1E140E] text-stone-850 dark:text-white text-xs font-bold focus:outline-none focus:border-[#DB9C60] dark:focus:border-amber-500 cursor-pointer"
+                  className="w-full px-4 py-3 rounded-xl border border-stone-250 dark:border-stone-800 bg-[#FAF7F0] dark:bg-[#1E140E] text-stone-850 dark:text-white text-xs font-bold focus:outline-none focus:border-[#8C6239] dark:focus:border-amber-500 cursor-pointer"
                 />
               </div>
 
@@ -519,7 +519,7 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
                 <select 
                   value={bookingForm.hora}
                   onChange={(e) => setBookingForm(prev => ({ ...prev, hora: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-xl border border-stone-250 dark:border-stone-800 bg-[#FAF7F0] dark:bg-[#1E140E] text-stone-850 dark:text-white text-xs font-bold focus:outline-none focus:border-[#DB9C60] dark:focus:border-amber-500 cursor-pointer"
+                  className="w-full px-4 py-3 rounded-xl border border-stone-250 dark:border-stone-800 bg-[#FAF7F0] dark:bg-[#1E140E] text-stone-850 dark:text-white text-xs font-bold focus:outline-none focus:border-[#8C6239] dark:focus:border-amber-500 cursor-pointer"
                 >
                   <option value="12:00">12:00 hs (Almuerzo)</option>
                   <option value="13:00">13:00 hs (Almuerzo)</option>
@@ -536,7 +536,7 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
 
             <button
               type="submit"
-              className="w-full py-4 bg-[#DB9C60] hover:bg-[#B97F47] dark:bg-amber-500 dark:hover:bg-amber-400 text-stone-950 dark:text-[#1A110B] rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-200 cursor-pointer shadow-md flex items-center justify-center gap-2"
+              className="w-full py-4 bg-[#8C6239] hover:bg-[#B97F47] dark:bg-amber-500 dark:hover:bg-amber-400 text-stone-950 dark:text-[#1A110B] rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-200 cursor-pointer shadow-md flex items-center justify-center gap-2"
             >
               Solicitar Reservación
               <ChevronRight className="w-4 h-4" />
@@ -545,7 +545,7 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
         </div>
       </section>
 
-      <footer id="contacto" className="bg-[#DB9C60] text-stone-900 py-16 border-t border-black/10">
+      <footer id="contacto" className="bg-[#8C6239] text-stone-900 py-16 border-t border-black/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-3 gap-12">
           
           {/* Logo & Brand description */}
@@ -627,7 +627,7 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
               </div>
               
               <div className="space-y-2">
-                <h3 className="text-xl font-bold font-serif-rustic text-[#DB9C60] dark:text-white tracking-wide">
+                <h3 className="text-xl font-bold font-serif-rustic text-[#8C6239] dark:text-white tracking-wide">
                   ¡Solicitud Enviada!
                 </h3>
                 <p className="text-xs text-stone-600 dark:text-stone-400 leading-relaxed font-serif-rustic italic">
@@ -640,7 +640,7 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
 
               <button
                 onClick={closeBookingSuccess}
-                className="w-full py-3 bg-[#DB9C60] hover:bg-[#B97F47] dark:bg-amber-500 dark:hover:bg-amber-400 text-stone-950 dark:text-[#1A110B] rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer font-display-serif"
+                className="w-full py-3 bg-[#8C6239] hover:bg-[#B97F47] dark:bg-amber-500 dark:hover:bg-amber-400 text-stone-950 dark:text-[#1A110B] rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer font-display-serif"
               >
                 Entendido
               </button>

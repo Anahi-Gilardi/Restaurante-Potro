@@ -78,7 +78,7 @@ export default class RetryErrorWrapper extends Component<RetryErrorWrapperProps,
             <div className="flex gap-2 justify-center">
               <button
                 onClick={this.handleRetry}
-                className="px-4 py-2 bg-[#DB9C60] hover:bg-[#B97F47] text-stone-950 text-xs font-bold rounded-xl flex items-center gap-2 transition-all cursor-pointer"
+                className="px-4 py-2 bg-[#8C6239] hover:bg-[#B97F47] text-stone-950 text-xs font-bold rounded-xl flex items-center gap-2 transition-all cursor-pointer"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
                 Reintentar

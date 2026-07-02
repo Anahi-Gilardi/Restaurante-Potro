@@ -1089,7 +1089,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
 
       {/* LEFT SIDE PANEL - Desktop/Tablet sidebar */}
       <aside
-        className={`fixed left-0 top-0 h-screen z-50 hidden lg:flex flex-col bg-[#DB9C60] text-stone-900 border-r border-black/10 shadow-2xl backdrop-blur-md transition-all duration-300 ease-in-out ${
+        className={`fixed left-0 top-0 h-screen z-50 hidden lg:flex flex-col bg-[#8C6239] text-stone-900 border-r border-black/10 shadow-2xl backdrop-blur-md transition-all duration-300 ease-in-out ${
           isSidebarCollapsed ? 'w-16' : 'w-64'
         }`}
         id="sidebar-left-panel"
@@ -1101,7 +1101,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
           title="Cerrar Sesión / Ir al Login"
         >
           <div className="w-9 h-9 bg-white rounded-xl flex items-center justify-center shadow-lg border border-[#C8956A]/30 p-0.5 overflow-hidden shrink-0 relative">
-            <ElPatronLogo className="w-8 h-8 object-contain rounded" variant="icon" color="#DB9C60" />
+            <ElPatronLogo className="w-8 h-8 object-contain rounded" variant="icon" color="#8C6239" />
             <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white ${
               tryGetActiveSupabaseClient() !== null ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
             }`} />
@@ -1149,7 +1149,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
                   isSidebarCollapsed ? 'justify-center' : 'justify-start'
                 } ${
                   isActive
-                    ? 'bg-[#1A110B] text-[#DB9C60] font-bold shadow-lg shadow-black/10 scale-[1.01]'
+                    ? 'bg-[#1A110B] text-[#8C6239] font-bold shadow-lg shadow-black/10 scale-[1.01]'
                     : 'text-stone-900 hover:text-stone-950 hover:bg-black/5'
                 }`}
               >
@@ -1158,7 +1158,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
                   <span className="text-xs whitespace-nowrap truncate">{item.label}</span>
                 )}
                 {!isSidebarCollapsed && isActive && (
-                  <span className="ml-auto w-1.5 h-1.5 rounded-full bg-[#DB9C60] shrink-0 animate-pulse" />
+                  <span className="ml-auto w-1.5 h-1.5 rounded-full bg-[#8C6239] shrink-0 animate-pulse" />
                 )}
               </button>
             );

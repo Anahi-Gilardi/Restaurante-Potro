@@ -249,10 +249,10 @@ export default function SistemaModule({
       <div className="bg-white dark:bg-stone-900 rounded-2xl p-6 border border-stone-200 dark:border-stone-800 shadow-xs flex flex-col md:flex-row items-center gap-5 justify-between">
         <div className="flex items-center gap-4 text-left">
           <div className="w-14 h-14 bg-[#FAF4EE] dark:bg-stone-850 rounded-2xl flex items-center justify-center p-1 border border-stone-200 dark:border-stone-750 shadow-xs shrink-0 overflow-hidden">
-            <ElPatronLogo className="w-12 h-12 object-contain rounded" variant="badge" color="#DB9C60" />
+            <ElPatronLogo className="w-12 h-12 object-contain rounded" variant="badge" color="#8C6239" />
           </div>
           <div>
-            <h2 className="text-lg font-black text-[#DB9C60] dark:text-[#C8956A] tracking-tight uppercase">Módulo de Sistemas y Configuración</h2>
+            <h2 className="text-lg font-black text-[#8C6239] dark:text-[#C8956A] tracking-tight uppercase">Módulo de Sistemas y Configuración</h2>
             <p className="text-xs text-stone-500 dark:text-stone-300 mt-0.5 font-bold">El Patrón Gestión Gastronómica • Consola de Servidor & Logs</p>
           </div>
         </div>
@@ -282,7 +282,7 @@ export default function SistemaModule({
             <div className="flex justify-between items-start">
               <div>
                 <span className="text-[10px] uppercase font-black tracking-wider text-stone-400 dark:text-stone-300 block">Infraestructura y Persistencia</span>
-                <h3 className="font-extrabold text-[#DB9C60] dark:text-[#C8956A] text-sm uppercase tracking-tight mt-0.5">Motor de Base de Datos Vinculado</h3>
+                <h3 className="font-extrabold text-[#8C6239] dark:text-[#C8956A] text-sm uppercase tracking-tight mt-0.5">Motor de Base de Datos Vinculado</h3>
               </div>
               <span className="bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-300 text-[9px] font-black px-2.5 py-1 rounded-lg border border-emerald-100 dark:border-emerald-900/50 uppercase">
                 Conexión Segura
@@ -420,7 +420,7 @@ export default function SistemaModule({
           <div className="bg-white dark:bg-stone-900 p-6 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs space-y-4">
             <div>
               <span className="text-[10px] uppercase font-black tracking-wider text-stone-400 dark:text-stone-300 block">Inspección de Esquemas</span>
-              <h3 className="font-extrabold text-[#DB9C60] dark:text-[#C8956A] text-sm uppercase tracking-tight mt-0.5">Visor Interno de Registros</h3>
+              <h3 className="font-extrabold text-[#8C6239] dark:text-[#C8956A] text-sm uppercase tracking-tight mt-0.5">Visor Interno de Registros</h3>
               <p className="text-xs text-stone-505 dark:text-stone-300 font-semibold mt-1">Audita el conteo de filas y previsualiza los primeros registros de tu base de datos activa.</p>
             </div>
 
@@ -437,7 +437,7 @@ export default function SistemaModule({
                     }}
                     className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
                       isSelected 
-                        ? 'border-[#DB9C60] bg-[#DB9C60]/5 ring-1 ring-[#DB9C60]/10 dark:border-[#C8956A]' 
+                        ? 'border-[#8C6239] bg-[#8C6239]/5 ring-1 ring-[#8C6239]/10 dark:border-[#C8956A]' 
                         : 'border-stone-150 dark:border-stone-850 hover:bg-stone-50 dark:hover:bg-stone-850'
                     }`}
                   >
@@ -756,9 +756,9 @@ export default function SistemaModule({
           {/* Logo Identity Manager */}
           <div className="bg-white dark:bg-stone-900 rounded-2xl p-5 border border-stone-200 dark:border-stone-800 shadow-xs space-y-3">
             <div className="flex items-center gap-2 border-b border-stone-100 dark:border-stone-850 pb-2.5 text-left">
-              <Compass className="w-4.5 h-4.5 text-[#DB9C60] dark:text-[#C8956A]" />
+              <Compass className="w-4.5 h-4.5 text-[#8C6239] dark:text-[#C8956A]" />
               <div className="text-left">
-                <h4 className="font-bold text-[#DB9C60] dark:text-[#C8956A] text-xs uppercase tracking-tight">
+                <h4 className="font-bold text-[#8C6239] dark:text-[#C8956A] text-xs uppercase tracking-tight">
                   Logotipo y Marca
                 </h4>
                 <p className="text-[10px] text-stone-500 mt-0.5 font-semibold">
@@ -767,9 +767,9 @@ export default function SistemaModule({
               </div>
             </div>
 
-            <div className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-stone-200 dark:border-stone-800 hover:border-[#DB9C60]/40 rounded-xl bg-[#FFFDF8]/40 dark:bg-stone-955/20 transition-all space-y-3 relative group">
+            <div className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-stone-200 dark:border-stone-800 hover:border-[#8C6239]/40 rounded-xl bg-[#FFFDF8]/40 dark:bg-stone-955/20 transition-all space-y-3 relative group">
               <div className="w-16 h-16 rounded-full bg-[#FAF4EE] dark:bg-stone-850 flex items-center justify-center p-1 shadow-sm border border-stone-100 dark:border-stone-800 relative overflow-hidden">
-                <ElPatronLogo className="w-14 h-14 object-contain rounded-full" variant="badge" color="#DB9C60" />
+                <ElPatronLogo className="w-14 h-14 object-contain rounded-full" variant="badge" color="#8C6239" />
               </div>
 
               <div className="text-center space-y-1">
@@ -780,7 +780,7 @@ export default function SistemaModule({
               </div>
 
               <div className="flex gap-2 w-full pt-1">
-                <label className="flex-1 py-1.5 px-2 bg-[#DB9C60] hover:bg-[#B97F47] text-stone-950 rounded-lg text-[10px] font-black uppercase text-center cursor-pointer transition-colors shadow-sm block">
+                <label className="flex-1 py-1.5 px-2 bg-[#8C6239] hover:bg-[#B97F47] text-stone-950 rounded-lg text-[10px] font-black uppercase text-center cursor-pointer transition-colors shadow-sm block">
                   Cargar Imagen
                   <input
                     type="file"

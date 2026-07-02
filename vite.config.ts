@@ -21,7 +21,7 @@ export default defineConfig(() => {
         name: 'El Patrón Pro - Gestión Gastronómica',
         short_name: 'El Patrón',
         description: 'Sistema integral de gestión gastronómica',
-        theme_color: '#DB9C60',
+        theme_color: '#8C6239',
         background_color: '#F5F1E9',
         display: 'standalone',
         display_override: ['window-controls-overlay', 'standalone'],
