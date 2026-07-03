@@ -103,7 +103,32 @@ export const pdfService = {
 
   async generateTicketPDF(data: TicketData): Promise<jsPDF> {
     const logo = await loadLogoDataUrl();
-    const qrImage = await loadQrDataUrl(data.qrData);
+    
+    // Si es una factura oficial pero no tiene datos de QR, generamos datos de contingencia/demo
+    let qrData = data.qrData;
+    if (!qrData && data.tipoComprobante && data.tipoComprobante.startsWith('factura')) {
+      const fallbackCae = data.cae || '76123456789012';
+      const cleanCuit = (data.cuit || '30716492514').replace(/-/g, '').trim();
+      const cleanClientCuit = (data.clienteCuit || '').replace(/-/g, '').trim();
+      
+      qrData = JSON.stringify({
+        ver: 1,
+        fecha: new Date().toISOString().split('T')[0],
+        cuit: parseInt(cleanCuit) || 30716492514,
+        ptoVta: 1,
+        tipoCmp: data.tipoComprobante === 'factura_a' ? 1 : (data.tipoComprobante === 'factura_c' ? 11 : 6),
+        nroCmp: parseInt(data.nroComprobante.split('-').pop() || '1'),
+        importe: data.total,
+        moneda: 'PES',
+        ctz: 1,
+        tipoDocRec: cleanClientCuit.length >= 11 ? 80 : 99,
+        nroDocRec: parseInt(cleanClientCuit) || 0,
+        tipoCodAut: 1,
+        codAut: parseInt(fallbackCae) || 76123456789012
+      });
+    }
+
+    const qrImage = await loadQrDataUrl(qrData);
     
     // Si es una factura oficial (factura_a, factura_b, factura_c), usar formato A4
     if (data.tipoComprobante && data.tipoComprobante.startsWith('factura')) {
