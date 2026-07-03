@@ -116,7 +116,7 @@ export const pdfService = {
         fecha: new Date().toISOString().split('T')[0],
         cuit: parseInt(cleanCuit) || 30716492514,
         ptoVta: 1,
-        tipoCmp: data.tipoComprobante === 'factura_a' ? 1 : (data.tipoComprobante === 'factura_c' ? 11 : 6),
+        tipoCmp: (data.tipoComprobante as string) === 'factura_a' ? 1 : ((data.tipoComprobante as string) === 'factura_c' ? 11 : 6),
         nroCmp: parseInt(data.nroComprobante.split('-').pop() || '1'),
         importe: data.total,
         moneda: 'PES',
