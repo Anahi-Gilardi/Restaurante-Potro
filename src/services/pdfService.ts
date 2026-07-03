@@ -105,7 +105,12 @@ export const pdfService = {
     const logo = await loadLogoDataUrl();
     const qrImage = await loadQrDataUrl(data.qrData);
     
-    // Always format as a thermal ticket (80mm/58mm roll format) for restaurant ticketer/printer compatibility
+    // Si es una factura oficial (factura_a, factura_b, factura_c), usar formato A4
+    if (data.tipoComprobante && data.tipoComprobante.startsWith('factura')) {
+      return this.generateA4Invoice(data, logo, qrImage);
+    }
+    
+    // Por defecto usar ticket térmico para comandas e informes de salón
     return this.generateThermalTicket(data, logo, qrImage);
   },
 
