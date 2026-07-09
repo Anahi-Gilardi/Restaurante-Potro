@@ -19,7 +19,9 @@ function getStoredCredentials(): ArcaCredentials | null {
     const envKey = env.VITE_ARCA_KEY;
     const envCert = env.VITE_ARCA_CERT;
     if (envCuit && envKey && envCert) {
-      return { cuit: Number(envCuit), key: envKey, cert: envCert, production: env.VITE_ARCA_PROD === 'true' };
+      const parsedKey = envKey.replace(/\\n/g, '\n');
+      const parsedCert = envCert.replace(/\\n/g, '\n');
+      return { cuit: Number(envCuit), key: parsedKey, cert: parsedCert, production: env.VITE_ARCA_PROD === 'true' };
     }
     // Only store non-sensitive metadata, credentials must be in env vars or entered each session
     return null;

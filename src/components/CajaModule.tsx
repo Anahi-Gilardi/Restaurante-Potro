@@ -34,23 +34,20 @@ import {
   PrinterConfig, 
   TicketData, 
   TicketItem, 
-  TipoComprobante,
-  FacturaDb,
-  PagoDb
+  TipoComprobante
 } from '../types';
-import { cajaService } from '../services/cajaService';
-import { pagosService } from '../services/pagosService';
+import { useCaja } from '../features/caja/hooks/useCaja';
+import { useToast } from './ToastContainer';
 import { pdfService } from '../services/pdfService';
 import { printerService } from '../services/printerService';
-import { facturacionService, Factura } from '../services/facturacionService';
-import { auditoriaService } from '../services/auditoriaService';
+import { Factura } from '../services/facturacionService';
 
 interface CajaModuleProps {
   pedidos: Pedido[];
   productosMenu: ProductoMenu[];
   onFacturarMesa: (idPedido: number) => void;
   onCambiarEstadoPedido: (idPedido: number, nuevoEstado: Pedido['estado_comanda']) => void;
-  addLog: (tipo: 'pedido_creado' | 'descuento_stock' | 'alerta_stock' | 'comanda_estado' | 'sistema', mensaje: string) => void;
+  addLog: (tipo: 'pedido_creado' | 'descuento_stock' | 'alerta_stock' | 'comanda_estado' | 'merma_registrada' | 'sistema', mensaje: string) => void;
 }
 
 export default function CajaModule({
@@ -60,69 +57,143 @@ export default function CajaModule({
   onCambiarEstadoPedido,
   addLog
 }: CajaModuleProps) {
-  // Configurable Restaurant Details
-  const [restaurante, setRestaurante] = useState({
-    nombreComercial: 'El Patrón Restaurante',
-    razonSocial: 'Gastronomía El Patrón S.A.S.',
-    cuit: '30-71649251-4',
-    direccion: 'Fotheringham 33, Rio Cuarto, Córdoba',
-    telefono: '+54 9 3584 37-3711',
-    email: 'bellaoriana47@gmail.com',
-    inicioActividades: '15/04/2022',
-    condicionIva: 'Responsable Inscripto',
-    mensajePie: 'Gracias por su visita al verdadero rincón criollo.',
-    moneda: 'ARS'
+  const { toast } = useToast();
+  
+  const {
+    restaurante,
+    setRestaurante,
+    editRestauranteMode,
+    setEditRestauranteMode,
+    cajaSession,
+    sessionInsumos,
+    lastFacturas,
+    showOpenModal,
+    setShowOpenModal,
+    showCloseModal,
+    setShowCloseModal,
+    openingCashInput,
+    setOpeningCashInput,
+    cashierNameInput,
+    setCashierNameInput,
+    closingPhysicalCashInput,
+    setClosingPhysicalCashInput,
+    closingObservationsInput,
+    setClosingObservationsInput,
+    selectedPedidoId,
+    setSelectedPedidoId,
+    tipoComprobante,
+    setTipoComprobante,
+    cuitCliente,
+    setCuitCliente,
+    nombreCliente,
+    setNombreCliente,
+    metodoPago,
+    setMetodoPago,
+    mixedPayments,
+    setMixedPayments,
+    mixedMetodoInput,
+    setMixedMetodoInput,
+    mixedMontoInput,
+    setMixedMontoInput,
+    montoEntregadoEfectivo,
+    setMontoEntregadoEfectivo,
+    descuentoPorcentaje,
+    setDescuentoPorcentaje,
+    propinaPorcentaje,
+    setPropinaPorcentaje,
+    splitPayerCount,
+    setSplitPayerCount,
+    activePayerIndex,
+    setActivePayerIndex,
+    splitByProducts,
+    setSplitByProducts,
+    selectedProductsForSplit,
+    setSelectedProductsForSplit,
+    showSuccessModal,
+    setShowSuccessModal,
+    successDetails,
+    printerConfig,
+    setPrinterConfig,
+    showPrinterSettings,
+    setShowPrinterSettings,
+    selectedCliente,
+    setSelectedCliente,
+    dniCuitBuscar,
+    setDniCuitBuscar,
+    nombreNuevoCliente,
+    setNombreNuevoCliente,
+    emailNuevoCliente,
+    setEmailNuevoCliente,
+    telNuevoCliente,
+    setTelNuevoCliente,
+    puntosRedimidos,
+    setPuntosRedimidos,
+    movimientosCajaChica,
+    showMovimientoModal,
+    setShowMovimientoModal,
+    movimientoMonto,
+    setMovimientoMonto,
+    movimientoTipo,
+    setMovimientoTipo,
+    movimientoConcepto,
+    setMovimientoConcepto,
+    sumIngresosManuales,
+    sumEgresosManuales,
+    cajaEsperadaTotal,
+    handleRegistrarMovimientoCajaChica,
+    handleBuscarCliente,
+    handleRegistrarCliente,
+    activeBills,
+    selectedPedido,
+    orderBreakdowns,
+    mixedSum,
+    rawRemainingMixedBalance,
+    calculatedChange,
+    handleAddMixedPayment,
+    handleRemoveMixedPayment,
+    handleOpenShift,
+    handleCloseShift,
+    handleConfirmCheckout,
+    triggerManualPrint,
+    triggerPDFDownloadOnly,
+    downloadFacturaHistorialPdf,
+    loadCajaState
+  } = useCaja({
+    pedidos,
+    productosMenu,
+    onFacturarMesa,
+    onCambiarEstadoPedido,
+    addLog,
+    toast
   });
 
-  const [editRestauranteMode, setEditRestauranteMode] = useState(false);
-
-  // Active cashier session states
-  const [cajaSession, setCajaSession] = useState<CierreCaja | null>(null);
-  const [sessionInsumos, setSessionInsumos] = useState<CierreCaja[]>([]);
-  const [lastFacturas, setLastFacturas] = useState<Factura[]>([]);
-
-  // Shift opening/closing dialog states
-  const [showOpenModal, setShowOpenModal] = useState(false);
-  const [showCloseModal, setShowCloseModal] = useState(false);
-  const [openingCashInput, setOpeningCashInput] = useState<string>('25000');
-  const [cashierNameInput, setCashierNameInput] = useState<string>('Sofía Colombo');
-  const [closingPhysicalCashInput, setClosingPhysicalCashInput] = useState<string>('');
-  const [closingObservationsInput, setClosingObservationsInput] = useState<string>('Facturación normal del turno');
-
-  // Interactive cashier selection
-  const [selectedPedidoId, setSelectedPedidoId] = useState<number | null>(null);
-  
-  // Checkout options
-  const [tipoComprobante, setTipoComprobante] = useState<TipoComprobante>('factura_b');
-  const [cuitCliente, setCuitCliente] = useState<string>('99-99999999-9'); // Default Consumidor Final
-  const [nombreCliente, setNombreCliente] = useState<string>('Consumidor Final');
-  const [metodoPago, setMetodoPago] = useState<'efectivo' | 'tarjeta' | 'transferencia' | 'mp_qr' | 'mixto'>('efectivo');
-
-  // Mixed payments queue
-  const [mixedPayments, setMixedPayments] = useState<{ metodo: string; monto: number }[]>([]);
-  const [mixedMetodoInput, setMixedMetodoInput] = useState<string>('efectivo');
-  const [mixedMontoInput, setMixedMontoInput] = useState<string>('');
-
-  // Cash payment calculated change
-  const [montoEntregadoEfectivo, setMontoEntregadoEfectivo] = useState<string>('');
-
-  // Custom discounts & standard tips percentage selectors
-  const [descuentoPorcentaje, setDescuentoPorcentaje] = useState<number>(0);
-  const [propinaPorcentaje, setPropinaPorcentaje] = useState<number>(10); // Standard 10%
-
-  // Splits for payment
-  const [splitPayerCount, setSplitPayerCount] = useState<number>(1);
-  const [activePayerIndex, setActivePayerIndex] = useState<number>(0);
-
-  // Divide account by specific products checkbox
-  const [splitByProducts, setSplitByProducts] = useState<boolean>(false);
-  const [selectedProductsForSplit, setSelectedProductsForSplit] = useState<string[]>([]); // id_producto keys
-
-  // Printer configuration states
-  const [printerConfig, setPrinterConfig] = useState<PrinterConfig>(printerService.getDefaultConfig());
-  const [showPrinterSettings, setShowPrinterSettings] = useState(false);
-  const [failedPrintsCount, setFailedPrintsCount] = useState(0);
   const [selectedShiftForDetail, setSelectedShiftForDetail] = useState<CierreCaja | null>(null);
+  const [failedPrintsCount, setFailedPrintsCount] = useState(0);
+
+  // Calculadora de Billetes para Arqueo Físico
+  const [showBillCounter, setShowBillCounter] = useState<'open' | 'close' | null>(null);
+  const [billCounts, setBillCounts] = useState<{ [denom: number]: number }>({
+    20000: 0,
+    10000: 0,
+    2000: 0,
+    1000: 0,
+    500: 0,
+    200: 0,
+    100: 0,
+    50: 0
+  });
+
+  const billTotal = useMemo(() => {
+    return Object.entries(billCounts).reduce((sum, [denom, count]) => sum + parseInt(denom) * count, 0);
+  }, [billCounts]);
+
+  const refreshFailedPrintsCount = () => {
+    setFailedPrintsCount(printerService.getFailedPrints().length);
+  };
+
+  useEffect(() => {
+    refreshFailedPrintsCount();
+  }, [cajaSession, lastFacturas]);
 
   const handleExportCSV = (cierre: CierreCaja) => {
     const movs = cierre.movimientos_manuales || [];
@@ -149,534 +220,6 @@ export default function CajaModule({
     document.body.removeChild(link);
   };
 
-  const refreshFailedPrintsCount = () => {
-    setFailedPrintsCount(printerService.getFailedPrints().length);
-  };
-
-  // Sync historical shifts and current state
-  const loadCajaState = async () => {
-    const active = cajaService.getOpenSession();
-    setCajaSession(active);
-    try {
-      const history = await cajaService.list();
-      setSessionInsumos(history);
-      const facturas = await facturacionService.list();
-      setLastFacturas(facturas.slice(0, 6));
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  useEffect(() => {
-    loadCajaState();
-    refreshFailedPrintsCount();
-  }, []);
-
-  // Filter commands by active state waiting checkout
-  const activeBills = useMemo(() => {
-    return pedidos.filter(p => p.estado_comanda !== 'entregado_cobrado' && p.estado_comanda !== 'cancelado');
-  }, [pedidos]);
-
-  // Selected Order Object
-  const selectedPedido = useMemo(() => {
-    return pedidos.find(p => p.id_pedido === selectedPedidoId) || null;
-  }, [selectedPedidoId, pedidos]);
-
-  // Pricing calculations
-  const orderBreakdowns = useMemo(() => {
-    if (!selectedPedido) return { subtotal: 0, promoDeduction: 0, manualDeduction: 0, baseTotal: 0, propinaValue: 0, ivaValue: 0, finalTotal: 0, itemsCalculados: [] };
-    
-    // Group products by ID to process quantities and categories
-    const lineItems: TicketItem[] = selectedPedido.items.map(item => {
-      const prod = productosMenu.find(p => p.id_producto === item.id_producto);
-      const unit = prod ? prod.precio_venta : 0;
-      return {
-        cantidad: item.cantidad,
-        descripcion: item.nombre,
-        precio_unitario: unit,
-        subtotal: item.cantidad * unit
-      };
-    });
-
-    let subtotal = lineItems.reduce((acc, current) => acc + current.subtotal, 0);
-
-    // Apply product split filters if active
-    if (splitByProducts && selectedProductsForSplit.length > 0) {
-      subtotal = selectedPedido.items.reduce((acc, item) => {
-        if (selectedProductsForSplit.includes(item.id_producto)) {
-          const prod = productosMenu.find(p => p.id_producto === item.id_producto);
-          return acc + ((prod ? prod.precio_venta : 0) * item.cantidad);
-        }
-        return acc;
-      }, 0);
-    }
-
-    // AUTOMATIC PROMOS CALCULATION:
-    // Combo 1: Lomo / Bondiola ("prod_car_lomo_pimienta" or "prod_car_bondiola_ahumada") + Vino -> Deducts 15% from vino item sum
-    // Combo 2: Milanesa / Lentejas ("prod_car_mila_entrecot" or "prod_cri_lentejas") + Gaseosa -> Deducts $1,500 ARS combo discount
-    let promoDeduction = 0;
-    
-    const hasOjoBife = selectedPedido.items.some(it => it.id_producto === 'prod_car_lomo_pimienta' || it.id_producto === 'prod_car_bondiola_ahumada');
-    const hasVino = selectedPedido.items.some(it => (it.id_producto.startsWith('prod_vin_trumpeter_') && !it.id_producto.includes('copa')) || it.id_producto.startsWith('prod_vin_rutini_'));
-    const hasBurger = selectedPedido.items.some(it => it.id_producto === 'prod_car_mila_entrecot' || it.id_producto === 'prod_cri_lentejas');
-    const hasGaseosa = selectedPedido.items.some(it => it.id_insumo === 'ins_beb_gaseosa' || it.nombre.toLowerCase().includes('gaseosa') || it.id_producto === 'prod_gaseosa');
-
-    // Promos apply only if we are paying the whole ticket or paying those items
-    const qualifiesForBifeVino = hasOjoBife && hasVino && (!splitByProducts || (selectedProductsForSplit.some(id => id === 'prod_car_lomo_pimienta' || id === 'prod_car_bondiola_ahumada') && selectedProductsForSplit.some(id => (id.startsWith('prod_vin_trumpeter_') && !id.includes('copa')) || id.startsWith('prod_vin_rutini_'))));
-    const qualifiesForBurgerGaseosa = hasBurger && hasGaseosa && (!splitByProducts || (selectedProductsForSplit.some(id => id === 'prod_car_mila_entrecot' || id === 'prod_cri_lentejas') && (selectedProductsForSplit.includes('ins_beb_gaseosa') || selectedProductsForSplit.includes('prod_gaseosa'))));
-
-    if (qualifiesForBifeVino) {
-      const vinoItem = selectedPedido.items.find(it => (it.id_producto.startsWith('prod_vin_trumpeter_') && !it.id_producto.includes('copa')) || it.id_producto.startsWith('prod_vin_rutini_'));
-      const prodVino = productosMenu.find(pr => pr.id_producto === vinoItem?.id_producto);
-      if (prodVino && vinoItem) {
-        promoDeduction += (prodVino.precio_venta * 0.15) * vinoItem.cantidad;
-      }
-    }
-
-    if (qualifiesForBurgerGaseosa) {
-      promoDeduction += 1500;
-    }
-
-    // Keep safe limits
-    let manualDeduction = subtotal * (descuentoPorcentaje / 100);
-    let baseTotal = Math.max(0, subtotal - promoDeduction - manualDeduction);
-    let propinaValue = baseTotal * (propinaPorcentaje / 100);
-    
-    // In Argentina standard VAT 21.00% is computed inside the checkout
-    let ivaValue = baseTotal * 0.21;
-    let finalTotal = baseTotal + propinaValue;
-
-    return {
-      subtotal,
-      promoDeduction,
-      manualDeduction,
-      baseTotal,
-      propinaValue,
-      ivaValue,
-      finalTotal,
-      itemsCalculados: lineItems
-    };
-  }, [selectedPedido, productosMenu, descuentoPorcentaje, propinaPorcentaje, splitByProducts, selectedProductsForSplit]);
-
-  // Mixed payments calculations
-  const mixedSum = useMemo(() => {
-    return mixedPayments.reduce((sum, current) => sum + current.monto, 0);
-  }, [mixedPayments]);
-
-  const rawRemainingMixedBalance = useMemo(() => {
-    return Math.max(0, orderBreakdowns.finalTotal - mixedSum);
-  }, [mixedSum, orderBreakdowns.finalTotal]);
-
-  // Cash change calculation (vuelto)
-  const calculatedChange = useMemo(() => {
-    const rawVal = parseFloat(montoEntregadoEfectivo);
-    if (isNaN(rawVal)) return 0;
-    
-    const targetValue = metodoPago === 'mixto' ? rawRemainingMixedBalance : orderBreakdowns.finalTotal;
-    return Math.max(0, rawVal - targetValue);
-  }, [montoEntregadoEfectivo, metodoPago, rawRemainingMixedBalance, orderBreakdowns.finalTotal]);
-
-  // Adding partial mixed payment line
-  const handleAddMixedPayment = (e: React.FormEvent) => {
-    e.preventDefault();
-    const amt = parseFloat(mixedMontoInput);
-    if (isNaN(amt) || amt <= 0) {
-      alert('Por favor, tipee un monto numérico mayor a cero.');
-      return;
-    }
-    if (amt > rawRemainingMixedBalance) {
-      alert('El monto del pago excede el saldo pendiente de la cuenta.');
-      return;
-    }
-
-    setMixedPayments(prev => [...prev, { metodo: mixedMetodoInput, monto: amt }]);
-    setMixedMontoInput('');
-  };
-
-  const handleRemoveMixedPayment = (idx: number) => {
-    setMixedPayments(prev => prev.filter((_, i) => i !== idx));
-  };
-
-  // Open cashier register session
-  const handleOpenShift = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const amt = parseFloat(openingCashInput);
-      if (isNaN(amt) || amt < 0) {
-        alert('Monto de inicio no válido.');
-        return;
-      }
-
-      const session = await cajaService.open(amt, cashierNameInput);
-      setCajaSession(session);
-      setShowOpenModal(false);
-      addLog('sistema', `CAJA: Turno fiscal de caja iniciado por ${cashierNameInput}. Monto inicial: ARS $${amt.toLocaleString('es-AR')}`);
-      await loadCajaState();
-      alert('La jornada fiscal diaria ha sido abierta con éxito.');
-    } catch (err: any) {
-      console.error('Error opening register session:', err);
-      alert(`No se pudo iniciar el turno de caja: ${err?.message || err}`);
-    }
-  };
-
-  // Close shift cashier session
-  const handleCloseShift = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const money = parseFloat(closingPhysicalCashInput);
-      if (isNaN(money) || money < 0) {
-        alert('Monto de arqueo físico ingresado no es válido.');
-        return;
-      }
-
-      if (!cajaSession) return;
-
-      // Execute close
-      const finalShift = await cajaService.close(money, closingObservationsInput);
-      
-      addLog('sistema', `CAJA: Turno fiscal cerrado por ${finalShift.usuario_cajero}. Arqueo Real: $${finalShift.monto_real?.toLocaleString('es-AR')}. Diferencia: ARS $${finalShift.diferencia?.toLocaleString('es-AR')}`);
-
-      // Export CSV representation report of the closed daily cashier
-      const csvRows = [
-        ['EL PATRON GRILL - REPORTE DE BALANCE DIARIO'],
-        ['Cajero Responsable', finalShift.usuario_cajero],
-        ['Apertura', finalShift.fecha_apertura],
-        ['Cierre de Turno', finalShift.fecha_cierre || 'N/A'],
-        ['Monto Inicial de Caja ($)', finalShift.monto_apertura.toFixed(2)],
-        ['Total de Ventas Turno ($)', finalShift.monto_ventas.toFixed(2)],
-        ['Arqueo Físico Caja ($)', finalShift.monto_real ? finalShift.monto_real.toFixed(2) : '0.00'],
-        ['Diferencia Conciliación ($)', finalShift.diferencia ? finalShift.diferencia.toFixed(2) : '0.00'],
-        ['Observaciones Turno', finalShift.observaciones],
-        ['']
-      ];
-
-      const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + csvRows.map(e => e.join(";")).join("\n");
-      const encodedUri = encodeURI(csvContent);
-      const link = document.createElement("a");
-      link.setAttribute("href", encodedUri);
-      link.setAttribute("download", `Arqueo_Turno_Caja_${finalShift.id_cierre}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      // Reset states
-      setCajaSession(null);
-      setShowCloseModal(false);
-      setClosingPhysicalCashInput('');
-      setClosingObservationsInput('Facturación normal del turno');
-      await loadCajaState();
-      alert('Jornada finalizada comercialmente. El arqueo ha sido homologado y el balance de conciliación final exportado en formato CSV.');
-    } catch (err: any) {
-      console.error('Error closing register session:', err);
-      alert(`No se pudo finalizar el turno de caja: ${err?.message || err}`);
-    }
-  };
-
-  // MAIN TRANSACTION PROCESSOR (Step 8, 9 & 14)
-  const handleConfirmCheckout = async () => {
-    if (!selectedPedido) return;
-    if (!cajaSession) {
-      alert('Por favor abra la caja diaria primero para poder procesar facturas.');
-      return;
-    }
-
-    try {
-      // Validations: No double billing, validate calculations
-      if (orderBreakdowns.finalTotal <= 0) {
-        alert('No se permite emitir comprobantes por un valor negativo o cero.');
-        return;
-      }
-
-      // Payment method logic validation
-      let pays: { metodo: string; monto: number }[] = [];
-      if (metodoPago === 'mixto') {
-        if (Math.abs(mixedSum - orderBreakdowns.finalTotal) > 0.5) {
-          alert(`Monto incompleto en forma mixta. Total ticket: $${orderBreakdowns.finalTotal.toLocaleString('es-AR')}. Tíquet en queue: $${mixedSum.toLocaleString('es-AR')}. Saldo faltante: $${rawRemainingMixedBalance.toLocaleString('es-AR')}`);
-          return;
-        }
-        pays = [...mixedPayments];
-      } else {
-        pays = [{ metodo: metodoPago, monto: orderBreakdowns.finalTotal }];
-      }
-
-      // Check if cash received covers the total
-      if (metodoPago === 'efectivo' && montoEntregadoEfectivo) {
-        const delivered = parseFloat(montoEntregadoEfectivo);
-        if (!isNaN(delivered) && delivered < orderBreakdowns.finalTotal) {
-          alert('El efectivo entregado es menor que el total de la cuenta.');
-          return;
-        }
-      }
-
-      const compiledTicketNo = `T-0001-${Math.floor(Math.random() * 900000 + 100000)}`;
-
-      // Build standard unified ticket structure
-      const dataTicket: TicketData = {
-        nombreComercial: restaurante.nombreComercial,
-        razonSocial: restaurante.razonSocial,
-        cuit: restaurante.cuit,
-        direccion: restaurante.direccion,
-        telefono: restaurante.telefono,
-        email: restaurante.email,
-        nroComprobante: compiledTicketNo,
-        idPedido: selectedPedido.id_pedido,
-        mesa: selectedPedido.numero_mesa,
-        mozo: selectedPedido.mozo,
-        cajero: cajaSession.usuario_cajero,
-        fechaHora: new Date().toLocaleDateString('es-AR') + ' ' + new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + 'hs',
-        items: selectedPedido.items.map(it => {
-          const prod = productosMenu.find(pm => pm.id_producto === it.id_producto);
-          const uni = prod ? prod.precio_venta : 0;
-          return {
-            cantidad: it.cantidad,
-            descripcion: it.nombre,
-            precio_unitario: uni,
-            subtotal: it.cantidad * uni
-          };
-        }),
-        subtotal: orderBreakdowns.subtotal,
-        descuento: orderBreakdowns.promoDeduction + orderBreakdowns.manualDeduction,
-        propina: orderBreakdowns.propinaValue,
-        iva: orderBreakdowns.ivaValue,
-        total: orderBreakdowns.finalTotal,
-        metodosPago: pays,
-        vuelto: calculatedChange,
-        tipoComprobante: tipoComprobante,
-        mensajePie: restaurante.mensajePie
-      };
-
-      // 1. Create Factura row
-      const idFactura = `fac_${Date.now()}`;
-      const mappedMedio = pays.map(p => p.metodo.toUpperCase()).join(' + ');
-
-      const newFactura: FacturaDb = {
-        id_factura: idFactura,
-        id_pedido: selectedPedido.id_pedido,
-        numero_factura: compiledTicketNo,
-        tipo_comprobante: tipoComprobante === 'factura_a' ? 'Factura A' : (tipoComprobante === 'factura_b' ? 'Factura B' : 'Ticket Consumo'),
-        total: orderBreakdowns.finalTotal,
-        metodo_pago: mappedMedio,
-        cuit_cliente: cuitCliente,
-        fecha_emision: new Date().toISOString()
-      };
-
-      try {
-        // Use existing services
-        await facturacionService.create({
-          id_factura: idFactura,
-          nro_ticket: compiledTicketNo,
-          cliente: nombreCliente === 'Consumidor Final' ? 'Consumidor Final' : nombreCliente + ` (CUIT ${cuitCliente})`,
-          cuit: cuitCliente,
-          total: orderBreakdowns.finalTotal,
-          iva_veintiuno: orderBreakdowns.ivaValue,
-          medio_pago: metodoPago === 'efectivo' ? 'efectivo' : (metodoPago === 'tarjeta' ? 'tarjeta' : (metodoPago === 'transferencia' ? 'debito' : 'mp_qr')),
-          fecha: new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + ' hs',
-          estado: 'emitido'
-        });
-      } catch (err) {
-        console.warn('Network offline backup creation:', err);
-      }
-
-      // 2. Create Pago rows
-      const paymentRows: PagoDb[] = pays.map((p, idx) => ({
-        id_pago: `pag_${Date.now()}_${idx}`,
-        id_factura: idFactura,
-        monto: p.monto,
-        metodo: p.metodo,
-        fecha: new Date().toISOString()
-      }));
-
-      try {
-        await pagosService.bulkCreate(paymentRows);
-      } catch {
-        // fallbacked
-      }
-
-      // 3. Update Sales stats in Cash register daily shift
-      const paymentDesglosesCount = {
-        efectivo: pays.filter(p => p.metodo === 'efectivo').reduce((s, c) => s + c.monto, 0),
-        debito: pays.filter(p => p.metodo === 'transferencia' || p.metodo === 'debito').reduce((s, c) => s + c.monto, 0),
-        credito: pays.filter(p => p.metodo === 'tarjeta' || p.metodo === 'credito').reduce((s, c) => s + c.monto, 0),
-        transferencia: pays.filter(p => p.metodo === 'transferencia').reduce((s, c) => s + c.monto, 0),
-        mercadopago: pays.filter(p => p.metodo === 'mp_qr' || p.metodo === 'mercadopago').reduce((s, c) => s + c.monto, 0)
-      };
-
-      await cajaService.updateSales(orderBreakdowns.finalTotal, paymentDesglosesCount);
-
-      // 4. Libera Mesa, actualiza pedido de la comanda
-      onFacturarMesa(selectedPedido.id_pedido);
-
-      // 5. Register log events audit tracker
-      await auditoriaService.create({
-        id: `aud_${Date.now()}`,
-        tipo: 'sistema',
-        mensaje: `Cobro Exitoso Mesa ${selectedPedido.numero_mesa}. Factura Nº: ${compiledTicketNo}. Total: $${orderBreakdowns.finalTotal.toLocaleString('es-AR')}. Pago: ${mappedMedio}`,
-        timestamp: new Date()
-      });
-
-      addLog('sistema', `CAJA: Cobro finalizado correctamente para Mesa ${selectedPedido.numero_mesa}. Transacción Fiscal ${compiledTicketNo} registrada. `);
-
-      // Trigger auto printing of PDF & physical printer if configured
-      await pdfService.exportToPDF(dataTicket);
-      await printerService.sendToPrinter(dataTicket, printerConfig);
-      refreshFailedPrintsCount();
-
-      // Reset checkout states
-      setSelectedPedidoId(null);
-      setMixedPayments([]);
-      setMontoEntregadoEfectivo('');
-      setDescuentoPorcentaje(0);
-      setPropinaPorcentaje(10);
-      setSplitByProducts(false);
-      setSelectedProductsForSplit([]);
-      await loadCajaState();
-
-      alert(`¡TICKET EMITIDO CON ÉXITO!\n\nSe cobró: $${orderBreakdowns.finalTotal.toLocaleString('es-AR')}\n\n1. Comprobante PDF generado y descargado.\n2. Mesa liberada.\n3. Recaudado comercial del turno diario actualizado.`);
-    } catch (err: any) {
-      console.error('Error confirming checkout:', err);
-      alert(`Ocurrió un error al procesar el cobro de la mesa: ${err?.message || err}`);
-    }
-  };
-
-  // Print simulator fallback directly from active layout receipt
-  const triggerManualPrint = async () => {
-    if (!selectedPedido || !cajaSession) return;
-
-    try {
-      const dataTicket: TicketData = {
-        nombreComercial: restaurante.nombreComercial,
-        razonSocial: restaurante.razonSocial,
-        cuit: restaurante.cuit,
-        direccion: restaurante.direccion,
-        telefono: restaurante.telefono,
-        email: restaurante.email,
-        nroComprobante: `SIM-${Math.floor(Math.random() * 900 + 100)}`,
-        idPedido: selectedPedido.id_pedido,
-        mesa: selectedPedido.numero_mesa,
-        mozo: selectedPedido.mozo,
-        cajero: cajaSession.usuario_cajero,
-        fechaHora: new Date().toLocaleDateString('es-AR') + ' ' + new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }),
-        items: selectedPedido.items.map(it => {
-          const prod = productosMenu.find(pm => pm.id_producto === it.id_producto);
-          const uni = prod ? prod.precio_venta : 0;
-          return {
-            cantidad: it.cantidad,
-            descripcion: it.nombre,
-            precio_unitario: uni,
-            subtotal: it.cantidad * uni
-          };
-        }),
-        subtotal: orderBreakdowns.subtotal,
-        descuento: orderBreakdowns.promoDeduction + orderBreakdowns.manualDeduction,
-        propina: orderBreakdowns.propinaValue,
-        iva: orderBreakdowns.ivaValue,
-        total: orderBreakdowns.finalTotal,
-        metodosPago: [{ metodo: metodoPago, monto: orderBreakdowns.finalTotal }],
-        vuelto: calculatedChange,
-        tipoComprobante: tipoComprobante,
-        mensajePie: restaurante.mensajePie
-      };
-
-      const res = await printerService.sendToPrinter(dataTicket, printerConfig);
-      refreshFailedPrintsCount();
-      
-      // audit logs
-      await auditoriaService.create({
-        id: `aud_${Date.now()}`,
-        tipo: 'sistema',
-        mensaje: `Envío a Impresora Ticket: ${res.methodUsed}. Destino: ${printerConfig.printerName}. Resultado: ${res.success ? 'OK' : 'Fallo/Simulación'}`,
-        timestamp: new Date()
-      });
-
-      if (res.success) {
-        alert(res.message);
-      } else {
-        alert(`${res.message}\n\nDetalle ESC/POS compilado enviado a la cola:\n\n${res.rawText}`);
-      }
-    } catch (err: any) {
-      console.error('Manual print failed:', err);
-      alert(`Error al imprimir comprobante manual: ${err?.message || err}`);
-    }
-  };
-
-  const triggerPDFDownloadOnly = async () => {
-    if (!selectedPedido || !cajaSession) return;
-
-    const dataTicket: TicketData = {
-      nombreComercial: restaurante.nombreComercial,
-      razonSocial: restaurante.razonSocial,
-      cuit: restaurante.cuit,
-      direccion: restaurante.direccion,
-      telefono: restaurante.telefono,
-      email: restaurante.email,
-      nroComprobante: `PREV-001-${selectedPedido.id_pedido}`,
-      idPedido: selectedPedido.id_pedido,
-      mesa: selectedPedido.numero_mesa,
-      mozo: selectedPedido.mozo,
-      cajero: cajaSession.usuario_cajero,
-      fechaHora: new Date().toLocaleDateString('es-AR') + ' ' + new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }),
-      items: selectedPedido.items.map(it => {
-        const prod = productosMenu.find(pm => pm.id_producto === it.id_producto);
-        const uni = prod ? prod.precio_venta : 0;
-        return {
-          cantidad: it.cantidad,
-          descripcion: it.nombre,
-          precio_unitario: uni,
-          subtotal: it.cantidad * uni
-        };
-      }),
-      subtotal: orderBreakdowns.subtotal,
-      descuento: orderBreakdowns.promoDeduction + orderBreakdowns.manualDeduction,
-      propina: orderBreakdowns.propinaValue,
-      iva: orderBreakdowns.ivaValue,
-      total: orderBreakdowns.finalTotal,
-      metodosPago: [{ metodo: metodoPago, monto: orderBreakdowns.finalTotal }],
-      vuelto: calculatedChange,
-      tipoComprobante: tipoComprobante,
-      mensajePie: restaurante.mensajePie
-    };
-
-    await pdfService.exportToPDF(dataTicket);
-  };
-
-  const downloadFacturaHistorialPdf = async (factura: Factura) => {
-    const neto = Number((factura.total / 1.21).toFixed(2));
-    const ivaValue = Number(factura.iva_veintiuno || (factura.total - neto).toFixed(2));
-    await pdfService.exportToPDF({
-      idPedido: factura.id_pedido || 0,
-      nroComprobante: factura.nro_ticket,
-      tipoComprobante: 'ticket_consumo',
-      fechaHora: factura.fecha,
-      mesa: 'Historial',
-      mozo: 'Caja',
-      cajero: 'Caja',
-      nombreComercial: restaurante.nombreComercial || 'El Patrón',
-      razonSocial: restaurante.razonSocial || 'El Patrón S.A.',
-      cuit: restaurante.cuit || '30-12345678-9',
-      direccion: restaurante.direccion || 'Calle Falsa 123',
-      telefono: restaurante.telefono || '0358-154123456',
-      email: restaurante.email || 'caja@elpatron.com.ar',
-      items: [{
-        cantidad: 1,
-        descripcion: 'Venta gastronómica según ticket emitido',
-        precio_unitario: neto,
-        subtotal: neto
-      }],
-      subtotal: neto,
-      descuento: 0,
-      propina: 0,
-      iva: ivaValue,
-      total: factura.total,
-      metodosPago: [{ metodo: factura.medio_pago || 'efectivo', monto: factura.total }],
-      vuelto: 0,
-      mensajePie: restaurante.mensajePie || 'Gracias por su visita.',
-      cae: (factura as any).afip_cae || (factura as any).cae || undefined,
-      vto: (factura as any).afip_vto || (factura as any).vto || undefined,
-      qrData: (factura as any).afip_qr || (factura as any).qrData || undefined
-    });
-  };
-
-  // Group items by menu categories (Rule 3)
   const groupedItemsByCategory = useMemo(() => {
     if (!selectedPedido) return {};
     const grouped: { [category: string]: typeof selectedPedido.items } = {};
@@ -902,7 +445,7 @@ export default function CajaModule({
         {/* LEFT COLUMN: ACTIVE DRAWER & ACTIVE COMMANDS (LG: Span 4) */}
         <div className="lg:col-span-4 space-y-6">
           
-          {/* DAILY DRAWER SHIFT COMPONENT (Rule 1) */}
+          {/* DAILY DRAWER SHIFT COMPONENT */}
           <div className="glass-panel rounded-2xl p-5 shadow-xs space-y-4">
             <div className="flex justify-between items-start">
               <div>
@@ -923,7 +466,7 @@ export default function CajaModule({
             {/* Display detailed figures inside shift */}
             {cajaSession ? (
               <div className="space-y-2">
-                <div className="p-3 bg-[#F5F1E9] dark:bg-stone-950/60 rounded-xl border border-stone-200/60 dark:border-stone-850 font-sans space-y-2">
+                <div className="p-3 bg-[#F5F1E9] dark:bg-stone-955/60 rounded-xl border border-stone-200/60 dark:border-stone-850 font-sans space-y-2">
                   <div className="flex justify-between text-xs font-semibold text-stone-600 dark:text-stone-400">
                     <span>Responsable:</span>
                     <span className="text-stone-900 dark:text-stone-200">{cajaSession.usuario_cajero}</span>
@@ -945,48 +488,88 @@ export default function CajaModule({
                   </div>
 
                   <div className="flex justify-between text-xs font-bold text-stone-900 dark:text-stone-100 pt-1 font-mono border-t border-stone-150 dark:border-stone-800 border-dotted">
-                    <span>Arqueo Teórico:</span>
-                    <span>${(cajaSession.monto_apertura + cajaSession.monto_ventas).toLocaleString('es-AR')}</span>
+                    <span>Caja Chica (Neto):</span>
+                    <span className={sumIngresosManuales - sumEgresosManuales >= 0 ? 'text-emerald-700' : 'text-rose-750'}>
+                      ${(sumIngresosManuales - sumEgresosManuales).toLocaleString('es-AR')}
+                    </span>
                   </div>
 
                   <div className="flex justify-between text-xs font-black text-emerald-700 dark:text-emerald-400 pt-1 font-mono border-t border-emerald-100 dark:border-emerald-900/60">
                     <span>Caja esperada:</span>
-                    <span>${(cajaSession.monto_apertura + cajaSession.monto_ventas).toLocaleString('es-AR')}</span>
+                    <span>${cajaEsperadaTotal.toLocaleString('es-AR')}</span>
                   </div>
                 </div>
 
                 {/* Turn revenue detailed tags */}
                 {cajaSession.registros_totales && (
-                  <div className="p-2 bg-stone-50 rounded-xl space-y-1 text-[9px] font-mono text-stone-500 font-bold border border-stone-200/50">
-                    <p className="font-sans text-[8px] text-stone-400 uppercase tracking-widest block font-black border-b border-stone-100 pb-1 mb-1">
-                      Desglose cobros en turno
-                    </p>
-                    <div className="flex justify-between">
-                      <span>• EFECTIVO:</span>
-                      <span>${cajaSession.registros_totales.efectivo.toLocaleString('es-AR')}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>• TRANS./DÉBITO:</span>
-                      <span>${(cajaSession.registros_totales.debito + cajaSession.registros_totales.transferencia).toLocaleString('es-AR')}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>• TARJETAS CRÉD:</span>
-                      <span>${cajaSession.registros_totales.credito.toLocaleString('es-AR')}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>• MERCADOPAGO QR:</span>
-                      <span>${cajaSession.registros_totales.mercadopago.toLocaleString('es-AR')}</span>
+                  <div className="p-3 bg-stone-50 dark:bg-stone-900/50 border border-stone-200 dark:border-stone-800 rounded-xl space-y-2.5">
+                    <span className="text-[8px] font-black uppercase text-stone-400 dark:text-stone-300 block tracking-wider">Distribución de Cobros</span>
+                    <div className="space-y-2 text-[10px]">
+                      {(() => {
+                        const totals = cajaSession.registros_totales;
+                        const sum = (totals.efectivo || 0) + (totals.debito || 0) + (totals.credito || 0) + (totals.transferencia || 0) + (totals.mercadopago || 0);
+                        const getPct = (val: number) => sum > 0 ? (val / sum) * 100 : 0;
+                        
+                        const items = [
+                          { label: 'Efectivo', val: totals.efectivo, color: 'bg-[#E8B800]', text: 'text-[#E8B800]' },
+                          { label: 'Transf./Deb.', val: totals.debito + totals.transferencia, color: 'bg-purple-500', text: 'text-purple-600' },
+                          { label: 'Crédito', val: totals.credito, color: 'bg-blue-500', text: 'text-blue-600' },
+                          { label: 'QR / MP', val: totals.mercadopago, color: 'bg-teal-500', text: 'text-teal-600' }
+                        ];
+                        
+                        return (
+                          <>
+                            {/* Horizontal visual progress row */}
+                            <div className="w-full h-2 bg-stone-200 dark:bg-stone-800 rounded-full flex overflow-hidden border border-stone-250/20">
+                              {items.map((it, i) => {
+                                const pct = getPct(it.val);
+                                if (pct <= 0) return null;
+                                return (
+                                  <div 
+                                    key={i} 
+                                    className={`h-full ${it.color}`} 
+                                    style={{ width: `${pct}%` }} 
+                                    title={`${it.label}: ${pct.toFixed(1)}%`}
+                                  />
+                                );
+                              })}
+                            </div>
+                            {/* Legend list */}
+                            <div className="grid grid-cols-2 gap-2 text-[9px] font-mono">
+                              {items.map((it, i) => (
+                                <div key={i} className="flex items-center justify-between font-bold border-b border-stone-150/40 pb-1">
+                                  <span className="flex items-center gap-1">
+                                    <span className={`w-1.5 h-1.5 rounded-full ${it.color}`} />
+                                    {it.label}
+                                  </span>
+                                  <span className="text-stone-700 dark:text-stone-300">${it.val.toLocaleString('es-AR')}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
                 )}
 
-                <button
-                  onClick={() => setShowCloseModal(true)}
-                  className="w-full py-2.5 bg-stone-900 hover:bg-stone-800 text-white rounded-xl text-[10px] uppercase font-black transition-all cursor-pointer shadow-xs border border-[#ddd7ce] flex items-center justify-center gap-1.5"
-                >
-                  <Download className="w-3.5 h-3.5 text-amber-300" />
-                  Cierre de Turno comercial
-                </button>
+                <div className="space-y-1.5 pt-1">
+                  <button
+                    onClick={() => setShowMovimientoModal(true)}
+                    className="w-full py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl text-[10px] uppercase font-black transition-all cursor-pointer border border-[#ddd7ce] flex items-center justify-center gap-1.5"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-[#624A3E]" />
+                    Registrar Movimiento de Caja Chica
+                  </button>
+
+                  <button
+                    onClick={() => setShowCloseModal(true)}
+                    className="w-full py-2.5 bg-stone-900 hover:bg-stone-800 text-white rounded-xl text-[10px] uppercase font-black transition-all cursor-pointer shadow-xs border border-[#ddd7ce] flex items-center justify-center gap-1.5"
+                  >
+                    <Download className="w-3.5 h-3.5 text-amber-300" />
+                    Cierre de Turno comercial
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="space-y-3">
@@ -1007,7 +590,7 @@ export default function CajaModule({
 
             {/* Print queue retry card */}
             {failedPrintsCount > 0 && (
-              <div className="p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/60 rounded-xl space-y-2 mt-2">
+              <div className="p-3 bg-amber-50 dark:bg-amber-955/20 border border-amber-200 dark:border-amber-900/60 rounded-xl space-y-2 mt-2">
                 <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300">
                   <AlertTriangle className="w-4 h-4 shrink-0 animate-pulse text-amber-500" />
                   <span className="text-[10px] font-black uppercase tracking-wider">Cola de Impresión</span>
@@ -1038,7 +621,7 @@ export default function CajaModule({
             )}
           </div>
 
-          {/* ACTIVE UNBILLED COMMANDS LIST (Rule 2) */}
+          {/* ACTIVE UNBILLED COMMANDS LIST */}
           <div className="glass-panel rounded-2xl p-5 shadow-xs space-y-4">
             <div className="flex justify-between items-center pb-2 border-b border-stone-100 dark:border-stone-800/80">
               <h4 className="font-black text-stone-800 dark:text-stone-100 font-sans tracking-tight text-xs uppercase flex items-center gap-1.5">
@@ -1065,12 +648,12 @@ export default function CajaModule({
                       lastFacturas.map(factura => (
                         <div key={factura.id_factura} className="flex items-center justify-between gap-2 border-t border-stone-100 pt-2">
                           <div className="min-w-0">
-                            <p className="text-[10px] font-mono font-black text-stone-800 truncate">{factura.nro_ticket}</p>
+                            <p className="text-[10px] font-mono font-black text-stone-80 truncate">{factura.nro_ticket}</p>
                             <p className="text-[9px] text-stone-400 truncate">{factura.cliente} - ${factura.total.toLocaleString('es-AR')}</p>
                           </div>
                           <button
                             onClick={() => downloadFacturaHistorialPdf(factura)}
-                            className="px-2 py-1 rounded-lg bg-[#624A3E] text-white text-[9px] font-black uppercase shrink-0"
+                            className="px-2 py-1 rounded-lg bg-[#624A3E] text-white text-[9px] font-black uppercase shrink-0 cursor-pointer border-none"
                           >
                             Descargar PDF
                           </button>
@@ -1100,52 +683,33 @@ export default function CajaModule({
                           alert('Tenga a bien abrir primero la caja para proceder con la cuenta.');
                           return;
                         }
-                        setSelectedPedidoId(b.id_pedido);
+                        setSelectedPedidoId(isSelected ? null : b.id_pedido);
                         setSplitPayerCount(1);
                         setActivePayerIndex(0);
-                        setSplitByProducts(false);
-                        setSelectedProductsForSplit([]);
-                        setMixedPayments([]);
                       }}
-                      className={`w-full p-3 rounded-xl border text-left transition-all flex justify-between items-center cursor-pointer ${
+                      className={`w-full p-3.5 rounded-xl border text-left flex justify-between items-center gap-3 transition-all cursor-pointer ${
                         isSelected 
-                          ? 'border-[#E8B800] bg-[#FAF7F0]/90 dark:bg-[#4A2D1B]/40 glow-gold shadow-md'
-                          : 'border-stone-200/50 dark:border-stone-800/55 bg-white/70 dark:bg-stone-900/40 hover:bg-stone-50 dark:hover:bg-stone-800/40'
+                          ? 'border-stone-900 bg-stone-950/5 font-extrabold shadow-2xs' 
+                          : 'border-stone-200 dark:border-stone-800 hover:bg-stone-50 text-stone-600 dark:text-stone-300'
                       }`}
                     >
-                      <div className="space-y-1">
+                      <div>
                         <div className="flex items-center gap-1.5">
-                          <span className="font-extrabold text-stone-900 dark:text-stone-100 text-xs font-sans tracking-tight">{b.numero_mesa}</span>
-                          
-                          {/* Waiter condition badge mapping */}
-                          {isReady ? (
-                            <span className="bg-emerald-100 text-emerald-800 text-[8px] font-black uppercase px-2 py-0.2 rounded-full border border-emerald-200 shrink-0">
-                              Servido
-                            </span>
-                          ) : (
-                            <span className="bg-amber-50 text-amber-800 text-[8px] font-black uppercase px-2 py-0.2 rounded-full border border-amber-200 shrink-0">
-                              Activo
-                            </span>
-                          )}
-
-                          {b.origen !== 'Mozo' && (
-                            <span className="bg-stone-100 dark:bg-stone-900/60 text-[#624A3E] dark:text-stone-300 text-[8px] font-extrabold px-1 py-0.2 rounded shrink-0 font-mono border dark:border-stone-800">
-                              {b.origen.toUpperCase()}
-                            </span>
-                          )}
+                          <span className="font-extrabold text-stone-900 dark:text-stone-100 text-xs font-sans">Mesa {b.numero_mesa}</span>
+                          <span className={`text-[8px] font-black px-1.5 py-0.2 rounded-full uppercase ${
+                            isReady ? 'bg-amber-100 text-amber-800' : 'bg-stone-150 text-stone-500'
+                          }`}>
+                            {b.estado_comanda}
+                          </span>
                         </div>
-                        <p className="text-[10px] text-stone-500 dark:text-stone-400 font-sans font-medium">
-                          M-#{b.id_pedido} • Mozo: {b.mozo} • {itemsCountSum} ítems
+                        <p className="text-[10px] text-stone-400 mt-1 font-medium font-sans">
+                          Mozo: {b.mozo} • {itemsCountSum} items
                         </p>
                       </div>
 
-                      <div className="text-right space-y-0.5 shrink-0">
-                        <span className="font-mono text-xs font-black text-stone-955 dark:text-stone-100 block">
-                          ${totalPrice.toLocaleString('es-AR')}
-                        </span>
-                        <span className="text-[9px] text-[#624A3E] dark:text-stone-300 uppercase font-black tracking-wide flex items-center gap-0.5 justify-end">
-                          <Clock className="w-2.5 h-2.5" /> {b.minutos_transcurridos}m
-                        </span>
+                      <div className="text-right">
+                        <span className="font-mono text-stone-900 dark:text-stone-100 block text-xs font-black">${totalPrice.toLocaleString('es-AR')}</span>
+                        <span className="text-[8px] font-bold text-stone-400 block font-mono">#{b.id_pedido}</span>
                       </div>
                     </button>
                   );
@@ -1156,124 +720,148 @@ export default function CajaModule({
 
         </div>
 
-        {/* RIGHT COLUMN: CORE TERMINAL & RECEIPT PREVIEW (LG: Span 8) */}
+        {/* RIGHT COLUMN: MAIN CHECKOUT WORKSPACE (LG: Span 8) */}
         <div className="lg:col-span-8">
-          
           {selectedPedido ? (
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 glass-panel rounded-2xl p-6 shadow-xs">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
               
-              {/* TICKET OPTIONS CONTROLS (MD: Span 7) */}
-              <div className="md:col-span-7 space-y-4 font-sans">
+              {/* INTERACTIVE FORMULERS (MD: Span 7) */}
+              <div className="md:col-span-7 bg-white dark:bg-stone-900/40 p-5 rounded-2xl border border-stone-200/80 dark:border-stone-800 shadow-sm space-y-4">
                 
-                {/* Header detail selected */}
-                <div className="border-b border-stone-200 dark:border-stone-800/80 pb-3 flex justify-between items-start">
+                <div className="flex justify-between items-center bg-[#F5F1E9] dark:bg-[#8C6239]/40 p-3 border border-stone-200/50 dark:border-stone-800/80 rounded-xl">
                   <div>
-                    <span className="text-[11px] text-amber-700 dark:text-amber-500 font-black uppercase tracking-wider block">Terminal de Liquidación</span>
-                    <h3 className="font-extrabold text-stone-900 dark:text-stone-100 text-sm tracking-tight flex items-center gap-1.5 mt-0.5">
-                      Saldando Cuenta: {selectedPedido.numero_mesa} ({selectedPedido.mozo})
-                    </h3>
+                    <span className="text-[8px] font-black uppercase text-[#624A3E] dark:text-[#C8956A] block">Cuenta Activa</span>
+                    <h4 className="font-extrabold text-stone-900 dark:text-stone-100 text-xs font-sans">Mesa {selectedPedido.numero_mesa}</h4>
                   </div>
+                  
+                  <div className="text-right">
+                    <span className="text-[8px] font-black uppercase text-stone-400 block">Subtotal Carta</span>
+                    <p className="font-mono text-stone-900 dark:text-stone-100 font-extrabold text-xs">${orderBreakdowns.subtotal.toLocaleString('es-AR')}</p>
+                  </div>
+                </div>
 
-                  <span className="text-[10px] text-stone-500 dark:text-stone-400 font-mono bg-stone-100 dark:bg-stone-900/60 px-2 py-0.5 rounded font-black border dark:border-stone-800">
-                    Nro Trans: EP-{selectedPedido.id_pedido}
+                {/* Customer Loyalty Search / Register */}
+                <div className="bg-stone-50 dark:bg-stone-900/50 p-3.5 rounded-xl border border-stone-200/80 dark:border-stone-800/80 space-y-3 font-sans">
+                  <span className="text-[9px] font-black text-stone-550 dark:text-stone-400 uppercase block tracking-wider">
+                    Programa de Fidelización (Clientes Club El Patrón)
                   </span>
-                </div>
 
-                {/* Group categories of order items (Rule 3) */}
-                <div className="bg-stone-50 dark:bg-stone-900/40 border border-stone-200/60 dark:border-stone-850 p-3.5 rounded-xl space-y-2">
-                  <h4 className="text-[10px] font-black text-stone-400 dark:text-stone-300 uppercase tracking-widest mb-1">Items del pedido</h4>
-                  
-                  <div className="space-y-3 max-h-[160px] overflow-y-auto pr-1 text-xs">
-                    {(Object.entries(groupedItemsByCategory) as [string, any[]][]).map(([category, items]) => (
-                      <div key={category} className="space-y-1">
-                        <h5 className="text-[9px] font-black text-[#624A3E] dark:text-amber-500 uppercase tracking-wider">
-                          ■ {category}
-                        </h5>
-                        
-                        <div className="pl-2 space-y-1">
-                          {items.map((it, idx) => {
-                            const pm = productosMenu.find(p => p.id_producto === it.id_producto);
-                            const unitPrice = pm ? pm.precio_venta : 0;
-                            const isProductSelected = selectedProductsForSplit.includes(it.id_producto);
-
-                            return (
-                              <div key={idx} className="flex justify-between items-center text-stone-700 dark:text-stone-300 py-0.5 font-medium">
-                                <div className="flex items-center gap-2">
-                                  {/* Item split selection checkbox (Dividir por productos - Rule 3) */}
-                                  {splitByProducts && (
-                                    <input 
-                                      type="checkbox" 
-                                      checked={isProductSelected}
-                                      onChange={() => {
-                                        if (isProductSelected) {
-                                          setSelectedProductsForSplit(prev => prev.filter(id => id !== it.id_producto));
-                                        } else {
-                                          setSelectedProductsForSplit(prev => [...prev, it.id_producto]);
-                                        }
-                                      }}
-                                      className="w-3.5 h-3.5 accent-[#624A3E]"
-                                    />
-                                  )}
-                                  <span>{it.cantidad}x {it.nombre}</span>
-                                </div>
-                                <span className="font-mono text-stone-900 dark:text-stone-100">
-                                  ${(it.cantidad * unitPrice).toLocaleString('es-AR')}
-                                </span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Division controls helper line */}
-                  <div className="flex justify-between items-center pt-2.5 border-t border-stone-200 dark:border-stone-800 font-sans">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Buscar por DNI o CUIT..."
+                      value={dniCuitBuscar}
+                      onChange={e => setDniCuitBuscar(e.target.value)}
+                      className="flex-1 text-xs p-2 border border-stone-200 dark:border-stone-800 rounded-lg bg-white dark:bg-stone-950 font-mono text-stone-850 dark:text-stone-150 focus:outline-none"
+                    />
                     <button
-                      onClick={() => {
-                        setSplitByProducts(!splitByProducts);
-                        setSelectedProductsForSplit([]);
-                      }}
-                      className="text-[9px] font-extrabold uppercase text-[#624A3E] dark:text-stone-300 hover:underline flex items-center gap-1 cursor-pointer"
+                      type="button"
+                      onClick={handleBuscarCliente}
+                      className="px-3 py-2 bg-[#624A3E] hover:bg-[#523e34] text-white text-xs font-black uppercase rounded-lg cursor-pointer transition-all active:scale-95 shrink-0 border-none"
                     >
-                      <Users className="w-3 h-3" />
-                      {splitByProducts ? 'Quitar selector por producto' : 'Dividir o seleccionar ítems indiv.'}
+                      Buscar
                     </button>
-                    {splitByProducts && (
-                      <span className="text-[8px] bg-amber-100 text-amber-800 font-extrabold uppercase px-1.5 py-0.5 rounded">
-                        Cuenta Fraccionada por Productos
-                      </span>
-                    )}
                   </div>
+
+                  {selectedCliente ? (
+                    <div className="bg-emerald-50 dark:bg-emerald-955 border border-emerald-250 dark:border-emerald-900/30 p-3 rounded-lg flex items-center justify-between text-xs text-emerald-800 dark:text-emerald-300">
+                      <div>
+                        <p className="font-extrabold flex items-center gap-1">
+                          <CheckCircle className="w-4 h-4 text-emerald-600" />
+                          {selectedCliente.nombre}
+                        </p>
+                        <p className="text-[10px] text-stone-500 dark:text-stone-400 mt-0.5">
+                          DNI/CUIT: {selectedCliente.dni_cuit} • Tel: {selectedCliente.telefono || 'N/A'}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[10px] font-bold block uppercase tracking-wider text-stone-500">Puntos Club</span>
+                        <span className="font-mono text-base font-extrabold text-emerald-700 dark:text-emerald-400">{selectedCliente.puntos} pts</span>
+                        {selectedCliente.puntos > 0 && (
+                          <div className="mt-1 flex items-center gap-1.5 justify-end">
+                            <span className="text-[8px] font-bold text-stone-500">Redimir:</span>
+                            <input
+                              type="number"
+                              min="0"
+                              max={selectedCliente.puntos}
+                              value={puntosRedimidos || ''}
+                              onChange={e => setPuntosRedimidos(Math.min(selectedCliente.puntos, Math.max(0, parseInt(e.target.value) || 0)))}
+                              className="p-1 border border-stone-250 rounded w-16 text-xs text-center font-mono font-bold text-stone-800 dark:text-stone-100 bg-white dark:bg-stone-900"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    dniCuitBuscar.trim() && (
+                      <div className="bg-stone-100/80 dark:bg-stone-950/40 border border-stone-200 p-3.5 rounded-lg space-y-2.5">
+                        <p className="text-[10px] text-stone-550 dark:text-stone-400 font-bold italic">
+                          Cliente no encontrado. Complete los datos si desea registrarlo en el club:
+                        </p>
+                        <form onSubmit={handleRegistrarCliente} className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                          <div>
+                            <label className="text-[8px] font-bold text-stone-400 block mb-0.5">Nombre *</label>
+                            <input
+                              type="text"
+                              required
+                              value={nombreNuevoCliente}
+                              onChange={e => setNombreNuevoCliente(e.target.value)}
+                              className="w-full p-2 border border-stone-200 dark:border-stone-800 rounded-lg bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-200"
+                              placeholder="Ej. José López"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[8px] font-bold text-stone-400 block mb-0.5">Email</label>
+                            <input
+                              type="email"
+                              value={emailNuevoCliente}
+                              onChange={e => setEmailNuevoCliente(e.target.value)}
+                              className="w-full p-2 border border-stone-200 dark:border-stone-800 rounded-lg bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-200"
+                              placeholder="Ej. jose@mail.com"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[8px] font-bold text-stone-400 block mb-0.5">Teléfono</label>
+                            <input
+                              type="text"
+                              value={telNuevoCliente}
+                              onChange={e => setTelNuevoCliente(e.target.value)}
+                              className="w-full p-2 border border-stone-200 dark:border-stone-800 rounded-lg bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-200"
+                              placeholder="Ej. +54 9..."
+                            />
+                          </div>
+                          <div className="flex items-end">
+                            <button
+                              type="submit"
+                              className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-black uppercase rounded-lg cursor-pointer border-none"
+                            >
+                              Registrar Cliente
+                            </button>
+                          </div>
+                        </form>
+                      </div>
+                    )
+                  )}
                 </div>
 
-                {/* Automated Promotions Detector flag box */}
-                {((selectedPedido.items.some(it => it.id_producto === 'prod_car_lomo_pimienta' || it.id_producto === 'prod_car_bondiola_ahumada') && selectedPedido.items.some(it => (it.id_producto.startsWith('prod_vin_trumpeter_') && !it.id_producto.includes('copa')) || it.id_producto.startsWith('prod_vin_rutini_'))) || 
-                 (selectedPedido.items.some(it => it.id_producto === 'prod_car_mila_entrecot' || it.id_producto === 'prod_cri_lentejas') && selectedPedido.items.some(it => it.id_insumo === 'ins_beb_gaseosa' || it.id_producto === 'prod_gaseosa'))) && (
-                  <div className="bg-emerald-50 border border-emerald-100 p-3 rounded-lg flex items-start gap-2 text-emerald-800">
-                    <Percent className="w-4 h-4 text-emerald-700 mt-0.5 shrink-0" />
-                    <div className="text-[10px] font-sans">
-                      <p className="font-bold uppercase tracking-wide">Promoción automática calificada</p>
-                      <p className="text-stone-500 font-normal mt-0.5 leading-snug">Se han deducido $1.500 (Combo Milanesa/Lentejas + lata) y/o el 15% del vino (Combo Lomo/Bondiola + Vino) por compras cruzadas.</p>
-                    </div>
+                {/* Fiscal parameters configuration (Rule 4) */}
+                <div className="p-3.5 bg-stone-50 dark:bg-stone-900/40 border border-stone-200/80 dark:border-stone-800 rounded-xl space-y-3 font-sans">
+                  <div className="flex justify-between items-center pb-1 border-b border-stone-150 dark:border-stone-800/80">
+                    <span className="text-[9px] font-black uppercase text-stone-500 dark:text-stone-400 block">Datos del Receptor / Comprobante</span>
+                    <span className="text-[8px] text-stone-400 uppercase font-black tracking-wider">AFIP homologado</span>
                   </div>
-                )}
 
-                {/* CLIENT & AFIP TYPE SYSTEM */}
-                <div className="bg-[#ebf1f5]/25 dark:bg-slate-900/20 border border-slate-200/60 dark:border-slate-800/60 p-3 rounded-xl space-y-2">
-                  <h4 className="text-[10px] font-black text-slate-500 dark:text-slate-300 uppercase tracking-widest">Información Tributaria</h4>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+                  <div className="grid grid-cols-3 gap-2">
                     <div>
-                      <label className="text-[8px] font-bold uppercase text-stone-500 dark:text-stone-400 block mb-0.5">Tipo de Factura</label>
-                      <select
-                        value={tipoComprobante}
+                      <label className="text-[8px] font-bold uppercase text-stone-500 dark:text-stone-400 block mb-0.5">Comprobante</label>
+                      <select 
+                        value={tipoComprobante} 
                         onChange={e => setTipoComprobante(e.target.value as TipoComprobante)}
-                        className="w-full text-xs p-1.5 border border-slate-200 dark:border-stone-850 rounded bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-200 font-bold"
+                        className="w-full text-[11px] p-1.5 border border-stone-200 dark:border-stone-800 rounded bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-200 font-bold"
                       >
-                        <option value="factura_b">Factura B (Cons. Final)</option>
-                        <option value="factura_a">Factura A (Inscripto)</option>
-                        <option value="ticket_interno">Ticket Interno (Mesa)</option>
+                        <option value="factura_b">Factura B</option>
+                        <option value="factura_a">Factura A</option>
+                        <option value="ticket_consumo">Ticket Consumo</option>
                       </select>
                     </div>
 
@@ -1289,7 +877,7 @@ export default function CajaModule({
                             setNombreCliente('Consumidor Final');
                           }
                         }}
-                        className="w-full text-xs p-1.5 border border-slate-200 dark:border-stone-850 rounded bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-200 font-mono"
+                        className="w-full text-xs p-1.5 border border-stone-200 dark:border-stone-800 rounded bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-200 font-mono focus:outline-none"
                         placeholder="Ej. 20-38449102-1"
                       />
                     </div>
@@ -1300,27 +888,27 @@ export default function CajaModule({
                         type="text" 
                         value={nombreCliente}
                         onChange={e => setNombreCliente(e.target.value)}
-                        className="w-full text-xs p-1.5 border border-stone-850 rounded bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-200"
+                        className="w-full text-xs p-1.5 border border-stone-200 dark:border-stone-800 rounded bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-200 focus:outline-none"
                         placeholder="Ej. José de San Martín"
                       />
                     </div>
                   </div>
                 </div>
 
-                {/* Standard split comensales (Rule 3) */}
+                {/* Standard split comensales */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                  <div className="p-3 bg-[#F5F1E9]/50 dark:bg-stone-900/40 border border-stone-200 dark:border-stone-800/60 rounded-xl space-y-2">
+                  <div className="p-3 bg-[#F5F1E9]/50 dark:bg-[#8C6239]/10 border border-stone-200 dark:border-stone-800 rounded-xl space-y-2">
                     <h5 className="text-[10px] font-black text-stone-600 dark:text-stone-300 flex items-center gap-1 uppercase tracking-wider">
                       <Users className="w-3.5 h-3.5 text-[#624A3E] dark:text-stone-300" /> Partes Comensales (Partes Iguales)
                     </h5>
                     
-                    <div className="flex items-center justify-between gap-2 bg-[#FAF7F0] dark:bg-[#4A2D1B]/40 border border-stone-200/50 p-1.5 rounded-lg">
+                    <div className="flex items-center justify-between gap-2 bg-[#FAF7F0] dark:bg-[#8C6239]/40 border border-stone-200/50 p-1.5 rounded-lg">
                       <button
                         onClick={() => {
                           setSplitPayerCount(prev => Math.max(1, prev - 1));
                           setActivePayerIndex(0);
                         }}
-                        className="w-7 h-7 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold flex items-center justify-center cursor-pointer transition-all active:scale-95 rounded-lg"
+                        className="w-7 h-7 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold flex items-center justify-center cursor-pointer transition-all active:scale-95 rounded-lg border-none"
                       >
                         -
                       </button>
@@ -1330,7 +918,7 @@ export default function CajaModule({
                           setSplitPayerCount(prev => prev + 1);
                           setActivePayerIndex(0);
                         }}
-                        className="w-7 h-7 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold flex items-center justify-center cursor-pointer transition-all active:scale-95 rounded-lg"
+                        className="w-7 h-7 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold flex items-center justify-center cursor-pointer transition-all active:scale-95 rounded-lg border-none"
                       >
                         +
                       </button>
@@ -1349,10 +937,10 @@ export default function CajaModule({
                     )}
                   </div>
 
-                  {/* Manual discounts & tip adjustments (Rule 3) */}
-                  <div className="p-3 bg-stone-50 border border-stone-200 rounded-xl space-y-2">
-                    <h5 className="text-[10px] font-black text-stone-600 flex items-center gap-1 uppercase tracking-wider">
-                      <Percent className="w-3.5 h-3.5 text-[#624A3E]" /> Bonificación & Propinas
+                  {/* Manual discounts & tip adjustments */}
+                  <div className="p-3 bg-stone-50 dark:bg-[#FAF7F0]/5 border border-stone-200 dark:border-stone-800 rounded-xl space-y-2">
+                    <h5 className="text-[10px] font-black text-stone-600 dark:text-stone-300 flex items-center gap-1 uppercase tracking-wider">
+                      <Percent className="w-3.5 h-3.5 text-[#624A3E] dark:text-stone-300" /> Bonificación & Propinas
                     </h5>
                     
                     <div className="grid grid-cols-2 gap-2">
@@ -1361,7 +949,7 @@ export default function CajaModule({
                         <select
                           value={descuentoPorcentaje}
                           onChange={e => setDescuentoPorcentaje(parseInt(e.target.value) || 0)}
-                          className="w-full text-xs p-1.5 border border-stone-200 rounded bg-white font-bold"
+                          className="w-full text-xs p-1.5 border border-stone-200 dark:border-stone-800 rounded bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 font-bold font-sans"
                         >
                           <option value="0">0%</option>
                           <option value="5">5%</option>
@@ -1376,7 +964,7 @@ export default function CajaModule({
                         <select
                           value={propinaPorcentaje}
                           onChange={e => setPropinaPorcentaje(parseInt(e.target.value) || 0)}
-                          className="w-full text-xs p-1.5 border border-stone-200 rounded bg-white font-bold"
+                          className="w-full text-xs p-1.5 border border-stone-200 dark:border-stone-800 rounded bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 font-bold font-sans"
                         >
                           <option value="0">0%</option>
                           <option value="5">5%</option>
@@ -1388,7 +976,7 @@ export default function CajaModule({
                   </div>
                 </div>
 
-                {/* PAYMENT TYPE / MIXED PAYMENTS LAYOUT (Rule 4) */}
+                {/* PAYMENT TYPE / MIXED PAYMENTS LAYOUT */}
                 <div className="glass-panel p-4 rounded-xl space-y-3.5">
                   <div>
                     <label className="text-[10px] font-black text-stone-500 uppercase tracking-widest block mb-1.5">
@@ -1423,40 +1011,97 @@ export default function CajaModule({
                     </div>
                   </div>
 
-                  {/* Dynamic Fields for Payment Method details */}
+                  {/* Cash change dynamic helper */}
                   {metodoPago === 'efectivo' && (
-                    <div className="bg-amber-50/50 border border-stone-200 p-3 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                      <div>
-                        <label className="text-[9px] font-bold text-[#624A3E] block uppercase">Monto Entregado en Efectivo</label>
-                        <p className="text-[10px] text-stone-500 font-medium">Ayuda vuelto rápido cajero</p>
+                    <div className="space-y-2 bg-[#F5F1E9]/40 dark:bg-stone-900/40 p-3 rounded-xl border border-stone-200/50 dark:border-stone-850">
+                      <div className="flex justify-between items-center text-xs font-bold text-stone-650 dark:text-stone-300">
+                        <label className="uppercase text-[9px]">Efectivo Entregado por Cliente</label>
+                        {calculatedChange > 0 && (
+                          <span className="text-[#22C55E] font-black uppercase text-[9px] animate-pulse">Vuelto Sugerido</span>
+                        )}
                       </div>
-                      
-                      <div className="flex items-center gap-2 shrink-0">
+
+                      <div className="flex gap-2 items-center">
                         <input 
-                          type="number"
+                          type="number" 
+                          placeholder="Ingrese monto ej: $5000"
                           value={montoEntregadoEfectivo}
                           onChange={e => setMontoEntregadoEfectivo(e.target.value)}
-                          placeholder="Monto entregado"
-                          className="p-2 border border-stone-200 rounded-lg text-xs font-mono font-black text-stone-850 w-28 bg-white"
+                          className="flex-1 p-2 text-xs border border-stone-200 dark:border-stone-800 rounded bg-white dark:bg-stone-950 font-mono font-bold text-stone-800 dark:text-stone-100 focus:outline-none"
                         />
                         {calculatedChange > 0 && (
-                          <div className="text-right pl-2 border-l border-stone-200">
-                            <span className="text-[8px] text-stone-400 block font-bold uppercase">Entregar Vuelto</span>
-                            <span className="text-[11px] text-[#22C55E] font-black font-mono">
-                              ${calculatedChange.toLocaleString('es-AR')}
-                            </span>
-                          </div>
+                          <span className="px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 text-[#22C55E] font-mono font-black text-sm">
+                            ${calculatedChange.toLocaleString('es-AR')}
+                          </span>
                         )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* MercadoPago dynamic QR code placeholder */}
+                  {metodoPago === 'mp_qr' && (
+                    <div className="bg-teal-50/50 dark:bg-teal-955/20 border border-teal-200 dark:border-teal-900/40 p-4 rounded-xl space-y-3 animate-fadeIn">
+                      <div className="flex items-center gap-2 text-teal-800 dark:text-teal-300">
+                        <Smartphone className="w-4 h-4 text-teal-600 animate-pulse" />
+                        <span className="text-[10px] font-black uppercase tracking-wider">Código QR de Pago MercadoPago</span>
+                      </div>
+                      <div className="flex flex-col sm:flex-row items-center gap-4 bg-white dark:bg-stone-900 p-3 rounded-lg border border-teal-150/50 dark:border-teal-900/30">
+                        <div className="w-24 h-24 bg-white p-1 rounded-lg border border-stone-250/60 flex items-center justify-center shrink-0">
+                          <svg viewBox="0 0 100 100" className="w-full h-full text-stone-900">
+                            <rect x="0" y="0" width="100" height="100" fill="white" />
+                            <rect x="5" y="5" width="25" height="25" fill="black" />
+                            <rect x="8" y="8" width="19" height="19" fill="white" />
+                            <rect x="12" y="12" width="11" height="11" fill="black" />
+                            
+                            <rect x="70" y="5" width="25" height="25" fill="black" />
+                            <rect x="73" y="8" width="19" height="19" fill="white" />
+                            <rect x="77" y="12" width="11" height="11" fill="black" />
+                            
+                            <rect x="5" y="70" width="25" height="25" fill="black" />
+                            <rect x="8" y="73" width="19" height="19" fill="white" />
+                            <rect x="12" y="77" width="11" height="11" fill="black" />
+                            
+                            <rect x="42" y="42" width="16" height="16" fill="black" rx="3" />
+                            <rect x="45" y="45" width="10" height="10" fill="white" rx="1.5" />
+                            <circle cx="50" cy="50" r="3" fill="#009EE3" />
+                            
+                            <rect x="35" y="10" width="5" height="15" fill="black" />
+                            <rect x="45" y="5" width="10" height="5" fill="black" />
+                            <rect x="60" y="15" width="5" height="10" fill="black" />
+                            <rect x="10" y="35" width="15" height="5" fill="black" />
+                            <rect x="15" y="45" width="5" height="10" fill="black" />
+                            <rect x="30" y="30" width="10" height="10" fill="black" />
+                            <rect x="35" y="45" width="5" height="5" fill="black" />
+                            
+                            <rect x="70" y="35" width="15" height="5" fill="black" />
+                            <rect x="80" y="45" width="10" height="5" fill="black" />
+                            <rect x="85" y="55" width="10" height="10" fill="black" />
+                            <rect x="65" y="60" width="5" height="15" fill="black" />
+                            <rect x="75" y="70" width="15" height="5" fill="black" />
+                            <rect x="70" y="80" width="5" height="10" fill="black" />
+                            <rect x="85" y="80" width="10" height="5" fill="black" />
+                            
+                            <rect x="35" y="65" width="5" height="15" fill="black" />
+                            <rect x="45" y="75" width="15" height="5" fill="black" />
+                            <rect x="55" y="65" width="5" height="10" fill="black" />
+                            <rect x="35" y="85" width="20" height="5" fill="black" />
+                          </svg>
+                        </div>
+                        <div className="flex-1 text-xs text-stone-600 dark:text-stone-300 space-y-1 text-left">
+                          <p className="font-extrabold text-[#624A3E] dark:text-[#C8956A]">Código QR de Cobro</p>
+                          <p className="text-[10px] leading-relaxed">Presente este código QR al comensal para abonar desde cualquier billetera virtual (MercadoPago, MODO, etc.). El importe de <strong className="font-mono text-emerald-600">${orderBreakdowns.finalTotal.toLocaleString('es-AR')}</strong> se cargará automáticamente al escanear.</p>
+                          <span className="inline-block bg-teal-100 text-teal-800 px-2 py-0.5 rounded font-black text-[8px] uppercase tracking-wider mt-1">Sincronizado vía MercadoPago API</span>
+                        </div>
                       </div>
                     </div>
                   )}
 
                   {/* Mixed Payment Rows interface */}
                   {metodoPago === 'mixto' && (
-                    <div className="space-y-3.5 bg-slate-50 p-3.5 rounded-xl border border-stone-200">
-                      <div className="flex justify-between items-center text-[10px] font-black uppercase text-stone-500 border-b border-stone-200 pb-1">
-                        <span>Pagos Cargados parciamente</span>
-                        <span className="font-mono text-emerald-800">
+                    <div className="space-y-3.5 bg-slate-50 dark:bg-stone-950 p-3.5 rounded-xl border border-stone-200 dark:border-stone-800">
+                      <div className="flex justify-between items-center text-[10px] font-black uppercase text-stone-500 dark:text-stone-400 border-b border-stone-200 dark:border-stone-850 pb-1">
+                        <span>Pagos Cargados parcialmente</span>
+                        <span className="font-mono text-emerald-800 dark:text-emerald-400">
                           Totaling Queue: ${mixedSum.toLocaleString('es-AR')} / ${orderBreakdowns.finalTotal.toLocaleString('es-AR')}
                         </span>
                       </div>
@@ -1464,16 +1109,16 @@ export default function CajaModule({
                       {mixedPayments.length > 0 ? (
                         <div className="space-y-1">
                           {mixedPayments.map((p, idx) => (
-                            <div key={idx} className="flex justify-between items-center bg-white border border-stone-150 p-2 rounded-lg text-xs font-bold text-stone-700">
+                            <div key={idx} className="flex justify-between items-center bg-white dark:bg-stone-900 border border-stone-150 dark:border-stone-800 p-2 rounded-lg text-xs font-bold text-stone-700 dark:text-stone-300">
                               <span className="uppercase flex items-center gap-1">
                                 <ChevronRight className="w-3.5 h-3.5 text-[#624A3E]" /> {p.metodo}
                               </span>
                               <div className="flex items-center gap-2">
-                                <span className="font-mono text-stone-900">${p.monto.toLocaleString('es-AR')}</span>
+                                <span className="font-mono text-stone-900 dark:text-stone-100">${p.monto.toLocaleString('es-AR')}</span>
                                 <button
                                   type="button"
                                   onClick={() => handleRemoveMixedPayment(idx)}
-                                  className="text-stone-400 hover:text-rose-600 transition-colors cursor-pointer"
+                                  className="text-stone-400 hover:text-rose-600 transition-colors cursor-pointer border-none bg-transparent"
                                   title="Borrar pago parcial"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
@@ -1492,7 +1137,7 @@ export default function CajaModule({
                           <select
                             value={mixedMetodoInput}
                             onChange={e => setMixedMetodoInput(e.target.value)}
-                            className="bg-white border text-xs p-2 rounded-lg"
+                            className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 text-xs p-2 rounded-lg text-stone-800 dark:text-stone-200"
                           >
                             <option value="efectivo">Efectivo</option>
                             <option value="tarjeta">Tarjeta Crédito</option>
@@ -1506,38 +1151,37 @@ export default function CajaModule({
                             value={mixedMontoInput}
                             onChange={e => {
                               setMixedMontoInput(e.target.value);
-                              // Auto pre-populate cash entregado for vuelto dynamic helper inside mixto if method is cash
                               if (mixedMetodoInput === 'efectivo') {
                                 setMontoEntregadoEfectivo(e.target.value);
                               }
                             }}
-                            className="flex-1 bg-white border p-2 text-xs rounded-lg font-mono font-bold"
+                            className="flex-1 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 p-2 text-xs rounded-lg font-mono font-bold text-stone-850 dark:text-stone-200 focus:outline-none"
                           />
 
                           <button
                             type="submit"
-                            className="py-2 px-3 bg-[#624A3E] text-white text-xs font-black rounded-lg cursor-pointer flex items-center gap-1 shrink-0"
+                            className="py-2 px-3 bg-[#624A3E] text-white text-xs font-black rounded-lg cursor-pointer flex items-center gap-1 shrink-0 border-none"
                           >
                             <Plus className="w-3.5 h-3.5" /> Agregar Pago
                           </button>
                         </form>
                       ) : (
-                        <div className="bg-emerald-50 text-emerald-800 text-[10px] p-2 text-center rounded border border-emerald-100 font-bold">
+                        <div className="bg-emerald-50 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-300 text-[10px] p-2 text-center rounded border border-emerald-100 dark:border-emerald-900/30 font-bold">
                           ✓ Saldo completado. Puede finalizar la transacción de cobro.
                         </div>
                       )}
 
                       {/* Cash change for mixed cash payments */}
                       {mixedPayments.some(p => p.metodo === 'efectivo') && (
-                        <div className="bg-white p-2.5 rounded-lg border border-stone-200 flex justify-between items-center text-xs">
-                          <span className="text-stone-500 font-bold block uppercase text-[10px]">Arqueo Cambio Extra (Efectivo Mixto)</span>
+                        <div className="bg-white dark:bg-stone-900 p-2.5 rounded-lg border border-stone-200 dark:border-stone-800 flex justify-between items-center text-xs">
+                          <span className="text-stone-500 dark:text-stone-400 font-bold block uppercase text-[10px]">Arqueo Cambio Extra (Efectivo Mixto)</span>
                           <div className="flex items-center gap-2">
                             <input 
                               type="number" 
                               value={montoEntregadoEfectivo}
                               onChange={e => setMontoEntregadoEfectivo(e.target.value)}
                               placeholder="Monto entregado"
-                              className="p-1.5 border border-stone-200 rounded text-xs text-stone-800 font-mono w-24"
+                              className="p-1.5 border border-stone-200 dark:border-stone-850 rounded text-xs text-stone-800 dark:text-stone-200 font-mono w-24 bg-white dark:bg-stone-950"
                             />
                             {calculatedChange > 0 && (
                               <span className="text-[#22C55E] font-black">${calculatedChange.toLocaleString('es-AR')}</span>
@@ -1548,13 +1192,15 @@ export default function CajaModule({
                     </div>
                   )}
                 </div>
+              </div>
 
-                {/* EMISSION ACTIONS BAR */}
+              {/* EMISSION ACTIONS BAR */}
+              <div className="md:col-span-5 space-y-4">
+                
                 <div className="space-y-2">
                   {splitPayerCount > 1 ? (
                     <button
                       onClick={async () => {
-                        // Fraction payments progress loop
                         alert(`Se ha procesado y validado el cobro de la parte #${activePayerIndex + 1} por $${(orderBreakdowns.finalTotal / splitPayerCount).toLocaleString('es-AR')}`);
                         if (activePayerIndex + 1 >= splitPayerCount) {
                           await handleConfirmCheckout();
@@ -1562,7 +1208,7 @@ export default function CajaModule({
                           setActivePayerIndex(prev => prev + 1);
                         }
                       }}
-                      className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 hover:scale-[1.01] active:scale-95 text-white text-xs uppercase tracking-wider font-extrabold rounded-xl transition-all shadow-md cursor-pointer flex items-center justify-center gap-2"
+                      className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 hover:scale-[1.01] active:scale-95 text-white text-xs uppercase tracking-wider font-extrabold rounded-xl transition-all shadow-md cursor-pointer flex items-center justify-center gap-2 border-none"
                     >
                       <CheckCircle className="w-5 h-5" />
                       Cobrar Parte #{activePayerIndex + 1} de {splitPayerCount} (${(orderBreakdowns.finalTotal / splitPayerCount).toLocaleString('es-AR', { maximumFractionDigits: 1 })})
@@ -1601,131 +1247,138 @@ export default function CajaModule({
                       setSplitPayerCount(1);
                       setActivePayerIndex(0);
                     }}
-                    className="w-full text-center py-2 text-stone-500 hover:text-stone-800 text-[10px] uppercase font-extrabold cursor-pointer"
+                    className="w-full text-center py-2 text-stone-500 hover:text-stone-850 dark:hover:text-stone-200 text-[10px] uppercase font-extrabold cursor-pointer border-none bg-transparent"
                   >
                     ← Volver a Comandas
                   </button>
                 </div>
 
-              </div>
+                {/* EPSON TICKET PREVIEW SIMULATOR */}
+                <div className="bg-stone-100/40 dark:bg-stone-900/30 border border-stone-200/30 dark:border-stone-800/40 p-4 rounded-xl flex flex-col items-center justify-start">
+                  <span className="text-[10px] font-black text-stone-400 dark:text-stone-300 uppercase tracking-widest mb-3 flex items-center gap-1">
+                    <Printer className="w-3.5 h-3.5 text-[#E8B800]" /> Simulación de Salida Térmica (80mm)
+                  </span>
 
-              {/* EPSON TICKET PREVIEW SIMULATOR (MD: Span 5) */}
-              <div className="md:col-span-5 bg-stone-100/40 dark:bg-stone-900/30 border border-stone-200/30 dark:border-stone-800/40 p-4 rounded-xl flex flex-col items-center justify-start">
-                <span className="text-[10px] font-black text-stone-400 dark:text-stone-300 uppercase tracking-widest mb-3 flex items-center gap-1">
-                  <Printer className="w-3.5 h-3.5 text-[#E8B800]" /> Simulación de Salida Térmica (80mm)
-                </span>
-
-                {/* Simulated thermal roll in 3D container */}
-                <div style={{ perspective: 1200 }} className="w-full overflow-hidden">
-                  <motion.div
-                    key={selectedPedido.id_pedido}
-                    initial={{ rotateX: -30, y: -100, opacity: 0, scaleY: 0.1 }}
-                    animate={{ rotateX: 0, y: 0, opacity: 1, scaleY: 1 }}
-                    transition={{ type: 'spring', damping: 18, stiffness: 70 }}
-                    style={{ transformOrigin: 'top center', transformStyle: 'preserve-3d' }}
-                    className="w-full bg-white text-stone-800 p-4 shadow-md font-mono text-[9px] leading-relaxed border border-stone-200 relative"
-                  >
-                  
-                  {/* Zig-zag top edge design */}
-                  <div className="absolute top-0 inset-x-0 h-1 bg-stone-300 flex overflow-hidden">
-                    {Array.from({ length: 40 }).map((_, i) => (
-                      <div key={i} className="w-1.5 h-1.5 shrink-0 bg-stone-200 rotate-45 transform -translate-y-0.5 border border-stone-200" />
-                    ))}
-                  </div>
-
-                  <div className="text-center pt-2.5 pb-1 border-b border-dotted border-stone-300 space-y-0.5">
-                    <span className="font-bold text-[10px] block uppercase tracking-tight">{restaurante.nombreComercial}</span>
-                    <span className="block text-[8px] text-stone-500">Raz. Soc: {restaurante.razonSocial}</span>
-                    <span className="block text-[8px] text-stone-500">CUIT: {restaurante.cuit}</span>
-                    <span className="block text-[8px] text-stone-500">{restaurante.direccion}</span>
-                    <span className="block text-[8px] text-stone-500">Telf: {restaurante.telefono}</span>
-                  </div>
-
-                  <div className="py-2 border-b border-dotted border-stone-300 space-y-0.5 text-[8.5px]">
-                    <p>COMPROB.: {tipoComprobante === 'factura_b' ? 'FACTURA B-CONS. FINAL' : (tipoComprobante === 'factura_a' ? 'FACTURA A-RESP. INS.' : 'TICKET INTERNO')}</p>
-                    <p>CLIENTE: {nombreCliente.toUpperCase()}</p>
-                    <p>CUIT/DNI: {cuitCliente}</p>
-                    <p>FECHA: {new Date().toLocaleDateString('es-AR')} {new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}hs</p>
-                    <p>MESA: {selectedPedido.numero_mesa.toUpperCase()} • MOZO: {selectedPedido.mozo}</p>
-                    <p>CAJERO: {cajaSession.usuario_cajero.toUpperCase()}</p>
-                  </div>
-
-                  {/* List of items */}
-                  <div className="py-2 border-b border-dotted border-stone-300 space-y-1">
-                    <div className="flex justify-between font-bold">
-                      <span>DESCRIPCIÓN / CANT.</span>
-                      <span>TOTAL ($)</span>
+                  {/* Simulated thermal roll in 3D container */}
+                  <div style={{ perspective: 1200 }} className="w-full overflow-hidden">
+                    <motion.div
+                      key={selectedPedido.id_pedido}
+                      initial={{ rotateX: -30, y: -100, opacity: 0, scaleY: 0.1 }}
+                      animate={{ rotateX: 0, y: 0, opacity: 1, scaleY: 1 }}
+                      transition={{ type: 'spring', damping: 18, stiffness: 70 }}
+                      style={{ transformOrigin: 'top center', transformStyle: 'preserve-3d' }}
+                      className="w-full bg-white text-stone-800 p-4 shadow-md font-mono text-[9px] leading-relaxed border border-stone-200 relative"
+                    >
+                    
+                    {/* Zig-zag top edge design */}
+                    <div className="absolute top-0 inset-x-0 h-1 bg-stone-300 flex overflow-hidden">
+                      {Array.from({ length: 40 }).map((_, i) => (
+                        <div key={i} className="w-1.5 h-1.5 shrink-0 bg-stone-200 rotate-45 transform -translate-y-0.5 border border-stone-200" />
+                      ))}
                     </div>
 
-                    {selectedPedido.items.map((it, idx) => {
-                      const pm = productosMenu.find(p => p.id_producto === it.id_producto);
-                      const unit = pm ? pm.precio_venta : 0;
-                      return (
-                        <div key={idx} className="flex justify-between font-sans">
-                          <span>{it.cantidad}x {it.nombre}</span>
-                          <span className="font-mono">${(it.cantidad * unit).toLocaleString('es-AR')}</span>
+                    <div className="text-center pt-2.5 pb-1 border-b border-dotted border-stone-300 space-y-0.5">
+                      <span className="font-bold text-[10px] block uppercase tracking-tight">{restaurante.nombreComercial}</span>
+                      <span className="block text-[8px] text-stone-500">Raz. Soc: {restaurante.razonSocial}</span>
+                      <span className="block text-[8px] text-stone-500">CUIT: {restaurante.cuit}</span>
+                      <span className="block text-[8px] text-stone-500">{restaurante.direccion}</span>
+                      <span className="block text-[8px] text-stone-550">{restaurante.telefono}</span>
+                    </div>
+
+                    <div className="py-2 border-b border-dotted border-stone-300 space-y-0.5 text-[8.5px]">
+                      <p>COMPROB.: {tipoComprobante === 'factura_b' ? 'FACTURA B-CONS. FINAL' : (tipoComprobante === 'factura_a' ? 'FACTURA A-RESP. INS.' : 'TICKET INTERNO')}</p>
+                      <p>CLIENTE: {nombreCliente.toUpperCase()}</p>
+                      <p>CUIT/DNI: {cuitCliente}</p>
+                      <p>FECHA: {new Date().toLocaleDateString('es-AR')} {new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}hs</p>
+                      <p>MESA: {selectedPedido.numero_mesa.toUpperCase()} • MOZO: {selectedPedido.mozo}</p>
+                      <p>CAJERO: {cajaSession.usuario_cajero.toUpperCase()}</p>
+                    </div>
+
+                    {/* List of items */}
+                    <div className="py-2 border-b border-dotted border-stone-300 space-y-1">
+                      <div className="flex justify-between font-bold">
+                        <span>DESCRIPCIÓN / CANT.</span>
+                        <span>TOTAL ($)</span>
+                      </div>
+
+                      {selectedPedido.items.map((it, idx) => {
+                        const pm = productosMenu.find(p => p.id_producto === it.id_producto);
+                        const unit = pm ? pm.precio_venta : 0;
+                        return (
+                          <div key={idx} className="flex justify-between font-sans">
+                            <span>{it.cantidad}x {it.nombre}</span>
+                            <span className="font-mono">${(it.cantidad * unit).toLocaleString('es-AR')}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Pricing summaries */}
+                    <div className="py-2 border-b border-dotted border-stone-300 space-y-1 font-sans">
+                      <div className="flex justify-between">
+                        <span>Subtotal Neto:</span>
+                        <span className="font-mono">${orderBreakdowns.subtotal.toLocaleString('es-AR')}</span>
+                      </div>
+
+                      {(orderBreakdowns.promoDeduction > 0 || orderBreakdowns.manualDeduction > 0) && (
+                        <div className="flex justify-between text-emerald-700 font-bold">
+                          <span>Descuentos:</span>
+                          <span className="font-mono">-${(orderBreakdowns.promoDeduction + orderBreakdowns.manualDeduction).toLocaleString('es-AR')}</span>
                         </div>
-                      );
-                    })}
-                  </div>
+                      )}
 
-                  {/* Pricing summaries */}
-                  <div className="py-2 border-b border-dotted border-stone-300 space-y-1 font-sans">
-                    <div className="flex justify-between">
-                      <span>Subtotal Neto:</span>
-                      <span className="font-mono">${orderBreakdowns.subtotal.toLocaleString('es-AR')}</span>
-                    </div>
+                      {puntosRedimidos > 0 && (
+                        <div className="flex justify-between text-indigo-750 font-bold">
+                          <span>Puntos Canjeados:</span>
+                          <span className="font-mono">-${puntosRedimidos.toLocaleString('es-AR')}</span>
+                        </div>
+                      )}
 
-                    {(orderBreakdowns.promoDeduction > 0 || orderBreakdowns.manualDeduction > 0) && (
-                      <div className="flex justify-between text-emerald-700 font-bold">
-                        <span>Descuentos:</span>
-                        <span className="font-mono">-${(orderBreakdowns.promoDeduction + orderBreakdowns.manualDeduction).toLocaleString('es-AR')}</span>
+                      {orderBreakdowns.propinaValue > 0 && (
+                        <div className="flex justify-between text-stone-500">
+                          <span>Propina ({propinaPorcentaje}%):</span>
+                          <span className="font-mono">${orderBreakdowns.propinaValue.toLocaleString('es-AR')}</span>
+                        </div>
+                      )}
+
+                      <div className="flex justify-between font-bold text-stone-900 border-t border-dashed mt-1 pt-1">
+                        <span>TOTAL CUENTA:</span>
+                        <span className="font-mono font-black">${orderBreakdowns.finalTotal.toLocaleString('es-AR')}</span>
                       </div>
-                    )}
 
-                    {orderBreakdowns.propinaValue > 0 && (
-                      <div className="flex justify-between text-stone-500">
-                        <span>Propina ({propinaPorcentaje}%):</span>
-                        <span className="font-mono">${orderBreakdowns.propinaValue.toLocaleString('es-AR')}</span>
+                      <div className="flex justify-between text-[7.5px] italic text-stone-400 mt-1">
+                        <span>(IVA 21.0% incl en subtotal:</span>
+                        <span className="font-mono">${orderBreakdowns.ivaValue.toLocaleString('es-AR', { maximumFractionDigits: 1 })})</span>
                       </div>
-                    )}
-
-                    <div className="flex justify-between font-bold text-stone-900 border-t border-dashed mt-1 pt-1">
-                      <span>TOTAL CUENTA:</span>
-                      <span className="font-mono font-black">${orderBreakdowns.finalTotal.toLocaleString('es-AR')}</span>
                     </div>
 
-                    <div className="flex justify-between text-[7.5px] italic text-stone-400 mt-1">
-                      <span>(IVA 21.0% incl en subtotal:</span>
-                      <span className="font-mono">${orderBreakdowns.ivaValue.toLocaleString('es-AR', { maximumFractionDigits: 1 })})</span>
-                    </div>
-                  </div>
-
-                  {/* QR code simulated block */}
-                  <div className="text-center pt-2 space-y-1 border-t border-stone-200">
-                    <div className="w-14 h-14 bg-stone-50 border border-stone-200 mx-auto flex items-center justify-center relative">
-                      <div className="grid grid-cols-4 gap-0.5 p-1 w-full h-full opacity-60">
-                        {Array.from({ length: 16 }).map((_, i) => (
-                          <div key={i} className={`w-full h-full ${i % 3 === 0 || i % 7 === 1 ? 'bg-stone-900' : 'bg-transparent'}`} />
-                        ))}
+                    {/* QR code simulated block */}
+                    <div className="text-center pt-2 space-y-1 border-t border-stone-200">
+                      <div className="w-14 h-14 bg-stone-50 border border-stone-200 mx-auto flex items-center justify-center relative">
+                        <div className="grid grid-cols-4 gap-0.5 p-1 w-full h-full opacity-60">
+                          {Array.from({ length: 16 }).map((_, i) => (
+                            <div key={i} className={`w-full h-full ${i % 3 === 0 || i % 7 === 1 ? 'bg-stone-900' : 'bg-transparent'}`} />
+                          ))}
+                        </div>
+                        <span className="absolute bg-white px-0.5 text-[5px] font-bold text-stone-800 uppercase ring-1 ring-stone-900/5">AFIP QR</span>
                       </div>
-                      <span className="absolute bg-white px-0.5 text-[5px] font-bold text-stone-800 uppercase ring-1 ring-stone-900/5">AFIP QR</span>
+                      <p className="text-[6.5px] text-stone-400 font-sans leading-tight">
+                        CAE Nº: 732049182390 • VENCE: 15/12/2026
+                      </p>
                     </div>
-                    <p className="text-[6.5px] text-stone-400 font-sans leading-tight">
-                      CAE Nº: 732049182390 • VENCE: 15/12/2026
+
+                    <p className="text-[8px] text-center text-stone-500 font-sans mt-2 pt-1 border-t border-dotted border-stone-300">
+                      {restaurante.mensajePie}
                     </p>
+
+                    </motion.div>
                   </div>
 
-                  <p className="text-[8px] text-center text-stone-500 font-sans mt-2 pt-1 border-t border-dotted border-stone-300">
-                    {restaurante.mensajePie}
-                  </p>
-
-                  </motion.div>
+                  <div className="mt-3 text-[10px] text-stone-500 dark:text-stone-400 max-w-xs text-center font-bold">
+                    ✓ El Patrón POS emitirá este ticket y enviará el string compilado en bytes ESC/POS.
+                  </div>
                 </div>
 
-                <div className="mt-3 text-[10px] text-stone-500 dark:text-stone-400 max-w-xs text-center font-bold">
-                  ✓ El Patrón POS emitirá este ticket y enviará el string compilado en bytes ESC/POS.
-                </div>
               </div>
 
             </div>
@@ -1757,9 +1410,9 @@ export default function CajaModule({
 
       </div>
 
-      {/* SHIFT OPEN MODAL Dialog (Rule 1) */}
+      {/* SHIFT OPEN MODAL Dialog */}
       {showOpenModal && (
-        <div className="fixed inset-0 bg-stone-950/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-stone-955/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className="bg-white dark:bg-[#1e1b18] rounded-2xl border border-stone-200 dark:border-stone-800 max-w-md w-full p-6 animate-scaleIn space-y-4 shadow-lg font-sans">
             <h3 className="text-sm font-black text-stone-900 dark:text-stone-100 uppercase tracking-tight flex items-center gap-2">
               <Unlock className="w-5 h-5 text-emerald-600" />
@@ -1772,16 +1425,78 @@ export default function CajaModule({
 
             <form onSubmit={handleOpenShift} className="space-y-3">
               <div>
-                <label className="text-[10px] font-black text-stone-700 dark:text-stone-300 uppercase block mb-1">Monto Inicial ($ ARS)</label>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-[10px] font-black text-stone-700 dark:text-stone-300 uppercase block">Monto Inicial ($ ARS)</label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBillCounts({ 20000: 0, 10000: 0, 2000: 0, 1000: 0, 500: 0, 200: 0, 100: 0, 50: 0 });
+                      setShowBillCounter(showBillCounter === 'open' ? null : 'open');
+                    }}
+                    className="text-[9px] font-black uppercase text-[#624A3E] dark:text-[#C8956A] hover:underline cursor-pointer flex items-center gap-1"
+                  >
+                    🪙 Calculadora de Billetes
+                  </button>
+                </div>
                 <input 
                   type="number"
                   required
                   value={openingCashInput}
                   onChange={e => setOpeningCashInput(e.target.value)}
-                  className="w-full text-xs p-2.5 rounded-xl border border-stone-200 dark:border-stone-800 font-mono font-extrabold focus:ring-1 focus:ring-[#624A3E] focus:outline-none bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100"
+                  className="w-full text-xs p-2.5 rounded-xl border border-stone-200 dark:border-stone-800 font-mono font-extrabold focus:ring-1 focus:ring-[#624A3E] focus:outline-none bg-stone-50 dark:bg-stone-955 text-stone-900 dark:text-stone-100"
                   placeholder="Ej. 25000"
                 />
               </div>
+
+              {showBillCounter === 'open' && (
+                <div className="bg-stone-50 dark:bg-stone-950 p-3.5 rounded-xl border border-stone-200 dark:border-stone-850 space-y-3 animate-fadeIn text-left">
+                  <span className="text-[9px] font-black text-[#624A3E] dark:text-amber-500 uppercase block">Conteo Físico por Denominación</span>
+                  <div className="grid grid-cols-2 gap-2 text-[11px]">
+                    {[20000, 10000, 2000, 1000, 500, 200, 100, 50].map(denom => (
+                      <div key={denom} className="flex items-center justify-between bg-white dark:bg-stone-900 p-1.5 rounded border border-stone-150 dark:border-stone-800">
+                        <span className="font-mono font-bold text-stone-600 dark:text-stone-300">${denom.toLocaleString('es-AR')}</span>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setBillCounts(prev => ({ ...prev, [denom]: Math.max(0, (prev[denom] || 0) - 1) }))}
+                            className="w-5 h-5 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 text-stone-700 dark:text-stone-200 font-bold text-xs flex items-center justify-center rounded cursor-pointer border-none"
+                          >
+                            -
+                          </button>
+                          <input
+                            type="number"
+                            min="0"
+                            value={billCounts[denom] || ''}
+                            onChange={e => setBillCounts(prev => ({ ...prev, [denom]: Math.max(0, parseInt(e.target.value) || 0) }))}
+                            className="w-8 text-center text-xs font-mono font-bold border-none bg-transparent focus:outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setBillCounts(prev => ({ ...prev, [denom]: (prev[denom] || 0) + 1 }))}
+                            className="w-5 h-5 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 text-stone-700 dark:text-stone-200 font-bold text-xs flex items-center justify-center rounded cursor-pointer border-none"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex justify-between items-center pt-2 border-t border-stone-150 dark:border-stone-800">
+                    <span className="text-[10px] font-black uppercase text-stone-500">Total Arqueado:</span>
+                    <span className="font-mono text-sm font-black text-emerald-700 dark:text-emerald-400">${billTotal.toLocaleString('es-AR')}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOpeningCashInput(String(billTotal));
+                      setShowBillCounter(null);
+                    }}
+                    className="w-full py-1.5 bg-[#624A3E] hover:bg-[#503C32] text-white text-[10px] font-black uppercase rounded-lg cursor-pointer transition-colors"
+                  >
+                    Aplicar Total de Arqueo
+                  </button>
+                </div>
+              )}
 
               <div>
                 <label className="text-[10px] font-black text-stone-700 dark:text-stone-300 uppercase block mb-1">Operador Responsable (Cajero)</label>
@@ -1790,7 +1505,7 @@ export default function CajaModule({
                   required
                   value={cashierNameInput}
                   onChange={e => setCashierNameInput(e.target.value)}
-                  className="w-full text-xs p-2.5 rounded-xl border border-stone-200 dark:border-stone-800 focus:ring-1 focus:ring-[#624A3E] focus:outline-none bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100"
+                  className="w-full text-xs p-2.5 rounded-xl border border-stone-200 dark:border-stone-800 focus:ring-1 focus:ring-[#624A3E] focus:outline-none bg-stone-50 dark:bg-stone-955 text-stone-900 dark:text-stone-100"
                   placeholder="Ej. Sofía Colombo"
                 />
               </div>
@@ -1799,13 +1514,13 @@ export default function CajaModule({
                 <button
                   type="button"
                   onClick={() => setShowOpenModal(false)}
-                  className="w-1/2 py-2.5 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-200 text-xs font-black uppercase rounded-xl"
+                  className="w-1/2 py-2.5 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-200 text-xs font-black uppercase rounded-xl border-none cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="w-1/2 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black uppercase rounded-xl shadow cursor-pointer"
+                  className="w-1/2 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black uppercase rounded-xl shadow cursor-pointer border-none"
                 >
                   Confirmar Apertura
                 </button>
@@ -1815,7 +1530,7 @@ export default function CajaModule({
         </div>
       )}
 
-      {/* SHIFT CLOSE MODAL Dialog (Rule 1) */}
+      {/* SHIFT CLOSE MODAL Dialog */}
       {showCloseModal && (
         <div className="fixed inset-0 bg-stone-955/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className="bg-white dark:bg-[#1e1b18] rounded-2xl border border-stone-200 dark:border-stone-800 max-w-md w-full p-6 animate-scaleIn space-y-4 shadow-lg font-sans">
@@ -1838,32 +1553,102 @@ export default function CajaModule({
                   <span>Ventas acumuladas:</span>
                   <span>${cajaSession.monto_ventas.toLocaleString('es-AR')}</span>
                 </div>
+                <div className="flex justify-between">
+                  <span>Caja Chica (Ingresos):</span>
+                  <span className="text-emerald-700">${sumIngresosManuales.toLocaleString('es-AR')}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Caja Chica (Gastos/Egresos):</span>
+                  <span className="text-rose-750">-${sumEgresosManuales.toLocaleString('es-AR')}</span>
+                </div>
                 <div className="flex justify-between font-bold text-stone-900 dark:text-stone-100 pt-1 border-t border-stone-200 dark:border-stone-800 border-dotted text-xs font-sans">
                   <span>Total Esperado:</span>
-                  <span>${(cajaSession.monto_apertura + cajaSession.monto_ventas).toLocaleString('es-AR')}</span>
+                  <span>${cajaEsperadaTotal.toLocaleString('es-AR')}</span>
                 </div>
               </div>
             )}
 
             <form onSubmit={handleCloseShift} className="space-y-3">
               <div>
-                <label className="text-[10px] font-black text-stone-750 dark:text-stone-300 uppercase block mb-1">Monto Real Físico de Arqueo ($ ARS)</label>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-[10px] font-black text-stone-750 dark:text-stone-300 uppercase block">Monto Real Físico de Arqueo ($ ARS)</label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBillCounts({ 20000: 0, 10000: 0, 2000: 0, 1000: 0, 500: 0, 200: 0, 100: 0, 50: 0 });
+                      setShowBillCounter(showBillCounter === 'close' ? null : 'close');
+                    }}
+                    className="text-[9px] font-black uppercase text-[#624A3E] dark:text-[#C8956A] hover:underline cursor-pointer flex items-center gap-1"
+                  >
+                    🪙 Calculadora de Billetes
+                  </button>
+                </div>
                 <input 
                   type="number"
                   required
                   value={closingPhysicalCashInput}
                   onChange={e => setClosingPhysicalCashInput(e.target.value)}
-                  className="w-full text-xs p-2.5 rounded-xl border border-stone-200 dark:border-stone-800 font-mono font-extrabold focus:ring-1 focus:ring-[#624A3E] focus:outline-none bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100"
+                  className="w-full text-xs p-2.5 rounded-xl border border-stone-200 dark:border-stone-800 font-mono font-extrabold focus:ring-1 focus:ring-[#624A3E] focus:outline-none bg-stone-50 dark:bg-stone-955 text-stone-900 dark:text-stone-100"
                   placeholder="Ej. 120000"
                 />
               </div>
+
+              {showBillCounter === 'close' && (
+                <div className="bg-stone-50 dark:bg-stone-955 p-3.5 rounded-xl border border-stone-150 dark:border-stone-850 space-y-3 animate-fadeIn text-left">
+                  <span className="text-[9px] font-black text-[#624A3E] dark:text-amber-500 uppercase block">Conteo Físico por Denominación</span>
+                  <div className="grid grid-cols-2 gap-2 text-[11px]">
+                    {[20000, 10000, 2000, 1000, 500, 200, 100, 50].map(denom => (
+                      <div key={denom} className="flex items-center justify-between bg-white dark:bg-stone-900 p-1.5 rounded border border-stone-150 dark:border-stone-800">
+                        <span className="font-mono font-bold text-stone-600 dark:text-stone-300">${denom.toLocaleString('es-AR')}</span>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setBillCounts(prev => ({ ...prev, [denom]: Math.max(0, (prev[denom] || 0) - 1) }))}
+                            className="w-5 h-5 bg-stone-100 dark:bg-stone-850 hover:bg-stone-200 text-stone-700 dark:text-stone-200 font-bold text-xs flex items-center justify-center rounded cursor-pointer border-none"
+                          >
+                            -
+                          </button>
+                          <input
+                            type="number"
+                            min="0"
+                            value={billCounts[denom] || ''}
+                            onChange={e => setBillCounts(prev => ({ ...prev, [denom]: Math.max(0, parseInt(e.target.value) || 0) }))}
+                            className="w-8 text-center text-xs font-mono font-bold border-none bg-transparent focus:outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setBillCounts(prev => ({ ...prev, [denom]: (prev[denom] || 0) + 1 }))}
+                            className="w-5 h-5 bg-stone-100 dark:bg-stone-855 hover:bg-stone-200 text-stone-700 dark:text-stone-200 font-bold text-xs flex items-center justify-center rounded cursor-pointer border-none"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex justify-between items-center pt-2 border-t border-stone-150 dark:border-stone-800">
+                    <span className="text-[10px] font-black uppercase text-stone-500">Total Arqueado:</span>
+                    <span className="font-mono text-sm font-black text-emerald-700 dark:text-emerald-400">${billTotal.toLocaleString('es-AR')}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setClosingPhysicalCashInput(String(billTotal));
+                      setShowBillCounter(null);
+                    }}
+                    className="w-full py-1.5 bg-[#624A3E] hover:bg-[#503C32] text-white text-[10px] font-black uppercase rounded-lg cursor-pointer transition-colors"
+                  >
+                    Aplicar Total de Arqueo
+                  </button>
+                </div>
+              )}
 
               <div>
                 <label className="text-[10px] font-black text-stone-750 dark:text-stone-300 uppercase block mb-1">Observaciones Finales</label>
                 <textarea 
                   value={closingObservationsInput}
                   onChange={e => setClosingObservationsInput(e.target.value)}
-                  className="w-full h-16 text-xs p-2.5 rounded-xl border border-stone-200 dark:border-stone-800 focus:ring-1 focus:ring-[#624A3E] focus:outline-none bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100"
+                  className="w-full h-16 text-xs p-2.5 rounded-xl border border-stone-200 dark:border-stone-800 focus:ring-1 focus:ring-[#624A3E] focus:outline-none bg-stone-50 dark:bg-stone-955 text-stone-900 dark:text-stone-100"
                   placeholder="Ex. Todo perfectamente conciliado"
                 />
               </div>
@@ -1872,7 +1657,7 @@ export default function CajaModule({
                 <button
                   type="button"
                   onClick={() => setShowCloseModal(false)}
-                  className="w-1/2 py-2.5 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-200 text-xs font-black uppercase rounded-xl"
+                  className="w-1/2 py-2.5 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-200 text-xs font-black uppercase rounded-xl border-none cursor-pointer"
                 >
                   Cancelar
                 </button>
@@ -1881,6 +1666,77 @@ export default function CajaModule({
                   className="w-1/2 py-2.5 bg-stone-900 hover:bg-stone-850 dark:bg-stone-100 dark:hover:bg-stone-200 text-white dark:text-stone-900 text-xs font-black uppercase rounded-xl shadow cursor-pointer border border-[#ddd7ce] dark:border-stone-800"
                 >
                   Confirmar Arqueo & Cerrar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* PETTY CASH MOVEMENT MODAL */}
+      {showMovimientoModal && (
+        <div className="fixed inset-0 bg-stone-955/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-[#1e1b18] rounded-2xl border border-stone-200 dark:border-stone-800 max-w-md w-full p-6 animate-scaleIn space-y-4 shadow-lg font-sans">
+            <h3 className="text-sm font-black text-stone-900 dark:text-stone-100 uppercase tracking-tight flex items-center gap-2">
+              <Coins className="w-5 h-5 text-[#624A3E] dark:text-[#C8956A]" />
+              Movimiento de Caja Chica
+            </h3>
+            <p className="text-[11px] text-stone-600 dark:text-stone-400 leading-normal font-medium">
+              Registre una entrada o salida de dinero en efectivo de la caja chica para gastos operativos o ingresos extraordinarios.
+            </p>
+
+            <form onSubmit={handleRegistrarMovimientoCajaChica} className="space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] font-black text-stone-700 dark:text-stone-300 uppercase block mb-1">Tipo</label>
+                  <select
+                    value={movimientoTipo}
+                    onChange={e => setMovimientoTipo(e.target.value as 'ingreso' | 'egreso')}
+                    className="w-full text-xs p-2.5 rounded-xl border border-stone-200 dark:border-stone-800 focus:ring-1 focus:ring-[#624A3E] focus:outline-none bg-stone-50 dark:bg-stone-955 text-stone-900 dark:text-stone-100 font-bold"
+                  >
+                    <option value="egreso">Egreso (Salida / Gasto)</option>
+                    <option value="ingreso">Ingreso (Entrada / Cambio)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black text-stone-700 dark:text-stone-300 uppercase block mb-1">Monto ($ ARS)</label>
+                  <input
+                    type="number"
+                    required
+                    value={movimientoMonto}
+                    onChange={e => setMovimientoMonto(e.target.value)}
+                    className="w-full text-xs p-2.5 rounded-xl border border-stone-200 dark:border-stone-800 font-mono font-extrabold focus:ring-1 focus:ring-[#624A3E] focus:outline-none bg-stone-50 dark:bg-stone-955 text-stone-900 dark:text-stone-100"
+                    placeholder="Ej. 1500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black text-stone-700 dark:text-stone-300 uppercase block mb-1">Concepto / Justificación</label>
+                <input
+                  type="text"
+                  required
+                  value={movimientoConcepto}
+                  onChange={e => setMovimientoConcepto(e.target.value)}
+                  className="w-full text-xs p-2.5 rounded-xl border border-stone-200 dark:border-stone-800 focus:ring-1 focus:ring-[#624A3E] focus:outline-none bg-stone-50 dark:bg-stone-955 text-stone-900 dark:text-stone-100"
+                  placeholder="Ej. Compra de perejil / Carga de cambio"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowMovimientoModal(false)}
+                  className="w-1/2 py-2.5 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-200 text-xs font-black uppercase rounded-xl border-none cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="w-1/2 py-2.5 bg-[#624A3E] hover:bg-[#523e34] text-white text-xs font-black uppercase rounded-xl shadow cursor-pointer border-none"
+                >
+                  Registrar Movimiento
                 </button>
               </div>
             </form>
@@ -1901,15 +1757,15 @@ export default function CajaModule({
               const hasDiffErr = hasDiff && (cs.diferencia || 0) !== 0;
 
               return (
-                <div key={idx} className="p-3 bg-stone-50 border border-stone-200/60 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div key={idx} className="p-3 bg-stone-50 dark:bg-stone-950 border border-stone-200/60 dark:border-stone-855 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
                   <div className="space-y-1">
-                    <p className="font-extrabold text-[#624A3E] flex items-center gap-1">
+                    <p className="font-extrabold text-[#624A3E] dark:text-amber-550 flex items-center gap-1">
                       Cierre de Caja {cs.usuario_cajero}
                     </p>
                     <p className="text-[10px] text-stone-500 font-medium">
                       Apertura: {cs.fecha_apertura} • Cierre: {cs.fecha_cierre || 'En curso'}
                     </p>
-                    <p className="text-[10px] font-medium text-stone-600 italic">
+                    <p className="text-[10px] font-medium text-stone-600 dark:text-stone-400 italic">
                       Observaciones: "{cs.observaciones}"
                     </p>
                   </div>
@@ -1927,7 +1783,7 @@ export default function CajaModule({
 
                     {hasDiff && (
                       <div className={`p-2 rounded border min-w-[90px] text-center ${
-                        hasDiffErr ? 'bg-rose-50 text-rose-700 border-rose-100 dark:bg-rose-950/20 dark:text-rose-400 dark:border-rose-900/30' : 'bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30'
+                        hasDiffErr ? 'bg-rose-50 text-rose-700 border-rose-100 dark:bg-rose-950/20 dark:text-rose-400 dark:border-rose-900/30' : 'bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-955/20 dark:text-emerald-400 dark:border-emerald-900/30'
                       }`}>
                         <span className="text-[8px] block font-black uppercase">Diferencia</span>
                         <span className="font-mono font-bold">
@@ -1938,7 +1794,7 @@ export default function CajaModule({
 
                     <button
                       onClick={() => setSelectedShiftForDetail(cs)}
-                      className="px-3 py-2 bg-[#624A3E] hover:bg-[#523e34] dark:bg-[#C8956A] dark:hover:bg-[#b8855a] text-white dark:text-[#4A2D1B] text-[10px] font-black uppercase rounded-xl transition-all cursor-pointer shadow-xs active:scale-95 shrink-0"
+                      className="px-3 py-2 bg-[#624A3E] hover:bg-[#523e34] dark:bg-[#C8956A] dark:hover:bg-[#b8855a] text-white dark:text-[#8C6239] text-[10px] font-black uppercase rounded-xl transition-all cursor-pointer shadow-xs active:scale-95 shrink-0 border-none"
                     >
                       Detalle
                     </button>
@@ -1962,7 +1818,7 @@ export default function CajaModule({
               </div>
               <button 
                 onClick={() => setSelectedShiftForDetail(null)}
-                className="p-1.5 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-full text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 transition-colors"
+                className="p-1.5 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-full text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 transition-colors border-none bg-transparent cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1976,7 +1832,7 @@ export default function CajaModule({
                 <p className="font-bold">Cierre: <span className="font-mono font-normal text-stone-700 dark:text-stone-300">{selectedShiftForDetail.fecha_cierre ? new Date(selectedShiftForDetail.fecha_cierre).toLocaleString('es-AR') : 'SESIÓN ABIERTA'}</span></p>
               </div>
 
-              <div className="space-y-1.5 bg-stone-50 dark:bg-stone-950 p-3.5 rounded-xl border border-stone-100 dark:border-stone-850">
+              <div className="space-y-1.5 bg-stone-50 dark:bg-stone-955 p-3.5 rounded-xl border border-stone-100 dark:border-stone-850">
                 <span className="text-[9px] font-black text-stone-455 text-stone-400 uppercase block">Arqueo Financiero</span>
                 <p className="font-bold">Caja Inicial: <span className="font-mono font-normal text-stone-700 dark:text-stone-300">${selectedShiftForDetail.monto_apertura.toLocaleString('es-AR')}</span></p>
                 <p className="font-bold">Ventas Registradas: <span className="font-mono font-normal text-stone-700 dark:text-stone-300">${selectedShiftForDetail.monto_ventas.toLocaleString('es-AR')}</span></p>
@@ -2024,7 +1880,7 @@ export default function CajaModule({
                 <div className="border border-stone-200/60 dark:border-stone-800 rounded-xl overflow-hidden shadow-2xs">
                   <table className="w-full border-collapse">
                     <thead>
-                      <tr className="bg-stone-50 dark:bg-stone-950 text-stone-500 font-bold border-b border-stone-200/60 dark:border-stone-850">
+                      <tr className="bg-stone-50 dark:bg-stone-955 text-stone-500 font-bold border-b border-stone-200/60 dark:border-stone-850">
                         <th className="py-2 px-3 text-left">Hora</th>
                         <th className="py-2 px-3 text-left">Tipo</th>
                         <th className="py-2 px-3 text-left">Concepto</th>
@@ -2034,7 +1890,7 @@ export default function CajaModule({
                     <tbody>
                       {(selectedShiftForDetail.movimientos_manuales || []).map((m: any, mIdx: number) => (
                         <tr key={mIdx} className="border-b border-stone-100 dark:border-stone-900 last:border-none hover:bg-stone-50/50 dark:hover:bg-stone-950/30">
-                          <td className="py-2 px-3 font-mono text-stone-500">{new Date(m.fecha).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })} hs</td>
+                          <td className="py-2 px-3 font-mono text-stone-505 text-stone-500">{new Date(m.fecha).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })} hs</td>
                           <td className="py-2 px-3 uppercase font-extrabold" style={{ color: m.tipo === 'ingreso' ? '#10B981' : '#EF4444' }}>{m.tipo}</td>
                           <td className="py-2 px-3 truncate max-w-[200px] text-stone-700 dark:text-stone-300" title={m.concepto}>{m.concepto}</td>
                           <td className="py-2 px-3 text-right font-mono font-bold text-stone-900 dark:text-stone-100">${m.monto.toLocaleString('es-AR')}</td>
@@ -2058,21 +1914,21 @@ export default function CajaModule({
             <div className="flex flex-wrap gap-2.5 pt-4 border-t border-stone-200/50 dark:border-stone-800 mt-5">
               <button
                 onClick={() => pdfService.exportCierreCajaPDF(selectedShiftForDetail, restaurante)}
-                className="px-4 py-2.5 bg-[#624A3E] hover:bg-[#523e34] dark:bg-[#C8956A] dark:hover:bg-[#b8855a] text-white dark:text-[#4A2D1B] text-xs font-black uppercase rounded-xl flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95 transition-all"
+                className="px-4 py-2.5 bg-[#624A3E] hover:bg-[#523e34] dark:bg-[#C8956A] dark:hover:bg-[#b8855a] text-white dark:text-[#8C6239] text-xs font-black uppercase rounded-xl flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95 transition-all border-none"
               >
                 <Download className="w-4 h-4" /> Exportar PDF
               </button>
               {(selectedShiftForDetail.movimientos_manuales || []).length > 0 && (
                 <button
                   onClick={() => handleExportCSV(selectedShiftForDetail)}
-                  className="px-4 py-2.5 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-200 text-xs font-black uppercase rounded-xl flex items-center gap-1.5 cursor-pointer active:scale-95 transition-all"
+                  className="px-4 py-2.5 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-200 text-xs font-black uppercase rounded-xl flex items-center gap-1.5 cursor-pointer active:scale-95 transition-all border-none"
                 >
                   <FileText className="w-4 h-4" /> Exportar CSV
                 </button>
               )}
               <button
                 onClick={() => setSelectedShiftForDetail(null)}
-                className="ml-auto px-4 py-2.5 bg-stone-200 hover:bg-stone-250 dark:bg-stone-850 dark:hover:bg-stone-800 text-stone-800 dark:text-stone-200 text-xs font-black uppercase rounded-xl cursor-pointer"
+                className="ml-auto px-4 py-2.5 bg-stone-200 hover:bg-stone-250 dark:bg-stone-850 dark:hover:bg-stone-800 text-stone-800 dark:text-stone-200 text-xs font-black uppercase rounded-xl cursor-pointer border-none"
               >
                 Cerrar
               </button>
@@ -2080,6 +1936,50 @@ export default function CajaModule({
           </div>
         </div>
       )}
+
+      {/* TICKET EMISSION SUCCESS MODAL */}
+      {showSuccessModal && successDetails && (
+        <div className="fixed inset-0 bg-stone-950/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-[#1e1b18] rounded-2xl border border-stone-200 dark:border-stone-800 max-w-sm w-full p-6 animate-scaleIn text-center space-y-4 shadow-lg font-sans">
+            <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
+              <CheckCircle className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-base font-black text-stone-900 dark:text-stone-100 uppercase tracking-tight">
+                ¡Cobro Exitoso!
+              </h3>
+              <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
+                La mesa ha sido liberada y el comprobante emitido.
+              </p>
+            </div>
+
+            <div className="bg-stone-50 dark:bg-stone-950 p-3 rounded-xl border border-stone-150 dark:border-stone-850 font-mono text-xs text-stone-700 dark:text-stone-300 space-y-1">
+              <div className="flex justify-between">
+                <span>Comprobante:</span>
+                <span className="font-bold">{successDetails.nro}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Total Cobrado:</span>
+                <span className="font-bold text-emerald-600 dark:text-emerald-400">${successDetails.total.toLocaleString('es-AR')}</span>
+              </div>
+              {successDetails.vuelto > 0 && (
+                <div className="flex justify-between border-t border-stone-200 dark:border-stone-800 pt-1 mt-1 text-[#22C55E] font-bold">
+                  <span>Vuelto:</span>
+                  <span>${successDetails.vuelto.toLocaleString('es-AR')}</span>
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={() => setShowSuccessModal(false)}
+              className="w-full py-2.5 bg-[#624A3E] hover:bg-[#523e34] text-white text-xs font-black uppercase rounded-xl shadow cursor-pointer border-none"
+            >
+              Aceptar
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

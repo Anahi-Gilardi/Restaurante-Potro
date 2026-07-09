@@ -43,18 +43,32 @@ export function useCaja({
   toast
 }: UseCajaProps) {
   // Configurable Restaurant Details
-  const [restaurante, setRestaurante] = useState({
-    nombreComercial: 'El Patrón Restaurante',
-    razonSocial: 'Gastronomía El Patrón S.A.S.',
-    cuit: '30-71649251-4',
-    direccion: 'Av. Pres. Figueroa Alcorta 3420, CABA',
-    telefono: '+54 11 4802-9988',
-    email: 'facturas@elpatronrestaurante.com.ar',
-    inicioActividades: '15/04/2022',
-    condicionIva: 'Responsable Inscripto',
-    mensajePie: 'Gracias por su visita al verdadero rincón criollo.',
-    moneda: 'ARS'
+  const [restaurante, setRestaurante] = useState(() => {
+    const cached = cajaService.safeStorage.getItem('el_patron_restaurante_config');
+    if (cached) {
+      try {
+        return JSON.parse(cached);
+      } catch {
+        // fallback
+      }
+    }
+    return {
+      nombreComercial: 'El Patrón Restaurante',
+      razonSocial: 'Gastronomía El Patrón S.A.S.',
+      cuit: '30-71649251-4',
+      direccion: 'Fotheringham 33, Rio Cuarto, Córdoba',
+      telefono: '+54 9 3584 37-3711',
+      email: 'bellaoriana47@gmail.com',
+      inicioActividades: '15/04/2022',
+      condicionIva: 'Responsable Inscripto',
+      mensajePie: 'Gracias por su visita al verdadero rincón criollo.',
+      moneda: 'ARS'
+    };
   });
+
+  useEffect(() => {
+    cajaService.safeStorage.setItem('el_patron_restaurante_config', JSON.stringify(restaurante));
+  }, [restaurante]);
 
   const [editRestauranteMode, setEditRestauranteMode] = useState(false);
 
@@ -154,9 +168,13 @@ export function useCaja({
       try {
         const remote = await cajaService.getOpenSessionRemote(active.id_cierre);
         if (remote) {
-          if (remote.fecha_cierre) {
+          const isClosedRemotely = remote.fecha_cierre && 
+            remote.fecha_cierre !== remote.fecha_apertura && 
+            remote.observaciones !== 'Sesión Activa - En Turno';
+
+          if (isClosedRemotely) {
             // The session has been closed remotely on another terminal
-            localStorage.removeItem('el_patron_caja_activa');
+            cajaService.safeStorage.removeItem('el_patron_caja_activa');
             setCajaSession(null);
             toast.info('La sesión de caja fue cerrada desde otro terminal.');
           } else {
@@ -168,7 +186,7 @@ export function useCaja({
               observaciones: remote.observaciones ?? active.observaciones,
               movimientos_manuales: remote.movimientos_manuales ?? active.movimientos_manuales
             };
-            localStorage.setItem('el_patron_caja_activa', JSON.stringify(updatedActive));
+            cajaService.safeStorage.setItem('el_patron_caja_activa', JSON.stringify(updatedActive));
             setCajaSession(updatedActive);
           }
         }
@@ -477,71 +495,86 @@ export function useCaja({
 
   const handleOpenShift = async (e: React.FormEvent) => {
     e.preventDefault();
-    const amt = parseFloat(openingCashInput);
-    if (isNaN(amt) || amt < 0) {
-      toast.error('Monto de inicio no válido.');
-      return;
-    }
+    try {
+      const amt = parseFloat(openingCashInput);
+      if (isNaN(amt) || amt < 0) {
+        toast.error('Monto de inicio no válido.');
+        return;
+      }
 
-    const session = await cajaService.open(amt, cashierNameInput);
-    setCajaSession(session);
-    setShowOpenModal(false);
-    addLog('sistema', `CAJA: Turno fiscal de caja iniciado por ${cashierNameInput}. Monto inicial: ARS $${amt.toLocaleString('es-AR')}`);
-    loadCajaState();
-    toast.success('La jornada fiscal diaria ha sido abierta con éxito.');
+      if (!cashierNameInput.trim() || cashierNameInput.trim().length < 2) {
+        toast.error('El nombre del cajero debe tener al menos 2 caracteres.');
+        return;
+      }
+
+      const session = await cajaService.open(amt, cashierNameInput);
+      setCajaSession(session);
+      setShowOpenModal(false);
+      addLog('sistema', `CAJA: Turno fiscal de caja iniciado por ${cashierNameInput}. Monto inicial: ARS $${amt.toLocaleString('es-AR')}`);
+      loadCajaState();
+      toast.success('La jornada fiscal diaria ha sido abierta con éxito.');
+    } catch (err: any) {
+      console.error('Error opening shift:', err);
+      toast.error('Error al abrir la caja: ' + (err?.message || err));
+    }
   };
 
   const handleCloseShift = async (e: React.FormEvent) => {
     e.preventDefault();
-    const money = parseFloat(closingPhysicalCashInput);
-    if (isNaN(money) || money < 0) {
-      toast.error('Monto de arqueo físico ingresado no es válido.');
-      return;
-    }
-
-    if (!cajaSession) return;
-
-    const finalShift = await cajaService.close(money, closingObservationsInput, movimientosCajaChica);
-    
-    addLog('sistema', `CAJA: Turno fiscal cerrado por ${finalShift.usuario_cajero}. Arqueo Real: $${finalShift.monto_real?.toLocaleString('es-AR')}. Diferencia: ARS $${finalShift.diferencia?.toLocaleString('es-AR')}`);
-
-    const csvRows = [
-      ['EL PATRON GRILL - REPORTE DE BALANCE DIARIO'],
-      ['Cajero Responsable', finalShift.usuario_cajero],
-      ['Apertura', finalShift.fecha_apertura],
-      ['Cierre de Turno', finalShift.fecha_cierre || 'N/A'],
-      ['Monto Inicial de Caja ($)', finalShift.monto_apertura.toFixed(2)],
-      ['Total de Ventas Turno ($)', finalShift.monto_ventas.toFixed(2)],
-      ['Arqueo Físico Caja ($)', finalShift.monto_real ? finalShift.monto_real.toFixed(2) : '0.00'],
-      ['Diferencia Conciliación ($)', finalShift.diferencia ? finalShift.diferencia.toFixed(2) : '0.00'],
-      ['Observaciones Turno', finalShift.observaciones],
-      ['']
-    ];
-
-    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + csvRows.map(e => e.join(";")).join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `Arqueo_Turno_Caja_${finalShift.id_cierre}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    if (document.body.contains(link)) {
-      document.body.removeChild(link);
-    }
-
     try {
-      await pdfService.exportShiftClosePDF(finalShift);
-    } catch (err: any) {
-      console.error('Error generating shift close PDF:', err);
-      toast.warning('No se pudo descargar el comprobante en formato PDF: ' + err.message);
-    }
+      const money = parseFloat(closingPhysicalCashInput);
+      if (isNaN(money) || money < 0) {
+        toast.error('Monto de arqueo físico ingresado no es válido.');
+        return;
+      }
 
-    setCajaSession(null);
-    setShowCloseModal(false);
-    setClosingPhysicalCashInput('');
-    setClosingObservationsInput('Facturación normal del turno');
-    loadCajaState();
-    toast.success('Jornada finalizada. Arqueo homologado y balance exportado en CSV y PDF.');
+      if (!cajaSession) return;
+
+      const finalShift = await cajaService.close(money, closingObservationsInput, movimientosCajaChica);
+      
+      addLog('sistema', `CAJA: Turno fiscal cerrado por ${finalShift.usuario_cajero}. Arqueo Real: $${finalShift.monto_real?.toLocaleString('es-AR')}. Diferencia: ARS $${finalShift.diferencia?.toLocaleString('es-AR')}`);
+
+      const csvRows = [
+        ['EL PATRON GRILL - REPORTE DE BALANCE DIARIO'],
+        ['Cajero Responsable', finalShift.usuario_cajero],
+        ['Apertura', finalShift.fecha_apertura],
+        ['Cierre de Turno', finalShift.fecha_cierre || 'N/A'],
+        ['Monto Inicial de Caja ($)', finalShift.monto_apertura.toFixed(2)],
+        ['Total de Ventas Turno ($)', finalShift.monto_ventas.toFixed(2)],
+        ['Arqueo Físico Caja ($)', finalShift.monto_real ? finalShift.monto_real.toFixed(2) : '0.00'],
+        ['Diferencia Conciliación ($)', finalShift.diferencia ? finalShift.diferencia.toFixed(2) : '0.00'],
+        ['Observaciones Turno', finalShift.observaciones],
+        ['']
+      ];
+
+      const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + csvRows.map(e => e.join(";")).join("\n");
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `Arqueo_Turno_Caja_${finalShift.id_cierre}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      if (document.body.contains(link)) {
+        document.body.removeChild(link);
+      }
+
+      try {
+        await pdfService.exportShiftClosePDF(finalShift);
+      } catch (err: any) {
+        console.error('Error generating shift close PDF:', err);
+        toast.warning('No se pudo descargar el comprobante en formato PDF: ' + err.message);
+      }
+
+      setCajaSession(null);
+      setShowCloseModal(false);
+      setClosingPhysicalCashInput('');
+      setClosingObservationsInput('Facturación normal del turno');
+      loadCajaState();
+      toast.success('Jornada finalizada. Arqueo homologado y balance exportado en CSV y PDF.');
+    } catch (err: any) {
+      console.error('Error closing shift:', err);
+      toast.error('Error al cerrar la caja: ' + (err?.message || err));
+    }
   };
 
   const handleConfirmCheckout = async () => {

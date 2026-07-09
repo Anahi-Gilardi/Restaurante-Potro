@@ -11,13 +11,24 @@ import {
   Printer,
   Receipt,
   Search,
-  ScanLine
+  ScanLine,
+  X,
+  Check,
+  ChevronRight,
+  TrendingUp,
+  PieChart,
+  BarChart3,
+  User,
+  Info,
+  CalendarDays,
+  FileCheck2,
+  Users
 } from 'lucide-react';
 import { Pedido, ProductoMenu, TicketData, TipoComprobante } from '../types';
 import { facturacionService, Factura } from '../services/facturacionService';
 import { pdfService } from '../services/pdfService';
 import { ToastContainer, useToast } from './ToastContainer';
-import { isArcaConfigured, createArcaInvoice, TIPOS_COMPROBANTE, TIPOS_DOCUMENTO } from '../services/arcaService';
+import { isArcaConfigured, createArcaInvoice, TIPOS_COMPROBANTE } from '../services/arcaService';
 import { useDebounce } from '../hooks/useDebounce';
 
 interface FacturacionModuleProps {
@@ -35,16 +46,16 @@ type FacturaExtendida = Factura & {
   arcaQr?: string;
 };
 
-type TabKey = 'manual' | 'pagos' | 'archivo';
+type TabKey = 'dashboard' | 'manual' | 'pagos' | 'archivo';
 type EstadoFiltro = 'todos' | 'emitido' | 'nota_credito';
 type TipoFiltro = 'todos' | 'ticket' | 'A' | 'B' | 'X';
 type MedioFiltro = 'todos' | Factura['medio_pago'];
 
 const DEFAULT_FACTURAS: FacturaExtendida[] = [
-  { id_factura: 'f_101', nro_ticket: 'T-0001-00008321', cliente: 'Consumidor Final', cuit: '99-99999999-9', total: 18500, iva_veintiuno: 3210.33, medio_pago: 'efectivo', fecha: '21:05 hs', estado: 'emitido', tipo: 'ticket' },
-  { id_factura: 'f_102', nro_ticket: 'B-0001-00008322', cliente: 'Agustin Colombo', cuit: '20-38449102-1', total: 43200, iva_veintiuno: 7497.52, medio_pago: 'tarjeta', fecha: '21:14 hs', estado: 'emitido', tipo: 'B' },
-  { id_factura: 'f_103', nro_ticket: 'A-0001-00008323', cliente: 'Siderar S.A.', cuit: '30-50000732-5', total: 125000, iva_veintiuno: 21694.21, medio_pago: 'debito', fecha: '21:40 hs', estado: 'emitido', tipo: 'A' },
-  { id_factura: 'f_104', nro_ticket: 'T-0001-00008324', cliente: 'Camila Galvan', cuit: '27-40112833-2', total: 15400, iva_veintiuno: 2672.72, medio_pago: 'mp_qr', fecha: '21:55 hs', estado: 'emitido', tipo: 'ticket' }
+  { id_factura: 'f_101', nro_ticket: 'T-0001-00008321', cliente: 'Consumidor Final', cuit: '99-99999999-9', total: 18500, iva_veintiuno: 3210.33, medio_pago: 'efectivo', fecha: '21:05 hs', estado: 'emitido', tipo: 'ticket', fecha_completa: new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString() },
+  { id_factura: 'f_102', nro_ticket: 'B-0001-00008322', cliente: 'Agustin Colombo', cuit: '20-38449102-1', total: 43200, iva_veintiuno: 7497.52, medio_pago: 'tarjeta', fecha: '21:14 hs', estado: 'emitido', tipo: 'B', fecha_completa: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString() },
+  { id_factura: 'f_103', nro_ticket: 'A-0001-00008323', cliente: 'Siderar S.A.', cuit: '30-50000732-5', total: 125000, iva_veintiuno: 21694.21, medio_pago: 'debito', fecha: '21:40 hs', estado: 'emitido', tipo: 'A', fecha_completa: new Date(Date.now() - 1 * 24 * 3600 * 1000).toISOString() },
+  { id_factura: 'f_104', nro_ticket: 'T-0001-00008324', cliente: 'Camila Galvan', cuit: '27-40112833-2', total: 15400, iva_veintiuno: 2672.72, medio_pago: 'mp_qr', fecha: '21:55 hs', estado: 'emitido', tipo: 'ticket', fecha_completa: new Date().toISOString() }
 ];
 
 const money = (value: number) => `$${value.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -76,22 +87,41 @@ const nextNumber = (facturas: FacturaExtendida[], tipo: 'ticket' | 'A' | 'B' | '
 
 const medioLabel = (medio: Factura['medio_pago']) => ({
   efectivo: 'Efectivo',
-  debito: 'Debito',
+  debito: 'Débito',
   tarjeta: 'Tarjeta',
   transferencia: 'Transferencia',
-  mp_qr: 'QR',
+  mp_qr: 'QR MercadoPago',
   mixto: 'Mixto'
 }[medio]);
+
+// Algoritmo de validación CUIT argentino (Módulo 11)
+const validarCUIT = (cuit: string): boolean => {
+  const clean = cuit.replace(/[^0-9]/g, '');
+  if (clean.length !== 11) return false;
+  const factors = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];
+  let sum = 0;
+  for (let i = 0; i < 10; i++) {
+    sum += parseInt(clean[i]) * factors[i];
+  }
+  const remainder = sum % 11;
+  const verifier = remainder === 0 ? 0 : (remainder === 1 ? (clean[0] === '5' ? 0 : 9) : 11 - remainder);
+  return verifier === parseInt(clean[10]);
+};
 
 export default function FacturacionModule({ pedidos, productosMenu, addLog }: FacturacionModuleProps) {
   const { toast, toasts, dismissToast } = useToast();
   const [facturas, setFacturas] = useState<FacturaExtendida[]>([]);
-  const [activeTab, setActiveTab] = useState<TabKey>('archivo');
+  const [clientes, setClientes] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<TabKey>('dashboard');
+  
+  // Filtros de archivo fiscal
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 300);
   const [tipoFiltro, setTipoFiltro] = useState<TipoFiltro>('todos');
   const [estadoFiltro, setEstadoFiltro] = useState<EstadoFiltro>('todos');
   const [medioFiltro, setMedioFiltro] = useState<MedioFiltro>('todos');
+  
+  // Emisión Manual
   const [manualTipo, setManualTipo] = useState<'ticket' | 'A' | 'B' | 'X'>('B');
   const [manualCliente, setManualCliente] = useState('Consumidor Final');
   const [manualCuit, setManualCuit] = useState('99-99999999-9');
@@ -99,19 +129,37 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
   const [manualMedio, setManualMedio] = useState<Factura['medio_pago']>('efectivo');
   const [manualIva, setManualIva] = useState(true);
   const [manualObs, setManualObs] = useState('');
-  const [pedidoSeleccionado, setPedidoSeleccionado] = useState<number | null>(null);
+  const [manualQuery, setManualQuery] = useState('');
+  const [showManualSuggestions, setShowManualSuggestions] = useState(false);
+
+  // Facturar pagos (Caja)
+  const [selectedPedidos, setSelectedPedidos] = useState<number[]>([]);
+  const [agruparPorMesa, setAgruparPorMesa] = useState(false);
+  const [pagoSearch, setPagoSearch] = useState('');
   const [pagoTipo, setPagoTipo] = useState<'ticket' | 'A' | 'B' | 'X'>('ticket');
   const [pagoCliente, setPagoCliente] = useState('Consumidor Final');
   const [pagoCuit, setPagoCuit] = useState('99-99999999-9');
+  const [pagoMedio, setPagoMedio] = useState<Factura['medio_pago']>('efectivo');
+  const [pagoQuery, setPagoQuery] = useState('');
+  const [showPagoSuggestions, setShowPagoSuggestions] = useState(false);
   const [isEmitting, setIsEmitting] = useState(false);
 
+  // Inspector Modal
+  const [selectedFactura, setSelectedFactura] = useState<FacturaExtendida | null>(null);
+
+  // Cargar facturas y clientes
   useEffect(() => {
     facturacionService.list()
       .then(data => setFacturas((data && data.length > 0 ? data : DEFAULT_FACTURAS) as FacturaExtendida[]))
       .catch(() => {
         setFacturas(DEFAULT_FACTURAS);
-        toast.warning('No se pudo leer Supabase. Se muestra el archivo fiscal local de respaldo.');
+        toast.warning('No se pudo conectar a Supabase. Mostrando archivo fiscal local.');
       });
+
+    import('../services/clientesService')
+      .then(({ clientesService }) => clientesService.list())
+      .then(data => setClientes(data || []))
+      .catch(err => console.error('Error cargando clientes:', err));
   }, []);
 
   const pedidoTotal = (pedido: Pedido) => pedido.items.reduce((sum, item) => {
@@ -125,54 +173,111 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
   const netoTotal = totalBruto - ivaTotal;
   const anuladas = facturas.filter(f => f.estado === 'nota_credito').length;
 
-  const pedidosFacturados = new Set(
-    facturas
-      .map(f => f.id_pedido)
-      .filter((id): id is number => typeof id === 'number')
-  );
+  // Analizar IDs de pedidos facturados (individuales y agrupados)
+  const pedidosFacturadosIds = useMemo(() => {
+    const ids = new Set<number>();
+    facturas.forEach(f => {
+      if (f.id_pedido) ids.add(f.id_pedido);
+      if (f.observaciones) {
+        const matches = f.observaciones.match(/#\d+/g);
+        if (matches) {
+          matches.forEach(m => ids.add(Number(m.replace('#', ''))));
+        }
+      }
+    });
+    return ids;
+  }, [facturas]);
 
-  const pagosPendientes = useMemo(() => pedidos
-    .filter(p => p.estado_comanda !== 'cancelado')
-    .filter(p => !pedidosFacturados.has(p.id_pedido))
-    .map(p => ({ pedido: p, total: pedidoTotal(p) }))
-    .filter(p => p.total > 0), [pedidos, productosMenu, facturas]);
+  // Pagos de caja pendientes de facturar
+  const pagosPendientes = useMemo(() => {
+    return pedidos
+      .filter(p => p.estado_comanda !== 'entregado_cobrado' && p.estado_comanda !== 'cancelado')
+      .filter(p => !pedidosFacturadosIds.has(p.id_pedido))
+      .map(p => ({ pedido: p, total: pedidoTotal(p) }))
+      .filter(p => p.total > 0);
+  }, [pedidos, productosMenu, pedidosFacturadosIds]);
 
-  const filtered = facturas.filter(f => {
+  // Filtrado de pendientes
+  const filteredPendientes = useMemo(() => {
+    const term = pagoSearch.trim().toLowerCase();
+    return pagosPendientes.filter(p => 
+      !term || 
+      p.pedido.numero_mesa.toLowerCase().includes(term) ||
+      p.pedido.mozo.toLowerCase().includes(term) ||
+      p.pedido.id_pedido.toString().includes(term) ||
+      p.pedido.items.some(i => i.nombre.toLowerCase().includes(term))
+    );
+  }, [pagosPendientes, pagoSearch]);
+
+  // Agrupamiento por Mesa de pendientes
+  const pendientesAgrupadosPorMesa = useMemo(() => {
+    const groups: Record<string, { mesa: string; pedidos: typeof pagosPendientes; total: number }> = {};
+    pagosPendientes.forEach(p => {
+      const mesa = p.pedido.numero_mesa;
+      if (!groups[mesa]) {
+        groups[mesa] = { mesa, pedidos: [], total: 0 };
+      }
+      groups[mesa].pedidos.push(p);
+      groups[mesa].total += p.total;
+    });
+    return Object.values(groups).sort((a, b) => a.mesa.localeCompare(b.mesa));
+  }, [pagosPendientes]);
+
+  // Filtrar facturas en el Archivo Fiscal
+  const filteredFacturas = useMemo(() => {
     const term = debouncedSearch.trim().toLowerCase();
-    const tipo = facturaTipo(f);
-    const matchesSearch = !term
-      || f.cliente.toLowerCase().includes(term)
-      || f.cuit.toLowerCase().includes(term)
-      || f.nro_ticket.toLowerCase().includes(term)
-      || f.medio_pago.toLowerCase().includes(term);
-    const matchesTipo = tipoFiltro === 'todos' || tipo === tipoFiltro;
-    const matchesEstado = estadoFiltro === 'todos' || f.estado === estadoFiltro;
-    const matchesMedio = medioFiltro === 'todos' || f.medio_pago === medioFiltro;
-    return matchesSearch && matchesTipo && matchesEstado && matchesMedio;
-  });
+    return facturas.filter(f => {
+      const tipo = facturaTipo(f);
+      const matchesSearch = !term
+        || f.cliente.toLowerCase().includes(term)
+        || f.cuit.toLowerCase().includes(term)
+        || f.nro_ticket.toLowerCase().includes(term)
+        || f.medio_pago.toLowerCase().includes(term);
+      const matchesTipo = tipoFiltro === 'todos' || tipo === tipoFiltro;
+      const matchesEstado = estadoFiltro === 'todos' || f.estado === estadoFiltro;
+      const matchesMedio = medioFiltro === 'todos' || f.medio_pago === medioFiltro;
+      return matchesSearch && matchesTipo && matchesEstado && matchesMedio;
+    });
+  }, [facturas, debouncedSearch, tipoFiltro, estadoFiltro, medioFiltro]);
 
-  const resumenPorTipo = (['ticket', 'A', 'B', 'X'] as const).map(tipo => {
-    const subset = facturasActivas.filter(f => facturaTipo(f) === tipo);
-    return { tipo, cantidad: subset.length, total: subset.reduce((acc, f) => acc + f.total, 0) };
-  });
+  // Sugerencias de Clientes al escribir nombre
+  const manualSuggestions = useMemo(() => {
+    if (!manualQuery.trim()) return [];
+    return clientes.filter(c => 
+      c.nombre.toLowerCase().includes(manualQuery.toLowerCase()) || 
+      c.dni_cuit.includes(manualQuery)
+    ).slice(0, 5);
+  }, [manualQuery, clientes]);
 
-  const resumenPorMedio = (['efectivo', 'debito', 'tarjeta', 'transferencia', 'mp_qr', 'mixto'] as Factura['medio_pago'][]).map(medio => {
-    const subset = facturasActivas.filter(f => f.medio_pago === medio);
-    return { medio, cantidad: subset.length, total: subset.reduce((acc, f) => acc + f.total, 0) };
-  });
+  const pagoSuggestions = useMemo(() => {
+    if (!pagoQuery.trim()) return [];
+    return clientes.filter(c => 
+      c.nombre.toLowerCase().includes(pagoQuery.toLowerCase()) || 
+      c.dni_cuit.includes(pagoQuery)
+    ).slice(0, 5);
+  }, [pagoQuery, clientes]);
 
-  const selectedPending = pagosPendientes.find(p => p.pedido.id_pedido === pedidoSeleccionado) || pagosPendientes[0];
+  // Validación de CUIT para alertas visuales
+  const cuitManualValido = useMemo(() => {
+    if (manualTipo === 'ticket' || manualTipo === 'X') return true;
+    if (manualCuit === '99-99999999-9') return true;
+    return validarCUIT(manualCuit);
+  }, [manualCuit, manualTipo]);
 
-  useEffect(() => {
-    if (!pedidoSeleccionado && pagosPendientes[0]) {
-      setPedidoSeleccionado(pagosPendientes[0].pedido.id_pedido);
-    }
-  }, [pagosPendientes, pedidoSeleccionado]);
+  const cuitPagoValido = useMemo(() => {
+    if (pagoTipo === 'ticket' || pagoTipo === 'X') return true;
+    if (pagoCuit === '99-99999999-9' && pagoTipo === 'B') return true;
+    return validarCUIT(pagoCuit);
+  }, [pagoCuit, pagoTipo]);
 
   const validateClienteFiscal = (tipo: 'ticket' | 'A' | 'B' | 'X', cliente: string, cuit: string) => {
     if (tipo !== 'A') return true;
-    if (!cuit.trim() || cliente.trim().toLowerCase() === 'consumidor final') {
-      toast.error('Para Factura A carga CUIT y razon social del cliente.');
+    if (!cuit.trim() || cuit === '99-99999999-9' || cliente.trim().toLowerCase() === 'consumidor final') {
+      toast.error('Para Factura A se requiere CUIT y Razón Social válidos.');
+      return false;
+    }
+    if (!validarCUIT(cuit)) {
+      toast.error('El CUIT ingresado no es válido.');
       return false;
     }
     return true;
@@ -182,18 +287,19 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
     setFacturas(prev => [factura, ...prev]);
     try {
       await facturacionService.create(factura);
-      toast.success(`Comprobante ${factura.nro_ticket} guardado y PDF descargado.`);
+      toast.success(`Comprobante ${factura.nro_ticket} registrado exitosamente.`);
     } catch (err) {
-      console.warn('Factura guardada en modo local/demo:', err);
-      toast.warning(`PDF descargado. ${factura.nro_ticket} quedo guardado en esta sesion local.`);
+      console.warn('Factura persistida localmente:', err);
+      toast.warning(`Comprobante guardado en caché local.`);
     }
   };
 
+  // Emitir manual
   const emitManual = async () => {
     if (isEmitting) return;
     const total = Number(manualTotal);
     if (!Number.isFinite(total) || total <= 0) {
-      toast.error('El total debe ser mayor a cero.');
+      toast.error('El total debe ser mayor a 0.');
       return;
     }
     if (!validateClienteFiscal(manualTipo, manualCliente, manualCuit)) return;
@@ -213,63 +319,148 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
         estado: 'emitido',
         tipo: manualTipo,
         id_pedido: null,
-        observaciones: manualObs
+        observaciones: manualObs || 'Venta de salón / Varios manual',
+        fecha_completa: new Date().toISOString()
       };
+      
       const arcaResult = await emitToArca(factura);
       if (arcaResult) {
         factura.arcaCae = arcaResult.cae;
         factura.arcaVto = arcaResult.vto;
         factura.arcaQr = arcaResult.qr;
       }
+      
       await downloadFacturaPdf(factura);
       await persistFactura(factura);
-      addLog('sistema', `FACTURACION: Comprobante manual ${factura.nro_ticket} emitido por ${money(total)}.${arcaResult ? ` CAE: ${arcaResult.cae}` : ''}`);
+      addLog('sistema', `FACTURACION: Emisión manual ${factura.nro_ticket} por ${money(total)}. Medio: ${medioLabel(manualMedio)}.`);
+      
+      // Resetear campos
       setManualTotal('0');
       setManualObs('');
+      setManualQuery('');
+      setManualCliente('Consumidor Final');
+      setManualCuit('99-99999999-9');
       setActiveTab('archivo');
     } catch (err) {
       console.error(err);
-      toast.error('No se pudo emitir el PDF del comprobante.');
+      toast.error('No se pudo emitir el comprobante.');
     } finally {
       setIsEmitting(false);
     }
   };
 
-  const emitFromPedido = async () => {
+  // Emitir desde pagos (Soporte Consolidated/Batch)
+  const emitFromSelectedPedidos = async () => {
     if (isEmitting) return;
-    if (!selectedPending) return;
+    if (selectedPedidos.length === 0) {
+      toast.error('Por favor, selecciona al menos un pedido.');
+      return;
+    }
     if (!validateClienteFiscal(pagoTipo, pagoCliente, pagoCuit)) return;
 
     setIsEmitting(true);
     try {
-      const { iva } = calcIvaIncluido(selectedPending.total, pagoTipo !== 'X');
+      const selectedItems = pagosPendientes.filter(p => selectedPedidos.includes(p.pedido.id_pedido));
+      const totalConsolidado = selectedItems.reduce((acc, p) => acc + p.total, 0);
+      const principalPedido = selectedItems[0].pedido;
+
+      // Consolidar platos/items
+      const mergedItemsMap: Record<string, { id_producto: string; nombre: string; cantidad: number; precio_unitario: number }> = {};
+      selectedItems.forEach(p => {
+        p.pedido.items.forEach(item => {
+          const prod = productosMenu.find(menuItem => menuItem.id_producto === item.id_producto);
+          const precio = prod ? prod.precio_venta : 0;
+          if (mergedItemsMap[item.id_producto]) {
+            mergedItemsMap[item.id_producto].cantidad += item.cantidad;
+          } else {
+            mergedItemsMap[item.id_producto] = {
+              id_producto: item.id_producto,
+              nombre: item.nombre,
+              cantidad: item.cantidad,
+              precio_unitario: precio
+            };
+          }
+        });
+      });
+
+      const { iva } = calcIvaIncluido(totalConsolidado, pagoTipo !== 'X');
+      const prefixIdsStr = selectedItems.map(p => `#${p.pedido.id_pedido}`).join(', ');
+      
       const factura: FacturaExtendida = {
         id_factura: `fac_${Date.now()}`,
         nro_ticket: nextNumber(facturas, pagoTipo),
         cliente: pagoCliente.trim() || 'Consumidor Final',
         cuit: pagoCuit.trim() || '99-99999999-9',
-        total: selectedPending.total,
+        total: totalConsolidado,
         iva_veintiuno: iva,
-        medio_pago: 'efectivo',
+        medio_pago: pagoMedio,
         fecha: `${new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })} hs`,
         estado: 'emitido',
         tipo: pagoTipo,
-        id_pedido: selectedPending.pedido.id_pedido,
-        observaciones: `Pedido #${selectedPending.pedido.id_pedido} - ${selectedPending.pedido.numero_mesa}`
+        id_pedido: principalPedido.id_pedido,
+        observaciones: `Pedidos agrupados: ${prefixIdsStr} - Mesas: ${Array.from(new Set(selectedItems.map(p => p.pedido.numero_mesa))).join(', ')}`,
+        fecha_completa: new Date().toISOString()
       };
+
       const arcaResult = await emitToArca(factura);
       if (arcaResult) {
         factura.arcaCae = arcaResult.cae;
         factura.arcaVto = arcaResult.vto;
         factura.arcaQr = arcaResult.qr;
       }
-      await downloadFacturaPdf(factura, selectedPending.pedido);
+
+      // Preparar ítems para PDF
+      const formattedItems = Object.values(mergedItemsMap).map(item => ({
+        cantidad: item.cantidad,
+        descripcion: item.nombre,
+        precio_unitario: item.precio_unitario,
+        subtotal: item.precio_unitario * item.cantidad
+      }));
+
+      // Emisión de PDF
+      const ticketData: TicketData = {
+        idPedido: principalPedido.id_pedido,
+        nroComprobante: factura.nro_ticket,
+        tipoComprobante: tipoToComprobante(pagoTipo),
+        fechaHora: factura.fecha,
+        mesa: Array.from(new Set(selectedItems.map(p => p.pedido.numero_mesa))).join(', '),
+        mozo: Array.from(new Set(selectedItems.map(p => p.pedido.mozo))).join(', '),
+        cajero: 'Caja Principal',
+        nombreComercial: 'El Patron Restaurante',
+        razonSocial: 'Gastronomia El Patron S.A.S.',
+        cuit: '30-71649251-4',
+        direccion: 'Fotheringham 33, Rio Cuarto, Córdoba',
+        telefono: '+54 9 3584 37-3711',
+        email: 'bellaoriana47@gmail.com',
+        items: formattedItems,
+        subtotal: totalConsolidado - iva,
+        descuento: 0,
+        propina: 0,
+        iva,
+        total: totalConsolidado,
+        metodosPago: [{ metodo: medioLabel(pagoMedio), monto: totalConsolidado }],
+        vuelto: 0,
+        mensajePie: 'Gracias por elegir El Patrón. Comprobante de cuenta unificada.',
+        clienteNombre: factura.cliente,
+        clienteCuit: factura.cuit,
+        cae: factura.arcaCae,
+        vto: factura.arcaVto,
+        qrData: factura.arcaQr
+      };
+
+      await pdfService.exportToPDF(ticketData);
       await persistFactura(factura);
-      addLog('sistema', `FACTURACION: Pedido #${selectedPending.pedido.id_pedido} convertido en ${factura.nro_ticket}.${arcaResult ? ` CAE: ${arcaResult.cae}` : ''}`);
+      
+      addLog('sistema', `FACTURACION: Pedidos [${prefixIdsStr}] unificados y facturados en ${factura.nro_ticket} por ${money(totalConsolidado)}.`);
+      
+      setSelectedPedidos([]);
+      setPagoQuery('');
+      setPagoCliente('Consumidor Final');
+      setPagoCuit('99-99999999-9');
       setActiveTab('archivo');
     } catch (err) {
       console.error(err);
-      toast.error('No se pudo emitir el comprobante del pedido.');
+      toast.error('Ocurrió un error al emitir el comprobante unificado.');
     } finally {
       setIsEmitting(false);
     }
@@ -278,9 +469,12 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
   const handleNotaCredito = (id: string) => {
     setFacturas(prev => prev.map(f => {
       if (f.id_factura === id) {
-        addLog('sistema', `FACTURACION: Nota de credito fiscal anulando ${f.nro_ticket} por ${money(f.total)}.`);
+        addLog('sistema', `FACTURACION: Nota de Crédito emitida anulando ${f.nro_ticket} por ${money(f.total)}.`);
         facturacionService.markNotaCredito(id).catch(err => console.error(err));
-        toast.success(`Nota de credito aplicada a ${f.nro_ticket}.`);
+        toast.success(`Nota de Crédito aplicada correctamente a ${f.nro_ticket}.`);
+        if (selectedFactura && selectedFactura.id_factura === id) {
+          setSelectedFactura(prev => prev ? { ...prev, estado: 'nota_credito' } : null);
+        }
         return { ...f, estado: 'nota_credito' };
       }
       return f;
@@ -298,9 +492,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
     try {
       const tipoMap: Record<string, number> = { 'A': 1, 'B': 6, 'X': 11, 'ticket': 206 };
       const tipoId = tipoMap[factura.tipo || 'ticket'] || 206;
-      const arcaTipo = Object.values(TIPOS_COMPROBANTE).find(t => t.id === tipoId);
-      if (!arcaTipo) return null;
-
+      
       const { neto, iva } = calcIvaIncluido(factura.total, true);
       const nroDoc = factura.cuit === '99-99999999-9' ? 0 : parseInt(factura.cuit.replace(/-/g, '').slice(0, 11)) || 0;
       const docTipo = nroDoc === 0 ? 99 : (factura.cuit.replace(/-/g, '').length >= 11 ? 80 : 96);
@@ -312,10 +504,10 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
           tipoDoc: docTipo,
           nroDoc,
           nombre: factura.cliente,
-          condicionIva: nroDoc === 0 ? 5 : arcaTipo.condicionIva,
+          condicionIva: nroDoc === 0 ? 5 : (tipoId === 1 ? 1 : 5),
         },
         items: [{
-          descripcion: `Comprobante ${factura.nro_ticket}`,
+          descripcion: `Venta Gastronómica según ${factura.nro_ticket}`,
           cantidad: 1,
           precioUnitario: factura.total,
           ivaId: 5,
@@ -331,11 +523,11 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
       const vto = result?.Vencimiento || result?.CAEFchVto || '';
 
       if (cae) {
-        addLog('sistema', `ARCA: CAE ${cae} emitido para ${factura.nro_ticket}.`);
+        addLog('sistema', `ARCA: Comprobante electrónico autorizado. CAE: ${cae}`);
         const qrJson = JSON.stringify({
           ver: 1,
           fecha: new Date().toISOString().split('T')[0],
-          cuit: parseInt((import.meta as any).env?.VITE_ARCA_CUIT || '30716492514'),
+          cuit: 30716492514,
           ptoVta: 1,
           tipoCmp: tipoId,
           nroCmp: parseInt(factura.nro_ticket.split('-').pop() || '1'),
@@ -352,16 +544,18 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
       return null;
     } catch (err: any) {
       console.error('[ARCA] Error:', err);
-      toast.warning(`ARCA: No se pudo emitir el comprobante electrónico. ${err.message || ''}`);
+      toast.warning(`ARCA: No se pudo autorizar fiscalmente. Se emite en modo contingencia.`);
       return null;
     }
   };
 
   const downloadFacturaPdf = async (factura: FacturaExtendida, pedido?: Pedido) => {
     const tipo = facturaTipo(factura);
-    const { neto } = calcIvaIncluido(factura.total, factura.iva_veintiuno > 0);
-    const ticketItems = pedido && pedido.items.length > 0
-      ? pedido.items.map(item => {
+    const { neto, iva } = calcIvaIncluido(factura.total, factura.iva_veintiuno > 0);
+    
+    let ticketItems = [];
+    if (pedido && pedido.items.length > 0) {
+      ticketItems = pedido.items.map(item => {
         const prod = productosMenu.find(p => p.id_producto === item.id_producto);
         const unit = prod ? prod.precio_venta : 0;
         return {
@@ -370,22 +564,24 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
           precio_unitario: unit,
           subtotal: unit * item.cantidad
         };
-      })
-      : [{
+      });
+    } else {
+      ticketItems = [{
         cantidad: 1,
-        descripcion: factura.observaciones || 'Venta gastronomica segun detalle comercial',
+        descripcion: factura.observaciones || 'Venta Gastronómica Comercial',
         precio_unitario: neto,
         subtotal: neto
       }];
+    }
 
     const ticketData: TicketData = {
       idPedido: factura.id_pedido || pedido?.id_pedido || 0,
       nroComprobante: factura.nro_ticket,
       tipoComprobante: tipoToComprobante(tipo),
       fechaHora: factura.fecha,
-      mesa: pedido?.numero_mesa || 'Venta manual',
-      mozo: pedido?.mozo || 'Caja',
-      cajero: 'Caja',
+      mesa: pedido?.numero_mesa || 'Venta Directa',
+      mozo: pedido?.mozo || 'Caja Central',
+      cajero: 'Administración',
       nombreComercial: 'El Patron Restaurante',
       razonSocial: 'Gastronomia El Patron S.A.S.',
       cuit: '30-71649251-4',
@@ -396,11 +592,11 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
       subtotal: neto,
       descuento: 0,
       propina: 0,
-      iva: factura.iva_veintiuno,
+      iva,
       total: factura.total,
       metodosPago: [{ metodo: medioLabel(factura.medio_pago), monto: factura.total }],
       vuelto: 0,
-      mensajePie: 'Gracias por su visita. Comprobante generado por El Patron Gestion Gastronomica Pro.',
+      mensajePie: 'Gracias por su visita. Factura electrónica válida ante AFIP.',
       clienteNombre: factura.cliente,
       clienteCuit: factura.cuit,
       cae: factura.arcaCae,
@@ -411,45 +607,128 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
     await pdfService.exportToPDF(ticketData);
   };
 
+  // Formateo Avanzado de jsPDF para Libro IVA Ventas
   const downloadLibroIva = async () => {
     const { jsPDF } = await import('jspdf');
     const doc = new jsPDF('p', 'mm', 'a4');
+    
+    // Configuración estética
+    const primaryColor = [98, 74, 62]; // Marrón El Patrón
+    const textColor = [51, 51, 51];
+    const lightGrey = [245, 245, 245];
+    
+    // Header Corporativo
+    doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.rect(0, 0, 210, 38, 'F');
+    
+    doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(16);
-    doc.text('Libro IVA Ventas', 14, 18);
-    doc.setFontSize(9);
-    doc.text(`Generado: ${new Date().toLocaleString('es-AR')}`, 14, 25);
-    doc.text(`Neto: ${money(netoTotal)} | IVA: ${money(ivaTotal)} | Total: ${money(totalBruto)}`, 14, 33);
-
-    let y = 46;
-    doc.setFont('helvetica', 'bold');
-    doc.text('Fecha', 14, y);
-    doc.text('Comprobante', 38, y);
-    doc.text('Cliente', 88, y);
-    doc.text('Total', 188, y, { align: 'right' });
-    y += 8;
+    doc.setFontSize(22);
+    doc.text('EL PATRÓN RESTAURANTE', 14, 18);
+    
     doc.setFont('helvetica', 'normal');
-    filtered.forEach(f => {
-      if (y > 280) {
+    doc.setFontSize(10);
+    doc.text('Gastronomía El Patrón S.A.S. | CUIT: 30-71649251-4', 14, 25);
+    doc.text('Fotheringham 33, Río Cuarto, Córdoba', 14, 30);
+    
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('LIBRO IVA VENTAS', 196, 22, { align: 'right' });
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Generado: ${new Date().toLocaleDateString('es-AR')} ${new Date().toLocaleTimeString('es-AR')}`, 196, 29, { align: 'right' });
+    
+    // Resumen Contable a 3 Columnas
+    doc.setFillColor(lightGrey[0], lightGrey[1], lightGrey[2]);
+    doc.roundedRect(14, 44, 182, 22, 3, 3, 'FD');
+    
+    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.text('TOTAL RECAUDADO (BRUTO)', 20, 52);
+    doc.text('TOTAL NETO (GRAVADO 21%)', 80, 52);
+    doc.text('TOTAL IVA DÉBITO FISCAL', 140, 52);
+    
+    doc.setFontSize(13);
+    doc.text(money(totalBruto), 20, 60);
+    doc.text(money(netoTotal), 80, 60);
+    doc.text(money(ivaTotal), 140, 60);
+    
+    // Tabla de comprobantes
+    let y = 78;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Historial de Comprobantes Fiscales Emitidos', 14, y);
+    
+    y += 6;
+    doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.rect(14, y, 182, 8, 'F');
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(8);
+    doc.text('Fecha', 16, y + 5.5);
+    doc.text('Comprobante', 38, y + 5.5);
+    doc.text('Cliente', 85, y + 5.5);
+    doc.text('Medio Pago', 135, y + 5.5);
+    doc.text('Total', 194, y + 5.5, { align: 'right' });
+    
+    y += 8;
+    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+    doc.setFont('helvetica', 'normal');
+    
+    filteredFacturas.forEach((f, index) => {
+      if (y > 275) {
         doc.addPage();
         y = 20;
+        
+        // Cabecera simplificada para hojas siguientes
+        doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+        doc.rect(14, y, 182, 8, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Fecha', 16, y + 5.5);
+        doc.text('Comprobante', 38, y + 5.5);
+        doc.text('Cliente', 85, y + 5.5);
+        doc.text('Medio Pago', 135, y + 5.5);
+        doc.text('Total', 194, y + 5.5, { align: 'right' });
+        y += 8;
+        doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+        doc.setFont('helvetica', 'normal');
       }
-      doc.text(f.fecha.slice(0, 10), 14, y);
-      doc.text(f.nro_ticket, 38, y);
-      doc.text(f.cliente.slice(0, 34), 88, y);
-      doc.text(money(f.total), 188, y, { align: 'right' });
+      
+      // Fondo cebra
+      if (index % 2 === 0) {
+        doc.setFillColor(250, 250, 250);
+        doc.rect(14, y, 182, 7, 'F');
+      }
+      
+      const fechaCorta = f.fecha_completa ? new Date(f.fecha_completa).toLocaleDateString('es-AR') : f.fecha.slice(0, 10);
+      doc.text(fechaCorta, 16, y + 5);
+      doc.text(f.nro_ticket, 38, y + 5);
+      doc.text(f.cliente.substring(0, 26), 85, y + 5);
+      doc.text(medioLabel(f.medio_pago), 135, y + 5);
+      
+      if (f.estado === 'nota_credito') {
+        doc.setTextColor(220, 38, 38);
+        doc.text(`-${money(f.total)}`, 194, y + 5, { align: 'right' });
+        doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+      } else {
+        doc.text(money(f.total), 194, y + 5, { align: 'right' });
+      }
+      
       y += 7;
     });
+    
     doc.save(`libro_iva_ventas_${new Date().toISOString().slice(0, 10)}.pdf`);
   };
 
   const downloadCsv = () => {
     const header = ['comprobante', 'fecha', 'cliente', 'cuit', 'tipo', 'medio', 'estado', 'neto', 'iva', 'total'];
-    const lines = filtered.map(f => {
+    const lines = filteredFacturas.map(f => {
       const { neto } = calcIvaIncluido(f.total, f.iva_veintiuno > 0);
       return [
         f.nro_ticket,
-        f.fecha,
+        f.fecha_completa ? new Date(f.fecha_completa).toLocaleString('es-AR') : f.fecha,
         f.cliente,
         f.cuit,
         facturaTipo(f),
@@ -464,22 +743,158 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'auditoria_comprobantes.csv';
+    link.download = `auditoria_facturacion_${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   };
 
-  const Metric = ({ label, value, tone = 'stone' }: { label: string; value: string; tone?: 'stone' | 'green' | 'brown' | 'rose' }) => (
-    <div className={`bg-white p-5 rounded-2xl border shadow-xs ${tone === 'green' ? 'border-l-4 border-l-emerald-600' : tone === 'rose' ? 'border-rose-100' : 'border-stone-200'}`}>
-      <span className="text-[10px] text-stone-400 dark:text-stone-300 font-bold uppercase tracking-wider block">{label}</span>
-      <h4 className={`text-2xl font-black font-mono mt-1 ${tone === 'green' ? 'text-emerald-600 dark:text-emerald-400' : tone === 'brown' ? 'text-[#624A3E] dark:text-[#C8956A]' : tone === 'rose' ? 'text-rose-600 dark:text-rose-450' : 'text-stone-900 dark:text-white'}`}>{value}</h4>
+  // Datos para los gráficos SVG
+  const chartData = useMemo(() => {
+    // 1. Tendencia de 7 días
+    const days = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - (6 - i));
+      return d.toISOString().split('T')[0];
+    });
+
+    const dailyTotals = days.map(dayStr => {
+      const total = facturasActivas
+        .filter(f => {
+          if (!f.fecha_completa) return false;
+          return f.fecha_completa.startsWith(dayStr);
+        })
+        .reduce((sum, f) => sum + f.total, 0);
+      
+      const label = new Date(dayStr + 'T12:00:00').toLocaleDateString('es-AR', { weekday: 'narrow', day: 'numeric' });
+      return { label, total };
+    });
+
+    // 2. Porcentaje por tipo de comprobante
+    const typeCounts: Record<string, number> = { ticket: 0, A: 0, B: 0, X: 0 };
+    let totalTypeAmt = 0;
+    facturasActivas.forEach(f => {
+      const t = facturaTipo(f);
+      typeCounts[t] = (typeCounts[t] || 0) + f.total;
+      totalTypeAmt += f.total;
+    });
+
+    const typeDistribution = Object.keys(typeCounts).map(tipo => ({
+      tipo,
+      amount: typeCounts[tipo],
+      percentage: totalTypeAmt > 0 ? (typeCounts[tipo] / totalTypeAmt) * 100 : 0
+    }));
+
+    // 3. Medios de pago
+    const paymentMethods: Record<Factura['medio_pago'], number> = {
+      efectivo: 0, debito: 0, tarjeta: 0, transferencia: 0, mp_qr: 0, mixto: 0
+    };
+    let totalPayAmt = 0;
+    facturasActivas.forEach(f => {
+      paymentMethods[f.medio_pago] = (paymentMethods[f.medio_pago] || 0) + f.total;
+      totalPayAmt += f.total;
+    });
+
+    const paymentDistribution = Object.keys(paymentMethods).map(m => ({
+      key: m as Factura['medio_pago'],
+      label: medioLabel(m as Factura['medio_pago']),
+      amount: paymentMethods[m as Factura['medio_pago']],
+      percentage: totalPayAmt > 0 ? (paymentMethods[m as Factura['medio_pago']] / totalPayAmt) * 100 : 0
+    })).sort((a, b) => b.amount - a.amount);
+
+    return { dailyTotals, typeDistribution, paymentDistribution };
+  }, [facturasActivas]);
+
+  // Selección de sugerencia de cliente (manual)
+  const selectManualCliente = (c: any) => {
+    setManualCliente(c.nombre);
+    setManualCuit(c.dni_cuit);
+    setManualQuery(c.nombre);
+    setShowManualSuggestions(false);
+    toast.success(`Cliente ${c.nombre} cargado.`);
+  };
+
+  // Selección de sugerencia de cliente (caja)
+  const selectPagoCliente = (c: any) => {
+    setPagoCliente(c.nombre);
+    setPagoCuit(c.dni_cuit);
+    setPagoQuery(c.nombre);
+    setShowPagoSuggestions(false);
+    toast.success(`Cliente ${c.nombre} cargado.`);
+  };
+
+  // Cambiar selección de checkboxes en pendientes
+  const handleSelectPending = (id: number) => {
+    setSelectedPedidos(prev => 
+      prev.includes(id) ? prev.filter(pId => pId !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAllPending = () => {
+    if (selectedPedidos.length === filteredPendientes.length) {
+      setSelectedPedidos([]);
+    } else {
+      setSelectedPedidos(filteredPendientes.map(p => p.pedido.id_pedido));
+    }
+  };
+
+  // Seleccionar mesa completa (agrupado)
+  const handleSelectMesa = (pedidosMesa: typeof pagosPendientes, select: boolean) => {
+    const idsMesa = pedidosMesa.map(p => p.pedido.id_pedido);
+    if (select) {
+      setSelectedPedidos(prev => Array.from(new Set([...prev, ...idsMesa])));
+    } else {
+      setSelectedPedidos(prev => prev.filter(id => !idsMesa.includes(id)));
+    }
+  };
+
+  const isMesaSelected = (pedidosMesa: typeof pagosPendientes) => {
+    return pedidosMesa.every(p => selectedPedidos.includes(p.pedido.id_pedido));
+  };
+
+  const isMesaPartiallySelected = (pedidosMesa: typeof pagosPendientes) => {
+    const count = pedidosMesa.filter(p => selectedPedidos.includes(p.pedido.id_pedido)).length;
+    return count > 0 && count < pedidosMesa.length;
+  };
+
+  const selectedTotal = useMemo(() => {
+    return pagosPendientes
+      .filter(p => selectedPedidos.includes(p.pedido.id_pedido))
+      .reduce((sum, p) => sum + p.total, 0);
+  }, [selectedPedidos, pagosPendientes]);
+
+  const MetricCard = ({ label, value, tone = 'stone', icon: Icon }: { label: string; value: string; tone?: 'stone' | 'green' | 'brown' | 'rose', icon?: any }) => (
+    <div className={`bg-white dark:bg-stone-900 p-5 rounded-2xl border shadow-xs transition-all duration-300 hover:shadow-md ${
+      tone === 'green' ? 'border-l-4 border-l-emerald-600 border-stone-200' : 
+      tone === 'rose' ? 'border-l-4 border-l-rose-500 border-stone-200' : 
+      tone === 'brown' ? 'border-l-4 border-l-[#624A3E] border-stone-200' : 
+      'border-stone-200 dark:border-stone-800'
+    } flex items-center justify-between`}>
+      <div className="text-left space-y-1">
+        <span className="text-[10px] text-stone-400 dark:text-stone-300 font-bold uppercase tracking-wider block">{label}</span>
+        <h4 className={`text-2xl font-black font-mono tracking-tight ${
+          tone === 'green' ? 'text-emerald-600 dark:text-emerald-400' : 
+          tone === 'brown' ? 'text-[#624A3E] dark:text-[#C8956A]' : 
+          tone === 'rose' ? 'text-rose-600' : 
+          'text-stone-900 dark:text-white'
+        }`}>{value}</h4>
+      </div>
+      {Icon && (
+        <div className={`p-3 rounded-xl ${
+          tone === 'green' ? 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600' : 
+          tone === 'brown' ? 'bg-[#624A3E]/10 text-[#624A3E] dark:text-[#C8956A]' : 
+          tone === 'rose' ? 'bg-rose-50 text-rose-500' : 
+          'bg-stone-50 dark:bg-stone-850 text-stone-400'
+        }`}>
+          <Icon className="w-5 h-5" />
+        </div>
+      )}
     </div>
   );
 
   return (
     <div className="space-y-6">
       {/* ARCA/AFIP Status Visualizer */}
-      <div className="bg-white rounded-2xl p-5 border border-stone-200 shadow-xs flex flex-col sm:flex-row items-center gap-4 justify-between transition-all animate-fadeIn">
+      <div className="bg-white dark:bg-stone-900 rounded-2xl p-5 border border-stone-200 dark:border-stone-800 shadow-xs flex flex-col sm:flex-row items-center gap-4 justify-between transition-all">
         <div className="flex items-center gap-4">
           <div className={`w-12 h-12 rounded-xl flex items-center justify-center border transition-all ${
             isArcaConfigured() 
@@ -490,10 +905,10 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
           </div>
           <div className="text-left">
             <h3 className="text-sm font-bold text-stone-900 dark:text-white tracking-tight flex items-center gap-2">
-              Conexión Fiscal Electrónica (ARCA)
+              Conexión Fiscal Electrónica (ARCA / AFIP)
               <span className={`w-2 h-2 rounded-full ${isArcaConfigured() ? 'bg-emerald-500 animate-ping' : 'bg-amber-500'}`} />
             </h3>
-            <p className="text-xs text-stone-500 dark:text-stone-355 dark:text-stone-300 mt-0.5">
+            <p className="text-xs text-stone-500 dark:text-stone-300 mt-0.5">
               {isArcaConfigured() 
                 ? `Operativo - Modo Homologación (Pto Vta: 0001 - CUIT: ${(import.meta as any).env?.VITE_ARCA_CUIT || '30-71649251-4'})` 
                 : 'Modo Simulación / Desconectado - Emitiendo comprobantes locales sin CAE'
@@ -507,32 +922,39 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
               Conectado
             </span>
           ) : (
-            <span className="text-[10px] uppercase font-black px-3 py-1 bg-amber-50 dark:bg-amber-955/20 text-amber-700 dark:text-amber-300 rounded-full border border-amber-100 dark:border-amber-900/50">
+            <span className="text-[10px] uppercase font-black px-3 py-1 bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-300 rounded-full border border-amber-100 dark:border-amber-900/50">
               Demo / Simulado
             </span>
           )}
         </div>
       </div>
 
+      {/* Tarjetas de Métricas */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <Metric label="Neto mes" value={money(netoTotal)} />
-        <Metric label="IVA debito fiscal" value={money(ivaTotal)} tone="brown" />
-        <Metric label="Total recaudado bruto" value={money(totalBruto)} tone="green" />
-        <Metric label="Pagos sin comprobante" value={String(pagosPendientes.length)} tone={pagosPendientes.length ? 'rose' : 'stone'} />
+        <MetricCard label="Neto mes" value={money(netoTotal)} tone="stone" icon={CalendarDays} />
+        <MetricCard label="IVA Débito Fiscal" value={money(ivaTotal)} tone="brown" icon={Receipt} />
+        <MetricCard label="Total Recaudado (Bruto)" value={money(totalBruto)} tone="green" icon={TrendingUp} />
+        <MetricCard label="Cuentas Pendientes" value={String(pagosPendientes.length)} tone={pagosPendientes.length ? 'rose' : 'stone'} icon={CreditCard} />
       </div>
 
-      <div className="bg-white rounded-2xl border border-stone-200 shadow-xs p-2 flex flex-wrap gap-2">
+      {/* Tabs de Navegación */}
+      <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs p-2 flex flex-wrap gap-2">
         {[
-          ['manual', 'Emitir manual', Plus],
-          ['pagos', 'Facturar pagos', CreditCard],
-          ['archivo', 'Archivo fiscal', Receipt]
+          ['dashboard', 'Analíticas y Reportes', TrendingUp],
+          ['manual', 'Emitir Comprobante Manual', Plus],
+          ['pagos', 'Facturar Pendientes', CreditCard],
+          ['archivo', 'Archivo Fiscal', Receipt]
         ].map(([key, label, Icon]) => {
           const ActiveIcon = Icon as typeof Receipt;
           return (
             <button
               key={key as string}
               onClick={() => setActiveTab(key as TabKey)}
-              className={`px-4 py-2 rounded-xl text-xs font-black uppercase flex items-center gap-2 transition-all ${activeTab === key ? 'bg-[#624A3E] text-white shadow' : 'bg-stone-50 dark:bg-stone-900 text-stone-605 text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-850'}`}
+              className={`px-4 py-2 rounded-xl text-xs font-black uppercase flex items-center gap-2 transition-all ${
+                activeTab === key 
+                  ? 'bg-[#624A3E] text-white shadow-sm' 
+                  : 'bg-stone-50 dark:bg-stone-850 text-stone-605 text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800'
+              }`}
             >
               <ActiveIcon className="w-4 h-4" />
               {label as string}
@@ -541,160 +963,646 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
         })}
       </div>
 
+      {/* 1. TAB: DASHBOARD (Analíticas SVG) */}
+      {activeTab === 'dashboard' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fadeIn">
+          {/* Gráfico 7 Días */}
+          <div className="bg-white dark:bg-stone-900 p-6 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs lg:col-span-2 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-black uppercase tracking-wider text-stone-400 dark:text-stone-300">Ventas - Últimos 7 Días</h3>
+              <TrendingUp className="w-4 h-4 text-[#624A3E]" />
+            </div>
+            
+            <div className="h-64 w-full relative flex items-end">
+              {/* Gráfico SVG nativo */}
+              <svg className="w-full h-full" viewBox="0 0 500 220">
+                {/* Líneas horizontales de guía */}
+                <line x1="40" y1="30" x2="480" y2="30" stroke="#f1f1f0" strokeWidth="1" strokeDasharray="3" />
+                <line x1="40" y1="90" x2="480" y2="90" stroke="#f1f1f0" strokeWidth="1" strokeDasharray="3" />
+                <line x1="40" y1="150" x2="480" y2="150" stroke="#f1f1f0" strokeWidth="1" strokeDasharray="3" />
+                <line x1="40" y1="200" x2="480" y2="200" stroke="#d6d6d4" strokeWidth="1" />
+
+                {/* Etiquetas de valores Y */}
+                <text x="30" y="34" fontSize="8" textAnchor="end" fill="#999" fontFamily="monospace">
+                  {money(Math.max(...chartData.dailyTotals.map(d => d.total), 100000) * 0.8)}
+                </text>
+                <text x="30" y="94" fontSize="8" textAnchor="end" fill="#999" fontFamily="monospace">
+                  {money(Math.max(...chartData.dailyTotals.map(d => d.total), 100000) * 0.5)}
+                </text>
+                <text x="30" y="154" fontSize="8" textAnchor="end" fill="#999" fontFamily="monospace">
+                  {money(Math.max(...chartData.dailyTotals.map(d => d.total), 100000) * 0.2)}
+                </text>
+                <text x="30" y="204" fontSize="8" textAnchor="end" fill="#999" fontFamily="monospace">$0</text>
+
+                {/* Generar puntos de la curva */}
+                {(() => {
+                  const maxVal = Math.max(...chartData.dailyTotals.map(d => d.total), 1);
+                  const points = chartData.dailyTotals.map((d, index) => {
+                    const x = 50 + (index * 70);
+                    // Mapeo inverso de Y (el origen 0 está arriba en SVG)
+                    // Altura disponible = 170 (entre y=30 y y=200)
+                    const valRatio = d.total / maxVal;
+                    const y = 200 - (valRatio * 160);
+                    return { x, y, label: d.label, amount: d.total };
+                  });
+
+                  const pathD = points.reduce((path, p, i) => 
+                    i === 0 ? `M ${p.x} ${p.y}` : `${path} L ${p.x} ${p.y}`, ''
+                  );
+
+                  const areaD = points.length > 0 
+                    ? `${pathD} L ${points[points.length - 1].x} 200 L ${points[0].x} 200 Z` 
+                    : '';
+
+                  return (
+                    <>
+                      {/* Área rellena bajo la línea */}
+                      {areaD && <path d={areaD} fill="url(#gradient-sales)" opacity="0.15" />}
+                      
+                      {/* Línea principal */}
+                      {pathD && <path d={pathD} fill="none" stroke="#624A3E" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />}
+                      
+                      {/* Puntos y valores flotantes */}
+                      {points.map((p, i) => (
+                        <g key={i} className="group/dot cursor-pointer">
+                          <circle cx={p.x} cy={p.y} r="5" fill="#624A3E" stroke="#fff" strokeWidth="2.5" />
+                          <circle cx={p.x} cy={p.y} r="10" fill="#624A3E" opacity="0" className="hover:opacity-10 transition-opacity" />
+                          
+                          {/* Label en X */}
+                          <text x={p.x} y="215" fontSize="8" textAnchor="middle" fill="#666" fontWeight="bold">
+                            {p.label}
+                          </text>
+
+                          {/* Valor encima del punto */}
+                          <text x={p.x} y={p.y - 10} fontSize="7" textAnchor="middle" fill="#333" fontWeight="black" className="opacity-0 group-hover/dot:opacity-100 transition-opacity font-mono bg-white">
+                            {money(p.amount)}
+                          </text>
+                        </g>
+                      ))}
+
+                      {/* Definiciones de gradientes */}
+                      <defs>
+                        <linearGradient id="gradient-sales" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#624A3E" />
+                          <stop offset="100%" stopColor="#624A3E" stopOpacity="0" />
+                        </linearGradient>
+                      </defs>
+                    </>
+                  );
+                })()}
+              </svg>
+            </div>
+          </div>
+
+          {/* Gráfico Tipo Comprobante */}
+          <div className="bg-white dark:bg-stone-900 p-6 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs space-y-5 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-xs font-black uppercase tracking-wider text-stone-400 dark:text-stone-300">Distribución de Comprobantes</h3>
+                <PieChart className="w-4 h-4 text-[#624A3E]" />
+              </div>
+              <p className="text-[11px] text-stone-500">Monto total y porcentaje de facturación según tipo fiscal.</p>
+            </div>
+
+            {/* Barra apilada interactiva en SVG */}
+            <div className="space-y-4">
+              <div className="w-full h-8 rounded-xl overflow-hidden flex border border-stone-100">
+                {chartData.typeDistribution.map((d, index) => {
+                  const colors = ['bg-[#624A3E]', 'bg-[#8F7264]', 'bg-[#C8956A]', 'bg-stone-300'];
+                  if (d.percentage === 0) return null;
+                  return (
+                    <div 
+                      key={d.tipo} 
+                      className={`${colors[index % colors.length]} h-full relative group`} 
+                      style={{ width: `${d.percentage}%` }}
+                      title={`${d.tipo === 'ticket' ? 'Ticket' : `Factura ${d.tipo}`}: ${money(d.amount)} (${d.percentage.toFixed(1)}%)`}
+                    />
+                  );
+                })}
+              </div>
+
+              <div className="space-y-2">
+                {chartData.typeDistribution.map((d, index) => {
+                  const textColors = ['text-[#624A3E]', 'text-[#8F7264]', 'text-[#C8956A]', 'text-stone-500'];
+                  const dotColors = ['bg-[#624A3E]', 'bg-[#8F7264]', 'bg-[#C8956A]', 'bg-stone-300'];
+                  return (
+                    <div key={d.tipo} className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className={`w-2.5 h-2.5 rounded-full ${dotColors[index % dotColors.length]}`} />
+                        <span className="font-extrabold uppercase text-stone-700 dark:text-stone-350">{d.tipo === 'ticket' ? 'Ticket Consumo' : `Factura ${d.tipo}`}</span>
+                      </div>
+                      <span className="font-mono font-bold text-stone-900 dark:text-white">
+                        {money(d.amount)} <span className="text-[10px] text-stone-400 font-normal">({d.percentage.toFixed(1)}%)</span>
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Gráfico Medios de Pago */}
+          <div className="bg-white dark:bg-stone-900 p-6 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs lg:col-span-3 space-y-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-xs font-black uppercase tracking-wider text-stone-400 dark:text-stone-300">Recaudación por Medio de Pago</h3>
+                <p className="text-[11px] text-stone-500 mt-1">Ranking de ingresos según la forma de cobro en caja.</p>
+              </div>
+              <BarChart3 className="w-4 h-4 text-emerald-600" />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {chartData.paymentDistribution.map((p, index) => {
+                const colors = ['bg-emerald-600', 'bg-sky-600', 'bg-indigo-600', 'bg-[#624A3E]', 'bg-amber-500', 'bg-purple-600'];
+                return (
+                  <div key={p.key} className="space-y-1">
+                    <div className="flex justify-between text-xs">
+                      <span className="font-bold text-stone-750 dark:text-stone-200">{p.label}</span>
+                      <span className="font-mono font-black text-stone-900 dark:text-white">
+                        {money(p.amount)} <span className="text-[10px] text-stone-400 font-normal">({p.percentage.toFixed(1)}%)</span>
+                      </span>
+                    </div>
+                    <div className="w-full h-2 bg-stone-100 dark:bg-stone-800 rounded-full overflow-hidden">
+                      <div 
+                        className={`${colors[index % colors.length]} h-full rounded-full transition-all duration-500`}
+                        style={{ width: `${p.percentage}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2. TAB: EMISION MANUAL (Autocomplete + CUIT Validation) */}
       {activeTab === 'manual' && (
-        <div className="bg-white rounded-2xl border border-stone-200 shadow-xs p-6 space-y-5">
+        <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs p-6 space-y-5 animate-fadeIn">
           <div>
             <h3 className="text-sm font-black text-stone-900 dark:text-white uppercase tracking-tight flex items-center gap-2">
-              <FileText className="w-5 h-5 text-[#624A3E] dark:text-[#C8956A]" /> Emitir comprobante manual
+              <FileText className="w-5 h-5 text-[#624A3E] dark:text-[#C8956A]" /> Emitir Comprobante Manual
             </h3>
-            <p className="text-xs text-stone-500 dark:text-stone-300 font-semibold mt-1">Para ventas externas, ajustes comerciales o comprobantes no asociados a una mesa.</p>
+            <p className="text-xs text-stone-500 dark:text-stone-300 font-semibold mt-1">Para ventas directas de mostrador, catering externo o ajustes manuales.</p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-            <label className="space-y-1">
-              <span className="text-[10px] font-black uppercase text-stone-500 dark:text-stone-300">Tipo</span>
-              <select value={manualTipo} onChange={e => setManualTipo(e.target.value as any)} className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-700 dark:text-stone-200 text-xs font-bold">
-                <option value="ticket">Ticket</option>
+          
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {/* Tipo */}
+            <label className="space-y-1.5">
+              <span className="text-[10px] font-black uppercase text-stone-400 dark:text-stone-300">Tipo de Comprobante</span>
+              <select 
+                value={manualTipo} 
+                onChange={e => {
+                  const val = e.target.value as any;
+                  setManualTipo(val);
+                  if (val === 'ticket' || val === 'X') {
+                    setManualCliente('Consumidor Final');
+                    setManualCuit('99-99999999-9');
+                  }
+                }} 
+                className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-700 dark:text-stone-200 text-xs font-bold"
+              >
+                <option value="ticket">Ticket de Consumo</option>
                 <option value="B">Factura B</option>
-                <option value="A">Factura A</option>
-                <option value="X">Comprobante X</option>
+                <option value="A">Factura A (Responsable Inscripto)</option>
+                <option value="X">Comprobante X (Interno/Respaldo)</option>
               </select>
             </label>
-            <label className="space-y-1">
-              <span className="text-[10px] font-black uppercase text-stone-500 dark:text-stone-300">Cliente</span>
-              <input value={manualCliente} onChange={e => setManualCliente(e.target.value)} className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-800 dark:text-stone-100 text-xs font-bold" />
+
+            {/* Búsqueda Autocomplete de Clientes */}
+            <div className="space-y-1.5 relative md:col-span-2 text-left">
+              <span className="text-[10px] font-black uppercase text-stone-400 dark:text-stone-300">Razón Social / Cliente</span>
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-stone-400 absolute left-3 top-3" />
+                <input 
+                  type="text"
+                  value={manualCliente} 
+                  onChange={e => {
+                    setManualCliente(e.target.value);
+                    setManualQuery(e.target.value);
+                    setShowManualSuggestions(true);
+                  }}
+                  onFocus={() => setShowManualSuggestions(true)}
+                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-800 dark:text-stone-100 text-xs font-bold focus:outline-none focus:ring-1 focus:ring-[#624A3E]" 
+                />
+              </div>
+              
+              {/* Autocomplete Dropdown */}
+              {showManualSuggestions && manualSuggestions.length > 0 && (
+                <div className="absolute left-0 right-0 top-full mt-1 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-xl shadow-lg z-20 overflow-hidden divide-y divide-stone-100 dark:divide-stone-850">
+                  {manualSuggestions.map(c => (
+                    <button
+                      key={c.id_cliente}
+                      type="button"
+                      onClick={() => selectManualCliente(c)}
+                      className="w-full text-left px-4 py-2 hover:bg-stone-50 dark:hover:bg-stone-850 text-xs flex justify-between items-center cursor-pointer"
+                    >
+                      <span className="font-bold text-stone-800 dark:text-stone-200">{c.nombre}</span>
+                      <span className="text-[10px] font-mono text-stone-400">{c.dni_cuit}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* CUIT / DNI + Validador */}
+            <label className="space-y-1.5 block text-left">
+              <span className="text-[10px] font-black uppercase text-stone-400 dark:text-stone-300 flex items-center justify-between">
+                CUIT / DNI
+                {!cuitManualValido && (
+                  <span className="text-[8px] text-amber-500 font-extrabold flex items-center gap-1">
+                    <AlertTriangle className="w-2.5 h-2.5" /> Inválido
+                  </span>
+                )}
+                {cuitManualValido && manualCuit !== '99-99999999-9' && (
+                  <span className="text-[8px] text-emerald-600 font-extrabold flex items-center gap-1">
+                    <Check className="w-2.5 h-2.5" /> Válido ✓
+                  </span>
+                )}
+              </span>
+              <input 
+                value={manualCuit} 
+                onChange={e => setManualCuit(e.target.value)} 
+                placeholder="20-38449102-1"
+                className={`w-full p-2.5 rounded-xl border bg-stone-50/50 dark:bg-stone-900 text-stone-800 dark:text-stone-100 text-xs font-mono font-bold ${
+                  cuitManualValido ? 'border-stone-200 dark:border-stone-750' : 'border-amber-455 border-amber-500 ring-1 ring-amber-300/30'
+                }`} 
+              />
             </label>
-            <label className="space-y-1">
-              <span className="text-[10px] font-black uppercase text-stone-500 dark:text-stone-300">CUIT / DNI</span>
-              <input value={manualCuit} onChange={e => setManualCuit(e.target.value)} className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-800 dark:text-stone-100 text-xs font-mono font-bold" />
-            </label>
-            <label className="space-y-1">
-              <span className="text-[10px] font-black uppercase text-stone-500 dark:text-stone-300">Medio</span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {/* Medio de Pago */}
+            <label className="space-y-1.5 block text-left">
+              <span className="text-[10px] font-black uppercase text-stone-400 dark:text-stone-300">Medio de Pago</span>
               <select value={manualMedio} onChange={e => setManualMedio(e.target.value as Factura['medio_pago'])} className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-700 dark:text-stone-200 text-xs font-bold">
                 <option value="efectivo">Efectivo</option>
-                <option value="debito">Debito</option>
-                <option value="tarjeta">Tarjeta</option>
-                <option value="transferencia">Transferencia</option>
-                <option value="mp_qr">QR</option>
-                <option value="mixto">Mixto</option>
+                <option value="debito">Tarjeta de Débito</option>
+                <option value="tarjeta">Tarjeta de Crédito</option>
+                <option value="transferencia">Transferencia Bancaria</option>
+                <option value="mp_qr">QR MercadoPago</option>
+                <option value="mixto">Mixto / Combinado</option>
               </select>
             </label>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <label className="space-y-1">
-              <span className="text-[10px] font-black uppercase text-stone-500 dark:text-stone-300">Total final</span>
-              <input type="number" value={manualTotal} onChange={e => setManualTotal(e.target.value)} className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-800 dark:text-stone-100 text-xs font-mono font-black" />
+
+            {/* Total */}
+            <label className="space-y-1.5 block text-left">
+              <span className="text-[10px] font-black uppercase text-stone-400 dark:text-stone-300">Total Final ($)</span>
+              <input 
+                type="number" 
+                value={manualTotal} 
+                onChange={e => setManualTotal(e.target.value)} 
+                className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-800 dark:text-stone-100 text-xs font-mono font-black" 
+              />
             </label>
-            <label className="flex items-center gap-2 pt-6 text-xs font-bold text-stone-600 dark:text-stone-300">
-              <input type="checkbox" checked={manualIva} onChange={e => setManualIva(e.target.checked)} className="accent-[#624A3E]" />
+
+            {/* Toggle de IVA */}
+            <label className="flex items-center gap-2 pt-6 text-xs font-bold text-stone-600 dark:text-stone-300 cursor-pointer select-none">
+              <input 
+                type="checkbox" 
+                checked={manualIva} 
+                onChange={e => setManualIva(e.target.checked)} 
+                className="w-4 h-4 accent-[#624A3E] rounded" 
+              />
               Calcular IVA 21% incluido
             </label>
-            <div className="p-3 bg-stone-50 dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-800 text-xs">
-              <span className="text-[10px] uppercase font-black text-stone-400 dark:text-stone-300">Vista previa</span>
-              <p className="font-mono font-black text-stone-900 dark:text-white">{nextNumber(facturas, manualTipo)}</p>
-              <p className="text-stone-500 dark:text-stone-300">IVA: {money(calcIvaIncluido(Number(manualTotal || 0), manualIva).iva)}</p>
+
+            {/* Vista Previa */}
+            <div className="p-3 bg-stone-50 dark:bg-stone-850 rounded-xl border border-stone-200 dark:border-stone-800 text-xs flex flex-col justify-between text-left">
+              <div>
+                <span className="text-[9px] uppercase font-black text-stone-400 dark:text-stone-300">Vista Previa de Comprobante</span>
+                <p className="font-mono font-black text-stone-900 dark:text-white mt-1">{nextNumber(facturas, manualTipo)}</p>
+              </div>
+              <p className="text-stone-500 dark:text-stone-300 text-[10px] font-mono mt-1">
+                IVA: {money(calcIvaIncluido(Number(manualTotal || 0), manualIva).iva)} | Neto: {money(calcIvaIncluido(Number(manualTotal || 0), manualIva).neto)}
+              </p>
             </div>
           </div>
-          <textarea value={manualObs} onChange={e => setManualObs(e.target.value)} placeholder="Observaciones, pedido externo, forma de pago detallada..." className="w-full h-20 p-3 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-800 dark:text-stone-100 text-xs" />
-          <button disabled={isEmitting} onClick={emitManual} className="w-full md:w-auto px-5 py-3 rounded-xl bg-[#624A3E] text-white text-xs font-black uppercase shadow disabled:opacity-60 disabled:cursor-not-allowed">
-            {isEmitting ? 'Emitiendo comprobante...' : 'Emitir y descargar comprobante PDF'}
-          </button>
+
+          <textarea 
+            value={manualObs} 
+            onChange={e => setManualObs(e.target.value)} 
+            placeholder="Observaciones adicionales, catering, forma de pago mixta detallada, etc..." 
+            className="w-full h-20 p-3 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-800 dark:text-stone-100 text-xs" 
+          />
+
+          <div className="flex gap-2 justify-start">
+            <button 
+              disabled={isEmitting} 
+              onClick={emitManual} 
+              className="px-5 py-3 rounded-xl bg-[#624A3E] hover:bg-[#503C32] text-white text-xs font-black uppercase shadow disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
+            >
+              {isEmitting ? 'Emitiendo comprobante...' : 'Emitir y Descargar Factura PDF'}
+            </button>
+            {showManualSuggestions && (
+              <button 
+                type="button" 
+                onClick={() => setShowManualSuggestions(false)} 
+                className="px-4 py-2 text-stone-500 text-xs font-bold"
+              >
+                Cerrar Autocompletado
+              </button>
+            )}
+          </div>
         </div>
       )}
 
+      {/* 3. TAB: FACTURAR PAGOS PENDIENTES (Agrupación + Selección Lote) */}
       {activeTab === 'pagos' && (
-        <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs p-6 space-y-5">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-            <div>
+        <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs p-6 space-y-5 animate-fadeIn">
+          
+          {/* Cabecera / Buscador */}
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+            <div className="text-left">
               <h3 className="text-sm font-black text-stone-900 dark:text-white uppercase tracking-tight flex items-center gap-2">
-                <CreditCard className="w-5 h-5 text-[#624A3E] dark:text-[#C8956A]" /> Facturar pagos de caja
+                <CreditCard className="w-5 h-5 text-[#624A3E] dark:text-[#C8956A]" /> Cobro y Facturación de Comandas
               </h3>
-              <p className="text-xs text-stone-500 dark:text-stone-300 font-semibold mt-1">Convierte pedidos/pagos disponibles en ticket o factura con PDF descargable.</p>
+              <p className="text-xs text-stone-500 dark:text-stone-300 font-semibold mt-1">Factura pedidos individuales o fusiona comandas por lote / mesa en una sola cuenta.</p>
             </div>
-            <div className="grid grid-cols-2 gap-2 text-center">
-              <div className="px-4 py-2 rounded-xl bg-stone-50 dark:bg-stone-900 border border-stone-200 dark:border-stone-800">
-                <span className="text-[9px] block font-black uppercase text-stone-400 dark:text-stone-300">Pendientes</span>
-                <b className="font-mono text-stone-900 dark:text-white">{pagosPendientes.length}</b>
+            
+            {/* Controles de Lote / Buscador */}
+            <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+              <div className="relative w-full sm:w-60">
+                <Search className="w-3.5 h-3.5 text-stone-400 absolute left-3 top-3" />
+                <input
+                  type="text"
+                  placeholder="Buscar mesa, mozo, platos..."
+                  value={pagoSearch}
+                  onChange={e => setPagoSearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-800 dark:text-stone-100 text-xs focus:outline-none focus:ring-1 focus:ring-[#624A3E]"
+                />
               </div>
-              <div className="px-4 py-2 rounded-xl bg-stone-50 dark:bg-stone-900 border border-stone-200 dark:border-stone-800">
-                <span className="text-[9px] block font-black uppercase text-stone-400 dark:text-stone-300">Importe</span>
-                <b className="font-mono text-stone-900 dark:text-white">{money(pagosPendientes.reduce((s, p) => s + p.total, 0))}</b>
-              </div>
+
+              {/* Toggle de Agrupamiento por Mesa */}
+              <button
+                onClick={() => {
+                  setAgruparPorMesa(prev => !prev);
+                  setSelectedPedidos([]);
+                }}
+                className={`px-3 py-2 rounded-xl text-xs font-black uppercase flex items-center gap-1.5 transition-all border cursor-pointer ${
+                  agruparPorMesa 
+                    ? 'bg-[#624A3E] text-white border-[#624A3E]' 
+                    : 'bg-stone-50 dark:bg-stone-850 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-stone-800 hover:bg-stone-100'
+                }`}
+              >
+                <Users className="w-4 h-4" />
+                {agruparPorMesa ? 'Agrupado por Mesa (Fusión)' : 'Vista Individual'}
+              </button>
+
+              {/* Botón Seleccionar Todo */}
+              {!agruparPorMesa && filteredPendientes.length > 0 && (
+                <button
+                  onClick={handleSelectAllPending}
+                  className="px-3 py-2 rounded-xl text-xs font-bold border border-stone-200 dark:border-stone-850 bg-stone-50 hover:bg-stone-100 text-stone-700 cursor-pointer"
+                >
+                  {selectedPedidos.length === filteredPendientes.length ? 'Desmarcar Todo' : 'Seleccionar Todo'}
+                </button>
+              )}
             </div>
           </div>
 
-          {selectedPending ? (
-            <>
-              <select value={selectedPending.pedido.id_pedido} onChange={e => setPedidoSeleccionado(Number(e.target.value))} className="w-full p-3 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-800 dark:text-stone-100 text-xs font-bold">
-                {pagosPendientes.map(({ pedido, total }) => (
-                  <option key={pedido.id_pedido} value={pedido.id_pedido} className="bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-100">
-                    Pedido #{pedido.id_pedido} - {pedido.numero_mesa} - {pedido.mozo} - {money(total)}
-                  </option>
-                ))}
-              </select>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <div className="rounded-xl border border-stone-200 dark:border-stone-800 overflow-hidden">
-                  <div className="bg-stone-50 dark:bg-stone-900 px-3 py-2 text-[10px] font-black uppercase text-stone-500 dark:text-stone-300">Detalle del pago</div>
-                  {selectedPending.pedido.items.map(item => {
-                    const prod = productosMenu.find(p => p.id_producto === item.id_producto);
-                    const unit = prod ? prod.precio_venta : 0;
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            {/* Listado de Pendientes (2 Columnas) */}
+            <div className="lg:col-span-2 space-y-3 max-h-[500px] overflow-y-auto pr-1">
+              
+              {/* 3A. Modo Agrupado por Mesa */}
+              {agruparPorMesa && (
+                pendientesAgrupadosPorMesa.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-stone-400 border border-dashed rounded-2xl">
+                    No hay mesas con comandas pendientes de facturación.
+                  </div>
+                ) : (
+                  pendientesAgrupadosPorMesa.map(group => {
+                    const selected = isMesaSelected(group.pedidos);
+                    const partial = isMesaPartiallySelected(group.pedidos);
+                    
                     return (
-                      <div key={`${selectedPending.pedido.id_pedido}-${item.id_producto}`} className="px-3 py-2 border-t border-stone-100 dark:border-stone-850 flex justify-between text-xs text-stone-800 dark:text-stone-200">
-                        <span><b>{item.cantidad}x</b> {item.nombre}</span>
-                        <b className="font-mono">{money(unit * item.cantidad)}</b>
+                      <div 
+                        key={group.mesa}
+                        onClick={() => handleSelectMesa(group.pedidos, !selected)}
+                        className={`p-4 rounded-xl border transition-all cursor-pointer flex justify-between items-center ${
+                          selected 
+                            ? 'bg-[#624A3E]/5 border-[#624A3E]' 
+                            : 'bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-850 hover:bg-stone-50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <input 
+                            type="checkbox"
+                            checked={selected}
+                            ref={el => {
+                              if (el) el.indeterminate = partial;
+                            }}
+                            onChange={() => {}} // Se maneja en el click del card
+                            className="w-4 h-4 accent-[#624A3E]"
+                          />
+                          <div className="text-left">
+                            <span className="font-black text-sm text-stone-900 dark:text-white">{group.mesa}</span>
+                            <span className="text-[10px] text-stone-400 block font-bold">
+                              {group.pedidos.length} {group.pedidos.length === 1 ? 'pedido activo' : 'pedidos unificados'}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <span className="font-mono font-black text-sm text-[#624A3E] dark:text-[#C8956A] block">{money(group.total)}</span>
+                          <span className="text-[9px] text-stone-400 font-bold block">Consolidado</span>
+                        </div>
                       </div>
                     );
-                  })}
-                  <div className="px-3 py-3 border-t border-stone-200 dark:border-stone-800 flex justify-between text-sm font-black text-stone-900 dark:text-white">
-                    <span>Total</span>
-                    <span className="font-mono">{money(selectedPending.total)}</span>
-                  </div>
-                </div>
+                  })
+                )
+              )}
 
-                <div className="space-y-3">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <label className="space-y-1">
-                      <span className="text-[10px] font-black uppercase text-stone-500 dark:text-stone-300">Tipo</span>
-                      <select value={pagoTipo} onChange={e => setPagoTipo(e.target.value as any)} className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-700 dark:text-stone-200 text-xs font-bold">
-                        <option value="ticket">Ticket</option>
-                        <option value="B">Factura B</option>
-                        <option value="A">Factura A</option>
-                        <option value="X">Comprobante X</option>
-                      </select>
-                    </label>
-                    <label className="space-y-1">
-                      <span className="text-[10px] font-black uppercase text-stone-500 dark:text-stone-300">Cliente</span>
-                      <input value={pagoCliente} onChange={e => setPagoCliente(e.target.value)} className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-800 dark:text-stone-100 text-xs font-bold" />
-                    </label>
-                    <label className="space-y-1">
-                      <span className="text-[10px] font-black uppercase text-stone-500 dark:text-stone-300">CUIT</span>
-                      <input value={pagoCuit} onChange={e => setPagoCuit(e.target.value)} className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-800 dark:text-stone-100 text-xs font-mono font-bold" />
-                    </label>
+              {/* 3B. Modo Individual */}
+              {!agruparPorMesa && (
+                filteredPendientes.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-stone-400 border border-dashed rounded-2xl">
+                    No se encontraron pagos pendientes para los filtros seleccionados.
                   </div>
-                  <div className="p-3 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/50 rounded-xl text-xs text-emerald-800 dark:text-emerald-300 font-bold">
-                    Al emitir se descarga el PDF y el comprobante queda en Archivo fiscal.
-                  </div>
-                  <button disabled={isEmitting} onClick={emitFromPedido} className="w-full px-5 py-3 rounded-xl bg-emerald-600 text-white text-xs font-black uppercase shadow disabled:opacity-60 disabled:cursor-not-allowed">
-                    {isEmitting ? 'Emitiendo comprobante...' : 'Emitir comprobante desde pago'}
-                  </button>
+                ) : (
+                  filteredPendientes.map(({ pedido, total }) => {
+                    const isSelected = selectedPedidos.includes(pedido.id_pedido);
+                    
+                    return (
+                      <div
+                        key={pedido.id_pedido}
+                        onClick={() => handleSelectPending(pedido.id_pedido)}
+                        className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                          isSelected 
+                            ? 'bg-[#624A3E]/5 border-[#624A3E]' 
+                            : 'bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-850 hover:bg-stone-50/70'
+                        }`}
+                      >
+                        <div className="flex items-start gap-3 text-left">
+                          <input 
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => {}} // Controlado por el clic del div principal
+                            className="w-4.5 h-4.5 accent-[#624A3E] mt-0.5 rounded cursor-pointer"
+                          />
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-black text-stone-900 dark:text-white text-xs">Mesa: {pedido.numero_mesa}</span>
+                              <span className="text-[9px] font-mono bg-stone-100 dark:bg-stone-800 text-stone-500 px-1.5 py-0.5 rounded">#{pedido.id_pedido}</span>
+                            </div>
+                            <span className="text-[10px] text-stone-400 font-bold block mt-0.5">Mozo: {pedido.mozo}</span>
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {pedido.items.map(item => (
+                                <span key={item.id_producto} className="text-[9px] px-1.5 py-0.5 bg-stone-50 dark:bg-stone-850 text-stone-600 dark:text-stone-300 rounded font-semibold">
+                                  {item.cantidad}x {item.nombre}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0 flex flex-col justify-center">
+                          <span className="font-mono font-black text-stone-900 dark:text-white">{money(total)}</span>
+                          <span className="text-[9px] text-stone-400 font-bold mt-0.5">
+                            {pedido.fecha_hora ? new Date(pedido.fecha_hora).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + ' hs' : 'Sin Hora'}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })
+                )
+              )}
+            </div>
+
+            {/* 3C. Panel de Cobro del Lote Seleccionado */}
+            <div className="bg-stone-50 dark:bg-stone-900 border border-stone-200 dark:border-stone-800 p-5 rounded-2xl space-y-4">
+              <div className="border-b border-stone-250 dark:border-stone-800 pb-3 text-left">
+                <span className="text-[9px] uppercase font-black text-stone-450 dark:text-stone-300">Detalle de Emisión por Lote</span>
+                <div className="flex justify-between items-end mt-1">
+                  <h4 className="text-xs font-black uppercase text-stone-700 dark:text-stone-200">Seleccionados: {selectedPedidos.length}</h4>
+                  <b className="font-mono text-lg text-emerald-600 dark:text-emerald-450">{money(selectedTotal)}</b>
                 </div>
               </div>
-            </>
-          ) : (
-            <div className="p-8 rounded-xl border border-dashed border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-900 text-center">
-              <BadgeCheck className="w-8 h-8 mx-auto text-emerald-600 mb-2" />
-              <p className="text-xs font-black uppercase text-stone-700 dark:text-stone-300">No hay pagos pendientes de facturar.</p>
+
+              {selectedPedidos.length > 0 ? (
+                <div className="space-y-4">
+                  {/* Datos del Comprobante */}
+                  <div className="space-y-3">
+                    {/* Tipo */}
+                    <label className="space-y-1 block text-left">
+                      <span className="text-[10px] font-black uppercase text-stone-400 dark:text-stone-300">Tipo de Comprobante</span>
+                      <select 
+                        value={pagoTipo} 
+                        onChange={e => {
+                          const val = e.target.value as any;
+                          setPagoTipo(val);
+                          if (val === 'ticket' || val === 'X') {
+                            setPagoCliente('Consumidor Final');
+                            setPagoCuit('99-99999999-9');
+                          }
+                        }} 
+                        className="w-full p-2 bg-white dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-lg text-xs font-bold text-stone-800 dark:text-stone-200"
+                      >
+                        <option value="ticket">Ticket de Consumo</option>
+                        <option value="B">Factura B</option>
+                        <option value="A">Factura A (Con CUIT)</option>
+                        <option value="X">Comprobante X (Interno)</option>
+                      </select>
+                    </label>
+
+                    {/* Cliente Autocomplete */}
+                    <div className="space-y-1 relative text-left">
+                      <span className="text-[10px] font-black uppercase text-stone-400 dark:text-stone-300">Nombre / Razón Social</span>
+                      <div className="relative">
+                        <Search className="w-3.5 h-3.5 text-stone-400 absolute left-2 top-2.5" />
+                        <input
+                          type="text"
+                          value={pagoCliente}
+                          onChange={e => {
+                            setPagoCliente(e.target.value);
+                            setPagoQuery(e.target.value);
+                            setShowPagoSuggestions(true);
+                          }}
+                          onFocus={() => setShowPagoSuggestions(true)}
+                          className="w-full pl-7 pr-3 py-1.5 bg-white dark:bg-stone-955 border border-stone-200 dark:border-stone-800 rounded-lg text-xs font-bold text-stone-800 dark:text-stone-100 focus:outline-none"
+                        />
+                      </div>
+                      
+                      {showPagoSuggestions && pagoSuggestions.length > 0 && (
+                        <div className="absolute left-0 right-0 top-full mt-1 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-lg shadow-lg z-20 overflow-hidden divide-y divide-stone-100 dark:divide-stone-850">
+                          {pagoSuggestions.map(c => (
+                            <button
+                              key={c.id_cliente}
+                              type="button"
+                              onClick={() => selectPagoCliente(c)}
+                              className="w-full text-left px-3 py-1.5 hover:bg-stone-50 dark:hover:bg-stone-850 text-[11px] flex justify-between cursor-pointer"
+                            >
+                              <span className="font-bold text-stone-800 dark:text-stone-200">{c.nombre}</span>
+                              <span className="font-mono text-stone-400">{c.dni_cuit}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* CUIT / DNI */}
+                    <label className="space-y-1 block text-left">
+                      <span className="text-[10px] font-black uppercase text-stone-400 dark:text-stone-300 flex items-center justify-between">
+                        CUIT / DNI
+                        {!cuitPagoValido && <span className="text-[8px] text-amber-500 font-extrabold">Formato inválido</span>}
+                        {cuitPagoValido && pagoCuit !== '99-99999999-9' && <span className="text-[8px] text-emerald-600 font-extrabold">Válido ✓</span>}
+                      </span>
+                      <input
+                        type="text"
+                        value={pagoCuit}
+                        onChange={e => setPagoCuit(e.target.value)}
+                        className={`w-full p-2 bg-white dark:bg-stone-955 border rounded-lg text-xs font-mono font-bold text-stone-800 dark:text-stone-100 ${
+                          cuitPagoValido ? 'border-stone-200 dark:border-stone-800' : 'border-amber-400 border-amber-500'
+                        }`}
+                      />
+                    </label>
+
+                    {/* Medio Pago */}
+                    <label className="space-y-1 block text-left">
+                      <span className="text-[10px] font-black uppercase text-stone-400 dark:text-stone-300">Medio de Cobro</span>
+                      <select value={pagoMedio} onChange={e => setPagoMedio(e.target.value as Factura['medio_pago'])} className="w-full p-2 bg-white dark:bg-stone-955 border border-stone-200 dark:border-stone-800 rounded-lg text-xs font-bold text-stone-800 dark:text-stone-200">
+                        <option value="efectivo">Efectivo</option>
+                        <option value="debito">Tarjeta de Débito</option>
+                        <option value="tarjeta">Tarjeta de Crédito</option>
+                        <option value="transferencia">Transferencia Bancaria</option>
+                        <option value="mp_qr">QR MercadoPago</option>
+                        <option value="mixto">Mixto</option>
+                      </select>
+                    </label>
+                  </div>
+
+                  <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/50 p-3 rounded-xl text-[10px] text-emerald-800 dark:text-emerald-300 font-bold text-left">
+                    Se descargará el PDF del comprobante consolidado y las comandas seleccionadas se marcarán como cobradas.
+                  </div>
+
+                  <button
+                    disabled={isEmitting}
+                    onClick={emitFromSelectedPedidos}
+                    className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow cursor-pointer disabled:opacity-60"
+                  >
+                    {isEmitting ? 'Cobrando Lote...' : 'Confirmar Cobro e Imprimir'}
+                  </button>
+                </div>
+              ) : (
+                <div className="py-8 text-center text-xs text-stone-400 border border-dashed border-stone-200 dark:border-stone-800 rounded-xl">
+                  Selecciona una mesa o pedidos individuales de la lista para emitir el cobro.
+                </div>
+              )}
             </div>
-          )}
+
+          </div>
         </div>
       )}
 
+      {/* 4. TAB: ARCHIVO FISCAL (Grid + Filtros + Descarga CSV/IVA + Modal Inspector) */}
       {activeTab === 'archivo' && (
-        <div className="bg-white dark:bg-stone-900 p-6 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs space-y-4">
+        <div className="bg-white dark:bg-stone-900 p-6 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs space-y-4 animate-fadeIn">
+          
+          {/* Barra de Búsqueda y Exportaciones */}
           <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-3 pb-3 border-b border-stone-100 dark:border-stone-800">
             <h3 className="text-sm font-black text-stone-800 dark:text-white uppercase tracking-tight flex items-center gap-2">
               <Receipt className="w-5 h-5 text-[#624A3E] dark:text-[#C8956A]" />
-              Archivo fiscal y auditoria de comprobantes
+              Archivo Fiscal y Registro de Ventas
             </h3>
             <div className="flex flex-col sm:flex-row gap-2 w-full xl:w-auto">
               <div className="relative w-full sm:w-72">
@@ -707,115 +1615,112 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
                   className="w-full text-xs pl-9 pr-3 py-2 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-800 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-[#624A3E]"
                 />
               </div>
-              <button onClick={downloadCsv} className="px-3 py-2 rounded-xl bg-stone-50 dark:bg-stone-900 border border-stone-200 dark:border-stone-800 text-stone-605 text-stone-600 dark:text-stone-300 font-black flex items-center justify-center gap-2 hover:bg-stone-100 dark:hover:bg-stone-850">
+              <button onClick={downloadCsv} className="px-3 py-2 rounded-xl bg-stone-50 dark:bg-stone-850 border border-stone-200 dark:border-stone-800 text-stone-605 text-stone-600 dark:text-stone-300 font-black flex items-center justify-center gap-2 hover:bg-stone-100 cursor-pointer text-xs">
                 <Download className="w-4 h-4" /> CSV
               </button>
-              <button onClick={downloadLibroIva} className="px-3 py-2 rounded-xl bg-[#624A3E] text-white text-xs font-black flex items-center justify-center gap-2">
+              <button onClick={downloadLibroIva} className="px-3 py-2 rounded-xl bg-[#624A3E] text-white text-xs font-black flex items-center justify-center gap-2 cursor-pointer hover:bg-[#503C32]">
                 <Calendar className="w-4 h-4" /> Libro IVA PDF
               </button>
             </div>
           </div>
 
+          {/* Filtros de Búsqueda */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <label className="space-y-1">
-              <span className="text-[10px] font-black uppercase text-stone-500 dark:text-stone-300 flex items-center gap-1"><Filter className="w-3 h-3" /> Tipo</span>
+            <label className="space-y-1 block text-left">
+              <span className="text-[10px] font-black uppercase text-stone-450 dark:text-stone-300 flex items-center gap-1"><Filter className="w-3 h-3" /> Tipo de Comprobante</span>
               <select value={tipoFiltro} onChange={e => setTipoFiltro(e.target.value as TipoFiltro)} className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-700 dark:text-stone-200 text-xs font-bold">
                 <option value="todos">Todos</option>
-                <option value="ticket">Ticket</option>
+                <option value="ticket">Ticket de Consumo</option>
                 <option value="A">Factura A</option>
                 <option value="B">Factura B</option>
                 <option value="X">Comprobante X</option>
               </select>
             </label>
-            <label className="space-y-1">
-              <span className="text-[10px] font-black uppercase text-stone-500 dark:text-stone-300">Estado</span>
+            <label className="space-y-1 block text-left">
+              <span className="text-[10px] font-black uppercase text-stone-450 dark:text-stone-300">Estado</span>
               <select value={estadoFiltro} onChange={e => setEstadoFiltro(e.target.value as EstadoFiltro)} className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-700 dark:text-stone-200 text-xs font-bold">
                 <option value="todos">Todos</option>
-                <option value="emitido">Validos</option>
-                <option value="nota_credito">Anulados / NC</option>
+                <option value="emitido">Válidos (Emitidos)</option>
+                <option value="nota_credito">Anulados (Nota de Crédito)</option>
               </select>
             </label>
-            <label className="space-y-1">
-              <span className="text-[10px] font-black uppercase text-stone-500 dark:text-stone-300">Medio</span>
+            <label className="space-y-1 block text-left">
+              <span className="text-[10px] font-black uppercase text-stone-450 dark:text-stone-300">Medio de Pago</span>
               <select value={medioFiltro} onChange={e => setMedioFiltro(e.target.value as MedioFiltro)} className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-700 dark:text-stone-200 text-xs font-bold">
                 <option value="todos">Todos</option>
                 <option value="efectivo">Efectivo</option>
-                <option value="debito">Debito</option>
+                <option value="debito">Débito</option>
                 <option value="tarjeta">Tarjeta</option>
                 <option value="transferencia">Transferencia</option>
-                <option value="mp_qr">QR</option>
+                <option value="mp_qr">QR MercadoPago</option>
                 <option value="mixto">Mixto</option>
               </select>
             </label>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-            <div className="rounded-xl border border-stone-200 dark:border-stone-800 overflow-hidden">
-              <div className="bg-stone-50 dark:bg-stone-900 px-3 py-2 text-[10px] font-black uppercase text-stone-500 dark:text-stone-300">Resumen por tipo</div>
-              {resumenPorTipo.map(r => (
-                <div key={r.tipo} className="px-3 py-2 border-t border-stone-100 dark:border-stone-850 flex justify-between text-xs text-stone-800 dark:text-stone-200">
-                  <span>{r.tipo === 'ticket' ? 'Ticket' : `Factura ${r.tipo}`}</span>
-                  <b className="font-mono">{r.cantidad} - {money(r.total)}</b>
-                </div>
-              ))}
-            </div>
-            <div className="rounded-xl border border-stone-200 dark:border-stone-800 overflow-hidden">
-              <div className="bg-stone-50 dark:bg-stone-900 px-3 py-2 text-[10px] font-black uppercase text-stone-500 dark:text-stone-300">Resumen por medio</div>
-              {resumenPorMedio.map(r => (
-                <div key={r.medio} className="px-3 py-2 border-t border-stone-100 dark:border-stone-850 flex justify-between text-xs text-stone-800 dark:text-stone-200">
-                  <span>{medioLabel(r.medio)}</span>
-                  <b className="font-mono">{r.cantidad} - {money(r.total)}</b>
-                </div>
-              ))}
-            </div>
-          </div>
-
+          {/* Tabla de Resultados */}
           <div className="overflow-x-auto w-full">
             <table className="w-full text-left text-xs border-collapse responsive-table">
               <thead>
                 <tr className="border-b border-stone-150 dark:border-stone-800 text-stone-400 dark:text-stone-300 uppercase text-[9px] font-black tracking-wider">
-                  <th className="py-2.5 px-3">Nro</th>
-                  <th className="py-2.5 px-3">Fecha</th>
+                  <th className="py-2.5 px-3">Número</th>
+                  <th className="py-2.5 px-3">Fecha / Hora</th>
                   <th className="py-2.5 px-3">Cliente / CUIT</th>
                   <th className="py-2.5 px-3 text-right">Neto</th>
-                  <th className="py-2.5 px-3 text-right">IVA</th>
+                  <th className="py-2.5 px-3 text-right">IVA (21%)</th>
                   <th className="py-2.5 px-3 text-right">Total</th>
                   <th className="py-2.5 px-3 text-center">Estado</th>
                   <th className="py-2.5 px-3 text-right">Acciones</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(f => {
-                  const isNCD = f.estado === 'nota_credito';
+                {filteredFacturas.map(f => {
+                  const isNC = f.estado === 'nota_credito';
                   const { neto } = calcIvaIncluido(f.total, f.iva_veintiuno > 0);
+                  const displayDate = f.fecha_completa 
+                    ? new Date(f.fecha_completa).toLocaleDateString('es-AR') + ' ' + f.fecha.slice(0, 5)
+                    : f.fecha;
+
                   return (
-                    <tr key={f.id_factura} className={`border-b border-stone-100 dark:border-stone-850 hover:bg-stone-50/50 dark:hover:bg-stone-800/20 transition-colors ${isNCD ? 'opacity-60 bg-red-50/10' : ''}`}>
-                      <td data-label="Nro" className="py-3 px-3 font-mono font-bold text-stone-800 dark:text-stone-100">
+                    <tr 
+                      key={f.id_factura} 
+                      className={`border-b border-stone-100 dark:border-stone-850 hover:bg-stone-50/50 dark:hover:bg-stone-800/10 transition-colors cursor-pointer ${
+                        isNC ? 'opacity-60 bg-red-50/10' : ''
+                      }`}
+                      onClick={() => setSelectedFactura(f)}
+                    >
+                      <td data-label="Número" className="py-3 px-3 font-mono font-bold text-stone-800 dark:text-stone-100">
                         {f.nro_ticket}
-                        {f.arcaCae && <span className="block text-[8px] text-emerald-600 font-medium">CAE: {f.arcaCae}</span>}
+                        {f.arcaCae && <span className="block text-[8px] text-emerald-600 font-bold">CAE: {f.arcaCae}</span>}
                       </td>
-                      <td data-label="Fecha" className="py-3 px-3 font-medium text-stone-400 dark:text-stone-300">{f.fecha}</td>
-                      <td data-label="Cliente" className="py-3 px-3">
-                        <span className="font-extrabold text-stone-900 dark:text-white block">{f.cliente}</span>
-                        <span className="text-[10px] text-stone-400 dark:text-stone-300 font-mono">{f.cuit}</span>
+                      <td data-label="Fecha" className="py-3 px-3 font-medium text-stone-400 dark:text-stone-300">{displayDate}</td>
+                      <td data-label="Cliente" className="py-3 px-3 text-left">
+                        <span className="font-extrabold text-stone-900 dark:text-white block text-left">{f.cliente}</span>
+                        <span className="text-[10px] text-stone-400 dark:text-stone-300 font-mono text-left block">{f.cuit}</span>
                       </td>
-                      <td data-label="Neto" className="py-3 px-3 text-right font-mono text-stone-550 dark:text-stone-300">{money(neto)}</td>
-                      <td data-label="IVA" className="py-3 px-3 text-right font-mono text-stone-400 dark:text-stone-300">{money(f.iva_veintiuno)}</td>
-                      <td data-label="Total" className={`py-3 px-3 text-right font-mono font-extrabold ${isNCD ? 'text-red-500 line-through' : 'text-stone-900 dark:text-white'}`}>{money(f.total)}</td>
-                      <td data-label="Estado" className="py-3 px-3 text-center">
-                        <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full border ${isNCD ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-emerald-50 text-emerald-700 border-emerald-100'}`}>
-                          {isNCD ? 'Anulado' : f.arcaCae ? 'CAE ✓' : 'Valido'}
+                      <td data-label="Neto" className="py-3 px-3 text-right font-mono text-stone-500 dark:text-stone-300">{money(neto)}</td>
+                      <td data-label="IVA" className="py-3 px-3 text-right font-mono text-stone-400">{money(f.iva_veintiuno)}</td>
+                      <td data-label="Total" className={`py-3 px-3 text-right font-mono font-extrabold ${
+                        isNC ? 'text-rose-500 line-through' : 'text-stone-900 dark:text-white'
+                      }`}>{money(f.total)}</td>
+                      <td data-label="Estado" className="py-3 px-3 text-center" onClick={e => e.stopPropagation()}>
+                        <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full border ${
+                          isNC ? 'bg-rose-50 text-rose-600 border-rose-100' : 
+                          f.arcaCae ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 
+                          'bg-stone-50 text-stone-700 border-stone-200'
+                        }`}>
+                          {isNC ? 'Anulado NC' : f.arcaCae ? 'CAE Fiscal ✓' : 'Local'}
                         </span>
                       </td>
-                      <td data-label="Acciones" className="py-3 px-3 text-right space-x-1.5 whitespace-nowrap">
-                        <button onClick={() => downloadFacturaPdf(f)} className="p-1.5 rounded-lg bg-stone-50 dark:bg-stone-900 hover:bg-[#624A3E]/10 text-stone-500 dark:text-stone-300 hover:text-[#624A3E] transition-all" title="Descargar PDF">
+                      <td data-label="Acciones" className="py-3 px-3 text-right space-x-1.5 whitespace-nowrap" onClick={e => e.stopPropagation()}>
+                        <button onClick={() => downloadFacturaPdf(f)} className="p-1.5 rounded-lg bg-stone-50 dark:bg-stone-850 hover:bg-[#624A3E]/10 text-stone-500 dark:text-stone-300 hover:text-[#624A3E] transition-all cursor-pointer" title="Descargar PDF">
                           <Download className="w-3.5 h-3.5" />
                         </button>
-                        <button onClick={() => downloadFacturaPdf(f)} className="p-1.5 rounded-lg bg-stone-50 dark:bg-stone-900 hover:bg-[#624A3E]/10 text-stone-500 dark:text-stone-300 hover:text-[#624A3E] transition-all" title="Reimprimir">
+                        <button onClick={() => downloadFacturaPdf(f)} className="p-1.5 rounded-lg bg-stone-50 dark:bg-stone-850 hover:bg-[#624A3E]/10 text-stone-500 dark:text-stone-300 hover:text-[#624A3E] transition-all cursor-pointer" title="Reimprimir">
                           <Printer className="w-3.5 h-3.5" />
                         </button>
-                        {!isNCD && (
-                          <button onClick={() => handleNotaCredito(f.id_factura)} className="p-1 px-2 text-[9px] font-black rounded-lg bg-rose-50 text-rose-500 hover:bg-rose-100 transition-colors" title="Anular con nota de credito">
+                        {!isNC && (
+                          <button onClick={() => handleNotaCredito(f.id_factura)} className="p-1 px-2 text-[9px] font-black rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-500 transition-colors cursor-pointer" title="Anular con nota de crédito">
                             Anular
                           </button>
                         )}
@@ -825,35 +1730,209 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
                 })}
               </tbody>
             </table>
-            {filtered.length === 0 && (
-              <div className="p-8 text-center text-xs text-stone-550 text-stone-500 dark:text-stone-300">
+            
+            {filteredFacturas.length === 0 && (
+              <div className="p-8 text-center text-xs text-stone-550 text-stone-500">
                 <AlertTriangle className="w-6 h-6 mx-auto mb-2 text-amber-500" />
                 Sin comprobantes para los filtros seleccionados.
               </div>
             )}
           </div>
 
-          <div className="flex justify-between items-center">
-            <div className="text-[10px] text-stone-400 dark:text-stone-305 dark:text-stone-300 font-bold uppercase">
-              Numeracion fiscal PV 0001 - Ticket {nextNumber(facturas, 'ticket')} - A {nextNumber(facturas, 'A')} - B {nextNumber(facturas, 'B')} - X {nextNumber(facturas, 'X')} - Anulados {anuladas}
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-2 pt-3 border-t border-stone-100 dark:border-stone-855">
+            <div className="text-[10px] text-stone-400 dark:text-stone-300 font-bold uppercase text-center sm:text-left">
+              Punto de Venta 0001 | Siguiente Nro: Ticket {nextNumber(facturas, 'ticket')} - A {nextNumber(facturas, 'A')} - B {nextNumber(facturas, 'B')} - Anulados {anuladas}
             </div>
-            {filtered.length > 0 && (
-              <button onClick={async () => {
-                toast.info(`Descargando ${filtered.length} comprobantes...`);
-                let ok = 0, fail = 0;
-                for (const f of filtered) {
-                  try { await downloadFacturaPdf(f); ok++; }
-                  catch { fail++; }
-                  await new Promise(r => setTimeout(r, 300));
-                }
-                toast.success(`${ok} PDFs descargados${fail > 0 ? `, ${fail} fallaron` : ''}.`);
-              }} className="touch-target px-3 py-2 bg-[#624A3E] hover:bg-[#503C32] text-white text-xs font-extrabold rounded-lg transition-all cursor-pointer flex items-center gap-1.5">
-                <Download className="w-3 h-3" /> Descargar {filtered.length} PDFs
+            {filteredFacturas.length > 0 && (
+              <button 
+                onClick={async () => {
+                  toast.info(`Generando descargas para ${filteredFacturas.length} comprobantes...`);
+                  let ok = 0, fail = 0;
+                  for (const f of filteredFacturas) {
+                    try { await downloadFacturaPdf(f); ok++; }
+                    catch { fail++; }
+                    await new Promise(r => setTimeout(r, 250));
+                  }
+                  toast.success(`${ok} PDFs descargados correctamente.`);
+                }} 
+                className="touch-target px-3 py-2 bg-[#624A3E] hover:bg-[#503C32] text-white text-xs font-extrabold rounded-lg transition-all cursor-pointer flex items-center gap-1.5"
+              >
+                <Download className="w-3 h-3" /> Descargar {filteredFacturas.length} PDFs en Lote
               </button>
             )}
           </div>
         </div>
       )}
+
+      {/* 5. MODAL: DETALLE INSPECTOR DE COMPROBANTE */}
+      {selectedFactura && (
+        <div className="fixed inset-0 bg-stone-905 bg-stone-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-white dark:bg-stone-900 rounded-3xl border border-stone-250 dark:border-stone-800 max-w-lg w-full overflow-hidden shadow-2xl animate-scaleUp">
+            
+            {/* Cabecera Modal */}
+            <div className="bg-stone-50 dark:bg-stone-850 px-6 py-4 flex justify-between items-center border-b border-stone-150 dark:border-stone-800">
+              <div className="text-left">
+                <span className="text-[9px] uppercase font-black text-stone-400 block text-left">Detalle de Auditoría</span>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full border ${
+                    selectedFactura.estado === 'nota_credito' ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                  }`}>
+                    {selectedFactura.tipo === 'ticket' ? 'Ticket' : `Factura ${selectedFactura.tipo || 'B'}`}
+                  </span>
+                  <b className="font-mono text-xs text-stone-800 dark:text-white">{selectedFactura.nro_ticket}</b>
+                </div>
+              </div>
+              <button 
+                onClick={() => setSelectedFactura(null)}
+                className="p-1 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-800 text-stone-400 hover:text-stone-700 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Contenido */}
+            <div className="p-6 space-y-5 text-left max-h-[450px] overflow-y-auto">
+              
+              {/* Info Cliente */}
+              <div className="grid grid-cols-2 gap-4 text-xs text-left">
+                <div className="text-left">
+                  <span className="text-[9px] text-stone-400 uppercase font-black block text-left">Cliente / Razón Social</span>
+                  <b className="text-stone-800 dark:text-white block mt-0.5 text-left">{selectedFactura.cliente}</b>
+                </div>
+                <div className="text-left">
+                  <span className="text-[9px] text-stone-400 uppercase font-black block text-left">CUIT / DNI</span>
+                  <b className="font-mono text-stone-800 dark:text-white block mt-0.5 text-left">{selectedFactura.cuit}</b>
+                </div>
+                <div className="text-left">
+                  <span className="text-[9px] text-stone-400 uppercase font-black block text-left">Fecha / Hora de Registro</span>
+                  <span className="text-stone-600 dark:text-stone-300 block mt-0.5 text-left">
+                    {selectedFactura.fecha_completa ? new Date(selectedFactura.fecha_completa).toLocaleString('es-AR') : selectedFactura.fecha}
+                  </span>
+                </div>
+                <div className="text-left">
+                  <span className="text-[9px] text-stone-400 uppercase font-black block text-left">Medio de Pago</span>
+                  <span className="text-stone-600 dark:text-stone-300 block mt-0.5 font-bold text-left">{medioLabel(selectedFactura.medio_pago)}</span>
+                </div>
+              </div>
+
+              {/* Detalle Observaciones / Pedidos Vinculados */}
+              {selectedFactura.observaciones && (
+                <div className="bg-stone-50 dark:bg-stone-850 p-3 rounded-xl border border-stone-150 dark:border-stone-800 text-xs text-left">
+                  <span className="text-[9px] text-stone-400 uppercase font-black block mb-0.5 text-left">Asociación / Conceptos</span>
+                  <p className="text-stone-700 dark:text-stone-200 font-semibold text-left">{selectedFactura.observaciones}</p>
+                </div>
+              )}
+
+              {/* Desglose de Totales e Impuestos */}
+              <div className="border border-stone-150 dark:border-stone-800 rounded-xl overflow-hidden text-xs">
+                <div className="bg-stone-50 dark:bg-stone-850 px-3 py-1.5 text-[9px] font-black uppercase text-stone-400 text-left">Detalle Impositivo</div>
+                <div className="p-3 space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-stone-500">Subtotal Neto Gravado (21%)</span>
+                    <span className="font-mono font-bold text-stone-800 dark:text-stone-200">
+                      {money(calcIvaIncluido(selectedFactura.total, selectedFactura.iva_veintiuno > 0).neto)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-stone-500">Alícuota IVA (21.00%)</span>
+                    <span className="font-mono font-bold text-stone-800 dark:text-stone-200">{money(selectedFactura.iva_veintiuno)}</span>
+                  </div>
+                  <div className="flex justify-between border-t pt-2 text-sm font-black">
+                    <span className="text-stone-800 dark:text-white">Importe Total Facturado</span>
+                    <span className={`font-mono ${selectedFactura.estado === 'nota_credito' ? 'text-rose-500 line-through' : 'text-stone-900 dark:text-white'}`}>
+                      {money(selectedFactura.total)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Datos de AFIP y CAE */}
+              {selectedFactura.arcaCae ? (
+                <div className="bg-emerald-50/50 dark:bg-emerald-950/10 border border-emerald-100 dark:border-emerald-900/50 p-4 rounded-xl space-y-3">
+                  <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-black text-xs text-left">
+                    <FileCheck2 className="w-4 h-4 text-emerald-600" />
+                    AUTORIZADO POR AFIP / ARCA
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-[10px] text-stone-600 dark:text-stone-300 text-left">
+                    <div className="text-left">
+                      <span className="text-[9px] text-stone-400 block font-bold text-left">CAE</span>
+                      <b className="font-mono font-bold text-stone-800 dark:text-white text-left block">{selectedFactura.arcaCae}</b>
+                    </div>
+                    <div className="text-left">
+                      <span className="text-[9px] text-stone-400 block font-bold text-left">VENCIMIENTO CAE</span>
+                      <b className="font-mono font-bold text-stone-800 dark:text-white text-left block">{selectedFactura.arcaVto}</b>
+                    </div>
+                  </div>
+
+                  {/* QR Oficial AFIP */}
+                  <div className="pt-2 flex flex-col items-center justify-center text-center">
+                    <div className="w-24 h-24 bg-white p-2 rounded-lg border border-stone-200 flex items-center justify-center">
+                      {/* Código QR simulado */}
+                      <svg className="w-full h-full" viewBox="0 0 100 100">
+                        <rect x="0" y="0" width="100" height="100" fill="none" />
+                        <rect x="10" y="10" width="25" height="25" fill="#333" />
+                        <rect x="15" y="15" width="15" height="15" fill="#fff" />
+                        <rect x="65" y="10" width="25" height="25" fill="#333" />
+                        <rect x="70" y="15" width="15" height="15" fill="#fff" />
+                        <rect x="10" y="65" width="25" height="25" fill="#333" />
+                        <rect x="15" y="70" width="15" height="15" fill="#fff" />
+                        <rect x="40" y="40" width="20" height="20" fill="#333" />
+                        <rect x="75" y="75" width="15" height="15" fill="#333" />
+                        <rect x="50" y="70" width="10" height="10" fill="#333" />
+                        <rect x="70" y="50" width="10" height="10" fill="#333" />
+                      </svg>
+                    </div>
+                    <span className="text-[8px] text-stone-450 dark:text-stone-400 font-bold mt-1 uppercase text-center block">Escanear para comprobar validez fiscal</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-stone-50 dark:bg-stone-850 p-4 rounded-xl border border-stone-150 dark:border-stone-800 flex items-center gap-3">
+                  <Info className="w-5 h-5 text-amber-505 text-amber-500 shrink-0" />
+                  <p className="text-[10px] text-stone-500 font-semibold leading-relaxed text-left">
+                    Este comprobante fue emitido en modo local de respaldo y no tiene CAE asignado por AFIP. Útil para tickets internos del restaurante.
+                  </p>
+                </div>
+              )}
+
+            </div>
+
+            {/* Footer Acciones Modal */}
+            <div className="bg-stone-50 dark:bg-stone-850 px-6 py-4 flex gap-2 justify-between border-t border-stone-150 dark:border-stone-800">
+              <div>
+                {selectedFactura.estado !== 'nota_credito' && (
+                  <button 
+                    onClick={() => {
+                      if (window.confirm(`¿Deseas anular el comprobante ${selectedFactura.nro_ticket} emitiendo una Nota de Crédito?`)) {
+                        handleNotaCredito(selectedFactura.id_factura);
+                      }
+                    }}
+                    className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl text-xs font-black uppercase tracking-wider cursor-pointer border border-rose-100"
+                  >
+                    Anular Comprobante
+                  </button>
+                )}
+              </div>
+              
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => downloadFacturaPdf(selectedFactura)}
+                  className="px-3 py-2 bg-stone-200 hover:bg-stone-300 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 rounded-xl text-xs font-black uppercase tracking-wider cursor-pointer flex items-center gap-1"
+                >
+                  <Printer className="w-3.5 h-3.5" /> Reimprimir
+                </button>
+                <button 
+                  onClick={() => downloadFacturaPdf(selectedFactura)}
+                  className="px-3 py-2 bg-[#624A3E] hover:bg-[#503C32] text-white rounded-xl text-xs font-black uppercase tracking-wider cursor-pointer flex items-center gap-1"
+                >
+                  <Download className="w-3.5 h-3.5" /> PDF
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>
   );

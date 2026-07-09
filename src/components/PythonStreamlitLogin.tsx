@@ -135,8 +135,8 @@ export default function PythonStreamlitLogin({ onLoginSuccess, onBackToCover }: 
 
   return (
     <div className="min-h-screen bg-[#F5F1E9] text-stone-850 font-sans flex items-center justify-center p-4 relative overflow-hidden" id="pos-login-container">
-      <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-[#6B4A35]/5 blur-3xl" />
-      <div className="absolute bottom-[-25%] right-[-10%] w-[60%] h-[60%] rounded-full bg-[#4A2D1B]/5 blur-3xl" />
+      <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-[#B97F47]/5 blur-3xl" />
+      <div className="absolute bottom-[-25%] right-[-10%] w-[60%] h-[60%] rounded-full bg-[#8C6239]/5 blur-3xl" />
 
       <div className="max-w-md w-full bg-[#FFFDF8] rounded-3xl border border-stone-150 shadow-xl shadow-stone-200/40 p-6 sm:p-8 md:p-10 space-y-8 relative z-10">
         {onBackToCover && (
@@ -150,7 +150,7 @@ export default function PythonStreamlitLogin({ onLoginSuccess, onBackToCover }: 
         <div className="text-center space-y-4 flex flex-col items-center">
           <ElPatronLogo className="w-32 h-32 sm:w-36 sm:h-36 drop-shadow-md" variant="badge" />
           <div className="space-y-1">
-            <h1 className="text-2xl font-bold text-[#4A2D1B] tracking-wide font-serif-rustic">El Patrón Pro</h1>
+            <h1 className="text-2xl font-bold text-[#8C6239] tracking-wide font-serif-rustic">El Patrón Pro</h1>
             <p className="text-[10px] uppercase font-bold text-[#9B2226] tracking-widest font-display-serif">
               Sistema Gestor Gastronómico
             </p>
@@ -162,7 +162,7 @@ export default function PythonStreamlitLogin({ onLoginSuccess, onBackToCover }: 
 
         {isLoggingIn ? (
           <div className="py-12 flex flex-col items-center justify-center space-y-4 animate-fadeIn" aria-live="polite">
-            <Loader2 className="w-10 h-10 text-[#4A2D1B] animate-spin" />
+            <Loader2 className="w-10 h-10 text-[#8C6239] animate-spin" />
             <div className="text-center">
               <h3 className="font-bold text-stone-800 text-sm">Iniciando sesión...</h3>
               <p className="text-[11px] text-stone-400">Preparando el sistema</p>
@@ -184,7 +184,7 @@ export default function PythonStreamlitLogin({ onLoginSuccess, onBackToCover }: 
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   placeholder="Ingresá tu usuario o email"
-                  className="w-full py-3 pl-10 pr-4 bg-stone-50 border border-stone-200 rounded-xl text-sm text-stone-800 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-[#4A2D1B]/20 focus:border-[#4A2D1B] transition-all"
+                  className="w-full py-3 pl-10 pr-4 bg-stone-50 border border-stone-200 rounded-xl text-sm text-stone-800 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-[#8C6239]/20 focus:border-[#8C6239] transition-all"
                   autoFocus
                 />
               </div>
@@ -203,7 +203,7 @@ export default function PythonStreamlitLogin({ onLoginSuccess, onBackToCover }: 
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   placeholder="Ingresá tu contraseña"
-                  className="w-full py-3 pl-10 pr-10 bg-stone-50 border border-stone-200 rounded-xl text-sm text-stone-800 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-[#4A2D1B]/20 focus:border-[#4A2D1B] transition-all"
+                  className="w-full py-3 pl-10 pr-10 bg-stone-50 border border-stone-200 rounded-xl text-sm text-stone-800 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-[#8C6239]/20 focus:border-[#8C6239] transition-all"
                 />
                 <button
                   type="button"
@@ -226,7 +226,7 @@ export default function PythonStreamlitLogin({ onLoginSuccess, onBackToCover }: 
             <button
               type="submit"
               disabled={isLoggingIn}
-              className="w-full py-4 px-4 bg-[#4A2D1B] hover:bg-[#6B4A35] disabled:opacity-60 disabled:cursor-not-allowed active:scale-[0.98] text-white font-extrabold rounded-xl text-sm uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md shadow-[#4A2D1B]/10"
+              className="w-full py-4 px-4 bg-[#8C6239] hover:bg-[#B97F47] disabled:opacity-60 disabled:cursor-not-allowed active:scale-[0.98] text-stone-950 font-extrabold rounded-xl text-sm uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md shadow-[#8C6239]/10"
             >
               <span>Iniciar sesión</span>
               <ArrowRight className="w-5 h-5" />
@@ -236,7 +236,7 @@ export default function PythonStreamlitLogin({ onLoginSuccess, onBackToCover }: 
               <button
                 type="button"
                 onClick={() => setShowDiagnostics(true)}
-                className="text-xs font-semibold text-stone-500 hover:text-[#4A2D1B] hover:underline transition-all cursor-pointer flex items-center justify-center gap-1 mx-auto"
+                className="text-xs font-semibold text-stone-500 hover:text-[#8C6239] hover:underline transition-all cursor-pointer flex items-center justify-center gap-1 mx-auto"
               >
                 🔧 ¿Problemas de conexión? Ejecutar diagnóstico
               </button>
@@ -245,7 +245,7 @@ export default function PythonStreamlitLogin({ onLoginSuccess, onBackToCover }: 
                 <button
                   type="button"
                   onClick={onBackToCover}
-                  className="text-xs font-bold text-[#4A2D1B] hover:text-[#9B2226] hover:underline transition-all cursor-pointer flex items-center justify-center gap-1 mx-auto font-display-serif"
+                  className="text-xs font-bold text-[#8C6239] hover:text-[#9B2226] hover:underline transition-all cursor-pointer flex items-center justify-center gap-1 mx-auto font-display-serif"
                 >
                   ← Volver al Menú Publicitario
                 </button>

@@ -167,13 +167,13 @@ export default function KitchenMonitor({
     }
 
     const headerTheme = {
-      pendiente: 'bg-[#4A2D1B]/90 text-[#FAF7F0]',
+      pendiente: 'bg-[#8C6239]/90 text-[#FAF7F0]',
       en_cocina: 'bg-[#a0522d]/90 text-[#FAF7F0]',
       listo: 'bg-[#2e8b57]/90 text-[#FAF7F0]'
     }[estado];
 
     const btnTheme = {
-      pendiente: 'bg-[#4A2D1B] hover:bg-[#5d3a2e] text-[#FAF7F0] border-[#C8956A]/30 transition-all hover:scale-[1.02] active:scale-95 duration-200',
+      pendiente: 'bg-[#8C6239] hover:bg-[#5d3a2e] text-[#FAF7F0] border-[#C8956A]/30 transition-all hover:scale-[1.02] active:scale-95 duration-200',
       en_cocina: 'bg-[#a0522d] hover:bg-[#b85f34] text-[#FAF7F0] border-[#C8956A]/30 transition-all hover:scale-[1.02] active:scale-95 duration-200',
       listo: 'bg-[#2e8b57] hover:bg-[#37a369] text-[#FAF7F0] border-[#2e8b57]/30 transition-all hover:scale-[1.02] active:scale-95 duration-200'
     }[estado];
@@ -229,7 +229,7 @@ export default function KitchenMonitor({
                 <span className="text-lg font-black text-[#a0522d] dark:text-[#E8B800] font-mono shrink-0">
                   {it.cantidad}x
                 </span>
-                <span className="flex-1 font-bold text-[#4b3621] dark:text-stone-100 text-sm leading-snug truncate">
+                <span className="flex-1 font-bold text-[#4b3621] dark:text-stone-100 text-sm leading-snug break-words whitespace-normal">
                   {it.nombre}
                 </span>
                 <button
@@ -245,7 +245,7 @@ export default function KitchenMonitor({
                 >
                   <BookOpen className="w-3.5 h-3.5" />
                 </button>
-                <span className="text-[9px] uppercase font-black tracking-wider text-[#4b3621]/80 dark:text-stone-300 bg-[#e2dabf]/60 dark:bg-[#4A2D1B]/40 px-2 py-0.5 rounded-md shrink-0">
+                <span className="text-[9px] uppercase font-black tracking-wider text-[#4b3621]/80 dark:text-stone-300 bg-[#e2dabf]/60 dark:bg-[#8C6239]/40 px-2 py-0.5 rounded-md shrink-0">
                   {isBarItem(it) ? 'BAR' : 'FUEGO'}
                 </span>
               </div>
@@ -253,7 +253,7 @@ export default function KitchenMonitor({
           </div>
 
           {p.observaciones && (
-            <div className="bg-[#FAF7F0] dark:bg-[#4A2D1B]/40 text-[#4b3621] dark:text-stone-200 text-xs p-3 rounded-xl border border-stone-200/50 dark:border-stone-800/40 italic font-medium leading-relaxed">
+            <div className="bg-[#FAF7F0] dark:bg-[#8C6239]/40 text-[#4b3621] dark:text-stone-200 text-xs p-3 rounded-xl border border-stone-200/50 dark:border-stone-800/40 italic font-medium leading-relaxed">
               <strong className="text-[10px] uppercase font-black tracking-wider text-[#a0522d] dark:text-[#E8B800] not-italic block mb-0.5">
                 ⚠️ Observación:
               </strong>
@@ -334,7 +334,7 @@ export default function KitchenMonitor({
             {icon}
             {title}
           </h4>
-          <span className="bg-[#4A2D1B] text-[#FAF7F0] text-[11px] font-black font-mono w-6 h-6 rounded-full flex items-center justify-center shadow-sm">
+          <span className="bg-[#8C6239] text-[#FAF7F0] text-[11px] font-black font-mono w-6 h-6 rounded-full flex items-center justify-center shadow-sm">
             {orders.length}
           </span>
         </div>
@@ -360,7 +360,7 @@ export default function KitchenMonitor({
       <div className="glass-panel rounded-[20px] p-5 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-4 border-b border-stone-200/30 dark:border-stone-800/40">
           <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-xl bg-[#4A2D1B] text-[#FAF7F0] flex items-center justify-center text-xl shadow-sm border border-stone-200/30">
+            <div className="w-10 h-10 rounded-xl bg-[#8C6239] text-[#FAF7F0] flex items-center justify-center text-xl shadow-sm border border-stone-200/30">
               📋
             </div>
             <div className="min-w-0">
@@ -368,13 +368,13 @@ export default function KitchenMonitor({
               <p className="text-xs text-[#4b3621]/70 dark:text-stone-300 font-semibold">Consolidado de preparaciones activas en fuegos.</p>
             </div>
           </div>
-          <span className="bg-[#4A2D1B] text-[#FAF7F0] text-xs font-black py-1 px-3 rounded-full shadow-sm w-fit border border-[#FAF7F0]/10">
+          <span className="bg-[#8C6239] text-[#FAF7F0] text-xs font-black py-1 px-3 rounded-full shadow-sm w-fit border border-[#FAF7F0]/10">
             {batchProduction.reduce((sum, item) => sum + item.cantidad, 0)} UNIDADES
           </span>
         </div>
 
         {batchProduction.length === 0 ? (
-          <p className="text-xs text-[#4b3621]/60 dark:text-stone-400 italic text-center py-3 bg-[#e2dabf]/30 dark:bg-[#4A2D1B]/20 rounded-xl">
+          <p className="text-xs text-[#4b3621]/60 dark:text-stone-400 italic text-center py-3 bg-[#e2dabf]/30 dark:bg-[#8C6239]/20 rounded-xl">
             No hay comida activa en la línea de fuegos.
           </p>
         ) : (
@@ -384,7 +384,7 @@ export default function KitchenMonitor({
                 key={idx}
                 className="btn-premium-secondary rounded-xl px-4 py-2.5 flex items-center gap-3 text-sm font-black shadow-sm"
               >
-                <span className="bg-[#4A2D1B] text-[#FAF7F0] text-[11px] font-black w-7 h-7 rounded-full flex items-center justify-center">
+                <span className="bg-[#8C6239] text-[#FAF7F0] text-[11px] font-black w-7 h-7 rounded-full flex items-center justify-center">
                   {item.cantidad}
                 </span>
                 <span className="text-[#4b3621] dark:text-[#FAF7F0]">{item.nombre}</span>
@@ -438,7 +438,7 @@ export default function KitchenMonitor({
           'pendiente',
           'Pendientes (Ingresos)',
           <CircleDot className="w-4 h-4 text-[#a0522d]" />,
-          'bg-[#4A2D1B]/10 dark:bg-[#4A2D1B]/30 border-[#a0522d]/60',
+          'bg-[#8C6239]/10 dark:bg-[#8C6239]/30 border-[#a0522d]/60',
           ordersPendientes
         )}
         {renderColumn(

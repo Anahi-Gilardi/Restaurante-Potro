@@ -107,7 +107,7 @@ export default function MobileNav({
           title="Cerrar Sesión / Ir al Login"
         >
           <div className="w-7 h-7 bg-white/80 rounded-lg flex items-center justify-center p-0.5 border border-[#A67550]/40 overflow-hidden shrink-0 relative">
-            <ElPatronLogo className="w-6 h-6 object-contain rounded" variant="icon" color="#4A2D1B" />
+            <ElPatronLogo className="w-6 h-6 object-contain rounded" variant="icon" color="#8C6239" />
             <span className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-white ${
               isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
             }`} />
@@ -152,7 +152,7 @@ export default function MobileNav({
                 title="Cerrar Sesión / Ir al Login"
               >
                 <div className="w-9 h-9 bg-white/80 rounded-lg flex items-center justify-center p-0.5 border border-[#A67550]/40 overflow-hidden shrink-0 relative">
-                  <ElPatronLogo className="w-8 h-8 object-contain rounded" variant="icon" color="#4A2D1B" />
+                  <ElPatronLogo className="w-8 h-8 object-contain rounded" variant="icon" color="#8C6239" />
                   <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border border-white ${
                     isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
                   }`} />
@@ -226,7 +226,7 @@ export default function MobileNav({
                   <button
                     key={item.id}
                     onClick={() => handleNavigate(item.id)}
-                    className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all cursor-pointer ${isActive ? 'bg-[#4A2D1B] text-white shadow-sm' : 'text-[#3B1F10]/65 hover:text-[#3B1F10] hover:bg-[#B07A48]/35'}`}
+                    className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all cursor-pointer ${isActive ? 'bg-[#8C6239] text-white shadow-sm' : 'text-[#3B1F10]/65 hover:text-[#3B1F10] hover:bg-[#B07A48]/35'}`}
                   >
                     <span className="text-base shrink-0 leading-none">{item.icon}</span>
                     <span className="text-[13px] font-bold tracking-wide leading-none">{item.label}</span>

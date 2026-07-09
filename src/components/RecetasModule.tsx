@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import { ChefHat, Hammer, Tag, Plus, Scale, Search, Trash, Edit2, Check, X, Camera } from 'lucide-react';
+import { ChefHat, Hammer, Tag, Plus, Scale, Search, Trash, Edit2, Check, X, Camera, Play, ArrowLeft, ArrowRight, Clock, Copy, Maximize2 } from 'lucide-react';
 import { RecetaEscandallo, ProductoMenu, Insumo, EventoLog } from '../types';
 import { recetasService } from '../services/recetasService';
 import { menuService } from '../services/menuService';
@@ -253,88 +253,96 @@ export default function RecetasModule({
     const [localRecetas, setLocalRecetas]       = useState<RecetaEscandallo[]>(recetas);
     const [pendingAction, setPendingAction]     = useState<string | null>(null);
 
-  // Edición inline de cantidad y rendimiento
-  const [editCantidadId, setEditCantidadId]       = useState<string | null>(null);
+    // Edición inline de cantidad y rendimiento
+    const [editCantidadId, setEditCantidadId]       = useState<string | null>(null);
     const [editCantidadValue, setEditCantidadValue] = useState('');
     const [editRendimientoValue, setEditRendimientoValue] = useState('100');
 
-  // Nuevo ingrediente
-  const [selectedInsumoId, setSelectedInsumoId] = useState('');
+    // Nuevo ingrediente
+    const [selectedInsumoId, setSelectedInsumoId] = useState('');
     const [cantidadUsar, setCantidadUsar]           = useState('');
     const [rendimientoUsar, setRendimientoUsar]   = useState('100');
 
-  // Simulador e Ingeniería de Menú
-  const [targetMarginInput, setTargetMarginInput] = useState('70');
-  const [portionsInput, setPortionsInput] = useState('10');
+    // Simulador e Ingeniería de Menú
+    const [targetMarginInput, setTargetMarginInput] = useState('70');
+    const [portionsInput, setPortionsInput] = useState('10');
 
-  useEffect(() => { setLocalRecetas(recetas); }, [recetas]);
+    // Modo Cocinero Pantalla Completa
+    const [isKitchenMode, setIsKitchenMode] = useState(false);
+    const [kitchenStepIdx, setKitchenStepIdx] = useState(0);
+
+    // Temporizador propio del Modo Cocina
+    const [kitchenTimeLeft, setKitchenTimeLeft] = useState<number | null>(null);
+    const [kitchenTimerRunning, setKitchenTimerRunning] = useState(false);
+    const kitchenTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+
+    useEffect(() => { setLocalRecetas(recetas); }, [recetas]);
   
-  // Limpiar imagen pendiente al cambiar de plato
-  useEffect(() => {
-    setPendingImage(null);
-  }, [activeTabRecipe]);
+    // Limpiar imagen pendiente al cambiar de plato
+    useEffect(() => {
+      setPendingImage(null);
+    }, [activeTabRecipe]);
 
-  // Asegura que el tab activo siga siendo válido si cambia el menú
-  useEffect(() => {
+    // Asegura que el tab activo siga siendo válido si cambia el menú
+    useEffect(() => {
         if (!productosMenu.some(p => p.id_producto === activeTabRecipe)) {
                 setActiveTabRecipe(productosMenu[0]?.id_producto ?? '');
         }
-  }, [productosMenu, activeTabRecipe]);
+    }, [productosMenu, activeTabRecipe]);
 
-  const filteredProducts = useMemo(
+    const filteredProducts = useMemo(
         () => productosMenu.filter(p => p.nombre.toLowerCase().includes(searchProduct.toLowerCase())),
         [productosMenu, searchProduct]
-      );
+    );
     const currentRecipeItems = useMemo(
         () => getRecipeItemsForProduct(localRecetas, activeTabRecipe),
         [localRecetas, activeTabRecipe]
-      );
+    );
     const recipeCountByProduct = useMemo(
         () => countRecipeItemsByProduct(localRecetas),
         [localRecetas]
-      );
+    );
 
-  // Costo total calculado desde costo_unitario real del insumo
-  const calculatedCost = useMemo(
+    // Costo total calculado desde costo_unitario real del insumo
+    const calculatedCost = useMemo(
         () => calculateRecipeCost(currentRecipeItems, insumos),
         [currentRecipeItems, insumos]
-      );
+    );
 
-  // Margen estimado del plato seleccionado
-  const marginPct = useMemo(() => {
+    // Margen estimado del plato seleccionado
+    const marginPct = useMemo(() => {
         return calculateMarginPct(selectedProduct, calculatedCost);
-  }, [selectedProduct, calculatedCost]);
-  const marginLevel = getMarginLevel(marginPct);
+    }, [selectedProduct, calculatedCost]);
+    const marginLevel = getMarginLevel(marginPct);
 
-  // ── Agregar ingrediente ───────────────────────────────────────────────────
-  const handleAddIngredient = useCallback(async (e: React.FormEvent) => {
+    // ── Agregar ingrediente ───────────────────────────────────────────────────
+    const handleAddIngredient = useCallback(async (e: React.FormEvent) => {
         e.preventDefault();
         if (pendingAction || !selectedInsumoId || !cantidadUsar || !activeTabRecipe) return;
 
-                                              const parsedCantidad = parsePositiveQuantity(cantidadUsar);
+        const parsedCantidad = parsePositiveQuantity(cantidadUsar);
         if (parsedCantidad === null) {
                 toast.error('La cantidad debe ser un número positivo.');
                 return;
         }
 
-                                              const parsedRendimiento = parsePositiveQuantity(rendimientoUsar) ?? 100;
+        const parsedRendimiento = parsePositiveQuantity(rendimientoUsar) ?? 100;
         if (parsedRendimiento <= 0 || parsedRendimiento > 100) {
                 toast.error('El rendimiento debe estar entre 1% y 100%.');
                 return;
         }
 
-                                              const matchedIn = insumos.find(i => i.id_insumo === selectedInsumoId);
+        const matchedIn = insumos.find(i => i.id_insumo === selectedInsumoId);
         if (!matchedIn) return;
 
-                                              // No permitir duplicar el mismo insumo en la misma receta
-                                              if (recipeContainsIngredient(localRecetas, activeTabRecipe, selectedInsumoId)) {
-                                                      toast.warning(`"${matchedIn.nombre}" ya está en esta receta. Editá la cantidad existente.`);
-                                                      return;
-                                              }
+        if (recipeContainsIngredient(localRecetas, activeTabRecipe, selectedInsumoId)) {
+                toast.warning(`"${matchedIn.nombre}" ya está en esta receta. Editá la cantidad existente.`);
+                return;
+        }
 
-                                              const newRec = buildRecipeDraft(activeTabRecipe, matchedIn, parsedCantidad, parsedRendimiento);
+        const newRec = buildRecipeDraft(activeTabRecipe, matchedIn, parsedCantidad, parsedRendimiento);
 
-                                              const previous = localRecetas;
+        const previous = localRecetas;
         setPendingAction('add');
         const next = [...localRecetas, newRec];
         setLocalRecetas(next);
@@ -343,28 +351,28 @@ export default function RecetasModule({
         setRendimientoUsar('100');
         setSelectedInsumoId('');
 
-                                              try {
-                                                      await recetasService.create(newRec);
-                                                      toast.success(`"${matchedIn.nombre}" agregado a la receta.`);
-                                                      addLog('sistema', `ESCANDALLO: Agregado "${matchedIn.nombre}" (${parsedCantidad} ${matchedIn.unidad_medida}) con rendimiento ${parsedRendimiento}% a "${selectedProduct?.nombre}".`);
-                                              } catch {
-                                                      setLocalRecetas(previous);
-                                                      onRecetasChange(previous);
-                                                      toast.error('No se pudo guardar el ingrediente. Se revirtió el cambio.');
-                                              } finally {
-                                                      setPendingAction(null);
-                                              }
-  }, [pendingAction, selectedInsumoId, cantidadUsar, rendimientoUsar, activeTabRecipe, insumos, localRecetas, onRecetasChange, selectedProduct, addLog, toast]);
+        try {
+                await recetasService.create(newRec);
+                toast.success(`"${matchedIn.nombre}" agregado a la receta.`);
+                addLog('sistema', `ESCANDALLO: Agregado "${matchedIn.nombre}" (${parsedCantidad} ${matchedIn.unidad_medida}) con rendimiento ${parsedRendimiento}% a "${selectedProduct?.nombre}".`);
+        } catch {
+                setLocalRecetas(previous);
+                onRecetasChange(previous);
+                toast.error('No se pudo guardar el ingrediente. Se revirtió el cambio.');
+        } finally {
+                setPendingAction(null);
+        }
+    }, [pendingAction, selectedInsumoId, cantidadUsar, rendimientoUsar, activeTabRecipe, insumos, localRecetas, onRecetasChange, selectedProduct, addLog, toast]);
 
-  // ── Iniciar edición de cantidad ───────────────────────────────────────────
-  const handleStartEditCantidad = (rec: RecetaEscandallo) => {
+    // ── Iniciar edición de cantidad ───────────────────────────────────────────
+    const handleStartEditCantidad = (rec: RecetaEscandallo) => {
         setEditCantidadId(rec.id_receta);
         setEditCantidadValue(String(rec.cantidad_a_descontar));
         setEditRendimientoValue(String(rec.rendimiento ?? 100));
-  };
+    };
 
-  // ── Guardar edición de cantidad ───────────────────────────────────────────
-  const handleSaveEditCantidad = useCallback(async (rec: RecetaEscandallo) => {
+    // ── Guardar edición de cantidad ───────────────────────────────────────────
+    const handleSaveEditCantidad = useCallback(async (rec: RecetaEscandallo) => {
         if (pendingAction) return;
         const parsed = parsePositiveQuantity(editCantidadValue);
         if (parsed === null) {
@@ -383,7 +391,7 @@ export default function RecetasModule({
                 return;
         }
 
-                                                 const updated = { ...rec, cantidad_a_descontar: parsed, rendimiento: parsedRend };
+        const updated = { ...rec, cantidad_a_descontar: parsed, rendimiento: parsedRend };
         const previous = localRecetas;
         setPendingAction(`edit-${rec.id_receta}`);
         const next = localRecetas.map(r => r.id_receta === rec.id_receta ? updated : r);
@@ -391,65 +399,162 @@ export default function RecetasModule({
         onRecetasChange(next);
         setEditCantidadId(null);
 
-                                                 try {
-                                                         await recetasService.update(rec.id_receta, { cantidad_a_descontar: parsed, rendimiento: parsedRend });
-                                                         const ins = insumos.find(i => i.id_insumo === rec.id_insumo);
-                                                         toast.success(`Ingrediente actualizado.`);
-                                                         addLog('sistema', `ESCANDALLO: Insumo "${ins?.nombre ?? rec.id_insumo}" actualizado (cant: ${parsed}, rend: ${parsedRend}%) en "${selectedProduct?.nombre}".`);
-                                                 } catch {
-                                                         setLocalRecetas(previous);
-                                                         onRecetasChange(previous);
-                                                         toast.error('No se pudo actualizar el ingrediente. Se revirtió el cambio.');
-                                                 } finally {
-                                                         setPendingAction(null);
-                                                 }
-  }, [pendingAction, editCantidadValue, editRendimientoValue, localRecetas, onRecetasChange, insumos, selectedProduct, addLog, toast]);
+        try {
+                await recetasService.update(rec.id_receta, { cantidad_a_descontar: parsed, rendimiento: parsedRend });
+                const ins = insumos.find(i => i.id_insumo === rec.id_insumo);
+                toast.success(`Ingrediente actualizado.`);
+                addLog('sistema', `ESCANDALLO: Insumo "${ins?.nombre ?? rec.id_insumo}" actualizado (cant: ${parsed}, rend: ${parsedRend}%) en "${selectedProduct?.nombre}".`);
+        } catch {
+                setLocalRecetas(previous);
+                onRecetasChange(previous);
+                toast.error('No se pudo actualizar el ingrediente. Se revirtió el cambio.');
+        } finally {
+                setPendingAction(null);
+        }
+    }, [pendingAction, editCantidadValue, editRendimientoValue, localRecetas, onRecetasChange, insumos, selectedProduct, addLog, toast]);
 
-  // ── Eliminar ingrediente ──────────────────────────────────────────────────
-  const handleRemoveRecipeItem = useCallback(async (id: string) => {
+    // ── Eliminar ingrediente ──────────────────────────────────────────────────
+    const handleRemoveRecipeItem = useCallback(async (id: string) => {
         if (pendingAction) return;
         const target = localRecetas.find(r => r.id_receta === id);
         if (!target) return;
         const ins = insumos.find(i => i.id_insumo === target.id_insumo);
 
-                                                 const previous = localRecetas;
+        const previous = localRecetas;
         setPendingAction(`remove-${id}`);
         const next = localRecetas.filter(r => r.id_receta !== id);
         setLocalRecetas(next);
         onRecetasChange(next);
 
-                                                 try {
-                                                         await recetasService.remove(id);
-                                                         addLog('sistema', `ESCANDALLO: Removido "${ins?.nombre ?? target.id_insumo}" de "${selectedProduct?.nombre}".`);
-                                                 } catch {
-                                                         setLocalRecetas(previous);
-                                                         onRecetasChange(previous);
-                                                         toast.error('No se pudo eliminar el ingrediente. Se revirtió el cambio.');
-                                                  } finally {
-                                                          setPendingAction(null);
-                                                  }
-  }, [pendingAction, localRecetas, onRecetasChange, insumos, selectedProduct, addLog, toast]);
+        try {
+                await recetasService.remove(id);
+                addLog('sistema', `ESCANDALLO: Removido "${ins?.nombre ?? target.id_insumo}" de "${selectedProduct?.nombre}".`);
+        } catch {
+                setLocalRecetas(previous);
+                onRecetasChange(previous);
+                toast.error('No se pudo eliminar el ingrediente. Se revirtió el cambio.');
+        } finally {
+                setPendingAction(null);
+        }
+    }, [pendingAction, localRecetas, onRecetasChange, insumos, selectedProduct, addLog, toast]);
 
-  const suggestedPrice = useMemo(() => {
-    const margin = parseFloat(targetMarginInput) || 70;
-    if (margin >= 100) return calculatedCost;
-    return Math.round(calculatedCost / (1 - margin / 100));
-  }, [calculatedCost, targetMarginInput]);
+    const suggestedPrice = useMemo(() => {
+        const margin = parseFloat(targetMarginInput) || 70;
+        if (margin >= 100) return calculatedCost;
+        return Math.round(calculatedCost / (1 - margin / 100));
+    }, [calculatedCost, targetMarginInput]);
 
-  const handleApplySuggestedPrice = async () => {
-    if (!selectedProduct) return;
-    try {
-      await menuService.update(selectedProduct.id_producto, { precio_venta: suggestedPrice });
-      const updated = productosMenu.map(p => p.id_producto === selectedProduct.id_producto ? { ...p, precio_venta: suggestedPrice } : p);
-      onProductosChange(updated);
-      toast.success(`Precio de "${selectedProduct.nombre}" actualizado a $${suggestedPrice.toLocaleString('es-AR')}`);
-      addLog('sistema', `MENU: Precio de venta del plato "${selectedProduct.nombre}" modificado a $${suggestedPrice} según simulación de margen.`);
-    } catch (err: any) {
-      toast.error('Error al actualizar el precio de venta.');
-    }
-  };
+    const handleApplySuggestedPrice = async () => {
+        if (!selectedProduct) return;
+        try {
+            await menuService.update(selectedProduct.id_producto, { precio_venta: suggestedPrice });
+            const updated = productosMenu.map(p => p.id_producto === selectedProduct.id_producto ? { ...p, precio_venta: suggestedPrice } : p);
+            onProductosChange(updated);
+            toast.success(`Precio de "${selectedProduct.nombre}" actualizado a $${suggestedPrice.toLocaleString('es-AR')}`);
+            addLog('sistema', `MENU: Precio de venta del plato "${selectedProduct.nombre}" modificado a $${suggestedPrice} según simulación de margen.`);
+        } catch (err: any) {
+            toast.error('Error al actualizar el precio de venta.');
+        }
+    };
 
-  return (
+    // Copiar la lista de compras del abastecimiento de producción
+    const handleCopyShoppingList = () => {
+        if (!selectedProduct) return;
+        const lines: string[] = [];
+        lines.push(`📋 LISTA DE COMPRAS - EL PATRÓN`);
+        lines.push(`Plato: ${selectedProduct.nombre}`);
+        lines.push(`Porciones a elaborar: ${portionsInput}`);
+        lines.push(`Fecha: ${new Date().toLocaleDateString('es-AR')}`);
+        lines.push(`-------------------------------------------`);
+        
+        let count = 0;
+        currentRecipeItems.forEach(rec => {
+            const ins = insumos.find(i => i.id_insumo === rec.id_insumo);
+            const portions = parseInt(portionsInput) || 0;
+            const rend = rec.rendimiento ?? 100;
+            const factorRend = rend > 0 ? 100 / rend : 1;
+            
+            const totalGrossNeeded = rec.cantidad_a_descontar * factorRend * portions;
+            const stock = ins?.stock_actual ?? 0;
+            const buyNeeded = Math.max(0, totalGrossNeeded - stock);
+            
+            if (buyNeeded > 0) {
+                count++;
+                lines.push(`* [FALTANTE] ${ins?.nombre ?? rec.id_insumo}: comprar ${buyNeeded.toLocaleString('es-AR', { maximumFractionDigits: 1 })} ${ins?.unidad_medida ?? ''} (Requerido: ${totalGrossNeeded.toLocaleString('es-AR', { maximumFractionDigits: 1 })}, Stock actual: ${stock})`);
+            }
+        });
+
+        if (count === 0) {
+            lines.push(`¡Hay stock suficiente de todos los insumos para elaborar las ${portionsInput} porciones!`);
+        }
+        
+        navigator.clipboard.writeText(lines.join('\n'));
+        toast.success('Lista de compras copiada al portapapeles 📋');
+    };
+
+    // Control del temporizador del Modo Cocina
+    const currentKitchenStepText = selectedProduct?.pasos_preparacion?.[kitchenStepIdx] ?? '';
+    const kitchenStepMinutes = useMemo(() => parseMinutesFromText(currentKitchenStepText), [currentKitchenStepText]);
+
+    useEffect(() => {
+        if (kitchenTimerRef.current) clearInterval(kitchenTimerRef.current);
+        setKitchenTimeLeft(null);
+        setKitchenTimerRunning(false);
+    }, [kitchenStepIdx]);
+
+    const startKitchenTimer = () => {
+        if (kitchenTimerRunning || kitchenStepMinutes === null) return;
+        const duration = kitchenTimeLeft !== null ? kitchenTimeLeft : kitchenStepMinutes * 60;
+        setKitchenTimeLeft(duration);
+        setKitchenTimerRunning(true);
+        kitchenTimerRef.current = setInterval(() => {
+            setKitchenTimeLeft((prev) => {
+                if (prev === null || prev <= 1) {
+                    if (kitchenTimerRef.current) clearInterval(kitchenTimerRef.current);
+                    setKitchenTimerRunning(false);
+                    try {
+                        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+                        const oscillator = audioCtx.createOscillator();
+                        oscillator.type = 'sine';
+                        oscillator.frequency.setValueAtTime(440, audioCtx.currentTime);
+                        oscillator.connect(audioCtx.destination);
+                        oscillator.start();
+                        setTimeout(() => oscillator.stop(), 600);
+                    } catch (e) {
+                        console.error(e);
+                    }
+                    alert(`⏰ ¡Tiempo cumplido en el paso ${kitchenStepIdx + 1}!: "${currentKitchenStepText}"`);
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+    };
+
+    const pauseKitchenTimer = () => {
+        if (kitchenTimerRef.current) {
+            clearInterval(kitchenTimerRef.current);
+            kitchenTimerRef.current = null;
+        }
+        setKitchenTimerRunning(false);
+    };
+
+    const resetKitchenTimer = () => {
+        if (kitchenTimerRef.current) {
+            clearInterval(kitchenTimerRef.current);
+            kitchenTimerRef.current = null;
+        }
+        setKitchenTimerRunning(false);
+        setKitchenTimeLeft(null);
+    };
+
+    const formatKitchenTime = (secs: number) => {
+        const m = Math.floor(secs / 60);
+        const s = secs % 60;
+        return `${m}:${s < 10 ? '0' : ''}${s}`;
+    };
+
+    return (
         <div className="space-y-6">
               <ToastContainer toasts={toasts} onDismiss={removeToast} />
         
@@ -475,15 +580,15 @@ export default function RecetasModule({
                         const count = recipeCountByProduct[p.id_producto] ?? 0;
                         return (
                                           <button
-                                                              key={p.id_producto}
-                                                              onClick={() => setActiveTabRecipe(p.id_producto)}
-                                                              className={`w-full p-3 rounded-xl border text-left transition-all flex items-center justify-between cursor-pointer ${
+                                                               key={p.id_producto}
+                                                               onClick={() => setActiveTabRecipe(p.id_producto)}
+                                                               className={`w-full p-3 rounded-xl border text-left transition-all flex items-center justify-between cursor-pointer ${
                                                                                     isSelected
                                                                                       ? 'bg-[#624A3E] text-white border-[#5d3a2e] shadow-sm'
                                                                                       : 'bg-stone-50 hover:bg-[#F5F1E9]/50 dark:bg-stone-900/40 dark:hover:bg-stone-800/40 text-stone-700 dark:text-stone-300 border-stone-200 dark:border-stone-800'
-                                                              }`}
-                                                              aria-pressed={isSelected}
-                                                            >
+                                                               }`}
+                                                               aria-pressed={isSelected}
+                                                             >
                                                             <div className="min-w-0 flex items-center gap-2.5">
                                                                                 <img
                                                                                                         src={p.imagen}
@@ -500,8 +605,8 @@ export default function RecetasModule({
                                                               {count}
                                                             </span>
                                           </button>
-                                        );
-        })}
+                                         );
+                        })}
                                 </div>
                       </div>
               
@@ -510,7 +615,7 @@ export default function RecetasModule({
                       
                         {/* Encabezado del plato seleccionado */}
                         {selectedProduct && (
-                      <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-xs flex items-center gap-4">
+                       <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-xs flex items-center gap-4">
                                     <div className="relative group w-14 h-14 rounded-xl overflow-hidden border border-stone-200 shrink-0 cursor-pointer shadow-xs" title="Haga clic para subir una foto real del plato">
                                                     <img
                                                                       src={pendingImage || selectedProduct.imagen}
@@ -529,14 +634,24 @@ export default function RecetasModule({
                                                                                     className="hidden" 
                                                                                   />
                                                     </label>
-                                      {isUploadingImage && (
-                                        <div className="absolute inset-0 bg-white/70 flex items-center justify-center">
-                                          <div className="w-4 h-4 border-2 border-[#624A3E] border-t-transparent rounded-full animate-spin" />
-                                        </div>
-                                      )}
+                                       {isUploadingImage && (
+                                         <div className="absolute inset-0 bg-white/70 flex items-center justify-center">
+                                           <div className="w-4 h-4 border-2 border-[#624A3E] border-t-transparent rounded-full animate-spin" />
+                                         </div>
+                                       )}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                                    <h2 className="font-black text-stone-900 dark:text-white text-base">{selectedProduct.nombre}</h2>
+                                                    <div className="flex items-center gap-2">
+                                                        <h2 className="font-black text-stone-900 dark:text-white text-base">{selectedProduct.nombre}</h2>
+                                                        {(selectedProduct.pasos_preparacion || []).length > 0 && (
+                                                            <button
+                                                                onClick={() => { setKitchenStepIdx(0); setIsKitchenMode(true); }}
+                                                                className="px-2.5 py-1 text-[9px] font-black uppercase tracking-wider bg-[#624A3E] hover:bg-[#503C32] text-white rounded-lg cursor-pointer flex items-center gap-1 shadow-xs transition-colors shrink-0"
+                                                            >
+                                                                <Play className="w-2.5 h-2.5 fill-white" /> Modo Cocina 👨‍🍳
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                     <p className="text-xs text-stone-500 dark:text-stone-300 mb-1">{selectedProduct.categoria}</p>
                                                     {pendingImage && (
                                                       <div className="flex gap-1.5 mt-1">
@@ -557,7 +672,7 @@ export default function RecetasModule({
                                                       </div>
                                                     )}
                                     </div>
-                                    <div className="text-right shrink-0 space-y-0.5">
+                                    <div className="text-right shrink-0 space-y-0.5 min-w-[110px]">
                                                     <div className="text-xs text-stone-400 dark:text-stone-300">Precio venta</div>
                                                     <div className="font-black text-stone-900 dark:text-white font-mono text-sm">
                                                                       ${selectedProduct.precio_venta.toLocaleString('es-AR')}
@@ -567,12 +682,27 @@ export default function RecetasModule({
                                                                       ${calculatedCost.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                     </div>
                                       {marginPct !== null && marginLevel !== null && (
-                                          <div className={`text-xs font-bold ${marginToneClass[marginLevel]}`}>
-                                                              Margen: {marginPct.toFixed(1)}%
+                                          <div className="space-y-1 mt-1 text-left">
+                                              <div className="flex justify-between text-[10px] font-bold">
+                                                  <span className="text-stone-450 dark:text-stone-400">Margen</span>
+                                                  <span className={marginToneClass[marginLevel]}>{marginPct.toFixed(1)}%</span>
+                                              </div>
+                                              <div className="w-full h-1.5 bg-stone-100 dark:bg-stone-850 rounded-full overflow-hidden border border-stone-150 dark:border-stone-800">
+                                                  <div 
+                                                      className={`h-full rounded-full transition-all duration-500 ${
+                                                          marginLevel === 'high' 
+                                                              ? 'bg-emerald-500' 
+                                                              : marginLevel === 'medium' 
+                                                                  ? 'bg-amber-500' 
+                                                                  : 'bg-rose-500'
+                                                      }`}
+                                                      style={{ width: `${Math.min(100, Math.max(0, marginPct))}%` }}
+                                                  />
+                                              </div>
                                           </div>
-                                                    )}
+                                      )}
                                     </div>
-                      </div>
+                       </div>
                                 )}
                       
                         {/* Lista de ingredientes */}
@@ -591,115 +721,115 @@ export default function RecetasModule({
                       ) : (
                         <div className="divide-y divide-stone-50 dark:divide-stone-800">
                           {currentRecipeItems.map(rec => {
-                                            const ins        = insumos.find(i => i.id_insumo === rec.id_insumo);
-                                            const stockOk    = ins ? ins.stock_actual >= rec.cantidad_a_descontar : false;
-                                            const isEditing  = editCantidadId === rec.id_receta;
-                                            const isBusy     = !!pendingAction;
+                                             const ins        = insumos.find(i => i.id_insumo === rec.id_insumo);
+                                             const stockOk    = ins ? ins.stock_actual >= rec.cantidad_a_descontar : false;
+                                             const isEditing  = editCantidadId === rec.id_receta;
+                                             const isBusy     = !!pendingAction;
                           
-                                            return (
-                                                                  <div key={rec.id_receta} className="px-5 py-3 flex items-center gap-3 hover:bg-stone-50/50 dark:hover:bg-stone-800/20 transition-colors">
-                                                                    {/* Indicador de stock */}
-                                                                                        <div className={`w-2 h-2 rounded-full shrink-0 ${ins ? (stockOk ? 'bg-emerald-500' : 'bg-red-400') : 'bg-stone-300'}`}
-                                                                                                                     title={ins ? (stockOk ? 'Stock OK' : 'Stock insuficiente') : 'Insumo no encontrado'} />
-                                                                  
-                                                                                        <div className="flex-1 min-w-0">
-                                                                                                                <p className="text-sm font-semibold text-stone-800 dark:text-white truncate">{ins?.nombre ?? rec.id_insumo}</p>
-                                                                                          {ins && (
-                                                                                              <p className="text-[11px] text-stone-400 dark:text-stone-300">
-                                                                                                                          Stock: {ins.stock_actual} {ins.unidad_medida}
-                                                                                                {ins.costo_unitario ? ` · $${ins.costo_unitario}/u` : ''}
-                                                                                                </p>
-                                                                                                                )}
-                                                                                          </div>
-                                                                  
-                                                                    {/* Cantidad y Rendimiento — editable inline */}
-                                                                    {isEditing ? (
-                                                                                            <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
-                                                                                                                      <div className="flex items-center gap-0.5">
-                                                                                                                        <input
-                                                                                                                                                      type="number"
-                                                                                                                                                      min="0.01"
-                                                                                                                                                      step="any"
-                                                                                                                                                      value={editCantidadValue}
-                                                                                                                                                      onChange={e => setEditCantidadValue(e.target.value)}
-                                                                                                                                                      onKeyDown={e => {
-                                                                                                                                                                                      if (e.key === 'Enter') handleSaveEditCantidad(rec);
-                                                                                                                                                                                      if (e.key === 'Escape') setEditCantidadId(null);
-                                                                                                                                                        }}
-                                                                                                                                                      autoFocus
-                                                                                                                                                      className="w-16 px-1.5 py-1 text-xs border border-[#624A3E]/30 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#624A3E] bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-100"
-                                                                                                                                                      aria-label={`Editar cantidad de ${ins?.nombre ?? rec.id_insumo}`}
-                                                                                                                                                    />
-                                                                                                                        <span className="text-[9px] text-stone-500 dark:text-stone-400">{ins?.unidad_medida}</span>
-                                                                                                                      </div>
-
-                                                                                                                      <div className="flex items-center gap-0.5">
-                                                                                                                        <span className="text-[9px] text-stone-400 dark:text-stone-500">Rend:</span>
-                                                                                                                        <input
-                                                                                                                                                      type="number"
-                                                                                                                                                      min="1"
-                                                                                                                                                      max="100"
-                                                                                                                                                      value={editRendimientoValue}
-                                                                                                                                                      onChange={e => setEditRendimientoValue(e.target.value)}
-                                                                                                                                                      onKeyDown={e => {
-                                                                                                                                                                                      if (e.key === 'Enter') handleSaveEditCantidad(rec);
-                                                                                                                                                                                      if (e.key === 'Escape') setEditCantidadId(null);
-                                                                                                                                                        }}
-                                                                                                                                                      className="w-12 px-1.5 py-1 text-xs border border-[#624A3E]/30 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#624A3E] font-mono text-center bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-100"
-                                                                                                                                                      placeholder="100"
-                                                                                                                                                    />
-                                                                                                                        <span className="text-[9px] text-stone-550 dark:text-stone-400">%</span>
-                                                                                                                      </div>
-
-                                                                                                                      <button
-                                                                                                                                                    onClick={() => handleSaveEditCantidad(rec)}
-                                                                                                                                                    disabled={isBusy}
-                                                                                                                                                    className="p-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 transition-colors disabled:opacity-40"
-                                                                                                                                                    aria-label="Confirmar"
-                                                                                                                                                  >
-                                                                                                                                                  <Check className="w-3.5 h-3.5 text-emerald-700" />
-                                                                                                                        </button>
-                                                                                                                      <button
-                                                                                                                                                    onClick={() => setEditCantidadId(null)}
-                                                                                                                                                    className="p-1 rounded-lg hover:bg-stone-100 transition-colors"
-                                                                                                                                                    aria-label="Cancelar"
-                                                                                                                                                  >
-                                                                                                                                                  <X className="w-3.5 h-3.5 text-stone-400" />
-                                                                                                                        </button>
-                                                                                            </div>
-                                                                                          ) : (
-                                                                                            <div className="flex items-center gap-2 shrink-0">
-                                                                                                                      <span className="text-sm font-mono font-bold text-stone-700 dark:text-stone-200">
-                                                                                                                        {rec.cantidad_a_descontar} {ins?.unidad_medida ?? rec.unidad_medida ?? ''}
-                                                                                                                      </span>
-                                                                                                                      <span className="text-[10px] font-mono text-stone-500 dark:text-stone-300 bg-stone-100 dark:bg-stone-800 rounded px-1.5 py-0.5" title="Rendimiento culinario de la materia prima">
-                                                                                                                        Rend: {rec.rendimiento ?? 100}%
-                                                                                                                      </span>
-                                                                                                                      <button
-                                                                                                                                                    onClick={() => handleStartEditCantidad(rec)}
-                                                                                                                                                    disabled={isBusy}
-                                                                                                                                                    className="p-1 rounded-lg hover:bg-stone-100 transition-colors disabled:opacity-40"
-                                                                                                                                                    aria-label={`Editar ${ins?.nombre ?? rec.id_insumo}`}
-                                                                                                                                                    title="Editar ingrediente"
-                                                                                                                                                  >
-                                                                                                                                                  <Edit2 className="w-3.5 h-3.5 text-stone-400" />
-                                                                                                                        </button>
-                                                                                                                      <button
-                                                                                                                                                    onClick={() => handleRemoveRecipeItem(rec.id_receta)}
-                                                                                                                                                    disabled={isBusy}
-                                                                                                                                                    className="p-1 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-40"
-                                                                                                                                                    aria-label={`Eliminar ${ins?.nombre ?? rec.id_insumo}`}
-                                                                                                                                                    title="Eliminar ingrediente"
-                                                                                                                                                  >
-                                                                                                                                                  <Trash className="w-3.5 h-3.5 text-red-400" />
-                                                                                                                        </button>
-                                                                                            </div>
-                                                                                          )}
-                                                                  </div>
-                                                                );
+                                             return (
+                                                                   <div key={rec.id_receta} className="px-5 py-3 flex items-center gap-3 hover:bg-stone-50/50 dark:hover:bg-stone-800/20 transition-colors">
+                                                                     {/* Indicador de stock */}
+                                                                                         <div className={`w-2 h-2 rounded-full shrink-0 ${ins ? (stockOk ? 'bg-emerald-500' : 'bg-red-400') : 'bg-stone-300'}`}
+                                                                                                                      title={ins ? (stockOk ? 'Stock OK' : 'Stock insuficiente') : 'Insumo no encontrado'} />
+                                                                   
+                                                                                         <div className="flex-1 min-w-0">
+                                                                                                                 <p className="text-sm font-semibold text-stone-800 dark:text-white truncate">{ins?.nombre ?? rec.id_insumo}</p>
+                                                                                           {ins && (
+                                                                                               <p className="text-[11px] text-stone-400 dark:text-stone-300">
+                                                                                                                           Stock: {ins.stock_actual} {ins.unidad_medida}
+                                                                                                 {ins.costo_unitario ? ` · $${ins.costo_unitario}/u` : ''}
+                                                                                                 </p>
+                                                                                                                 )}
+                                                                                           </div>
+                                                                   
+                                                                     {/* Cantidad y Rendimiento — editable inline */}
+                                                                     {isEditing ? (
+                                                                                             <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                                                                                                                       <div className="flex items-center gap-0.5">
+                                                                                                                         <input
+                                                                                                                                                       type="number"
+                                                                                                                                                       min="0.01"
+                                                                                                                                                       step="any"
+                                                                                                                                                       value={editCantidadValue}
+                                                                                                                                                       onChange={e => setEditCantidadValue(e.target.value)}
+                                                                                                                                                       onKeyDown={e => {
+                                                                                                                                                                                       if (e.key === 'Enter') handleSaveEditCantidad(rec);
+                                                                                                                                                                                       if (e.key === 'Escape') setEditCantidadId(null);
+                                                                                                                                                         }}
+                                                                                                                                                       autoFocus
+                                                                                                                                                       className="w-16 px-1.5 py-1 text-xs border border-[#624A3E]/30 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#624A3E] bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-100"
+                                                                                                                                                       aria-label={`Editar cantidad de ${ins?.nombre ?? rec.id_insumo}`}
+                                                                                                                                                     />
+                                                                                                                         <span className="text-[9px] text-stone-500 dark:text-stone-400">{ins?.unidad_medida}</span>
+                                                                                                                       </div>
+ 
+                                                                                                                       <div className="flex items-center gap-0.5">
+                                                                                                                         <span className="text-[9px] text-stone-400 dark:text-stone-500">Rend:</span>
+                                                                                                                         <input
+                                                                                                                                                       type="number"
+                                                                                                                                                       min="1"
+                                                                                                                                                       max="100"
+                                                                                                                                                       value={editRendimientoValue}
+                                                                                                                                                       onChange={e => setEditRendimientoValue(e.target.value)}
+                                                                                                                                                       onKeyDown={e => {
+                                                                                                                                                                                       if (e.key === 'Enter') handleSaveEditCantidad(rec);
+                                                                                                                                                                                       if (e.key === 'Escape') setEditCantidadId(null);
+                                                                                                                                                         }}
+                                                                                                                                                       className="w-12 px-1.5 py-1 text-xs border border-[#624A3E]/30 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#624A3E] font-mono text-center bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-100"
+                                                                                                                                                       placeholder="100"
+                                                                                                                                                     />
+                                                                                                                         <span className="text-[9px] text-stone-550 dark:text-stone-400">%</span>
+                                                                                                                       </div>
+ 
+                                                                                                                       <button
+                                                                                                                                                     onClick={() => handleSaveEditCantidad(rec)}
+                                                                                                                                                     disabled={isBusy}
+                                                                                                                                                     className="p-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 transition-colors disabled:opacity-40"
+                                                                                                                                                     aria-label="Confirmar"
+                                                                                                                                                   >
+                                                                                                                                                   <Check className="w-3.5 h-3.5 text-emerald-700" />
+                                                                                                                         </button>
+                                                                                                                       <button
+                                                                                                                                                     onClick={() => setEditCantidadId(null)}
+                                                                                                                                                     className="p-1 rounded-lg hover:bg-stone-100 transition-colors"
+                                                                                                                                                     aria-label="Cancelar"
+                                                                                                                                                   >
+                                                                                                                                                   <X className="w-3.5 h-3.5 text-stone-400" />
+                                                                                                                         </button>
+                                                                                             </div>
+                                                                                           ) : (
+                                                                                             <div className="flex items-center gap-2 shrink-0">
+                                                                                                                       <span className="text-sm font-mono font-bold text-stone-700 dark:text-stone-200">
+                                                                                                                         {rec.cantidad_a_descontar} {ins?.unidad_medida ?? rec.unidad_medida ?? ''}
+                                                                                                                       </span>
+                                                                                                                       <span className="text-[10px] font-mono text-stone-500 dark:text-stone-300 bg-stone-100 dark:bg-stone-800 rounded px-1.5 py-0.5" title="Rendimiento culinario de la materia prima">
+                                                                                                                         Rend: {rec.rendimiento ?? 100}%
+                                                                                                                       </span>
+                                                                                                                       <button
+                                                                                                                                                     onClick={() => handleStartEditCantidad(rec)}
+                                                                                                                                                     disabled={isBusy}
+                                                                                                                                                     className="p-1 rounded-lg hover:bg-stone-100 transition-colors disabled:opacity-40"
+                                                                                                                                                     aria-label={`Editar ${ins?.nombre ?? rec.id_insumo}`}
+                                                                                                                                                     title="Editar ingrediente"
+                                                                                                                                                   >
+                                                                                                                                                   <Edit2 className="w-3.5 h-3.5 text-stone-400" />
+                                                                                                                         </button>
+                                                                                                                       <button
+                                                                                                                                                     onClick={() => handleRemoveRecipeItem(rec.id_receta)}
+                                                                                                                                                     disabled={isBusy}
+                                                                                                                                                     className="p-1 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-40"
+                                                                                                                                                     aria-label={`Eliminar ${ins?.nombre ?? rec.id_insumo}`}
+                                                                                                                                                     title="Eliminar ingrediente"
+                                                                                                                                                   >
+                                                                                                                                                   <Trash className="w-3.5 h-3.5 text-red-400" />
+                                                                                                                         </button>
+                                                                                             </div>
+                                                                                           )}
+                                                                   </div>
+                                                                 );
                         })}
                         </div>
-                                            )}
+                                             )}
                                 </div>
                       
                         {/* Formulario agregar ingrediente */}
@@ -713,7 +843,7 @@ export default function RecetasModule({
                                                                           <select
                                                                                               value={selectedInsumoId}
                                                                                               onChange={e => setSelectedInsumoId(e.target.value)}
-                                                                                              className="w-full border border-stone-200 dark:border-stone-750 rounded-xl px-3 py-2 text-sm bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-[#624A3E]/30 cursor-pointer"
+                                                                                              className="w-full border border-stone-200 dark:border-stone-750 rounded-xl px-3 py-2 text-sm bg-white dark:bg-stone-900 text-stone-805 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-[#624A3E]/30 cursor-pointer"
                                                                                               aria-label="Seleccionar insumo"
                                                                                             >
                                                                                             <option value="">Seleccionar insumo…</option>
@@ -760,7 +890,7 @@ export default function RecetasModule({
                                                           </button>
                                             </form>
                                 </div>
-
+ 
                                 {/* SIMULADOR DE MARGEN Y PRECIO SUGERIDO */}
                                 {selectedProduct && calculatedCost > 0 && (
                                   <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs space-y-3.5">
@@ -790,14 +920,14 @@ export default function RecetasModule({
                                       </div>
                                       <div>
                                         <span className="text-[10px] font-bold text-stone-550 dark:text-stone-300 block mb-1 uppercase">Precio Sugerido Venta</span>
-                                        <span className="text-base font-black text-emerald-750 dark:text-emerald-400 font-mono">
+                                        <span className="text-base font-black text-emerald-700 dark:text-emerald-450 font-mono">
                                           ${suggestedPrice.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                                         </span>
                                       </div>
                                     </div>
                                     <button
                                       onClick={handleApplySuggestedPrice}
-                                      className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[10px] font-black uppercase transition-all cursor-pointer shadow-sm flex items-center justify-center gap-1.5"
+                                      className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[10px] font-black uppercase transition-all cursor-pointer shadow-sm flex items-center justify-center gap-1.5"
                                     >
                                       Aplicar Precio
                                     </button>
@@ -817,6 +947,13 @@ export default function RecetasModule({
                                           placeholder="Ej: 50"
                                         />
                                       </div>
+                                      <button
+                                        onClick={handleCopyShoppingList}
+                                        className="py-2.5 px-4 bg-[#624A3E] hover:bg-[#503C32] text-white rounded-xl text-xs font-black uppercase flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 mt-5"
+                                      >
+                                        <Copy className="w-3.5 h-3.5" />
+                                        Copiar Lista
+                                      </button>
                                     </div>
                                     
                                     <div className="space-y-2">
@@ -860,7 +997,7 @@ export default function RecetasModule({
                                     </div>
                                   </div>
                                 )}
-
+ 
                                 {/* ── Ficha Técnica del Chef ── */}
                                 <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs space-y-4">
                                   <h3 className="text-xs font-black text-[#624A3E] dark:text-stone-100 uppercase tracking-wider flex items-center gap-2 border-b border-stone-100 dark:border-stone-800 pb-2">
@@ -906,7 +1043,7 @@ export default function RecetasModule({
                                           })}
                                         </div>
                                       </div>
-
+ 
                                       {/* Consejos de emplatado */}
                                       <div>
                                         <label className="text-[10px] font-black text-stone-500 dark:text-stone-300 uppercase tracking-wider block mb-1">
@@ -932,7 +1069,7 @@ export default function RecetasModule({
                                           className="w-full text-xs p-2.5 border border-stone-200 dark:border-stone-750 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#624A3E]/30 bg-stone-50 dark:bg-stone-900 text-stone-850 dark:text-stone-100"
                                         />
                                       </div>
-
+ 
                                       {/* Pasos de preparación */}
                                       <div>
                                         <label className="text-[10px] font-black text-stone-500 dark:text-stone-300 uppercase tracking-wider block mb-2">
@@ -967,7 +1104,7 @@ export default function RecetasModule({
                                               </button>
                                             </div>
                                           ))}
-
+ 
                                           <form
                                             onSubmit={async (e) => {
                                               e.preventDefault();
@@ -1010,6 +1147,170 @@ export default function RecetasModule({
                                 </div>
                       </div>
               </div>
+
+              {/* MODAL / PANTALLA COMPLETA: MODO COCINERO INMERSIVO */}
+              {isKitchenMode && selectedProduct && (
+                  <div className="fixed inset-0 z-50 bg-stone-950 text-stone-100 flex flex-col font-sans text-left animate-in fade-in duration-200">
+                      
+                      {/* Header del Modo Cocinero */}
+                      <div className="p-4 bg-stone-900 border-b border-stone-800 flex justify-between items-center shrink-0">
+                          <div className="flex items-center gap-3">
+                              <ChefHat className="w-6 h-6 text-amber-500" />
+                              <div>
+                                  <h3 className="text-sm font-black tracking-widest text-stone-300 uppercase">MODO COCINA · EL PATRÓN</h3>
+                                  <h1 className="text-lg font-black text-white">{selectedProduct.nombre}</h1>
+                              </div>
+                          </div>
+                          <button
+                              onClick={() => {
+                                  if (kitchenTimerRef.current) clearInterval(kitchenTimerRef.current);
+                                  setIsKitchenMode(false);
+                              }}
+                              className="px-4 py-2 bg-stone-800 hover:bg-stone-700 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-colors cursor-pointer"
+                          >
+                              <X className="w-4 h-4" /> Salir Modo Cocina
+                          </button>
+                      </div>
+
+                      {/* Cuerpo de Cocina de Dos Columnas */}
+                      <div className="flex-1 flex overflow-hidden">
+                          
+                          {/* Columna Izquierda: Instrucciones y Paso Activo (Carrusel) */}
+                          <div className="flex-1 p-6 sm:p-10 flex flex-col justify-between overflow-y-auto bg-stone-950">
+                              
+                              {/* Progreso de Pasos */}
+                              <div className="flex items-center gap-1">
+                                  {(selectedProduct.pasos_preparacion || []).map((_, pIdx) => (
+                                      <div 
+                                          key={pIdx}
+                                          className={`h-1.5 rounded-full flex-1 transition-all ${
+                                              pIdx === kitchenStepIdx 
+                                                  ? 'bg-amber-500 scale-y-110' 
+                                                  : kitchenStepIdx > pIdx 
+                                                      ? 'bg-amber-800' 
+                                                      : 'bg-stone-800'
+                                          }`}
+                                      />
+                                  ))}
+                              </div>
+
+                              {/* Diapositiva del Paso Activo */}
+                              <div className="my-auto space-y-6 max-w-3xl mx-auto text-center">
+                                  <div className="inline-block px-4 py-1.5 bg-amber-500/10 text-amber-500 rounded-full text-xs font-black uppercase tracking-wider border border-amber-500/25">
+                                      Paso {kitchenStepIdx + 1} de {(selectedProduct.pasos_preparacion || []).length}
+                                  </div>
+                                  <p className="text-2xl sm:text-4xl font-extrabold text-white leading-relaxed select-none">
+                                      {currentKitchenStepText}
+                                  </p>
+
+                                  {/* Cronómetro Gigante */}
+                                  {kitchenStepMinutes !== null && (
+                                      <div className="mt-8 flex flex-col items-center space-y-4">
+                                          <div className="w-48 h-48 rounded-full border-4 border-amber-500/30 flex flex-col items-center justify-center bg-stone-900/60 shadow-lg relative">
+                                              {kitchenTimerRunning && (
+                                                  <div className="absolute inset-0.5 rounded-full border-2 border-dashed border-amber-500 animate-spin [animation-duration:15s]" />
+                                              )}
+                                              <Clock className="w-6 h-6 text-stone-500 mb-1" />
+                                              <span className="text-4xl font-black font-mono tracking-wider text-amber-400">
+                                                  {kitchenTimeLeft !== null ? formatKitchenTime(kitchenTimeLeft) : `${kitchenStepMinutes}:00`}
+                                              </span>
+                                              <span className="text-[10px] text-stone-550 font-black uppercase mt-1">Minutos</span>
+                                          </div>
+                                          
+                                          <div className="flex gap-2">
+                                              {!kitchenTimerRunning ? (
+                                                  <button
+                                                      onClick={startKitchenTimer}
+                                                      className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black uppercase tracking-wider cursor-pointer shadow-md transition-colors"
+                                                  >
+                                                      Comenzar tiempo
+                                                  </button>
+                                              ) : (
+                                                  <button
+                                                      onClick={pauseKitchenTimer}
+                                                      className="px-6 py-2.5 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-black uppercase tracking-wider cursor-pointer shadow-md transition-colors"
+                                                  >
+                                                      Pausar
+                                                  </button>
+                                              )}
+                                              {kitchenTimeLeft !== null && (
+                                                  <button
+                                                      onClick={resetKitchenTimer}
+                                                      className="px-4 py-2.5 bg-stone-800 hover:bg-stone-700 text-stone-300 rounded-xl text-xs font-bold uppercase cursor-pointer transition-colors"
+                                                  >
+                                                      Reiniciar
+                                                  </button>
+                                              )}
+                                          </div>
+                                      </div>
+                                  )}
+                              </div>
+
+                              {/* Controles de Navegación de Pasos */}
+                              <div className="flex justify-between items-center gap-4 border-t border-stone-900 pt-6">
+                                  <button
+                                      onClick={() => setKitchenStepIdx(prev => Math.max(0, prev - 1))}
+                                      disabled={kitchenStepIdx === 0}
+                                      className="px-5 py-3 bg-stone-900 hover:bg-stone-850 text-white disabled:opacity-30 rounded-xl text-xs font-black uppercase flex items-center gap-1 cursor-pointer transition-colors"
+                                  >
+                                      <ArrowLeft className="w-4 h-4" /> Paso Anterior
+                                  </button>
+                                  
+                                  <span className="text-xs font-bold text-stone-500 tracking-wider">
+                                      {kitchenStepIdx + 1} / {(selectedProduct.pasos_preparacion || []).length}
+                                  </span>
+
+                                  {kitchenStepIdx < (selectedProduct.pasos_preparacion || []).length - 1 ? (
+                                      <button
+                                          onClick={() => setKitchenStepIdx(prev => prev + 1)}
+                                          className="px-6 py-3 bg-[#624A3E] hover:bg-[#503C32] text-white rounded-xl text-xs font-black uppercase flex items-center gap-1 cursor-pointer transition-colors shadow-md"
+                                      >
+                                          Siguiente Paso <ArrowRight className="w-4 h-4" />
+                                      </button>
+                                  ) : (
+                                      <button
+                                          onClick={() => {
+                                              if (kitchenTimerRef.current) clearInterval(kitchenTimerRef.current);
+                                              setIsKitchenMode(false);
+                                              toast.success('¡Receta finalizada con éxito! Buen trabajo.');
+                                          }}
+                                          className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black uppercase flex items-center gap-1 cursor-pointer transition-colors shadow-md shadow-emerald-600/10"
+                                      >
+                                          Terminar Cocción <Check className="w-4 h-4" />
+                                      </button>
+                                  )}
+                              </div>
+                          </div>
+
+                          {/* Columna Derecha: Ingredientes Necesarios (Panel Lateral) */}
+                          <div className="w-80 bg-stone-900 border-l border-stone-800 p-5 overflow-y-auto hidden md:flex flex-col">
+                              <h3 className="text-xs font-black text-amber-500 uppercase tracking-widest mb-4 flex items-center gap-2 border-b border-stone-800 pb-2">
+                                  <Scale className="w-4 h-4" /> INGREDIENTES A USAR
+                              </h3>
+                              <div className="space-y-3.5 flex-1">
+                                  {currentRecipeItems.map(rec => {
+                                      const ins = insumos.find(i => i.id_insumo === rec.id_insumo);
+                                      return (
+                                          <div key={rec.id_receta} className="p-3 bg-stone-950/40 rounded-xl border border-stone-800/80 flex items-center justify-between">
+                                              <div className="min-w-0 pr-2">
+                                                  <p className="text-xs font-bold text-stone-200 truncate">{ins?.nombre ?? rec.id_insumo}</p>
+                                                  <p className="text-[10px] text-stone-500">Rendimiento: {rec.rendimiento ?? 100}%</p>
+                                              </div>
+                                              <span className="text-xs font-black font-mono text-amber-400 shrink-0">
+                                                  {rec.cantidad_a_descontar} {ins?.unidad_medida ?? ''}
+                                              </span>
+                                          </div>
+                                      );
+                                  })}
+                              </div>
+                              <div className="mt-4 pt-4 border-t border-stone-800 text-[10px] text-stone-500 leading-relaxed">
+                                  💡 Consejo de emplatado: {selectedProduct.consejo_emplatado || 'Sin consejo cargado.'}
+                              </div>
+                          </div>
+
+                      </div>
+                  </div>
+              )}
         </div>
       );
 }

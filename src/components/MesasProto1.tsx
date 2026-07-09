@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useToast, ToastContainer } from './ToastContainer';
-import { X, Plus, Calendar, Pencil, Trash } from 'lucide-react';
+import { X, Plus, Calendar, Pencil, Trash, Sparkles } from 'lucide-react';
 import { Mesa, Reserva } from '../types';
 import { mesasService } from '../services/mesasService';
 import { reservasService } from '../services/reservasService';
-import MesaAsistente, { LAYOUT_OFICIAL, procesarComando } from './MesaAsistente';
+import MesaAsistente, { sugerirAlojamiento, resumenSalon, procesarComando } from './MesaAsistente';
 
 interface MesasProto1Props {
   mesas: Mesa[];
@@ -65,33 +65,33 @@ const POSICIONES_INICIALES: MesaVisual[] = [
 ];
 
 const ESTADO_FILL: Record<Mesa['estado'], string> = {
-  libre: '#D4EDDA',
-  ocupada: '#F8D7DA',
-  reservada: '#FFF3CD',
-  esperando_cuenta: '#d1fae5',
-  limpiando: '#dbeafe',
-  unida: '#e5e7eb',
-  sucia: '#f5f5f4',
+  libre: '#ECFDF5', // emerald-50
+  ocupada: '#FEF2F2', // red-50
+  reservada: '#FFFBEB', // amber-50
+  esperando_cuenta: '#EEF2FF', // indigo-50
+  limpiando: '#FAFAF9', // stone-50
+  unida: '#F3F4F6', // gray-100
+  sucia: '#FAFAF9', // stone-50
 };
 
 const ESTADO_STROKE: Record<Mesa['estado'], string> = {
-  libre: '#28A745',
-  ocupada: '#DC3545',
-  reservada: '#FFC107',
-  esperando_cuenta: '#10B981',
-  limpiando: '#3B82F6',
-  unida: '#6B7280',
-  sucia: '#78716c',
+  libre: '#10B981', // emerald-500
+  ocupada: '#EF4444', // red-500
+  reservada: '#F59E0B', // amber-500
+  esperando_cuenta: '#6366F1', // indigo-500
+  limpiando: '#78716C', // stone-500
+  unida: '#9CA3AF', // gray-400
+  sucia: '#78716C', // stone-500
 };
 
 const ESTADO_TEXT: Record<Mesa['estado'], string> = {
-  libre: '#28A745',
-  ocupada: '#DC3545',
-  reservada: '#B58900',
-  esperando_cuenta: '#065F46',
-  limpiando: '#1E40AF',
-  unida: '#374151',
-  sucia: '#44403c',
+  libre: '#065F46', // emerald-800
+  ocupada: '#991B1B', // red-800
+  reservada: '#92400E', // amber-800
+  esperando_cuenta: '#3730A3', // indigo-800
+  limpiando: '#44403C', // stone-800
+  unida: '#374151', // gray-800
+  sucia: '#44403C', // stone-800
 };
 
 function generarIdMesa(numero: string, capacidad: number, zona: Zona): string {
@@ -148,6 +148,12 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
   const [reservasHoy, setReservasHoy] = useState<Reserva[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Pestañas del panel lateral derecho
+  const [rightPanelTab, setRightPanelTab] = useState<'asistente' | 'gestion'>('asistente');
+
+  // Mesas resaltadas/hovered por sugerencias del asistente
+  const [highlightedMesas, setHighlightedMesas] = useState<number[]>([]);
+
   // Modal reserva
   const [selectedMesa, setSelectedMesa] = useState<MesaVisual | null>(null);
   const [nombre, setNombre] = useState('');
@@ -183,7 +189,6 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
     const width = draggingMesa.posicion.width;
     const height = draggingMesa.posicion.height;
 
-    // Apply Snapping (Magnetic Grid Snapping to 10px multiples)
     const rawX = svgP.x - width / 2;
     const rawY = svgP.y - height / 2;
     const snapX = Math.round(rawX / 10) * 10;
@@ -639,8 +644,21 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
     }
   };
 
+  // Mapeo dinámico de mesas a MesaEstado para MesaAsistente
+  const mesasNormalizadasForAsistente = useMemo(() => {
+    return visualMesas.map(m => ({
+      id_mesa: m.id_mesa,
+      numero_mesa: m.numero_mesa,
+      capacidad: m.capacidad,
+      zona: (m.zona === 'comedor' ? 'alta' : m.zona === 'salon' ? 'central' : 'vip') as 'alta' | 'central' | 'vip',
+      estado: (m.estado === 'ocupada' ? 'Ocupada' : m.estado === 'reservada' ? 'Reservada' : m.estado === 'sucia' ? 'Sucia/En Limpieza' : 'Libre') as any,
+      comensales: m.comensales,
+      id_pedido: m.id_pedido,
+      mesas_unidas: m.mesas_unidas
+    }));
+  }, [visualMesas]);
+
   const renderSvg = () => {
-    // 1. Draw connection lines between child tables and parents (united tables)
     const unionConnectionLines = visualMesas
       .filter(m => m.parent_id != null)
       .map(child => {
@@ -662,15 +680,17 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
 
     const mesaElements = visualMesas.map(m => {
       const reserva = reservasHoy.find(r => r.id_mesa === m.id_mesa && r.estado === 'confirmada');
-      const fill = ESTADO_FILL[m.estado];
-      const stroke = ESTADO_STROKE[m.estado];
-      const textColor = ESTADO_TEXT[m.estado];
       const isSelected = unionMode && selectedForUnion.some(s => s.id_mesa === m.id_mesa);
+      const isHighlighted = highlightedMesas.includes(m.id_mesa);
+
+      const fill = isHighlighted ? '#DBEAFE' : ESTADO_FILL[m.estado];
+      const stroke = isHighlighted ? '#2563EB' : (isSelected ? '#3B82F6' : ESTADO_STROKE[m.estado]);
+      const textColor = isHighlighted ? '#1E40AF' : ESTADO_TEXT[m.estado];
       const { x, y, width, height, rx } = m.posicion;
 
       return (
         <g key={m.id} data-mesa-id={m.id}
-           className={`transition-opacity ${editorMode ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer hover:opacity-90'}`}
+           className={`transition-all duration-300 ${editorMode ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer hover:opacity-90'}`}
            onClick={(e: React.MouseEvent) => {
              e.stopPropagation();
              if (editorMode || draggingMesa) return;
@@ -681,15 +701,15 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
           {renderSillas(m)}
           <rect
             x={x} y={y} width={width} height={height} rx={rx}
-            fill={fill} stroke={isSelected ? '#3B82F6' : stroke} strokeWidth={isSelected ? 4 : 2.5}
+            fill={fill} stroke={stroke} strokeWidth={isHighlighted ? 5 : (isSelected ? 4 : 2.5)}
+            className="transition-all duration-300"
             pointerEvents="all"
             onMouseDown={(e: React.MouseEvent) => editorMode ? startDrag(m, e) : undefined}
             onTouchStart={(e: React.TouchEvent) => editorMode ? startDrag(m, e) : undefined}
           />
-          <text x={x + width / 2} y={y + height / 2 - 2} textAnchor="middle" fontSize={Math.min(18, width / 3.5)} fontWeight={700} fill={textColor} fontFamily="Arial, sans-serif" pointerEvents="none">{m.numero_mesa}</text>
-          <text x={x + width / 2} y={y + height / 2 + 14} textAnchor="middle" fontSize={9} fill={textColor} fontFamily="Arial, sans-serif" opacity={0.8} pointerEvents="none">Mesa</text>
+          <text x={x + width / 2} y={y + height / 2 - 2} textAnchor="middle" fontSize={Math.min(18, width / 3.5)} fontWeight={700} fill={textColor} fontFamily="Arial, sans-serif" pointerEvents="none" className="transition-all duration-300">{m.numero_mesa}</text>
+          <text x={x + width / 2} y={y + height / 2 + 14} textAnchor="middle" fontSize={9} fill={textColor} fontFamily="Arial, sans-serif" opacity={0.8} pointerEvents="none" className="transition-all duration-300">Mesa</text>
           
-          {/* Reservation calendar icon on table */}
           {reserva && (
             <g transform={`translate(${x + 4}, ${y + 4})`} pointerEvents="none">
               <rect width="10" height="10" rx="2" fill="#D97706" />
@@ -717,23 +737,20 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
             onTouchEnd={handleSvgMouseUp}
             onMouseLeave={handleSvgMouseUp}
           >
-            {/* Fondo blanco limpio y liso */}
             <rect x="10" y="10" width="410" height="600" rx="8" fill="#FFFFFF" stroke="#E2E8F0" strokeWidth="2"/>
-
-            {/* Línea divisoria para separar Comedor / Salón */}
             <line x1="10" y1="240" x2="420" y2="240" stroke="#CBD5E1" strokeWidth="2" strokeDasharray="5,5" />
 
             {unionConnectionLines}
             {mesaElements}
 
             {/* Leyenda */}
-            <rect x="155" y="580" width="12" height="12" rx="3" fill="#D4EDDA" stroke="#28A745" strokeWidth="2.5"/>
+            <rect x="155" y="580" width="12" height="12" rx="3" fill="#ECFDF5" stroke="#10B981" strokeWidth="2"/>
             <text x="172" y="590" fontSize="8" fill="#1E293B" fontFamily="Arial, sans-serif">Libre</text>
-            <rect x="205" y="580" width="12" height="12" rx="3" fill="#F8D7DA" stroke="#DC3545" strokeWidth="2.5"/>
+            <rect x="205" y="580" width="12" height="12" rx="3" fill="#FEF2F2" stroke="#EF4444" strokeWidth="2"/>
             <text x="222" y="590" fontSize="8" fill="#1E293B" fontFamily="Arial, sans-serif">Ocupado</text>
-            <rect x="255" y="580" width="12" height="12" rx="3" fill="#FFF3CD" stroke="#FFC107" strokeWidth="2.5"/>
+            <rect x="255" y="580" width="12" height="12" rx="3" fill="#FFFBEB" stroke="#F59E0B" strokeWidth="2"/>
             <text x="272" y="590" fontSize="8" fill="#1E293B" fontFamily="Arial, sans-serif">Reserva</text>
-            <rect x="305" y="580" width="12" height="12" rx="3" fill="#f5f5f4" stroke="#78716c" strokeWidth="2.5"/>
+            <rect x="305" y="580" width="12" height="12" rx="3" fill="#FAFAF9" stroke="#78716C" strokeWidth="2"/>
             <text x="322" y="590" fontSize="8" fill="#1E293B" fontFamily="Arial, sans-serif">Sucia</text>
           </svg>
         </div>
@@ -751,32 +768,33 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
   }
 
   return (
-    <div className="space-y-4 p-4">
+    <div className="space-y-6 text-left p-1 sm:p-2" id="mesas-salon-module">
+      
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-xl font-black text-stone-800 tracking-tight">Plano de Mesas</h2>
-          <p className="text-xs text-stone-500 font-medium">Haz clic en una mesa para reservar o liberar</p>
+          <h2 className="text-xl font-black text-stone-800 dark:text-white tracking-tight uppercase">Plano de Mesas</h2>
+          <p className="text-xs text-stone-500 font-medium">Haz clic en una mesa para reservar, ocupar o liberar mesas en tiempo real.</p>
         </div>
         <div className="flex gap-2 flex-wrap">
           <button
             onClick={() => { setEditorMode(!editorMode); setUnionMode(false); setSelectedForUnion([]); }}
-            className={`px-3 py-2 rounded-xl text-xs font-bold cursor-pointer transition-colors ${
-              editorMode ? 'bg-blue-600 text-white' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
+            className={`px-3 py-2 rounded-xl text-xs font-black uppercase cursor-pointer transition-colors ${
+              editorMode ? 'bg-blue-600 text-white shadow-md' : 'bg-stone-100 dark:bg-stone-850 text-stone-700 dark:text-stone-300 hover:bg-stone-200'
             }`}
           >
-            {editorMode ? 'Salir del editor' : 'Mover mesas'}
+            {editorMode ? 'Salir Editor' : 'Mover Mesas 📐'}
           </button>
           <button
             onClick={() => { setUnionMode(!unionMode); setEditorMode(false); setSelectedForUnion([]); }}
-            className={`px-3 py-2 rounded-xl text-xs font-bold cursor-pointer transition-colors ${
-              unionMode ? 'bg-blue-600 text-white' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
+            className={`px-3 py-2 rounded-xl text-xs font-black uppercase cursor-pointer transition-colors ${
+              unionMode ? 'bg-blue-600 text-white shadow-md' : 'bg-stone-100 dark:bg-stone-850 text-stone-700 dark:text-stone-300 hover:bg-stone-200'
             }`}
           >
-            {unionMode ? 'Cancelar unión' : 'Unir mesas'}
+            {unionMode ? 'Cancelar Unión' : 'Unir Mesas 🔗'}
           </button>
           {unionMode && selectedForUnion.length === 2 && (
-            <button onClick={handleUnirMesas} className="px-3 py-2 rounded-xl text-xs font-bold bg-[#DF3B20] text-white cursor-pointer hover:bg-[#C53030]">
+            <button onClick={handleUnirMesas} className="px-3 py-2 rounded-xl text-xs font-black uppercase bg-emerald-600 text-white cursor-pointer hover:bg-emerald-500 shadow-md shadow-emerald-600/10">
               Confirmar unión
             </button>
           )}
@@ -784,115 +802,167 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
       </div>
 
       {editorMode && (
-        <div className="bg-blue-50 text-blue-800 text-xs p-3 rounded-xl border border-blue-200">
-          📱 Modo editor activo: arrastra las mesas dentro del plano. Alineación asistida a la cuadrícula activa.
+        <div className="bg-blue-50 dark:bg-blue-950/20 text-blue-800 dark:text-blue-300 text-xs p-3 rounded-xl border border-blue-200 dark:border-blue-900/50">
+          📱 Modo editor activo: arrastra las mesas dentro del plano. Alineación asistida a la cuadrícula activa (Snapping).
         </div>
       )}
 
       {unionMode && (
-        <div className="bg-blue-50 text-blue-800 text-xs p-3 rounded-xl border border-blue-200">
-          Selecciona 2 mesas para unir. Capacidad resultante: {selectedForUnion.reduce((sum, m) => sum + (m.capacidad || 0), 0)} pax
+        <div className="bg-blue-50 dark:bg-blue-955/20 text-blue-800 dark:text-blue-300 text-xs p-3 rounded-xl border border-blue-200 dark:border-blue-900/50">
+          Selecciona 2 mesas vecinas para unirlas. Capacidad resultante: {selectedForUnion.reduce((sum, m) => sum + (m.capacidad || 0), 0)} pax
         </div>
       )}
 
-      {/* Plano SVG */}
-      <div className="bg-white rounded-2xl p-4 sm:p-6 border border-stone-200 shadow-sm">
-        {renderSvg()}
-      </div>
-
-      {/* Gestión de mesas */}
-      <div className="bg-white rounded-2xl p-4 sm:p-5 border border-stone-200 shadow-sm space-y-4">
-        <div className="flex justify-between items-center">
-          <h3 className="font-extrabold text-sm text-stone-800">Gestión de mesas</h3>
-          <button
-            onClick={() => { resetMesaForm(); setShowMesaForm(true); }}
-            className="px-3 py-2 rounded-xl text-xs font-bold bg-[#DF3B20] text-white cursor-pointer hover:bg-[#C53030]"
-          >
-            + Agregar mesa
-          </button>
+      {/* Cockpit de Recepción de Dos Columnas */}
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+        
+        {/* Columna Izquierda: Plano SVG (Span 7) */}
+        <div className="xl:col-span-7 bg-white dark:bg-stone-900 rounded-3xl p-5 border border-stone-200 dark:border-stone-850 shadow-xs flex flex-col items-center">
+          {renderSvg()}
         </div>
 
-        {showMesaForm && (
-          <form onSubmit={handleSaveMesa} className="bg-stone-50 rounded-xl p-4 space-y-3 border border-stone-100">
-            <div className="grid grid-cols-3 gap-3">
-              <div className="col-span-1">
-                <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Número</label>
-                <input type="text" value={nuevoNumero} onChange={e => setNuevoNumero(e.target.value)} placeholder="Ej. 10" required className="w-full px-3 py-2.5 text-xs border border-stone-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#DF3B20]" />
-              </div>
-              <div className="col-span-1">
-                <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Capacidad</label>
-                <select value={nuevaCapacidad} onChange={e => setNuevaCapacidad(e.target.value)} className="w-full px-3 py-2.5 text-xs border border-stone-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#DF3B20]">
-                  {[1,2,3,4,5,6,7,8,10,12].map(n => <option key={n} value={n}>{n}</option>)}
-                </select>
-              </div>
-              <div className="col-span-1">
-                <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Sector / Zona</label>
-                <select value={nuevaZona} onChange={e => setNuevaZona(e.target.value as Zona)} className="w-full px-3 py-2.5 text-xs border border-stone-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#DF3B20]">
-                  <option value="comedor">Zona Alta (Mesas 1-6 · 2 pax)</option>
-                  <option value="salon">Zona Central/Baja (Mesas 7-11 · 4-5 pax) + VIP</option>
-                </select>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <button type="button" onClick={resetMesaForm} className="flex-1 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl text-xs font-bold cursor-pointer">Cancelar</button>
-              <button type="submit" className="flex-1 py-2.5 bg-[#DF3B20] hover:bg-[#C53030] text-white rounded-xl text-xs font-bold cursor-pointer">{editingMesa ? 'Guardar cambios' : 'Agregar mesa'}</button>
-            </div>
-          </form>
-        )}
+        {/* Columna Derecha: Asistente / Gestión (Span 5) */}
+        <div className="xl:col-span-5 space-y-5">
+          
+          {/* Selector de pestañas */}
+          <div className="flex bg-stone-105 dark:bg-stone-955 p-0.5 rounded-xl border border-stone-200 dark:border-stone-800">
+            <button 
+              onClick={() => setRightPanelTab('asistente')}
+              className={`flex-1 py-2 text-[10.5px] font-black uppercase rounded-lg cursor-pointer transition-all ${
+                rightPanelTab === 'asistente' 
+                  ? 'bg-white dark:bg-stone-900 text-stone-900 dark:text-white shadow-xs' 
+                  : 'text-stone-500 dark:text-stone-400'
+              }`}
+            >
+              Asistente Inteligente 🔮
+            </button>
+            <button 
+              onClick={() => setRightPanelTab('gestion')}
+              className={`flex-1 py-2 text-[10.5px] font-black uppercase rounded-lg cursor-pointer transition-all ${
+                rightPanelTab === 'gestion' 
+                  ? 'bg-white dark:bg-stone-900 text-stone-900 dark:text-white shadow-xs' 
+                  : 'text-stone-500 dark:text-stone-400'
+              }`}
+            >
+              Gestión de Salón 🛠️
+            </button>
+          </div>
 
-        <div className="space-y-2 max-h-48 overflow-y-auto">
-          {visualMesas.map(m => (
-            <div key={m.id} className="flex items-center justify-between p-3 bg-stone-50 rounded-xl border border-stone-100">
-              <div className="flex items-center gap-3">
-                <span className={`w-2.5 h-2.5 rounded-full ${m.estado === 'ocupada' ? 'bg-red-500' : m.estado === 'reservada' ? 'bg-amber-400' : m.estado === 'unida' ? 'bg-gray-400' : 'bg-green-500'}`} />
-                <div>
-                  <p className="text-xs font-bold text-stone-800">Mesa {m.numero_mesa}</p>
-                  <p className="text-[10px] text-stone-500">{capitalize(m.zona)} · {m.capacidad} pax · {m.estado}</p>
-                </div>
+          {/* TAB 1: Asistente natural de salón */}
+          {rightPanelTab === 'asistente' && (
+            <MesaAsistente 
+              mesas={mesasNormalizadasForAsistente} 
+              onAccion={handleAccionAsistente} 
+              onHoverSuggestion={setHighlightedMesas}
+            />
+          )}
+
+          {/* TAB 2: Gestión tradicional de mesas */}
+          {rightPanelTab === 'gestion' && (
+            <div className="bg-white dark:bg-stone-900 rounded-2xl p-5 border border-stone-200 dark:border-stone-850 shadow-xs space-y-4">
+              <div className="flex justify-between items-center pb-2 border-b border-stone-105 dark:border-stone-800">
+                <h3 className="font-black text-xs text-stone-800 dark:text-white uppercase">Mesas Físicas</h3>
+                <button
+                  onClick={() => { resetMesaForm(); setShowMesaForm(true); }}
+                  className="px-3 py-1.5 rounded-xl text-[10px] font-black uppercase bg-[#624A3E] text-white cursor-pointer hover:bg-[#503C32]"
+                >
+                  + Agregar mesa
+                </button>
               </div>
-              <div className="flex items-center gap-1">
-                <button onClick={e => openEditMesa(m, e)} className="p-1.5 hover:bg-blue-50 text-stone-400 hover:text-blue-500 rounded-lg cursor-pointer transition-colors">
-                  <Pencil className="w-3.5 h-3.5" />
-                </button>
-                <button onClick={e => handleDeleteMesa(m, e)} className="p-1.5 hover:bg-rose-50 text-stone-400 hover:text-rose-500 rounded-lg cursor-pointer transition-colors">
-                  <Trash className="w-3.5 h-3.5" />
-                </button>
+
+              {showMesaForm && (
+                <form onSubmit={handleSaveMesa} className="bg-stone-50 dark:bg-stone-950 rounded-xl p-4 space-y-3 border border-stone-150 dark:border-stone-850">
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="text-[9px] font-black text-stone-500 dark:text-stone-400 uppercase block mb-1">Número</label>
+                      <input type="text" value={nuevoNumero} onChange={e => setNuevoNumero(e.target.value)} placeholder="Ej. 10" required className="w-full px-2 py-1.5 text-xs border border-stone-200 dark:border-stone-750 bg-white dark:bg-stone-900 text-stone-800 dark:text-white rounded-xl focus:outline-none focus:ring-1 focus:ring-[#624A3E]" />
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-black text-stone-500 dark:text-stone-400 uppercase block mb-1">Pax</label>
+                      <select value={nuevaCapacidad} onChange={e => setNuevaCapacidad(e.target.value)} className="w-full px-2 py-1.5 text-xs border border-stone-200 dark:border-stone-750 bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-200 rounded-xl focus:outline-none cursor-pointer focus:ring-1 focus:ring-[#624A3E]">
+                        {[1,2,3,4,5,6,7,8,10,12].map(n => <option key={n} value={n}>{n}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-black text-stone-500 dark:text-stone-400 uppercase block mb-1">Zona</label>
+                      <select value={nuevaZona} onChange={e => setNuevaZona(e.target.value as Zona)} className="w-full px-2 py-1.5 text-xs border border-stone-200 dark:border-stone-750 bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-200 rounded-xl focus:outline-none cursor-pointer focus:ring-1 focus:ring-[#624A3E]">
+                        <option value="comedor">Comedor</option>
+                        <option value="salon">Salón principal</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 pt-1">
+                    <button type="button" onClick={resetMesaForm} className="flex-1 py-2 bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-305 rounded-xl text-[10px] font-bold cursor-pointer">Cancelar</button>
+                    <button type="submit" className="flex-1 py-2 bg-[#624A3E] text-white rounded-xl text-[10px] font-black uppercase cursor-pointer hover:bg-[#503C32]">{editingMesa ? 'Guardar' : 'Crear'}</button>
+                  </div>
+                </form>
+              )}
+
+              <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
+                {visualMesas.map(m => (
+                  <div key={m.id} className="flex items-center justify-between p-3 bg-stone-50 dark:bg-stone-950 rounded-xl border border-stone-150 dark:border-stone-850">
+                    <div className="flex items-center gap-3">
+                      <span className={`w-2.5 h-2.5 rounded-full ${
+                        m.estado === 'ocupada' 
+                          ? 'bg-rose-500' 
+                          : m.estado === 'reservada' 
+                            ? 'bg-amber-500' 
+                            : m.estado === 'unida' 
+                              ? 'bg-gray-400' 
+                              : 'bg-emerald-500'
+                      }`} />
+                      <div>
+                        <p className="text-xs font-bold text-stone-805 dark:text-white">Mesa {m.numero_mesa}</p>
+                        <p className="text-[9.5px] text-stone-500 dark:text-stone-400">{capitalize(m.zona)} · {m.capacidad} pax · {m.estado}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button onClick={e => openEditMesa(m, e)} className="p-1.5 hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-400 hover:text-[#624A3E] dark:hover:text-[#C8956A] rounded-lg cursor-pointer transition-colors">
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      <button onClick={e => handleDeleteMesa(m, e)} className="p-1.5 hover:bg-rose-50 dark:hover:bg-rose-950/20 text-stone-400 hover:text-rose-500 rounded-lg cursor-pointer transition-colors">
+                        <Trash className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-          ))}
+          )}
+
         </div>
       </div>
 
-      {/* Modal */}
+      {/* Modal de Asignación / Registro de Reserva */}
       {selectedMesa && (
-        <div className="fixed inset-0 z-50 bg-black/45 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="bg-white rounded-t-[20px] sm:rounded-[20px] w-full max-w-md p-6 shadow-2xl border border-stone-200 animate-in slide-in-from-bottom-10">
+        <div className="fixed inset-0 z-50 bg-black/45 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 text-left">
+          <div className="bg-white dark:bg-stone-900 rounded-t-[20px] sm:rounded-[20px] w-full max-w-md p-6 shadow-2xl border border-stone-200 dark:border-stone-800 animate-in slide-in-from-bottom-10">
             <div className="flex justify-between items-center mb-4">
               <div>
-                <h3 className="text-lg font-black text-stone-800">Mesa {selectedMesa.numero_mesa}</h3>
-                <p className="text-xs text-stone-500 font-medium">{capitalize(selectedMesa.zona)} · Capacidad {selectedMesa.capacidad} pax · Estado: <span className="font-bold capitalize">{selectedMesa.estado}</span></p>
+                <h3 className="text-lg font-black text-stone-805 dark:text-white">Mesa {selectedMesa.numero_mesa}</h3>
+                <p className="text-xs text-stone-550 dark:text-stone-300 font-medium">{capitalize(selectedMesa.zona)} · Capacidad {selectedMesa.capacidad} comensales · Estado: <span className="font-black capitalize">{selectedMesa.estado}</span></p>
               </div>
-              <button onClick={closeModal} className="p-2 hover:bg-stone-100 rounded-full cursor-pointer"><X className="w-5 h-5 text-stone-500" /></button>
+              <button onClick={closeModal} className="p-2 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-full cursor-pointer"><X className="w-5 h-5 text-stone-500" /></button>
             </div>
 
             {selectedMesa.estado === 'ocupada' ? (
               <div className="space-y-4">
-                <p className="text-sm text-stone-600">La mesa está ocupada. Al liberar quedará marcada como Sucia/En Limpieza hasta que se limpie.</p>
-                <button onClick={handleLiberarMesa} className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold cursor-pointer">Liberar mesa</button>
+                <p className="text-xs text-stone-600 dark:text-stone-300 font-semibold leading-relaxed">La mesa está ocupada por comensales. Al liberarla quedará marcada como "Sucia/En Limpieza" hasta que el mozo o fajinador confirme la limpieza.</p>
+                <button onClick={handleLiberarMesa} className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black uppercase tracking-wider cursor-pointer transition-all shadow-md shadow-emerald-600/10">Liberar mesa y enviar a Limpieza</button>
               </div>
             ) : selectedMesa.estado === 'sucia' ? (
               <div className="space-y-4">
-                <p className="text-sm text-stone-600">La mesa está sucia o en limpieza. Marcala como libre cuando esté lista.</p>
-                <button onClick={handleLimpiarMesa} className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold cursor-pointer">Mesa limpia</button>
+                <p className="text-xs text-stone-600 dark:text-stone-300 font-semibold leading-relaxed">La mesa está sucia o en limpieza. Confirma que la mesa está limpia y lista para recibir nuevos clientes.</p>
+                <button onClick={handleLimpiarMesa} className="w-full py-2.5 bg-[#624A3E] hover:bg-[#503C32] text-white rounded-xl text-xs font-black uppercase tracking-wider cursor-pointer transition-all shadow-md shadow-[#624A3E]/10">Confirmar Limpieza de Mesa</button>
               </div>
             ) : selectedMesa.estado === 'unida' ? (
               <div className="space-y-4">
-                <p className="text-sm text-stone-600">Esta mesa está unida a otra. No se puede reservar individualmente.</p>
+                <p className="text-xs text-stone-600 dark:text-stone-300 italic font-semibold leading-relaxed">Esta mesa está unida a otra. Por favor modifique la mesa combinada principal para realizar operaciones.</p>
               </div>
             ) : selectedMesa.mesas_unidas && selectedMesa.mesas_unidas.length >= 2 ? (
               <div className="space-y-4">
-                <p className="text-sm text-stone-600">Mesa unida: Mesa {selectedMesa.numero_mesa} · Capacidad {selectedMesa.capacidad} pax</p>
-                <button onClick={handleSepararMesas} className="w-full py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold cursor-pointer">Separar mesas</button>
+                <p className="text-xs text-stone-600 dark:text-stone-300 font-semibold leading-relaxed">Mesa combinada: Mesa {selectedMesa.numero_mesa} · Capacidad {selectedMesa.capacidad} pax</p>
+                <button onClick={handleSepararMesas} className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-black uppercase cursor-pointer transition-all shadow-sm">Separar Mesas Combinadas</button>
               </div>
             ) : (
               <form onSubmit={handleSaveReserva} className="space-y-3">
@@ -901,37 +971,37 @@ export default function MesasProto1({ mesas, onMesasChange, addLog = () => {} }:
                     <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Fecha</label>
                     <div className="relative">
                       <Calendar className="w-4 h-4 text-stone-450 absolute left-3 top-1/2 -translate-y-1/2" />
-                      <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} required className="w-full pl-9 pr-2 py-2.5 text-xs border border-stone-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#DF3B20]" />
+                      <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} required className="w-full pl-9 pr-2 py-2 text-xs border border-stone-200 dark:border-stone-750 bg-stone-50 dark:bg-stone-955 text-stone-800 dark:text-white rounded-xl focus:outline-none focus:ring-1 focus:ring-[#624A3E] font-bold" />
                     </div>
                   </div>
                   <div>
                     <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Hora</label>
-                    <input type="time" value={hora} onChange={e => setHora(e.target.value)} required className="w-full px-3 py-2.5 text-xs border border-stone-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#DF3B20]" />
+                    <input type="time" value={hora} onChange={e => setHora(e.target.value)} required className="w-full px-3 py-2 text-xs border border-stone-200 dark:border-stone-750 bg-stone-50 dark:bg-stone-955 text-stone-800 dark:text-white rounded-xl focus:outline-none focus:ring-1 focus:ring-[#624A3E] font-bold" />
                   </div>
                 </div>
                 <div>
                   <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Nombre y Apellido</label>
-                  <input type="text" value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Ej. Carlos Tevez" required className="w-full px-3 py-2.5 text-xs border border-stone-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#DF3B20]" />
+                  <input type="text" value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Ej. Carlos Tevez" required className="w-full px-3 py-2 text-xs border border-stone-200 dark:border-stone-750 bg-stone-50 dark:bg-stone-955 text-stone-800 dark:text-white rounded-xl focus:outline-none focus:ring-1 focus:ring-[#624A3E] font-bold" />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Celular</label>
-                    <input type="text" value={telefono} onChange={e => setTelefono(e.target.value)} placeholder="+54 11..." className="w-full px-3 py-2.5 text-xs border border-stone-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#DF3B20]" />
+                    <input type="text" value={telefono} onChange={e => setTelefono(e.target.value)} placeholder="+54 11..." className="w-full px-3 py-2 text-xs border border-stone-200 dark:border-stone-755 bg-stone-50 dark:bg-stone-955 text-stone-800 dark:text-white rounded-xl focus:outline-none focus:ring-1 focus:ring-[#624A3E] font-semibold" />
                   </div>
                   <div>
                     <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Pax</label>
-                    <select value={pax} onChange={e => setPax(e.target.value)} className="w-full px-3 py-2.5 text-xs border border-stone-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#DF3B20]">
-                      {[1,2,3,4,5,6,7,8,9,10,12,14,16].map(n => <option key={n} value={n}>{n}</option>)}
+                    <select value={pax} onChange={e => setPax(e.target.value)} className="w-full px-3 py-2 text-xs border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-955 text-stone-700 dark:text-stone-200 rounded-xl focus:outline-none cursor-pointer focus:ring-1 focus:ring-[#624A3E] font-bold">
+                      {[1,2,3,4,5,6,7,8,9,10,12,14,16].map(n => <option key={n} value={n} className="bg-white dark:bg-stone-900">{n}</option>)}
                     </select>
                   </div>
                 </div>
                 <div>
                   <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Observaciones</label>
-                  <textarea value={observaciones} onChange={e => setObservaciones(e.target.value)} rows={2} placeholder="Alergias, ubicación preferida..." className="w-full px-3 py-2.5 text-xs border border-stone-200 rounded-xl resize-none focus:outline-none focus:ring-1 focus:ring-[#DF3B20]" />
+                  <textarea value={observaciones} onChange={e => setObservaciones(e.target.value)} rows={2} placeholder="Alergias, ubicación preferida..." className="w-full px-3 py-2 text-xs border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-955 text-stone-800 dark:text-white rounded-xl resize-none focus:outline-none focus:ring-1 focus:ring-[#624A3E] font-semibold" />
                 </div>
                 <div className="flex gap-3 pt-2">
-                  <button type="button" onClick={closeModal} className="flex-1 py-3 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl font-bold cursor-pointer">Cancelar</button>
-                  <button type="submit" disabled={saving} className="flex-1 py-3 bg-[#DF3B20] hover:bg-[#C53030] text-white rounded-xl font-bold cursor-pointer disabled:opacity-60 flex items-center justify-center gap-2">
+                  <button type="button" onClick={closeModal} className="flex-1 py-2.5 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 text-stone-700 dark:text-stone-305 rounded-xl font-bold cursor-pointer">Cancelar</button>
+                  <button type="submit" disabled={saving} className="flex-1 py-2.5 bg-[#624A3E] hover:bg-[#503C32] text-white rounded-xl font-black uppercase cursor-pointer disabled:opacity-60 flex items-center justify-center gap-2">
                     {saving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Plus className="w-4 h-4" />}
                     {reservasHoy.some(r => r.id_mesa === selectedMesa.id_mesa && r.estado === 'confirmada') ? 'Guardar' : 'Reservar'}
                   </button>
