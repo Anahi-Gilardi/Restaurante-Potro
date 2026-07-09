@@ -224,7 +224,7 @@ export const pdfService = {
     doc.text('Producto / Descripción', margin + 20, y + 4.8);
     doc.text('Precio Unit.', margin + 142, y + 4.8, { align: 'right' });
     doc.text('Subtotal', margin + 178, y + 4.8, { align: 'right' });
-    y += 9;
+    y += 13;
 
     // Items List
     doc.setTextColor(...BRAND.dark);
@@ -242,7 +242,7 @@ export const pdfService = {
         doc.text('Producto / Descripción', margin + 20, y + 4.8);
         doc.text('Precio Unit.', margin + 142, y + 4.8, { align: 'right' });
         doc.text('Subtotal', margin + 178, y + 4.8, { align: 'right' });
-        y += 9;
+        y += 13;
         doc.setTextColor(...BRAND.dark);
       }
       
@@ -767,7 +767,7 @@ export const pdfService = {
       doc.text('Concepto / Descripción', margin + 45, y + 4.8);
       doc.text('Tipo', margin + 130, y + 4.8);
       doc.text('Monto ($)', margin + 178, y + 4.8, { align: 'right' });
-      y += 7.5;
+      y += 12;
 
       doc.setTextColor(...BRAND.dark);
       doc.setFont('helvetica', 'normal');
@@ -784,7 +784,7 @@ export const pdfService = {
           doc.text('Concepto / Descripción', margin + 45, y + 4.8);
           doc.text('Tipo', margin + 130, y + 4.8);
           doc.text('Monto ($)', margin + 178, y + 4.8, { align: 'right' });
-          y += 7.5;
+          y += 12;
           doc.setTextColor(...BRAND.dark);
           doc.setFont('helvetica', 'normal');
         }
@@ -826,7 +826,7 @@ export const pdfService = {
       doc.setFontSize(8);
       doc.text('Medio de Pago', margin + 4, y + 4.8);
       doc.text('Total Acumulado ($)', margin + 178, y + 4.8, { align: 'right' });
-      y += 7.5;
+      y += 12;
 
       doc.setTextColor(...BRAND.dark);
       doc.setFont('helvetica', 'normal');
@@ -850,7 +850,7 @@ export const pdfService = {
           doc.setFontSize(8);
           doc.text('Medio de Pago', margin + 4, y + 4.8);
           doc.text('Total Acumulado ($)', margin + 178, y + 4.8, { align: 'right' });
-          y += 7.5;
+          y += 12;
           doc.setTextColor(...BRAND.dark);
           doc.setFont('helvetica', 'normal');
         }
@@ -890,7 +890,7 @@ export const pdfService = {
       doc.text('Artículo / Producto', margin + 4, y + 4.8);
       doc.text('Cant.', margin + 130, y + 4.8, { align: 'right' });
       doc.text('Total Acumulado ($)', margin + 178, y + 4.8, { align: 'right' });
-      y += 7.5;
+      y += 12;
 
       doc.setTextColor(...BRAND.dark);
       doc.setFont('helvetica', 'normal');
@@ -906,7 +906,7 @@ export const pdfService = {
           doc.text('Artículo / Producto', margin + 4, y + 4.8);
           doc.text('Cant.', margin + 130, y + 4.8, { align: 'right' });
           doc.text('Total Acumulado ($)', margin + 178, y + 4.8, { align: 'right' });
-          y += 7.5;
+          y += 12;
           doc.setTextColor(...BRAND.dark);
           doc.setFont('helvetica', 'normal');
         }
