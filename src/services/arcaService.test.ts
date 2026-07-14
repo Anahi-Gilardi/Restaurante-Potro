@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import {
   buildArcaInvoiceRequest,
+  getArcaApiEndpoint,
   getArcaStatus,
   testArcaConnection,
 } from './arcaService';
@@ -31,6 +32,14 @@ test('consulta estado ARCA sin enviar credenciales fiscales', async () => {
   assert.equal(status.puntoVenta, 3);
   assert.equal(request?.init?.method, 'GET');
   assert.equal(request?.init?.body, undefined);
+});
+
+test('el dominio publico usa el backend fiscal privado', () => {
+  assert.equal(
+    getArcaApiEndpoint({ hostname: 'restaurante-potro.vercel.app' } as Location),
+    'https://restaurante-potro-anahi.vercel.app/api/arca',
+  );
+  assert.equal(getArcaApiEndpoint({ hostname: 'localhost' } as Location), '/api/arca');
 });
 
 test('probar conexión exige una sesión autenticada', async () => {

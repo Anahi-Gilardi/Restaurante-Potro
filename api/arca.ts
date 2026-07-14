@@ -135,6 +135,11 @@ const globalCache = globalThis as typeof globalThis & {
 };
 const taCache = globalCache.__elPatronArcaTa ??= {};
 
+const DEFAULT_ALLOWED_ORIGINS = new Set([
+  "https://restaurante-potro.vercel.app",
+  "https://restaurante-potro-anahi.vercel.app",
+]);
+
 const envValue = (...names: string[]): string => {
   for (const name of names) {
     const value = process.env[name]?.trim();
@@ -142,6 +147,32 @@ const envValue = (...names: string[]): string => {
   }
   return "";
 };
+
+function requestOrigin(req: VercelRequest): string {
+  const raw = req.headers?.origin;
+  return (Array.isArray(raw) ? raw[0] : raw)?.trim() ?? "";
+}
+
+function isAllowedOrigin(origin: string): boolean {
+  if (!origin) return true;
+  const configured = envValue("APP_ALLOWED_ORIGINS")
+    .split(",")
+    .map(value => value.trim())
+    .filter(Boolean);
+  return DEFAULT_ALLOWED_ORIGINS.has(origin) || configured.includes(origin);
+}
+
+function configureCors(req: VercelRequest, res: VercelResponse): boolean {
+  const origin = requestOrigin(req);
+  if (!isAllowedOrigin(origin)) return false;
+  if (origin) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+  }
+  res.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  return true;
+}
 
 const decodePem = (plainNames: string[], base64Names: string[]): string => {
   const plain = envValue(...plainNames);
@@ -1089,6 +1120,10 @@ const safeErrorMessage = (error: unknown): string => {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader("Cache-Control", "no-store, max-age=0");
   res.setHeader("X-Content-Type-Options", "nosniff");
+  if (!configureCors(req, res)) {
+    return res.status(403).json({ success: false, error: "Origen no autorizado." });
+  }
+  if (req.method === "OPTIONS") return res.status(204).end();
   const rawContentLength = req.headers?.["content-length"];
   const contentLength = Number(Array.isArray(rawContentLength) ? rawContentLength[0] : rawContentLength ?? 0);
   if (Number.isFinite(contentLength) && contentLength > 120_000) {
@@ -1230,6 +1265,7 @@ export const __arcaTestables = {
   getAccessTicket,
   getCertificateField,
   getLastAuthorized,
+  isAllowedOrigin,
   sanitizePem,
   validateCertificatePair,
   validateInvoicePayload,
