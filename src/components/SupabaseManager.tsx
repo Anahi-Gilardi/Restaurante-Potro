@@ -45,6 +45,7 @@ import {
   INITIAL_PRODUCTOS_MENU,
   INITIAL_RECETAS_ESCANDALLO
 } from '../data/initialData';
+import { hasSameSupabaseConfig } from '../lib/supabaseClient';
 
 interface SupabaseManagerProps {
   onSyncComplete?: (data: {
@@ -205,10 +206,13 @@ export default function SupabaseManager({
     setConnectionMessage('Estableciendo enlace de prueba...');
 
     try {
-      // Temporarily store in local storage to initialize correct client instance
-      localStorage.setItem('el_patron_supabase_url', testUrl);
-      localStorage.setItem('el_patron_supabase_anon_key', testKey);
-      resetSupabaseInstance();
+      const currentConfig = getSupabaseConfig();
+      const testedConfig = { url: testUrl, key: testKey };
+      if (!hasSameSupabaseConfig(currentConfig, testedConfig)) {
+        localStorage.setItem('el_patron_supabase_url', testUrl);
+        localStorage.setItem('el_patron_supabase_anon_key', testKey);
+        resetSupabaseInstance();
+      }
 
       const client = getSupabaseClient();
       if (!client) {
