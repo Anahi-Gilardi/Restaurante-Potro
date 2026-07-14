@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   hasSupabaseConfig,
+  hasSameSupabaseConfig,
   normalizeSupabaseUrl,
   resolveSupabaseConfig,
 } from './supabaseClient';
@@ -50,4 +51,15 @@ test('detecta configuracion Supabase incompleta o placeholder', () => {
   assert.equal(hasSupabaseConfig({ url: 'https://demo.supabase.co', key: 'tu-anon-key' }), false);
   assert.equal(hasSupabaseConfig({ url: 'https://demo.supabase.co', key: 'abc...' }), false);
   assert.equal(hasSupabaseConfig({ url: 'https://demo.supabase.co', key: 'real-key' }), true);
+});
+
+test('no reinicia la autenticacion cuando la configuracion efectiva no cambio', () => {
+  assert.equal(hasSameSupabaseConfig(
+    { url: 'https://demo.supabase.co/', key: 'public-key' },
+    { url: 'https://demo.supabase.co', key: 'public-key' },
+  ), true);
+  assert.equal(hasSameSupabaseConfig(
+    { url: 'https://demo.supabase.co', key: 'public-key' },
+    { url: 'https://otro.supabase.co', key: 'public-key' },
+  ), false);
 });

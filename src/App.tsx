@@ -33,7 +33,7 @@ import MobileNav from './components/MobileNav';
 import RetryErrorWrapper from './components/RetryErrorWrapper';
 import RecetasErrorBoundary from './components/RecetasErrorBoundary';
 import Skeleton from './components/Skeleton';
-import { tryGetActiveSupabaseClient } from './lib/supabaseClient';
+import { hasSameSupabaseConfig, tryGetActiveSupabaseClient } from './lib/supabaseClient';
 import DiagnosticsTester from './components/DiagnosticsTester';
 import RestaurantCover from './components/RestaurantCover';
 
@@ -73,6 +73,7 @@ import {
   dbUpsertMermas,
   dbRecordMovement,
   dbFetchUsuarios,
+  getSupabaseConfig,
   dbUpsertProductosMenu,
   dbUpsertRecetas
 } from './supabase';
@@ -193,11 +194,11 @@ export default function App() {
         const response = await fetch('/api/supabase-config');
         const data = await response.json();
         if (data.SUPABASE_URL && data.SUPABASE_ANON_KEY) {
-          const currentUrl = localStorage.getItem('SUPABASE_URL');
-          const currentKey = localStorage.getItem('SUPABASE_ANON_KEY');
-          if (currentUrl !== data.SUPABASE_URL || currentKey !== data.SUPABASE_ANON_KEY) {
-            localStorage.setItem('SUPABASE_URL', data.SUPABASE_URL);
-            localStorage.setItem('SUPABASE_ANON_KEY', data.SUPABASE_ANON_KEY);
+          const current = getSupabaseConfig();
+          const next = { url: String(data.SUPABASE_URL), key: String(data.SUPABASE_ANON_KEY) };
+          if (!hasSameSupabaseConfig(current, next)) {
+            localStorage.setItem('el_patron_supabase_url', data.SUPABASE_URL);
+            localStorage.setItem('el_patron_supabase_anon_key', data.SUPABASE_ANON_KEY);
             resetSupabaseInstance(); // This triggers supabase-client-reset event
           }
         }
