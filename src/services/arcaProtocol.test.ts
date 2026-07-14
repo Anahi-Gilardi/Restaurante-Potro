@@ -27,3 +27,30 @@ test('rechaza importes cuyo neto e IVA no coinciden con el total', () => {
 test('la fecha fiscal usa formato AAAAMMDD', () => {
   assert.match(__arcaTestables.arcaDate(), /^\d{8}$/);
 });
+
+test('QR v1 usa CAE tipo E y omite documento para Consumidor Final', () => {
+  const qr = __arcaTestables.buildFiscalQrPayload({
+    date: '20260714',
+    cuit: 27426946136,
+    pointOfSale: 1,
+    voucherType: 11,
+    voucherNumber: 42,
+    total: 1500,
+    documentType: 99,
+    documentNumber: 0,
+    cae: '74123456789012',
+  });
+  assert.equal(qr.tipoCodAut, 'E');
+  assert.equal(qr.ptoVta, 1);
+  assert.equal('tipoDocRec' in qr, false);
+  assert.equal('nroDocRec' in qr, false);
+});
+
+test('lee el CUIT del atributo X.509 serialNumber emitido por ARCA', () => {
+  const value = __arcaTestables.getCertificateField({
+    subject: {
+      attributes: [{ name: 'serialNumber', type: '2.5.4.5', value: 'CUIT 27426946136' }],
+    },
+  } as any, 'serialNumber');
+  assert.equal(value, 'CUIT 27426946136');
+});

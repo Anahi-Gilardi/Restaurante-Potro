@@ -56,6 +56,8 @@ export function validateDeploymentConfig(env: DeployRuntimeEnv): string[] {
     'VITE_ARCA_CERT',
     'VITE_AFIP_KEY',
     'VITE_AFIP_CERT',
+    'VITE_SUPABASE_SERVICE_ROLE_KEY',
+    'VITE_ARCA_CONFIG_ENCRYPTION_KEY',
   ].filter(key => Boolean(readEnv(env, key)));
   if (exposedFiscalSecrets.length > 0) {
     failures.push('Fiscal certificate/private-key variables must never use the public VITE_ prefix.');

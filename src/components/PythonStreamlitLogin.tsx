@@ -106,10 +106,12 @@ export default function PythonStreamlitLogin({ onLoginSuccess, onBackToCover }: 
         return;
       }
 
+      const safeEmail = (authData.user.email || email).trim().toLowerCase().replace(/[(),]/g, '');
       const { data: profile, error: profileError } = await supabase
         .from('usuarios')
         .select('*')
-        .eq('id_usuario', authData.user.id)
+        .or(`auth_user_id.eq.${authData.user.id},username.eq.${safeEmail},mail.eq.${safeEmail}`)
+        .limit(1)
         .single();
 
       if (profileError) throw profileError;

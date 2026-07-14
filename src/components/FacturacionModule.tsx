@@ -140,12 +140,12 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
   const [medioFiltro, setMedioFiltro] = useState<MedioFiltro>('todos');
   
   // Emisión Manual
-  const [manualTipo, setManualTipo] = useState<'ticket' | 'A' | 'B' | 'C' | 'X'>('B');
+  const [manualTipo, setManualTipo] = useState<'ticket' | 'A' | 'B' | 'C' | 'X'>('C');
   const [manualCliente, setManualCliente] = useState('Consumidor Final');
   const [manualCuit, setManualCuit] = useState('99-99999999-9');
   const [manualTotal, setManualTotal] = useState('0');
   const [manualMedio, setManualMedio] = useState<Factura['medio_pago']>('efectivo');
-  const [manualIva, setManualIva] = useState(true);
+  const [manualIva, setManualIva] = useState(false);
   const [manualObs, setManualObs] = useState('');
   const [manualQuery, setManualQuery] = useState('');
   const [showManualSuggestions, setShowManualSuggestions] = useState(false);
@@ -154,7 +154,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
   const [selectedPedidos, setSelectedPedidos] = useState<number[]>([]);
   const [agruparPorMesa, setAgruparPorMesa] = useState(false);
   const [pagoSearch, setPagoSearch] = useState('');
-  const [pagoTipo, setPagoTipo] = useState<'ticket' | 'A' | 'B' | 'C' | 'X'>('ticket');
+  const [pagoTipo, setPagoTipo] = useState<'ticket' | 'A' | 'B' | 'C' | 'X'>('C');
   const [pagoCliente, setPagoCliente] = useState('Consumidor Final');
   const [pagoCuit, setPagoCuit] = useState('99-99999999-9');
   const [pagoMedio, setPagoMedio] = useState<Factura['medio_pago']>('efectivo');
@@ -181,7 +181,14 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
       .then(data => setClientes(data || []))
       .catch(err => console.error('Error cargando clientes:', err));
 
-    getArcaStatus().then(setArcaStatus);
+    getArcaStatus().then(status => {
+      setArcaStatus(status);
+      if (status.taxProfile === 'monotributo') {
+        setManualTipo('C');
+        setPagoTipo('C');
+        setManualIva(false);
+      }
+    });
   }, []);
 
   const handleTestArca = async () => {
@@ -1200,9 +1207,6 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
                 }} 
                 className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-700 dark:text-stone-200 text-xs font-bold"
               >
-                <option value="ticket">Ticket de Consumo</option>
-                <option value="B">Factura B</option>
-                <option value="A">Factura A (Responsable Inscripto)</option>
                 <option value="C">Factura C (Monotributo)</option>
                 <option value="X">Comprobante X (Interno/Respaldo)</option>
               </select>
@@ -1537,9 +1541,6 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
                         }} 
                         className="w-full p-2 bg-white dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-lg text-xs font-bold text-stone-800 dark:text-stone-200"
                       >
-                        <option value="ticket">Ticket de Consumo</option>
-                        <option value="B">Factura B</option>
-                        <option value="A">Factura A (Con CUIT)</option>
                         <option value="C">Factura C (Monotributo)</option>
                         <option value="X">Comprobante X (Interno)</option>
                       </select>

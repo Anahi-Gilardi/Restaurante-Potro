@@ -11,23 +11,38 @@ Caja / Facturación (React)
   ← CAE, vencimiento, número oficial y datos del QR
 ```
 
-La clave privada y el certificado fiscal **no se guardan en localStorage, en
-Supabase ni en variables `VITE_*`**. Solamente existen como secretos del
-servidor en Vercel. El Token de Acceso se cachea en memoria mientras la función
-serverless permanece activa y nunca se devuelve al navegador.
+La clave privada y el certificado fiscal **no se guardan en localStorage ni en
+variables `VITE_*`**. El panel Sistema los envía al backend, que valida CUIT,
+vigencia y correspondencia criptográfica, y guarda un paquete cifrado con
+AES-256-GCM en `arca_config`. La clave maestra solamente existe en Vercel y
+ninguna API devuelve el contenido de los archivos al navegador.
 
 Las acciones `test` y `createInvoice` exigen un token de sesión válido de
-Supabase. El estado general puede consultarse sin autenticación, pero solo
-devuelve entorno, punto de venta y una CUIT enmascarada.
+Supabase. Guardar, consultar metadatos o eliminar la firma exige además rol
+`superadmin`. El estado público solo devuelve entorno, punto de venta y una
+CUIT enmascarada.
 
 ## Variables de entorno de Vercel
 
 Configurar en Project Settings → Environment Variables:
 
 ```env
-ARCA_CUIT=30123456789
-ARCA_PUNTO_VENTA=3
-ARCA_ENV=homologacion
+SUPABASE_SERVICE_ROLE_KEY=<service role exclusiva del servidor>
+ARCA_CONFIG_ENCRYPTION_KEY=<salida de openssl rand -base64 32>
+```
+
+Ejecutar también la migración
+`supabase/migrations/20260714000000_create_secure_arca_config.sql`. Luego un
+superadministrador puede abrir **Sistema**, seleccionar Producción, CUIT
+`27426946136`, punto de venta `1`, subir `.crt` y `.key`, guardar y probar la
+conexión.
+
+Como alternativa heredada se admiten variables privadas de Vercel:
+
+```env
+ARCA_CUIT=27426946136
+ARCA_PUNTO_VENTA=1
+ARCA_ENV=produccion
 ARCA_CERT_BASE64=<certificado .crt codificado en base64>
 ARCA_KEY_BASE64=<clave privada .key codificada en base64>
 ```

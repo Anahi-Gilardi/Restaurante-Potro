@@ -2,6 +2,7 @@
 
 import forge from "node-forge";
 import https from "node:https";
+import { createCipheriv, createDecipheriv, randomBytes, timingSafeEqual } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 
 interface VercelRequest {
@@ -36,6 +37,29 @@ interface ServerCredentials {
   cert: string;
   environment: EnvironmentName;
   puntoVenta: number;
+  taxProfile: "monotributo";
+  source: "database" | "environment";
+}
+
+interface StoredArcaConfig {
+  id: string;
+  cuit: string;
+  punto_venta: number;
+  environment: EnvironmentName;
+  tax_profile: "monotributo";
+  secret_ciphertext: string;
+  secret_iv: string;
+  secret_tag: string;
+  certificate_subject: string | null;
+  certificate_serial: string | null;
+  certificate_valid_from: string | null;
+  certificate_valid_to: string | null;
+  updated_at: string;
+}
+
+interface AuthenticatedUser {
+  id: string;
+  email: string;
 }
 
 interface CachedAccessTicket {
@@ -84,7 +108,7 @@ const positiveInteger = (value: unknown, fallback: number): number => {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 };
 
-function getServerCredentials(): ServerCredentials | null {
+function getEnvironmentCredentials(): ServerCredentials | null {
   const cuitText = envValue("ARCA_CUIT", "AFIP_CUIT").replace(/\D/g, "");
   const key = decodePem(["ARCA_KEY"], ["ARCA_KEY_BASE64", "AFIP_KEY_BASE64"]);
   const cert = decodePem(["ARCA_CERT"], ["ARCA_CERT_BASE64", "AFIP_CERT_BASE64"]);
@@ -101,6 +125,8 @@ function getServerCredentials(): ServerCredentials | null {
     cert,
     environment: production ? "produccion" : "homologacion",
     puntoVenta: positiveInteger(envValue("ARCA_PUNTO_VENTA"), 1),
+    taxProfile: "monotributo",
+    source: "environment",
   };
 }
 
@@ -110,15 +136,20 @@ const publicStatus = (credentials: ServerCredentials | null) => ({
   environment: credentials?.environment ?? null,
   puntoVenta: credentials?.puntoVenta ?? null,
   cuitMasked: credentials ? `*******${String(credentials.cuit).slice(-4)}` : null,
+  taxProfile: credentials?.taxProfile ?? null,
+  source: credentials?.source ?? null,
   message: credentials
-    ? "Credenciales fiscales configuradas en el servidor."
-    : "Faltan ARCA_CUIT, ARCA_CERT/ARCA_CERT_BASE64 y ARCA_KEY/ARCA_KEY_BASE64 en Vercel.",
+    ? "Credenciales fiscales configuradas de forma segura en el servidor."
+    : "La firma digital de ARCA todavia no esta configurada.",
 });
 
-async function hasAuthenticatedUser(req: VercelRequest): Promise<boolean> {
+function getBearerToken(req: VercelRequest): string {
   const rawAuthorization = req.headers?.authorization;
   const authorization = Array.isArray(rawAuthorization) ? rawAuthorization[0] : rawAuthorization;
-  const token = authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
+  return authorization?.match(/^Bearer\s+(.+)$/i)?.[1] ?? "";
+}
+
+function getPublicSupabaseClient() {
   const supabaseUrl = envValue("SUPABASE_URL", "VITE_SUPABASE_URL");
   const supabaseKey = envValue(
     "SUPABASE_PUBLISHABLE_KEY",
@@ -126,12 +157,41 @@ async function hasAuthenticatedUser(req: VercelRequest): Promise<boolean> {
     "VITE_SUPABASE_PUBLISHABLE_KEY",
     "VITE_SUPABASE_ANON_KEY",
   );
-  if (!token || !supabaseUrl || !supabaseKey) return false;
-  const client = createClient(supabaseUrl, supabaseKey, {
+  if (!supabaseUrl || !supabaseKey) return null;
+  return createClient(supabaseUrl, supabaseKey, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   });
+}
+
+function getServiceSupabaseClient() {
+  const supabaseUrl = envValue("SUPABASE_URL", "VITE_SUPABASE_URL");
+  const serviceRoleKey = envValue("SUPABASE_SERVICE_ROLE_KEY");
+  if (!supabaseUrl || !serviceRoleKey) return null;
+  return createClient(supabaseUrl, serviceRoleKey, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  });
+}
+
+async function getAuthenticatedUser(req: VercelRequest): Promise<AuthenticatedUser | null> {
+  const token = getBearerToken(req);
+  const client = getPublicSupabaseClient();
+  if (!token || !client) return null;
   const { data, error } = await client.auth.getUser(token);
-  return !error && Boolean(data.user);
+  if (error || !data.user) return null;
+  return { id: data.user.id, email: data.user.email?.trim().toLowerCase() ?? "" };
+}
+
+async function isSuperAdmin(user: AuthenticatedUser): Promise<boolean> {
+  const client = getServiceSupabaseClient();
+  if (!client) return false;
+  const email = user.email.replace(/[(),]/g, "");
+  const filter = email
+    ? `auth_user_id.eq.${user.id},username.eq.${email},mail.eq.${email}`
+    : `auth_user_id.eq.${user.id}`;
+  const query = client.from("usuarios").select("rol, activo").or(filter);
+  const { data, error } = await query.limit(10);
+  if (error) throw new Error(`No se pudo verificar el rol administrativo: ${error.message}`);
+  return (data ?? []).some(profile => profile.rol === "superadmin" && profile.activo !== false);
 }
 
 function sanitizePem(pem: string, defaultType: "CERTIFICATE" | "PRIVATE KEY"): string {
@@ -146,6 +206,208 @@ function sanitizePem(pem: string, defaultType: "CERTIFICATE" | "PRIVATE KEY"): s
   if (!cleaned.includes(begin)) cleaned = `${begin}\n${cleaned}`;
   if (!cleaned.includes(end)) cleaned = `${cleaned.replace(/---+[^-]*$/, "").trim()}\n${end}`;
   return cleaned;
+}
+
+const ARCA_CONFIG_ID = "primary";
+const ARCA_CONFIG_AAD = Buffer.from("el-patron:arca-config:v1", "utf8");
+
+function getConfigEncryptionKey(): Buffer {
+  const encoded = envValue("ARCA_CONFIG_ENCRYPTION_KEY");
+  if (!encoded) throw new Error("Falta ARCA_CONFIG_ENCRYPTION_KEY en las variables privadas de Vercel.");
+  const key = Buffer.from(encoded, "base64");
+  if (key.length !== 32) {
+    throw new Error("ARCA_CONFIG_ENCRYPTION_KEY debe ser una clave Base64 de 32 bytes.");
+  }
+  return key;
+}
+
+function encryptSecrets(cert: string, key: string) {
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", getConfigEncryptionKey(), iv);
+  cipher.setAAD(ARCA_CONFIG_AAD);
+  const plaintext = Buffer.from(JSON.stringify({ cert, key }), "utf8");
+  const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()]);
+  return {
+    secret_ciphertext: ciphertext.toString("base64"),
+    secret_iv: iv.toString("base64"),
+    secret_tag: cipher.getAuthTag().toString("base64"),
+  };
+}
+
+function decryptSecrets(row: StoredArcaConfig): { cert: string; key: string } {
+  const decipher = createDecipheriv(
+    "aes-256-gcm",
+    getConfigEncryptionKey(),
+    Buffer.from(row.secret_iv, "base64"),
+  );
+  decipher.setAAD(ARCA_CONFIG_AAD);
+  decipher.setAuthTag(Buffer.from(row.secret_tag, "base64"));
+  const plaintext = Buffer.concat([
+    decipher.update(Buffer.from(row.secret_ciphertext, "base64")),
+    decipher.final(),
+  ]).toString("utf8");
+  const parsed = JSON.parse(plaintext);
+  if (typeof parsed.cert !== "string" || typeof parsed.key !== "string") {
+    throw new Error("La configuracion fiscal cifrada es invalida.");
+  }
+  return parsed;
+}
+
+function getCertificateField(certificate: forge.pki.Certificate, name: string): string {
+  const field = certificate.subject.attributes.find(attribute => (
+    attribute.name === name
+    || attribute.shortName === name
+    || (name === "serialNumber" && attribute.type === "2.5.4.5")
+  ));
+  return String(field?.value ?? "");
+}
+
+function validateCertificatePair(certificateInput: string, privateKeyInput: string, expectedCuit: string) {
+  if (certificateInput.length > 50_000 || privateKeyInput.length > 50_000) {
+    throw new Error("El certificado o la clave privada supera el tamano permitido.");
+  }
+  const cert = sanitizePem(certificateInput, "CERTIFICATE");
+  const key = sanitizePem(privateKeyInput, "PRIVATE KEY");
+  let certificate: forge.pki.Certificate;
+  let privateKey: forge.pki.rsa.PrivateKey;
+  try {
+    certificate = forge.pki.certificateFromPem(cert);
+    privateKey = forge.pki.privateKeyFromPem(key) as forge.pki.rsa.PrivateKey;
+  } catch {
+    throw new Error("El certificado o la clave privada no tienen un formato PEM valido.");
+  }
+  const certificatePublicKey = certificate.publicKey as forge.pki.rsa.PublicKey;
+  const certificateModulus = Buffer.from(certificatePublicKey.n.toString(16).padStart(2, "0"), "hex");
+  const privateModulus = Buffer.from(privateKey.n.toString(16).padStart(2, "0"), "hex");
+  const modulusMatches = certificateModulus.length === privateModulus.length
+    && timingSafeEqual(certificateModulus, privateModulus);
+  if (!modulusMatches || certificatePublicKey.e.compareTo(privateKey.e) !== 0) {
+    throw new Error("La clave privada no corresponde al certificado seleccionado.");
+  }
+  const serialNumber = getCertificateField(certificate, "serialNumber");
+  const certificateCuit = serialNumber.replace(/\D/g, "").slice(-11);
+  if (certificateCuit !== expectedCuit) {
+    throw new Error(`El certificado pertenece al CUIT ${certificateCuit || "desconocido"}, no al emisor indicado.`);
+  }
+  const now = new Date();
+  if (certificate.validity.notBefore > now) throw new Error("El certificado todavia no esta vigente.");
+  if (certificate.validity.notAfter <= now) throw new Error("El certificado ARCA esta vencido.");
+  return {
+    cert,
+    key,
+    subject: certificate.subject.attributes.map(field => `${field.shortName || field.name}=${field.value}`).join(", "),
+    serial: certificate.serialNumber,
+    validFrom: certificate.validity.notBefore.toISOString(),
+    validTo: certificate.validity.notAfter.toISOString(),
+  };
+}
+
+async function readStoredConfig(): Promise<StoredArcaConfig | null> {
+  const client = getServiceSupabaseClient();
+  if (!client) return null;
+  const { data, error } = await client.from("arca_config").select("*").eq("id", ARCA_CONFIG_ID).maybeSingle();
+  if (error) {
+    if (error.code === "42P01" || /does not exist|schema cache/i.test(error.message)) return null;
+    throw new Error(`No se pudo leer la configuracion ARCA: ${error.message}`);
+  }
+  return data as StoredArcaConfig | null;
+}
+
+async function getServerCredentials(): Promise<ServerCredentials | null> {
+  const row = await readStoredConfig();
+  if (row) {
+    const { cert, key } = decryptSecrets(row);
+    return {
+      cuit: Number(row.cuit),
+      cert,
+      key,
+      environment: row.environment,
+      puntoVenta: row.punto_venta,
+      taxProfile: "monotributo",
+      source: "database",
+    };
+  }
+  return getEnvironmentCredentials();
+}
+
+const adminStatus = (row: StoredArcaConfig | null, credentials: ServerCredentials | null) => ({
+  ...publicStatus(credentials),
+  certificateConfigured: Boolean(credentials?.cert),
+  privateKeyConfigured: Boolean(credentials?.key),
+  certificateSubject: row?.certificate_subject ?? null,
+  certificateSerial: row?.certificate_serial ?? null,
+  certificateValidFrom: row?.certificate_valid_from ?? null,
+  certificateValidTo: row?.certificate_valid_to ?? null,
+  updatedAt: row?.updated_at ?? null,
+});
+
+async function saveStoredConfig(body: any, user: AuthenticatedUser): Promise<StoredArcaConfig> {
+  const client = getServiceSupabaseClient();
+  if (!client) throw new Error("Falta SUPABASE_SERVICE_ROLE_KEY en las variables privadas de Vercel.");
+  const cuit = String(body?.cuit ?? "").replace(/\D/g, "");
+  const puntoVenta = positiveInteger(body?.puntoVenta, 0);
+  const environment: EnvironmentName = body?.environment === "produccion" ? "produccion" : "homologacion";
+  if (!/^\d{11}$/.test(cuit)) throw new Error("El CUIT emisor debe tener exactamente 11 numeros.");
+  if (!puntoVenta || puntoVenta > 99999) throw new Error("El punto de venta es invalido.");
+  if (body?.taxProfile !== "monotributo") throw new Error("Esta integracion esta configurada para Monotributo y Factura C.");
+
+  const existing = await readStoredConfig();
+  const certificateInput = typeof body?.certificate === "string" ? body.certificate : "";
+  const privateKeyInput = typeof body?.privateKey === "string" ? body.privateKey : "";
+  if (Boolean(certificateInput) !== Boolean(privateKeyInput)) {
+    throw new Error("Debe seleccionar juntos el certificado y la clave privada correspondientes.");
+  }
+
+  let encrypted: Pick<StoredArcaConfig, "secret_ciphertext" | "secret_iv" | "secret_tag">;
+  let metadata: Pick<StoredArcaConfig, "certificate_subject" | "certificate_serial" | "certificate_valid_from" | "certificate_valid_to">;
+  if (certificateInput && privateKeyInput) {
+    const validated = validateCertificatePair(certificateInput, privateKeyInput, cuit);
+    encrypted = encryptSecrets(validated.cert, validated.key);
+    metadata = {
+      certificate_subject: validated.subject,
+      certificate_serial: validated.serial,
+      certificate_valid_from: validated.validFrom,
+      certificate_valid_to: validated.validTo,
+    };
+  } else if (existing) {
+    encrypted = {
+      secret_ciphertext: existing.secret_ciphertext,
+      secret_iv: existing.secret_iv,
+      secret_tag: existing.secret_tag,
+    };
+    metadata = {
+      certificate_subject: existing.certificate_subject,
+      certificate_serial: existing.certificate_serial,
+      certificate_valid_from: existing.certificate_valid_from,
+      certificate_valid_to: existing.certificate_valid_to,
+    };
+  } else {
+    throw new Error("Para la primera configuracion debe subir el certificado y la clave privada.");
+  }
+
+  const payload = {
+    id: ARCA_CONFIG_ID,
+    cuit,
+    punto_venta: puntoVenta,
+    environment,
+    tax_profile: "monotributo",
+    ...encrypted,
+    ...metadata,
+    updated_by: user.id,
+    updated_at: new Date().toISOString(),
+  };
+  const { data, error } = await client.from("arca_config").upsert(payload).select("*").single();
+  if (error) throw new Error(`No se pudo guardar la configuracion ARCA: ${error.message}`);
+  Object.keys(taCache).forEach(key => delete taCache[key]);
+  return data as StoredArcaConfig;
+}
+
+async function deleteStoredConfig(): Promise<void> {
+  const client = getServiceSupabaseClient();
+  if (!client) throw new Error("Falta SUPABASE_SERVICE_ROLE_KEY en las variables privadas de Vercel.");
+  const { error } = await client.from("arca_config").delete().eq("id", ARCA_CONFIG_ID);
+  if (error) throw new Error(`No se pudo eliminar la configuracion ARCA: ${error.message}`);
+  Object.keys(taCache).forEach(key => delete taCache[key]);
 }
 
 function buildLoginTicketRequest(service = "wsfe"): string {
@@ -324,6 +586,37 @@ function validateInvoicePayload(payload: InvoicePayload | undefined) {
   return { total: roundMoney(total), voucherType, pointOfSale, documentType, documentNumber, vatCondition, net, vat, isFacturaC };
 }
 
+function buildFiscalQrPayload(input: {
+  date: string;
+  cuit: number;
+  pointOfSale: number;
+  voucherType: number;
+  voucherNumber: number;
+  total: number;
+  documentType: number;
+  documentNumber: number;
+  cae: string;
+}) {
+  const qrPayload: Record<string, string | number> = {
+    ver: 1,
+    fecha: `${input.date.slice(0, 4)}-${input.date.slice(4, 6)}-${input.date.slice(6, 8)}`,
+    cuit: input.cuit,
+    ptoVta: input.pointOfSale,
+    tipoCmp: input.voucherType,
+    nroCmp: input.voucherNumber,
+    importe: input.total,
+    moneda: "PES",
+    ctz: 1,
+    tipoCodAut: "E",
+    codAut: Number(input.cae),
+  };
+  if (input.documentType !== 99 && input.documentNumber > 0) {
+    qrPayload.tipoDocRec = input.documentType;
+    qrPayload.nroDocRec = input.documentNumber;
+  }
+  return qrPayload;
+}
+
 function arcaDate(): string {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/Argentina/Buenos_Aires",
@@ -391,21 +684,18 @@ async function createInvoice(credentials: ServerCredentials, auth: CachedAccessT
     };
   }
 
-  const qrData = JSON.stringify({
-    ver: 1,
-    fecha: `${arcaDate().slice(0, 4)}-${arcaDate().slice(4, 6)}-${arcaDate().slice(6, 8)}`,
+  const qrPayload = buildFiscalQrPayload({
+    date: arcaDate(),
     cuit: credentials.cuit,
-    ptoVta: pointOfSale,
-    tipoCmp: invoice.voucherType,
-    nroCmp: voucherNumber,
-    importe: invoice.total,
-    moneda: "PES",
-    ctz: 1,
-    tipoDocRec: invoice.documentType,
-    nroDocRec: invoice.documentNumber,
-    tipoCodAut: 1,
-    codAut: Number(cae),
+    pointOfSale,
+    voucherType: invoice.voucherType,
+    voucherNumber,
+    total: invoice.total,
+    documentType: invoice.documentType,
+    documentNumber: invoice.documentNumber,
+    cae,
   });
+  const qrData = JSON.stringify(qrPayload);
   return {
     success: true,
     resultado: result,
@@ -435,7 +725,12 @@ const safeErrorMessage = (error: unknown): string => {
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const credentials = getServerCredentials();
+  let credentials: ServerCredentials | null = null;
+  try {
+    credentials = await getServerCredentials();
+  } catch (error) {
+    console.error("ARCA configuration error:", error instanceof Error ? error.message : error);
+  }
   if (req.method === "GET") return res.status(200).json(publicStatus(credentials));
   if (req.method !== "POST") {
     res.setHeader("Allow", "GET, POST");
@@ -444,19 +739,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const action = req.body?.action;
   if (action === "status") return res.status(200).json(publicStatus(credentials));
-  if (!credentials) {
-    return res.status(503).json({
-      success: false,
-      error: "ARCA no esta configurado en el servidor.",
-      ...publicStatus(null),
-    });
-  }
-
-  let authenticated = false;
+  let authenticated: AuthenticatedUser | null = null;
   try {
-    authenticated = await hasAuthenticatedUser(req);
+    authenticated = await getAuthenticatedUser(req);
   } catch {
-    authenticated = false;
+    authenticated = null;
   }
   if (!authenticated) {
     return res.status(401).json({
@@ -466,9 +753,44 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    if (["adminStatus", "saveConfig", "deleteConfig"].includes(action)) {
+      if (!(await isSuperAdmin(authenticated))) {
+        return res.status(403).json({ success: false, error: "Solo un superadministrador puede configurar la firma digital." });
+      }
+      if (action === "adminStatus") {
+        const row = await readStoredConfig();
+        return res.status(200).json(adminStatus(row, credentials));
+      }
+      if (action === "saveConfig") {
+        const row = await saveStoredConfig(req.body?.config, authenticated);
+        credentials = await getServerCredentials();
+        return res.status(200).json({
+          success: true,
+          ...adminStatus(row, credentials),
+          message: "Configuracion fiscal cifrada y guardada correctamente.",
+        });
+      }
+      await deleteStoredConfig();
+      credentials = getEnvironmentCredentials();
+      return res.status(200).json({
+        success: true,
+        ...adminStatus(null, credentials),
+        message: credentials
+          ? "Se elimino la configuracion subida. Sigue activa la configuracion privada de Vercel."
+          : "Firma digital desconectada y eliminada del servidor.",
+      });
+    }
+
+    if (!credentials) {
+      return res.status(503).json({
+        success: false,
+        error: "ARCA no esta configurado en el servidor.",
+        ...publicStatus(null),
+      });
+    }
     const auth = await getAccessTicket(credentials);
     if (action === "test") {
-      await getLastAuthorized(credentials, auth, credentials.puntoVenta, 6);
+      await getLastAuthorized(credentials, auth, credentials.puntoVenta, 11);
       return res.status(200).json({
         ...publicStatus(credentials),
         connected: true,
@@ -477,6 +799,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
     if (action === "createInvoice") {
+      if (credentials.taxProfile === "monotributo" && Number(req.body?.payload?.tipoComprobante) !== 11) {
+        return res.status(422).json({
+          success: false,
+          error: "El emisor es monotributista: ARCA solo permite emitir Factura C (tipo 11).",
+        });
+      }
       const result = await createInvoice(credentials, auth, req.body?.payload);
       return res.status(result.success ? 200 : 422).json(result);
     }
@@ -489,8 +817,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
 export const __arcaTestables = {
   arcaDate,
+  buildFiscalQrPayload,
   buildLoginTicketRequest,
   collectArcaMessages,
+  getCertificateField,
   sanitizePem,
+  validateCertificatePair,
   validateInvoicePayload,
 };

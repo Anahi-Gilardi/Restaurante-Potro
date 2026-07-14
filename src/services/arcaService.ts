@@ -1,5 +1,5 @@
-// Proxy cliente para ARCA. Los certificados y la clave privada viven
-// exclusivamente en variables de entorno del servidor de Vercel.
+// Proxy cliente para ARCA. Los certificados y la clave privada nunca se
+// persisten en el navegador: el backend los cifra o usa secretos de Vercel.
 
 import { tryGetActiveSupabaseClient } from '../lib/supabaseClient';
 
@@ -12,7 +12,28 @@ export interface ArcaStatus {
   environment: 'homologacion' | 'produccion' | null;
   puntoVenta: number | null;
   cuitMasked: string | null;
+  taxProfile: 'monotributo' | null;
+  source: 'database' | 'environment' | null;
   message: string;
+}
+
+export interface ArcaAdminConfig extends ArcaStatus {
+  certificateConfigured: boolean;
+  privateKeyConfigured: boolean;
+  certificateSubject: string | null;
+  certificateSerial: string | null;
+  certificateValidFrom: string | null;
+  certificateValidTo: string | null;
+  updatedAt: string | null;
+}
+
+export interface SaveArcaConfigInput {
+  cuit: string;
+  puntoVenta: number;
+  environment: 'homologacion' | 'produccion';
+  taxProfile: 'monotributo';
+  certificate?: File | null;
+  privateKey?: File | null;
 }
 
 interface CachedStatus {
@@ -28,7 +49,31 @@ const disconnectedStatus = (message: string): ArcaStatus => ({
   environment: null,
   puntoVenta: null,
   cuitMasked: null,
+  taxProfile: null,
+  source: null,
   message,
+});
+
+const parseStatus = (data: any, connected = false): ArcaStatus => ({
+  configured: Boolean(data.configured),
+  connected,
+  environment: data.environment === 'produccion' ? 'produccion' : data.environment === 'homologacion' ? 'homologacion' : null,
+  puntoVenta: Number.isInteger(data.puntoVenta) ? data.puntoVenta : null,
+  cuitMasked: typeof data.cuitMasked === 'string' ? data.cuitMasked : null,
+  taxProfile: data.taxProfile === 'monotributo' ? 'monotributo' : null,
+  source: data.source === 'database' ? 'database' : data.source === 'environment' ? 'environment' : null,
+  message: String(data.message || data.error || ''),
+});
+
+const parseAdminConfig = (data: any): ArcaAdminConfig => ({
+  ...parseStatus(data, false),
+  certificateConfigured: Boolean(data.certificateConfigured),
+  privateKeyConfigured: Boolean(data.privateKeyConfigured),
+  certificateSubject: typeof data.certificateSubject === 'string' ? data.certificateSubject : null,
+  certificateSerial: typeof data.certificateSerial === 'string' ? data.certificateSerial : null,
+  certificateValidFrom: typeof data.certificateValidFrom === 'string' ? data.certificateValidFrom : null,
+  certificateValidTo: typeof data.certificateValidTo === 'string' ? data.certificateValidTo : null,
+  updatedAt: typeof data.updatedAt === 'string' ? data.updatedAt : null,
 });
 
 async function readJson(response: Response): Promise<any> {
@@ -53,14 +98,7 @@ export async function getArcaStatus(force = false): Promise<ArcaStatus> {
     const response = await fetch(API_URL, { method: 'GET', headers: { Accept: 'application/json' } });
     const data = await readJson(response);
     if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
-    const status: ArcaStatus = {
-      configured: Boolean(data.configured),
-      connected: Boolean(data.connected),
-      environment: data.environment === 'produccion' ? 'produccion' : data.environment === 'homologacion' ? 'homologacion' : null,
-      puntoVenta: Number.isInteger(data.puntoVenta) ? data.puntoVenta : null,
-      cuitMasked: typeof data.cuitMasked === 'string' ? data.cuitMasked : null,
-      message: String(data.message || ''),
-    };
+    const status = parseStatus(data, Boolean(data.connected));
     statusCache = { value: status, expiresAt: Date.now() + STATUS_TTL_MS };
     return status;
   } catch (error) {
@@ -77,14 +115,7 @@ export async function testArcaConnection(): Promise<{ success: boolean; status: 
       body: JSON.stringify({ action: 'test' }),
     });
     const data = await readJson(response);
-    const status: ArcaStatus = {
-      configured: Boolean(data.configured),
-      connected: response.ok && Boolean(data.success),
-      environment: data.environment === 'produccion' ? 'produccion' : data.environment === 'homologacion' ? 'homologacion' : null,
-      puntoVenta: Number.isInteger(data.puntoVenta) ? data.puntoVenta : null,
-      cuitMasked: typeof data.cuitMasked === 'string' ? data.cuitMasked : null,
-      message: String(data.message || data.error || ''),
-    };
+    const status = parseStatus(data, response.ok && Boolean(data.success));
     statusCache = { value: status, expiresAt: Date.now() + STATUS_TTL_MS };
     return response.ok
       ? { success: true, status }
@@ -93,6 +124,53 @@ export async function testArcaConnection(): Promise<{ success: boolean; status: 
     const message = error instanceof Error ? error.message : String(error);
     return { success: false, status: disconnectedStatus(message), error: message };
   }
+}
+
+async function callAdminAction(action: string, body: Record<string, unknown> = {}): Promise<any> {
+  const headers = await authenticatedHeaders();
+  const response = await fetch(API_URL, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ action, ...body }),
+  });
+  const data = await readJson(response);
+  if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+  return data;
+}
+
+export async function getArcaAdminConfig(): Promise<ArcaAdminConfig> {
+  return parseAdminConfig(await callAdminAction('adminStatus'));
+}
+
+export async function saveArcaConfiguration(input: SaveArcaConfigInput): Promise<ArcaAdminConfig> {
+  const hasCertificate = Boolean(input.certificate);
+  const hasPrivateKey = Boolean(input.privateKey);
+  if (hasCertificate !== hasPrivateKey) {
+    throw new Error('Debe seleccionar juntos el certificado y la clave privada.');
+  }
+  for (const file of [input.certificate, input.privateKey]) {
+    if (file && file.size > 50_000) throw new Error(`${file.name} supera el limite permitido de 50 KB.`);
+  }
+  const certificate = input.certificate ? await input.certificate.text() : undefined;
+  const privateKey = input.privateKey ? await input.privateKey.text() : undefined;
+  const data = await callAdminAction('saveConfig', {
+    config: {
+      cuit: input.cuit,
+      puntoVenta: input.puntoVenta,
+      environment: input.environment,
+      taxProfile: input.taxProfile,
+      certificate,
+      privateKey,
+    },
+  });
+  statusCache = null;
+  return parseAdminConfig(data);
+}
+
+export async function deleteArcaConfiguration(): Promise<ArcaAdminConfig> {
+  const data = await callAdminAction('deleteConfig');
+  statusCache = null;
+  return parseAdminConfig(data);
 }
 
 export interface ArcaInvoicePayload {
