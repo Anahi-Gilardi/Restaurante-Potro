@@ -14,6 +14,7 @@ import { Usuario } from '../types';
 import { INITIAL_USUARIOS } from '../data/initialData';
 import { canLogin, getLoginErrorMessage } from '../lib/loginAuth';
 import { tryGetActiveSupabaseClient } from '../lib/supabaseClient';
+import { signInWithUsername } from '../services/usernameAuthService';
 import {
   findDemoLoginUser,
   getConfiguredDemoCredentials,
@@ -94,23 +95,29 @@ export default function PythonStreamlitLogin({ onLoginSuccess, onBackToCover }: 
         return;
       }
 
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email: email.trim().toLowerCase(),
-        password,
-      });
+      const identifier = email.trim().toLowerCase();
+      let authenticatedUser;
+      if (identifier.includes('@')) {
+        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+          email: identifier,
+          password,
+        });
+        if (authError) throw authError;
+        authenticatedUser = authData.user;
+      } else {
+        authenticatedUser = await signInWithUsername(supabase, identifier, password);
+      }
 
-      if (authError) throw authError;
-
-      if (!authData.user) {
+      if (!authenticatedUser) {
         setError('No pudimos validar la sesión. Intentá nuevamente.');
         return;
       }
 
-      const safeEmail = (authData.user.email || email).trim().toLowerCase().replace(/[(),]/g, '');
+      const safeEmail = (authenticatedUser.email || identifier).trim().toLowerCase().replace(/[(),]/g, '');
       const { data: profile, error: profileError } = await supabase
         .from('usuarios')
         .select('*')
-        .or(`auth_user_id.eq.${authData.user.id},username.eq.${safeEmail},mail.eq.${safeEmail}`)
+        .or(`auth_user_id.eq.${authenticatedUser.id},username.eq.${safeEmail},mail.eq.${safeEmail}`)
         .limit(1)
         .single();
 
