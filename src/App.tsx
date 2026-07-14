@@ -81,6 +81,7 @@ import { createClientPedidoId } from './lib/pedidoIds';
 import { cajaService } from './services/cajaService';
 import { reservasService } from './services/reservasService';
 import { stockEngine } from './services/stock/stockEngine';
+import { resolveSessionOperator } from './lib/sessionOperator';
 
 function isSameTable(p1: { id_mesa?: any; numero_mesa?: string }, p2: { id_mesa?: any; numero_mesa?: string }): boolean {
   const isP1Delivery = String(p1.numero_mesa || '').toUpperCase().startsWith('DELIVERY');
@@ -398,26 +399,21 @@ export default function App() {
   }, [activeUser.rol]);
 
   const applyAuthenticatedSession = useCallback((session: {
-    user?: { user_metadata?: Record<string, unknown> };
+    user?: {
+      id?: string;
+      email?: string | null;
+      user_metadata?: Record<string, unknown>;
+    };
   }) => {
-    const metadata = session.user?.user_metadata;
-    const requestedName = metadata?.nombre || metadata?.name;
-    const operator = (
-      typeof requestedName === 'string'
-        ? usuarios.find(usuario => (
-            usuario.activo !== false
-            && usuario.nombre.toLowerCase() === requestedName.trim().toLowerCase()
-          ))
-        : undefined
-    ) || usuarios.find(usuario => usuario.activo !== false && usuario.rol === 'mozo')
-      || usuarios.find(usuario => usuario.activo !== false && usuario.rol !== 'administrador')
-      || usuarios.find(usuario => usuario.activo !== false);
-
-    if (operator) {
-      setActiveMozo(operator.nombre);
-      setActiveView('home');
-      setIsStreamlitLoggedIn(true);
-    }
+    const linkedOperator = resolveSessionOperator(usuarios, session.user);
+    setActiveMozo(currentOperator => {
+      const operator = linkedOperator
+        ?? resolveSessionOperator(usuarios, session.user, currentOperator);
+      return operator?.nombre ?? currentOperator;
+    });
+    // Los eventos INITIAL_SESSION/TOKEN_REFRESHED no deben cambiar la vista ni
+    // degradar permisos. El formulario de login ya valido el perfil operativo.
+    if (linkedOperator) setIsStreamlitLoggedIn(true);
   }, [usuarios]);
 
   useEffect(() => {

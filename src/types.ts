@@ -13,6 +13,10 @@ export interface Usuario {
     apellido: string;
     username: string;
     password: string;
+    /** Identidad real de Supabase Auth vinculada al perfil operativo. */
+    auth_user_id?: string | null;
+    /** Correo de autenticacion; puede ser un alias interno, no requiere Gmail. */
+    mail?: string | null;
     rol: 'superadmin' | 'administrador' | 'mozo' | 'cocina';
     activo?: boolean;
 }

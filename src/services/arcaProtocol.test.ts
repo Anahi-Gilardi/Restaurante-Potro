@@ -26,6 +26,12 @@ test('rechaza tipos de comprobante incompatibles con Monotributo', () => {
   }), /no soportado/);
 });
 
+test('CORS fiscal acepta solo los dominios administrados', () => {
+  assert.equal(__arcaTestables.isAllowedOrigin('https://restaurante-potro.vercel.app'), true);
+  assert.equal(__arcaTestables.isAllowedOrigin('https://restaurante-potro-anahi.vercel.app'), true);
+  assert.equal(__arcaTestables.isAllowedOrigin('https://sitio-malicioso.example'), false);
+});
+
 test('exige idempotencia e identificacion en operaciones grandes a consumidor final', () => {
   assert.throws(() => __arcaTestables.validateInvoicePayload({
     tipoComprobante: 11,

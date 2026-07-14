@@ -39,6 +39,7 @@ import {
   type ArcaInvoiceResult,
 } from '../services/arcaService';
 import { useDebounce } from '../hooks/useDebounce';
+import { MONOTRIBUTO_INVOICE_OPTIONS } from '../lib/fiscalVoucherPolicy';
 
 interface FacturacionModuleProps {
   pedidos: Pedido[];
@@ -407,7 +408,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
       setActiveTab('archivo');
     } catch (err) {
       console.error(err);
-      toast.error('No se pudo emitir el comprobante.');
+      toast.error(err instanceof Error ? err.message : 'No se pudo emitir el comprobante.');
     } finally {
       setIsEmitting(false);
     }
@@ -537,7 +538,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
       setActiveTab('archivo');
     } catch (err) {
       console.error(err);
-      toast.error('Ocurrió un error al emitir el comprobante unificado.');
+      toast.error(err instanceof Error ? err.message : 'Ocurrió un error al emitir el comprobante unificado.');
     } finally {
       setIsEmitting(false);
     }
@@ -646,7 +647,6 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
     } catch (err: any) {
       console.error('[ARCA] Error:', err);
       setArcaStatus({ ...currentStatus, connected: false, message: err?.message || 'Error de conexión fiscal.' });
-      toast.error('ARCA no autorizó el comprobante. No se registró ni entregó una factura fiscal.');
       throw err;
     }
   };
@@ -1019,7 +1019,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
             <p className="text-xs text-stone-500 dark:text-stone-300 mt-0.5">
               {arcaStatus?.configured
                 ? `${arcaStatus.connected ? 'Operativo' : 'Configurado, pendiente de prueba'} - ${arcaStatus.environment === 'produccion' ? 'Producción' : 'Homologación'} (Pto Vta: ${String(arcaStatus.puntoVenta || 1).padStart(4, '0')} - CUIT: ${arcaStatus.cuitMasked})`
-                : 'Sin configurar - los comprobantes se guardan como borradores locales sin CAE'
+                : `${arcaStatus?.message || 'Firma digital no configurada.'} La emisión fiscal queda bloqueada; el comprobante X sigue disponible como documento interno.`
               }
             </p>
           </div>
@@ -1045,6 +1045,13 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
             </span>
           )}
         </div>
+      </div>
+
+      <div className="bg-sky-50 border border-sky-200 text-sky-900 rounded-2xl px-4 py-3 flex items-start gap-3" role="note">
+        <Info className="w-4 h-4 mt-0.5 shrink-0" />
+        <p className="text-[11px] font-semibold leading-relaxed">
+          El emisor está configurado como monotributista: ARCA habilita Factura C. Factura A y Factura B se muestran como referencia, pero permanecen bloqueadas para evitar una emisión fiscal incompatible. El comprobante X es solo interno y no contiene CAE.
+        </p>
       </div>
 
       {/* Tarjetas de Métricas */}
@@ -1281,8 +1288,11 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
                 }} 
                 className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-700 dark:text-stone-200 text-xs font-bold"
               >
-                <option value="C">Factura C (Monotributo)</option>
-                <option value="X">Comprobante X (Interno/Respaldo)</option>
+                {MONOTRIBUTO_INVOICE_OPTIONS.map(option => (
+                  <option key={option.value} value={option.value} disabled={option.disabled}>
+                    {option.label}
+                  </option>
+                ))}
               </select>
             </label>
 
@@ -1611,8 +1621,11 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
                         }} 
                         className="w-full p-2 bg-white dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-lg text-xs font-bold text-stone-800 dark:text-stone-200"
                       >
-                        <option value="C">Factura C (Monotributo)</option>
-                        <option value="X">Comprobante X (Interno)</option>
+                        {MONOTRIBUTO_INVOICE_OPTIONS.map(option => (
+                          <option key={option.value} value={option.value} disabled={option.disabled}>
+                            {option.label}
+                          </option>
+                        ))}
                       </select>
                     </label>
 
