@@ -1,145 +1,85 @@
-# Integración AFIP (WSFEv1) — El Patrón Pro
+# Integración de Factura Electrónica ARCA (WSFEv1)
 
-## Arquitectura
+## Arquitectura implementada
 
-```
-MozoTerminal/CajaModule
-  → FacturacionModule
-    → services/afip/solicitarCae()  ← Cliente SOAP en TypeScript
-      → POST /api/afip/login        ← Serverless Function (firma CMS)
-      → POST /api/afip/emitir       ← Serverless Function (WSFEv1)
-        → https://wsaahomo.afip.gov.ar (WSAA)
-        → https://wswhomo.afip.gov.ar (WSFEv1)
-```
-
-## Estructura de archivos creada
-
-```
-src/services/afip/
-  ├── index.ts        — Helpers (determinarTipoComprobante, parseCuit, calcularIva)
-  ├── types.ts         — Interfaces (AfipConfig, AfipInvoiceRequest, ArcaQrData)
-  ├── auth.ts          — WSAA: getAccessToken() con cache en localStorage (11 h)
-  └── wsfe.ts          — WSFEv1: solicitarCae(), parseFeResponse(), generarQrData()
-
-api/afip/
-  ├── login.ts         — POST /api/afip/login  (firma CMS con crypto.createSign)
-  └── emitir.ts        — POST /api/afip/emitir (FECAESolicitar SOAP → CAE)
+```text
+Caja / Facturación (React)
+  → POST /api/arca, sin certificados ni claves privadas
+  → Vercel Function (Node.js + node-forge)
+      → WSAA: firma CMS y obtiene Token/Sign
+      → WSFEv1: consulta último número y solicita CAE
+  ← CAE, vencimiento, número oficial y datos del QR
 ```
 
-## Dependencias
+La clave privada y el certificado fiscal **no se guardan en localStorage ni en
+variables `VITE_*`**. El panel Sistema los envía al backend, que valida CUIT,
+vigencia y correspondencia criptográfica, y guarda un paquete cifrado con
+AES-256-GCM en `arca_config`. La clave maestra solamente existe en Vercel y
+ninguna API devuelve el contenido de los archivos al navegador.
 
-Ya instaladas en el proyecto:
-- `@vercel/node` — tipos para API Routes
-- `crypto` (built-in Node.js) — firma SHA256 con X.509
+Las acciones `test` y `createInvoice` exigen un token de sesión válido de
+Supabase. Guardar, consultar metadatos o eliminar la firma exige además rol
+`superadmin`. El estado público solo devuelve entorno, punto de venta y una
+CUIT enmascarada.
 
-No requiere `soap` ni `afip.js`. Llamamos SOAP directamente con `fetch` + template strings XML.
+## Variables de entorno de Vercel
 
-## Configuración
+Configurar en Project Settings → Environment Variables:
 
-### 1. Obtener certificados de AFIP (Homologación)
-
-1. Ir a https://www.afip.gob.ar/ws/WSAA/
-2. Generar clave privada y CSR:
-```bash
-openssl req -new -newkey rsa:2048 -days 365 -nodes -keyout clave.key -out csr.csr
-```
-3. Enviar CSR a AFIP para obtener el certificado `.crt`
-4. Guardar en Vercel Environment Variables:
-```
-AFIP_CERT_BASE64=<base64 del .crt>
-AFIP_KEY_BASE64=<base64 del .key>
-AFIP_CUIT=20384491021
-AFIP_ENV=homologacion
+```env
+SUPABASE_SERVICE_ROLE_KEY=<service role exclusiva del servidor>
+ARCA_CONFIG_ENCRYPTION_KEY=<salida de openssl rand -base64 32>
 ```
 
-### 2. Pruebas en homologación
+Ejecutar también la migración
+`supabase/migrations/20260714000000_create_secure_arca_config.sql`. Luego un
+superadministrador puede abrir **Sistema**, seleccionar Producción, CUIT
+`27426946136`, punto de venta `1`, subir `.crt` y `.key`, guardar y probar la
+conexión.
 
-AFIP Homologación no valida CUITs reales. Usar:
-- CUIT: `20384491021` (válido de prueba)
-- Cliente: `Consumidor Final` → CUIT `99-99999999-9` → Factura B
-- Cliente: `Siderar S.A.` → CUIT `30-50000732-5` → Factura A
+Como alternativa heredada se admiten variables privadas de Vercel:
 
-## Implementación en FacturacionModule
-
-Agregar botón "Emitir con AFIP" en el modal de emisión:
-
-```typescript
-import { solicitarCae, generarQrData, determinarTipoComprobante, parseCuit, calcularIva } from '../services/afip';
-import { AFIP_ENDPOINTS } from '../services/afip/types';
-
-const emitirConAfip = async (factura: FacturaExtendida) => {
-  try {
-    const config = {
-      environment: (import.meta.env.VITE_AFIP_ENV as any) || 'homologacion',
-      cuit: parseInt(import.meta.env.VITE_AFIP_CUIT || '20384491021'),
-      certBase64: import.meta.env.VITE_AFIP_CERT || '',
-      keyBase64: import.meta.env.VITE_AFIP_KEY || '',
-    };
-
-    const neto = parseFloat((factura.total / 1.21).toFixed(2));
-    const iva = calcularIva(neto);
-    const cbteTipo = determinarTipoComprobante(factura.cuit);
-
-    const req = {
-      Concepto: 1 as const,
-      DocTipo: factura.cuit === '99-99999999-9' ? 99 : 80,
-      DocNro: parseCuit(factura.cuit),
-      CbteTipo: cbteTipo,
-      PtoVta: 1,
-      ImpTotal: factura.total,
-      ImpNeto: neto,
-      ImpIVA: iva,
-      FechaCbte: new Date().toISOString().split('T')[0],
-      Iva: [{ Id: 5, BaseImp: neto, Importe: iva }],
-    };
-
-    const result = await solicitarCae(config, req);
-
-    // Guardar CAE en Supabase
-    await supabase.from('facturas').update({
-      afip_cae: result.CAE,
-      afip_vto: result.CAEFchVto,
-      afip_qr: generarQrData(config.cuit, 1, cbteTipo, 1, factura.total, result.CAE),
-      afip_resultado: result.Resultado,
-    }).eq('id_factura', factura.id_factura);
-
-    toast.success(`CAE: ${result.CAE} - Vto: ${result.CAEFchVto}`);
-  } catch (err: any) {
-    toast.error(`AFIP: ${err.message}`);
-  }
-};
+```env
+ARCA_CUIT=27426946136
+ARCA_PUNTO_VENTA=1
+ARCA_ENV=produccion
+ARCA_CERT_BASE64=<certificado .crt codificado en base64>
+ARCA_KEY_BASE64=<clave privada .key codificada en base64>
 ```
 
-## Código QR
+Para producción usar `ARCA_ENV=produccion`. También se admiten `ARCA_CERT` y
+`ARCA_KEY` con PEM completo, pero base64 evita problemas con saltos de línea.
+Tras cambiar variables en Vercel es obligatorio volver a desplegar.
 
-AFIP exige código QR en la factura PDF con este JSON:
+Nunca configurar `VITE_ARCA_KEY`, `VITE_ARCA_CERT`, `VITE_AFIP_KEY` ni
+`VITE_AFIP_CERT`: Vite incorpora esas variables al JavaScript público.
 
-```json
-{
-  "ver": 1,
-  "fecha": "2026-06-15",
-  "cuit": 20384491021,
-  "ptoVta": 1,
-  "tipoCmp": 1,
-  "nroCmp": 1,
-  "importe": 43200.00,
-  "moneda": "PES",
-  "ctz": 1,
-  "tipoDocRec": 80,
-  "nroDocRec": 38449102,
-  "tipoCodAut": 1,
-  "codAut": 74012345678901
-}
-```
+## Uso
 
-Usar la función `generarQrData()` de `services/afip/wsfe.ts`.
+El módulo Facturación muestra tres estados:
 
-## Deploy en Vercel
+- **No configurado:** faltan secretos; los documentos son borradores locales.
+- **Sin verificar:** los secretos existen y se puede ejecutar “Probar conexión”.
+- **Conectado:** WSAA y WSFE respondieron correctamente.
 
-Las API Routes (`api/afip/login.ts` y `api/afip/emitir.ts`) **requieren Vercel Pro** porque el proyecto usa Vite (output estático). Sin Vercel Pro:
+Al emitir, ARCA devuelve el número de comprobante oficial, CAE, vencimiento y
+los datos del QR. El PDF solo muestra leyenda fiscal y QR cuando existe un CAE
+real. Si ARCA rechaza o no responde, el sistema conserva un borrador marcado
+explícitamente como **sin validez fiscal**.
 
-**Opción A**: Crear un servicio Node.js separado con Express que haga de proxy AFIP.
+## Configuración obligatoria en ARCA
 
-**Opción B**: Usar un WebSocket/Edge Function de Cloudflare.
+1. Crear una clave RSA de 2048 bits y un CSR para la CUIT.
+2. Subir el CSR en “Administración de Certificados Digitales” y descargar `.crt`.
+3. Crear un punto de venta de tipo “RECE para aplicativo y web services”.
+4. Asociar el alias del certificado al servicio “Facturación Electrónica” (`wsfe`).
+5. Probar primero en homologación y recién después habilitar producción.
 
-**Opción C**: Integrar directamente con ARCA (el sucesor de AFIP) que ya está implementado en `services/arcaService.ts` y usa API REST moderna sin SOAP.
+## Seguridad operacional
+
+- Restringir el módulo de Facturación a usuarios autorizados.
+- Rotar certificado y clave si alguna vez fueron publicados en una variable
+  `VITE_*`, un commit, un log o el almacenamiento del navegador.
+- No reutilizar números locales: el proxy consulta `FECompUltimoAutorizado` y
+  devuelve el número efectivamente solicitado a ARCA.
+- Conservar CAE, vencimiento, resultado y QR en la tabla `facturas`.

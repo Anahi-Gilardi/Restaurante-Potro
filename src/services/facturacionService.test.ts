@@ -11,7 +11,7 @@ const factura = (id: string, total: number): Factura => ({
   iva_veintiuno: total * 0.21,
   medio_pago: 'efectivo',
   fecha: '12:00 hs',
-  estado: 'emitido'
+  estado: 'autorizado'
 });
 
 test('combina respaldo local y remoto sin duplicar comprobantes', () => {

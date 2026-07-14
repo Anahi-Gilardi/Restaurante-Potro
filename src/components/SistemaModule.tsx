@@ -19,12 +19,25 @@ import {
   Eye,
   Settings,
   DatabaseZap,
-  Percent
+  Percent,
+  FileKey,
+  KeyRound,
+  Trash2,
+  UploadCloud,
+  ReceiptText,
+  Loader2
 } from 'lucide-react';
 import { ProductoMenu, Insumo, RecetaEscandallo, Pedido, Mesa } from '../types';
 import SupabaseManager from './SupabaseManager';
 import ElPatronLogo from './ElPatronLogo';
 import { useToast, ToastContainer } from './ToastContainer';
+import {
+  deleteArcaConfiguration,
+  getArcaAdminConfig,
+  saveArcaConfiguration,
+  testArcaConnection,
+  type ArcaAdminConfig,
+} from '../services/arcaService';
 
 interface SistemaModuleProps {
   insumos: Insumo[];
@@ -57,6 +70,22 @@ export default function SistemaModule({
 }: SistemaModuleProps) {
   const { toast, toasts, removeToast } = useToast();
   const [activeDbEngine, setActiveDbEngine] = useState<'SQLite Local (.db)' | 'PostgreSQL / Supabase (Cloud)'>('PostgreSQL / Supabase (Cloud)');
+  const [arcaConfig, setArcaConfig] = useState<ArcaAdminConfig | null>(null);
+  const [arcaCuit, setArcaCuit] = useState('27426946136');
+  const [arcaPuntoVenta, setArcaPuntoVenta] = useState('1');
+  const [arcaEnvironment, setArcaEnvironment] = useState<'homologacion' | 'produccion'>('produccion');
+  const [arcaLegalName, setArcaLegalName] = useState('BELLA ORIANA');
+  const [arcaTradeName, setArcaTradeName] = useState('El Patron');
+  const [arcaCommercialAddress, setArcaCommercialAddress] = useState('');
+  const [arcaGrossIncome, setArcaGrossIncome] = useState('');
+  const [arcaActivityStart, setArcaActivityStart] = useState('');
+  const [arcaCertificate, setArcaCertificate] = useState<File | null>(null);
+  const [arcaPrivateKey, setArcaPrivateKey] = useState<File | null>(null);
+  const [arcaLoading, setArcaLoading] = useState(true);
+  const [arcaSaving, setArcaSaving] = useState(false);
+  const [arcaTesting, setArcaTesting] = useState(false);
+  const [arcaDeleting, setArcaDeleting] = useState(false);
+  const [arcaPanelError, setArcaPanelError] = useState('');
 
   // Latency test states
   const [dbPingStatus, setDbPingStatus] = useState<'idle' | 'testing' | 'ready'>('idle');
@@ -84,6 +113,105 @@ export default function SistemaModule({
       console.warn('Error leyendo usuarios de localStorage:', e);
     }
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    getArcaAdminConfig()
+      .then(config => {
+        if (!active) return;
+        setArcaConfig(config);
+        if (config.puntoVenta) setArcaPuntoVenta(String(config.puntoVenta));
+        if (config.environment) setArcaEnvironment(config.environment);
+        if (config.legalName) setArcaLegalName(config.legalName);
+        if (config.tradeName) setArcaTradeName(config.tradeName);
+        if (config.commercialAddress) setArcaCommercialAddress(config.commercialAddress);
+        if (config.grossIncomeNumber) setArcaGrossIncome(config.grossIncomeNumber);
+        if (config.activityStartDate) setArcaActivityStart(config.activityStartDate);
+        setArcaPanelError('');
+      })
+      .catch(error => {
+        if (active) setArcaPanelError(error instanceof Error ? error.message : 'No se pudo leer la configuracion ARCA.');
+      })
+      .finally(() => { if (active) setArcaLoading(false); });
+    return () => { active = false; };
+  }, []);
+
+  const handleSaveArca = async () => {
+    const cleanCuit = arcaCuit.replace(/\D/g, '');
+    if (!/^\d{11}$/.test(cleanCuit)) {
+      toast.error('El CUIT emisor debe tener exactamente 11 numeros.');
+      return;
+    }
+    const puntoVenta = Number(arcaPuntoVenta);
+    if (!Number.isInteger(puntoVenta) || puntoVenta < 1) {
+      toast.error('Ingrese un punto de venta valido.');
+      return;
+    }
+    if (!arcaLegalName.trim() || !arcaTradeName.trim() || !arcaCommercialAddress.trim() || !arcaGrossIncome.trim() || !arcaActivityStart) {
+      toast.error('Complete todos los datos legales del emisor antes de guardar.');
+      return;
+    }
+    setArcaSaving(true);
+    try {
+      const config = await saveArcaConfiguration({
+        cuit: cleanCuit,
+        puntoVenta,
+        environment: arcaEnvironment,
+        taxProfile: 'monotributo',
+        legalName: arcaLegalName.trim(),
+        tradeName: arcaTradeName.trim(),
+        commercialAddress: arcaCommercialAddress.trim(),
+        grossIncomeNumber: arcaGrossIncome.trim(),
+        activityStartDate: arcaActivityStart,
+        certificate: arcaCertificate,
+        privateKey: arcaPrivateKey,
+      });
+      setArcaConfig(config);
+      setArcaCertificate(null);
+      setArcaPrivateKey(null);
+      setArcaPanelError('');
+      addLog('sistema', `ARCA: Firma digital guardada para el punto de venta ${puntoVenta} (${arcaEnvironment}).`);
+      toast.success('Configuracion ARCA guardada y cifrada en el servidor.');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'No se pudo guardar la configuracion ARCA.';
+      setArcaPanelError(message);
+      toast.error(message);
+    } finally {
+      setArcaSaving(false);
+    }
+  };
+
+  const handleTestArca = async () => {
+    setArcaTesting(true);
+    try {
+      const result = await testArcaConnection();
+      if (!result.success) throw new Error(result.error || result.status.message);
+      setArcaConfig(previous => previous ? { ...previous, connected: true, message: result.status.message } : previous);
+      addLog('sistema', 'ARCA: Conexion WSAA/WSFE comprobada correctamente para Factura C.');
+      toast.success('Conexion con ARCA confirmada.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'No se pudo conectar con ARCA.');
+    } finally {
+      setArcaTesting(false);
+    }
+  };
+
+  const handleDeleteArca = async () => {
+    if (!window.confirm('Se eliminara la firma digital guardada. Las facturas no podran obtener CAE hasta volver a configurarla.')) return;
+    setArcaDeleting(true);
+    try {
+      const config = await deleteArcaConfiguration();
+      setArcaConfig(config);
+      setArcaCertificate(null);
+      setArcaPrivateKey(null);
+      addLog('sistema', 'ARCA: Firma digital desconectada desde el modulo Sistema.');
+      toast.success(config.message);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'No se pudo eliminar la firma digital.');
+    } finally {
+      setArcaDeleting(false);
+    }
+  };
 
   const totalLocalStorageMB = useMemo(() => {
     let total = 0;
@@ -506,6 +634,182 @@ export default function SistemaModule({
 
         {/* COLUMNA DERECHA: Checklist, Score de salud y Logo Identity (Span 5) */}
         <div className="lg:col-span-5 space-y-6">
+
+          {/* Firma digital ARCA: los archivos solo viajan al backend y se cifran antes de persistir. */}
+          <div className="bg-[#FFFDF8] dark:bg-stone-900 rounded-2xl p-5 border border-[#D9CDBC] dark:border-stone-800 shadow-sm space-y-4">
+            <div className="flex items-start justify-between gap-3 border-b border-stone-150 dark:border-stone-800 pb-3 text-left">
+              <div className="flex items-start gap-2.5">
+                <div className="mt-0.5 w-8 h-8 rounded-lg bg-[#EFE5D4] dark:bg-stone-800 flex items-center justify-center shrink-0">
+                  <ReceiptText className="w-4.5 h-4.5 text-[#624A3E] dark:text-[#C8956A]" />
+                </div>
+                <div>
+                  <h3 className="font-black text-stone-850 dark:text-white text-xs uppercase tracking-tight">
+                    Firma Digital y Factura Electronica (ARCA)
+                  </h3>
+                  <p className="text-[10px] text-stone-500 dark:text-stone-400 mt-1 leading-relaxed">
+                    Certificado X.509 y clave privada cifrados en el servidor para autorizar Facturas C con CAE.
+                  </p>
+                </div>
+              </div>
+              {arcaLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin text-[#8C6239]" />
+              ) : (
+                <span className={`shrink-0 px-2 py-1 rounded-full text-[8px] font-black uppercase border ${arcaConfig?.configured && arcaConfig.legalDataComplete ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-900' : 'bg-stone-100 text-stone-500 border-stone-200 dark:bg-stone-850 dark:border-stone-700'}`}>
+                  {arcaConfig?.configured && arcaConfig.legalDataComplete ? 'Listo para facturar' : arcaConfig?.configured ? 'Datos incompletos' : 'Sin configurar'}
+                </span>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left">
+              <label className="space-y-1.5 sm:col-span-2">
+                <span className="text-[9px] font-black uppercase text-stone-500 dark:text-stone-350">CUIT emisor (solo numeros)</span>
+                <input
+                  value={arcaCuit}
+                  inputMode="numeric"
+                  maxLength={11}
+                  onChange={event => setArcaCuit(event.target.value.replace(/\D/g, '').slice(0, 11))}
+                  className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-white dark:bg-stone-950 text-stone-800 dark:text-stone-100 text-xs font-mono font-bold outline-none focus:ring-2 focus:ring-[#8C6239]/20"
+                />
+              </label>
+
+              <label className="space-y-1.5">
+                <span className="text-[9px] font-black uppercase text-stone-500 dark:text-stone-350">Punto de venta</span>
+                <input
+                  value={arcaPuntoVenta}
+                  inputMode="numeric"
+                  onChange={event => setArcaPuntoVenta(event.target.value.replace(/\D/g, '').slice(0, 5))}
+                  className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-white dark:bg-stone-950 text-stone-800 dark:text-stone-100 text-xs font-mono font-bold outline-none focus:ring-2 focus:ring-[#8C6239]/20"
+                />
+              </label>
+
+              <div className="space-y-1.5">
+                <span className="text-[9px] font-black uppercase text-stone-500 dark:text-stone-350 block">Condicion fiscal</span>
+                <div className="p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-[#F7F1E7] dark:bg-stone-850 text-[#624A3E] dark:text-[#D7AD87] text-xs font-black">
+                  Monotributo - Factura C
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left">
+              <label className="space-y-1.5 sm:col-span-2">
+                <span className="text-[9px] font-black uppercase text-stone-500 dark:text-stone-350">Apellido y nombre / razon social</span>
+                <input value={arcaLegalName} maxLength={120} onChange={event => setArcaLegalName(event.target.value)} className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-white dark:bg-stone-950 text-stone-800 dark:text-stone-100 text-xs font-bold outline-none focus:ring-2 focus:ring-[#8C6239]/20" />
+              </label>
+              <label className="space-y-1.5">
+                <span className="text-[9px] font-black uppercase text-stone-500 dark:text-stone-350">Nombre comercial</span>
+                <input value={arcaTradeName} maxLength={120} onChange={event => setArcaTradeName(event.target.value)} className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-white dark:bg-stone-950 text-stone-800 dark:text-stone-100 text-xs font-bold outline-none focus:ring-2 focus:ring-[#8C6239]/20" />
+              </label>
+              <label className="space-y-1.5">
+                <span className="text-[9px] font-black uppercase text-stone-500 dark:text-stone-350">Ingresos Brutos / condicion</span>
+                <input value={arcaGrossIncome} maxLength={40} placeholder="Numero o No contribuyente" onChange={event => setArcaGrossIncome(event.target.value)} className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-white dark:bg-stone-950 text-stone-800 dark:text-stone-100 text-xs font-bold outline-none focus:ring-2 focus:ring-[#8C6239]/20" />
+              </label>
+              <label className="space-y-1.5 sm:col-span-2">
+                <span className="text-[9px] font-black uppercase text-stone-500 dark:text-stone-350">Domicilio comercial registrado</span>
+                <input value={arcaCommercialAddress} maxLength={180} onChange={event => setArcaCommercialAddress(event.target.value)} className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-white dark:bg-stone-950 text-stone-800 dark:text-stone-100 text-xs font-bold outline-none focus:ring-2 focus:ring-[#8C6239]/20" />
+              </label>
+              <label className="space-y-1.5 sm:col-span-2">
+                <span className="text-[9px] font-black uppercase text-stone-500 dark:text-stone-350">Inicio de actividades</span>
+                <input type="date" value={arcaActivityStart} onChange={event => setArcaActivityStart(event.target.value)} className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-white dark:bg-stone-950 text-stone-800 dark:text-stone-100 text-xs font-bold outline-none focus:ring-2 focus:ring-[#8C6239]/20" />
+              </label>
+            </div>
+
+            <div className="p-1 rounded-xl bg-[#E8DFD0] dark:bg-stone-850 grid grid-cols-2 gap-1">
+              {(['homologacion', 'produccion'] as const).map(environment => (
+                <button
+                  key={environment}
+                  type="button"
+                  onClick={() => setArcaEnvironment(environment)}
+                  className={`py-2 rounded-lg text-[9px] font-black uppercase transition-all cursor-pointer ${arcaEnvironment === environment ? 'bg-[#624A3E] text-white shadow-sm' : 'text-stone-500 dark:text-stone-300 hover:bg-white/60 dark:hover:bg-stone-800'}`}
+                >
+                  {environment === 'produccion' ? 'Produccion' : 'Homologacion'}
+                </button>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5 text-left">
+                <span className="text-[9px] font-black uppercase text-stone-500 dark:text-stone-350">Certificado (.crt / .pem)</span>
+                <div className="flex gap-1.5">
+                  <label className={`min-w-0 flex-1 h-10 px-3 border rounded-xl flex items-center justify-center gap-2 cursor-pointer text-[9px] font-black transition-colors ${arcaCertificate || arcaConfig?.certificateConfigured ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/20 dark:text-emerald-400' : 'border-dashed border-stone-300 bg-white text-stone-500 dark:bg-stone-950 dark:border-stone-700'}`}>
+                    {arcaCertificate ? <UploadCloud className="w-3.5 h-3.5 shrink-0" /> : <FileKey className="w-3.5 h-3.5 shrink-0" />}
+                    <span className="truncate">{arcaCertificate?.name || (arcaConfig?.certificateConfigured ? 'Certificado cargado' : 'Seleccionar certificado')}</span>
+                    <input
+                      type="file"
+                      accept=".crt,.cer,.pem,application/x-x509-ca-cert"
+                      className="hidden"
+                      onChange={event => setArcaCertificate(event.target.files?.[0] ?? null)}
+                    />
+                  </label>
+                  <button type="button" onClick={() => setArcaCertificate(null)} className="w-10 h-10 rounded-xl border border-stone-200 dark:border-stone-750 bg-white dark:bg-stone-950 flex items-center justify-center text-stone-400 hover:text-rose-600 cursor-pointer" aria-label="Quitar certificado seleccionado">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-1.5 text-left">
+                <span className="text-[9px] font-black uppercase text-stone-500 dark:text-stone-350">Clave privada (.key / .pem)</span>
+                <div className="flex gap-1.5">
+                  <label className={`min-w-0 flex-1 h-10 px-3 border rounded-xl flex items-center justify-center gap-2 cursor-pointer text-[9px] font-black transition-colors ${arcaPrivateKey || arcaConfig?.privateKeyConfigured ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/20 dark:text-emerald-400' : 'border-dashed border-stone-300 bg-white text-stone-500 dark:bg-stone-950 dark:border-stone-700'}`}>
+                    {arcaPrivateKey ? <UploadCloud className="w-3.5 h-3.5 shrink-0" /> : <KeyRound className="w-3.5 h-3.5 shrink-0" />}
+                    <span className="truncate">{arcaPrivateKey?.name || (arcaConfig?.privateKeyConfigured ? 'Clave privada cargada' : 'Seleccionar clave privada')}</span>
+                    <input
+                      type="file"
+                      accept=".key,.pem"
+                      className="hidden"
+                      onChange={event => setArcaPrivateKey(event.target.files?.[0] ?? null)}
+                    />
+                  </label>
+                  <button type="button" onClick={() => setArcaPrivateKey(null)} className="w-10 h-10 rounded-xl border border-stone-200 dark:border-stone-750 bg-white dark:bg-stone-950 flex items-center justify-center text-stone-400 hover:text-rose-600 cursor-pointer" aria-label="Quitar clave privada seleccionada">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {arcaConfig?.certificateValidTo && (
+              <div className="text-left text-[9px] leading-relaxed text-stone-500 dark:text-stone-400 bg-stone-50 dark:bg-stone-850 rounded-lg px-3 py-2 border border-stone-150 dark:border-stone-800">
+                Certificado vigente hasta <b>{new Date(arcaConfig.certificateValidTo).toLocaleDateString('es-AR')}</b> · origen: {arcaConfig.source === 'database' ? 'panel Sistema' : 'variables privadas del servidor'}.
+              </div>
+            )}
+
+            {arcaPanelError && (
+              <div className="flex items-start gap-2 p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 text-amber-800 dark:text-amber-300 text-[9px] font-semibold text-left leading-relaxed">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                {arcaPanelError}
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2">
+              <button
+                type="button"
+                disabled={arcaSaving || arcaLoading}
+                onClick={handleSaveArca}
+                className="py-2.5 px-4 bg-[#624A3E] hover:bg-[#503B32] disabled:opacity-50 text-white rounded-xl text-[9px] font-black uppercase flex items-center justify-center gap-2 cursor-pointer"
+              >
+                {arcaSaving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                Guardar configuracion
+              </button>
+              <button
+                type="button"
+                disabled={!arcaConfig?.configured || !arcaConfig.legalDataComplete || arcaTesting}
+                onClick={handleTestArca}
+                className="py-2.5 px-4 bg-[#1A1817] hover:bg-black disabled:opacity-40 text-[#F3C55A] rounded-xl text-[9px] font-black uppercase flex items-center justify-center gap-2 cursor-pointer"
+              >
+                {arcaTesting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Activity className="w-3.5 h-3.5" />}
+                Probar conexion
+              </button>
+            </div>
+
+            <button
+              type="button"
+              disabled={!arcaConfig?.configured || arcaDeleting}
+              onClick={handleDeleteArca}
+              className="w-full py-2 border border-rose-200 dark:border-rose-900/50 text-rose-700 dark:text-rose-400 disabled:opacity-40 rounded-xl text-[9px] font-black uppercase flex items-center justify-center gap-2 cursor-pointer hover:bg-rose-50 dark:hover:bg-rose-950/20"
+            >
+              {arcaDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+              Desconectar / eliminar firma digital
+            </button>
+          </div>
           
           {/* Checklist y Circular Score */}
           <div className="bg-[#1A1817] text-stone-200 rounded-2xl p-6 border border-stone-800 shadow-md space-y-5">

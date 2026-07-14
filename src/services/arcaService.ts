@@ -1,51 +1,203 @@
-// arcaService.ts — Proxy para la API de ARCA
-// Las llamadas reales a @arcasdk/core se hacen desde /api/arca.ts (server-side)
+// Proxy cliente para ARCA. Los certificados y la clave privada nunca se
+// persisten en el navegador: el backend los cifra o usa secretos de Vercel.
 
-interface ArcaCredentials {
-  cuit: number;
-  key: string;
-  cert: string;
-  production?: boolean;
-}
-
-const STORAGE_KEY = 'el_patron_arca_creds';
+import { tryGetActiveSupabaseClient } from '../lib/supabaseClient';
 
 const API_URL = '/api/arca';
+const STATUS_TTL_MS = 60_000;
 
-function getStoredCredentials(): ArcaCredentials | null {
-  try {
-    const env = (import.meta as any).env || {};
-    const envCuit = env.VITE_ARCA_CUIT;
-    const envKey = env.VITE_ARCA_KEY;
-    const envCert = env.VITE_ARCA_CERT;
-    if (envCuit && envKey && envCert) {
-      const parsedKey = envKey.replace(/\\n/g, '\n');
-      const parsedCert = envCert.replace(/\\n/g, '\n');
-      return { cuit: Number(envCuit), key: parsedKey, cert: parsedCert, production: env.VITE_ARCA_PROD === 'true' };
-    }
-    // Only store non-sensitive metadata, credentials must be in env vars or entered each session
-    return null;
-  } catch { return null; }
+export interface ArcaStatus {
+  configured: boolean;
+  connected: boolean;
+  environment: 'homologacion' | 'produccion' | null;
+  puntoVenta: number | null;
+  cuitMasked: string | null;
+  taxProfile: 'monotributo' | null;
+  source: 'database' | 'environment' | null;
+  legalDataComplete: boolean;
+  message: string;
 }
 
-export function isArcaConfigured(): boolean {
-  return getStoredCredentials() !== null;
+export interface ArcaAdminConfig extends ArcaStatus {
+  certificateConfigured: boolean;
+  privateKeyConfigured: boolean;
+  certificateSubject: string | null;
+  certificateSerial: string | null;
+  certificateValidFrom: string | null;
+  certificateValidTo: string | null;
+  legalName: string;
+  tradeName: string;
+  commercialAddress: string;
+  grossIncomeNumber: string;
+  activityStartDate: string;
+  updatedAt: string | null;
 }
 
-export async function testArcaConnection(): Promise<boolean> {
-  const creds = getStoredCredentials();
-  if (!creds) return false;
+export interface SaveArcaConfigInput {
+  cuit: string;
+  puntoVenta: number;
+  environment: 'homologacion' | 'produccion';
+  taxProfile: 'monotributo';
+  legalName: string;
+  tradeName: string;
+  commercialAddress: string;
+  grossIncomeNumber: string;
+  activityStartDate: string;
+  certificate?: File | null;
+  privateKey?: File | null;
+}
+
+interface CachedStatus {
+  value: ArcaStatus;
+  expiresAt: number;
+}
+
+let statusCache: CachedStatus | null = null;
+
+const disconnectedStatus = (message: string): ArcaStatus => ({
+  configured: false,
+  connected: false,
+  environment: null,
+  puntoVenta: null,
+  cuitMasked: null,
+  taxProfile: null,
+  source: null,
+  legalDataComplete: false,
+  message,
+});
+
+const parseStatus = (data: any, connected = false): ArcaStatus => ({
+  configured: Boolean(data.configured),
+  connected,
+  environment: data.environment === 'produccion' ? 'produccion' : data.environment === 'homologacion' ? 'homologacion' : null,
+  puntoVenta: Number.isInteger(data.puntoVenta) ? data.puntoVenta : null,
+  cuitMasked: typeof data.cuitMasked === 'string' ? data.cuitMasked : null,
+  taxProfile: data.taxProfile === 'monotributo' ? 'monotributo' : null,
+  source: data.source === 'database' ? 'database' : data.source === 'environment' ? 'environment' : null,
+  legalDataComplete: Boolean(data.legalDataComplete),
+  message: String(data.message || data.error || ''),
+});
+
+const parseAdminConfig = (data: any): ArcaAdminConfig => ({
+  ...parseStatus(data, false),
+  certificateConfigured: Boolean(data.certificateConfigured),
+  privateKeyConfigured: Boolean(data.privateKeyConfigured),
+  certificateSubject: typeof data.certificateSubject === 'string' ? data.certificateSubject : null,
+  certificateSerial: typeof data.certificateSerial === 'string' ? data.certificateSerial : null,
+  certificateValidFrom: typeof data.certificateValidFrom === 'string' ? data.certificateValidFrom : null,
+  certificateValidTo: typeof data.certificateValidTo === 'string' ? data.certificateValidTo : null,
+  legalName: typeof data.legalName === 'string' ? data.legalName : '',
+  tradeName: typeof data.tradeName === 'string' ? data.tradeName : '',
+  commercialAddress: typeof data.commercialAddress === 'string' ? data.commercialAddress : '',
+  grossIncomeNumber: typeof data.grossIncomeNumber === 'string' ? data.grossIncomeNumber : '',
+  activityStartDate: typeof data.activityStartDate === 'string' ? data.activityStartDate : '',
+  updatedAt: typeof data.updatedAt === 'string' ? data.updatedAt : null,
+});
+
+async function readJson(response: Response): Promise<any> {
+  return response.json().catch(() => ({}));
+}
+
+async function authenticatedHeaders(): Promise<Record<string, string>> {
+  const client = tryGetActiveSupabaseClient();
+  if (!client) throw new Error('Supabase no está configurado para validar la sesión.');
+  const { data, error } = await client.auth.getSession();
+  const token = data.session?.access_token;
+  if (error || !token) throw new Error('Debe iniciar sesión para operar con ARCA.');
+  return {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${token}`,
+  };
+}
+
+export async function getArcaStatus(force = false): Promise<ArcaStatus> {
+  if (!force && statusCache && statusCache.expiresAt > Date.now()) return statusCache.value;
   try {
-    const res = await fetch(API_URL, {
+    const response = await fetch(API_URL, { method: 'GET', headers: { Accept: 'application/json' } });
+    const data = await readJson(response);
+    if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+    const status = parseStatus(data, Boolean(data.connected));
+    statusCache = { value: status, expiresAt: Date.now() + STATUS_TTL_MS };
+    return status;
+  } catch (error) {
+    return disconnectedStatus(error instanceof Error ? error.message : 'No se pudo consultar el estado de ARCA.');
+  }
+}
+
+export async function testArcaConnection(): Promise<{ success: boolean; status: ArcaStatus; error?: string }> {
+  try {
+    const headers = await authenticatedHeaders();
+    const response = await fetch(API_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'test', credentials: creds }),
+      headers,
+      body: JSON.stringify({ action: 'test' }),
     });
-    return res.ok;
-  } catch { return false; }
+    const data = await readJson(response);
+    const status = parseStatus(data, response.ok && Boolean(data.success));
+    statusCache = { value: status, expiresAt: Date.now() + STATUS_TTL_MS };
+    return response.ok
+      ? { success: true, status }
+      : { success: false, status, error: String(data.error || `HTTP ${response.status}`) };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { success: false, status: disconnectedStatus(message), error: message };
+  }
+}
+
+async function callAdminAction(action: string, body: Record<string, unknown> = {}): Promise<any> {
+  const headers = await authenticatedHeaders();
+  const response = await fetch(API_URL, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ action, ...body }),
+  });
+  const data = await readJson(response);
+  if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+  return data;
+}
+
+export async function getArcaAdminConfig(): Promise<ArcaAdminConfig> {
+  return parseAdminConfig(await callAdminAction('adminStatus'));
+}
+
+export async function saveArcaConfiguration(input: SaveArcaConfigInput): Promise<ArcaAdminConfig> {
+  const hasCertificate = Boolean(input.certificate);
+  const hasPrivateKey = Boolean(input.privateKey);
+  if (hasCertificate !== hasPrivateKey) {
+    throw new Error('Debe seleccionar juntos el certificado y la clave privada.');
+  }
+  for (const file of [input.certificate, input.privateKey]) {
+    if (file && file.size > 50_000) throw new Error(`${file.name} supera el limite permitido de 50 KB.`);
+  }
+  const certificate = input.certificate ? await input.certificate.text() : undefined;
+  const privateKey = input.privateKey ? await input.privateKey.text() : undefined;
+  const data = await callAdminAction('saveConfig', {
+    config: {
+      cuit: input.cuit,
+      puntoVenta: input.puntoVenta,
+      environment: input.environment,
+      taxProfile: input.taxProfile,
+      legalName: input.legalName,
+      tradeName: input.tradeName,
+      commercialAddress: input.commercialAddress,
+      grossIncomeNumber: input.grossIncomeNumber,
+      activityStartDate: input.activityStartDate,
+      certificate,
+      privateKey,
+    },
+  });
+  statusCache = null;
+  return parseAdminConfig(data);
+}
+
+export async function deleteArcaConfiguration(): Promise<ArcaAdminConfig> {
+  const data = await callAdminAction('deleteConfig');
+  statusCache = null;
+  return parseAdminConfig(data);
 }
 
 export interface ArcaInvoicePayload {
+  idempotencyKey: string;
   tipoComprobante: number;
   puntoVenta?: number;
   cliente?: {
@@ -62,52 +214,83 @@ export interface ArcaInvoicePayload {
     ivaBase: number;
     ivaImporte: number;
   }>;
-  docTipo?: number;
-  docNro?: number;
-  condicionIva?: number;
   total: number;
   neto: number;
   ivaTotal: number;
-  ivaItems?: { Id: number; BaseImp: number; Importe: number }[];
 }
 
 export interface ArcaInvoiceResult {
   success: boolean;
+  emissionId?: string;
+  fiscalStatus?: 'authorizing' | 'authorized' | 'observed' | 'rejected' | 'uncertain';
+  resultado?: string;
   cae?: string;
   vencimiento?: string;
   CodAutorizacion?: string;
   CAE?: string;
   Vencimiento?: string;
   CAEFchVto?: string;
+  nroCmp?: number;
+  puntoVenta?: number;
+  tipoComprobante?: number;
+  qrData?: string;
+  observaciones?: Array<{ code: number; msg: string }>;
+  emitter?: {
+    cuit: string;
+    legalName: string;
+    tradeName: string;
+    commercialAddress: string;
+    grossIncomeNumber: string;
+    activityStartDate: string;
+    taxCondition: 'Monotributo';
+  };
+  error?: string;
 }
 
+export const buildArcaInvoiceRequest = (payload: ArcaInvoicePayload) => ({
+  action: 'createInvoice' as const,
+  payload,
+});
+
 export async function createArcaInvoice(payload: ArcaInvoicePayload): Promise<ArcaInvoiceResult> {
-  const creds = getStoredCredentials();
-  if (!creds) throw new Error('ARCA no está configurado');
-
-  const res = await fetch(API_URL, {
+  const headers = await authenticatedHeaders();
+  const response = await fetch(API_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'createInvoice', credentials: creds, payload }),
+    headers,
+    body: JSON.stringify(buildArcaInvoiceRequest(payload)),
   });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: 'Error de conexión con ARCA' }));
-    throw new Error(err.error || `HTTP ${res.status}`);
-  }
-
-  const data = await res.json();
+  const data = await readJson(response);
+  if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
   return data;
 }
 
-// ─── Tipos de comprobante y lookup helpers ───────────────────
+export async function createArcaCreditNote(relatedEmissionId: string, idempotencyKey: string): Promise<ArcaInvoiceResult> {
+  const headers = await authenticatedHeaders();
+  const response = await fetch(API_URL, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ action: 'createCreditNote', relatedEmissionId, idempotencyKey }),
+  });
+  const data = await readJson(response);
+  if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+  return data;
+}
+
+export async function reconcileArcaInvoice(emissionId: string): Promise<ArcaInvoiceResult> {
+  const headers = await authenticatedHeaders();
+  const response = await fetch(API_URL, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ action: 'reconcileInvoice', emissionId }),
+  });
+  const data = await readJson(response);
+  if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+  return data;
+}
 
 export const TIPOS_COMPROBANTE = {
-  'factura_a': { id: 1, label: 'Factura A', requiereCuit: true, condicionIva: 1 },
-  'factura_b': { id: 6, label: 'Factura B', requiereCuit: false, condicionIva: 5 },
-  'factura_c': { id: 11, label: 'Factura C', requiereCuit: false, condicionIva: 6 },
-  'ticket_a': { id: 201, label: 'Ticket Factura A', requiereCuit: true, condicionIva: 1 },
-  'ticket_b': { id: 206, label: 'Ticket Factura B', requiereCuit: false, condicionIva: 5 },
+  factura_c: { id: 11, label: 'Factura C', requiereCuit: false, condicionIva: 6 },
+  nota_credito_c: { id: 13, label: 'Nota de Credito C', requiereCuit: false, condicionIva: 6 },
 } as const;
 
 export const TIPOS_DOCUMENTO = [
@@ -118,10 +301,14 @@ export const TIPOS_DOCUMENTO = [
 
 export const CONDICIONES_IVA_RECEPTOR = [
   { id: 1, label: 'IVA Responsable Inscripto' },
-  { id: 2, label: 'IVA No Responsable' },
-  { id: 3, label: 'IVA Exento' },
   { id: 4, label: 'IVA Sujeto Exento' },
   { id: 5, label: 'Consumidor Final' },
   { id: 6, label: 'IVA Monotributo' },
-  { id: 12, label: 'IVA No Alcanzado' },
+  { id: 7, label: 'Sujeto No Categorizado' },
+  { id: 8, label: 'Proveedor del Exterior' },
+  { id: 9, label: 'Cliente del Exterior' },
+  { id: 10, label: 'IVA Liberado - Ley 19.640' },
+  { id: 13, label: 'Monotributista Social' },
+  { id: 15, label: 'IVA No Alcanzado' },
+  { id: 16, label: 'Monotributo Trabajador Independiente Promovido' },
 ];

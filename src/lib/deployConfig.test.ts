@@ -15,6 +15,8 @@ const validProductionEnv = {
   VITE_SUPABASE_URL: 'https://demo.supabase.co',
   VITE_SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9',
   VITE_ENABLE_DEMO_LOGIN: 'false',
+  SUPABASE_SERVICE_ROLE_KEY: 'service-role-test-only',
+  ARCA_CONFIG_ENCRYPTION_KEY: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
 };
 
 test('detecta placeholders comunes de configuracion', () => {
@@ -56,6 +58,8 @@ test('rechaza Production sin variables reales o con demo login activo', () => {
     'VITE_SUPABASE_URL is required for Vercel Production deployments.',
     'VITE_SUPABASE_PUBLISHABLE_KEY or VITE_SUPABASE_ANON_KEY is required for Vercel Production deployments.',
     'Set VITE_ENABLE_DEMO_LOGIN=false for Vercel Production deployments.',
+    'SUPABASE_SERVICE_ROLE_KEY is required by the secure fiscal backend.',
+    'ARCA_CONFIG_ENCRYPTION_KEY is required to encrypt uploaded certificates.',
   ]);
 
   assert.deepEqual(validateDeploymentConfig({
@@ -77,7 +81,27 @@ test('acepta Production cuando Supabase y login demo estan configurados', () => 
     VITE_SUPABASE_URL: 'https://demo.supabase.co',
     VITE_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_1234567890abcdef',
     VITE_ENABLE_DEMO_LOGIN: 'false',
+    SUPABASE_SERVICE_ROLE_KEY: 'service-role-test-only',
+    ARCA_CONFIG_ENCRYPTION_KEY: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
   }), []);
+});
+
+test('bloquea secretos fiscales publicados con prefijo VITE y configuración ARCA parcial', () => {
+  assert.deepEqual(validateDeploymentConfig({
+    ...validProductionEnv,
+    VITE_ARCA_KEY: 'PRIVATE KEY',
+  }), [
+    'Fiscal certificate/private-key variables must never use the public VITE_ prefix.',
+  ]);
+
+  assert.deepEqual(validateDeploymentConfig({
+    ...validProductionEnv,
+    ARCA_CUIT: '30-12345678-9',
+    ARCA_PUNTO_VENTA: '3',
+  }), [
+    'ARCA configuration is incomplete: set CUIT, point of sale, certificate and private key as server-only variables.',
+    'ARCA legal issuer data is incomplete: legal name, trade name, commercial address, gross income and activity start date are required.',
+  ]);
 });
 
 test('formatea reportes accionables para Vercel y para desarrollo local', () => {

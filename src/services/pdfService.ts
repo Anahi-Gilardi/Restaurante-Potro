@@ -1,4 +1,5 @@
 import { jsPDF } from 'jspdf';
+import QRCode from 'qrcode';
 import { TicketData, TicketItem } from '../types';
 
 let logoDataUrlCache: string | null | undefined;
@@ -53,26 +54,12 @@ const loadQrDataUrl = async (qrDataText: string | undefined): Promise<string | n
     if (qrDataText.startsWith('{')) {
       try {
         const base64 = btoa(unescape(encodeURIComponent(qrDataText)));
-        qrUrl = `https://www.afip.gob.ar/fe/qr/?p=${base64}`;
+        qrUrl = `https://www.arca.gob.ar/fe/qr/?p=${base64}`;
       } catch (e) {
         console.warn('Error converting QR JSON to Base64:', e);
       }
     }
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3000);
-    const response = await fetch(
-      `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrUrl)}`,
-      { signal: controller.signal }
-    );
-    clearTimeout(timeoutId);
-    if (!response.ok) return null;
-    const blob = await response.blob();
-    return await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result));
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
+    return await QRCode.toDataURL(qrUrl, { errorCorrectionLevel: 'M', margin: 1, width: 256 });
   } catch (err) {
     console.warn('No se pudo obtener el QR de AFIP/ARCA, usando fallback:', err);
     return null;
@@ -95,7 +82,7 @@ const sanitizeFile = (value: string) => value.replace(/[\\/:*?"<>|]+/g, '_').rep
 export const pdfService = {
   async exportToPDF(data: TicketData): Promise<void> {
     const doc = await this.generateTicketPDF(data);
-    const filename = data.tipoComprobante.startsWith('factura')
+    const filename = data.tipoComprobante.startsWith('factura') || data.tipoComprobante.startsWith('nota_credito')
       ? `factura-el-patron-${sanitizeFile(data.nroComprobante)}.pdf`
       : `ticket-el-patron-${sanitizeFile(data.nroComprobante || String(data.idPedido))}.pdf`;
     doc.save(filename);
@@ -104,34 +91,11 @@ export const pdfService = {
   async generateTicketPDF(data: TicketData): Promise<jsPDF> {
     const logo = await loadLogoDataUrl();
     
-    // Si es una factura oficial pero no tiene datos de QR, generamos datos de contingencia/demo
-    let qrData = data.qrData;
-    if (!qrData && data.tipoComprobante && data.tipoComprobante.startsWith('factura')) {
-      const fallbackCae = data.cae || '76123456789012';
-      const cleanCuit = (data.cuit || '30716492514').replace(/-/g, '').trim();
-      const cleanClientCuit = (data.clienteCuit || '').replace(/-/g, '').trim();
-      
-      qrData = JSON.stringify({
-        ver: 1,
-        fecha: new Date().toISOString().split('T')[0],
-        cuit: parseInt(cleanCuit) || 30716492514,
-        ptoVta: 1,
-        tipoCmp: (data.tipoComprobante as string) === 'factura_a' ? 1 : ((data.tipoComprobante as string) === 'factura_c' ? 11 : 6),
-        nroCmp: parseInt(data.nroComprobante.split('-').pop() || '1'),
-        importe: data.total,
-        moneda: 'PES',
-        ctz: 1,
-        tipoDocRec: cleanClientCuit.length >= 11 ? 80 : 99,
-        nroDocRec: parseInt(cleanClientCuit) || 0,
-        tipoCodAut: 1,
-        codAut: parseInt(fallbackCae) || 76123456789012
-      });
-    }
-
-    const qrImage = await loadQrDataUrl(qrData);
+    // Un QR fiscal solo puede generarse con datos reales devueltos por ARCA.
+    const qrImage = data.cae ? await loadQrDataUrl(data.qrData) : null;
     
     // Si es una factura oficial (factura_a, factura_b, factura_c), usar formato A4
-    if (data.tipoComprobante && data.tipoComprobante.startsWith('factura')) {
+    if (data.tipoComprobante && (data.tipoComprobante.startsWith('factura') || data.tipoComprobante.startsWith('nota_credito'))) {
       return this.generateA4Invoice(data, logo, qrImage);
     }
     
@@ -144,7 +108,8 @@ export const pdfService = {
     const margin = 14;
     let y = 14;
     const compType = data.tipoComprobante as string;
-    const letter = compType === 'factura_a' ? 'A' : (compType === 'factura_c' ? 'C' : 'B');
+    const letter = compType === 'factura_a' ? 'A' : (compType === 'factura_c' || compType === 'nota_credito_c' ? 'C' : 'B');
+    const isCreditNoteC = compType === 'nota_credito_c';
     const cliente = data.clienteNombre || 'Consumidor Final';
     const clienteCuit = data.clienteCuit || (data.cuit.startsWith('99') ? 'Consumidor Final' : data.cuit);
 
@@ -188,7 +153,7 @@ export const pdfService = {
     doc.text(letter, margin + 167, y + 11, { align: 'center' });
     doc.setTextColor(...BRAND.dark);
     doc.setFontSize(7);
-    const codComprobante = compType === 'factura_a' ? 'COD. 001' : (compType === 'factura_c' ? 'COD. 011' : 'COD. 006');
+    const codComprobante = compType === 'factura_a' ? 'COD. 001' : isCreditNoteC ? 'COD. 013' : (compType === 'factura_c' ? 'COD. 011' : 'COD. 006');
     doc.text(codComprobante, margin + 167, y + 16, { align: 'center' });
 
     y += 26;
@@ -211,14 +176,18 @@ export const pdfService = {
     doc.setTextColor(...BRAND.muted);
     doc.setFontSize(8.5);
     doc.text(`CUIT: ${data.cuit}`, margin, y);
-    doc.text(`Comprobante: Factura ${letter}`, margin + 102, y);
+    doc.text(`Comprobante: ${isCreditNoteC ? 'Nota de Crédito C' : `Factura ${letter}`}`, margin + 102, y);
     y += 4.5;
-    doc.text('IVA: Responsable Inscripto', margin, y);
+    doc.text(`IVA: ${data.condicionIvaEmisor || (letter === 'C' ? 'Monotributo' : 'Responsable Inscripto')}`, margin, y);
     doc.text(`Nro Comprobante: ${data.nroComprobante}`, margin + 102, y);
     y += 4.5;
-    doc.text(`Email: ${data.email}`, margin, y);
+    doc.text(`IIBB: ${data.ingresosBrutos || 'No informado'}`, margin, y);
     doc.text(`Fecha/Hora: ${data.fechaHora}`, margin + 102, y);
     y += 4.5;
+    doc.text(`Inicio actividades: ${data.inicioActividades || 'No informado'}`, margin, y);
+    doc.text(`Tipo: ${isCreditNoteC ? 'Nota de Crédito C' : `Factura ${letter}`}`, margin + 102, y);
+    y += 4.5;
+    doc.text(`Email: ${data.email}`, margin, y);
     doc.text(`Mesa: ${data.mesa} | Mozo: ${data.mozo}`, margin + 102, y);
     y += 8;
 
@@ -240,7 +209,9 @@ export const pdfService = {
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8.5);
-    doc.text(`CUIT/DNI: ${clienteCuit}`, margin + 110, y + 11);
+    doc.text(`CUIT/DNI: ${clienteCuit}`, margin + 105, y + 8);
+    doc.setFontSize(7.5);
+    doc.text(`IVA: ${data.condicionIvaReceptor || 'Consumidor Final'}`, margin + 105, y + 12.5);
     
     y += 22;
 
@@ -311,7 +282,7 @@ export const pdfService = {
     doc.setFontSize(9);
     doc.setTextColor(...BRAND.dark);
     doc.setFont('helvetica', 'normal');
-    doc.text('Subtotal Neto', totalX, y);
+    doc.text(letter === 'C' ? 'Subtotal' : 'Subtotal Neto', totalX, y);
     doc.text(money(data.subtotal), totalValueX, y, { align: 'right' });
     y += 5.5;
     
@@ -325,9 +296,13 @@ export const pdfService = {
       doc.text(money(data.propina), totalValueX, y, { align: 'right' });
       y += 5.5;
     }
-    doc.text('IVA 21% Incluido', totalX, y);
-    doc.text(money(data.iva), totalValueX, y, { align: 'right' });
-    y += 8;
+    if (letter !== 'C') {
+      doc.text('IVA 21% Incluido', totalX, y);
+      doc.text(money(data.iva), totalValueX, y, { align: 'right' });
+      y += 8;
+    } else {
+      y += 3;
+    }
 
     // Total Highlight Box
     doc.setFillColor(...BRAND.cream);
@@ -377,32 +352,32 @@ export const pdfService = {
     doc.setLineWidth(0.2);
     doc.line(margin, y - 2, margin + 182, y - 2);
 
-    if (qrImage) {
-      try {
-        doc.addImage(qrImage, 'PNG', margin, y, 18, 18);
-      } catch (err) {
-        doc.setDrawColor(...BRAND.brown);
-        doc.rect(margin, y, 18, 18);
-        doc.setFontSize(5.5);
-        doc.setTextColor(...BRAND.brown);
-        doc.text('AFIP QR', margin + 5, y + 10);
+    if (data.cae) {
+      if (qrImage) {
+        try {
+          doc.addImage(qrImage, 'PNG', margin, y, 18, 18);
+        } catch (err) {
+          console.warn('No se pudo insertar el QR fiscal en el PDF:', err);
+        }
       }
+      doc.setTextColor(...BRAND.muted);
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Comprobante electrónico autorizado por ARCA', margin + 24, y + 5);
+      doc.text(`CAE Nro: ${data.cae} | Vto: ${data.vto || '-'}`, margin + 24, y + 10);
+      doc.setTextColor(...BRAND.dark);
+      doc.setFont('helvetica', 'italic');
+      doc.text(data.mensajePie || 'Gracias por su visita.', margin + 24, y + 15);
     } else {
-      doc.setDrawColor(...BRAND.brown);
-      doc.rect(margin, y, 18, 18);
-      doc.setFontSize(5.5);
-      doc.setTextColor(...BRAND.brown);
-      doc.text('AFIP QR', margin + 5, y + 10);
+      doc.setDrawColor(190, 24, 24);
+      doc.setTextColor(190, 24, 24);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.text('DOCUMENTO X - NO VALIDO COMO FACTURA', margin, y + 6);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.text('Documento interno sin autorización ni CAE de ARCA.', margin, y + 12);
     }
-    
-    doc.setTextColor(...BRAND.muted);
-    doc.setFontSize(7.5);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Comprobante autorizado por AFIP / ARCA`, margin + 24, y + 5);
-    doc.text(`CAE Nro: ${data.cae || '732049182390'} | Vto: ${data.vto || '15/12/2026'}`, margin + 24, y + 10);
-    doc.setTextColor(...BRAND.dark);
-    doc.setFont('helvetica', 'italic');
-    doc.text(data.mensajePie || 'Gracias por su visita.', margin + 24, y + 15);
 
     return doc;
   },
