@@ -67,6 +67,11 @@ export const hasSupabaseConfig = (config = getSupabaseConfig()) => {
   return Boolean(config.url && config.key && !config.key.includes('...') && !config.key.includes('tu-anon-key'));
 };
 
+export const hasSameSupabaseConfig = (current: SupabaseConfig, next: SupabaseConfig): boolean => (
+  normalizeSupabaseUrl(current.url) === normalizeSupabaseUrl(next.url)
+  && current.key.trim() === next.key.trim()
+);
+
 let cachedClient: SupabaseClient | null = null;
 let cachedFingerprint = '';
 
@@ -90,8 +95,6 @@ const createConfiguredClient = (): SupabaseClient | null => {
 
   return cachedClient;
 };
-
-export const supabase = createConfiguredClient();
 
 export const resetSupabaseClientCache = () => {
   cachedClient?.removeAllChannels();

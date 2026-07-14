@@ -1,6 +1,6 @@
-import { supabase, getSupabaseConfig, resetSupabaseClientCache, tryGetActiveSupabaseClient } from './lib/supabaseClient';
+import { getSupabaseConfig, resetSupabaseClientCache, tryGetActiveSupabaseClient } from './lib/supabaseClient';
 
-export { getSupabaseConfig, supabase as default };
+export { getSupabaseConfig };
 
 export const getSupabaseClient = () => tryGetActiveSupabaseClient();
 export const resetSupabaseInstance = () => resetSupabaseClientCache();
