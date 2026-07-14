@@ -1,48 +1,98 @@
-// arcaService.ts — Proxy para la API de ARCA
-// Las llamadas reales a @arcasdk/core se hacen desde /api/arca.ts (server-side)
+// Proxy cliente para ARCA. Los certificados y la clave privada viven
+// exclusivamente en variables de entorno del servidor de Vercel.
 
-interface ArcaCredentials {
-  cuit: number;
-  key: string;
-  cert: string;
-  production?: boolean;
-}
-
-const STORAGE_KEY = 'el_patron_arca_creds';
+import { tryGetActiveSupabaseClient } from '../lib/supabaseClient';
 
 const API_URL = '/api/arca';
+const STATUS_TTL_MS = 60_000;
 
-function getStoredCredentials(): ArcaCredentials | null {
-  try {
-    const env = (import.meta as any).env || {};
-    const envCuit = env.VITE_ARCA_CUIT;
-    const envKey = env.VITE_ARCA_KEY;
-    const envCert = env.VITE_ARCA_CERT;
-    if (envCuit && envKey && envCert) {
-      const parsedKey = envKey.replace(/\\n/g, '\n');
-      const parsedCert = envCert.replace(/\\n/g, '\n');
-      return { cuit: Number(envCuit), key: parsedKey, cert: parsedCert, production: env.VITE_ARCA_PROD === 'true' };
-    }
-    // Only store non-sensitive metadata, credentials must be in env vars or entered each session
-    return null;
-  } catch { return null; }
+export interface ArcaStatus {
+  configured: boolean;
+  connected: boolean;
+  environment: 'homologacion' | 'produccion' | null;
+  puntoVenta: number | null;
+  cuitMasked: string | null;
+  message: string;
 }
 
-export function isArcaConfigured(): boolean {
-  return getStoredCredentials() !== null;
+interface CachedStatus {
+  value: ArcaStatus;
+  expiresAt: number;
 }
 
-export async function testArcaConnection(): Promise<boolean> {
-  const creds = getStoredCredentials();
-  if (!creds) return false;
+let statusCache: CachedStatus | null = null;
+
+const disconnectedStatus = (message: string): ArcaStatus => ({
+  configured: false,
+  connected: false,
+  environment: null,
+  puntoVenta: null,
+  cuitMasked: null,
+  message,
+});
+
+async function readJson(response: Response): Promise<any> {
+  return response.json().catch(() => ({}));
+}
+
+async function authenticatedHeaders(): Promise<Record<string, string>> {
+  const client = tryGetActiveSupabaseClient();
+  if (!client) throw new Error('Supabase no está configurado para validar la sesión.');
+  const { data, error } = await client.auth.getSession();
+  const token = data.session?.access_token;
+  if (error || !token) throw new Error('Debe iniciar sesión para operar con ARCA.');
+  return {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${token}`,
+  };
+}
+
+export async function getArcaStatus(force = false): Promise<ArcaStatus> {
+  if (!force && statusCache && statusCache.expiresAt > Date.now()) return statusCache.value;
   try {
-    const res = await fetch(API_URL, {
+    const response = await fetch(API_URL, { method: 'GET', headers: { Accept: 'application/json' } });
+    const data = await readJson(response);
+    if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+    const status: ArcaStatus = {
+      configured: Boolean(data.configured),
+      connected: Boolean(data.connected),
+      environment: data.environment === 'produccion' ? 'produccion' : data.environment === 'homologacion' ? 'homologacion' : null,
+      puntoVenta: Number.isInteger(data.puntoVenta) ? data.puntoVenta : null,
+      cuitMasked: typeof data.cuitMasked === 'string' ? data.cuitMasked : null,
+      message: String(data.message || ''),
+    };
+    statusCache = { value: status, expiresAt: Date.now() + STATUS_TTL_MS };
+    return status;
+  } catch (error) {
+    return disconnectedStatus(error instanceof Error ? error.message : 'No se pudo consultar el estado de ARCA.');
+  }
+}
+
+export async function testArcaConnection(): Promise<{ success: boolean; status: ArcaStatus; error?: string }> {
+  try {
+    const headers = await authenticatedHeaders();
+    const response = await fetch(API_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'test', credentials: creds }),
+      headers,
+      body: JSON.stringify({ action: 'test' }),
     });
-    return res.ok;
-  } catch { return false; }
+    const data = await readJson(response);
+    const status: ArcaStatus = {
+      configured: Boolean(data.configured),
+      connected: response.ok && Boolean(data.success),
+      environment: data.environment === 'produccion' ? 'produccion' : data.environment === 'homologacion' ? 'homologacion' : null,
+      puntoVenta: Number.isInteger(data.puntoVenta) ? data.puntoVenta : null,
+      cuitMasked: typeof data.cuitMasked === 'string' ? data.cuitMasked : null,
+      message: String(data.message || data.error || ''),
+    };
+    statusCache = { value: status, expiresAt: Date.now() + STATUS_TTL_MS };
+    return response.ok
+      ? { success: true, status }
+      : { success: false, status, error: String(data.error || `HTTP ${response.status}`) };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { success: false, status: disconnectedStatus(message), error: message };
+  }
 }
 
 export interface ArcaInvoicePayload {
@@ -62,52 +112,50 @@ export interface ArcaInvoicePayload {
     ivaBase: number;
     ivaImporte: number;
   }>;
-  docTipo?: number;
-  docNro?: number;
-  condicionIva?: number;
   total: number;
   neto: number;
   ivaTotal: number;
-  ivaItems?: { Id: number; BaseImp: number; Importe: number }[];
 }
 
 export interface ArcaInvoiceResult {
   success: boolean;
+  resultado?: string;
   cae?: string;
   vencimiento?: string;
   CodAutorizacion?: string;
   CAE?: string;
   Vencimiento?: string;
   CAEFchVto?: string;
+  nroCmp?: number;
+  puntoVenta?: number;
+  tipoComprobante?: number;
+  qrData?: string;
+  observaciones?: Array<{ code: number; msg: string }>;
 }
 
+export const buildArcaInvoiceRequest = (payload: ArcaInvoicePayload) => ({
+  action: 'createInvoice' as const,
+  payload,
+});
+
 export async function createArcaInvoice(payload: ArcaInvoicePayload): Promise<ArcaInvoiceResult> {
-  const creds = getStoredCredentials();
-  if (!creds) throw new Error('ARCA no está configurado');
-
-  const res = await fetch(API_URL, {
+  const headers = await authenticatedHeaders();
+  const response = await fetch(API_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'createInvoice', credentials: creds, payload }),
+    headers,
+    body: JSON.stringify(buildArcaInvoiceRequest(payload)),
   });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: 'Error de conexión con ARCA' }));
-    throw new Error(err.error || `HTTP ${res.status}`);
-  }
-
-  const data = await res.json();
+  const data = await readJson(response);
+  if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
   return data;
 }
 
-// ─── Tipos de comprobante y lookup helpers ───────────────────
-
 export const TIPOS_COMPROBANTE = {
-  'factura_a': { id: 1, label: 'Factura A', requiereCuit: true, condicionIva: 1 },
-  'factura_b': { id: 6, label: 'Factura B', requiereCuit: false, condicionIva: 5 },
-  'factura_c': { id: 11, label: 'Factura C', requiereCuit: false, condicionIva: 6 },
-  'ticket_a': { id: 201, label: 'Ticket Factura A', requiereCuit: true, condicionIva: 1 },
-  'ticket_b': { id: 206, label: 'Ticket Factura B', requiereCuit: false, condicionIva: 5 },
+  factura_a: { id: 1, label: 'Factura A', requiereCuit: true, condicionIva: 1 },
+  factura_b: { id: 6, label: 'Factura B', requiereCuit: false, condicionIva: 5 },
+  factura_c: { id: 11, label: 'Factura C', requiereCuit: false, condicionIva: 6 },
+  ticket_a: { id: 201, label: 'Ticket Factura A', requiereCuit: true, condicionIva: 1 },
+  ticket_b: { id: 206, label: 'Ticket Factura B', requiereCuit: false, condicionIva: 5 },
 } as const;
 
 export const TIPOS_DOCUMENTO = [

@@ -18,7 +18,7 @@ import { printerService } from '../../../services/printerService';
 import { facturacionService, Factura } from '../../../services/facturacionService';
 import { auditoriaService } from '../../../services/auditoriaService';
 import { clientesService } from '../../../services/clientesService';
-import { isArcaConfigured, createArcaInvoice, TIPOS_COMPROBANTE } from '../../../services/arcaService';
+import { createArcaInvoice, getArcaStatus, TIPOS_COMPROBANTE } from '../../../services/arcaService';
 
 interface UseCajaProps {
   pedidos: Pedido[];
@@ -608,26 +608,28 @@ export function useCaja({
       }
     }
 
-    const compiledTicketNo = `T-0001-${Math.floor(Math.random() * 900000 + 100000)}`;
+    let compiledTicketNo = `T-0001-${Math.floor(Math.random() * 900000 + 100000)}`;
 
     let arcaCae = "";
     let arcaVto = "";
     let arcaQr = "";
 
-    if (isArcaConfigured()) {
+    const arcaStatus = await getArcaStatus();
+    if (arcaStatus.configured) {
       try {
-        const tipoMap: Record<string, number> = { 'factura_a': 1, 'factura_b': 6, 'ticket_consumo': 206 };
+        const tipoMap: Record<string, number> = { 'factura_a': 1, 'factura_b': 6, 'factura_c': 11, 'ticket_consumo': 206 };
         const tipoId = tipoMap[tipoComprobante] || 206;
         const arcaTipo = Object.values(TIPOS_COMPROBANTE).find((t: any) => t.id === tipoId) as any;
         if (arcaTipo) {
-          const neto = Number((orderBreakdowns.finalTotal / 1.21).toFixed(2));
-          const iva = Number((orderBreakdowns.finalTotal - neto).toFixed(2));
+          const isFacturaC = tipoComprobante === 'factura_c';
+          const neto = isFacturaC ? orderBreakdowns.finalTotal : Number((orderBreakdowns.finalTotal / 1.21).toFixed(2));
+          const iva = isFacturaC ? 0 : Number((orderBreakdowns.finalTotal - neto).toFixed(2));
           const nroDoc = cuitCliente === '99-99999999-9' ? 0 : parseInt(cuitCliente.replace(/-/g, '').slice(0, 11)) || 0;
           const docTipo = nroDoc === 0 ? 99 : (cuitCliente.replace(/-/g, '').length >= 11 ? 80 : 96);
 
           const result = await createArcaInvoice({
             tipoComprobante: tipoId as any,
-            puntoVenta: 1,
+            puntoVenta: arcaStatus.puntoVenta || undefined,
             cliente: {
               tipoDoc: docTipo,
               nroDoc,
@@ -653,27 +655,17 @@ export function useCaja({
           if (cae) {
             arcaCae = cae;
             arcaVto = vto;
-            arcaQr = JSON.stringify({
-              ver: 1,
-              fecha: new Date().toISOString().split('T')[0],
-              cuit: parseInt(restaurante.cuit.replace(/-/g, '') || '30716492514'),
-              ptoVta: 1,
-              tipoCmp: tipoId,
-              nroCmp: parseInt(compiledTicketNo.split('-').pop() || '1'),
-              importe: orderBreakdowns.finalTotal,
-              moneda: 'PES',
-              ctz: 1,
-              tipoDocRec: docTipo,
-              nroDocRec: nroDoc,
-              tipoCodAut: 1,
-              codAut: parseInt(cae) || 0
-            });
+            arcaQr = result.qrData || '';
+            if (result.nroCmp && result.puntoVenta) {
+              const prefix = tipoComprobante === 'factura_a' ? 'A' : tipoComprobante === 'factura_b' ? 'B' : tipoComprobante === 'factura_c' ? 'C' : 'T';
+              compiledTicketNo = `${prefix}-${String(result.puntoVenta).padStart(4, '0')}-${String(result.nroCmp).padStart(8, '0')}`;
+            }
             addLog('sistema', `ARCA: CAE ${cae} emitido para Mesa ${selectedPedido.numero_mesa}.`);
           }
         }
       } catch (err: any) {
         console.error('[ARCA] Error:', err);
-        toast.warning(`ARCA: No se pudo emitir el comprobante electrónico. ${err.message || ''}`);
+        toast.warning(`ARCA no autorizó el comprobante. Se guardará como borrador local sin validez fiscal. ${err.message || ''}`);
       }
     }
 
@@ -735,6 +727,7 @@ export function useCaja({
         medio_pago: metodoPago,
         fecha: new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + ' hs',
         estado: 'emitido',
+        tipo: tipoComprobante === 'factura_a' ? 'A' : tipoComprobante === 'factura_b' ? 'B' : tipoComprobante === 'factura_c' ? 'C' : 'ticket',
         afip_cae: arcaCae || undefined,
         afip_vto: arcaVto || undefined,
         afip_qr: arcaQr || undefined,

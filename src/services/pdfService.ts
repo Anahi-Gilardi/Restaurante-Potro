@@ -104,31 +104,8 @@ export const pdfService = {
   async generateTicketPDF(data: TicketData): Promise<jsPDF> {
     const logo = await loadLogoDataUrl();
     
-    // Si es una factura oficial pero no tiene datos de QR, generamos datos de contingencia/demo
-    let qrData = data.qrData;
-    if (!qrData && data.tipoComprobante && data.tipoComprobante.startsWith('factura')) {
-      const fallbackCae = data.cae || '76123456789012';
-      const cleanCuit = (data.cuit || '30716492514').replace(/-/g, '').trim();
-      const cleanClientCuit = (data.clienteCuit || '').replace(/-/g, '').trim();
-      
-      qrData = JSON.stringify({
-        ver: 1,
-        fecha: new Date().toISOString().split('T')[0],
-        cuit: parseInt(cleanCuit) || 30716492514,
-        ptoVta: 1,
-        tipoCmp: (data.tipoComprobante as string) === 'factura_a' ? 1 : ((data.tipoComprobante as string) === 'factura_c' ? 11 : 6),
-        nroCmp: parseInt(data.nroComprobante.split('-').pop() || '1'),
-        importe: data.total,
-        moneda: 'PES',
-        ctz: 1,
-        tipoDocRec: cleanClientCuit.length >= 11 ? 80 : 99,
-        nroDocRec: parseInt(cleanClientCuit) || 0,
-        tipoCodAut: 1,
-        codAut: parseInt(fallbackCae) || 76123456789012
-      });
-    }
-
-    const qrImage = await loadQrDataUrl(qrData);
+    // Un QR fiscal solo puede generarse con datos reales devueltos por ARCA.
+    const qrImage = data.cae ? await loadQrDataUrl(data.qrData) : null;
     
     // Si es una factura oficial (factura_a, factura_b, factura_c), usar formato A4
     if (data.tipoComprobante && data.tipoComprobante.startsWith('factura')) {
@@ -377,32 +354,32 @@ export const pdfService = {
     doc.setLineWidth(0.2);
     doc.line(margin, y - 2, margin + 182, y - 2);
 
-    if (qrImage) {
-      try {
-        doc.addImage(qrImage, 'PNG', margin, y, 18, 18);
-      } catch (err) {
-        doc.setDrawColor(...BRAND.brown);
-        doc.rect(margin, y, 18, 18);
-        doc.setFontSize(5.5);
-        doc.setTextColor(...BRAND.brown);
-        doc.text('AFIP QR', margin + 5, y + 10);
+    if (data.cae) {
+      if (qrImage) {
+        try {
+          doc.addImage(qrImage, 'PNG', margin, y, 18, 18);
+        } catch (err) {
+          console.warn('No se pudo insertar el QR fiscal en el PDF:', err);
+        }
       }
+      doc.setTextColor(...BRAND.muted);
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Comprobante autorizado por AFIP / ARCA', margin + 24, y + 5);
+      doc.text(`CAE Nro: ${data.cae} | Vto: ${data.vto || '-'}`, margin + 24, y + 10);
+      doc.setTextColor(...BRAND.dark);
+      doc.setFont('helvetica', 'italic');
+      doc.text(data.mensajePie || 'Gracias por su visita.', margin + 24, y + 15);
     } else {
-      doc.setDrawColor(...BRAND.brown);
-      doc.rect(margin, y, 18, 18);
-      doc.setFontSize(5.5);
-      doc.setTextColor(...BRAND.brown);
-      doc.text('AFIP QR', margin + 5, y + 10);
+      doc.setDrawColor(190, 24, 24);
+      doc.setTextColor(190, 24, 24);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.text('BORRADOR LOCAL - SIN VALIDEZ FISCAL', margin, y + 6);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.text('Pendiente de autorización y CAE de ARCA.', margin, y + 12);
     }
-    
-    doc.setTextColor(...BRAND.muted);
-    doc.setFontSize(7.5);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Comprobante autorizado por AFIP / ARCA`, margin + 24, y + 5);
-    doc.text(`CAE Nro: ${data.cae || '732049182390'} | Vto: ${data.vto || '15/12/2026'}`, margin + 24, y + 10);
-    doc.setTextColor(...BRAND.dark);
-    doc.setFont('helvetica', 'italic');
-    doc.text(data.mensajePie || 'Gracias por su visita.', margin + 24, y + 15);
 
     return doc;
   },

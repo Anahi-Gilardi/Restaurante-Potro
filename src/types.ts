@@ -161,6 +161,7 @@ export interface EventoLog {
 export type TipoComprobante =
     | 'factura_a'
   | 'factura_b'
+  | 'factura_c'
   | 'ticket_consumo'
   | 'nota_credito_b';
 

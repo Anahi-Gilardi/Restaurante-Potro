@@ -51,6 +51,25 @@ export function validateDeploymentConfig(env: DeployRuntimeEnv): string[] {
     failures.push('Set VITE_ENABLE_DEMO_LOGIN=false for Vercel Production deployments.');
   }
 
+  const exposedFiscalSecrets = [
+    'VITE_ARCA_KEY',
+    'VITE_ARCA_CERT',
+    'VITE_AFIP_KEY',
+    'VITE_AFIP_CERT',
+  ].filter(key => Boolean(readEnv(env, key)));
+  if (exposedFiscalSecrets.length > 0) {
+    failures.push('Fiscal certificate/private-key variables must never use the public VITE_ prefix.');
+  }
+
+  const arcaCuit = readEnv(env, 'ARCA_CUIT');
+  const arcaCert = readEnv(env, 'ARCA_CERT') || readEnv(env, 'ARCA_CERT_BASE64');
+  const arcaKey = readEnv(env, 'ARCA_KEY') || readEnv(env, 'ARCA_KEY_BASE64');
+  const arcaPointOfSale = readEnv(env, 'ARCA_PUNTO_VENTA');
+  const hasAnyArcaConfig = Boolean(arcaCuit || arcaCert || arcaKey || arcaPointOfSale);
+  if (hasAnyArcaConfig && (!/^\d{11}$/.test(arcaCuit.replace(/\D/g, '')) || !arcaCert || !arcaKey || !/^\d+$/.test(arcaPointOfSale))) {
+    failures.push('ARCA configuration is incomplete: set CUIT, point of sale, certificate and private key as server-only variables.');
+  }
+
   return failures;
 }
 
@@ -84,6 +103,7 @@ export function formatDeploymentFailureReport(failures: string[]): string {
     '4. Set VITE_SUPABASE_URL=https://<your-project>.supabase.co.',
     '5. Set VITE_SUPABASE_PUBLISHABLE_KEY or VITE_SUPABASE_ANON_KEY to the public Supabase key.',
     '6. Redeploy the latest commit.',
+    '7. If ARCA is enabled, use only server variables ARCA_CUIT, ARCA_PUNTO_VENTA, ARCA_CERT_BASE64 and ARCA_KEY_BASE64.',
     '',
     'Local development note:',
     '- You can keep demo login enabled locally in .env.local while testing.',

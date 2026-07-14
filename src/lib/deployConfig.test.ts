@@ -80,6 +80,23 @@ test('acepta Production cuando Supabase y login demo estan configurados', () => 
   }), []);
 });
 
+test('bloquea secretos fiscales publicados con prefijo VITE y configuración ARCA parcial', () => {
+  assert.deepEqual(validateDeploymentConfig({
+    ...validProductionEnv,
+    VITE_ARCA_KEY: 'PRIVATE KEY',
+  }), [
+    'Fiscal certificate/private-key variables must never use the public VITE_ prefix.',
+  ]);
+
+  assert.deepEqual(validateDeploymentConfig({
+    ...validProductionEnv,
+    ARCA_CUIT: '30-12345678-9',
+    ARCA_PUNTO_VENTA: '3',
+  }), [
+    'ARCA configuration is incomplete: set CUIT, point of sale, certificate and private key as server-only variables.',
+  ]);
+});
+
 test('formatea reportes accionables para Vercel y para desarrollo local', () => {
   const failureReport = formatDeploymentFailureReport([
     'Set VITE_ENABLE_DEMO_LOGIN=false for Vercel Production deployments.',

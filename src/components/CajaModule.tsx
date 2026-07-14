@@ -848,7 +848,7 @@ export default function CajaModule({
                 <div className="p-3.5 bg-stone-50 dark:bg-stone-900/40 border border-stone-200/80 dark:border-stone-800 rounded-xl space-y-3 font-sans">
                   <div className="flex justify-between items-center pb-1 border-b border-stone-150 dark:border-stone-800/80">
                     <span className="text-[9px] font-black uppercase text-stone-500 dark:text-stone-400 block">Datos del Receptor / Comprobante</span>
-                    <span className="text-[8px] text-stone-400 uppercase font-black tracking-wider">AFIP homologado</span>
+                    <span className="text-[8px] text-stone-400 uppercase font-black tracking-wider">Autorización ARCA al cobrar</span>
                   </div>
 
                   <div className="grid grid-cols-3 gap-2">
@@ -861,6 +861,7 @@ export default function CajaModule({
                       >
                         <option value="factura_b">Factura B</option>
                         <option value="factura_a">Factura A</option>
+                        <option value="factura_c">Factura C</option>
                         <option value="ticket_consumo">Ticket Consumo</option>
                       </select>
                     </div>
@@ -1352,18 +1353,13 @@ export default function CajaModule({
                       </div>
                     </div>
 
-                    {/* QR code simulated block */}
+                    {/* El QR fiscal real se agrega al comprobante luego de recibir el CAE. */}
                     <div className="text-center pt-2 space-y-1 border-t border-stone-200">
                       <div className="w-14 h-14 bg-stone-50 border border-stone-200 mx-auto flex items-center justify-center relative">
-                        <div className="grid grid-cols-4 gap-0.5 p-1 w-full h-full opacity-60">
-                          {Array.from({ length: 16 }).map((_, i) => (
-                            <div key={i} className={`w-full h-full ${i % 3 === 0 || i % 7 === 1 ? 'bg-stone-900' : 'bg-transparent'}`} />
-                          ))}
-                        </div>
-                        <span className="absolute bg-white px-0.5 text-[5px] font-bold text-stone-800 uppercase ring-1 ring-stone-900/5">AFIP QR</span>
+                        <span className="px-1 text-[6px] font-bold text-stone-500 uppercase leading-tight">QR luego de autorización</span>
                       </div>
                       <p className="text-[6.5px] text-stone-400 font-sans leading-tight">
-                        CAE Nº: 732049182390 • VENCE: 15/12/2026
+                        Vista previa no fiscal · CAE pendiente
                       </p>
                     </div>
 

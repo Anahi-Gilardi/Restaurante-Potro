@@ -28,7 +28,12 @@ import { Pedido, ProductoMenu, TicketData, TipoComprobante } from '../types';
 import { facturacionService, Factura } from '../services/facturacionService';
 import { pdfService } from '../services/pdfService';
 import { ToastContainer, useToast } from './ToastContainer';
-import { isArcaConfigured, createArcaInvoice, TIPOS_COMPROBANTE } from '../services/arcaService';
+import {
+  ArcaStatus,
+  createArcaInvoice,
+  getArcaStatus,
+  testArcaConnection,
+} from '../services/arcaService';
 import { useDebounce } from '../hooks/useDebounce';
 
 interface FacturacionModuleProps {
@@ -38,7 +43,7 @@ interface FacturacionModuleProps {
 }
 
 type FacturaExtendida = Factura & {
-  tipo?: 'ticket' | 'A' | 'B' | 'X';
+  tipo?: 'ticket' | 'A' | 'B' | 'C' | 'X';
   id_pedido?: number | null;
   observaciones?: string;
   arcaCae?: string;
@@ -48,7 +53,7 @@ type FacturaExtendida = Factura & {
 
 type TabKey = 'dashboard' | 'manual' | 'pagos' | 'archivo';
 type EstadoFiltro = 'todos' | 'emitido' | 'nota_credito';
-type TipoFiltro = 'todos' | 'ticket' | 'A' | 'B' | 'X';
+type TipoFiltro = 'todos' | 'ticket' | 'A' | 'B' | 'C' | 'X';
 type MedioFiltro = 'todos' | Factura['medio_pago'];
 
 const DEFAULT_FACTURAS: FacturaExtendida[] = [
@@ -60,23 +65,36 @@ const DEFAULT_FACTURAS: FacturaExtendida[] = [
 
 const money = (value: number) => `$${value.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+const fiscalQrImageUrl = (qrData?: string): string | null => {
+  if (!qrData) return null;
+  try {
+    const validationUrl = qrData.startsWith('{')
+      ? `https://www.afip.gob.ar/fe/qr/?p=${btoa(qrData)}`
+      : qrData;
+    return `https://api.qrserver.com/v1/create-qr-code/?size=192x192&data=${encodeURIComponent(validationUrl)}`;
+  } catch {
+    return null;
+  }
+};
+
 const calcIvaIncluido = (total: number, aplicaIva = true) => {
   if (!aplicaIva) return { neto: total, iva: 0 };
   const neto = Number((total / 1.21).toFixed(2));
   return { neto, iva: Number((total - neto).toFixed(2)) };
 };
 
-const facturaTipo = (f: FacturaExtendida): 'ticket' | 'A' | 'B' | 'X' => {
+const facturaTipo = (f: FacturaExtendida): 'ticket' | 'A' | 'B' | 'C' | 'X' => {
   if (f.tipo) return f.tipo;
   if (f.nro_ticket.startsWith('A-')) return 'A';
   if (f.nro_ticket.startsWith('B-')) return 'B';
+  if (f.nro_ticket.startsWith('C-')) return 'C';
   if (f.nro_ticket.startsWith('X-')) return 'X';
   return 'ticket';
 };
 
-const tipoPrefix = (tipo: 'ticket' | 'A' | 'B' | 'X') => (tipo === 'ticket' ? 'T' : tipo);
+const tipoPrefix = (tipo: 'ticket' | 'A' | 'B' | 'C' | 'X') => (tipo === 'ticket' ? 'T' : tipo);
 
-const nextNumber = (facturas: FacturaExtendida[], tipo: 'ticket' | 'A' | 'B' | 'X') => {
+const nextNumber = (facturas: FacturaExtendida[], tipo: 'ticket' | 'A' | 'B' | 'C' | 'X') => {
   const prefix = `${tipoPrefix(tipo)}-0001-`;
   const last = facturas
     .filter(f => f.nro_ticket.startsWith(prefix))
@@ -122,7 +140,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
   const [medioFiltro, setMedioFiltro] = useState<MedioFiltro>('todos');
   
   // Emisión Manual
-  const [manualTipo, setManualTipo] = useState<'ticket' | 'A' | 'B' | 'X'>('B');
+  const [manualTipo, setManualTipo] = useState<'ticket' | 'A' | 'B' | 'C' | 'X'>('B');
   const [manualCliente, setManualCliente] = useState('Consumidor Final');
   const [manualCuit, setManualCuit] = useState('99-99999999-9');
   const [manualTotal, setManualTotal] = useState('0');
@@ -136,13 +154,15 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
   const [selectedPedidos, setSelectedPedidos] = useState<number[]>([]);
   const [agruparPorMesa, setAgruparPorMesa] = useState(false);
   const [pagoSearch, setPagoSearch] = useState('');
-  const [pagoTipo, setPagoTipo] = useState<'ticket' | 'A' | 'B' | 'X'>('ticket');
+  const [pagoTipo, setPagoTipo] = useState<'ticket' | 'A' | 'B' | 'C' | 'X'>('ticket');
   const [pagoCliente, setPagoCliente] = useState('Consumidor Final');
   const [pagoCuit, setPagoCuit] = useState('99-99999999-9');
   const [pagoMedio, setPagoMedio] = useState<Factura['medio_pago']>('efectivo');
   const [pagoQuery, setPagoQuery] = useState('');
   const [showPagoSuggestions, setShowPagoSuggestions] = useState(false);
   const [isEmitting, setIsEmitting] = useState(false);
+  const [arcaStatus, setArcaStatus] = useState<ArcaStatus | null>(null);
+  const [isTestingArca, setIsTestingArca] = useState(false);
 
   // Inspector Modal
   const [selectedFactura, setSelectedFactura] = useState<FacturaExtendida | null>(null);
@@ -160,7 +180,18 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
       .then(({ clientesService }) => clientesService.list())
       .then(data => setClientes(data || []))
       .catch(err => console.error('Error cargando clientes:', err));
+
+    getArcaStatus().then(setArcaStatus);
   }, []);
+
+  const handleTestArca = async () => {
+    setIsTestingArca(true);
+    const result = await testArcaConnection();
+    setArcaStatus(result.status);
+    if (result.success) toast.success('Conexión fiscal con ARCA verificada.');
+    else toast.error(`ARCA: ${result.error || 'no se pudo verificar la conexión.'}`);
+    setIsTestingArca(false);
+  };
 
   const pedidoTotal = (pedido: Pedido) => pedido.items.reduce((sum, item) => {
     const producto = productosMenu.find(p => p.id_producto === item.id_producto);
@@ -259,18 +290,18 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
 
   // Validación de CUIT para alertas visuales
   const cuitManualValido = useMemo(() => {
-    if (manualTipo === 'ticket' || manualTipo === 'X') return true;
+    if (manualTipo === 'ticket' || manualTipo === 'C' || manualTipo === 'X') return true;
     if (manualCuit === '99-99999999-9') return true;
     return validarCUIT(manualCuit);
   }, [manualCuit, manualTipo]);
 
   const cuitPagoValido = useMemo(() => {
-    if (pagoTipo === 'ticket' || pagoTipo === 'X') return true;
+    if (pagoTipo === 'ticket' || pagoTipo === 'C' || pagoTipo === 'X') return true;
     if (pagoCuit === '99-99999999-9' && pagoTipo === 'B') return true;
     return validarCUIT(pagoCuit);
   }, [pagoCuit, pagoTipo]);
 
-  const validateClienteFiscal = (tipo: 'ticket' | 'A' | 'B' | 'X', cliente: string, cuit: string) => {
+  const validateClienteFiscal = (tipo: 'ticket' | 'A' | 'B' | 'C' | 'X', cliente: string, cuit: string) => {
     if (tipo !== 'A') return true;
     if (!cuit.trim() || cuit === '99-99999999-9' || cliente.trim().toLowerCase() === 'consumidor final') {
       toast.error('Para Factura A se requiere CUIT y Razón Social válidos.');
@@ -383,7 +414,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
         });
       });
 
-      const { iva } = calcIvaIncluido(totalConsolidado, pagoTipo !== 'X');
+      const { iva } = calcIvaIncluido(totalConsolidado, pagoTipo !== 'C' && pagoTipo !== 'X');
       const prefixIdsStr = selectedItems.map(p => `#${p.pedido.id_pedido}`).join(', ');
       
       const factura: FacturaExtendida = {
@@ -481,30 +512,34 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
     }));
   };
 
-  const tipoToComprobante = (tipo: 'ticket' | 'A' | 'B' | 'X'): TipoComprobante => {
+  const tipoToComprobante = (tipo: 'ticket' | 'A' | 'B' | 'C' | 'X'): TipoComprobante => {
     if (tipo === 'A') return 'factura_a';
     if (tipo === 'B') return 'factura_b';
+    if (tipo === 'C') return 'factura_c';
     return 'ticket_consumo';
   };
 
   const emitToArca = async (factura: FacturaExtendida): Promise<{ cae: string; vto: string; qr?: string } | null> => {
-    if (!isArcaConfigured()) return null;
+    if (factura.tipo === 'X') return null;
+    const currentStatus = await getArcaStatus();
+    setArcaStatus(currentStatus);
+    if (!currentStatus.configured) return null;
     try {
-      const tipoMap: Record<string, number> = { 'A': 1, 'B': 6, 'X': 11, 'ticket': 206 };
+      const tipoMap: Record<string, number> = { 'A': 1, 'B': 6, 'C': 11, 'ticket': 206 };
       const tipoId = tipoMap[factura.tipo || 'ticket'] || 206;
       
-      const { neto, iva } = calcIvaIncluido(factura.total, true);
+      const { neto, iva } = calcIvaIncluido(factura.total, factura.tipo !== 'C');
       const nroDoc = factura.cuit === '99-99999999-9' ? 0 : parseInt(factura.cuit.replace(/-/g, '').slice(0, 11)) || 0;
       const docTipo = nroDoc === 0 ? 99 : (factura.cuit.replace(/-/g, '').length >= 11 ? 80 : 96);
 
       const result = await createArcaInvoice({
         tipoComprobante: tipoId as any,
-        puntoVenta: 1,
+        puntoVenta: currentStatus.puntoVenta || undefined,
         cliente: {
           tipoDoc: docTipo,
           nroDoc,
           nombre: factura.cliente,
-          condicionIva: nroDoc === 0 ? 5 : (tipoId === 1 ? 1 : 5),
+          condicionIva: nroDoc === 0 ? 5 : (tipoId === 1 ? 1 : tipoId === 11 ? 6 : 5),
         },
         items: [{
           descripcion: `Venta Gastronómica según ${factura.nro_ticket}`,
@@ -523,28 +558,18 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
       const vto = result?.Vencimiento || result?.CAEFchVto || '';
 
       if (cae) {
+        if (result.nroCmp && result.puntoVenta) {
+          factura.nro_ticket = `${tipoPrefix(factura.tipo || 'ticket')}-${String(result.puntoVenta).padStart(4, '0')}-${String(result.nroCmp).padStart(8, '0')}`;
+        }
+        setArcaStatus({ ...currentStatus, connected: true, message: 'Última emisión autorizada correctamente.' });
         addLog('sistema', `ARCA: Comprobante electrónico autorizado. CAE: ${cae}`);
-        const qrJson = JSON.stringify({
-          ver: 1,
-          fecha: new Date().toISOString().split('T')[0],
-          cuit: 30716492514,
-          ptoVta: 1,
-          tipoCmp: tipoId,
-          nroCmp: parseInt(factura.nro_ticket.split('-').pop() || '1'),
-          importe: factura.total,
-          moneda: 'PES',
-          ctz: 1,
-          tipoDocRec: docTipo,
-          nroDocRec: nroDoc,
-          tipoCodAut: 1,
-          codAut: parseInt(cae) || 0
-        });
-        return { cae, vto, qr: qrJson };
+        return { cae, vto, qr: result.qrData };
       }
       return null;
     } catch (err: any) {
       console.error('[ARCA] Error:', err);
-      toast.warning(`ARCA: No se pudo autorizar fiscalmente. Se emite en modo contingencia.`);
+      setArcaStatus({ ...currentStatus, connected: false, message: err?.message || 'Error de conexión fiscal.' });
+      toast.warning('ARCA no autorizó el comprobante. Se guardará como borrador local sin validez fiscal.');
       return null;
     }
   };
@@ -596,7 +621,9 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
       total: factura.total,
       metodosPago: [{ metodo: medioLabel(factura.medio_pago), monto: factura.total }],
       vuelto: 0,
-      mensajePie: 'Gracias por su visita. Factura electrónica válida ante AFIP.',
+      mensajePie: factura.arcaCae
+        ? 'Gracias por su visita. Comprobante electrónico autorizado por ARCA.'
+        : 'BORRADOR LOCAL SIN VALIDEZ FISCAL - pendiente de autorización ARCA.',
       clienteNombre: factura.cliente,
       clienteCuit: factura.cuit,
       cae: factura.arcaCae,
@@ -770,7 +797,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
     });
 
     // 2. Porcentaje por tipo de comprobante
-    const typeCounts: Record<string, number> = { ticket: 0, A: 0, B: 0, X: 0 };
+    const typeCounts: Record<string, number> = { ticket: 0, A: 0, B: 0, C: 0, X: 0 };
     let totalTypeAmt = 0;
     facturasActivas.forEach(f => {
       const t = facturaTipo(f);
@@ -897,33 +924,43 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
       <div className="bg-white dark:bg-stone-900 rounded-2xl p-5 border border-stone-200 dark:border-stone-800 shadow-xs flex flex-col sm:flex-row items-center gap-4 justify-between transition-all">
         <div className="flex items-center gap-4">
           <div className={`w-12 h-12 rounded-xl flex items-center justify-center border transition-all ${
-            isArcaConfigured() 
+            arcaStatus?.connected
               ? 'bg-emerald-50 border-emerald-100 text-emerald-600' 
               : 'bg-amber-50 border-amber-100 text-amber-500'
           }`}>
-            <ScanLine className={`w-5 h-5 ${isArcaConfigured() ? 'animate-pulse' : ''}`} />
+            <ScanLine className={`w-5 h-5 ${arcaStatus?.connected ? 'animate-pulse' : ''}`} />
           </div>
           <div className="text-left">
             <h3 className="text-sm font-bold text-stone-900 dark:text-white tracking-tight flex items-center gap-2">
               Conexión Fiscal Electrónica (ARCA / AFIP)
-              <span className={`w-2 h-2 rounded-full ${isArcaConfigured() ? 'bg-emerald-500 animate-ping' : 'bg-amber-500'}`} />
+              <span className={`w-2 h-2 rounded-full ${arcaStatus?.connected ? 'bg-emerald-500 animate-ping' : 'bg-amber-500'}`} />
             </h3>
             <p className="text-xs text-stone-500 dark:text-stone-300 mt-0.5">
-              {isArcaConfigured() 
-                ? `Operativo - Modo Homologación (Pto Vta: 0001 - CUIT: ${(import.meta as any).env?.VITE_ARCA_CUIT || '30-71649251-4'})` 
-                : 'Modo Simulación / Desconectado - Emitiendo comprobantes locales sin CAE'
+              {arcaStatus?.configured
+                ? `${arcaStatus.connected ? 'Operativo' : 'Configurado, pendiente de prueba'} - ${arcaStatus.environment === 'produccion' ? 'Producción' : 'Homologación'} (Pto Vta: ${String(arcaStatus.puntoVenta || 1).padStart(4, '0')} - CUIT: ${arcaStatus.cuitMasked})`
+                : 'Sin configurar - los comprobantes se guardan como borradores locales sin CAE'
               }
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {isArcaConfigured() ? (
+          {arcaStatus?.configured && (
+            <button
+              type="button"
+              onClick={handleTestArca}
+              disabled={isTestingArca}
+              className="text-[10px] uppercase font-black px-3 py-1 rounded-full border border-stone-200 text-stone-600 hover:bg-stone-50 disabled:opacity-50"
+            >
+              {isTestingArca ? 'Probando…' : 'Probar conexión'}
+            </button>
+          )}
+          {arcaStatus?.connected ? (
             <span className="text-[10px] uppercase font-black px-3 py-1 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-300 rounded-full border border-emerald-100 dark:border-emerald-900/50">
               Conectado
             </span>
           ) : (
             <span className="text-[10px] uppercase font-black px-3 py-1 bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-300 rounded-full border border-amber-100 dark:border-amber-900/50">
-              Demo / Simulado
+              {arcaStatus?.configured ? 'Sin verificar' : 'No configurado'}
             </span>
           )}
         </div>
@@ -1155,7 +1192,8 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
                 onChange={e => {
                   const val = e.target.value as any;
                   setManualTipo(val);
-                  if (val === 'ticket' || val === 'X') {
+                  setManualIva(val !== 'C' && val !== 'X');
+                  if (val === 'ticket' || val === 'C' || val === 'X') {
                     setManualCliente('Consumidor Final');
                     setManualCuit('99-99999999-9');
                   }
@@ -1165,6 +1203,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
                 <option value="ticket">Ticket de Consumo</option>
                 <option value="B">Factura B</option>
                 <option value="A">Factura A (Responsable Inscripto)</option>
+                <option value="C">Factura C (Monotributo)</option>
                 <option value="X">Comprobante X (Interno/Respaldo)</option>
               </select>
             </label>
@@ -1491,7 +1530,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
                         onChange={e => {
                           const val = e.target.value as any;
                           setPagoTipo(val);
-                          if (val === 'ticket' || val === 'X') {
+                          if (val === 'ticket' || val === 'C' || val === 'X') {
                             setPagoCliente('Consumidor Final');
                             setPagoCuit('99-99999999-9');
                           }
@@ -1501,6 +1540,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
                         <option value="ticket">Ticket de Consumo</option>
                         <option value="B">Factura B</option>
                         <option value="A">Factura A (Con CUIT)</option>
+                        <option value="C">Factura C (Monotributo)</option>
                         <option value="X">Comprobante X (Interno)</option>
                       </select>
                     </label>
@@ -1633,6 +1673,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
                 <option value="ticket">Ticket de Consumo</option>
                 <option value="A">Factura A</option>
                 <option value="B">Factura B</option>
+                <option value="C">Factura C</option>
                 <option value="X">Comprobante X</option>
               </select>
             </label>
@@ -1867,20 +1908,15 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
                   {/* QR Oficial AFIP */}
                   <div className="pt-2 flex flex-col items-center justify-center text-center">
                     <div className="w-24 h-24 bg-white p-2 rounded-lg border border-stone-200 flex items-center justify-center">
-                      {/* Código QR simulado */}
-                      <svg className="w-full h-full" viewBox="0 0 100 100">
-                        <rect x="0" y="0" width="100" height="100" fill="none" />
-                        <rect x="10" y="10" width="25" height="25" fill="#333" />
-                        <rect x="15" y="15" width="15" height="15" fill="#fff" />
-                        <rect x="65" y="10" width="25" height="25" fill="#333" />
-                        <rect x="70" y="15" width="15" height="15" fill="#fff" />
-                        <rect x="10" y="65" width="25" height="25" fill="#333" />
-                        <rect x="15" y="70" width="15" height="15" fill="#fff" />
-                        <rect x="40" y="40" width="20" height="20" fill="#333" />
-                        <rect x="75" y="75" width="15" height="15" fill="#333" />
-                        <rect x="50" y="70" width="10" height="10" fill="#333" />
-                        <rect x="70" y="50" width="10" height="10" fill="#333" />
-                      </svg>
+                      {fiscalQrImageUrl(selectedFactura.arcaQr) ? (
+                        <img
+                          src={fiscalQrImageUrl(selectedFactura.arcaQr) || ''}
+                          alt="Código QR fiscal de ARCA"
+                          className="w-full h-full object-contain"
+                        />
+                      ) : (
+                        <span className="text-[8px] font-bold text-amber-700">QR no disponible</span>
+                      )}
                     </div>
                     <span className="text-[8px] text-stone-450 dark:text-stone-400 font-bold mt-1 uppercase text-center block">Escanear para comprobar validez fiscal</span>
                   </div>
@@ -1889,7 +1925,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
                 <div className="bg-stone-50 dark:bg-stone-850 p-4 rounded-xl border border-stone-150 dark:border-stone-800 flex items-center gap-3">
                   <Info className="w-5 h-5 text-amber-505 text-amber-500 shrink-0" />
                   <p className="text-[10px] text-stone-500 font-semibold leading-relaxed text-left">
-                    Este comprobante fue emitido en modo local de respaldo y no tiene CAE asignado por AFIP. Útil para tickets internos del restaurante.
+                    Borrador local sin CAE y sin validez fiscal. Debe autorizarse en ARCA antes de entregarlo como factura electrónica.
                   </p>
                 </div>
               )}
