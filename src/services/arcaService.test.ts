@@ -41,6 +41,7 @@ test('probar conexión exige una sesión autenticada', async () => {
 
 test('el request de factura no contiene certificado ni clave privada', () => {
   const body = buildArcaInvoiceRequest({
+    idempotencyKey: 'fac_test_001',
     tipoComprobante: 6,
     cliente: { tipoDoc: 99, nroDoc: 0, condicionIva: 5 },
     total: 121,

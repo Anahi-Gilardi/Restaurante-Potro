@@ -2,7 +2,7 @@
 
 import forge from "node-forge";
 import https from "node:https";
-import { createCipheriv, createDecipheriv, randomBytes, timingSafeEqual } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 
 interface VercelRequest {
@@ -39,6 +39,11 @@ interface ServerCredentials {
   puntoVenta: number;
   taxProfile: "monotributo";
   source: "database" | "environment";
+  legalName: string;
+  tradeName: string;
+  commercialAddress: string;
+  grossIncomeNumber: string;
+  activityStartDate: string;
 }
 
 interface StoredArcaConfig {
@@ -54,6 +59,11 @@ interface StoredArcaConfig {
   certificate_serial: string | null;
   certificate_valid_from: string | null;
   certificate_valid_to: string | null;
+  legal_name: string | null;
+  trade_name: string | null;
+  commercial_address: string | null;
+  gross_income_number: string | null;
+  activity_start_date: string | null;
   updated_at: string;
 }
 
@@ -69,6 +79,7 @@ interface CachedAccessTicket {
 }
 
 interface InvoicePayload {
+  idempotencyKey?: string;
   tipoComprobante?: number;
   puntoVenta?: number;
   cliente?: {
@@ -80,6 +91,43 @@ interface InvoicePayload {
   total: number;
   neto?: number;
   ivaTotal?: number;
+}
+
+interface ValidatedInvoice {
+  total: number;
+  voucherType: 11 | 13;
+  pointOfSale: number;
+  documentType: number;
+  documentNumber: number;
+  vatCondition: number;
+  net: number;
+  vat: number;
+  isFacturaC: true;
+  idempotencyKey: string;
+}
+
+interface StoredEmission {
+  id: string;
+  idempotency_key: string;
+  request_hash: string;
+  request_payload: ValidatedInvoice;
+  created_by: string;
+  environment: EnvironmentName;
+  cuit: string;
+  punto_venta: number;
+  cbte_tipo: 11 | 13;
+  cbte_nro: number | null;
+  cbte_fecha: string | null;
+  status: "authorizing" | "authorized" | "observed" | "rejected" | "uncertain";
+  resultado: "A" | "O" | "R" | null;
+  cae: string | null;
+  cae_vencimiento: string | null;
+  qr_payload: Record<string, string | number> | null;
+  observaciones: Array<{ code: number; msg: string }>;
+  error_message: string | null;
+  related_emission_id: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 const globalCache = globalThis as typeof globalThis & {
@@ -127,8 +175,21 @@ function getEnvironmentCredentials(): ServerCredentials | null {
     puntoVenta: positiveInteger(envValue("ARCA_PUNTO_VENTA"), 1),
     taxProfile: "monotributo",
     source: "environment",
+    legalName: envValue("ARCA_LEGAL_NAME"),
+    tradeName: envValue("ARCA_TRADE_NAME"),
+    commercialAddress: envValue("ARCA_COMMERCIAL_ADDRESS"),
+    grossIncomeNumber: envValue("ARCA_GROSS_INCOME_NUMBER"),
+    activityStartDate: envValue("ARCA_ACTIVITY_START_DATE"),
   };
 }
+
+const hasCompleteLegalData = (credentials: ServerCredentials | null): boolean => Boolean(
+  credentials?.legalName
+  && credentials.tradeName
+  && credentials.commercialAddress
+  && credentials.grossIncomeNumber
+  && /^\d{4}-\d{2}-\d{2}$/.test(credentials.activityStartDate),
+);
 
 const publicStatus = (credentials: ServerCredentials | null) => ({
   configured: Boolean(credentials),
@@ -138,8 +199,11 @@ const publicStatus = (credentials: ServerCredentials | null) => ({
   cuitMasked: credentials ? `*******${String(credentials.cuit).slice(-4)}` : null,
   taxProfile: credentials?.taxProfile ?? null,
   source: credentials?.source ?? null,
+  legalDataComplete: hasCompleteLegalData(credentials),
   message: credentials
-    ? "Credenciales fiscales configuradas de forma segura en el servidor."
+    ? hasCompleteLegalData(credentials)
+      ? "Credenciales y datos legales configurados de forma segura en el servidor."
+      : "Credenciales configuradas; faltan datos legales obligatorios para habilitar la emision."
     : "La firma digital de ARCA todavia no esta configurada.",
 });
 
@@ -181,9 +245,9 @@ async function getAuthenticatedUser(req: VercelRequest): Promise<AuthenticatedUs
   return { id: data.user.id, email: data.user.email?.trim().toLowerCase() ?? "" };
 }
 
-async function isSuperAdmin(user: AuthenticatedUser): Promise<boolean> {
+async function getApplicationRole(user: AuthenticatedUser): Promise<string | null> {
   const client = getServiceSupabaseClient();
-  if (!client) return false;
+  if (!client) return null;
   const email = user.email.replace(/[(),]/g, "");
   const filter = email
     ? `auth_user_id.eq.${user.id},username.eq.${email},mail.eq.${email}`
@@ -191,7 +255,16 @@ async function isSuperAdmin(user: AuthenticatedUser): Promise<boolean> {
   const query = client.from("usuarios").select("rol, activo").or(filter);
   const { data, error } = await query.limit(10);
   if (error) throw new Error(`No se pudo verificar el rol administrativo: ${error.message}`);
-  return (data ?? []).some(profile => profile.rol === "superadmin" && profile.activo !== false);
+  const profile = (data ?? []).find(item => item.activo !== false);
+  return typeof profile?.rol === "string" ? profile.rol : null;
+}
+
+async function isSuperAdmin(user: AuthenticatedUser): Promise<boolean> {
+  return (await getApplicationRole(user)) === "superadmin";
+}
+
+async function canIssueFiscalDocuments(user: AuthenticatedUser): Promise<boolean> {
+  return ["superadmin", "administrador"].includes(await getApplicationRole(user) ?? "");
 }
 
 function sanitizePem(pem: string, defaultType: "CERTIFICATE" | "PRIVATE KEY"): string {
@@ -325,6 +398,11 @@ async function getServerCredentials(): Promise<ServerCredentials | null> {
       puntoVenta: row.punto_venta,
       taxProfile: "monotributo",
       source: "database",
+      legalName: row.legal_name ?? "",
+      tradeName: row.trade_name ?? "",
+      commercialAddress: row.commercial_address ?? "",
+      grossIncomeNumber: row.gross_income_number ?? "",
+      activityStartDate: row.activity_start_date ?? "",
     };
   }
   return getEnvironmentCredentials();
@@ -338,6 +416,11 @@ const adminStatus = (row: StoredArcaConfig | null, credentials: ServerCredential
   certificateSerial: row?.certificate_serial ?? null,
   certificateValidFrom: row?.certificate_valid_from ?? null,
   certificateValidTo: row?.certificate_valid_to ?? null,
+  legalName: row?.legal_name ?? credentials?.legalName ?? "",
+  tradeName: row?.trade_name ?? credentials?.tradeName ?? "",
+  commercialAddress: row?.commercial_address ?? credentials?.commercialAddress ?? "",
+  grossIncomeNumber: row?.gross_income_number ?? credentials?.grossIncomeNumber ?? "",
+  activityStartDate: row?.activity_start_date ?? credentials?.activityStartDate ?? "",
   updatedAt: row?.updated_at ?? null,
 });
 
@@ -350,6 +433,18 @@ async function saveStoredConfig(body: any, user: AuthenticatedUser): Promise<Sto
   if (!/^\d{11}$/.test(cuit)) throw new Error("El CUIT emisor debe tener exactamente 11 numeros.");
   if (!puntoVenta || puntoVenta > 99999) throw new Error("El punto de venta es invalido.");
   if (body?.taxProfile !== "monotributo") throw new Error("Esta integracion esta configurada para Monotributo y Factura C.");
+  const legalName = String(body?.legalName ?? "").trim();
+  const tradeName = String(body?.tradeName ?? "").trim();
+  const commercialAddress = String(body?.commercialAddress ?? "").trim();
+  const grossIncomeNumber = String(body?.grossIncomeNumber ?? "").trim();
+  const activityStartDate = String(body?.activityStartDate ?? "").trim();
+  if (legalName.length < 3 || legalName.length > 120) throw new Error("La razon social o nombre legal es obligatorio.");
+  if (tradeName.length < 2 || tradeName.length > 120) throw new Error("El nombre comercial es obligatorio.");
+  if (commercialAddress.length < 5 || commercialAddress.length > 180) throw new Error("El domicilio comercial es obligatorio.");
+  if (grossIncomeNumber.length < 2 || grossIncomeNumber.length > 40) throw new Error("Informe Ingresos Brutos o la condicion de no contribuyente.");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(activityStartDate) || Number.isNaN(Date.parse(`${activityStartDate}T00:00:00Z`))) {
+    throw new Error("La fecha de inicio de actividades es invalida.");
+  }
 
   const existing = await readStoredConfig();
   const certificateInput = typeof body?.certificate === "string" ? body.certificate : "";
@@ -391,6 +486,11 @@ async function saveStoredConfig(body: any, user: AuthenticatedUser): Promise<Sto
     punto_venta: puntoVenta,
     environment,
     tax_profile: "monotributo",
+    legal_name: legalName,
+    trade_name: tradeName,
+    commercial_address: commercialAddress,
+    gross_income_number: grossIncomeNumber,
+    activity_start_date: activityStartDate,
     ...encrypted,
     ...metadata,
     updated_by: user.id,
@@ -413,10 +513,12 @@ async function deleteStoredConfig(): Promise<void> {
 function buildLoginTicketRequest(service = "wsfe"): string {
   const generationTime = new Date(Date.now() - 2 * 60 * 1000).toISOString().split(".")[0] + "Z";
   const expirationTime = new Date(Date.now() + 10 * 60 * 60 * 1000).toISOString().split(".")[0] + "Z";
+  // WSAA define uniqueId como xsd:unsignedInt. Date.now() (milisegundos) excede ese rango.
+  const uniqueId = Math.floor(Date.now() / 1000) >>> 0;
   return `<?xml version="1.0" encoding="UTF-8"?>
 <loginTicketRequest version="1.0">
   <header>
-    <uniqueId>${Date.now()}</uniqueId>
+    <uniqueId>${uniqueId}</uniqueId>
     <generationTime>${generationTime}</generationTime>
     <expirationTime>${expirationTime}</expirationTime>
   </header>
@@ -472,7 +574,8 @@ function requestSoap(
       response.on("end", () => {
         const status = response.statusCode ?? 500;
         if (status < 200 || status >= 300) {
-          reject(new Error(`ARCA respondio HTTP ${status}.`));
+          const fault = soapFault(data);
+          reject(new Error(fault || `ARCA respondio HTTP ${status}.`));
           return;
         }
         resolve(data);
@@ -562,12 +665,17 @@ async function getLastAuthorized(
 
 const roundMoney = (value: number): number => Number(value.toFixed(2));
 
-function validateInvoicePayload(payload: InvoicePayload | undefined) {
+function validateInvoicePayload(payload: InvoicePayload | undefined): ValidatedInvoice {
   if (!payload) throw new Error("Payload de factura faltante.");
   const total = Number(payload.total);
-  const voucherType = positiveInteger(payload.tipoComprobante, 6);
-  const allowedVoucherTypes = new Set([1, 6, 11, 201, 206]);
+  const voucherType = positiveInteger(payload.tipoComprobante, 0) as 11 | 13;
+  const allowedVoucherTypes = new Set([11, 13]);
+  const idempotencyKey = String(payload.idempotencyKey ?? "").trim();
+  if (!/^[A-Za-z0-9:_-]{8,120}$/.test(idempotencyKey)) {
+    throw new Error("Falta una clave de idempotencia valida para la emision.");
+  }
   if (!Number.isFinite(total) || total <= 0) throw new Error("El total de la factura debe ser mayor que cero.");
+  if (total > 99_999_999_999_999.99) throw new Error("El total supera el maximo admitido por ARCA.");
   if (!allowedVoucherTypes.has(voucherType)) throw new Error("Tipo de comprobante ARCA no soportado.");
 
   const pointOfSale = positiveInteger(payload.puntoVenta, 0);
@@ -576,14 +684,23 @@ function validateInvoicePayload(payload: InvoicePayload | undefined) {
   const vatCondition = positiveInteger(payload.cliente?.condicionIva, 5);
   if (!Number.isInteger(documentType) || ![80, 96, 99].includes(documentType)) throw new Error("Tipo de documento receptor invalido.");
   if (!Number.isInteger(documentNumber) || documentNumber < 0) throw new Error("Numero de documento receptor invalido.");
+  if (documentType === 99 && documentNumber !== 0) throw new Error("Consumidor Final debe informarse sin numero de documento.");
+  if (documentType === 80 && !/^\d{11}$/.test(String(documentNumber))) throw new Error("El CUIT receptor debe tener 11 digitos.");
+  if (documentType === 96 && !/^\d{7,8}$/.test(String(documentNumber))) throw new Error("El DNI receptor debe tener 7 u 8 digitos.");
+  if (total >= 10_000_000 && documentType === 99) {
+    throw new Error("ARCA exige identificar al consumidor final para operaciones de $10.000.000 o mas.");
+  }
+  if (!Number.isInteger(vatCondition) || vatCondition <= 0 || vatCondition > 99) {
+    throw new Error("La condicion frente al IVA del receptor es invalida.");
+  }
 
-  const isFacturaC = voucherType === 11;
-  const net = isFacturaC ? roundMoney(total) : roundMoney(Number(payload.neto) || total / 1.21);
-  const vat = isFacturaC ? 0 : roundMoney(Number(payload.ivaTotal) || total - net);
+  const isFacturaC = true as const;
+  const net = roundMoney(total);
+  const vat = 0;
   if (Math.abs(roundMoney(net + vat) - roundMoney(total)) > 0.02) {
     throw new Error("El neto mas IVA no coincide con el total.");
   }
-  return { total: roundMoney(total), voucherType, pointOfSale, documentType, documentNumber, vatCondition, net, vat, isFacturaC };
+  return { total: roundMoney(total), voucherType, pointOfSale, documentType, documentNumber, vatCondition, net, vat, isFacturaC, idempotencyKey };
 }
 
 function buildFiscalQrPayload(input: {
@@ -639,15 +756,19 @@ function collectArcaMessages(xml: string): Array<{ code: number; msg: string }> 
   return messages;
 }
 
-async function createInvoice(credentials: ServerCredentials, auth: CachedAccessTicket, payload: InvoicePayload) {
-  const invoice = validateInvoicePayload(payload);
+async function authorizeInvoice(
+  credentials: ServerCredentials,
+  auth: CachedAccessTicket,
+  invoice: ValidatedInvoice,
+  voucherNumber: number,
+  associated?: { voucherType: number; pointOfSale: number; voucherNumber: number; date: string },
+) {
   if (invoice.pointOfSale && invoice.pointOfSale !== credentials.puntoVenta) {
     throw new Error("El punto de venta solicitado no coincide con el configurado en el servidor.");
   }
   const pointOfSale = credentials.puntoVenta;
-  const voucherNumber = await getLastAuthorized(credentials, auth, pointOfSale, invoice.voucherType) + 1;
-  const vatBlock = invoice.isFacturaC ? "" : `
-          <fe:Iva><fe:AlicIva><fe:Id>5</fe:Id><fe:BaseImp>${invoice.net.toFixed(2)}</fe:BaseImp><fe:Importe>${invoice.vat.toFixed(2)}</fe:Importe></fe:AlicIva></fe:Iva>`;
+  const associatedBlock = associated ? `
+        <fe:CbtesAsoc><fe:CbteAsoc><fe:Tipo>${associated.voucherType}</fe:Tipo><fe:PtoVta>${associated.pointOfSale}</fe:PtoVta><fe:Nro>${associated.voucherNumber}</fe:Nro><fe:Cuit>${credentials.cuit}</fe:Cuit><fe:CbteFch>${associated.date}</fe:CbteFch></fe:CbteAsoc></fe:CbtesAsoc>` : "";
   const soap = `<?xml version="1.0" encoding="UTF-8"?>
 <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:fe="http://ar.gov.afip.dif.FEV1/">
   <soap:Body><fe:FECAESolicitar>${authXml(credentials, auth)}
@@ -658,7 +779,7 @@ async function createInvoice(credentials: ServerCredentials, auth: CachedAccessT
         <fe:CondicionIVAReceptorId>${invoice.vatCondition}</fe:CondicionIVAReceptorId>
         <fe:ImpTotal>${invoice.total.toFixed(2)}</fe:ImpTotal><fe:ImpTotConc>0.00</fe:ImpTotConc><fe:ImpNeto>${invoice.net.toFixed(2)}</fe:ImpNeto>
         <fe:ImpOpEx>0.00</fe:ImpOpEx><fe:ImpTrib>0.00</fe:ImpTrib><fe:ImpIVA>${invoice.vat.toFixed(2)}</fe:ImpIVA>
-        <fe:MonId>PES</fe:MonId><fe:MonCotiz>1</fe:MonCotiz>${vatBlock}
+        <fe:MonId>PES</fe:MonId><fe:MonCotiz>1</fe:MonCotiz>${associatedBlock}
       </fe:FECAEDetRequest></fe:FeDetReq>
     </fe:FeCAEReq>
   </fe:FECAESolicitar></soap:Body>
@@ -675,7 +796,7 @@ async function createInvoice(credentials: ServerCredentials, auth: CachedAccessT
   const cae = xmlTag(response, "CAE");
   const expiry = xmlTag(response, "CAEFchVto");
   const observations = collectArcaMessages(response);
-  if (result !== "A" || !cae) {
+  if (!["A", "O"].includes(result) || !cae) {
     return {
       success: false,
       resultado: result || "R",
@@ -713,6 +834,247 @@ async function createInvoice(credentials: ServerCredentials, auth: CachedAccessT
   };
 }
 
+const publicEmitter = (credentials: ServerCredentials) => ({
+  cuit: String(credentials.cuit),
+  legalName: credentials.legalName,
+  tradeName: credentials.tradeName,
+  commercialAddress: credentials.commercialAddress,
+  grossIncomeNumber: credentials.grossIncomeNumber,
+  activityStartDate: credentials.activityStartDate,
+  taxCondition: "Monotributo",
+});
+
+const invoiceHash = (invoice: ValidatedInvoice, credentials: ServerCredentials): string => createHash("sha256")
+  .update(JSON.stringify({ ...invoice, pointOfSale: credentials.puntoVenta, environment: credentials.environment, cuit: credentials.cuit }))
+  .digest("hex");
+
+function storedEmissionResponse(emission: StoredEmission, credentials: ServerCredentials) {
+  const success = ["authorized", "observed"].includes(emission.status) && Boolean(emission.cae);
+  return {
+    success,
+    emissionId: emission.id,
+    fiscalStatus: emission.status,
+    resultado: emission.resultado ?? (success ? "A" : "R"),
+    cae: emission.cae ?? undefined,
+    vencimiento: emission.cae_vencimiento ?? undefined,
+    CodAutorizacion: emission.cae ?? undefined,
+    CAE: emission.cae ?? undefined,
+    Vencimiento: emission.cae_vencimiento ?? undefined,
+    CAEFchVto: emission.cae_vencimiento ?? undefined,
+    nroCmp: emission.cbte_nro ?? undefined,
+    puntoVenta: emission.punto_venta,
+    tipoComprobante: emission.cbte_tipo,
+    qrData: emission.qr_payload ? JSON.stringify(emission.qr_payload) : undefined,
+    observaciones: emission.observaciones ?? [],
+    error: success ? undefined : emission.error_message ?? "La emision fiscal no fue autorizada.",
+    emitter: publicEmitter(credentials),
+  };
+}
+
+async function queryAuthorizedVoucher(
+  credentials: ServerCredentials,
+  auth: CachedAccessTicket,
+  voucherType: number,
+  voucherNumber: number,
+) {
+  const soap = `<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:fe="http://ar.gov.afip.dif.FEV1/">
+  <soap:Body><fe:FECompConsultar>${authXml(credentials, auth)}
+    <fe:FeCompConsReq><fe:CbteTipo>${voucherType}</fe:CbteTipo><fe:CbteNro>${voucherNumber}</fe:CbteNro><fe:PtoVta>${credentials.puntoVenta}</fe:PtoVta></fe:FeCompConsReq>
+  </fe:FECompConsultar></soap:Body>
+</soap:Envelope>`;
+  const response = await requestSoap(
+    URLS[credentials.environment].wsfe,
+    "http://ar.gov.afip.dif.FEV1/FECompConsultar",
+    soap,
+  );
+  const fault = soapFault(response);
+  if (fault) throw new Error(fault);
+  const cae = xmlTag(response, "CodAutorizacion") || xmlTag(response, "CAE");
+  if (!/^\d{14}$/.test(cae)) return null;
+  const total = Number(xmlTag(response, "ImpTotal"));
+  const date = xmlTag(response, "CbteFch");
+  return {
+    cae,
+    expiry: xmlTag(response, "FchVto") || xmlTag(response, "CAEFchVto"),
+    total: Number.isFinite(total) ? roundMoney(total) : null,
+    date: /^\d{8}$/.test(date) ? date : arcaDate(),
+    observations: collectArcaMessages(response),
+  };
+}
+
+async function enforceEmissionRateLimit(client: ReturnType<typeof getServiceSupabaseClient>, userId: string) {
+  if (!client) throw new Error("Falta SUPABASE_SERVICE_ROLE_KEY en las variables privadas de Vercel.");
+  const since = new Date(Date.now() - 60_000).toISOString();
+  const { count, error } = await client
+    .from("arca_emisiones")
+    .select("id", { count: "exact", head: true })
+    .eq("created_by", userId)
+    .gte("created_at", since);
+  if (error) throw new Error(`No se pudo verificar el limite fiscal: ${error.message}`);
+  if ((count ?? 0) >= 10) throw new Error("Se alcanzo el limite de 10 operaciones fiscales por minuto.");
+}
+
+async function reconcileEmission(
+  client: NonNullable<ReturnType<typeof getServiceSupabaseClient>>,
+  emission: StoredEmission,
+  credentials: ServerCredentials,
+  auth: CachedAccessTicket,
+): Promise<StoredEmission> {
+  if (!emission.cbte_nro) return emission;
+  const authorized = await queryAuthorizedVoucher(credentials, auth, emission.cbte_tipo, emission.cbte_nro);
+  if (!authorized) return emission;
+  if (authorized.total !== null && Math.abs(authorized.total - Number(emission.request_payload.total)) > 0.01) {
+    throw new Error("ARCA devolvio un comprobante con importe distinto durante la reconciliacion.");
+  }
+  const qrPayload = buildFiscalQrPayload({
+    date: authorized.date,
+    cuit: credentials.cuit,
+    pointOfSale: credentials.puntoVenta,
+    voucherType: emission.cbte_tipo,
+    voucherNumber: emission.cbte_nro,
+    total: Number(emission.request_payload.total),
+    documentType: Number(emission.request_payload.documentType),
+    documentNumber: Number(emission.request_payload.documentNumber),
+    cae: authorized.cae,
+  });
+  const updates = {
+    status: "authorized",
+    resultado: "A",
+    cae: authorized.cae,
+    cae_vencimiento: authorized.expiry,
+    cbte_fecha: authorized.date,
+    qr_payload: qrPayload,
+    observaciones: authorized.observations,
+    error_message: null,
+    updated_at: new Date().toISOString(),
+  };
+  const { data, error } = await client.from("arca_emisiones").update(updates).eq("id", emission.id).select("*").single();
+  if (error) throw new Error(`No se pudo guardar la reconciliacion fiscal: ${error.message}`);
+  return data as StoredEmission;
+}
+
+async function runIdempotentEmission(
+  credentials: ServerCredentials,
+  authenticated: AuthenticatedUser,
+  invoice: ValidatedInvoice,
+  related?: StoredEmission,
+) {
+  const client = getServiceSupabaseClient();
+  if (!client) throw new Error("Falta SUPABASE_SERVICE_ROLE_KEY en las variables privadas de Vercel.");
+  if (!hasCompleteLegalData(credentials)) {
+    throw new Error("Complete en Sistema la razon social, domicilio, Ingresos Brutos y fecha de inicio antes de emitir.");
+  }
+  const hash = invoiceHash(invoice, credentials);
+  const { data: previous, error: previousError } = await client
+    .from("arca_emisiones")
+    .select("*")
+    .eq("idempotency_key", invoice.idempotencyKey)
+    .maybeSingle();
+  if (previousError) throw new Error(`No se pudo consultar la idempotencia fiscal: ${previousError.message}`);
+  if (previous) {
+    const existing = previous as StoredEmission;
+    if (existing.request_hash !== hash) throw new Error("La clave de idempotencia ya fue usada con otros datos.");
+    if (existing.status === "uncertain") {
+      const auth = await getAccessTicket(credentials);
+      return storedEmissionResponse(await reconcileEmission(client, existing, credentials, auth), credentials);
+    }
+    return storedEmissionResponse(existing, credentials);
+  }
+  await enforceEmissionRateLimit(client, authenticated.id);
+
+  const emissionId = randomUUID();
+  const now = new Date().toISOString();
+  const initial = {
+    id: emissionId,
+    idempotency_key: invoice.idempotencyKey,
+    request_hash: hash,
+    request_payload: invoice,
+    created_by: authenticated.id,
+    environment: credentials.environment,
+    cuit: String(credentials.cuit),
+    punto_venta: credentials.puntoVenta,
+    cbte_tipo: invoice.voucherType,
+    status: "authorizing",
+    related_emission_id: related?.id ?? null,
+    created_at: now,
+    updated_at: now,
+  };
+  const { data: inserted, error: insertError } = await client.from("arca_emisiones").insert(initial).select("*").single();
+  if (insertError) throw new Error(`No se pudo iniciar la auditoria fiscal: ${insertError.message}`);
+  let emission = inserted as StoredEmission;
+  const lockKey = `${credentials.environment}:${credentials.cuit}:${credentials.puntoVenta}:${invoice.voucherType}`;
+  const leaseOwner = randomUUID();
+  const { data: claimed, error: leaseError } = await client.rpc("claim_arca_sequence_lease", {
+    p_lock_key: lockKey,
+    p_owner: leaseOwner,
+    p_seconds: 60,
+  });
+  if (leaseError) throw new Error(`No se pudo serializar la numeracion fiscal: ${leaseError.message}`);
+  if (!claimed) {
+    await client.from("arca_emisiones").update({ status: "rejected", error_message: "Otra emision fiscal esta en curso.", updated_at: new Date().toISOString() }).eq("id", emissionId);
+    throw new Error("Otra emision fiscal esta en curso. Espere unos segundos y vuelva a intentar.");
+  }
+
+  try {
+    const auth = await getAccessTicket(credentials);
+    const voucherNumber = await getLastAuthorized(credentials, auth, credentials.puntoVenta, invoice.voucherType) + 1;
+    const issueDate = arcaDate();
+    const { data: reserved, error: reserveError } = await client
+      .from("arca_emisiones")
+      .update({ cbte_nro: voucherNumber, cbte_fecha: issueDate, updated_at: new Date().toISOString() })
+      .eq("id", emissionId)
+      .select("*")
+      .single();
+    if (reserveError) throw new Error(`No se pudo reservar la numeracion fiscal: ${reserveError.message}`);
+    emission = reserved as StoredEmission;
+    const associated = related?.cbte_nro ? {
+      voucherType: related.cbte_tipo,
+      pointOfSale: related.punto_venta,
+      voucherNumber: related.cbte_nro,
+      date: related.cbte_fecha ?? issueDate,
+    } : undefined;
+    const result = await authorizeInvoice(credentials, auth, invoice, voucherNumber, associated);
+    const status = result.success ? (result.resultado === "O" ? "observed" : "authorized") : "rejected";
+    const updates = result.success ? {
+      status,
+      resultado: result.resultado,
+      cae: result.cae,
+      cae_vencimiento: result.vencimiento,
+      qr_payload: JSON.parse(result.qrData),
+      observaciones: result.observaciones,
+      error_message: null,
+      updated_at: new Date().toISOString(),
+    } : {
+      status: "rejected",
+      resultado: "R",
+      observaciones: result.observaciones,
+      error_message: result.error,
+      updated_at: new Date().toISOString(),
+    };
+    const { data: saved, error: saveError } = await client.from("arca_emisiones").update(updates).eq("id", emissionId).select("*").single();
+    if (saveError) throw new Error(`ARCA respondio pero no se pudo guardar el resultado: ${saveError.message}`);
+    return storedEmissionResponse(saved as StoredEmission, credentials);
+  } catch (error) {
+    if (emission.cbte_nro) {
+      await client.from("arca_emisiones").update({
+        status: "uncertain",
+        error_message: "Resultado incierto; se debe reconciliar antes de reintentar.",
+        updated_at: new Date().toISOString(),
+      }).eq("id", emissionId);
+    } else {
+      await client.from("arca_emisiones").update({
+        status: "rejected",
+        error_message: error instanceof Error ? error.message.slice(0, 500) : "No se pudo iniciar la emision fiscal.",
+        updated_at: new Date().toISOString(),
+      }).eq("id", emissionId);
+    }
+    throw error;
+  } finally {
+    await client.rpc("release_arca_sequence_lease", { p_lock_key: lockKey, p_owner: leaseOwner });
+  }
+}
+
 const safeErrorMessage = (error: unknown): string => {
   const message = error instanceof Error ? error.message : String(error);
   if (/alreadyAuthenticated/i.test(message)) {
@@ -725,6 +1087,13 @@ const safeErrorMessage = (error: unknown): string => {
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  res.setHeader("Cache-Control", "no-store, max-age=0");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  const rawContentLength = req.headers?.["content-length"];
+  const contentLength = Number(Array.isArray(rawContentLength) ? rawContentLength[0] : rawContentLength ?? 0);
+  if (Number.isFinite(contentLength) && contentLength > 120_000) {
+    return res.status(413).json({ success: false, error: "La solicitud fiscal supera el limite permitido." });
+  }
   let credentials: ServerCredentials | null = null;
   try {
     credentials = await getServerCredentials();
@@ -788,8 +1157,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ...publicStatus(null),
       });
     }
-    const auth = await getAccessTicket(credentials);
+    if (!(await canIssueFiscalDocuments(authenticated))) {
+      return res.status(403).json({ success: false, error: "El usuario no tiene permiso para operar la facturacion fiscal." });
+    }
     if (action === "test") {
+      const auth = await getAccessTicket(credentials);
       await getLastAuthorized(credentials, auth, credentials.puntoVenta, 11);
       return res.status(200).json({
         ...publicStatus(credentials),
@@ -805,8 +1177,43 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           error: "El emisor es monotributista: ARCA solo permite emitir Factura C (tipo 11).",
         });
       }
-      const result = await createInvoice(credentials, auth, req.body?.payload);
+      const invoice = validateInvoicePayload(req.body?.payload);
+      const result = await runIdempotentEmission(credentials, authenticated, invoice);
+      const status = result.success ? 200 : ["uncertain", "authorizing"].includes(result.fiscalStatus ?? "") ? 409 : 422;
+      return res.status(status).json(result);
+    }
+    if (action === "createCreditNote") {
+      const client = getServiceSupabaseClient();
+      if (!client) return res.status(503).json({ success: false, error: "Falta configurar el backend fiscal seguro." });
+      const relatedEmissionId = String(req.body?.relatedEmissionId ?? "").trim();
+      const idempotencyKey = String(req.body?.idempotencyKey ?? "").trim();
+      if (!/^[0-9a-f-]{36}$/i.test(relatedEmissionId)) return res.status(422).json({ success: false, error: "Comprobante fiscal asociado invalido." });
+      const { data, error } = await client.from("arca_emisiones").select("*").eq("id", relatedEmissionId).maybeSingle();
+      if (error) throw new Error(`No se pudo consultar el comprobante asociado: ${error.message}`);
+      const related = data as StoredEmission | null;
+      if (!related || !["authorized", "observed"].includes(related.status) || related.cbte_tipo !== 11 || !related.cbte_nro) {
+        return res.status(422).json({ success: false, error: "Solo puede emitirse Nota de Credito C sobre una Factura C autorizada." });
+      }
+      const invoice = validateInvoicePayload({
+        ...related.request_payload,
+        idempotencyKey,
+        tipoComprobante: 13,
+      });
+      const result = await runIdempotentEmission(credentials, authenticated, invoice, related);
       return res.status(result.success ? 200 : 422).json(result);
+    }
+    if (action === "reconcileInvoice") {
+      const client = getServiceSupabaseClient();
+      if (!client) return res.status(503).json({ success: false, error: "Falta configurar el backend fiscal seguro." });
+      const emissionId = String(req.body?.emissionId ?? "").trim();
+      const { data, error } = await client.from("arca_emisiones").select("*").eq("id", emissionId).maybeSingle();
+      if (error) throw new Error(`No se pudo consultar la emision: ${error.message}`);
+      const emission = data as StoredEmission | null;
+      if (!emission) return res.status(404).json({ success: false, error: "Emision fiscal no encontrada." });
+      if (emission.status !== "uncertain") return res.status(200).json(storedEmissionResponse(emission, credentials));
+      const auth = await getAccessTicket(credentials);
+      const reconciled = await reconcileEmission(client, emission, credentials, auth);
+      return res.status(reconciled.status === "uncertain" ? 409 : 200).json(storedEmissionResponse(reconciled, credentials));
     }
     return res.status(400).json({ success: false, error: `Accion '${String(action)}' no soportada.` });
   } catch (error) {
@@ -820,7 +1227,9 @@ export const __arcaTestables = {
   buildFiscalQrPayload,
   buildLoginTicketRequest,
   collectArcaMessages,
+  getAccessTicket,
   getCertificateField,
+  getLastAuthorized,
   sanitizePem,
   validateCertificatePair,
   validateInvoicePayload,

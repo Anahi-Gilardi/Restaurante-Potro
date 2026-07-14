@@ -9,3 +9,5 @@ coverage/
 .streamlit/secrets.toml
 __pycache__/
 *.py[cod]
+
+.vercel

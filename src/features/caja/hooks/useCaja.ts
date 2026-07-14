@@ -18,7 +18,7 @@ import { printerService } from '../../../services/printerService';
 import { facturacionService, Factura } from '../../../services/facturacionService';
 import { auditoriaService } from '../../../services/auditoriaService';
 import { clientesService } from '../../../services/clientesService';
-import { createArcaInvoice, getArcaStatus, TIPOS_COMPROBANTE } from '../../../services/arcaService';
+import { CONDICIONES_IVA_RECEPTOR, createArcaInvoice, getArcaStatus } from '../../../services/arcaService';
 
 interface UseCajaProps {
   pedidos: Pedido[];
@@ -91,9 +91,10 @@ export function useCaja({
   const [selectedPedidoId, setSelectedPedidoId] = useState<number | null>(null);
   
   // Checkout options
-  const [tipoComprobante, setTipoComprobante] = useState<TipoComprobante>('factura_b');
+  const [tipoComprobante, setTipoComprobante] = useState<TipoComprobante>('factura_c');
   const [cuitCliente, setCuitCliente] = useState<string>('99-99999999-9'); // Default Consumidor Final
   const [nombreCliente, setNombreCliente] = useState<string>('Consumidor Final');
+  const [condicionIvaReceptor, setCondicionIvaReceptor] = useState<number>(5);
   const [metodoPago, setMetodoPago] = useState<'efectivo' | 'tarjeta' | 'transferencia' | 'mp_qr' | 'mixto'>('efectivo');
 
   // Mixed payments queue
@@ -608,74 +609,75 @@ export function useCaja({
       }
     }
 
-    let compiledTicketNo = `T-0001-${Math.floor(Math.random() * 900000 + 100000)}`;
+    const idFactura = `fac_${Date.now()}`;
+    let compiledTicketNo = `X-0001-${Math.floor(Math.random() * 900000 + 100000)}`;
 
     let arcaCae = "";
     let arcaVto = "";
     let arcaQr = "";
+    let arcaEmissionId = "";
+    let arcaResult: 'A' | 'O' | undefined;
+    let arcaVoucherNumber: number | undefined;
+    let arcaPointOfSale: number | undefined;
+    let arcaEmitter: Record<string, string> | undefined;
 
-    const arcaStatus = await getArcaStatus();
-    if (arcaStatus.configured) {
+    if (tipoComprobante === 'factura_c') {
+      const arcaStatus = await getArcaStatus();
+      if (!arcaStatus.configured || !arcaStatus.legalDataComplete) {
+        toast.error('La Factura C no puede emitirse: complete la firma y los datos legales en Sistema.');
+        return;
+      }
       try {
-        const tipoMap: Record<string, number> = { 'factura_a': 1, 'factura_b': 6, 'factura_c': 11, 'ticket_consumo': 206 };
-        const tipoId = tipoMap[tipoComprobante] || 206;
-        const arcaTipo = Object.values(TIPOS_COMPROBANTE).find((t: any) => t.id === tipoId) as any;
-        if (arcaTipo) {
-          const isFacturaC = tipoComprobante === 'factura_c';
-          const neto = isFacturaC ? orderBreakdowns.finalTotal : Number((orderBreakdowns.finalTotal / 1.21).toFixed(2));
-          const iva = isFacturaC ? 0 : Number((orderBreakdowns.finalTotal - neto).toFixed(2));
-          const nroDoc = cuitCliente === '99-99999999-9' ? 0 : parseInt(cuitCliente.replace(/-/g, '').slice(0, 11)) || 0;
-          const docTipo = nroDoc === 0 ? 99 : (cuitCliente.replace(/-/g, '').length >= 11 ? 80 : 96);
-
-          const result = await createArcaInvoice({
-            tipoComprobante: tipoId as any,
-            puntoVenta: arcaStatus.puntoVenta || undefined,
-            cliente: {
-              tipoDoc: docTipo,
-              nroDoc,
-              nombre: nombreCliente,
-              condicionIva: nroDoc === 0 ? 5 : arcaTipo.condicionIva,
-            },
-            items: [{
-              descripcion: `Facturacion mesa ${selectedPedido.numero_mesa}`,
-              cantidad: 1,
-              precioUnitario: orderBreakdowns.finalTotal,
-              ivaId: 5,
-              ivaBase: neto,
-              ivaImporte: iva,
-            }],
-            total: orderBreakdowns.finalTotal,
-            neto,
-            ivaTotal: iva,
-          });
-
-          const cae = result?.CodAutorizacion || result?.CAE || '';
-          const vto = result?.Vencimiento || result?.CAEFchVto || '';
-
-          if (cae) {
-            arcaCae = cae;
-            arcaVto = vto;
-            arcaQr = result.qrData || '';
-            if (result.nroCmp && result.puntoVenta) {
-              const prefix = tipoComprobante === 'factura_a' ? 'A' : tipoComprobante === 'factura_b' ? 'B' : tipoComprobante === 'factura_c' ? 'C' : 'T';
-              compiledTicketNo = `${prefix}-${String(result.puntoVenta).padStart(4, '0')}-${String(result.nroCmp).padStart(8, '0')}`;
-            }
-            addLog('sistema', `ARCA: CAE ${cae} emitido para Mesa ${selectedPedido.numero_mesa}.`);
-          }
-        }
+        const cleanDocument = cuitCliente.replace(/\D/g, '');
+        const nroDoc = cuitCliente === '99-99999999-9' ? 0 : Number(cleanDocument);
+        const docTipo = nroDoc === 0 ? 99 : (cleanDocument.length === 11 ? 80 : 96);
+        const result = await createArcaInvoice({
+          idempotencyKey: idFactura,
+          tipoComprobante: 11,
+          puntoVenta: arcaStatus.puntoVenta || undefined,
+          cliente: { tipoDoc: docTipo, nroDoc, nombre: nombreCliente, condicionIva: condicionIvaReceptor },
+          items: [{
+            descripcion: `Venta gastronomica mesa ${selectedPedido.numero_mesa}`,
+            cantidad: 1,
+            precioUnitario: orderBreakdowns.finalTotal,
+            ivaId: 0,
+            ivaBase: orderBreakdowns.finalTotal,
+            ivaImporte: 0,
+          }],
+          total: orderBreakdowns.finalTotal,
+          neto: orderBreakdowns.finalTotal,
+          ivaTotal: 0,
+        });
+        const cae = result.CAE || result.CodAutorizacion || '';
+        if (!result.success || !cae || !result.nroCmp || !result.puntoVenta) throw new Error(result.error || 'ARCA no autorizó la Factura C.');
+        arcaCae = cae;
+        arcaVto = result.CAEFchVto || result.Vencimiento || '';
+        arcaQr = result.qrData || '';
+        arcaEmissionId = result.emissionId || '';
+        arcaResult = result.resultado as 'A' | 'O';
+        arcaVoucherNumber = result.nroCmp;
+        arcaPointOfSale = result.puntoVenta;
+        arcaEmitter = result.emitter;
+        compiledTicketNo = `C-${String(result.puntoVenta).padStart(4, '0')}-${String(result.nroCmp).padStart(8, '0')}`;
+        addLog('sistema', `ARCA: Factura C ${compiledTicketNo} autorizada con CAE ${cae} para Mesa ${selectedPedido.numero_mesa}.`);
       } catch (err: any) {
         console.error('[ARCA] Error:', err);
-        toast.warning(`ARCA no autorizó el comprobante. Se guardará como borrador local sin validez fiscal. ${err.message || ''}`);
+        toast.error(`ARCA no autorizó la Factura C. El cobro no fue confirmado: ${err.message || ''}`);
+        return;
       }
     }
 
     const dataTicket: TicketData = {
-      nombreComercial: restaurante.nombreComercial,
-      razonSocial: restaurante.razonSocial,
-      cuit: restaurante.cuit,
-      direccion: restaurante.direccion,
+      nombreComercial: arcaEmitter?.tradeName || restaurante.nombreComercial,
+      razonSocial: arcaEmitter?.legalName || restaurante.razonSocial,
+      cuit: arcaEmitter?.cuit || restaurante.cuit,
+      direccion: arcaEmitter?.commercialAddress || restaurante.direccion,
       telefono: restaurante.telefono,
       email: restaurante.email,
+      ingresosBrutos: arcaEmitter?.grossIncomeNumber,
+      inicioActividades: arcaEmitter?.activityStartDate,
+      condicionIvaEmisor: 'Monotributo',
+      condicionIvaReceptor: CONDICIONES_IVA_RECEPTOR.find(condition => condition.id === condicionIvaReceptor)?.label,
       nroComprobante: compiledTicketNo,
       idPedido: selectedPedido.id_pedido,
       mesa: selectedPedido.numero_mesa,
@@ -695,12 +697,12 @@ export function useCaja({
       subtotal: orderBreakdowns.subtotal,
       descuento: orderBreakdowns.promoDeduction + orderBreakdowns.manualDeduction,
       propina: orderBreakdowns.propinaValue,
-      iva: orderBreakdowns.ivaValue,
+      iva: 0,
       total: orderBreakdowns.finalTotal,
       metodosPago: pays,
       vuelto: calculatedChange,
       tipoComprobante: tipoComprobante,
-      mensajePie: restaurante.mensajePie,
+      mensajePie: arcaCae ? 'Comprobante electrónico autorizado por ARCA.' : 'DOCUMENTO NO VALIDO COMO FACTURA.',
       cae: arcaCae || undefined,
       vto: arcaVto || undefined,
       qrData: arcaQr || undefined,
@@ -712,7 +714,6 @@ export function useCaja({
       descuentoFidelidad: puntosRedimidos
     };
 
-    const idFactura = `fac_${Date.now()}`;
     const mappedMedio = pays.map(p => p.metodo.toUpperCase()).join(' + ');
 
     try {
@@ -723,15 +724,21 @@ export function useCaja({
         cliente: nombreCliente === 'Consumidor Final' ? 'Consumidor Final' : nombreCliente + ` (CUIT ${cuitCliente})`,
         cuit: cuitCliente,
         total: orderBreakdowns.finalTotal,
-        iva_veintiuno: orderBreakdowns.ivaValue,
+        iva_veintiuno: 0,
         medio_pago: metodoPago,
         fecha: new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + ' hs',
-        estado: 'emitido',
-        tipo: tipoComprobante === 'factura_a' ? 'A' : tipoComprobante === 'factura_b' ? 'B' : tipoComprobante === 'factura_c' ? 'C' : 'ticket',
+        estado: arcaCae ? (arcaResult === 'O' ? 'observado' : 'autorizado') : 'borrador',
+        tipo: tipoComprobante === 'factura_c' ? 'C' : 'X',
         afip_cae: arcaCae || undefined,
         afip_vto: arcaVto || undefined,
         afip_qr: arcaQr || undefined,
-        afip_resultado: arcaCae ? 'A' : undefined
+        afip_resultado: arcaResult,
+        arca_emission_id: arcaEmissionId || undefined,
+        afip_cbte_tipo: arcaCae ? 11 : undefined,
+        afip_pto_vta: arcaPointOfSale,
+        afip_cbte_nro: arcaVoucherNumber,
+        arca_emisor: arcaEmitter,
+        condicion_iva_receptor: condicionIvaReceptor,
       });
     } catch (err) {
       console.warn('Network offline backup creation:', err);
@@ -789,7 +796,7 @@ export function useCaja({
       console.error('Audit log error:', e);
     }
 
-    addLog('sistema', `CAJA: Cobro finalizado correctamente para Mesa ${selectedPedido.numero_mesa}. Transacción Fiscal ${compiledTicketNo} registrada. `);
+    addLog('sistema', `CAJA: Cobro finalizado para Mesa ${selectedPedido.numero_mesa}. ${arcaCae ? `Factura C fiscal ${compiledTicketNo}` : `Documento X interno ${compiledTicketNo}`} registrado.`);
 
     try {
       await pdfService.exportToPDF(dataTicket);
@@ -918,21 +925,27 @@ export function useCaja({
   };
 
   const downloadFacturaHistorialPdf = async (factura: Factura) => {
-    const neto = Number((factura.total / 1.21).toFixed(2));
+    const isFacturaC = factura.tipo === 'C' || factura.tipo === 'NC';
+    const neto = isFacturaC ? factura.total : Number((factura.total / 1.21).toFixed(2));
+    const emitter = factura.arca_emisor;
     await pdfService.exportToPDF({
       idPedido: factura.id_pedido || 0,
       nroComprobante: factura.nro_ticket,
-      tipoComprobante: 'ticket_consumo',
+      tipoComprobante: factura.tipo === 'NC' ? 'nota_credito_c' : factura.tipo === 'C' ? 'factura_c' : 'ticket_consumo',
       fechaHora: factura.fecha,
       mesa: 'Historial',
       mozo: 'Caja',
       cajero: cajaSession?.usuario_cajero || 'Caja',
-      nombreComercial: restaurante.nombreComercial,
-      razonSocial: restaurante.razonSocial,
-      cuit: restaurante.cuit,
-      direccion: restaurante.direccion,
+      nombreComercial: emitter?.tradeName || restaurante.nombreComercial,
+      razonSocial: emitter?.legalName || restaurante.razonSocial,
+      cuit: emitter?.cuit || restaurante.cuit,
+      direccion: emitter?.commercialAddress || restaurante.direccion,
       telefono: restaurante.telefono,
       email: restaurante.email,
+      ingresosBrutos: emitter?.grossIncomeNumber,
+      inicioActividades: emitter?.activityStartDate,
+      condicionIvaEmisor: isFacturaC ? 'Monotributo' : undefined,
+      condicionIvaReceptor: CONDICIONES_IVA_RECEPTOR.find(condition => condition.id === factura.condicion_iva_receptor)?.label,
       items: [{
         cantidad: 1,
         descripcion: 'Venta gastronomica segun ticket emitido',
@@ -942,11 +955,11 @@ export function useCaja({
       subtotal: neto,
       descuento: 0,
       propina: 0,
-      iva: factura.iva_veintiuno || 0,
+      iva: isFacturaC ? 0 : factura.iva_veintiuno || 0,
       total: factura.total,
       metodosPago: [{ metodo: factura.medio_pago || 'efectivo', monto: factura.total }],
       vuelto: 0,
-      mensajePie: restaurante.mensajePie,
+      mensajePie: factura.afip_cae ? 'Comprobante electrónico autorizado por ARCA.' : 'DOCUMENTO NO VALIDO COMO FACTURA.',
       cae: factura.afip_cae,
       vto: factura.afip_vto,
       qrData: factura.afip_qr
@@ -981,6 +994,8 @@ export function useCaja({
     setCuitCliente,
     nombreCliente,
     setNombreCliente,
+    condicionIvaReceptor,
+    setCondicionIvaReceptor,
     metodoPago,
     setMetodoPago,
     mixedPayments,

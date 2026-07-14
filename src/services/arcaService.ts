@@ -14,6 +14,7 @@ export interface ArcaStatus {
   cuitMasked: string | null;
   taxProfile: 'monotributo' | null;
   source: 'database' | 'environment' | null;
+  legalDataComplete: boolean;
   message: string;
 }
 
@@ -24,6 +25,11 @@ export interface ArcaAdminConfig extends ArcaStatus {
   certificateSerial: string | null;
   certificateValidFrom: string | null;
   certificateValidTo: string | null;
+  legalName: string;
+  tradeName: string;
+  commercialAddress: string;
+  grossIncomeNumber: string;
+  activityStartDate: string;
   updatedAt: string | null;
 }
 
@@ -32,6 +38,11 @@ export interface SaveArcaConfigInput {
   puntoVenta: number;
   environment: 'homologacion' | 'produccion';
   taxProfile: 'monotributo';
+  legalName: string;
+  tradeName: string;
+  commercialAddress: string;
+  grossIncomeNumber: string;
+  activityStartDate: string;
   certificate?: File | null;
   privateKey?: File | null;
 }
@@ -51,6 +62,7 @@ const disconnectedStatus = (message: string): ArcaStatus => ({
   cuitMasked: null,
   taxProfile: null,
   source: null,
+  legalDataComplete: false,
   message,
 });
 
@@ -62,6 +74,7 @@ const parseStatus = (data: any, connected = false): ArcaStatus => ({
   cuitMasked: typeof data.cuitMasked === 'string' ? data.cuitMasked : null,
   taxProfile: data.taxProfile === 'monotributo' ? 'monotributo' : null,
   source: data.source === 'database' ? 'database' : data.source === 'environment' ? 'environment' : null,
+  legalDataComplete: Boolean(data.legalDataComplete),
   message: String(data.message || data.error || ''),
 });
 
@@ -73,6 +86,11 @@ const parseAdminConfig = (data: any): ArcaAdminConfig => ({
   certificateSerial: typeof data.certificateSerial === 'string' ? data.certificateSerial : null,
   certificateValidFrom: typeof data.certificateValidFrom === 'string' ? data.certificateValidFrom : null,
   certificateValidTo: typeof data.certificateValidTo === 'string' ? data.certificateValidTo : null,
+  legalName: typeof data.legalName === 'string' ? data.legalName : '',
+  tradeName: typeof data.tradeName === 'string' ? data.tradeName : '',
+  commercialAddress: typeof data.commercialAddress === 'string' ? data.commercialAddress : '',
+  grossIncomeNumber: typeof data.grossIncomeNumber === 'string' ? data.grossIncomeNumber : '',
+  activityStartDate: typeof data.activityStartDate === 'string' ? data.activityStartDate : '',
   updatedAt: typeof data.updatedAt === 'string' ? data.updatedAt : null,
 });
 
@@ -159,6 +177,11 @@ export async function saveArcaConfiguration(input: SaveArcaConfigInput): Promise
       puntoVenta: input.puntoVenta,
       environment: input.environment,
       taxProfile: input.taxProfile,
+      legalName: input.legalName,
+      tradeName: input.tradeName,
+      commercialAddress: input.commercialAddress,
+      grossIncomeNumber: input.grossIncomeNumber,
+      activityStartDate: input.activityStartDate,
       certificate,
       privateKey,
     },
@@ -174,6 +197,7 @@ export async function deleteArcaConfiguration(): Promise<ArcaAdminConfig> {
 }
 
 export interface ArcaInvoicePayload {
+  idempotencyKey: string;
   tipoComprobante: number;
   puntoVenta?: number;
   cliente?: {
@@ -197,6 +221,8 @@ export interface ArcaInvoicePayload {
 
 export interface ArcaInvoiceResult {
   success: boolean;
+  emissionId?: string;
+  fiscalStatus?: 'authorizing' | 'authorized' | 'observed' | 'rejected' | 'uncertain';
   resultado?: string;
   cae?: string;
   vencimiento?: string;
@@ -209,6 +235,16 @@ export interface ArcaInvoiceResult {
   tipoComprobante?: number;
   qrData?: string;
   observaciones?: Array<{ code: number; msg: string }>;
+  emitter?: {
+    cuit: string;
+    legalName: string;
+    tradeName: string;
+    commercialAddress: string;
+    grossIncomeNumber: string;
+    activityStartDate: string;
+    taxCondition: 'Monotributo';
+  };
+  error?: string;
 }
 
 export const buildArcaInvoiceRequest = (payload: ArcaInvoicePayload) => ({
@@ -228,12 +264,33 @@ export async function createArcaInvoice(payload: ArcaInvoicePayload): Promise<Ar
   return data;
 }
 
+export async function createArcaCreditNote(relatedEmissionId: string, idempotencyKey: string): Promise<ArcaInvoiceResult> {
+  const headers = await authenticatedHeaders();
+  const response = await fetch(API_URL, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ action: 'createCreditNote', relatedEmissionId, idempotencyKey }),
+  });
+  const data = await readJson(response);
+  if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+  return data;
+}
+
+export async function reconcileArcaInvoice(emissionId: string): Promise<ArcaInvoiceResult> {
+  const headers = await authenticatedHeaders();
+  const response = await fetch(API_URL, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ action: 'reconcileInvoice', emissionId }),
+  });
+  const data = await readJson(response);
+  if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+  return data;
+}
+
 export const TIPOS_COMPROBANTE = {
-  factura_a: { id: 1, label: 'Factura A', requiereCuit: true, condicionIva: 1 },
-  factura_b: { id: 6, label: 'Factura B', requiereCuit: false, condicionIva: 5 },
   factura_c: { id: 11, label: 'Factura C', requiereCuit: false, condicionIva: 6 },
-  ticket_a: { id: 201, label: 'Ticket Factura A', requiereCuit: true, condicionIva: 1 },
-  ticket_b: { id: 206, label: 'Ticket Factura B', requiereCuit: false, condicionIva: 5 },
+  nota_credito_c: { id: 13, label: 'Nota de Credito C', requiereCuit: false, condicionIva: 6 },
 } as const;
 
 export const TIPOS_DOCUMENTO = [
@@ -244,10 +301,14 @@ export const TIPOS_DOCUMENTO = [
 
 export const CONDICIONES_IVA_RECEPTOR = [
   { id: 1, label: 'IVA Responsable Inscripto' },
-  { id: 2, label: 'IVA No Responsable' },
-  { id: 3, label: 'IVA Exento' },
   { id: 4, label: 'IVA Sujeto Exento' },
   { id: 5, label: 'Consumidor Final' },
   { id: 6, label: 'IVA Monotributo' },
-  { id: 12, label: 'IVA No Alcanzado' },
+  { id: 7, label: 'Sujeto No Categorizado' },
+  { id: 8, label: 'Proveedor del Exterior' },
+  { id: 9, label: 'Cliente del Exterior' },
+  { id: 10, label: 'IVA Liberado - Ley 19.640' },
+  { id: 13, label: 'Monotributista Social' },
+  { id: 15, label: 'IVA No Alcanzado' },
+  { id: 16, label: 'Monotributo Trabajador Independiente Promovido' },
 ];

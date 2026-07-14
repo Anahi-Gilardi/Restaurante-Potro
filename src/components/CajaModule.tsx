@@ -41,6 +41,7 @@ import { useToast } from './ToastContainer';
 import { pdfService } from '../services/pdfService';
 import { printerService } from '../services/printerService';
 import { Factura } from '../services/facturacionService';
+import { CONDICIONES_IVA_RECEPTOR } from '../services/arcaService';
 
 interface CajaModuleProps {
   pedidos: Pedido[];
@@ -87,6 +88,8 @@ export default function CajaModule({
     setCuitCliente,
     nombreCliente,
     setNombreCliente,
+    condicionIvaReceptor,
+    setCondicionIvaReceptor,
     metodoPago,
     setMetodoPago,
     mixedPayments,
@@ -851,7 +854,7 @@ export default function CajaModule({
                     <span className="text-[8px] text-stone-400 uppercase font-black tracking-wider">Autorización ARCA al cobrar</span>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2">
                     <div>
                       <label className="text-[8px] font-bold uppercase text-stone-500 dark:text-stone-400 block mb-0.5">Comprobante</label>
                       <select 
@@ -859,10 +862,8 @@ export default function CajaModule({
                         onChange={e => setTipoComprobante(e.target.value as TipoComprobante)}
                         className="w-full text-[11px] p-1.5 border border-stone-200 dark:border-stone-800 rounded bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-200 font-bold"
                       >
-                        <option value="factura_b">Factura B</option>
-                        <option value="factura_a">Factura A</option>
-                        <option value="factura_c">Factura C</option>
-                        <option value="ticket_consumo">Ticket Consumo</option>
+                        <option value="factura_c">Factura C con CAE</option>
+                        <option value="ticket_consumo">Documento X interno</option>
                       </select>
                     </div>
 
@@ -892,6 +893,13 @@ export default function CajaModule({
                         className="w-full text-xs p-1.5 border border-stone-200 dark:border-stone-800 rounded bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-200 focus:outline-none"
                         placeholder="Ej. José de San Martín"
                       />
+                    </div>
+
+                    <div>
+                      <label className="text-[8px] font-bold uppercase text-stone-500 dark:text-stone-400 block mb-0.5">Condicion IVA receptor</label>
+                      <select value={condicionIvaReceptor} onChange={e => setCondicionIvaReceptor(Number(e.target.value))} className="w-full text-[11px] p-1.5 border border-stone-200 dark:border-stone-800 rounded bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-200 font-bold">
+                        {CONDICIONES_IVA_RECEPTOR.map(condition => <option key={condition.id} value={condition.id}>{condition.label}</option>)}
+                      </select>
                     </div>
                   </div>
                 </div>
@@ -1287,7 +1295,7 @@ export default function CajaModule({
                     </div>
 
                     <div className="py-2 border-b border-dotted border-stone-300 space-y-0.5 text-[8.5px]">
-                      <p>COMPROB.: {tipoComprobante === 'factura_b' ? 'FACTURA B-CONS. FINAL' : (tipoComprobante === 'factura_a' ? 'FACTURA A-RESP. INS.' : 'TICKET INTERNO')}</p>
+                      <p>COMPROB.: {tipoComprobante === 'factura_c' ? 'FACTURA C - CAE OBLIGATORIO' : 'DOCUMENTO X - NO VALIDO COMO FACTURA'}</p>
                       <p>CLIENTE: {nombreCliente.toUpperCase()}</p>
                       <p>CUIT/DNI: {cuitCliente}</p>
                       <p>FECHA: {new Date().toLocaleDateString('es-AR')} {new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}hs</p>
@@ -1349,7 +1357,7 @@ export default function CajaModule({
 
                       <div className="flex justify-between text-[7.5px] italic text-stone-400 mt-1">
                         <span>(IVA 21.0% incl en subtotal:</span>
-                        <span className="font-mono">${orderBreakdowns.ivaValue.toLocaleString('es-AR', { maximumFractionDigits: 1 })})</span>
+                        <span className="font-mono">${(tipoComprobante === 'factura_c' ? 0 : orderBreakdowns.ivaValue).toLocaleString('es-AR', { maximumFractionDigits: 1 })})</span>
                       </div>
                     </div>
 

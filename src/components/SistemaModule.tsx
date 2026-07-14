@@ -74,6 +74,11 @@ export default function SistemaModule({
   const [arcaCuit, setArcaCuit] = useState('27426946136');
   const [arcaPuntoVenta, setArcaPuntoVenta] = useState('1');
   const [arcaEnvironment, setArcaEnvironment] = useState<'homologacion' | 'produccion'>('produccion');
+  const [arcaLegalName, setArcaLegalName] = useState('BELLA ORIANA');
+  const [arcaTradeName, setArcaTradeName] = useState('El Patron');
+  const [arcaCommercialAddress, setArcaCommercialAddress] = useState('');
+  const [arcaGrossIncome, setArcaGrossIncome] = useState('');
+  const [arcaActivityStart, setArcaActivityStart] = useState('');
   const [arcaCertificate, setArcaCertificate] = useState<File | null>(null);
   const [arcaPrivateKey, setArcaPrivateKey] = useState<File | null>(null);
   const [arcaLoading, setArcaLoading] = useState(true);
@@ -117,6 +122,11 @@ export default function SistemaModule({
         setArcaConfig(config);
         if (config.puntoVenta) setArcaPuntoVenta(String(config.puntoVenta));
         if (config.environment) setArcaEnvironment(config.environment);
+        if (config.legalName) setArcaLegalName(config.legalName);
+        if (config.tradeName) setArcaTradeName(config.tradeName);
+        if (config.commercialAddress) setArcaCommercialAddress(config.commercialAddress);
+        if (config.grossIncomeNumber) setArcaGrossIncome(config.grossIncomeNumber);
+        if (config.activityStartDate) setArcaActivityStart(config.activityStartDate);
         setArcaPanelError('');
       })
       .catch(error => {
@@ -137,6 +147,10 @@ export default function SistemaModule({
       toast.error('Ingrese un punto de venta valido.');
       return;
     }
+    if (!arcaLegalName.trim() || !arcaTradeName.trim() || !arcaCommercialAddress.trim() || !arcaGrossIncome.trim() || !arcaActivityStart) {
+      toast.error('Complete todos los datos legales del emisor antes de guardar.');
+      return;
+    }
     setArcaSaving(true);
     try {
       const config = await saveArcaConfiguration({
@@ -144,6 +158,11 @@ export default function SistemaModule({
         puntoVenta,
         environment: arcaEnvironment,
         taxProfile: 'monotributo',
+        legalName: arcaLegalName.trim(),
+        tradeName: arcaTradeName.trim(),
+        commercialAddress: arcaCommercialAddress.trim(),
+        grossIncomeNumber: arcaGrossIncome.trim(),
+        activityStartDate: arcaActivityStart,
         certificate: arcaCertificate,
         privateKey: arcaPrivateKey,
       });
@@ -635,8 +654,8 @@ export default function SistemaModule({
               {arcaLoading ? (
                 <Loader2 className="w-4 h-4 animate-spin text-[#8C6239]" />
               ) : (
-                <span className={`shrink-0 px-2 py-1 rounded-full text-[8px] font-black uppercase border ${arcaConfig?.configured ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-900' : 'bg-stone-100 text-stone-500 border-stone-200 dark:bg-stone-850 dark:border-stone-700'}`}>
-                  {arcaConfig?.configured ? 'Firma cargada' : 'Sin configurar'}
+                <span className={`shrink-0 px-2 py-1 rounded-full text-[8px] font-black uppercase border ${arcaConfig?.configured && arcaConfig.legalDataComplete ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-900' : 'bg-stone-100 text-stone-500 border-stone-200 dark:bg-stone-850 dark:border-stone-700'}`}>
+                  {arcaConfig?.configured && arcaConfig.legalDataComplete ? 'Listo para facturar' : arcaConfig?.configured ? 'Datos incompletos' : 'Sin configurar'}
                 </span>
               )}
             </div>
@@ -669,6 +688,29 @@ export default function SistemaModule({
                   Monotributo - Factura C
                 </div>
               </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left">
+              <label className="space-y-1.5 sm:col-span-2">
+                <span className="text-[9px] font-black uppercase text-stone-500 dark:text-stone-350">Apellido y nombre / razon social</span>
+                <input value={arcaLegalName} maxLength={120} onChange={event => setArcaLegalName(event.target.value)} className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-white dark:bg-stone-950 text-stone-800 dark:text-stone-100 text-xs font-bold outline-none focus:ring-2 focus:ring-[#8C6239]/20" />
+              </label>
+              <label className="space-y-1.5">
+                <span className="text-[9px] font-black uppercase text-stone-500 dark:text-stone-350">Nombre comercial</span>
+                <input value={arcaTradeName} maxLength={120} onChange={event => setArcaTradeName(event.target.value)} className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-white dark:bg-stone-950 text-stone-800 dark:text-stone-100 text-xs font-bold outline-none focus:ring-2 focus:ring-[#8C6239]/20" />
+              </label>
+              <label className="space-y-1.5">
+                <span className="text-[9px] font-black uppercase text-stone-500 dark:text-stone-350">Ingresos Brutos / condicion</span>
+                <input value={arcaGrossIncome} maxLength={40} placeholder="Numero o No contribuyente" onChange={event => setArcaGrossIncome(event.target.value)} className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-white dark:bg-stone-950 text-stone-800 dark:text-stone-100 text-xs font-bold outline-none focus:ring-2 focus:ring-[#8C6239]/20" />
+              </label>
+              <label className="space-y-1.5 sm:col-span-2">
+                <span className="text-[9px] font-black uppercase text-stone-500 dark:text-stone-350">Domicilio comercial registrado</span>
+                <input value={arcaCommercialAddress} maxLength={180} onChange={event => setArcaCommercialAddress(event.target.value)} className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-white dark:bg-stone-950 text-stone-800 dark:text-stone-100 text-xs font-bold outline-none focus:ring-2 focus:ring-[#8C6239]/20" />
+              </label>
+              <label className="space-y-1.5 sm:col-span-2">
+                <span className="text-[9px] font-black uppercase text-stone-500 dark:text-stone-350">Inicio de actividades</span>
+                <input type="date" value={arcaActivityStart} onChange={event => setArcaActivityStart(event.target.value)} className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-white dark:bg-stone-950 text-stone-800 dark:text-stone-100 text-xs font-bold outline-none focus:ring-2 focus:ring-[#8C6239]/20" />
+              </label>
             </div>
 
             <div className="p-1 rounded-xl bg-[#E8DFD0] dark:bg-stone-850 grid grid-cols-2 gap-1">
@@ -749,7 +791,7 @@ export default function SistemaModule({
               </button>
               <button
                 type="button"
-                disabled={!arcaConfig?.configured || arcaTesting}
+                disabled={!arcaConfig?.configured || !arcaConfig.legalDataComplete || arcaTesting}
                 onClick={handleTestArca}
                 className="py-2.5 px-4 bg-[#1A1817] hover:bg-black disabled:opacity-40 text-[#F3C55A] rounded-xl text-[9px] font-black uppercase flex items-center justify-center gap-2 cursor-pointer"
               >

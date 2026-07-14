@@ -10,16 +10,24 @@ export interface Factura {
   iva_veintiuno: number;
   medio_pago: 'efectivo' | 'debito' | 'tarjeta' | 'transferencia' | 'mp_qr' | 'mixto';
   fecha: string;
-  estado: 'emitido' | 'nota_credito';
-  tipo?: 'ticket' | 'A' | 'B' | 'C' | 'X';
+  estado: 'borrador' | 'autorizado' | 'observado' | 'rechazado' | 'incierto' | 'nota_credito';
+  tipo?: 'ticket' | 'A' | 'B' | 'C' | 'NC' | 'X';
   afip_cae?: string;
   afip_vto?: string;
   afip_qr?: string;
   afip_resultado?: 'A' | 'O' | 'R';
+  arca_emission_id?: string;
+  afip_cbte_tipo?: number;
+  afip_pto_vta?: number;
+  afip_cbte_nro?: number;
+  afip_observaciones?: Array<{ code: number; msg: string }>;
+  arca_emisor?: Record<string, string>;
+  condicion_iva_receptor?: number;
   fecha_completa?: string;
 }
 
 const tipoToDb = (factura: Factura): string => {
+  if (factura.tipo === 'NC') return 'Nota Credito C';
   if (factura.estado === 'nota_credito') return 'Nota Credito';
   if (factura.tipo === 'A') return 'Factura A';
   if (factura.tipo === 'B') return 'Factura B';
@@ -31,6 +39,7 @@ const tipoToDb = (factura: Factura): string => {
 const tipoFromDb = (value: string): Factura['tipo'] => {
   const normalized = value.toLowerCase();
   if (normalized.includes('factura a')) return 'A';
+  if (normalized.includes('nota credito c')) return 'NC';
   if (normalized.includes('factura c')) return 'C';
   if (normalized.includes('factura b')) return 'B';
   if (normalized.includes('comprobante x')) return 'X';
@@ -107,12 +116,29 @@ export const facturacionService = {
           iva_veintiuno: Number(iva.toFixed(2)),
           medio_pago: mapMetodoPagoFromDb(f.metodo_pago),
           fecha: new Date(f.fecha_emision).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + ' hs',
-          estado: tipoComprobante.toLowerCase().includes('nota') ? 'nota_credito' as const : 'emitido' as const,
+          estado: tipoComprobante.toLowerCase().includes('nota')
+            ? 'nota_credito' as const
+            : f.fiscal_status === 'observed'
+              ? 'observado' as const
+              : f.fiscal_status === 'authorized'
+                ? 'autorizado' as const
+                : f.fiscal_status === 'uncertain'
+                  ? 'incierto' as const
+                  : f.fiscal_status === 'rejected'
+                    ? 'rechazado' as const
+                    : 'borrador' as const,
           tipo,
           afip_cae: f.afip_cae,
           afip_vto: f.afip_vto,
           afip_qr: f.afip_qr,
           afip_resultado: f.afip_resultado,
+          arca_emission_id: f.arca_emission_id,
+          afip_cbte_tipo: f.afip_cbte_tipo,
+          afip_pto_vta: f.afip_pto_vta,
+          afip_cbte_nro: f.afip_cbte_nro,
+          afip_observaciones: Array.isArray(f.afip_observaciones) ? f.afip_observaciones : [],
+          arca_emisor: f.arca_emisor && typeof f.arca_emisor === 'object' ? f.arca_emisor : undefined,
+          condicion_iva_receptor: Number(f.condicion_iva_receptor) || 5,
           fecha_completa: f.fecha_emision
         };
       });
@@ -139,7 +165,15 @@ export const facturacionService = {
       afip_cae: factura.afip_cae,
       afip_vto: factura.afip_vto,
       afip_qr: factura.afip_qr,
-      afip_resultado: factura.afip_resultado
+      afip_resultado: factura.afip_resultado,
+      fiscal_status: factura.estado === 'autorizado' ? 'authorized' : factura.estado === 'observado' ? 'observed' : factura.estado === 'incierto' ? 'uncertain' : factura.estado === 'rechazado' ? 'rejected' : factura.estado === 'nota_credito' ? 'credited' : 'draft',
+      arca_emission_id: factura.arca_emission_id,
+      afip_cbte_tipo: factura.afip_cbte_tipo,
+      afip_pto_vta: factura.afip_pto_vta,
+      afip_cbte_nro: factura.afip_cbte_nro,
+      afip_observaciones: factura.afip_observaciones || [],
+      arca_emisor: factura.arca_emisor,
+      condicion_iva_receptor: factura.condicion_iva_receptor,
     };
     
     try {
@@ -176,7 +210,15 @@ export const facturacionService = {
         afip_cae: f.afip_cae,
         afip_vto: f.afip_vto,
         afip_qr: f.afip_qr,
-        afip_resultado: f.afip_resultado
+        afip_resultado: f.afip_resultado,
+        fiscal_status: f.estado === 'autorizado' ? 'authorized' : f.estado === 'observado' ? 'observed' : f.estado === 'incierto' ? 'uncertain' : f.estado === 'rechazado' ? 'rejected' : f.estado === 'nota_credito' ? 'credited' : 'draft',
+        arca_emission_id: f.arca_emission_id,
+        afip_cbte_tipo: f.afip_cbte_tipo,
+        afip_pto_vta: f.afip_pto_vta,
+        afip_cbte_nro: f.afip_cbte_nro,
+        afip_observaciones: f.afip_observaciones || [],
+        arca_emisor: f.arca_emisor,
+        condicion_iva_receptor: f.condicion_iva_receptor,
       };
     });
 

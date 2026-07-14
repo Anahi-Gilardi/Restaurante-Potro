@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import QRCode from 'qrcode';
 import {
   AlertTriangle,
   BadgeCheck,
@@ -30,9 +31,12 @@ import { pdfService } from '../services/pdfService';
 import { ToastContainer, useToast } from './ToastContainer';
 import {
   ArcaStatus,
+  createArcaCreditNote,
   createArcaInvoice,
+  CONDICIONES_IVA_RECEPTOR,
   getArcaStatus,
   testArcaConnection,
+  type ArcaInvoiceResult,
 } from '../services/arcaService';
 import { useDebounce } from '../hooks/useDebounce';
 
@@ -43,39 +47,50 @@ interface FacturacionModuleProps {
 }
 
 type FacturaExtendida = Factura & {
-  tipo?: 'ticket' | 'A' | 'B' | 'C' | 'X';
+  tipo?: 'ticket' | 'A' | 'B' | 'C' | 'NC' | 'X';
   id_pedido?: number | null;
   observaciones?: string;
-  arcaCae?: string;
-  arcaVto?: string;
-  arcaQr?: string;
 };
 
 type TabKey = 'dashboard' | 'manual' | 'pagos' | 'archivo';
-type EstadoFiltro = 'todos' | 'emitido' | 'nota_credito';
-type TipoFiltro = 'todos' | 'ticket' | 'A' | 'B' | 'C' | 'X';
+type EstadoFiltro = 'todos' | Factura['estado'];
+type TipoFiltro = 'todos' | 'ticket' | 'A' | 'B' | 'C' | 'NC' | 'X';
 type MedioFiltro = 'todos' | Factura['medio_pago'];
 
-const DEFAULT_FACTURAS: FacturaExtendida[] = [
-  { id_factura: 'f_101', nro_ticket: 'T-0001-00008321', cliente: 'Consumidor Final', cuit: '99-99999999-9', total: 18500, iva_veintiuno: 3210.33, medio_pago: 'efectivo', fecha: '21:05 hs', estado: 'emitido', tipo: 'ticket', fecha_completa: new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString() },
-  { id_factura: 'f_102', nro_ticket: 'B-0001-00008322', cliente: 'Agustin Colombo', cuit: '20-38449102-1', total: 43200, iva_veintiuno: 7497.52, medio_pago: 'tarjeta', fecha: '21:14 hs', estado: 'emitido', tipo: 'B', fecha_completa: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString() },
-  { id_factura: 'f_103', nro_ticket: 'A-0001-00008323', cliente: 'Siderar S.A.', cuit: '30-50000732-5', total: 125000, iva_veintiuno: 21694.21, medio_pago: 'debito', fecha: '21:40 hs', estado: 'emitido', tipo: 'A', fecha_completa: new Date(Date.now() - 1 * 24 * 3600 * 1000).toISOString() },
-  { id_factura: 'f_104', nro_ticket: 'T-0001-00008324', cliente: 'Camila Galvan', cuit: '27-40112833-2', total: 15400, iva_veintiuno: 2672.72, medio_pago: 'mp_qr', fecha: '21:55 hs', estado: 'emitido', tipo: 'ticket', fecha_completa: new Date().toISOString() }
-];
+const DEFAULT_FACTURAS: FacturaExtendida[] = [];
 
 const money = (value: number) => `$${value.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-const fiscalQrImageUrl = (qrData?: string): string | null => {
+const fiscalValidationUrl = (qrData?: string): string | null => {
   if (!qrData) return null;
   try {
     const validationUrl = qrData.startsWith('{')
-      ? `https://www.afip.gob.ar/fe/qr/?p=${btoa(qrData)}`
+      ? `https://www.arca.gob.ar/fe/qr/?p=${btoa(unescape(encodeURIComponent(qrData)))}`
       : qrData;
-    return `https://api.qrserver.com/v1/create-qr-code/?size=192x192&data=${encodeURIComponent(validationUrl)}`;
+    return validationUrl;
   } catch {
     return null;
   }
 };
+
+function FiscalQrImage({ qrData }: { qrData?: string }) {
+  const [src, setSrc] = useState('');
+  useEffect(() => {
+    let active = true;
+    const url = fiscalValidationUrl(qrData);
+    if (!url) {
+      setSrc('');
+      return () => { active = false; };
+    }
+    QRCode.toDataURL(url, { errorCorrectionLevel: 'M', margin: 1, width: 256 })
+      .then(value => { if (active) setSrc(value); })
+      .catch(() => { if (active) setSrc(''); });
+    return () => { active = false; };
+  }, [qrData]);
+  return src
+    ? <img src={src} alt="Código QR fiscal de ARCA" className="w-full h-full object-contain" />
+    : <span className="text-[8px] font-bold text-amber-700">QR no disponible</span>;
+}
 
 const calcIvaIncluido = (total: number, aplicaIva = true) => {
   if (!aplicaIva) return { neto: total, iva: 0 };
@@ -83,18 +98,19 @@ const calcIvaIncluido = (total: number, aplicaIva = true) => {
   return { neto, iva: Number((total - neto).toFixed(2)) };
 };
 
-const facturaTipo = (f: FacturaExtendida): 'ticket' | 'A' | 'B' | 'C' | 'X' => {
+const facturaTipo = (f: FacturaExtendida): 'ticket' | 'A' | 'B' | 'C' | 'NC' | 'X' => {
   if (f.tipo) return f.tipo;
   if (f.nro_ticket.startsWith('A-')) return 'A';
   if (f.nro_ticket.startsWith('B-')) return 'B';
+  if (f.nro_ticket.startsWith('NC-')) return 'NC';
   if (f.nro_ticket.startsWith('C-')) return 'C';
   if (f.nro_ticket.startsWith('X-')) return 'X';
   return 'ticket';
 };
 
-const tipoPrefix = (tipo: 'ticket' | 'A' | 'B' | 'C' | 'X') => (tipo === 'ticket' ? 'T' : tipo);
+const tipoPrefix = (tipo: 'ticket' | 'A' | 'B' | 'C' | 'NC' | 'X') => (tipo === 'ticket' ? 'T' : tipo);
 
-const nextNumber = (facturas: FacturaExtendida[], tipo: 'ticket' | 'A' | 'B' | 'C' | 'X') => {
+const nextNumber = (facturas: FacturaExtendida[], tipo: 'ticket' | 'A' | 'B' | 'C' | 'NC' | 'X') => {
   const prefix = `${tipoPrefix(tipo)}-0001-`;
   const last = facturas
     .filter(f => f.nro_ticket.startsWith(prefix))
@@ -140,11 +156,12 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
   const [medioFiltro, setMedioFiltro] = useState<MedioFiltro>('todos');
   
   // Emisión Manual
-  const [manualTipo, setManualTipo] = useState<'ticket' | 'A' | 'B' | 'C' | 'X'>('C');
+  const [manualTipo, setManualTipo] = useState<'C' | 'X'>('C');
   const [manualCliente, setManualCliente] = useState('Consumidor Final');
   const [manualCuit, setManualCuit] = useState('99-99999999-9');
   const [manualTotal, setManualTotal] = useState('0');
   const [manualMedio, setManualMedio] = useState<Factura['medio_pago']>('efectivo');
+  const [manualCondicionIva, setManualCondicionIva] = useState(5);
   const [manualIva, setManualIva] = useState(false);
   const [manualObs, setManualObs] = useState('');
   const [manualQuery, setManualQuery] = useState('');
@@ -154,10 +171,11 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
   const [selectedPedidos, setSelectedPedidos] = useState<number[]>([]);
   const [agruparPorMesa, setAgruparPorMesa] = useState(false);
   const [pagoSearch, setPagoSearch] = useState('');
-  const [pagoTipo, setPagoTipo] = useState<'ticket' | 'A' | 'B' | 'C' | 'X'>('C');
+  const [pagoTipo, setPagoTipo] = useState<'C' | 'X'>('C');
   const [pagoCliente, setPagoCliente] = useState('Consumidor Final');
   const [pagoCuit, setPagoCuit] = useState('99-99999999-9');
   const [pagoMedio, setPagoMedio] = useState<Factura['medio_pago']>('efectivo');
+  const [pagoCondicionIva, setPagoCondicionIva] = useState(5);
   const [pagoQuery, setPagoQuery] = useState('');
   const [showPagoSuggestions, setShowPagoSuggestions] = useState(false);
   const [isEmitting, setIsEmitting] = useState(false);
@@ -170,7 +188,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
   // Cargar facturas y clientes
   useEffect(() => {
     facturacionService.list()
-      .then(data => setFacturas((data && data.length > 0 ? data : DEFAULT_FACTURAS) as FacturaExtendida[]))
+      .then(data => setFacturas((data || DEFAULT_FACTURAS) as FacturaExtendida[]))
       .catch(() => {
         setFacturas(DEFAULT_FACTURAS);
         toast.warning('No se pudo conectar a Supabase. Mostrando archivo fiscal local.');
@@ -205,7 +223,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
     return sum + (producto ? producto.precio_venta * item.cantidad : 0);
   }, 0);
 
-  const facturasActivas = facturas.filter(f => f.estado === 'emitido');
+  const facturasActivas = facturas.filter(f => ['autorizado', 'observado'].includes(f.estado));
   const totalBruto = facturasActivas.reduce((acc, f) => acc + f.total, 0);
   const ivaTotal = facturasActivas.reduce((acc, f) => acc + f.iva_veintiuno, 0);
   const netoTotal = totalBruto - ivaTotal;
@@ -297,14 +315,13 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
 
   // Validación de CUIT para alertas visuales
   const cuitManualValido = useMemo(() => {
-    if (manualTipo === 'ticket' || manualTipo === 'C' || manualTipo === 'X') return true;
+    if (manualTipo === 'C' || manualTipo === 'X') return true;
     if (manualCuit === '99-99999999-9') return true;
     return validarCUIT(manualCuit);
   }, [manualCuit, manualTipo]);
 
   const cuitPagoValido = useMemo(() => {
-    if (pagoTipo === 'ticket' || pagoTipo === 'C' || pagoTipo === 'X') return true;
-    if (pagoCuit === '99-99999999-9' && pagoTipo === 'B') return true;
+    if (pagoTipo === 'C' || pagoTipo === 'X') return true;
     return validarCUIT(pagoCuit);
   }, [pagoCuit, pagoTipo]);
 
@@ -354,22 +371,31 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
         iva_veintiuno: iva,
         medio_pago: manualMedio,
         fecha: `${new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })} hs`,
-        estado: 'emitido',
+        estado: 'borrador',
         tipo: manualTipo,
         id_pedido: null,
         observaciones: manualObs || 'Venta de salón / Varios manual',
-        fecha_completa: new Date().toISOString()
+        fecha_completa: new Date().toISOString(),
+        condicion_iva_receptor: manualCondicionIva,
       };
       
-      const arcaResult = await emitToArca(factura);
-      if (arcaResult) {
-        factura.arcaCae = arcaResult.cae;
-        factura.arcaVto = arcaResult.vto;
-        factura.arcaQr = arcaResult.qr;
+      if (manualTipo === 'C') {
+        const arcaResult = await emitToArca(factura);
+        factura.afip_cae = arcaResult.CAE;
+        factura.afip_vto = arcaResult.CAEFchVto;
+        factura.afip_qr = arcaResult.qrData;
+        factura.afip_resultado = arcaResult.resultado as 'A' | 'O';
+        factura.arca_emission_id = arcaResult.emissionId;
+        factura.afip_cbte_tipo = arcaResult.tipoComprobante;
+        factura.afip_pto_vta = arcaResult.puntoVenta;
+        factura.afip_cbte_nro = arcaResult.nroCmp;
+        factura.afip_observaciones = arcaResult.observaciones || [];
+        factura.arca_emisor = arcaResult.emitter;
+        factura.estado = arcaResult.resultado === 'O' ? 'observado' : 'autorizado';
       }
-      
-      await downloadFacturaPdf(factura);
+
       await persistFactura(factura);
+      await downloadFacturaPdf(factura);
       addLog('sistema', `FACTURACION: Emisión manual ${factura.nro_ticket} por ${money(total)}. Medio: ${medioLabel(manualMedio)}.`);
       
       // Resetear campos
@@ -433,18 +459,27 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
         iva_veintiuno: iva,
         medio_pago: pagoMedio,
         fecha: `${new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })} hs`,
-        estado: 'emitido',
+        estado: 'borrador',
         tipo: pagoTipo,
         id_pedido: principalPedido.id_pedido,
         observaciones: `Pedidos agrupados: ${prefixIdsStr} - Mesas: ${Array.from(new Set(selectedItems.map(p => p.pedido.numero_mesa))).join(', ')}`,
-        fecha_completa: new Date().toISOString()
+        fecha_completa: new Date().toISOString(),
+        condicion_iva_receptor: pagoCondicionIva,
       };
 
-      const arcaResult = await emitToArca(factura);
-      if (arcaResult) {
-        factura.arcaCae = arcaResult.cae;
-        factura.arcaVto = arcaResult.vto;
-        factura.arcaQr = arcaResult.qr;
+      if (pagoTipo === 'C') {
+        const arcaResult = await emitToArca(factura);
+        factura.afip_cae = arcaResult.CAE;
+        factura.afip_vto = arcaResult.CAEFchVto;
+        factura.afip_qr = arcaResult.qrData;
+        factura.afip_resultado = arcaResult.resultado as 'A' | 'O';
+        factura.arca_emission_id = arcaResult.emissionId;
+        factura.afip_cbte_tipo = arcaResult.tipoComprobante;
+        factura.afip_pto_vta = arcaResult.puntoVenta;
+        factura.afip_cbte_nro = arcaResult.nroCmp;
+        factura.afip_observaciones = arcaResult.observaciones || [];
+        factura.arca_emisor = arcaResult.emitter;
+        factura.estado = arcaResult.resultado === 'O' ? 'observado' : 'autorizado';
       }
 
       // Preparar ítems para PDF
@@ -464,12 +499,16 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
         mesa: Array.from(new Set(selectedItems.map(p => p.pedido.numero_mesa))).join(', '),
         mozo: Array.from(new Set(selectedItems.map(p => p.pedido.mozo))).join(', '),
         cajero: 'Caja Principal',
-        nombreComercial: 'El Patron Restaurante',
-        razonSocial: 'Gastronomia El Patron S.A.S.',
-        cuit: '30-71649251-4',
-        direccion: 'Fotheringham 33, Rio Cuarto, Córdoba',
+        nombreComercial: factura.arca_emisor?.tradeName || 'El Patron',
+        razonSocial: factura.arca_emisor?.legalName || 'BELLA ORIANA',
+        cuit: factura.arca_emisor?.cuit || '27426946136',
+        direccion: factura.arca_emisor?.commercialAddress || 'Domicilio comercial no configurado',
         telefono: '+54 9 3584 37-3711',
         email: 'bellaoriana47@gmail.com',
+        ingresosBrutos: factura.arca_emisor?.grossIncomeNumber,
+        inicioActividades: factura.arca_emisor?.activityStartDate,
+        condicionIvaEmisor: 'Monotributo',
+        condicionIvaReceptor: CONDICIONES_IVA_RECEPTOR.find(condition => condition.id === factura.condicion_iva_receptor)?.label,
         items: formattedItems,
         subtotal: totalConsolidado - iva,
         descuento: 0,
@@ -481,9 +520,9 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
         mensajePie: 'Gracias por elegir El Patrón. Comprobante de cuenta unificada.',
         clienteNombre: factura.cliente,
         clienteCuit: factura.cuit,
-        cae: factura.arcaCae,
-        vto: factura.arcaVto,
-        qrData: factura.arcaQr
+        cae: factura.afip_cae,
+        vto: factura.afip_vto,
+        qrData: factura.afip_qr
       };
 
       await pdfService.exportToPDF(ticketData);
@@ -504,49 +543,80 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
     }
   };
 
-  const handleNotaCredito = (id: string) => {
-    setFacturas(prev => prev.map(f => {
-      if (f.id_factura === id) {
-        addLog('sistema', `FACTURACION: Nota de Crédito emitida anulando ${f.nro_ticket} por ${money(f.total)}.`);
-        facturacionService.markNotaCredito(id).catch(err => console.error(err));
-        toast.success(`Nota de Crédito aplicada correctamente a ${f.nro_ticket}.`);
-        if (selectedFactura && selectedFactura.id_factura === id) {
-          setSelectedFactura(prev => prev ? { ...prev, estado: 'nota_credito' } : null);
-        }
-        return { ...f, estado: 'nota_credito' };
-      }
-      return f;
-    }));
+  const handleNotaCredito = async (id: string) => {
+    const original = facturas.find(f => f.id_factura === id);
+    if (!original?.arca_emission_id || !original.afip_cae || !['autorizado', 'observado'].includes(original.estado)) {
+      toast.error('Solo puede emitirse una Nota de Crédito sobre una Factura C autorizada por ARCA.');
+      return;
+    }
+    if (!window.confirm(`Se emitirá una Nota de Crédito C real por ${money(original.total)} asociada a ${original.nro_ticket}. Esta operación fiscal no se puede deshacer. ¿Continuar?`)) return;
+    setIsEmitting(true);
+    try {
+      const result = await createArcaCreditNote(original.arca_emission_id, `nc:${original.arca_emission_id}`);
+      if (!result.success || !result.CAE || !result.nroCmp || !result.puntoVenta) throw new Error(result.error || 'ARCA no autorizó la Nota de Crédito C.');
+      const note: FacturaExtendida = {
+        ...original,
+        id_factura: `nc_${result.emissionId || Date.now()}`,
+        nro_ticket: `NC-${String(result.puntoVenta).padStart(4, '0')}-${String(result.nroCmp).padStart(8, '0')}`,
+        tipo: 'NC',
+        estado: 'nota_credito',
+        fecha: `${new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })} hs`,
+        fecha_completa: new Date().toISOString(),
+        afip_cae: result.CAE,
+        afip_vto: result.CAEFchVto,
+        afip_qr: result.qrData,
+        afip_resultado: result.resultado as 'A' | 'O',
+        arca_emission_id: result.emissionId,
+        afip_cbte_tipo: result.tipoComprobante,
+        afip_pto_vta: result.puntoVenta,
+        afip_cbte_nro: result.nroCmp,
+        afip_observaciones: result.observaciones || [],
+        arca_emisor: result.emitter,
+        observaciones: `Nota de Crédito C asociada a ${original.nro_ticket}`,
+      };
+      await facturacionService.create(note);
+      await facturacionService.markNotaCredito(original.id_factura);
+      setFacturas(prev => [note, ...prev.map(f => f.id_factura === id ? { ...f, estado: 'nota_credito' as const } : f)]);
+      setSelectedFactura(previous => previous?.id_factura === id ? { ...previous, estado: 'nota_credito' } : previous);
+      await downloadFacturaPdf(note);
+      addLog('sistema', `ARCA: Nota de Crédito C ${note.nro_ticket} autorizada con CAE ${result.CAE}, asociada a ${original.nro_ticket}.`);
+      toast.success(`Nota de Crédito C ${note.nro_ticket} autorizada por ARCA.`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'No se pudo emitir la Nota de Crédito C.');
+    } finally {
+      setIsEmitting(false);
+    }
   };
 
-  const tipoToComprobante = (tipo: 'ticket' | 'A' | 'B' | 'C' | 'X'): TipoComprobante => {
+  const tipoToComprobante = (tipo: 'ticket' | 'A' | 'B' | 'C' | 'NC' | 'X'): TipoComprobante => {
     if (tipo === 'A') return 'factura_a';
     if (tipo === 'B') return 'factura_b';
     if (tipo === 'C') return 'factura_c';
+    if (tipo === 'NC') return 'nota_credito_c';
     return 'ticket_consumo';
   };
 
-  const emitToArca = async (factura: FacturaExtendida): Promise<{ cae: string; vto: string; qr?: string } | null> => {
-    if (factura.tipo === 'X') return null;
+  const emitToArca = async (factura: FacturaExtendida): Promise<ArcaInvoiceResult> => {
     const currentStatus = await getArcaStatus();
     setArcaStatus(currentStatus);
-    if (!currentStatus.configured) return null;
+    if (!currentStatus.configured) throw new Error('ARCA no esta configurado. Cargue certificado y clave desde Sistema.');
+    if (!currentStatus.legalDataComplete) throw new Error('Complete los datos legales del emisor en Sistema antes de facturar.');
     try {
-      const tipoMap: Record<string, number> = { 'A': 1, 'B': 6, 'C': 11, 'ticket': 206 };
-      const tipoId = tipoMap[factura.tipo || 'ticket'] || 206;
+      const tipoId = 11;
       
       const { neto, iva } = calcIvaIncluido(factura.total, factura.tipo !== 'C');
       const nroDoc = factura.cuit === '99-99999999-9' ? 0 : parseInt(factura.cuit.replace(/-/g, '').slice(0, 11)) || 0;
       const docTipo = nroDoc === 0 ? 99 : (factura.cuit.replace(/-/g, '').length >= 11 ? 80 : 96);
 
       const result = await createArcaInvoice({
-        tipoComprobante: tipoId as any,
+        idempotencyKey: factura.id_factura,
+        tipoComprobante: tipoId,
         puntoVenta: currentStatus.puntoVenta || undefined,
         cliente: {
           tipoDoc: docTipo,
           nroDoc,
           nombre: factura.cliente,
-          condicionIva: nroDoc === 0 ? 5 : (tipoId === 1 ? 1 : tipoId === 11 ? 6 : 5),
+          condicionIva: factura.condicion_iva_receptor || 5,
         },
         items: [{
           descripcion: `Venta Gastronómica según ${factura.nro_ticket}`,
@@ -570,14 +640,14 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
         }
         setArcaStatus({ ...currentStatus, connected: true, message: 'Última emisión autorizada correctamente.' });
         addLog('sistema', `ARCA: Comprobante electrónico autorizado. CAE: ${cae}`);
-        return { cae, vto, qr: result.qrData };
+        return result;
       }
-      return null;
+      throw new Error(result.error || 'ARCA rechazo el comprobante.');
     } catch (err: any) {
       console.error('[ARCA] Error:', err);
       setArcaStatus({ ...currentStatus, connected: false, message: err?.message || 'Error de conexión fiscal.' });
-      toast.warning('ARCA no autorizó el comprobante. Se guardará como borrador local sin validez fiscal.');
-      return null;
+      toast.error('ARCA no autorizó el comprobante. No se registró ni entregó una factura fiscal.');
+      throw err;
     }
   };
 
@@ -614,12 +684,16 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
       mesa: pedido?.numero_mesa || 'Venta Directa',
       mozo: pedido?.mozo || 'Caja Central',
       cajero: 'Administración',
-      nombreComercial: 'El Patron Restaurante',
-      razonSocial: 'Gastronomia El Patron S.A.S.',
-      cuit: '30-71649251-4',
-      direccion: 'Fotheringham 33, Rio Cuarto, Córdoba',
+      nombreComercial: factura.arca_emisor?.tradeName || 'El Patron',
+      razonSocial: factura.arca_emisor?.legalName || 'BELLA ORIANA',
+      cuit: factura.arca_emisor?.cuit || '27426946136',
+      direccion: factura.arca_emisor?.commercialAddress || 'Domicilio comercial no configurado',
       telefono: '+54 9 3584 37-3711',
       email: 'bellaoriana47@gmail.com',
+      ingresosBrutos: factura.arca_emisor?.grossIncomeNumber,
+      inicioActividades: factura.arca_emisor?.activityStartDate,
+      condicionIvaEmisor: 'Monotributo',
+      condicionIvaReceptor: CONDICIONES_IVA_RECEPTOR.find(condition => condition.id === factura.condicion_iva_receptor)?.label,
       items: ticketItems,
       subtotal: neto,
       descuento: 0,
@@ -628,14 +702,14 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
       total: factura.total,
       metodosPago: [{ metodo: medioLabel(factura.medio_pago), monto: factura.total }],
       vuelto: 0,
-      mensajePie: factura.arcaCae
+      mensajePie: factura.afip_cae
         ? 'Gracias por su visita. Comprobante electrónico autorizado por ARCA.'
-        : 'BORRADOR LOCAL SIN VALIDEZ FISCAL - pendiente de autorización ARCA.',
+        : 'DOCUMENTO NO VALIDO COMO FACTURA.',
       clienteNombre: factura.cliente,
       clienteCuit: factura.cuit,
-      cae: factura.arcaCae,
-      vto: factura.arcaVto,
-      qrData: factura.arcaQr
+      cae: factura.afip_cae,
+      vto: factura.afip_vto,
+      qrData: factura.afip_qr
     };
 
     await pdfService.exportToPDF(ticketData);
@@ -1299,15 +1373,11 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
               />
             </label>
 
-            {/* Toggle de IVA */}
-            <label className="flex items-center gap-2 pt-6 text-xs font-bold text-stone-600 dark:text-stone-300 cursor-pointer select-none">
-              <input 
-                type="checkbox" 
-                checked={manualIva} 
-                onChange={e => setManualIva(e.target.checked)} 
-                className="w-4 h-4 accent-[#624A3E] rounded" 
-              />
-              Calcular IVA 21% incluido
+            <label className="space-y-1.5 block text-left">
+              <span className="text-[10px] font-black uppercase text-stone-400 dark:text-stone-300">Condicion IVA receptor</span>
+              <select value={manualCondicionIva} onChange={e => setManualCondicionIva(Number(e.target.value))} className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-700 dark:text-stone-200 text-xs font-bold">
+                {CONDICIONES_IVA_RECEPTOR.map(condition => <option key={condition.id} value={condition.id}>{condition.label}</option>)}
+              </select>
             </label>
 
             {/* Vista Previa */}
@@ -1598,6 +1668,13 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
                       />
                     </label>
 
+                    <label className="space-y-1 block text-left">
+                      <span className="text-[10px] font-black uppercase text-stone-400 dark:text-stone-300">Condicion IVA receptor</span>
+                      <select value={pagoCondicionIva} onChange={e => setPagoCondicionIva(Number(e.target.value))} className="w-full p-2 bg-white dark:bg-stone-955 border border-stone-200 dark:border-stone-800 rounded-lg text-xs font-bold text-stone-800 dark:text-stone-200">
+                        {CONDICIONES_IVA_RECEPTOR.map(condition => <option key={condition.id} value={condition.id}>{condition.label}</option>)}
+                      </select>
+                    </label>
+
                     {/* Medio Pago */}
                     <label className="space-y-1 block text-left">
                       <span className="text-[10px] font-black uppercase text-stone-400 dark:text-stone-300">Medio de Cobro</span>
@@ -1675,6 +1752,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
                 <option value="A">Factura A</option>
                 <option value="B">Factura B</option>
                 <option value="C">Factura C</option>
+                <option value="NC">Nota de Crédito C</option>
                 <option value="X">Comprobante X</option>
               </select>
             </label>
@@ -1682,8 +1760,12 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
               <span className="text-[10px] font-black uppercase text-stone-450 dark:text-stone-300">Estado</span>
               <select value={estadoFiltro} onChange={e => setEstadoFiltro(e.target.value as EstadoFiltro)} className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-700 dark:text-stone-200 text-xs font-bold">
                 <option value="todos">Todos</option>
-                <option value="emitido">Válidos (Emitidos)</option>
-                <option value="nota_credito">Anulados (Nota de Crédito)</option>
+                <option value="autorizado">Autorizados</option>
+                <option value="observado">Autorizados con observaciones</option>
+                <option value="borrador">Documentos X / borradores</option>
+                <option value="rechazado">Rechazados</option>
+                <option value="incierto">Resultado incierto</option>
+                <option value="nota_credito">Notas de Crédito</option>
               </select>
             </label>
             <label className="space-y-1 block text-left">
@@ -1733,7 +1815,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
                     >
                       <td data-label="Número" className="py-3 px-3 font-mono font-bold text-stone-800 dark:text-stone-100">
                         {f.nro_ticket}
-                        {f.arcaCae && <span className="block text-[8px] text-emerald-600 font-bold">CAE: {f.arcaCae}</span>}
+                        {f.afip_cae && <span className="block text-[8px] text-emerald-600 font-bold">CAE: {f.afip_cae}</span>}
                       </td>
                       <td data-label="Fecha" className="py-3 px-3 font-medium text-stone-400 dark:text-stone-300">{displayDate}</td>
                       <td data-label="Cliente" className="py-3 px-3 text-left">
@@ -1748,10 +1830,10 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
                       <td data-label="Estado" className="py-3 px-3 text-center" onClick={e => e.stopPropagation()}>
                         <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full border ${
                           isNC ? 'bg-rose-50 text-rose-600 border-rose-100' : 
-                          f.arcaCae ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 
+                          f.afip_cae ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
                           'bg-stone-50 text-stone-700 border-stone-200'
                         }`}>
-                          {isNC ? 'Anulado NC' : f.arcaCae ? 'CAE Fiscal ✓' : 'Local'}
+                          {f.tipo === 'NC' ? 'Nota Crédito C' : isNC ? 'Compensada por NC' : f.afip_cae ? 'CAE Fiscal ✓' : 'Documento X'}
                         </span>
                       </td>
                       <td data-label="Acciones" className="py-3 px-3 text-right space-x-1.5 whitespace-nowrap" onClick={e => e.stopPropagation()}>
@@ -1761,7 +1843,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
                         <button onClick={() => downloadFacturaPdf(f)} className="p-1.5 rounded-lg bg-stone-50 dark:bg-stone-850 hover:bg-[#624A3E]/10 text-stone-500 dark:text-stone-300 hover:text-[#624A3E] transition-all cursor-pointer" title="Reimprimir">
                           <Printer className="w-3.5 h-3.5" />
                         </button>
-                        {!isNC && (
+                        {['autorizado', 'observado'].includes(f.estado) && f.tipo === 'C' && (
                           <button onClick={() => handleNotaCredito(f.id_factura)} className="p-1 px-2 text-[9px] font-black rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-500 transition-colors cursor-pointer" title="Anular con nota de crédito">
                             Anular
                           </button>
@@ -1783,7 +1865,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
 
           <div className="flex flex-col sm:flex-row justify-between items-center gap-2 pt-3 border-t border-stone-100 dark:border-stone-855">
             <div className="text-[10px] text-stone-400 dark:text-stone-300 font-bold uppercase text-center sm:text-left">
-              Punto de Venta 0001 | Siguiente Nro: Ticket {nextNumber(facturas, 'ticket')} - A {nextNumber(facturas, 'A')} - B {nextNumber(facturas, 'B')} - Anulados {anuladas}
+              Punto de Venta {String(arcaStatus?.puntoVenta || 1).padStart(5, '0')} · La numeración fiscal se consulta en ARCA al emitir · Notas de crédito: {anuladas}
             </div>
             {filteredFacturas.length > 0 && (
               <button 
@@ -1889,7 +1971,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
               </div>
 
               {/* Datos de AFIP y CAE */}
-              {selectedFactura.arcaCae ? (
+              {selectedFactura.afip_cae ? (
                 <div className="bg-emerald-50/50 dark:bg-emerald-950/10 border border-emerald-100 dark:border-emerald-900/50 p-4 rounded-xl space-y-3">
                   <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-black text-xs text-left">
                     <FileCheck2 className="w-4 h-4 text-emerald-600" />
@@ -1898,26 +1980,18 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
                   <div className="grid grid-cols-2 gap-2 text-[10px] text-stone-600 dark:text-stone-300 text-left">
                     <div className="text-left">
                       <span className="text-[9px] text-stone-400 block font-bold text-left">CAE</span>
-                      <b className="font-mono font-bold text-stone-800 dark:text-white text-left block">{selectedFactura.arcaCae}</b>
+                      <b className="font-mono font-bold text-stone-800 dark:text-white text-left block">{selectedFactura.afip_cae}</b>
                     </div>
                     <div className="text-left">
                       <span className="text-[9px] text-stone-400 block font-bold text-left">VENCIMIENTO CAE</span>
-                      <b className="font-mono font-bold text-stone-800 dark:text-white text-left block">{selectedFactura.arcaVto}</b>
+                      <b className="font-mono font-bold text-stone-800 dark:text-white text-left block">{selectedFactura.afip_vto}</b>
                     </div>
                   </div>
 
                   {/* QR Oficial AFIP */}
                   <div className="pt-2 flex flex-col items-center justify-center text-center">
                     <div className="w-24 h-24 bg-white p-2 rounded-lg border border-stone-200 flex items-center justify-center">
-                      {fiscalQrImageUrl(selectedFactura.arcaQr) ? (
-                        <img
-                          src={fiscalQrImageUrl(selectedFactura.arcaQr) || ''}
-                          alt="Código QR fiscal de ARCA"
-                          className="w-full h-full object-contain"
-                        />
-                      ) : (
-                        <span className="text-[8px] font-bold text-amber-700">QR no disponible</span>
-                      )}
+                      <FiscalQrImage qrData={selectedFactura.afip_qr} />
                     </div>
                     <span className="text-[8px] text-stone-450 dark:text-stone-400 font-bold mt-1 uppercase text-center block">Escanear para comprobar validez fiscal</span>
                   </div>
@@ -1926,7 +2000,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
                 <div className="bg-stone-50 dark:bg-stone-850 p-4 rounded-xl border border-stone-150 dark:border-stone-800 flex items-center gap-3">
                   <Info className="w-5 h-5 text-amber-505 text-amber-500 shrink-0" />
                   <p className="text-[10px] text-stone-500 font-semibold leading-relaxed text-left">
-                    Borrador local sin CAE y sin validez fiscal. Debe autorizarse en ARCA antes de entregarlo como factura electrónica.
+                    Documento X interno sin CAE. No es una factura electrónica ni tiene validez fiscal.
                   </p>
                 </div>
               )}
@@ -1936,16 +2010,12 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
             {/* Footer Acciones Modal */}
             <div className="bg-stone-50 dark:bg-stone-850 px-6 py-4 flex gap-2 justify-between border-t border-stone-150 dark:border-stone-800">
               <div>
-                {selectedFactura.estado !== 'nota_credito' && (
+                {['autorizado', 'observado'].includes(selectedFactura.estado) && selectedFactura.tipo === 'C' && (
                   <button 
-                    onClick={() => {
-                      if (window.confirm(`¿Deseas anular el comprobante ${selectedFactura.nro_ticket} emitiendo una Nota de Crédito?`)) {
-                        handleNotaCredito(selectedFactura.id_factura);
-                      }
-                    }}
+                    onClick={() => handleNotaCredito(selectedFactura.id_factura)}
                     className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl text-xs font-black uppercase tracking-wider cursor-pointer border border-rose-100"
                   >
-                    Anular Comprobante
+                    Emitir Nota de Crédito C
                   </button>
                 )}
               </div>

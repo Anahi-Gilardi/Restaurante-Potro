@@ -32,6 +32,8 @@ export function validateDeploymentConfig(env: DeployRuntimeEnv): string[] {
   const supabaseUrl = readEnv(env, 'VITE_SUPABASE_URL');
   const supabaseKey = readEnv(env, 'VITE_SUPABASE_PUBLISHABLE_KEY') || readEnv(env, 'VITE_SUPABASE_ANON_KEY');
   const demoLogin = readEnv(env, 'VITE_ENABLE_DEMO_LOGIN');
+  const serviceRoleKey = readEnv(env, 'SUPABASE_SERVICE_ROLE_KEY');
+  const encryptionKey = readEnv(env, 'ARCA_CONFIG_ENCRYPTION_KEY');
 
   const failures: string[] = [];
 
@@ -51,6 +53,13 @@ export function validateDeploymentConfig(env: DeployRuntimeEnv): string[] {
     failures.push('Set VITE_ENABLE_DEMO_LOGIN=false for Vercel Production deployments.');
   }
 
+  if (!serviceRoleKey) {
+    failures.push('SUPABASE_SERVICE_ROLE_KEY is required by the secure fiscal backend.');
+  }
+  if (!encryptionKey) {
+    failures.push('ARCA_CONFIG_ENCRYPTION_KEY is required to encrypt uploaded certificates.');
+  }
+
   const exposedFiscalSecrets = [
     'VITE_ARCA_KEY',
     'VITE_ARCA_CERT',
@@ -67,9 +76,17 @@ export function validateDeploymentConfig(env: DeployRuntimeEnv): string[] {
   const arcaCert = readEnv(env, 'ARCA_CERT') || readEnv(env, 'ARCA_CERT_BASE64');
   const arcaKey = readEnv(env, 'ARCA_KEY') || readEnv(env, 'ARCA_KEY_BASE64');
   const arcaPointOfSale = readEnv(env, 'ARCA_PUNTO_VENTA');
+  const arcaLegalName = readEnv(env, 'ARCA_LEGAL_NAME');
+  const arcaTradeName = readEnv(env, 'ARCA_TRADE_NAME');
+  const arcaCommercialAddress = readEnv(env, 'ARCA_COMMERCIAL_ADDRESS');
+  const arcaGrossIncome = readEnv(env, 'ARCA_GROSS_INCOME_NUMBER');
+  const arcaActivityStart = readEnv(env, 'ARCA_ACTIVITY_START_DATE');
   const hasAnyArcaConfig = Boolean(arcaCuit || arcaCert || arcaKey || arcaPointOfSale);
   if (hasAnyArcaConfig && (!/^\d{11}$/.test(arcaCuit.replace(/\D/g, '')) || !arcaCert || !arcaKey || !/^\d+$/.test(arcaPointOfSale))) {
     failures.push('ARCA configuration is incomplete: set CUIT, point of sale, certificate and private key as server-only variables.');
+  }
+  if (hasAnyArcaConfig && (!arcaLegalName || !arcaTradeName || !arcaCommercialAddress || !arcaGrossIncome || !/^\d{4}-\d{2}-\d{2}$/.test(arcaActivityStart))) {
+    failures.push('ARCA legal issuer data is incomplete: legal name, trade name, commercial address, gross income and activity start date are required.');
   }
 
   return failures;
@@ -104,8 +121,9 @@ export function formatDeploymentFailureReport(failures: string[]): string {
     '3. Set VITE_ENABLE_DEMO_LOGIN=false.',
     '4. Set VITE_SUPABASE_URL=https://<your-project>.supabase.co.',
     '5. Set VITE_SUPABASE_PUBLISHABLE_KEY or VITE_SUPABASE_ANON_KEY to the public Supabase key.',
-    '6. Redeploy the latest commit.',
-    '7. If ARCA is enabled, use only server variables ARCA_CUIT, ARCA_PUNTO_VENTA, ARCA_CERT_BASE64 and ARCA_KEY_BASE64.',
+    '6. Set SUPABASE_SERVICE_ROLE_KEY and ARCA_CONFIG_ENCRYPTION_KEY only as private server variables.',
+    '7. Redeploy the latest commit.',
+    '8. If ARCA is enabled through variables, use only server variables ARCA_CUIT, ARCA_PUNTO_VENTA, ARCA_CERT_BASE64 and ARCA_KEY_BASE64.',
     '',
     'Local development note:',
     '- You can keep demo login enabled locally in .env.local while testing.',

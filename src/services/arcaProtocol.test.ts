@@ -4,6 +4,7 @@ import { __arcaTestables } from '../../api/arca';
 
 test('Factura C no informa IVA separado', () => {
   const result = __arcaTestables.validateInvoicePayload({
+    idempotencyKey: 'fac_test_001',
     tipoComprobante: 11,
     total: 1500,
     neto: 1239.67,
@@ -15,17 +16,51 @@ test('Factura C no informa IVA separado', () => {
   assert.equal(result.isFacturaC, true);
 });
 
-test('rechaza importes cuyo neto e IVA no coinciden con el total', () => {
+test('rechaza tipos de comprobante incompatibles con Monotributo', () => {
   assert.throws(() => __arcaTestables.validateInvoicePayload({
+    idempotencyKey: 'fac_test_002',
     tipoComprobante: 6,
     total: 121,
     neto: 80,
     ivaTotal: 21,
-  }), /no coincide/);
+  }), /no soportado/);
+});
+
+test('exige idempotencia e identificacion en operaciones grandes a consumidor final', () => {
+  assert.throws(() => __arcaTestables.validateInvoicePayload({
+    tipoComprobante: 11,
+    total: 1000,
+    cliente: { tipoDoc: 99, nroDoc: 0, condicionIva: 5 },
+  }), /idempotencia/);
+
+  assert.throws(() => __arcaTestables.validateInvoicePayload({
+    idempotencyKey: 'fac_test_003',
+    tipoComprobante: 11,
+    total: 10_000_000,
+    cliente: { tipoDoc: 99, nroDoc: 0, condicionIva: 5 },
+  }), /identificar/);
+});
+
+test('acepta Factura C identificada con DNI y condicion IVA obligatoria', () => {
+  const result = __arcaTestables.validateInvoicePayload({
+    idempotencyKey: 'fac_test_004',
+    tipoComprobante: 11,
+    total: 10_000_000,
+    cliente: { tipoDoc: 96, nroDoc: 42694613, condicionIva: 5 },
+  });
+  assert.equal(result.documentType, 96);
+  assert.equal(result.vatCondition, 5);
 });
 
 test('la fecha fiscal usa formato AAAAMMDD', () => {
   assert.match(__arcaTestables.arcaDate(), /^\d{8}$/);
+});
+
+test('el uniqueId de WSAA respeta el rango unsignedInt del schema', () => {
+  const xml = __arcaTestables.buildLoginTicketRequest();
+  const uniqueId = Number(xml.match(/<uniqueId>(\d+)<\/uniqueId>/)?.[1]);
+  assert.ok(Number.isInteger(uniqueId));
+  assert.ok(uniqueId >= 0 && uniqueId <= 4_294_967_295);
 });
 
 test('QR v1 usa CAE tipo E y omite documento para Consumidor Final', () => {

@@ -163,7 +163,8 @@ export type TipoComprobante =
   | 'factura_b'
   | 'factura_c'
   | 'ticket_consumo'
-  | 'nota_credito_b';
+  | 'nota_credito_b'
+  | 'nota_credito_c';
 
 export interface MovimientoCajaChica {
     id_movimiento: string;
@@ -228,6 +229,10 @@ export interface TicketData {
     direccion: string;
     telefono: string;
     email: string;
+    ingresosBrutos?: string;
+    inicioActividades?: string;
+    condicionIvaEmisor?: string;
+    condicionIvaReceptor?: string;
     items: TicketItem[];
     subtotal: number;
     descuento: number;
