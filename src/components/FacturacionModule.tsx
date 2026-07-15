@@ -39,7 +39,8 @@ import {
   type ArcaInvoiceResult,
 } from '../services/arcaService';
 import { useDebounce } from '../hooks/useDebounce';
-import { MONOTRIBUTO_INVOICE_OPTIONS } from '../lib/fiscalVoucherPolicy';
+import { fiscalVoucherPreview, MONOTRIBUTO_INVOICE_OPTIONS } from '../lib/fiscalVoucherPolicy';
+import { DEFAULT_RESTAURANT_PROFILE } from '../lib/restaurantProfile';
 
 interface FacturacionModuleProps {
   pedidos: Pedido[];
@@ -111,14 +112,11 @@ const facturaTipo = (f: FacturaExtendida): 'ticket' | 'A' | 'B' | 'C' | 'NC' | '
 
 const tipoPrefix = (tipo: 'ticket' | 'A' | 'B' | 'C' | 'NC' | 'X') => (tipo === 'ticket' ? 'T' : tipo);
 
-const nextNumber = (facturas: FacturaExtendida[], tipo: 'ticket' | 'A' | 'B' | 'C' | 'NC' | 'X') => {
-  const prefix = `${tipoPrefix(tipo)}-0001-`;
-  const last = facturas
-    .filter(f => f.nro_ticket.startsWith(prefix))
-    .map(f => Number(f.nro_ticket.split('-').pop() || 0))
-    .reduce((max, n) => Math.max(max, Number.isFinite(n) ? n : 0), 8320);
-  return `${prefix}${String(last + 1).padStart(8, '0')}`;
-};
+const nextNumber = (
+  facturas: FacturaExtendida[],
+  tipo: 'C' | 'X',
+  puntoVenta: number | null | undefined,
+) => fiscalVoucherPreview(tipo, puntoVenta, facturas.map(factura => factura.nro_ticket));
 
 const medioLabel = (medio: Factura['medio_pago']) => ({
   efectivo: 'Efectivo',
@@ -163,7 +161,6 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
   const [manualTotal, setManualTotal] = useState('0');
   const [manualMedio, setManualMedio] = useState<Factura['medio_pago']>('efectivo');
   const [manualCondicionIva, setManualCondicionIva] = useState(5);
-  const [manualIva, setManualIva] = useState(false);
   const [manualObs, setManualObs] = useState('');
   const [manualQuery, setManualQuery] = useState('');
   const [showManualSuggestions, setShowManualSuggestions] = useState(false);
@@ -205,7 +202,6 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
       if (status.taxProfile === 'monotributo') {
         setManualTipo('C');
         setPagoTipo('C');
-        setManualIva(false);
       }
     });
   }, []);
@@ -362,10 +358,10 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
 
     setIsEmitting(true);
     try {
-      const { iva } = calcIvaIncluido(total, manualIva);
+      const { iva } = calcIvaIncluido(total, false);
       const factura: FacturaExtendida = {
         id_factura: `fac_${Date.now()}`,
-        nro_ticket: nextNumber(facturas, manualTipo),
+        nro_ticket: nextNumber(facturas, manualTipo, arcaStatus?.puntoVenta),
         cliente: manualCliente.trim() || 'Consumidor Final',
         cuit: manualCuit.trim() || '99-99999999-9',
         total,
@@ -453,7 +449,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
       
       const factura: FacturaExtendida = {
         id_factura: `fac_${Date.now()}`,
-        nro_ticket: nextNumber(facturas, pagoTipo),
+        nro_ticket: nextNumber(facturas, pagoTipo, arcaStatus?.puntoVenta),
         cliente: pagoCliente.trim() || 'Consumidor Final',
         cuit: pagoCuit.trim() || '99-99999999-9',
         total: totalConsolidado,
@@ -500,12 +496,12 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
         mesa: Array.from(new Set(selectedItems.map(p => p.pedido.numero_mesa))).join(', '),
         mozo: Array.from(new Set(selectedItems.map(p => p.pedido.mozo))).join(', '),
         cajero: 'Caja Principal',
-        nombreComercial: factura.arca_emisor?.tradeName || 'El Patron',
-        razonSocial: factura.arca_emisor?.legalName || 'BELLA ORIANA',
-        cuit: factura.arca_emisor?.cuit || '27426946136',
-        direccion: factura.arca_emisor?.commercialAddress || 'Domicilio comercial no configurado',
-        telefono: '+54 9 3584 37-3711',
-        email: 'bellaoriana47@gmail.com',
+        nombreComercial: factura.arca_emisor?.tradeName || DEFAULT_RESTAURANT_PROFILE.nombreComercial,
+        razonSocial: factura.arca_emisor?.legalName || DEFAULT_RESTAURANT_PROFILE.razonSocial,
+        cuit: factura.arca_emisor?.cuit || DEFAULT_RESTAURANT_PROFILE.cuit,
+        direccion: factura.arca_emisor?.commercialAddress || DEFAULT_RESTAURANT_PROFILE.direccion,
+        telefono: DEFAULT_RESTAURANT_PROFILE.telefono,
+        email: DEFAULT_RESTAURANT_PROFILE.email,
         ingresosBrutos: factura.arca_emisor?.grossIncomeNumber,
         inicioActividades: factura.arca_emisor?.activityStartDate,
         condicionIvaEmisor: 'Monotributo',
@@ -684,12 +680,12 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
       mesa: pedido?.numero_mesa || 'Venta Directa',
       mozo: pedido?.mozo || 'Caja Central',
       cajero: 'Administración',
-      nombreComercial: factura.arca_emisor?.tradeName || 'El Patron',
-      razonSocial: factura.arca_emisor?.legalName || 'BELLA ORIANA',
-      cuit: factura.arca_emisor?.cuit || '27426946136',
-      direccion: factura.arca_emisor?.commercialAddress || 'Domicilio comercial no configurado',
-      telefono: '+54 9 3584 37-3711',
-      email: 'bellaoriana47@gmail.com',
+      nombreComercial: factura.arca_emisor?.tradeName || DEFAULT_RESTAURANT_PROFILE.nombreComercial,
+      razonSocial: factura.arca_emisor?.legalName || DEFAULT_RESTAURANT_PROFILE.razonSocial,
+      cuit: factura.arca_emisor?.cuit || DEFAULT_RESTAURANT_PROFILE.cuit,
+      direccion: factura.arca_emisor?.commercialAddress || DEFAULT_RESTAURANT_PROFILE.direccion,
+      telefono: DEFAULT_RESTAURANT_PROFILE.telefono,
+      email: DEFAULT_RESTAURANT_PROFILE.email,
       ingresosBrutos: factura.arca_emisor?.grossIncomeNumber,
       inicioActividades: factura.arca_emisor?.activityStartDate,
       condicionIvaEmisor: 'Monotributo',
@@ -717,6 +713,18 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
 
   // Formateo Avanzado de jsPDF para Libro IVA Ventas
   const downloadLibroIva = async () => {
+    const reportRows = filteredFacturas.filter(factura =>
+      Boolean(factura.afip_cae) && ['C', 'NC'].includes(facturaTipo(factura)),
+    );
+    if (reportRows.length === 0) {
+      toast.warning('No hay comprobantes ARCA autorizados en el filtro actual para exportar.');
+      return;
+    }
+    const reportTotal = reportRows.reduce(
+      (sum, factura) => sum + (facturaTipo(factura) === 'NC' ? -factura.total : factura.total),
+      0,
+    );
+    const emitter = reportRows.find(factura => factura.arca_emisor)?.arca_emisor;
     const { jsPDF } = await import('jspdf');
     const doc = new jsPDF('p', 'mm', 'a4');
     
@@ -736,8 +744,8 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
     
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
-    doc.text('Gastronomía El Patrón S.A.S. | CUIT: 30-71649251-4', 14, 25);
-    doc.text('Fotheringham 33, Río Cuarto, Córdoba', 14, 30);
+    doc.text(`${emitter?.legalName || DEFAULT_RESTAURANT_PROFILE.razonSocial} | CUIT: ${emitter?.cuit || DEFAULT_RESTAURANT_PROFILE.cuit}`, 14, 25);
+    doc.text(emitter?.commercialAddress || DEFAULT_RESTAURANT_PROFILE.direccion, 14, 30);
     
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
@@ -753,14 +761,14 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
     doc.setTextColor(textColor[0], textColor[1], textColor[2]);
     doc.setFontSize(8);
     doc.setFont('helvetica', 'bold');
-    doc.text('TOTAL RECAUDADO (BRUTO)', 20, 52);
-    doc.text('TOTAL NETO (GRAVADO 21%)', 80, 52);
-    doc.text('TOTAL IVA DÉBITO FISCAL', 140, 52);
+    doc.text('TOTAL COMPROBANTES ARCA', 20, 52);
+    doc.text('FACTURAS C / NC C', 80, 52);
+    doc.text('IVA DISCRIMINADO', 140, 52);
     
     doc.setFontSize(13);
-    doc.text(money(totalBruto), 20, 60);
-    doc.text(money(netoTotal), 80, 60);
-    doc.text(money(ivaTotal), 140, 60);
+    doc.text(money(reportTotal), 20, 60);
+    doc.text(String(reportRows.length), 80, 60);
+    doc.text('$0,00 (Monotributo)', 140, 60);
     
     // Tabla de comprobantes
     let y = 78;
@@ -784,7 +792,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
     doc.setTextColor(textColor[0], textColor[1], textColor[2]);
     doc.setFont('helvetica', 'normal');
     
-    filteredFacturas.forEach((f, index) => {
+    reportRows.forEach((f, index) => {
       if (y > 275) {
         doc.addPage();
         y = 20;
@@ -1056,9 +1064,9 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
 
       {/* Tarjetas de Métricas */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <MetricCard label="Neto mes" value={money(netoTotal)} tone="stone" icon={CalendarDays} />
-        <MetricCard label="IVA Débito Fiscal" value={money(ivaTotal)} tone="brown" icon={Receipt} />
-        <MetricCard label="Total Recaudado (Bruto)" value={money(totalBruto)} tone="green" icon={TrendingUp} />
+        <MetricCard label="Ventas autorizadas" value={money(netoTotal)} tone="stone" icon={CalendarDays} />
+        <MetricCard label="IVA discriminado" value={money(ivaTotal)} tone="brown" icon={Receipt} />
+        <MetricCard label="Total facturado" value={money(totalBruto)} tone="green" icon={TrendingUp} />
         <MetricCard label="Cuentas Pendientes" value={String(pagosPendientes.length)} tone={pagosPendientes.length ? 'rose' : 'stone'} icon={CreditCard} />
       </div>
 
@@ -1278,13 +1286,10 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
               <select 
                 value={manualTipo} 
                 onChange={e => {
-                  const val = e.target.value as any;
+                  const val = e.target.value as 'C' | 'X';
                   setManualTipo(val);
-                  setManualIva(val !== 'C' && val !== 'X');
-                  if (val === 'ticket' || val === 'C' || val === 'X') {
-                    setManualCliente('Consumidor Final');
-                    setManualCuit('99-99999999-9');
-                  }
+                  setManualCliente('Consumidor Final');
+                  setManualCuit('99-99999999-9');
                 }} 
                 className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-700 dark:text-stone-200 text-xs font-bold"
               >
@@ -1394,10 +1399,13 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
             <div className="p-3 bg-stone-50 dark:bg-stone-850 rounded-xl border border-stone-200 dark:border-stone-800 text-xs flex flex-col justify-between text-left">
               <div>
                 <span className="text-[9px] uppercase font-black text-stone-400 dark:text-stone-300">Vista Previa de Comprobante</span>
-                <p className="font-mono font-black text-stone-900 dark:text-white mt-1">{nextNumber(facturas, manualTipo)}</p>
+                <p className="font-mono font-black text-stone-900 dark:text-white mt-1">{nextNumber(facturas, manualTipo, arcaStatus?.puntoVenta)}</p>
+                {manualTipo === 'C' && (
+                  <span className="text-[8px] font-bold text-stone-400">ARCA asigna el número definitivo al autorizar.</span>
+                )}
               </div>
               <p className="text-stone-500 dark:text-stone-300 text-[10px] font-mono mt-1">
-                IVA: {money(calcIvaIncluido(Number(manualTotal || 0), manualIva).iva)} | Neto: {money(calcIvaIncluido(Number(manualTotal || 0), manualIva).neto)}
+                IVA discriminado: {money(0)} | Total: {money(Number(manualTotal || 0))}
               </p>
             </div>
           </div>

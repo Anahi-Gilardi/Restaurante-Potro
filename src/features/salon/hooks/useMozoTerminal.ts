@@ -3,6 +3,7 @@ import { Mesa, Insumo, ProductoMenu, RecetaEscandallo, Pedido, PedidoItem, Usuar
 import { clearMozoCartDraft, createMozoCartIdempotencyKey, MozoCart, readMozoCartDraft, writeMozoCartDraft } from '../../../lib/mozoCartDraft';
 import { pdfService } from '../../../services/pdfService';
 import { useCategories } from '../../../hooks/useCategories';
+import { DEFAULT_RESTAURANT_PROFILE } from '../../../lib/restaurantProfile';
 
 const CHECKOUT_TIMEOUT_MS = 12000;
 
@@ -465,8 +466,6 @@ export function useMozoTerminal({
       });
 
       const total = ticketItems.reduce((sum, item) => sum + item.subtotal, 0);
-      const neto = Number((total / 1.21).toFixed(2));
-      const iva = Number((total - neto).toFixed(2));
 
       const ticketData: TicketData = {
         idPedido: pedido.id_pedido,
@@ -476,21 +475,21 @@ export function useMozoTerminal({
         mesa: pedido.numero_mesa,
         mozo: pedido.mozo,
         cajero: 'Mozo',
-        nombreComercial: 'El Patron Restaurante',
-        razonSocial: 'Gastronomia El Patron S.A.S.',
-        cuit: '30-71649251-4',
-        direccion: 'Av. Pres. Figueroa Alcorta 3420, CABA',
-        telefono: '+54 11 4802-9988',
-        email: 'facturas@elpatronrestaurante.com.ar',
+        nombreComercial: DEFAULT_RESTAURANT_PROFILE.nombreComercial,
+        razonSocial: DEFAULT_RESTAURANT_PROFILE.razonSocial,
+        cuit: DEFAULT_RESTAURANT_PROFILE.cuit,
+        direccion: DEFAULT_RESTAURANT_PROFILE.direccion,
+        telefono: DEFAULT_RESTAURANT_PROFILE.telefono,
+        email: DEFAULT_RESTAURANT_PROFILE.email,
         items: ticketItems,
-        subtotal: neto,
+        subtotal: total,
         descuento: 0,
         propina: 0,
-        iva: iva,
+        iva: 0,
         total: total,
         metodosPago: [],
         vuelto: 0,
-        mensajePie: 'Gracias por su visita. Pre-comprobante generado por El Patron Terminal Mozo.'
+        mensajePie: 'DOCUMENTO NO VALIDO COMO FACTURA. Pre-ticket interno sin CAE de ARCA.'
       };
 
       await pdfService.exportToPDF(ticketData);

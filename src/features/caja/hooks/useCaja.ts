@@ -19,6 +19,7 @@ import { facturacionService, Factura } from '../../../services/facturacionServic
 import { auditoriaService } from '../../../services/auditoriaService';
 import { clientesService } from '../../../services/clientesService';
 import { CONDICIONES_IVA_RECEPTOR, createArcaInvoice, getArcaStatus } from '../../../services/arcaService';
+import { DEFAULT_RESTAURANT_PROFILE, normalizeRestaurantProfile } from '../../../lib/restaurantProfile';
 
 interface UseCajaProps {
   pedidos: Pedido[];
@@ -47,23 +48,12 @@ export function useCaja({
     const cached = cajaService.safeStorage.getItem('el_patron_restaurante_config');
     if (cached) {
       try {
-        return JSON.parse(cached);
+        return normalizeRestaurantProfile(JSON.parse(cached));
       } catch {
         // fallback
       }
     }
-    return {
-      nombreComercial: 'El Patrón Restaurante',
-      razonSocial: 'Gastronomía El Patrón S.A.S.',
-      cuit: '30-71649251-4',
-      direccion: 'Fotheringham 33, Rio Cuarto, Córdoba',
-      telefono: '+54 9 3584 37-3711',
-      email: 'bellaoriana47@gmail.com',
-      inicioActividades: '15/04/2022',
-      condicionIva: 'Responsable Inscripto',
-      mensajePie: 'Gracias por su visita al verdadero rincón criollo.',
-      moneda: 'ARS'
-    };
+    return { ...DEFAULT_RESTAURANT_PROFILE };
   });
 
   useEffect(() => {
@@ -443,7 +433,8 @@ export function useCaja({
     let manualDeduction = subtotal * (descuentoPorcentaje / 100);
     let baseTotal = Math.max(0, subtotal - promoDeduction - manualDeduction);
     let propinaValue = baseTotal * (propinaPorcentaje / 100);
-    let ivaValue = baseTotal * 0.21;
+    // El emisor es monotributista: la Factura C no discrimina IVA.
+    let ivaValue = 0;
     let finalTotal = Math.max(0, baseTotal + propinaValue - puntosRedimidos);
 
     return {

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { 
+import {
   Database, 
   ShieldCheck, 
   Download, 
@@ -38,6 +38,7 @@ import {
   testArcaConnection,
   type ArcaAdminConfig,
 } from '../services/arcaService';
+import { DEFAULT_RESTAURANT_PROFILE } from '../lib/restaurantProfile';
 
 interface SistemaModuleProps {
   insumos: Insumo[];
@@ -71,14 +72,14 @@ export default function SistemaModule({
   const { toast, toasts, removeToast } = useToast();
   const [activeDbEngine, setActiveDbEngine] = useState<'SQLite Local (.db)' | 'PostgreSQL / Supabase (Cloud)'>('PostgreSQL / Supabase (Cloud)');
   const [arcaConfig, setArcaConfig] = useState<ArcaAdminConfig | null>(null);
-  const [arcaCuit, setArcaCuit] = useState('27426946136');
-  const [arcaPuntoVenta, setArcaPuntoVenta] = useState('1');
+  const [arcaCuit, setArcaCuit] = useState(DEFAULT_RESTAURANT_PROFILE.cuit.replace(/\D/g, ''));
+  const [arcaPuntoVenta, setArcaPuntoVenta] = useState('2');
   const [arcaEnvironment, setArcaEnvironment] = useState<'homologacion' | 'produccion'>('produccion');
-  const [arcaLegalName, setArcaLegalName] = useState('BELLA ORIANA');
-  const [arcaTradeName, setArcaTradeName] = useState('El Patron');
-  const [arcaCommercialAddress, setArcaCommercialAddress] = useState('');
-  const [arcaGrossIncome, setArcaGrossIncome] = useState('');
-  const [arcaActivityStart, setArcaActivityStart] = useState('');
+  const [arcaLegalName, setArcaLegalName] = useState(DEFAULT_RESTAURANT_PROFILE.razonSocial);
+  const [arcaTradeName, setArcaTradeName] = useState(DEFAULT_RESTAURANT_PROFILE.nombreComercial);
+  const [arcaCommercialAddress, setArcaCommercialAddress] = useState(DEFAULT_RESTAURANT_PROFILE.direccion);
+  const [arcaGrossIncome, setArcaGrossIncome] = useState(DEFAULT_RESTAURANT_PROFILE.ingresosBrutos);
+  const [arcaActivityStart, setArcaActivityStart] = useState('2026-06-01');
   const [arcaCertificate, setArcaCertificate] = useState<File | null>(null);
   const [arcaPrivateKey, setArcaPrivateKey] = useState<File | null>(null);
   const [arcaLoading, setArcaLoading] = useState(true);
@@ -659,6 +660,13 @@ export default function SistemaModule({
                 </span>
               )}
             </div>
+
+            {arcaLoading && (
+              <div className="flex items-center gap-2 p-2.5 rounded-xl bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-900/50 text-sky-800 dark:text-sky-300 text-[9px] font-semibold text-left">
+                <Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin" />
+                Consultando la configuración fiscal cifrada del servidor. Los datos definitivos aparecerán al completar esta verificación.
+              </div>
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left">
               <label className="space-y-1.5 sm:col-span-2">

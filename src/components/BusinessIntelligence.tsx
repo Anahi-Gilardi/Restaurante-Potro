@@ -524,7 +524,7 @@ export default function BusinessIntelligence({
         
         <div className="flex justify-between items-center text-[10px] text-slate-400 font-mono">
           <span>Toda operación simula un payload JSON de red REST API en las terminales</span>
-          <span>Desarrollado para Gastrogénesis S.A. ©</span>
+          <span>El Patrón • Gestión Gastronómica ©</span>
         </div>
 
       </div>

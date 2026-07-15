@@ -269,7 +269,7 @@ export default function PythonStreamlitLogin({ onLoginSuccess, onBackToCover }: 
       )}
 
       <div className="absolute bottom-4 left-0 right-0 text-center text-[10px] text-stone-400/80">
-        El Patrón Gastronomía Premium S.A. • Terminal POS Autorizada
+        El Patrón • Terminal POS autorizada
       </div>
     </div>
   );

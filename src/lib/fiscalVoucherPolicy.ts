@@ -16,3 +16,23 @@ export const MONOTRIBUTO_INVOICE_OPTIONS: readonly InvoiceTypeOption[] = [
 ] as const;
 
 export const canIssueFiscalVoucherAsMonotributo = (type: InvoiceUiType): boolean => type === 'C';
+
+const padPointOfSale = (value: number | null | undefined): string | null =>
+  Number.isInteger(value) && Number(value) > 0 ? String(value).padStart(4, '0') : null;
+
+export const fiscalVoucherPreview = (
+  type: 'C' | 'X',
+  pointOfSale: number | null | undefined,
+  existingVoucherNumbers: readonly string[] = [],
+): string => {
+  if (type === 'C') {
+    const point = padPointOfSale(pointOfSale);
+    return point ? `C-${point}-PENDIENTE-ARCA` : 'C-PV-PENDIENTE-ARCA';
+  }
+
+  const lastInternalNumber = existingVoucherNumbers
+    .filter(value => value.startsWith('X-'))
+    .map(value => Number(value.split('-').pop() ?? 0))
+    .reduce((maximum, value) => Math.max(maximum, Number.isFinite(value) ? value : 0), 0);
+  return `X-0000-${String(lastInternalNumber + 1).padStart(8, '0')}`;
+};

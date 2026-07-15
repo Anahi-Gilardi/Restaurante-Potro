@@ -756,7 +756,7 @@ export default function SupabaseManager({
           <div className="flex items-start gap-1.5 text-[10px] text-slate-500 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
             <Info className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
             <p>
-              <strong>Políticas de Acceso RLS:</strong> Asegúrese de habilitar los permisos de inserción, actualización y lectura para el rol de clave anónima (anon) en su consola de base de datos Supabase para habilitar la sync automática.
+              <strong>Políticas de Acceso RLS:</strong> Mantenga acceso denegado para el rol anon. Autorice solamente a usuarios autenticados y limite cada operación a los roles y tablas que realmente necesita la aplicación.
             </p>
           </div>
         </div>
