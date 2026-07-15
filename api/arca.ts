@@ -701,6 +701,15 @@ async function getLastAuthorized(
 
 const roundMoney = (value: number): number => Number(value.toFixed(2));
 
+function isValidArgentineCuit(value: string): boolean {
+  if (!/^\d{11}$/.test(value)) return false;
+  const factors = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];
+  const sum = factors.reduce((total, factor, index) => total + Number(value[index]) * factor, 0);
+  const remainder = sum % 11;
+  const verifier = remainder === 0 ? 0 : remainder === 1 ? (value[0] === "5" ? 0 : 9) : 11 - remainder;
+  return verifier === Number(value[10]);
+}
+
 function validateInvoicePayload(payload: InvoicePayload | undefined): ValidatedInvoice {
   if (!payload) throw new Error("Payload de factura faltante.");
   const total = Number(payload.total);
@@ -722,11 +731,13 @@ function validateInvoicePayload(payload: InvoicePayload | undefined): ValidatedI
   if (!Number.isInteger(documentNumber) || documentNumber < 0) throw new Error("Numero de documento receptor invalido.");
   if (documentType === 99 && documentNumber !== 0) throw new Error("Consumidor Final debe informarse sin numero de documento.");
   if (documentType === 80 && !/^\d{11}$/.test(String(documentNumber))) throw new Error("El CUIT receptor debe tener 11 digitos.");
+  if (documentType === 80 && !isValidArgentineCuit(String(documentNumber))) throw new Error("El CUIT receptor tiene un digito verificador invalido.");
   if (documentType === 96 && !/^\d{7,8}$/.test(String(documentNumber))) throw new Error("El DNI receptor debe tener 7 u 8 digitos.");
   if (total >= 10_000_000 && documentType === 99) {
     throw new Error("ARCA exige identificar al consumidor final para operaciones de $10.000.000 o mas.");
   }
-  if (!Number.isInteger(vatCondition) || vatCondition <= 0 || vatCondition > 99) {
+  const allowedVatConditions = new Set([1, 4, 5, 6, 7, 8, 9, 10, 13, 15, 16]);
+  if (!Number.isInteger(vatCondition) || !allowedVatConditions.has(vatCondition)) {
     throw new Error("La condicion frente al IVA del receptor es invalida.");
   }
 
@@ -1271,6 +1282,7 @@ export const __arcaTestables = {
   getCertificateField,
   getLastAuthorized,
   isAllowedOrigin,
+  isValidArgentineCuit,
   sanitizePem,
   validateCertificatePair,
   validateInvoicePayload,

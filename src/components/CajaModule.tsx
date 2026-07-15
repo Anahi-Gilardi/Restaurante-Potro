@@ -42,6 +42,7 @@ import { pdfService } from '../services/pdfService';
 import { printerService } from '../services/printerService';
 import { Factura } from '../services/facturacionService';
 import { CONDICIONES_IVA_RECEPTOR } from '../services/arcaService';
+import { calculatePedidoTotal, resolvePedidoItemUnitPrice } from '../lib/orderPricing';
 
 interface CajaModuleProps {
   pedidos: Pedido[];
@@ -670,10 +671,7 @@ export default function CajaModule({
               ) : (
                 activeBills.map(b => {
                   const itemsCountSum = b.items.reduce((sum, current) => sum + current.cantidad, 0);
-                  const totalPrice = b.items.reduce((sum, item) => {
-                    const pm = productosMenu.find(pr => pr.id_producto === item.id_producto);
-                    return sum + (pm ? pm.precio_venta * item.cantidad : 0);
-                  }, 0);
+                  const totalPrice = calculatePedidoTotal(b, productosMenu);
 
                   const isSelected = b.id_pedido === selectedPedidoId;
                   const isReady = b.estado_comanda === 'listo';
@@ -1311,8 +1309,7 @@ export default function CajaModule({
                       </div>
 
                       {selectedPedido.items.map((it, idx) => {
-                        const pm = productosMenu.find(p => p.id_producto === it.id_producto);
-                        const unit = pm ? pm.precio_venta : 0;
+                        const unit = resolvePedidoItemUnitPrice(it, productosMenu);
                         return (
                           <div key={idx} className="flex justify-between font-sans">
                             <span>{it.cantidad}x {it.nombre}</span>

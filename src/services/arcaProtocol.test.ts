@@ -58,6 +58,25 @@ test('acepta Factura C identificada con DNI y condicion IVA obligatoria', () => 
   assert.equal(result.vatCondition, 5);
 });
 
+test('rechaza CUIT receptor con dígito verificador inválido', () => {
+  assert.equal(__arcaTestables.isValidArgentineCuit('27426946136'), true);
+  assert.throws(() => __arcaTestables.validateInvoicePayload({
+    idempotencyKey: 'fac_test_bad_cuit',
+    tipoComprobante: 11,
+    total: 1500,
+    cliente: { tipoDoc: 80, nroDoc: 27426946137, condicionIva: 6 },
+  }), /verificador/);
+});
+
+test('rechaza una condición IVA receptor fuera de la tabla admitida', () => {
+  assert.throws(() => __arcaTestables.validateInvoicePayload({
+    idempotencyKey: 'fac_test_bad_vat',
+    tipoComprobante: 11,
+    total: 1500,
+    cliente: { tipoDoc: 96, nroDoc: 42694613, condicionIva: 99 },
+  }), /condicion frente al IVA/);
+});
+
 test('la fecha fiscal usa formato AAAAMMDD', () => {
   assert.match(__arcaTestables.arcaDate(), /^\d{8}$/);
 });

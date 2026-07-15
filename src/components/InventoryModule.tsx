@@ -21,6 +21,8 @@ import {
   DollarSign
 } from 'lucide-react';
 import { Insumo, ProductoMenu, RecetaEscandallo, Merma } from '../types';
+import { createOperationalId } from '../lib/operationalId';
+import { argentinaDateIso } from '../lib/argentinaDate';
 
 interface InventoryModuleProps {
   insumos: Insumo[];
@@ -115,7 +117,7 @@ export default function InventoryModule({
     addLog('merma_registrada', `Merma manual registrada: ${mermaCantidad}${insSelected.unidad_medida} de ${insSelected.nombre} por motivo de ${mermaMotivo}`);
     
     // Append to local movements timeline
-    const movId = `MOV-${Math.floor(Math.random() * 900) + 100}`;
+    const movId = createOperationalId('MOV');
     setMovimientosLocales(prev => [
       { id: movId, insumo: insSelected.nombre, cantidad: `${mermaCantidad} ${insSelected.unidad_medida}`, operacion: 'Descarte/Merma', motivo: `Manual: ${mermaMotivo}`, fecha: new Date().toLocaleDateString('es-AR') + ' ' + new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + 'hs' },
       ...prev
@@ -153,7 +155,7 @@ export default function InventoryModule({
     addLog('sistema', `Inventario: Ajuste manual de stock de '${insSelected.nombre}'. Cantidad: ${ajusteOperacion === 'sumar' ? '+' : '-'}${ajusteCantidad}${insSelected.unidad_medida}. Motivo: ${ajusteMotivo}`);
     
     // Append to local movements timeline
-    const movId = `MOV-${Math.floor(Math.random() * 900) + 100}`;
+    const movId = createOperationalId('MOV');
     setMovimientosLocales(prev => [
       { id: movId, insumo: insSelected.nombre, cantidad: `${ajusteCantidad} ${insSelected.unidad_medida}`, operacion: ajusteOperacion === 'sumar' ? 'Abastecimiento' : 'Descarte/Merma', motivo: `Ajuste manual: ${ajusteMotivo}`, fecha: new Date().toLocaleDateString('es-AR') + ' ' + new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + 'hs' },
       ...prev
@@ -183,7 +185,7 @@ export default function InventoryModule({
     addLog('sistema', `COMPRAS: Compra recibida de Proveedor [${selectedProveedor}]. +${compraCantidad}${insSelected.unidad_medida} de "${insSelected.nombre}" inyectados.`);
 
     // Add to simulated purchase list
-    const ocId = `OC-${Math.floor(Math.random() * 300) + 2400}`;
+    const ocId = createOperationalId('OC');
     const newOC = {
       id: ocId,
       proveedor: selectedProveedor,
@@ -197,7 +199,7 @@ export default function InventoryModule({
     setComprasHistorial(prev => [newOC, ...prev]);
 
     // Add to stock movements
-    const movId = `MOV-${Math.floor(Math.random() * 900) + 100}`;
+    const movId = createOperationalId('MOV');
     setMovimientosLocales(prev => [
       { id: movId, insumo: insSelected.nombre, cantidad: `${compraCantidad} ${insSelected.unidad_medida}`, operacion: 'Abastecimiento', motivo: `Distribuidor: ${ocId}`, fecha: new Date().toLocaleDateString('es-AR') + ' ' + new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + 'hs' },
       ...prev
@@ -266,7 +268,7 @@ export default function InventoryModule({
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `Movimientos_Stock_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute("download", `Movimientos_Stock_${argentinaDateIso()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -439,7 +441,7 @@ export default function InventoryModule({
                                 addLog('sistema', `Reabastecido manualmente +${supplyAmount}${ins.unidad_medida} de ${ins.nombre}`);
                                 
                                 // local timeline movement log
-                                const mId = `MOV-${Math.floor(Math.random() * 90) + 100}`;
+                                const mId = createOperationalId('MOV');
                                 setMovimientosLocales(prev => [
                                   { id: mId, insumo: ins.nombre, cantidad: `+${supplyAmount} ${ins.unidad_medida}`, operacion: 'Abastecimiento', motivo: 'Carga Express Manual', fecha: new Date().toLocaleDateString('es-AR') + ' ' + new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + 'hs' },
                                   ...prev

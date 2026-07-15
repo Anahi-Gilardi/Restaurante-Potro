@@ -393,21 +393,24 @@ export const pedidosService = {
     }
   },
 
-  async agregarItemsAComandaExistente(idPedido: number, nuevosItems: PedidoItem[]): Promise<void> {
+  async agregarItemsAComandaExistente(idPedido: number, nuevosItems: PedidoItem[], idempotencyKey?: string): Promise<void> {
     const supabase = tryGetActiveSupabaseClient();
     if (!supabase) {
       const { syncQueueService } = await import('./syncQueueService');
       syncQueueService.enqueue('upsert_pedido', {
         id_pedido: idPedido,
         items: nuevosItems,
-        is_accumulation: true
+        is_accumulation: true,
+        idempotency_key: idempotencyKey
       });
       return;
     }
 
     // Insert each item as detail row
     const rows = nuevosItems.map((item, index) => ({
-      id_detalle: `${idPedido}_${item.id_producto}_${Date.now()}_${index}`,
+      id_detalle: idempotencyKey
+        ? `${idPedido}_${idempotencyKey}_${index}`
+        : `${idPedido}_${item.id_producto}_${Date.now()}_${index}`,
       id_pedido: idPedido,
       id_producto: item.id_producto,
       nombre: item.nombre,
@@ -419,7 +422,7 @@ export const pedidosService = {
 
     const { error: insertError } = await supabase
       .from('pedido_detalle')
-      .insert(rows);
+      .upsert(rows, { onConflict: 'id_detalle' });
 
     if (insertError) {
       console.error('Error inserting details in accumulation:', insertError);
@@ -447,10 +450,22 @@ export const pedidosService = {
       estado: d.estado ?? 'pendiente'
     }));
 
-    const { error: updateError } = await supabase
+    const headerUpdate = {
+      items: JSON.stringify(updatedItems),
+      ...(idempotencyKey ? { idempotency_key: idempotencyKey } : {})
+    };
+    let { error: updateError } = await supabase
       .from('pedidos_cabecera')
-      .update({ items: JSON.stringify(updatedItems) })
+      .update(headerUpdate)
       .eq('id_pedido', idPedido);
+
+    if (updateError?.message?.includes('idempotency_key')) {
+      const retry = await supabase
+        .from('pedidos_cabecera')
+        .update({ items: JSON.stringify(updatedItems) })
+        .eq('id_pedido', idPedido);
+      updateError = retry.error;
+    }
 
     if (updateError) {
       console.error('Error updating items JSON in header:', updateError);

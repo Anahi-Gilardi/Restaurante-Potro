@@ -39,6 +39,8 @@ import {
   type ArcaAdminConfig,
 } from '../services/arcaService';
 import { DEFAULT_RESTAURANT_PROFILE } from '../lib/restaurantProfile';
+import { argentinaDateIso } from '../lib/argentinaDate';
+import { calculatePedidoTotal } from '../lib/orderPricing';
 
 interface SistemaModuleProps {
   insumos: Insumo[];
@@ -363,7 +365,7 @@ export default function SistemaModule({
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `Backup_${tableName}_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute("download", `Backup_${tableName}_${argentinaDateIso()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -1004,10 +1006,7 @@ export default function SistemaModule({
                   mesa: p.numero_mesa,
                   mozo: p.mozo,
                   items_count: p.items.length,
-                  total_est: p.items.reduce((sum, item) => {
-                    const prod = productosMenu.find(menuP => menuP.id_producto === item.id_producto);
-                    return sum + (prod ? prod.precio_venta * item.cantidad : 0);
-                  }, 0),
+                  total_est: calculatePedidoTotal(p, productosMenu),
                   fecha: p.fecha_hora ? new Date(p.fecha_hora).toISOString() : 'Sin Fecha'
                 })))}
                 className="py-2 px-2 bg-stone-50 dark:bg-stone-850 hover:bg-stone-100 text-stone-700 dark:text-stone-300 rounded-xl text-[10px] font-bold flex items-center justify-center gap-1.5 transition-colors border border-stone-200 dark:border-stone-800 cursor-pointer"

@@ -41,6 +41,9 @@ import {
 import { useDebounce } from '../hooks/useDebounce';
 import { fiscalVoucherPreview, MONOTRIBUTO_INVOICE_OPTIONS } from '../lib/fiscalVoucherPolicy';
 import { DEFAULT_RESTAURANT_PROFILE } from '../lib/restaurantProfile';
+import { calculatePedidoTotal, resolvePedidoItemUnitPrice } from '../lib/orderPricing';
+import { parseFiscalCustomerDocument } from '../lib/fiscalCustomerDocument';
+import { argentinaDateIso } from '../lib/argentinaDate';
 
 interface FacturacionModuleProps {
   pedidos: Pedido[];
@@ -127,20 +130,6 @@ const medioLabel = (medio: Factura['medio_pago']) => ({
   mixto: 'Mixto'
 }[medio]);
 
-// Algoritmo de validación CUIT argentino (Módulo 11)
-const validarCUIT = (cuit: string): boolean => {
-  const clean = cuit.replace(/[^0-9]/g, '');
-  if (clean.length !== 11) return false;
-  const factors = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];
-  let sum = 0;
-  for (let i = 0; i < 10; i++) {
-    sum += parseInt(clean[i]) * factors[i];
-  }
-  const remainder = sum % 11;
-  const verifier = remainder === 0 ? 0 : (remainder === 1 ? (clean[0] === '5' ? 0 : 9) : 11 - remainder);
-  return verifier === parseInt(clean[10]);
-};
-
 export default function FacturacionModule({ pedidos, productosMenu, addLog }: FacturacionModuleProps) {
   const { toast, toasts, dismissToast } = useToast();
   const [facturas, setFacturas] = useState<FacturaExtendida[]>([]);
@@ -215,10 +204,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
     setIsTestingArca(false);
   };
 
-  const pedidoTotal = (pedido: Pedido) => pedido.items.reduce((sum, item) => {
-    const producto = productosMenu.find(p => p.id_producto === item.id_producto);
-    return sum + (producto ? producto.precio_venta * item.cantidad : 0);
-  }, 0);
+  const pedidoTotal = (pedido: Pedido) => calculatePedidoTotal(pedido, productosMenu);
 
   const facturasActivas = facturas.filter(f => ['autorizado', 'observado'].includes(f.estado));
   const totalBruto = facturasActivas.reduce((acc, f) => acc + f.total, 0);
@@ -312,27 +298,34 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
 
   // Validación de CUIT para alertas visuales
   const cuitManualValido = useMemo(() => {
-    if (manualTipo === 'C' || manualTipo === 'X') return true;
-    if (manualCuit === '99-99999999-9') return true;
-    return validarCUIT(manualCuit);
+    if (manualTipo === 'X') return true;
+    try {
+      parseFiscalCustomerDocument(manualCuit);
+      return true;
+    } catch {
+      return false;
+    }
   }, [manualCuit, manualTipo]);
 
   const cuitPagoValido = useMemo(() => {
-    if (pagoTipo === 'C' || pagoTipo === 'X') return true;
-    return validarCUIT(pagoCuit);
+    if (pagoTipo === 'X') return true;
+    try {
+      parseFiscalCustomerDocument(pagoCuit);
+      return true;
+    } catch {
+      return false;
+    }
   }, [pagoCuit, pagoTipo]);
 
   const validateClienteFiscal = (tipo: 'ticket' | 'A' | 'B' | 'C' | 'X', cliente: string, cuit: string) => {
-    if (tipo !== 'A') return true;
-    if (!cuit.trim() || cuit === '99-99999999-9' || cliente.trim().toLowerCase() === 'consumidor final') {
-      toast.error('Para Factura A se requiere CUIT y Razón Social válidos.');
+    if (tipo === 'X' || tipo === 'ticket') return true;
+    try {
+      parseFiscalCustomerDocument(cuit);
+      return true;
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'El documento del cliente no es válido.');
       return false;
     }
-    if (!validarCUIT(cuit)) {
-      toast.error('El CUIT ingresado no es válido.');
-      return false;
-    }
-    return true;
   };
 
   const persistFactura = async (factura: FacturaExtendida) => {
@@ -429,8 +422,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
       const mergedItemsMap: Record<string, { id_producto: string; nombre: string; cantidad: number; precio_unitario: number }> = {};
       selectedItems.forEach(p => {
         p.pedido.items.forEach(item => {
-          const prod = productosMenu.find(menuItem => menuItem.id_producto === item.id_producto);
-          const precio = prod ? prod.precio_venta : 0;
+          const precio = resolvePedidoItemUnitPrice(item, productosMenu);
           if (mergedItemsMap[item.id_producto]) {
             mergedItemsMap[item.id_producto].cantidad += item.cantidad;
           } else {
@@ -602,16 +594,15 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
       const tipoId = 11;
       
       const { neto, iva } = calcIvaIncluido(factura.total, factura.tipo !== 'C');
-      const nroDoc = factura.cuit === '99-99999999-9' ? 0 : parseInt(factura.cuit.replace(/-/g, '').slice(0, 11)) || 0;
-      const docTipo = nroDoc === 0 ? 99 : (factura.cuit.replace(/-/g, '').length >= 11 ? 80 : 96);
+      const document = parseFiscalCustomerDocument(factura.cuit);
 
       const result = await createArcaInvoice({
         idempotencyKey: factura.id_factura,
         tipoComprobante: tipoId,
         puntoVenta: currentStatus.puntoVenta || undefined,
         cliente: {
-          tipoDoc: docTipo,
-          nroDoc,
+          tipoDoc: document.documentType,
+          nroDoc: document.documentNumber,
           nombre: factura.cliente,
           condicionIva: factura.condicion_iva_receptor || 5,
         },
@@ -654,8 +645,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
     let ticketItems = [];
     if (pedido && pedido.items.length > 0) {
       ticketItems = pedido.items.map(item => {
-        const prod = productosMenu.find(p => p.id_producto === item.id_producto);
-        const unit = prod ? prod.precio_venta : 0;
+        const unit = resolvePedidoItemUnitPrice(item, productosMenu);
         return {
           cantidad: item.cantidad,
           descripcion: item.nombre,
@@ -835,7 +825,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
       y += 7;
     });
     
-    doc.save(`libro_iva_ventas_${new Date().toISOString().slice(0, 10)}.pdf`);
+    doc.save(`libro_iva_ventas_${argentinaDateIso()}.pdf`);
   };
 
   const downloadCsv = () => {
@@ -859,7 +849,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `auditoria_facturacion_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = `auditoria_facturacion_${argentinaDateIso()}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -870,7 +860,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
     const days = Array.from({ length: 7 }, (_, i) => {
       const d = new Date();
       d.setDate(d.getDate() - (6 - i));
-      return d.toISOString().split('T')[0];
+      return argentinaDateIso(d);
     });
 
     const dailyTotals = days.map(dayStr => {

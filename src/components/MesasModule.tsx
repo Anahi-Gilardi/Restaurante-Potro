@@ -5,6 +5,7 @@ import { Mesa, Reserva } from '../types';
 import { mesasService } from '../services/mesasService';
 import { reservasService } from '../services/reservasService';
 import MesaAsistente, { LAYOUT_OFICIAL, procesarComando } from './MesaAsistente';
+import { argentinaDateIso } from '../lib/argentinaDate';
 
 interface MesasModuleProps {
   mesas: Mesa[];
@@ -13,7 +14,7 @@ interface MesasModuleProps {
 }
 
 function formatDate(d: Date): string {
-  return d.toISOString().split('T')[0];
+  return argentinaDateIso(d);
 }
 
 function capitalize(s: string): string {

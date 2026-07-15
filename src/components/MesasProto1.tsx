@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useToast, ToastContainer } from './ToastContainer';
 import { X, Plus, Calendar, Pencil, Trash, Sparkles } from 'lucide-react';
 import { Mesa, Reserva } from '../types';
+import { argentinaDateIso } from '../lib/argentinaDate';
 import { mesasService } from '../services/mesasService';
 import { reservasService } from '../services/reservasService';
 import MesaAsistente, { sugerirAlojamiento, resumenSalon, procesarComando } from './MesaAsistente';
@@ -13,7 +14,7 @@ interface MesasProto1Props {
 }
 
 function formatDate(d: Date): string {
-  return d.toISOString().split('T')[0];
+  return argentinaDateIso(d);
 }
 
 function capitalize(s: string): string {

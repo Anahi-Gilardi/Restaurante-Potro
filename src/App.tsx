@@ -79,6 +79,8 @@ import {
 } from './supabase';
 import { AppView, canAccessView, getAllowedViews } from './lib/permissions';
 import { createClientPedidoId } from './lib/pedidoIds';
+import { argentinaDateIso } from './lib/argentinaDate';
+import { canMergePedidoItems, resolvePedidoItemUnitPrice } from './lib/orderPricing';
 import { cajaService } from './services/cajaService';
 import { reservasService } from './services/reservasService';
 import { stockEngine } from './services/stock/stockEngine';
@@ -450,15 +452,13 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     if (existingByKey) {
       await dbSavePedidoComplex(existingByKey);
       addLog('sistema', `PEDIDOS: Reintento sincronizado por idempotencia (${newPedidoData.idempotency_key}).`);
-      return;
+      return true;
     }
 
-    console.log('[DEBUG] handleCrearPedido called with:', newPedidoData);
     const existingActivePedido = pedidos.find(p => {
       const match = isSameTable(p, newPedidoData) && 
         p.estado_comanda !== 'entregado_cobrado' && 
         p.estado_comanda !== 'cancelado';
-      console.log(`[DEBUG] Comparing order #${p.id_pedido} (mesa: ${p.numero_mesa}, id_mesa: ${p.id_mesa}, estado: ${p.estado_comanda}) with new order. Match: ${match}`);
       return match;
     });
 
@@ -467,7 +467,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
       newPedidoData.items.forEach(item => stockEngine.validatePedidoItem(item));
     } catch (validationErr: any) {
       toast.error(validationErr.message);
-      return;
+      return false;
     }
 
     let updatedInsumos = insumos;
@@ -502,7 +502,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
         stockResult.stockMovements.forEach(m => stockMovements.push(m));
       } catch (err: any) {
         toast.error(`No es posible crear pedido: ${err.message}`);
-        return;
+        return false;
       }
     }
 
@@ -511,11 +511,12 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     if (existingActivePedido) {
       const updatedItems = [...existingActivePedido.items];
       newPedidoData.items.forEach(newItem => {
-        const existingItemIdx = updatedItems.findIndex(it => it.id_producto === newItem.id_producto && (it.estado === 'pendiente' || !it.estado));
+        const existingItemIdx = updatedItems.findIndex(it => canMergePedidoItems(it, newItem, productosMenu));
         if (existingItemIdx > -1) {
           updatedItems[existingItemIdx] = {
             ...updatedItems[existingItemIdx],
             cantidad: updatedItems[existingItemIdx].cantidad + newItem.cantidad,
+            precio_unitario: resolvePedidoItemUnitPrice(updatedItems[existingItemIdx], productosMenu),
             estado: 'pendiente'
           };
         } else {
@@ -533,6 +534,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
         items: updatedItems,
         observaciones: mergedObs || undefined,
         estado_comanda: 'pendiente',
+        idempotency_key: newPedidoData.idempotency_key || existingActivePedido.idempotency_key,
         stock_descontado: existingActivePedido.stock_descontado || stockDescontado,
         fecha_descuento_stock: existingActivePedido.fecha_descuento_stock || (stockDescontado ? new Date() : undefined)
       };
@@ -574,7 +576,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
 
     if (existingActivePedido) {
       import('./services/pedidosService').then(({ pedidosService }) => {
-        pedidosService.agregarItemsAComandaExistente(existingActivePedido.id_pedido, newPedidoData.items).catch(err => {
+        pedidosService.agregarItemsAComandaExistente(existingActivePedido.id_pedido, newPedidoData.items, newPedidoData.idempotency_key).catch(err => {
           console.warn('Background save for order accumulation failed:', err);
         });
       });
@@ -594,7 +596,8 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
         console.warn('Background save for insumos failed:', err);
       });
     }
-  }, [pedidos, insumos, recetas, addLog, mesas, permitirVentaSinStock, setMesas, setInsumos, setPedidos, activeMozo]);
+    return true;
+  }, [pedidos, insumos, recetas, productosMenu, addLog, mesas, permitirVentaSinStock, setMesas, setInsumos, setPedidos, activeMozo]);
 
   const handleMozoChange = (mozo: string) => {
     const nextUser = usuarios.find(usuario => usuario.nombre === mozo && usuario.activo !== false);
@@ -823,7 +826,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     dbUpsertMesas(updatedMesas);
 
     // Completar automáticamente la reserva asociada para el día de hoy
-    const today = new Date().toISOString().split('T')[0];
+    const today = argentinaDateIso();
     reservasService.listByFecha(today).then(todayReservas => {
       const matchRes = todayReservas.find(r => {
         const matchId = (r.id_mesa !== undefined && r.id_mesa !== null && target.id_mesa !== undefined && target.id_mesa !== null && String(r.id_mesa) === String(target.id_mesa));

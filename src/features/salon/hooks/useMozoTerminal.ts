@@ -4,6 +4,7 @@ import { clearMozoCartDraft, createMozoCartIdempotencyKey, MozoCart, readMozoCar
 import { pdfService } from '../../../services/pdfService';
 import { useCategories } from '../../../hooks/useCategories';
 import { DEFAULT_RESTAURANT_PROFILE } from '../../../lib/restaurantProfile';
+import { resolvePedidoItemUnitPrice } from '../../../lib/orderPricing';
 
 const CHECKOUT_TIMEOUT_MS = 12000;
 
@@ -455,8 +456,7 @@ export function useMozoTerminal({
   const handleDownloadPreTicket = async (pedido: Pedido) => {
     try {
       const ticketItems = pedido.items.map(item => {
-        const prod = productosMenu.find(p => p.id_producto === item.id_producto);
-        const unit = prod ? prod.precio_venta : 0;
+        const unit = resolvePedidoItemUnitPrice(item, productosMenu);
         return {
           cantidad: item.cantidad,
           descripcion: item.nombre,

@@ -1,5 +1,6 @@
 import { getActiveSupabaseClient } from '../lib/supabaseClient';
 import { Reserva } from '../types';
+import { argentinaDateIso } from '../lib/argentinaDate';
 
 // ---------------------------------------------------------------------------
 // Normalización de fechas
@@ -7,7 +8,7 @@ import { Reserva } from '../types';
 // Esta función las unifica siempre a ISO.
 // ---------------------------------------------------------------------------
 function normalizarFecha(valor: string | null | undefined): string {
-    if (!valor) return new Date().toISOString().split('T')[0];
+    if (!valor) return argentinaDateIso();
     // Ya viene en ISO YYYY-MM-DD
   if (/^\d{4}-\d{2}-\d{2}$/.test(valor)) return valor;
     // Formato DD/MM/YYYY o DD-MM-YYYY

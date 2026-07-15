@@ -2,6 +2,8 @@ import { useState, useMemo, useEffect } from 'react';
 import { useToast } from '../../../components/ToastContainer';
 import { Insumo, ProductoMenu, RecetaEscandallo, Merma } from '../../../types';
 import { insumosService } from '../../../services/insumosService';
+import { createOperationalId } from '../../../lib/operationalId';
+import { argentinaDateIso } from '../../../lib/argentinaDate';
 
 export function getInsumoDeposito(insumo: Insumo): string {
   switch (insumo.categoria) {
@@ -174,7 +176,7 @@ export function useInventory({
     addLog('merma_registrada', `Merma manual registrada: ${mermaCantidad}${insSelected.unidad_medida} de ${insSelected.nombre} por motivo de ${mermaMotivo}`);
     
     // Append to local movements timeline
-    const movId = `MOV-${Math.floor(Math.random() * 900) + 100}`;
+    const movId = createOperationalId('MOV');
     setMovimientosLocales(prev => [
       { id: movId, insumo: insSelected.nombre, cantidad: `${mermaCantidad} ${insSelected.unidad_medida}`, operacion: 'Descarte/Merma', motivo: `Manual: ${mermaMotivo}`, fecha: new Date().toLocaleDateString('es-AR') + ' ' + new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + 'hs' },
       ...prev
@@ -212,7 +214,7 @@ export function useInventory({
     addLog('sistema', `Inventario: Ajuste manual de stock de '${insSelected.nombre}'. Cantidad: ${ajusteOperacion === 'sumar' ? '+' : '-'}${ajusteCantidad}${insSelected.unidad_medida}. Motivo: ${ajusteMotivo}`);
     
     // Append to local movements timeline
-    const movId = `MOV-${Math.floor(Math.random() * 900) + 100}`;
+    const movId = createOperationalId('MOV');
     setMovimientosLocales(prev => [
       { id: movId, insumo: insSelected.nombre, cantidad: `${ajusteCantidad} ${insSelected.unidad_medida}`, operacion: ajusteOperacion === 'sumar' ? 'Abastecimiento' : 'Descarte/Merma', motivo: `Ajuste manual: ${ajusteMotivo}`, fecha: new Date().toLocaleDateString('es-AR') + ' ' + new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + 'hs' },
       ...prev
@@ -295,7 +297,7 @@ export function useInventory({
     }
 
     try {
-      const ocId = `OC-${Math.floor(Math.random() * 300) + 2400}`;
+      const ocId = createOperationalId('OC');
       let totalPurchaseCost = 0;
 
       for (const item of purchaseCart) {
@@ -325,7 +327,7 @@ export function useInventory({
         addLog('sistema', `COMPRAS: Recibido de [${selectedProveedor}]. +${item.cantidad}${ins.unidad_medida} de "${ins.nombre}" inyectados.`);
 
         // 5. Append to local movements timeline
-        const movId = `MOV-${Math.floor(Math.random() * 900) + 100}`;
+        const movId = createOperationalId('MOV');
         setMovimientosLocales(prev => [
           {
             id: movId,
@@ -415,7 +417,7 @@ export function useInventory({
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `Movimientos_Stock_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute("download", `Movimientos_Stock_${argentinaDateIso()}.csv`);
     document.body.appendChild(link);
     link.click();
     if (document.body.contains(link)) {

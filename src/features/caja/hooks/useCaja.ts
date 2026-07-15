@@ -20,6 +20,9 @@ import { auditoriaService } from '../../../services/auditoriaService';
 import { clientesService } from '../../../services/clientesService';
 import { CONDICIONES_IVA_RECEPTOR, createArcaInvoice, getArcaStatus } from '../../../services/arcaService';
 import { DEFAULT_RESTAURANT_PROFILE, normalizeRestaurantProfile } from '../../../lib/restaurantProfile';
+import { resolvePedidoItemUnitPrice, roundCurrency } from '../../../lib/orderPricing';
+import { parseFiscalCustomerDocument } from '../../../lib/fiscalCustomerDocument';
+import { fiscalVoucherPreview } from '../../../lib/fiscalVoucherPolicy';
 
 interface UseCajaProps {
   pedidos: Pedido[];
@@ -386,8 +389,7 @@ export function useCaja({
     if (!selectedPedido) return { subtotal: 0, promoDeduction: 0, manualDeduction: 0, baseTotal: 0, propinaValue: 0, ivaValue: 0, finalTotal: 0, itemsCalculados: [] };
     
     const lineItems: TicketItem[] = selectedPedido.items.map(item => {
-      const prod = productosMenu.find(p => p.id_producto === item.id_producto);
-      const unit = prod ? prod.precio_venta : 0;
+      const unit = resolvePedidoItemUnitPrice(item, productosMenu);
       return {
         cantidad: item.cantidad,
         descripcion: item.nombre,
@@ -396,16 +398,15 @@ export function useCaja({
       };
     });
 
-    let subtotal = lineItems.reduce((acc, current) => acc + current.subtotal, 0);
+    let subtotal = roundCurrency(lineItems.reduce((acc, current) => acc + current.subtotal, 0));
 
     if (splitByProducts && selectedProductsForSplit.length > 0) {
-      subtotal = selectedPedido.items.reduce((acc, item) => {
+      subtotal = roundCurrency(selectedPedido.items.reduce((acc, item) => {
         if (selectedProductsForSplit.includes(item.id_producto)) {
-          const prod = productosMenu.find(p => p.id_producto === item.id_producto);
-          return acc + ((prod ? prod.precio_venta : 0) * item.cantidad);
+          return acc + resolvePedidoItemUnitPrice(item, productosMenu) * item.cantidad;
         }
         return acc;
-      }, 0);
+      }, 0));
     }
 
     let promoDeduction = 0;
@@ -420,9 +421,8 @@ export function useCaja({
 
     if (qualifiesForBifeVino) {
       const vinoItem = selectedPedido.items.find(it => (it.id_producto.startsWith('prod_vin_trumpeter_') && !it.id_producto.includes('copa')) || it.id_producto.startsWith('prod_vin_rutini_'));
-      const prodVino = productosMenu.find(pr => pr.id_producto === vinoItem?.id_producto);
-      if (prodVino && vinoItem) {
-        promoDeduction += (prodVino.precio_venta * 0.15) * vinoItem.cantidad;
+      if (vinoItem) {
+        promoDeduction += (resolvePedidoItemUnitPrice(vinoItem, productosMenu) * 0.15) * vinoItem.cantidad;
       }
     }
 
@@ -430,12 +430,13 @@ export function useCaja({
       promoDeduction += 1500;
     }
 
-    let manualDeduction = subtotal * (descuentoPorcentaje / 100);
-    let baseTotal = Math.max(0, subtotal - promoDeduction - manualDeduction);
-    let propinaValue = baseTotal * (propinaPorcentaje / 100);
+    promoDeduction = roundCurrency(promoDeduction);
+    let manualDeduction = roundCurrency(subtotal * (descuentoPorcentaje / 100));
+    let baseTotal = roundCurrency(Math.max(0, subtotal - promoDeduction - manualDeduction));
+    let propinaValue = roundCurrency(baseTotal * (propinaPorcentaje / 100));
     // El emisor es monotributista: la Factura C no discrimina IVA.
     let ivaValue = 0;
-    let finalTotal = Math.max(0, baseTotal + propinaValue - puntosRedimidos);
+    let finalTotal = roundCurrency(Math.max(0, baseTotal + propinaValue - puntosRedimidos));
 
     return {
       subtotal,
@@ -601,7 +602,7 @@ export function useCaja({
     }
 
     const idFactura = `fac_${Date.now()}`;
-    let compiledTicketNo = `X-0001-${Math.floor(Math.random() * 900000 + 100000)}`;
+    let compiledTicketNo = fiscalVoucherPreview('X', null, lastFacturas.map(factura => factura.nro_ticket));
 
     let arcaCae = "";
     let arcaVto = "";
@@ -619,14 +620,12 @@ export function useCaja({
         return;
       }
       try {
-        const cleanDocument = cuitCliente.replace(/\D/g, '');
-        const nroDoc = cuitCliente === '99-99999999-9' ? 0 : Number(cleanDocument);
-        const docTipo = nroDoc === 0 ? 99 : (cleanDocument.length === 11 ? 80 : 96);
+        const document = parseFiscalCustomerDocument(cuitCliente);
         const result = await createArcaInvoice({
           idempotencyKey: idFactura,
           tipoComprobante: 11,
           puntoVenta: arcaStatus.puntoVenta || undefined,
-          cliente: { tipoDoc: docTipo, nroDoc, nombre: nombreCliente, condicionIva: condicionIvaReceptor },
+          cliente: { tipoDoc: document.documentType, nroDoc: document.documentNumber, nombre: nombreCliente, condicionIva: condicionIvaReceptor },
           items: [{
             descripcion: `Venta gastronomica mesa ${selectedPedido.numero_mesa}`,
             cantidad: 1,
@@ -676,8 +675,7 @@ export function useCaja({
       cajero: cajaSession.usuario_cajero,
       fechaHora: new Date().toLocaleDateString('es-AR') + ' ' + new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + 'hs',
       items: selectedPedido.items.map(it => {
-        const prod = productosMenu.find(pm => pm.id_producto === it.id_producto);
-        const uni = it.precio_unitario ?? prod?.precio_venta ?? 0;
+        const uni = resolvePedidoItemUnitPrice(it, productosMenu);
         return {
           cantidad: it.cantidad,
           descripcion: it.nombre,
@@ -836,8 +834,7 @@ export function useCaja({
       cajero: cajaSession.usuario_cajero,
       fechaHora: new Date().toLocaleDateString('es-AR') + ' ' + new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }),
       items: selectedPedido.items.map(it => {
-        const prod = productosMenu.find(pm => pm.id_producto === it.id_producto);
-        const uni = prod ? prod.precio_venta : 0;
+        const uni = resolvePedidoItemUnitPrice(it, productosMenu);
         return {
           cantidad: it.cantidad,
           descripcion: it.nombre,
@@ -890,8 +887,7 @@ export function useCaja({
       cajero: cajaSession.usuario_cajero,
       fechaHora: new Date().toLocaleDateString('es-AR') + ' ' + new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }),
       items: selectedPedido.items.map(it => {
-        const prod = productosMenu.find(pm => pm.id_producto === it.id_producto);
-        const uni = prod ? prod.precio_venta : 0;
+        const uni = resolvePedidoItemUnitPrice(it, productosMenu);
         return {
           cantidad: it.cantidad,
           descripcion: it.nombre,

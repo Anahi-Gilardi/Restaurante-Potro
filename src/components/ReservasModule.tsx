@@ -9,6 +9,7 @@ import { Mesa, Reserva, EventoLog } from '../types';
 import { reservasService } from '../services/reservasService';
 import { reservaSchema } from '../lib/validations';
 import { ToastContainer, useToast } from './ToastContainer';
+import { argentinaDateIso } from '../lib/argentinaDate';
 
 interface ReservasModuleProps {
   mesas: Mesa[];
@@ -17,7 +18,7 @@ interface ReservasModuleProps {
 }
 
 function formatDate(d: Date): string {
-  return d.toISOString().split('T')[0];
+  return argentinaDateIso(d);
 }
 function parseTimeToMin(t?: string | null): number {
   const match = String(t ?? '').match(/(\d{1,2}):(\d{2})/);

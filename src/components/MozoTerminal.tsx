@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { motion } from 'motion/react';
 import { 
   Users, 
@@ -23,6 +23,8 @@ import {
   X
 } from 'lucide-react';
 import { Mesa, Insumo, ProductoMenu, RecetaEscandallo, Pedido, PedidoItem } from '../types';
+import { createMozoCartIdempotencyKey } from '../lib/mozoCartDraft';
+import { calculatePedidoTotal, resolvePedidoItemUnitPrice } from '../lib/orderPricing';
 
 interface WineMapping {
   macro: 'tintas' | 'blancas' | 'champagne' | 'copas' | 'destilados' | null;
@@ -191,7 +193,7 @@ interface MozoTerminalProps {
   recetas: RecetaEscandallo[];
   activeMozo: string;
   onMozoChange: (mozo: string) => void;
-  onCrearPedido: (pedido: Omit<Pedido, 'id_pedido' | 'fecha_hora' | 'minutos_transcurridos' | 'origen'> & { origen?: 'Mozo' }) => void;
+  onCrearPedido: (pedido: Omit<Pedido, 'id_pedido' | 'fecha_hora' | 'minutos_transcurridos' | 'origen'> & { origen?: 'Mozo'; comensales?: number; idempotency_key?: string }) => void | boolean | Promise<void | boolean>;
   pedidos: Pedido[];
   onFacturarMesa: (idPedido: number) => void;
   addLog: (tipo: 'pedido_creado' | 'descuento_stock' | 'alerta_stock' | 'comanda_estado' | 'sistema', mensaje: string) => void;
@@ -211,6 +213,7 @@ export default function MozoTerminal({
   addLog,
   permitirVentaSinStock = false
 }: MozoTerminalProps) {
+  const checkoutInFlightRef = useRef(false);
   // Waiter selections
   const [selectedMesaId, setSelectedMesaId] = useState<number | null>(null);
   const [comensales, setComensales] = useState<number>(2);
@@ -470,44 +473,51 @@ export default function MozoTerminal({
     });
   };
 
-  const checkoutCart = () => {
-    if (!selectedMesaId) return;
-    if (Object.keys(cart).length === 0) return;
+  const checkoutCart = async () => {
+    if (checkoutInFlightRef.current || !selectedMesaId || Object.keys(cart).length === 0) return;
+    checkoutInFlightRef.current = true;
 
-    // Double check stock at moment of checkout
-    const requirements = calculateCartInsumoRequirements(cart);
-    for (const [insumoId, reqAmount] of Object.entries(requirements)) {
-      const insumo = insumos.find(i => i.id_insumo === insumoId);
-      if (insumo && insumo.stock_actual < reqAmount) {
-        alert(`No es posible procesar la orden. Se agotó un insumo clave: ${insumo.nombre}`);
-        return;
+    try {
+      const requirements = calculateCartInsumoRequirements(cart);
+      for (const [insumoId, reqAmount] of Object.entries(requirements)) {
+        const insumo = insumos.find(i => i.id_insumo === insumoId);
+        if (insumo && insumo.stock_actual < reqAmount) {
+          throw new Error(`No es posible procesar la orden. Se agotó un insumo clave: ${insumo.nombre}`);
+        }
       }
+
+      const items: PedidoItem[] = Object.entries(cart).map(([prodId, qty]) => {
+        const product = productosMenu.find(item => item.id_producto === prodId)!;
+        return {
+          id_producto: prodId,
+          nombre: product.nombre,
+          cantidad: Number(qty),
+          categoria: product.categoria,
+          precio_unitario: product.precio_venta,
+        };
+      });
+
+      const accepted = await onCrearPedido({
+        id_mesa: selectedMesaId,
+        numero_mesa: selectedMesa ? selectedMesa.numero_mesa : `Mesa ${selectedMesaId}`,
+        mozo: activeMozo,
+        estado_comanda: 'pendiente',
+        items,
+        observaciones: observaciones.trim() || undefined,
+        comensales,
+        idempotency_key: createMozoCartIdempotencyKey(selectedMesaId),
+      });
+
+      if (accepted === false) return;
+
+      setCart({});
+      setObservaciones('');
+      addLog('pedido_creado', `Mozo ${activeMozo} inyectó pedido para ${selectedMesa?.numero_mesa} con ${items.length} platos.`);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'No se pudo enviar la comanda. El carrito permanece disponible.');
+    } finally {
+      checkoutInFlightRef.current = false;
     }
-
-    // Build items list
-    const items: PedidoItem[] = Object.entries(cart).map(([prodId, qty]) => {
-      const p = productosMenu.find(item => item.id_producto === prodId)!;
-      return {
-        id_producto: prodId,
-        nombre: p.nombre,
-        cantidad: Number(qty),
-        categoria: p.categoria
-      };
-    });
-
-    onCrearPedido({
-      id_mesa: selectedMesaId,
-      numero_mesa: selectedMesa ? selectedMesa.numero_mesa : `Mesa ${selectedMesaId}`,
-      mozo: activeMozo,
-      estado_comanda: 'pendiente',
-      items,
-      observaciones: observaciones.trim() || undefined,
-    });
-
-    // Reset layout
-    setCart({});
-    setObservaciones('');
-    addLog('pedido_creado', `Mozo ${activeMozo} inyectó pedido para ${selectedMesa?.numero_mesa} con ${items.length} platos.`);
   };
 
   // Calculating totals
@@ -670,7 +680,7 @@ export default function MozoTerminal({
                       <div key={idx} className="flex justify-between text-xs text-stone-750 dark:text-stone-300 font-medium">
                         <span>{it.cantidad}x {it.nombre}</span>
                         <span className="font-mono text-stone-500 dark:text-stone-450">
-                          ${(productosMenu.find(p => p.id_producto === it.id_producto)?.precio_venta || 0).toLocaleString('es-AR')}
+                          ${resolvePedidoItemUnitPrice(it, productosMenu).toLocaleString('es-AR')}
                         </span>
                       </div>
                     ))}
@@ -1080,17 +1090,13 @@ export default function MozoTerminal({
               const p = pedidos.find(o => o.id_pedido === splittingPedidoId);
               if (!p) return null;
 
-              const orderTotal = p.items.reduce((sum, item) => {
-                const prod = productosMenu.find(pr => pr.id_producto === item.id_producto);
-                return sum + (prod ? prod.precio_venta * item.cantidad : 0);
-              }, 0);
+              const orderTotal = calculatePedidoTotal(p, productosMenu);
 
               // Expand items list by their quantity for itemized selection
               const expandedItemsList: { item: PedidoItem; index: number; singlePrice: number }[] = [];
               let curIdx = 0;
               p.items.forEach(it => {
-                const prod = productosMenu.find(pr => pr.id_producto === it.id_producto);
-                const sPrice = prod ? prod.precio_venta : 0;
+                const sPrice = resolvePedidoItemUnitPrice(it, productosMenu);
                 for (let i = 0; i < it.cantidad; i++) {
                   expandedItemsList.push({ item: it, index: curIdx++, singlePrice: sPrice });
                 }
