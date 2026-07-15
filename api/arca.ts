@@ -472,7 +472,12 @@ async function saveStoredConfig(body: any, user: AuthenticatedUser): Promise<Sto
   if (legalName.length < 3 || legalName.length > 120) throw new Error("La razon social o nombre legal es obligatorio.");
   if (tradeName.length < 2 || tradeName.length > 120) throw new Error("El nombre comercial es obligatorio.");
   if (commercialAddress.length < 5 || commercialAddress.length > 180) throw new Error("El domicilio comercial es obligatorio.");
-  if (grossIncomeNumber.length < 2 || grossIncomeNumber.length > 40) throw new Error("Informe Ingresos Brutos o la condicion de no contribuyente.");
+  // Permite guardar primero la firma digital aunque la constancia provincial
+  // todavia no este disponible. Mientras este dato quede vacio,
+  // hasCompleteLegalData() mantiene bloqueada la emision fiscal.
+  if (grossIncomeNumber && (grossIncomeNumber.length < 2 || grossIncomeNumber.length > 40)) {
+    throw new Error("Informe Ingresos Brutos o la condicion de no contribuyente.");
+  }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(activityStartDate) || Number.isNaN(Date.parse(`${activityStartDate}T00:00:00Z`))) {
     throw new Error("La fecha de inicio de actividades es invalida.");
   }
