@@ -28,3 +28,9 @@ test('la sincronizacion operativa espera una sesion autenticada y la salida de l
   );
   assert.match(appModule, /setHasSupabaseSession\(Boolean\(session\)\)/);
 });
+
+test('el panel ARCA conserva el resultado de la prueba de conexion', () => {
+  assert.match(systemModule, /Conectado a ARCA/);
+  assert.match(systemModule, /Conexion WSAA\/WSFE confirmada con ARCA/);
+  assert.match(systemModule, /setArcaPanelError\(message\)/);
+});

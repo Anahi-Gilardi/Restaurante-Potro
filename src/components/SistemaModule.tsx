@@ -186,6 +186,7 @@ export default function SistemaModule({
 
   const handleTestArca = async () => {
     setArcaTesting(true);
+    setArcaPanelError('');
     try {
       const result = await testArcaConnection();
       if (!result.success) throw new Error(result.error || result.status.message);
@@ -193,7 +194,9 @@ export default function SistemaModule({
       addLog('sistema', 'ARCA: Conexion WSAA/WSFE comprobada correctamente para Factura C.');
       toast.success('Conexion con ARCA confirmada.');
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'No se pudo conectar con ARCA.');
+      const message = error instanceof Error ? error.message : 'No se pudo conectar con ARCA.';
+      setArcaPanelError(message);
+      toast.error(message);
     } finally {
       setArcaTesting(false);
     }
@@ -657,7 +660,7 @@ export default function SistemaModule({
                 <Loader2 className="w-4 h-4 animate-spin text-[#8C6239]" />
               ) : (
                 <span className={`shrink-0 px-2 py-1 rounded-full text-[8px] font-black uppercase border ${arcaConfig?.configured && arcaConfig.legalDataComplete ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-900' : 'bg-stone-100 text-stone-500 border-stone-200 dark:bg-stone-850 dark:border-stone-700'}`}>
-                  {arcaConfig?.configured && arcaConfig.legalDataComplete ? 'Listo para facturar' : arcaConfig?.configured ? 'Datos incompletos' : 'Sin configurar'}
+                  {arcaConfig?.connected ? 'Conectado a ARCA' : arcaConfig?.configured && arcaConfig.legalDataComplete ? 'Listo para facturar' : arcaConfig?.configured ? 'Datos incompletos' : 'Sin configurar'}
                 </span>
               )}
             </div>
@@ -778,6 +781,13 @@ export default function SistemaModule({
             {arcaConfig?.certificateValidTo && (
               <div className="text-left text-[9px] leading-relaxed text-stone-500 dark:text-stone-400 bg-stone-50 dark:bg-stone-850 rounded-lg px-3 py-2 border border-stone-150 dark:border-stone-800">
                 Certificado vigente hasta <b>{new Date(arcaConfig.certificateValidTo).toLocaleDateString('es-AR')}</b> · origen: {arcaConfig.source === 'database' ? 'panel Sistema' : 'variables privadas del servidor'}.
+              </div>
+            )}
+
+            {arcaConfig?.connected && (
+              <div className="flex items-start gap-2 p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/50 text-emerald-800 dark:text-emerald-300 text-[9px] font-semibold text-left leading-relaxed">
+                <CheckCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                <span>Conexion WSAA/WSFE confirmada con ARCA. {arcaConfig.message || 'El servicio fiscal respondio correctamente.'}</span>
               </div>
             )}
 
