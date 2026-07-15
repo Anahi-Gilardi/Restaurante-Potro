@@ -269,8 +269,7 @@ export default function SistemaModule({
   // Auditorías Críticas
   const menuItemsWithoutRecipe = useMemo(() => {
     return productosMenu.filter(p => {
-      const hasRecipe = recetas.some(r => r.id_producto === p.id_producto);
-      return !hasRecipe;
+      return p.activo !== false && !recetas.some(r => r.id_producto === p.id_producto);
     });
   }, [productosMenu, recetas]);
 

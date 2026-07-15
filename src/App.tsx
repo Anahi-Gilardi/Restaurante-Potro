@@ -118,6 +118,7 @@ export default function App() {
     typeof window !== 'undefined' && window.localStorage.getItem('el_patron_session') === 'active'
   ));
   const [showCover, setShowCover] = useState<boolean>(true);
+  const [hasSupabaseSession, setHasSupabaseSession] = useState<boolean>(false);
   const [permitirVentaSinStock, setPermitirVentaSinStock] = useState<boolean>(false);
   const [usuarios, setUsuarios] = useState<Usuario[]>(INITIAL_USUARIOS);
   const [mesas, setMesas] = useState<Mesa[]>(INITIAL_MESAS);
@@ -213,6 +214,8 @@ export default function App() {
 
   // 2. Data load and Realtime sync effect (runs on mount and whenever connection parameters update)
   useEffect(() => {
+    if (showCover || !isStreamlitLoggedIn || !hasSupabaseSession) return;
+
     let active = true;
     let channel: any = null;
     const client = getSupabaseClient();
@@ -368,7 +371,7 @@ export default function App() {
         });
       }
     };
-  }, [supabaseTrigger]);
+  }, [supabaseTrigger, showCover, isStreamlitLoggedIn, hasSupabaseSession, addLog]);
 
   // Sync completion callback handed to settings
   const handleSupabaseSync = (newData: {
@@ -424,13 +427,15 @@ export default function App() {
     if (!client) return;
 
     client.auth.getSession().then(({ data }) => {
+      setHasSupabaseSession(Boolean(data.session));
       if (data.session) applyAuthenticatedSession(data.session);
     }).catch(err => console.error('Auth session error:', err));
     const { data: listener } = client.auth.onAuthStateChange((_event, session) => {
+      setHasSupabaseSession(Boolean(session));
       if (session) applyAuthenticatedSession(session);
     });
     return () => listener.subscription.unsubscribe();
-  }, [applyAuthenticatedSession]);
+  }, [applyAuthenticatedSession, supabaseTrigger]);
 
   // Simulation Clock state (operational minutes passed)
 const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
