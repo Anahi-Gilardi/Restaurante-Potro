@@ -11,7 +11,7 @@ const TRUSTED_ORIGINS = new Set([
 ]);
 
 export class ApiAccessError extends Error {
-  constructor(public readonly status: 401 | 403 | 503, message: string) {
+  constructor(public readonly status: 401 | 403 | 409 | 503, message: string) {
     super(message);
     this.name = 'ApiAccessError';
   }
