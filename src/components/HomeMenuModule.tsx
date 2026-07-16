@@ -364,7 +364,7 @@ export default function HomeMenuModule({
     {
       id: 'sistema',
       title: 'Sistema / Configuración',
-      description: 'Estado del motor secundario PostgreSQL, pings de red, adaptador local y logs.',
+      description: 'Estado de Supabase, caché local, diagnóstico real, firma ARCA y registros operativos.',
       icon: Sliders,
       color: 'from-indigo-500/10 to-indigo-650/5 hover:border-indigo-400 border-l-4 border-l-indigo-500 dark:border-l-indigo-450',
       iconColor: 'text-indigo-700 dark:text-indigo-400',

@@ -18,7 +18,9 @@ test('la migración final bloquea anon y limita las tablas operativas a authenti
 });
 
 test('la preparación productiva no exige receta a productos desactivados', () => {
-  assert.match(systemModule, /p\.activo !== false && !recetas\.some/);
+  assert.match(systemModule, /if \(p\.activo === false\) return false/);
+  assert.match(systemModule, /const hasUsableRecipe = recetas\.some/);
+  assert.match(systemModule, /Number\(r\.cantidad_a_descontar\) > 0/);
 });
 
 test('la sincronizacion operativa espera una sesion autenticada y la salida de la portada', () => {

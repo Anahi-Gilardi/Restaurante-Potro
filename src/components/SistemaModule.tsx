@@ -270,9 +270,15 @@ export default function SistemaModule({
   // Auditorías Críticas
   const menuItemsWithoutRecipe = useMemo(() => {
     return productosMenu.filter(p => {
-      return p.activo !== false && !recetas.some(r => r.id_producto === p.id_producto);
+      if (p.activo === false) return false;
+      const hasUsableRecipe = recetas.some(r => (
+        r.id_producto === p.id_producto
+        && Number(r.cantidad_a_descontar) > 0
+        && insumos.some(insumo => insumo.id_insumo === r.id_insumo)
+      ));
+      return !hasUsableRecipe;
     });
-  }, [productosMenu, recetas]);
+  }, [productosMenu, recetas, insumos]);
 
   const ingredientsBelowMin = useMemo(() => {
     return insumos.filter(i => i.stock_actual <= i.stock_minimo);
@@ -943,7 +949,7 @@ export default function SistemaModule({
                     </span>
                   </span>
                   <span className="text-[9px] text-stone-400 block mt-0.5 leading-normal">
-                    Cada uno de los platos del menú cuenta con su receta de escandallo de ingredientes asignada.
+                    Cada plato activo debe tener al menos un insumo existente y una cantidad positiva en su escandallo.
                   </span>
                 </div>
               </label>
