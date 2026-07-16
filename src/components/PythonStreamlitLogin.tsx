@@ -116,7 +116,7 @@ export default function PythonStreamlitLogin({ onLoginSuccess, onBackToCover }: 
       const safeEmail = (authenticatedUser.email || identifier).trim().toLowerCase().replace(/[(),]/g, '');
       const { data: profile, error: profileError } = await supabase
         .from('usuarios')
-        .select('*')
+        .select('id_usuario,nombre,apellido,username,rol,activo,auth_user_id,mail')
         .or(`auth_user_id.eq.${authenticatedUser.id},username.eq.${safeEmail},mail.eq.${safeEmail}`)
         .limit(1)
         .single();
@@ -128,12 +128,13 @@ export default function PythonStreamlitLogin({ onLoginSuccess, onBackToCover }: 
         return;
       }
 
-      if (!canLogin(profile as Usuario)) {
+      const safeProfile = { ...profile, password: '' } as Usuario;
+      if (!canLogin(safeProfile)) {
         setError('Este usuario está desactivado.');
         return;
       }
 
-      await completeLogin(profile as Usuario);
+      await completeLogin(safeProfile);
     } catch (err: unknown) {
       setError(getLoginErrorMessage(err));
     } finally {

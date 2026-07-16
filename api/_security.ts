@@ -1,4 +1,4 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient, type User } from '@supabase/supabase-js';
 import type { VercelRequest, VercelResponse } from './_types';
 
 const TRUSTED_ORIGINS = new Set([
@@ -49,10 +49,20 @@ const getBearerToken = (req: VercelRequest): string => (
   readHeader(req, 'authorization').match(/^Bearer\s+(.+)$/i)?.[1] ?? ''
 );
 
-export const requireAuthenticatedDataClient = async (
+export interface AuthenticatedProfileContext {
+  client: SupabaseClient;
+  user: User;
+  profile: {
+    id_usuario: number;
+    rol: string;
+    activo: boolean;
+  };
+}
+
+export const requireAuthenticatedProfile = async (
   req: VercelRequest,
   allowedRoles: readonly string[],
-): Promise<SupabaseClient> => {
+): Promise<AuthenticatedProfileContext> => {
   const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
   const key = process.env.SUPABASE_PUBLISHABLE_KEY
     || process.env.SUPABASE_ANON_KEY
@@ -76,7 +86,7 @@ export const requireAuthenticatedDataClient = async (
 
   const { data: profile, error: profileError } = await client
     .from('usuarios')
-    .select('rol, activo')
+    .select('id_usuario, rol, activo')
     .eq('auth_user_id', authData.user.id)
     .maybeSingle();
   if (profileError) {
@@ -86,5 +96,21 @@ export const requireAuthenticatedDataClient = async (
     throw new ApiAccessError(403, 'El usuario no tiene permiso para esta operación.');
   }
 
-  return client;
+  return {
+    client,
+    user: authData.user,
+    profile: {
+      id_usuario: Number(profile.id_usuario),
+      rol: String(profile.rol),
+      activo: profile.activo !== false,
+    },
+  };
+};
+
+export const requireAuthenticatedDataClient = async (
+  req: VercelRequest,
+  allowedRoles: readonly string[],
+): Promise<SupabaseClient> => {
+  const context = await requireAuthenticatedProfile(req, allowedRoles);
+  return context.client;
 };

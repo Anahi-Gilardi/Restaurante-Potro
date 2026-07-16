@@ -2,12 +2,25 @@ import { getActiveSupabaseClient } from '../lib/supabaseClient';
 import { Usuario } from '../types';
 
 const LOCAL_USERS_KEY = 'el_patron_usuarios_locales';
+const SAFE_USER_COLUMNS = 'id_usuario,nombre,apellido,username,rol,activo,auth_user_id,mail';
+
+const sanitizeUsuario = (usuario: Usuario): Usuario => ({
+  id_usuario: Number(usuario.id_usuario),
+  nombre: String(usuario.nombre || ''),
+  apellido: String(usuario.apellido || ''),
+  username: String(usuario.username || ''),
+  password: '',
+  auth_user_id: usuario.auth_user_id ?? null,
+  mail: usuario.mail ?? null,
+  rol: usuario.rol,
+  activo: usuario.activo !== false,
+});
 
 const readLocalUsers = (): Usuario[] => {
   if (typeof localStorage === 'undefined') return [];
   try {
     const parsed = JSON.parse(localStorage.getItem(LOCAL_USERS_KEY) || '[]');
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed) ? parsed.map(sanitizeUsuario) : [];
   } catch {
     return [];
   }
@@ -20,8 +33,8 @@ const writeLocalUsers = (usuarios: Usuario[]) => {
 
 export const mergeUsuarios = (remote: Usuario[], local: Usuario[]): Usuario[] => {
   const merged = new Map<number, Usuario>();
-  local.forEach(usuario => merged.set(usuario.id_usuario, usuario));
-  remote.forEach(usuario => merged.set(usuario.id_usuario, usuario));
+  local.forEach(usuario => merged.set(usuario.id_usuario, sanitizeUsuario(usuario)));
+  remote.forEach(usuario => merged.set(usuario.id_usuario, sanitizeUsuario(usuario)));
   return Array.from(merged.values()).sort((a, b) => a.id_usuario - b.id_usuario);
 };
 
@@ -34,9 +47,10 @@ export const usuariosService = {
     const local = readLocalUsers();
     try {
       const supabase = getActiveSupabaseClient();
-      const { data, error } = await supabase.from('usuarios').select('*').order('id_usuario', { ascending: true });
+      const { data, error } = await supabase.from('usuarios').select(SAFE_USER_COLUMNS).order('id_usuario', { ascending: true });
       if (error) throw error;
-      const merged = mergeUsuarios(data || [], local);
+      const remote = (data || []).map(usuario => sanitizeUsuario(usuario as Usuario));
+      const merged = mergeUsuarios(remote, local);
       writeLocalUsers(merged);
       return merged;
     } catch (error) {
@@ -49,10 +63,11 @@ export const usuariosService = {
     const local = readLocalUsers().find(usuario => usuario.id_usuario === id) || null;
     try {
       const supabase = getActiveSupabaseClient();
-      const { data, error } = await supabase.from('usuarios').select('*').eq('id_usuario', id).single();
+      const { data, error } = await supabase.from('usuarios').select(SAFE_USER_COLUMNS).eq('id_usuario', id).single();
       if (error) throw error;
-      if (data) cacheUsuario(data);
-      return data || local;
+      const safeData = data ? sanitizeUsuario(data as Usuario) : null;
+      if (safeData) cacheUsuario(safeData);
+      return safeData || local;
     } catch {
       return local;
     }

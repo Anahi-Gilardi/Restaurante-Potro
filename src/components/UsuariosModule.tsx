@@ -19,7 +19,7 @@ import {
   Shield
 } from 'lucide-react';
 import { Usuario, EventoLog } from '../types';
-import { usuariosService } from '../services/usuariosService';
+import { userAdminService } from '../services/userAdminService';
 import { ToastContainer, useToast } from './ToastContainer';
 import { usuarioSchema } from '../lib/validations';
 import { ListSkeleton } from './Skeleton';
@@ -46,8 +46,9 @@ export default function UsuariosModule({
   // Form State
   const [nombre, setNombre] = useState('');
   const [apellido, setApellido] = useState('');
+  const [username, setUsername] = useState('');
   const [rol, setRol] = useState<Usuario['rol']>('mozo');
-  const [password, setPassword] = useState('1234');
+  const [password, setPassword] = useState('');
   const [showPasswordInput, setShowPasswordInput] = useState(false);
 
   // Edit State
@@ -60,9 +61,6 @@ export default function UsuariosModule({
 
   // Delete Confirm State
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
-
-  // PIN visibility toggle state per user ID
-  const [visiblePins, setVisiblePins] = useState<Record<number, boolean>>({});
 
   const debouncedSearch = useDebounce(search, 300);
 
@@ -80,10 +78,6 @@ export default function UsuariosModule({
       `${u.nombre} ${u.apellido}`.toLowerCase().includes(debouncedSearch.toLowerCase())
     );
   }, [usuarios, debouncedSearch, activeUser]);
-
-  const togglePinVisibility = (id: number) => {
-    setVisiblePins(prev => ({ ...prev, [id]: !prev[id] }));
-  };
 
   const handleCreateUsuario = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,33 +100,31 @@ export default function UsuariosModule({
     }
 
     const { nombre: normalizedNombre, apellido: normalizedApellido } = validation.data;
-    if (usuarios.some(usuario => usuario.nombre.toLowerCase() === normalizedNombre.toLowerCase())) {
-      toast.warning('Ya existe un usuario con ese nombre operativo.');
+    const normalizedUsername = username.trim().toLowerCase();
+    if (!/^[a-z0-9._-]{3,40}$/.test(normalizedUsername)) {
+      toast.error('El usuario debe tener entre 3 y 40 caracteres: letras, números, punto, guion o guion bajo.');
       return;
     }
-
-    const newUs: Usuario = {
-      id_usuario: Math.max(0, ...usuarios.map(u => u.id_usuario)) + 1,
-      nombre: normalizedNombre,
-      apellido: normalizedApellido,
-      username: normalizedNombre.trim().toLowerCase(),
-      password: password.trim(),
-      rol,
-      activo: true
-    };
-
-    onUsuariosChange([...usuarios, newUs]);
     try {
-      await usuariosService.create(newUs);
-      toast.success('Usuario creado y sincronizado.');
-    } catch {
-      toast.warning('Usuario creado localmente, en espera de sincronización.');
+      const created = await userAdminService.create({
+        nombre: normalizedNombre,
+        apellido: normalizedApellido,
+        username: normalizedUsername,
+        password,
+        rol,
+      });
+      onUsuariosChange([...usuarios.filter(u => u.id_usuario !== created.id_usuario), created]);
+      toast.success('Usuario creado en Supabase Auth.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'No se pudo crear el usuario.');
+      return;
     }
 
     addLog('sistema', `USUARIOS: Alta de personal '${normalizedNombre} ${normalizedApellido}' como ${rol.toUpperCase()}`);
     setNombre('');
     setApellido('');
-    setPassword('1234');
+    setUsername('');
+    setPassword('');
     setShowPasswordInput(false);
   };
 
@@ -145,7 +137,7 @@ export default function UsuariosModule({
     setEditNombre(u.nombre);
     setEditApellido(u.apellido);
     setEditRol(u.rol);
-    setEditPassword(u.password);
+    setEditPassword('');
   };
 
   const handleSaveEdit = async (id: number) => {
@@ -153,8 +145,8 @@ export default function UsuariosModule({
       toast.error('El nombre y apellido son campos requeridos.');
       return;
     }
-    if (editPassword.trim().length < 4) {
-      toast.error('La clave/PIN debe tener mínimo 4 caracteres.');
+    if (editPassword && editPassword.length < 4) {
+      toast.error('La nueva contraseña debe tener mínimo 4 caracteres.');
       return;
     }
 
@@ -168,36 +160,25 @@ export default function UsuariosModule({
       return;
     }
 
-    const updated = usuarios.map(u => {
-      if (u.id_usuario === id) {
-        const changed = { 
-          ...u, 
+    try {
+      const changed = await userAdminService.update(id, {
           nombre: editNombre.trim(), 
           apellido: editApellido.trim(), 
           rol: editRol,
-          password: editPassword.trim()
-        };
-        
-        usuariosService.update(id, { 
-          nombre: editNombre.trim(), 
-          apellido: editApellido.trim(), 
-          rol: editRol,
-          password: editPassword.trim()
-        }).catch(() => {});
-
-        addLog('sistema', `USUARIOS: Modificado personal '${u.nombre} ${u.apellido}' → '${editNombre} ${editApellido}' (${editRol})`);
-        return changed;
-      }
-      return u;
-    });
-
-    onUsuariosChange(updated);
+      });
+      if (editPassword) await userAdminService.changePassword(id, editPassword);
+      onUsuariosChange(usuarios.map(u => u.id_usuario === id ? changed : u));
+      addLog('sistema', `USUARIOS: Modificado personal '${target?.nombre} ${target?.apellido}' → '${editNombre} ${editApellido}' (${editRol})`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'No se pudo actualizar el usuario.');
+      return;
+    }
     setEditingId(null);
     setShowEditPassword(false);
     toast.success('Usuario actualizado correctamente.');
   };
 
-  const handleToggleActivo = (id: number) => {
+  const handleToggleActivo = async (id: number) => {
     const target = usuarios.find(u => u.id_usuario === id);
     if (!target) return;
     if (target.rol === 'superadmin' && activeUser?.rol !== 'superadmin') {
@@ -206,15 +187,13 @@ export default function UsuariosModule({
     }
 
     const nextActivo = target.activo !== false ? false : true;
-    const updated = usuarios.map(u => {
-      if (u.id_usuario === id) {
-        usuariosService.update(id, { activo: nextActivo }).catch(() => {});
-        addLog('sistema', `USUARIOS: Personal '${u.nombre} ${u.apellido}' ${nextActivo ? 'habilitado' : 'deshabilitado'}`);
-        return { ...u, activo: nextActivo };
-      }
-      return u;
-    });
-    onUsuariosChange(updated);
+    try {
+      const updatedUser = await userAdminService.setActive(id, nextActivo);
+      onUsuariosChange(usuarios.map(u => u.id_usuario === id ? updatedUser : u));
+      addLog('sistema', `USUARIOS: Personal '${target.nombre} ${target.apellido}' ${nextActivo ? 'habilitado' : 'deshabilitado'}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'No se pudo cambiar el estado del usuario.');
+    }
   };
 
   const handleDeleteUsuario = async (id: number) => {
@@ -233,9 +212,13 @@ export default function UsuariosModule({
       return;
     }
 
-    onUsuariosChange(usuarios.filter(u => u.id_usuario !== id));
-    const removed = await usuariosService.remove(id);
-    if (!removed) toast.warning('El usuario se borró de la sesión local, pero no de la nube.');
+    try {
+      await userAdminService.remove(id);
+      onUsuariosChange(usuarios.filter(u => u.id_usuario !== id));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'No se pudo eliminar el usuario.');
+      return;
+    }
     
     addLog('sistema', `USUARIOS: Personal eliminado '${target.nombre} ${target.apellido}'`);
   };
@@ -349,6 +332,20 @@ export default function UsuariosModule({
                 required 
               />
             </div>
+
+            <div>
+              <label className="text-[10px] font-black text-stone-500 uppercase tracking-wider block mb-1">Usuario de acceso</label>
+              <input
+                type="text"
+                value={username}
+                onChange={e => setUsername(e.target.value.toLowerCase())}
+                placeholder="Ej. sofia"
+                autoComplete="off"
+                className="w-full text-xs p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-950 text-stone-800 dark:text-stone-100 font-mono focus:outline-none"
+                required
+              />
+              <span className="text-[9px] text-stone-400 block mt-1">No necesita correo electrónico ni cuenta de Gmail.</span>
+            </div>
             
             <div>
               <label className="text-[10px] font-black text-stone-500 uppercase tracking-wider block mb-1">Rol en Negocio</label>
@@ -366,10 +363,10 @@ export default function UsuariosModule({
               </select>
             </div>
 
-            {/* Contraseña / PIN Personalizado */}
+            {/* Contraseña inicial */}
             <div className="space-y-1">
               <label className="text-[10px] font-black text-stone-500 uppercase tracking-wider flex justify-between">
-                PIN de Acceso
+                Contraseña inicial
                 <button 
                   type="button" 
                   onClick={() => setShowPasswordInput(!showPasswordInput)} 
@@ -384,12 +381,13 @@ export default function UsuariosModule({
                   type={showPasswordInput ? 'text' : 'password'} 
                   value={password} 
                   onChange={e => setPassword(e.target.value)}
-                  placeholder="PIN numérico"
+                  placeholder="Mínimo 4 caracteres"
+                  autoComplete="new-password"
                   className="w-full pl-9 pr-3 py-2.5 text-xs rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-955 text-stone-800 dark:text-stone-100 font-mono font-bold focus:outline-none" 
                   required 
                 />
               </div>
-              <span className="text-[9px] text-stone-400 block font-bold">Por defecto se sugiere 1234. Debe ser numérico.</span>
+              <span className="text-[9px] text-stone-400 block font-bold">Se cifra en Supabase y no podrá volver a visualizarse.</span>
             </div>
 
             <button 
@@ -418,7 +416,6 @@ export default function UsuariosModule({
               const styles = getAvatarStyles(u.rol);
               const isEditing = editingId === u.id_usuario;
               const RoleIcon = styles.icon;
-              const isPinVisible = visiblePins[u.id_usuario] || false;
 
               return (
                 <div 
@@ -467,7 +464,7 @@ export default function UsuariosModule({
                         </label>
                         <label className="block">
                           <span className="text-[9px] uppercase font-black text-stone-400 flex justify-between">
-                            PIN / Clave Acceso
+                            Nueva contraseña (opcional)
                             <button 
                               type="button" 
                               onClick={() => setShowEditPassword(!showEditPassword)} 
@@ -480,6 +477,8 @@ export default function UsuariosModule({
                             type={showEditPassword ? 'text' : 'password'} 
                             value={editPassword} 
                             onChange={e => setEditPassword(e.target.value)}
+                            placeholder="Dejar vacío para conservar"
+                            autoComplete="new-password"
                             className="w-full text-xs p-2 rounded-xl border border-stone-200 dark:border-stone-750 bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-100 font-mono font-bold focus:outline-none" 
                           />
                         </label>
@@ -523,22 +522,12 @@ export default function UsuariosModule({
                         {/* Descripción de Rol */}
                         <p className="text-[11px] text-stone-500 dark:text-stone-300 font-medium leading-relaxed">{styles.desc}</p>
                         
-                        {/* PIN Inspector */}
-                        <div className="p-2 bg-stone-50 dark:bg-stone-900 rounded-xl border border-stone-150 dark:border-stone-800 flex justify-between items-center text-xs">
+                        {/* Estado de credencial */}
+                        <div className="p-2 bg-stone-50 dark:bg-stone-900 rounded-xl border border-stone-150 dark:border-stone-800 flex items-center text-xs">
                           <div className="flex items-center gap-1.5 text-stone-400">
                             <Lock className="w-3.5 h-3.5" />
-                            <span className="text-[10px] font-bold">Clave Acceso:</span>
-                            <b className="font-mono text-stone-850 dark:text-white ml-1">
-                              {isPinVisible ? u.password : '••••'}
-                            </b>
+                            <span className="text-[10px] font-bold">Credencial protegida en Supabase</span>
                           </div>
-                          <button 
-                            onClick={() => togglePinVisibility(u.id_usuario)}
-                            className="p-1 text-stone-400 hover:text-stone-705 text-stone-500 hover:text-stone-700 dark:hover:text-stone-200 transition-colors"
-                            title={isPinVisible ? 'Ocultar PIN' : 'Ver PIN'}
-                          >
-                            {isPinVisible ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                          </button>
                         </div>
                       </>
                     )}
