@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   canIssueFiscalVoucherAsMonotributo,
   fiscalVoucherPreview,
+  internalTicketPreview,
   MONOTRIBUTO_INVOICE_OPTIONS,
 } from './fiscalVoucherPolicy';
 
@@ -33,4 +34,12 @@ test('identifica el comprobante X como documento interno sin valor fiscal', () =
   const option = MONOTRIBUTO_INVOICE_OPTIONS.find(item => item.value === 'X');
   assert.equal(option?.fiscal, false);
   assert.equal(option?.disabled, false);
+});
+
+test('los tickets de caja usan una secuencia interna separada de ARCA', () => {
+  assert.equal(internalTicketPreview(), 'T-00000001');
+  assert.equal(
+    internalTicketPreview(['C-0002-00000123', 'X-0000-00000007', 'T-00000009']),
+    'T-00000010',
+  );
 });

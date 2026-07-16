@@ -17,6 +17,17 @@ export const MONOTRIBUTO_INVOICE_OPTIONS: readonly InvoiceTypeOption[] = [
 
 export const canIssueFiscalVoucherAsMonotributo = (type: InvoiceUiType): boolean => type === 'C';
 
+/** Numeracion propia de tickets de consumo. Nunca usa punto de venta ni secuencia ARCA. */
+export const internalTicketPreview = (
+  existingVoucherNumbers: readonly string[] = [],
+): string => {
+  const lastInternalNumber = existingVoucherNumbers
+    .filter(value => value.startsWith('T-'))
+    .map(value => Number(value.split('-').pop() ?? 0))
+    .reduce((maximum, value) => Math.max(maximum, Number.isFinite(value) ? value : 0), 0);
+  return `T-${String(lastInternalNumber + 1).padStart(8, '0')}`;
+};
+
 const padPointOfSale = (value: number | null | undefined): string | null =>
   Number.isInteger(value) && Number(value) > 0 ? String(value).padStart(4, '0') : null;
 

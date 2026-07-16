@@ -90,17 +90,17 @@ export const pdfService = {
 
   async generateTicketPDF(data: TicketData): Promise<jsPDF> {
     const logo = await loadLogoDataUrl();
-    
-    // Un QR fiscal solo puede generarse con datos reales devueltos por ARCA.
-    const qrImage = data.cae ? await loadQrDataUrl(data.qrData) : null;
-    
-    // Si es una factura oficial (factura_a, factura_b, factura_c), usar formato A4
-    if (data.tipoComprobante && (data.tipoComprobante.startsWith('factura') || data.tipoComprobante.startsWith('nota_credito'))) {
+    const isFiscal = data.tipoComprobante.startsWith('factura') || data.tipoComprobante.startsWith('nota_credito');
+
+    // Un QR fiscal solo puede generarse para una factura autorizada con CAE/CAEA real.
+    const qrImage = isFiscal && data.cae ? await loadQrDataUrl(data.qrData) : null;
+
+    if (isFiscal) {
       return this.generateA4Invoice(data, logo, qrImage);
     }
-    
-    // Por defecto usar ticket térmico para comandas e informes de salón
-    return this.generateThermalTicket(data, logo, qrImage);
+
+    // Los tickets de Caja son internos, térmicos y nunca reciben CAE ni QR fiscal.
+    return this.generateThermalTicket(data, logo);
   },
 
   generateA4Invoice(data: TicketData, logo: string | null, qrImage: string | null): jsPDF {
@@ -382,7 +382,7 @@ export const pdfService = {
     return doc;
   },
 
-  generateThermalTicket(data: TicketData, logo: string | null, qrImage: string | null = null): jsPDF {
+  generateThermalTicket(data: TicketData, logo: string | null): jsPDF {
     const rawConfig = typeof window !== 'undefined' ? localStorage.getItem('el_patron_printer_config') : null;
     let is58 = false;
     if (rawConfig) {
@@ -411,13 +411,10 @@ export const pdfService = {
       return lines.length;
     });
 
-    const qrHeight = qrImage ? (is58 ? 26 : 32) : 0;
-    const caeHeight = data.cae ? 10 : 0;
-
     const ticketHeight = Math.max(
-      is58 ? 160 : 180,
-      110 + wrappedRows.reduce((sum, linesCount) => sum + linesCount * 3.8 + 8, 0) + 
-      data.metodosPago.length * 5 + qrHeight + caeHeight
+      is58 ? 160 : 165,
+      135 + (logo ? 24 : 0) + wrappedRows.reduce((sum, linesCount) => sum + linesCount * 3.8 + 8, 0) +
+      data.metodosPago.length * 5,
     );
 
     const doc = new jsPDF('p', 'mm', [pageWidth, ticketHeight]);
@@ -452,12 +449,15 @@ export const pdfService = {
     }
 
     center(data.nombreComercial.toUpperCase(), 11, true);
-    center('SISTEMA DE GESTIÓN GASTRONÓMICA', 6.5, false);
+    center('TICKET DE CONSUMO', 8, true);
+    center('DOCUMENTO NO VALIDO COMO FACTURA', 6.5, false);
     y += 1.5;
 
     doc.setTextColor(...BRAND.dark);
     center(data.razonSocial, 7);
-    center(data.direccion.slice(0, 42), 6.5);
+    center(`CUIT ${data.cuit}`, 6.5);
+    center(data.direccion, 6.5);
+    if (data.telefono) center(data.telefono, 6.2);
     y += 1.5;
     line();
 
@@ -538,8 +538,6 @@ export const pdfService = {
     sum('Subtotal Neto:', money(data.subtotal));
     if (data.descuento > 0) sum('Bonificación:', `-${money(data.descuento)}`);
     if (data.propina > 0) sum('Propina Sugerida:', money(data.propina));
-    sum('IVA 21% Incluido:', money(data.iva));
-
     y += 1;
     doc.setDrawColor(...BRAND.brown);
     doc.setLineWidth(0.4);
@@ -568,36 +566,9 @@ export const pdfService = {
     y += 2;
     line();
 
-    // CAE, Vencimiento and QR Code
-    if (data.cae) {
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(7);
-      doc.setTextColor(...BRAND.dark);
-      doc.text(`CAE: ${data.cae}`, margin, y);
-      y += 4;
-    }
-    if (data.vto) {
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7);
-      doc.setTextColor(...BRAND.muted);
-      doc.text(`Vencimiento CAE: ${data.vto}`, margin, y);
-      y += 4.5;
-    }
-    if (qrImage) {
-      y += 1;
-      const qrSize = is58 ? 22 : 28;
-      const qrX = centerAlignX - (qrSize / 2);
-      try {
-        doc.addImage(qrImage, 'PNG', qrX, y, qrSize, qrSize);
-        y += qrSize + 4;
-      } catch (err) {
-        console.warn('Error adding QR image to thermal ticket:', err);
-      }
-    }
-
     center(data.mensajePie || 'Gracias por su visita.', 7);
     center('El Patron Restaurante', 7.5, true);
-    center('Conserve este comprobante', 6.2);
+    center('Gracias por su visita.', 6.2);
 
     return doc;
   },

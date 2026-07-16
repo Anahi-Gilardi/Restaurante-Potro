@@ -1241,7 +1241,14 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
               />
             )}
             {activeView === 'caja' && (
-              <CajaModule pedidos={pedidos} productosMenu={productosMenu} onFacturarMesa={handleFacturarMesa} onCambiarEstadoPedido={handleCambiarEstadoPedido} addLog={addLog} />
+              <CajaModule
+                pedidos={pedidos}
+                productosMenu={productosMenu}
+                onFacturarMesa={handleFacturarMesa}
+                onCambiarEstadoPedido={handleCambiarEstadoPedido}
+                onOpenFacturacion={() => handleNavigate('facturacion')}
+                addLog={addLog}
+              />
             )}
             {activeView === 'inventario' && (
               <InventoryModule insumos={insumos} productosMenu={productosMenu} recetas={recetas} mermas={mermas}

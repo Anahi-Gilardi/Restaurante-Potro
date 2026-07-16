@@ -33,7 +33,7 @@ const tipoToDb = (factura: Factura): string => {
   if (factura.tipo === 'B') return 'Factura B';
   if (factura.tipo === 'C') return 'Factura C';
   if (factura.tipo === 'X') return 'Comprobante X';
-  return 'Ticket Factura B';
+  return 'Ticket Consumo';
 };
 
 const tipoFromDb = (value: string): Factura['tipo'] => {
@@ -104,7 +104,7 @@ export const facturacionService = {
         const tipoComprobante = String(f.tipo_comprobante || '');
         const tipo = tipoFromDb(tipoComprobante);
         const total = Number(f.total) || 0;
-        const iva = tipo === 'C' || tipo === 'X' ? 0 : total - total / 1.21;
+        const iva = tipo === 'C' || tipo === 'X' || tipo === 'ticket' ? 0 : total - total / 1.21;
 
         return {
           id_factura: f.id_factura,

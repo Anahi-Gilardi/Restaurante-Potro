@@ -32,16 +32,14 @@ import {
   ProductoMenu, 
   CierreCaja, 
   PrinterConfig, 
-  TicketData, 
-  TicketItem, 
-  TipoComprobante
+  TicketData,
+  TicketItem
 } from '../types';
 import { useCaja } from '../features/caja/hooks/useCaja';
 import { useToast } from './ToastContainer';
 import { pdfService } from '../services/pdfService';
 import { printerService } from '../services/printerService';
 import { Factura } from '../services/facturacionService';
-import { CONDICIONES_IVA_RECEPTOR } from '../services/arcaService';
 import { calculatePedidoTotal, resolvePedidoItemUnitPrice } from '../lib/orderPricing';
 
 interface CajaModuleProps {
@@ -49,6 +47,7 @@ interface CajaModuleProps {
   productosMenu: ProductoMenu[];
   onFacturarMesa: (idPedido: number) => void;
   onCambiarEstadoPedido: (idPedido: number, nuevoEstado: Pedido['estado_comanda']) => void;
+  onOpenFacturacion?: () => void;
   addLog: (tipo: 'pedido_creado' | 'descuento_stock' | 'alerta_stock' | 'comanda_estado' | 'merma_registrada' | 'sistema', mensaje: string) => void;
 }
 
@@ -57,6 +56,7 @@ export default function CajaModule({
   productosMenu,
   onFacturarMesa,
   onCambiarEstadoPedido,
+  onOpenFacturacion,
   addLog
 }: CajaModuleProps) {
   const { toast } = useToast();
@@ -83,14 +83,6 @@ export default function CajaModule({
     setClosingObservationsInput,
     selectedPedidoId,
     setSelectedPedidoId,
-    tipoComprobante,
-    setTipoComprobante,
-    cuitCliente,
-    setCuitCliente,
-    nombreCliente,
-    setNombreCliente,
-    condicionIvaReceptor,
-    setCondicionIvaReceptor,
     metodoPago,
     setMetodoPago,
     mixedPayments,
@@ -251,10 +243,10 @@ export default function CajaModule({
           </div>
           <div>
             <h1 className="text-base font-black text-stone-900 dark:text-stone-100 uppercase tracking-tight font-sans">
-              Terminal de Caja & Facturación Fiscal
+              Terminal de Caja y Tickets
             </h1>
             <p className="text-[11px] text-stone-500 dark:text-stone-400 font-medium">
-              Gestor de comprobantes de salón • {restaurante.nombreComercial}
+              Cobros, pagos y tickets internos de salón • {restaurante.nombreComercial}
             </p>
           </div>
         </div>
@@ -579,7 +571,7 @@ export default function CajaModule({
               <div className="space-y-3">
                 <div className="p-4 rounded-xl border border-dashed border-stone-200 text-center bg-stone-50/50">
                   <span className="text-stone-400 text-[11px] block font-medium">No se registran turnos fiscales abiertos</span>
-                  <span className="text-stone-400 text-[9px] block font-normal mt-0.5">Es indispensable abrir el turno para facturar a las mesas.</span>
+                  <span className="text-stone-400 text-[9px] block font-normal mt-0.5">Es indispensable abrir el turno para cobrar e imprimir tickets.</span>
                 </div>
                 
                 <button
@@ -845,61 +837,27 @@ export default function CajaModule({
                   )}
                 </div>
 
-                {/* Fiscal parameters configuration (Rule 4) */}
-                <div className="p-3.5 bg-stone-50 dark:bg-stone-900/40 border border-stone-200/80 dark:border-stone-800 rounded-xl space-y-3 font-sans">
-                  <div className="flex justify-between items-center pb-1 border-b border-stone-150 dark:border-stone-800/80">
-                    <span className="text-[9px] font-black uppercase text-stone-500 dark:text-stone-400 block">Datos del Receptor / Comprobante</span>
-                    <span className="text-[8px] text-stone-400 uppercase font-black tracking-wider">Autorización ARCA al cobrar</span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2">
+                {/* Caja registra el cobro y emite solo un ticket interno. La autorización fiscal vive en Facturación. */}
+                <div className="p-3.5 bg-amber-50/70 dark:bg-amber-950/15 border border-amber-200 dark:border-amber-900/50 rounded-xl font-sans flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-start gap-2.5 text-left">
+                    <Receipt className="w-4 h-4 text-amber-700 dark:text-amber-400 shrink-0 mt-0.5" />
                     <div>
-                      <label className="text-[8px] font-bold uppercase text-stone-500 dark:text-stone-400 block mb-0.5">Comprobante</label>
-                      <select 
-                        value={tipoComprobante} 
-                        onChange={e => setTipoComprobante(e.target.value as TipoComprobante)}
-                        className="w-full text-[11px] p-1.5 border border-stone-200 dark:border-stone-800 rounded bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-200 font-bold"
-                      >
-                        <option value="factura_c">Factura C con CAE</option>
-                        <option value="ticket_consumo">Documento X interno</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="text-[8px] font-bold uppercase text-stone-500 dark:text-stone-400 block mb-0.5">DNI/CUIT Cliente</label>
-                      <input 
-                        type="text" 
-                        value={cuitCliente}
-                        onChange={e => {
-                          const val = e.target.value;
-                          setCuitCliente(val);
-                          if (val === '99-99999999-9' || val === '') {
-                            setNombreCliente('Consumidor Final');
-                          }
-                        }}
-                        className="w-full text-xs p-1.5 border border-stone-200 dark:border-stone-800 rounded bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-200 font-mono focus:outline-none"
-                        placeholder="Ej. 20-38449102-1"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-[8px] font-bold uppercase text-stone-500 dark:text-stone-400 block mb-0.5">Razón Social Cliente</label>
-                      <input 
-                        type="text" 
-                        value={nombreCliente}
-                        onChange={e => setNombreCliente(e.target.value)}
-                        className="w-full text-xs p-1.5 border border-stone-200 dark:border-stone-800 rounded bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-200 focus:outline-none"
-                        placeholder="Ej. José de San Martín"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-[8px] font-bold uppercase text-stone-500 dark:text-stone-400 block mb-0.5">Condicion IVA receptor</label>
-                      <select value={condicionIvaReceptor} onChange={e => setCondicionIvaReceptor(Number(e.target.value))} className="w-full text-[11px] p-1.5 border border-stone-200 dark:border-stone-800 rounded bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-200 font-bold">
-                        {CONDICIONES_IVA_RECEPTOR.map(condition => <option key={condition.id} value={condition.id}>{condition.label}</option>)}
-                      </select>
+                      <span className="text-[10px] font-black uppercase text-amber-900 dark:text-amber-300 block">Ticket normal de consumo</span>
+                      <p className="text-[9px] text-amber-800/80 dark:text-amber-300/80 mt-0.5 leading-relaxed">
+                        Caja cobra e imprime un ticket interno de 80 mm, sin CAE ni QR fiscal. Si el cliente necesita Factura C, emitila después desde Facturación usando este cobro.
+                      </p>
                     </div>
                   </div>
+                  {onOpenFacturacion && (
+                    <button
+                      type="button"
+                      onClick={onOpenFacturacion}
+                      className="shrink-0 px-3 py-2 rounded-lg bg-white dark:bg-stone-900 border border-amber-300 dark:border-amber-800 text-[9px] font-black uppercase text-amber-900 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-950/30 cursor-pointer flex items-center justify-center gap-1.5"
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      Ir a Facturación
+                    </button>
+                  )}
                 </div>
 
                 {/* Standard split comensales */}
@@ -1226,7 +1184,7 @@ export default function CajaModule({
                       className="btn-premium-primary w-full py-3 text-xs uppercase tracking-wider font-extrabold rounded-xl flex items-center justify-center gap-2 glow-gold cursor-pointer"
                     >
                       <CheckCircle className="w-5 h-5 text-[#E8B800]" />
-                      Homologar Cobro y Emitir Comprobante - PDF/Térmico (${orderBreakdowns.finalTotal.toLocaleString('es-AR')} {restaurante.moneda})
+                      Cobrar e Imprimir Ticket Normal (${orderBreakdowns.finalTotal.toLocaleString('es-AR')} {restaurante.moneda})
                     </button>
                   )}
 
@@ -1236,7 +1194,7 @@ export default function CajaModule({
                       className="btn-premium-secondary py-2 text-[10px] uppercase font-extrabold rounded-xl flex items-center justify-center gap-1.5 cursor-pointer"
                     >
                       <Download className="w-3.5 h-3.5 text-[#C8956A]" />
-                      Descargar PDF Muestra
+                      Descargar Ticket PDF
                     </button>
                     
                     <button
@@ -1293,9 +1251,8 @@ export default function CajaModule({
                     </div>
 
                     <div className="py-2 border-b border-dotted border-stone-300 space-y-0.5 text-[8.5px]">
-                      <p>COMPROB.: {tipoComprobante === 'factura_c' ? 'FACTURA C - CAE OBLIGATORIO' : 'DOCUMENTO X - NO VALIDO COMO FACTURA'}</p>
-                      <p>CLIENTE: {nombreCliente.toUpperCase()}</p>
-                      <p>CUIT/DNI: {cuitCliente}</p>
+                      <p className="font-bold">TICKET DE CONSUMO - NO VALIDO COMO FACTURA</p>
+                      <p>CLIENTE: {(selectedCliente?.nombre || 'CONSUMIDOR FINAL').toUpperCase()}</p>
                       <p>FECHA: {new Date().toLocaleDateString('es-AR')} {new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}hs</p>
                       <p>MESA: {selectedPedido.numero_mesa.toUpperCase()} • MOZO: {selectedPedido.mozo}</p>
                       <p>CAJERO: {cajaSession.usuario_cajero.toUpperCase()}</p>
@@ -1352,19 +1309,17 @@ export default function CajaModule({
                         <span className="font-mono font-black">${orderBreakdowns.finalTotal.toLocaleString('es-AR')}</span>
                       </div>
 
-                      <div className="flex justify-between text-[7.5px] italic text-stone-400 mt-1">
-                        <span>(IVA 21.0% incl en subtotal:</span>
-                        <span className="font-mono">${(tipoComprobante === 'factura_c' ? 0 : orderBreakdowns.ivaValue).toLocaleString('es-AR', { maximumFractionDigits: 1 })})</span>
+                      <div className="text-[7.5px] italic text-stone-400 mt-1">
+                        Ticket interno expresado en pesos argentinos.
                       </div>
                     </div>
 
-                    {/* El QR fiscal real se agrega al comprobante luego de recibir el CAE. */}
                     <div className="text-center pt-2 space-y-1 border-t border-stone-200">
-                      <div className="w-14 h-14 bg-stone-50 border border-stone-200 mx-auto flex items-center justify-center relative">
-                        <span className="px-1 text-[6px] font-bold text-stone-500 uppercase leading-tight">QR luego de autorización</span>
-                      </div>
+                      <p className="text-[7px] font-bold text-stone-500 font-sans uppercase leading-tight">
+                        Sin CAE - Sin QR fiscal
+                      </p>
                       <p className="text-[6.5px] text-stone-400 font-sans leading-tight">
-                        Vista previa no fiscal · CAE pendiente
+                        Para Factura C, continúe desde el módulo Facturación.
                       </p>
                     </div>
 
@@ -1392,7 +1347,7 @@ export default function CajaModule({
                 Terminal de Cobro El Patrón Pro
               </h3>
               <p className="text-stone-500 dark:text-stone-300 text-xs mt-2 max-w-md leading-relaxed font-semibold">
-                Seleccione una mesa ocupada desde la lista lateral. Se iniciará el panel interactivo de check-out, permitiéndole coordinar pagos mixtos, aplicar deducciones manuales, configurar datos de CUIT, fraccionar saldos por comensales u artículos indivisos, y emitir comprobantes en PDF y thermal roll.
+                Seleccione una mesa ocupada desde la lista lateral para cobrar, dividir pagos y emitir un ticket interno en PDF o rollo térmico. Las facturas electrónicas con CAE se emiten exclusivamente desde Facturación.
               </p>
               
               {!cajaSession && (
@@ -1400,7 +1355,7 @@ export default function CajaModule({
                   <Info className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
                   <div className="text-left">
                     <p className="font-bold uppercase tracking-wide">Caja Cerrada</p>
-                    <p className="mt-0.5 text-stone-600 font-medium leading-relaxed">Tenga a bien iniciar el turno con el botón <strong>"Abrir Caja Diaria"</strong> izquierdo antes de realizar operaciones de facturación.</p>
+                    <p className="mt-0.5 text-stone-600 font-medium leading-relaxed">Inicie el turno con <strong>"Abrir Caja Diaria"</strong> antes de registrar cobros e imprimir tickets.</p>
                   </div>
                 </div>
               )}
@@ -1950,13 +1905,13 @@ export default function CajaModule({
                 ¡Cobro Exitoso!
               </h3>
               <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
-                La mesa ha sido liberada y el comprobante emitido.
+                La mesa fue liberada y el ticket interno quedó emitido.
               </p>
             </div>
 
             <div className="bg-stone-50 dark:bg-stone-950 p-3 rounded-xl border border-stone-150 dark:border-stone-850 font-mono text-xs text-stone-700 dark:text-stone-300 space-y-1">
               <div className="flex justify-between">
-                <span>Comprobante:</span>
+                <span>Ticket:</span>
                 <span className="font-bold">{successDetails.nro}</span>
               </div>
               <div className="flex justify-between">

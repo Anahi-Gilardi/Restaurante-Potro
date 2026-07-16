@@ -39,11 +39,12 @@ import {
   type ArcaInvoiceResult,
 } from '../services/arcaService';
 import { useDebounce } from '../hooks/useDebounce';
-import { fiscalVoucherPreview, MONOTRIBUTO_INVOICE_OPTIONS } from '../lib/fiscalVoucherPolicy';
+import { fiscalVoucherPreview } from '../lib/fiscalVoucherPolicy';
 import { DEFAULT_RESTAURANT_PROFILE } from '../lib/restaurantProfile';
-import { calculatePedidoTotal, resolvePedidoItemUnitPrice } from '../lib/orderPricing';
+import { resolvePedidoItemUnitPrice, roundCurrency } from '../lib/orderPricing';
 import { parseFiscalCustomerDocument } from '../lib/fiscalCustomerDocument';
 import { argentinaDateIso } from '../lib/argentinaDate';
+import { getInvoiceablePaidTickets } from '../lib/ticketBillingPolicy';
 
 interface FacturacionModuleProps {
   pedidos: Pedido[];
@@ -144,7 +145,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
   const [medioFiltro, setMedioFiltro] = useState<MedioFiltro>('todos');
   
   // Emisión Manual
-  const [manualTipo, setManualTipo] = useState<'C' | 'X'>('C');
+  const manualTipo = 'C' as const;
   const [manualCliente, setManualCliente] = useState('Consumidor Final');
   const [manualCuit, setManualCuit] = useState('99-99999999-9');
   const [manualTotal, setManualTotal] = useState('0');
@@ -154,11 +155,11 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
   const [manualQuery, setManualQuery] = useState('');
   const [showManualSuggestions, setShowManualSuggestions] = useState(false);
 
-  // Facturar pagos (Caja)
+  // Convertir tickets cobrados en Caja a Factura C real.
   const [selectedPedidos, setSelectedPedidos] = useState<number[]>([]);
   const [agruparPorMesa, setAgruparPorMesa] = useState(false);
   const [pagoSearch, setPagoSearch] = useState('');
-  const [pagoTipo, setPagoTipo] = useState<'C' | 'X'>('C');
+  const pagoTipo = 'C' as const;
   const [pagoCliente, setPagoCliente] = useState('Consumidor Final');
   const [pagoCuit, setPagoCuit] = useState('99-99999999-9');
   const [pagoMedio, setPagoMedio] = useState<Factura['medio_pago']>('efectivo');
@@ -188,10 +189,6 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
 
     getArcaStatus().then(status => {
       setArcaStatus(status);
-      if (status.taxProfile === 'monotributo') {
-        setManualTipo('C');
-        setPagoTipo('C');
-      }
     });
   }, []);
 
@@ -204,37 +201,16 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
     setIsTestingArca(false);
   };
 
-  const pedidoTotal = (pedido: Pedido) => calculatePedidoTotal(pedido, productosMenu);
-
   const facturasActivas = facturas.filter(f => ['autorizado', 'observado'].includes(f.estado));
   const totalBruto = facturasActivas.reduce((acc, f) => acc + f.total, 0);
   const ivaTotal = facturasActivas.reduce((acc, f) => acc + f.iva_veintiuno, 0);
   const netoTotal = totalBruto - ivaTotal;
   const anuladas = facturas.filter(f => f.estado === 'nota_credito').length;
 
-  // Analizar IDs de pedidos facturados (individuales y agrupados)
-  const pedidosFacturadosIds = useMemo(() => {
-    const ids = new Set<number>();
-    facturas.forEach(f => {
-      if (f.id_pedido) ids.add(f.id_pedido);
-      if (f.observaciones) {
-        const matches = f.observaciones.match(/#\d+/g);
-        if (matches) {
-          matches.forEach(m => ids.add(Number(m.replace('#', ''))));
-        }
-      }
-    });
-    return ids;
-  }, [facturas]);
-
-  // Pagos de caja pendientes de facturar
+  // Tickets ya cobrados en Caja que todavía no tienen comprobante fiscal.
   const pagosPendientes = useMemo(() => {
-    return pedidos
-      .filter(p => p.estado_comanda !== 'entregado_cobrado' && p.estado_comanda !== 'cancelado')
-      .filter(p => !pedidosFacturadosIds.has(p.id_pedido))
-      .map(p => ({ pedido: p, total: pedidoTotal(p) }))
-      .filter(p => p.total > 0);
-  }, [pedidos, productosMenu, pedidosFacturadosIds]);
+    return getInvoiceablePaidTickets(pedidos, facturas);
+  }, [pedidos, facturas]);
 
   // Filtrado de pendientes
   const filteredPendientes = useMemo(() => {
@@ -298,7 +274,6 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
 
   // Validación de CUIT para alertas visuales
   const cuitManualValido = useMemo(() => {
-    if (manualTipo === 'X') return true;
     try {
       parseFiscalCustomerDocument(manualCuit);
       return true;
@@ -308,7 +283,6 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
   }, [manualCuit, manualTipo]);
 
   const cuitPagoValido = useMemo(() => {
-    if (pagoTipo === 'X') return true;
     try {
       parseFiscalCustomerDocument(pagoCuit);
       return true;
@@ -417,6 +391,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
       const selectedItems = pagosPendientes.filter(p => selectedPedidos.includes(p.pedido.id_pedido));
       const totalConsolidado = selectedItems.reduce((acc, p) => acc + p.total, 0);
       const principalPedido = selectedItems[0].pedido;
+      const ticketReferences = selectedItems.map(item => item.ticket.nro_ticket).join(', ');
 
       // Consolidar platos/items
       const mergedItemsMap: Record<string, { id_producto: string; nombre: string; cantidad: number; precio_unitario: number }> = {};
@@ -451,7 +426,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
         estado: 'borrador',
         tipo: pagoTipo,
         id_pedido: principalPedido.id_pedido,
-        observaciones: `Pedidos agrupados: ${prefixIdsStr} - Mesas: ${Array.from(new Set(selectedItems.map(p => p.pedido.numero_mesa))).join(', ')}`,
+        observaciones: `Tickets de origen: ${ticketReferences} - Pedidos: ${prefixIdsStr} - Mesas: ${Array.from(new Set(selectedItems.map(p => p.pedido.numero_mesa))).join(', ')}`,
         fecha_completa: new Date().toISOString(),
         condicion_iva_receptor: pagoCondicionIva,
       };
@@ -478,6 +453,16 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
         precio_unitario: item.precio_unitario,
         subtotal: item.precio_unitario * item.cantidad
       }));
+      const itemTotal = formattedItems.reduce((sum, item) => sum + item.subtotal, 0);
+      const ticketAdjustment = roundCurrency(totalConsolidado - itemTotal);
+      if (Math.abs(ticketAdjustment) >= 0.01) {
+        formattedItems.push({
+          cantidad: 1,
+          descripcion: ticketAdjustment > 0 ? 'Ajuste de ticket / propina' : 'Bonificación aplicada en Caja',
+          precio_unitario: ticketAdjustment,
+          subtotal: ticketAdjustment,
+        });
+      }
 
       // Emisión de PDF
       const ticketData: TicketData = {
@@ -1065,7 +1050,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
         {[
           ['dashboard', 'Analíticas y Reportes', TrendingUp],
           ['manual', 'Emitir Comprobante Manual', Plus],
-          ['pagos', 'Facturar Pendientes', CreditCard],
+          ['pagos', 'Facturar Tickets', CreditCard],
           ['archivo', 'Archivo Fiscal', Receipt]
         ].map(([key, label, Icon]) => {
           const ActiveIcon = Icon as typeof Receipt;
@@ -1270,26 +1255,12 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {/* Tipo */}
-            <label className="space-y-1.5">
+            <div className="space-y-1.5 text-left">
               <span className="text-[10px] font-black uppercase text-stone-400 dark:text-stone-300">Tipo de Comprobante</span>
-              <select 
-                value={manualTipo} 
-                onChange={e => {
-                  const val = e.target.value as 'C' | 'X';
-                  setManualTipo(val);
-                  setManualCliente('Consumidor Final');
-                  setManualCuit('99-99999999-9');
-                }} 
-                className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-900 text-stone-700 dark:text-stone-200 text-xs font-bold"
-              >
-                {MONOTRIBUTO_INVOICE_OPTIONS.map(option => (
-                  <option key={option.value} value={option.value} disabled={option.disabled}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+              <div className="w-full p-2.5 rounded-xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50/70 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-300 text-xs font-black">
+                Factura C electrónica con CAE
+              </div>
+            </div>
 
             {/* Búsqueda Autocomplete de Clientes */}
             <div className="space-y-1.5 relative md:col-span-2 text-left">
@@ -1491,7 +1462,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
               {agruparPorMesa && (
                 pendientesAgrupadosPorMesa.length === 0 ? (
                   <div className="p-8 text-center text-xs text-stone-400 border border-dashed rounded-2xl">
-                    No hay mesas con comandas pendientes de facturación.
+                    No hay tickets cobrados pendientes de Factura C.
                   </div>
                 ) : (
                   pendientesAgrupadosPorMesa.map(group => {
@@ -1521,7 +1492,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
                           <div className="text-left">
                             <span className="font-black text-sm text-stone-900 dark:text-white">{group.mesa}</span>
                             <span className="text-[10px] text-stone-400 block font-bold">
-                              {group.pedidos.length} {group.pedidos.length === 1 ? 'pedido activo' : 'pedidos unificados'}
+                              {group.pedidos.length} {group.pedidos.length === 1 ? 'ticket cobrado' : 'tickets unificados'}
                             </span>
                           </div>
                         </div>
@@ -1539,10 +1510,10 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
               {!agruparPorMesa && (
                 filteredPendientes.length === 0 ? (
                   <div className="p-8 text-center text-xs text-stone-400 border border-dashed rounded-2xl">
-                    No se encontraron pagos pendientes para los filtros seleccionados.
+                    No se encontraron tickets cobrados pendientes de facturación.
                   </div>
                 ) : (
-                  filteredPendientes.map(({ pedido, total }) => {
+                  filteredPendientes.map(({ pedido, ticket, total }) => {
                     const isSelected = selectedPedidos.includes(pedido.id_pedido);
                     
                     return (
@@ -1567,7 +1538,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
                               <span className="font-black text-stone-900 dark:text-white text-xs">Mesa: {pedido.numero_mesa}</span>
                               <span className="text-[9px] font-mono bg-stone-100 dark:bg-stone-800 text-stone-500 px-1.5 py-0.5 rounded">#{pedido.id_pedido}</span>
                             </div>
-                            <span className="text-[10px] text-stone-400 font-bold block mt-0.5">Mozo: {pedido.mozo}</span>
+                            <span className="text-[10px] text-stone-400 font-bold block mt-0.5">Mozo: {pedido.mozo} · Ticket: {ticket.nro_ticket}</span>
                             <div className="mt-1 flex flex-wrap gap-1">
                               {pedido.items.map(item => (
                                 <span key={item.id_producto} className="text-[9px] px-1.5 py-0.5 bg-stone-50 dark:bg-stone-850 text-stone-600 dark:text-stone-300 rounded font-semibold">
@@ -1593,7 +1564,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
             {/* 3C. Panel de Cobro del Lote Seleccionado */}
             <div className="bg-stone-50 dark:bg-stone-900 border border-stone-200 dark:border-stone-800 p-5 rounded-2xl space-y-4">
               <div className="border-b border-stone-250 dark:border-stone-800 pb-3 text-left">
-                <span className="text-[9px] uppercase font-black text-stone-450 dark:text-stone-300">Detalle de Emisión por Lote</span>
+                <span className="text-[9px] uppercase font-black text-stone-450 dark:text-stone-300">Factura C desde tickets cobrados</span>
                 <div className="flex justify-between items-end mt-1">
                   <h4 className="text-xs font-black uppercase text-stone-700 dark:text-stone-200">Seleccionados: {selectedPedidos.length}</h4>
                   <b className="font-mono text-lg text-emerald-600 dark:text-emerald-450">{money(selectedTotal)}</b>
@@ -1604,28 +1575,12 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
                 <div className="space-y-4">
                   {/* Datos del Comprobante */}
                   <div className="space-y-3">
-                    {/* Tipo */}
-                    <label className="space-y-1 block text-left">
+                    <div className="space-y-1 block text-left">
                       <span className="text-[10px] font-black uppercase text-stone-400 dark:text-stone-300">Tipo de Comprobante</span>
-                      <select 
-                        value={pagoTipo} 
-                        onChange={e => {
-                          const val = e.target.value as any;
-                          setPagoTipo(val);
-                          if (val === 'ticket' || val === 'C' || val === 'X') {
-                            setPagoCliente('Consumidor Final');
-                            setPagoCuit('99-99999999-9');
-                          }
-                        }} 
-                        className="w-full p-2 bg-white dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-lg text-xs font-bold text-stone-800 dark:text-stone-200"
-                      >
-                        {MONOTRIBUTO_INVOICE_OPTIONS.map(option => (
-                          <option key={option.value} value={option.value} disabled={option.disabled}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                      <div className="w-full p-2 bg-emerald-50/70 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900 rounded-lg text-xs font-black text-emerald-800 dark:text-emerald-300">
+                        Factura C electrónica con CAE
+                      </div>
+                    </div>
 
                     {/* Cliente Autocomplete */}
                     <div className="space-y-1 relative text-left">
@@ -1701,7 +1656,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
                   </div>
 
                   <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/50 p-3 rounded-xl text-[10px] text-emerald-800 dark:text-emerald-300 font-bold text-left">
-                    Se descargará el PDF del comprobante consolidado y las comandas seleccionadas se marcarán como cobradas.
+                    Se solicitará el CAE a ARCA y se descargará la Factura C fiscal. Los tickets de origen ya están cobrados y no volverán a afectar Caja.
                   </div>
 
                   <button
@@ -1709,12 +1664,12 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
                     onClick={emitFromSelectedPedidos}
                     className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow cursor-pointer disabled:opacity-60"
                   >
-                    {isEmitting ? 'Cobrando Lote...' : 'Confirmar Cobro e Imprimir'}
+                    {isEmitting ? 'Solicitando CAE...' : 'Emitir Factura C Real'}
                   </button>
                 </div>
               ) : (
                 <div className="py-8 text-center text-xs text-stone-400 border border-dashed border-stone-200 dark:border-stone-800 rounded-xl">
-                  Selecciona una mesa o pedidos individuales de la lista para emitir el cobro.
+                  Seleccioná uno o más tickets cobrados para emitir la Factura C correspondiente.
                 </div>
               )}
             </div>
