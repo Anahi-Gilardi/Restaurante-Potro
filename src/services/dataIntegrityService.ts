@@ -10,7 +10,7 @@ export function getDataIntegrityEndpoint(
   return '/api/data-integrity';
 }
 
-async function authenticatedRequest(method: 'GET' | 'POST'): Promise<any> {
+async function authenticatedRequest(method: 'GET' | 'POST', requestBody?: Record<string, unknown>): Promise<any> {
   const client = tryGetActiveSupabaseClient();
   if (!client) throw new Error('Supabase no está configurado para auditar datos.');
   const { data, error } = await client.auth.getSession();
@@ -19,7 +19,7 @@ async function authenticatedRequest(method: 'GET' | 'POST'): Promise<any> {
   const response = await fetch(getDataIntegrityEndpoint(), {
     method,
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: method === 'POST' ? JSON.stringify({ action: 'cleanup_safe' }) : undefined,
+    body: method === 'POST' ? JSON.stringify(requestBody ?? {}) : undefined,
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
@@ -31,6 +31,18 @@ export const dataIntegrityService = {
     return (await authenticatedRequest('GET')).report as DataIntegrityReport;
   },
   async cleanupSafe(): Promise<{ report: DataIntegrityReport; actions: Array<{ action: string; count: number; ids: string[] }> }> {
-    return authenticatedRequest('POST');
+    return authenticatedRequest('POST', { action: 'cleanup_safe' });
+  },
+  async mergeDuplicateIngredients(
+    canonicalId: string,
+    duplicateIds: string[],
+    finalStock: number,
+  ): Promise<{ report: DataIntegrityReport; merge: Record<string, unknown> }> {
+    return authenticatedRequest('POST', {
+      action: 'merge_duplicate_ingredients',
+      canonicalId,
+      duplicateIds,
+      finalStock,
+    });
   },
 };

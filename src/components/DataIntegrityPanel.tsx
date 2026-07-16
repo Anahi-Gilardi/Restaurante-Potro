@@ -1,13 +1,91 @@
-import { AlertTriangle, Boxes, CheckCircle, DatabaseZap, Loader2, RefreshCw, ShieldCheck, Users } from 'lucide-react';
+import { useState } from 'react';
+import { AlertTriangle, Boxes, CheckCircle, DatabaseZap, GitMerge, Loader2, RefreshCw, ShieldCheck, Users } from 'lucide-react';
 import type { DataIntegrityReport } from '../lib/dataIntegrity';
+
+type DuplicateIngredientGroup = DataIntegrityReport['review']['duplicateIngredientGroups'][number];
 
 interface DataIntegrityPanelProps {
   report: DataIntegrityReport | null;
   loading: boolean;
   cleaning: boolean;
   error: string;
+  mergingId: string;
   onRefresh: () => void;
   onCleanup: () => void;
+  onMergeIngredients: (canonicalId: string, duplicateIds: string[], finalStock: number) => Promise<void>;
+}
+
+function DuplicateIngredientMerge({
+  group,
+  mergingId,
+  onMerge,
+}: {
+  group: DuplicateIngredientGroup;
+  mergingId: string;
+  onMerge: (canonicalId: string, duplicateIds: string[], finalStock: number) => Promise<void>;
+}) {
+  const [canonicalId, setCanonicalId] = useState(group.items[0]?.id ?? '');
+  const [physicalStock, setPhysicalStock] = useState('');
+  const finalStock = Number(physicalStock);
+  const duplicateIds = group.items.filter(item => item.id !== canonicalId).map(item => item.id);
+  const merging = group.items.some(item => item.id === mergingId);
+  const mergeBusy = Boolean(mergingId);
+  const valid = canonicalId && duplicateIds.length > 0 && physicalStock.trim() !== '' && Number.isFinite(finalStock) && finalStock >= 0;
+
+  const submit = async () => {
+    if (!valid) return;
+    const canonical = group.items.find(item => item.id === canonicalId);
+    const confirmed = window.confirm(
+      `Se conservará ${canonicalId}, se retirarán ${duplicateIds.join(', ')} y el stock quedará en ${finalStock} ${canonical?.unit || ''}. Esta operación trasladará recetas e historial. ¿Continuar?`,
+    );
+    if (!confirmed) return;
+    await onMerge(canonicalId, duplicateIds, finalStock);
+  };
+
+  return (
+    <div className="mt-2.5 pt-2.5 border-t border-amber-100 dark:border-amber-900/40 space-y-2">
+      <label className="block text-[8px] font-black uppercase text-stone-500 dark:text-stone-400">
+        Registro principal
+        <select
+          value={canonicalId}
+          onChange={event => setCanonicalId(event.target.value)}
+          disabled={mergeBusy}
+          className="mt-1 w-full rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 px-2.5 py-2 text-[9px] normal-case font-mono text-stone-700 dark:text-stone-200"
+        >
+          {group.items.map((item, index) => (
+            <option key={item.id} value={item.id}>
+              {item.id} · stock {item.stock} · relaciones {item.recipeCount + item.movementCount}{index === 0 ? ' · sugerido' : ''}
+            </option>
+          ))}
+        </select>
+      </label>
+      <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2">
+        <label className="block text-[8px] font-black uppercase text-stone-500 dark:text-stone-400">
+          Stock físico definitivo
+          <input
+            type="number"
+            min="0"
+            step="0.001"
+            value={physicalStock}
+            onChange={event => setPhysicalStock(event.target.value)}
+            disabled={mergeBusy}
+            placeholder="Ingresar conteo real"
+            className="mt-1 w-full rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 px-2.5 py-2 text-[9px] normal-case font-mono text-stone-700 dark:text-stone-200"
+          />
+        </label>
+        <button
+          type="button"
+          onClick={() => void submit()}
+          disabled={!valid || mergeBusy}
+          className="sm:self-end rounded-lg bg-amber-700 hover:bg-amber-800 text-white px-3 py-2.5 text-[8px] font-black uppercase flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {merging ? <Loader2 className="w-3 h-3 animate-spin" /> : <GitMerge className="w-3 h-3" />}
+          {merging ? 'Fusionando' : mergeBusy ? 'Espere' : 'Fusionar'}
+        </button>
+      </div>
+      <p className="text-[8px] text-amber-700/80 dark:text-amber-400/80">El sistema no suma existencias automáticamente: use el conteo físico actual.</p>
+    </div>
+  );
 }
 
 export default function DataIntegrityPanel({
@@ -15,8 +93,10 @@ export default function DataIntegrityPanel({
   loading,
   cleaning,
   error,
+  mergingId,
   onRefresh,
   onCleanup,
+  onMergeIngredients,
 }: DataIntegrityPanelProps) {
   const statusStyle = report?.status === 'critical'
     ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/20 dark:text-rose-400 dark:border-rose-900'
@@ -104,6 +184,7 @@ export default function DataIntegrityPanel({
                         </div>
                       ))}
                     </div>
+                    <DuplicateIngredientMerge group={group} mergingId={mergingId} onMerge={onMergeIngredients} />
                   </div>
                 ))}
               </div>

@@ -102,6 +102,7 @@ export default function SistemaModule({
   const [integrityReport, setIntegrityReport] = useState<DataIntegrityReport | null>(null);
   const [integrityLoading, setIntegrityLoading] = useState(true);
   const [integrityCleaning, setIntegrityCleaning] = useState(false);
+  const [integrityMergingId, setIntegrityMergingId] = useState('');
   const [integrityError, setIntegrityError] = useState('');
 
   // Latency test states
@@ -353,6 +354,38 @@ export default function SistemaModule({
     }
   };
 
+  const handleMergeIngredients = async (canonicalId: string, duplicateIds: string[], finalStock: number) => {
+    setIntegrityMergingId(canonicalId);
+    setIntegrityError('');
+    try {
+      const result = await dataIntegrityService.mergeDuplicateIngredients(canonicalId, duplicateIds, finalStock);
+      setIntegrityReport(result.report);
+      const client = tryGetActiveSupabaseClient();
+      if (client && onSyncComplete) {
+        const [ingredientResult, recipeResult] = await Promise.all([
+          client.from('insumos').select('*').order('id_insumo', { ascending: true }),
+          client.from('recetas_escandallo').select('*').order('id_receta', { ascending: true }),
+        ]);
+        if (!ingredientResult.error && !recipeResult.error) {
+          onSyncComplete({
+            insumos: ingredientResult.data ?? [],
+            recetas: recipeResult.data ?? [],
+          });
+        } else {
+          console.warn('La fusión se completó, pero la vista local no pudo refrescarse.', ingredientResult.error ?? recipeResult.error);
+        }
+      }
+      addLog('sistema', `INTEGRIDAD: Insumos ${duplicateIds.join(', ')} fusionados en ${canonicalId}. Stock físico final: ${finalStock}.`);
+      toast.success(`Insumos fusionados en ${canonicalId}. Stock actualizado a ${finalStock}.`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'No se pudieron fusionar los insumos.';
+      setIntegrityError(message);
+      toast.error(message);
+    } finally {
+      setIntegrityMergingId('');
+    }
+  };
+
   const supabaseConfigured = useMemo(() => Boolean(tryGetActiveSupabaseClient()), []);
   const arcaReady = Boolean(arcaConfig?.connected && arcaConfig.legalDataComplete && arcaConfig.environment === 'produccion');
 
@@ -503,9 +536,11 @@ export default function SistemaModule({
             report={integrityReport}
             loading={integrityLoading}
             cleaning={integrityCleaning}
+            mergingId={integrityMergingId}
             error={integrityError}
             onRefresh={handleRefreshIntegrity}
             onCleanup={handleSafeCleanup}
+            onMergeIngredients={handleMergeIngredients}
           />
    
           {/* Motor de DB y Velocímetro */}

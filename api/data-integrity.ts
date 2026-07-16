@@ -133,6 +133,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === "GET") {
       return res.status(200).json({ success: true, report: analyzeDataIntegrity(await readDataSet(client)) });
     }
+    if (req.body?.action === "merge_duplicate_ingredients") {
+      const canonicalId = String(req.body?.canonicalId ?? "").trim();
+      const duplicateIds = Array.isArray(req.body?.duplicateIds)
+        ? req.body.duplicateIds.map((value: unknown) => String(value ?? "").trim()).filter(Boolean)
+        : [];
+      const finalStock = Number(req.body?.finalStock);
+      if (!canonicalId || canonicalId.length > 120 || duplicateIds.length < 1 || duplicateIds.length > 20
+          || duplicateIds.some((id: string) => id.length > 120) || !Number.isFinite(finalStock) || finalStock < 0) {
+        return res.status(400).json({ success: false, error: "Los datos de fusión son inválidos." });
+      }
+      const { data: merge, error: mergeError } = await client.rpc("merge_duplicate_ingredients", {
+        p_canonical_id: canonicalId,
+        p_duplicate_ids: duplicateIds,
+        p_final_stock: finalStock,
+      });
+      if (mergeError) {
+        const safeMessages = [
+          "Debe elegir un insumo principal",
+          "El stock fisico final es invalido",
+          "El insumo principal no puede estar entre los duplicados",
+          "La lista de duplicados contiene identificadores repetidos",
+          "El insumo principal no existe",
+          "Los registros elegidos no representan el mismo insumo",
+          "No se pudieron retirar todos los duplicados",
+        ];
+        const safeMessage = safeMessages.find(message => mergeError.message?.startsWith(message));
+        throw new ApiAccessError(409, safeMessage ?? "No se pudo completar la fusión de insumos.");
+      }
+      return res.status(200).json({
+        success: true,
+        merge,
+        report: analyzeDataIntegrity(await readDataSet(client)),
+      });
+    }
     if (req.body?.action !== "cleanup_safe") {
       return res.status(400).json({ success: false, error: "Acción no reconocida." });
     }
