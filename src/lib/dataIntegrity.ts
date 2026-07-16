@@ -19,6 +19,25 @@ export interface DataIntegrityReport {
   };
   counts: Record<string, number>;
   issues: IntegrityIssue[];
+  review: {
+    duplicateIngredientGroups: Array<{
+      name: string;
+      items: Array<{
+        id: string;
+        stock: number;
+        minimumStock: number;
+        unit: string;
+        recipeCount: number;
+        movementCount: number;
+      }>;
+    }>;
+    usersWithoutAuth: Array<{
+      id: string;
+      name: string;
+      username: string;
+      role: string;
+    }>;
+  };
 }
 
 export interface IntegrityDataSet {
@@ -56,6 +75,15 @@ const duplicateGroups = (data: Row[], field: string): Row[][] => {
   return [...groups.values()].filter(group => group.length > 1);
 };
 
+const usageCounts = (data: Row[], field: string): Map<string, number> => {
+  const counts = new Map<string, number>();
+  data.forEach(row => {
+    const id = text(row[field]);
+    if (id) counts.set(id, (counts.get(id) ?? 0) + 1);
+  });
+  return counts;
+};
+
 const addIssue = (
   issues: IntegrityIssue[],
   severity: IntegritySeverity,
@@ -88,6 +116,8 @@ export function analyzeDataIntegrity(input: IntegrityDataSet, now = new Date()):
   const recipeProductIds = new Set(recetas.filter(row => numeric(row.cantidad_a_descontar) > 0).map(row => text(row.id_producto)));
   const validRoles = new Set(['superadmin', 'administrador', 'mozo', 'cocina']);
   const validTableStates = new Set(['libre', 'ocupada', 'esperando_cuenta', 'reservada', 'limpiando', 'unida', 'sucia']);
+  const recipeUsage = usageCounts(recetas, 'id_insumo');
+  const movementUsage = usageCounts(movimientos, 'id_insumo');
   const issues: IntegrityIssue[] = [];
 
   const invalidProducts = productos.filter(row => (
@@ -219,5 +249,26 @@ export function analyzeDataIntegrity(input: IntegrityDataSet, now = new Date()):
       movimientos_inventario: movimientos.length,
     },
     issues,
+    review: {
+      duplicateIngredientGroups: ingredientDuplicates.map(group => ({
+        name: text(group[0]?.nombre),
+        items: group
+          .map(row => ({
+            id: text(row.id_insumo),
+            stock: numeric(row.stock_actual),
+            minimumStock: numeric(row.stock_minimo),
+            unit: text(row.unidad_medida),
+            recipeCount: recipeUsage.get(text(row.id_insumo)) ?? 0,
+            movementCount: movementUsage.get(text(row.id_insumo)) ?? 0,
+          }))
+          .sort((a, b) => (b.movementCount + b.recipeCount) - (a.movementCount + a.recipeCount) || a.id.localeCompare(b.id)),
+      })),
+      usersWithoutAuth: usersWithoutAuth.map(row => ({
+        id: text(row.id_usuario),
+        name: `${text(row.nombre)} ${text(row.apellido)}`.trim(),
+        username: text(row.username),
+        role: text(row.rol),
+      })),
+    },
   };
 }

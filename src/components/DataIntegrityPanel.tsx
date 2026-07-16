@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle, DatabaseZap, Loader2, RefreshCw, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, Boxes, CheckCircle, DatabaseZap, Loader2, RefreshCw, ShieldCheck, Users } from 'lucide-react';
 import type { DataIntegrityReport } from '../lib/dataIntegrity';
 
 interface DataIntegrityPanelProps {
@@ -82,6 +82,53 @@ export default function DataIntegrityPanel({
               </div>
             ))}
           </div>
+
+          {report.review.duplicateIngredientGroups.length > 0 && (
+            <details className="rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50/40 dark:bg-amber-950/10 text-left" open>
+              <summary className="cursor-pointer list-none p-3 flex items-center justify-between gap-3 text-[9px] font-black uppercase text-amber-800 dark:text-amber-300">
+                <span className="flex items-center gap-2"><Boxes className="w-3.5 h-3.5" /> Revisar insumos repetidos</span>
+                <span>{report.review.duplicateIngredientGroups.length} pares</span>
+              </summary>
+              <div className="px-3 pb-3 space-y-2 max-h-64 overflow-y-auto">
+                <p className="text-[9px] text-stone-600 dark:text-stone-400 leading-relaxed">
+                  Compare el stock con el conteo físico antes de fusionar. Las recetas y movimientos indican qué registro conserva historial.
+                </p>
+                {report.review.duplicateIngredientGroups.map(group => (
+                  <div key={group.name} className="rounded-lg border border-amber-100 dark:border-amber-900/40 bg-white/80 dark:bg-stone-900/70 p-2.5">
+                    <b className="block text-[9px] text-stone-800 dark:text-stone-100">{group.name}</b>
+                    <div className="mt-1.5 space-y-1">
+                      {group.items.map(item => (
+                        <div key={item.id} className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-1 sm:gap-2 text-[8px] font-mono text-stone-500 dark:text-stone-400">
+                          <span className="truncate" title={item.id}>{item.id}</span>
+                          <span>{item.stock} {item.unit} · recetas {item.recipeCount} · movimientos {item.movementCount}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
+
+          {report.review.usersWithoutAuth.length > 0 && (
+            <details className="rounded-xl border border-sky-200 dark:border-sky-900/60 bg-sky-50/40 dark:bg-sky-950/10 text-left">
+              <summary className="cursor-pointer list-none p-3 flex items-center justify-between gap-3 text-[9px] font-black uppercase text-sky-800 dark:text-sky-300">
+                <span className="flex items-center gap-2"><Users className="w-3.5 h-3.5" /> Usuarios sin acceso seguro</span>
+                <span>{report.review.usersWithoutAuth.length} perfiles</span>
+              </summary>
+              <div className="px-3 pb-3 space-y-1.5 max-h-52 overflow-y-auto">
+                <p className="text-[9px] text-stone-600 dark:text-stone-400 leading-relaxed">
+                  Desde Usuarios, edite cada perfil que siga vigente y asigne una contraseña. Desactive los perfiles que ya no pertenezcan al personal.
+                </p>
+                {report.review.usersWithoutAuth.map(user => (
+                  <div key={user.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-3 rounded-lg border border-sky-100 dark:border-sky-900/40 bg-white/80 dark:bg-stone-900/70 px-2.5 py-2 text-[8px]">
+                    <span className="font-bold text-stone-700 dark:text-stone-200 truncate">{user.name || user.username}</span>
+                    <span className="font-mono text-stone-500 shrink-0">{user.username} · {user.role}</span>
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
         </>
       )}
 
