@@ -121,12 +121,16 @@ export default function App() {
   const [hasSupabaseSession, setHasSupabaseSession] = useState<boolean>(false);
   const [permitirVentaSinStock, setPermitirVentaSinStock] = useState<boolean>(false);
   const [usuarios, setUsuarios] = useState<Usuario[]>(INITIAL_USUARIOS);
-  const [mesas, setMesas] = useState<Mesa[]>(INITIAL_MESAS);
-  const [insumos, setInsumos] = useState<Insumo[]>(INITIAL_INSUMOS);
-  const [productosMenu, setProductosMenu] = useState<ProductoMenu[]>(INITIAL_PRODUCTOS_MENU);
-  const [recetas, setRecetas] = useState<RecetaEscandallo[]>(INITIAL_RECETAS_ESCANDALLO);
-  const [pedidos, setPedidos] = useState<Pedido[]>(INITIAL_PEDIDOS);
- const [mermas, setMermas] = useState<Merma[]>([]);
+  // No mostramos datos de demostracion mientras llega Supabase: daban la
+  // impresion de que mesas y comandas reales se borraban segundos despues.
+  const [mesas, setMesas] = useState<Mesa[]>([]);
+  const [insumos, setInsumos] = useState<Insumo[]>([]);
+  const [productosMenu, setProductosMenu] = useState<ProductoMenu[]>([]);
+  const [recetas, setRecetas] = useState<RecetaEscandallo[]>([]);
+  const [pedidos, setPedidos] = useState<Pedido[]>([]);
+  const [mermas, setMermas] = useState<Merma[]>([]);
+  const [operationalDataStatus, setOperationalDataStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [operationalDataError, setOperationalDataError] = useState('');
 
   const [postLoginLoading, setPostLoginLoading] = useState<boolean>(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
@@ -219,28 +223,56 @@ export default function App() {
     let active = true;
     let channel: any = null;
     const client = getSupabaseClient();
+    setOperationalDataStatus('loading');
+    setOperationalDataError('');
 
     const loadData = async () => {
       try {
-        const savedUsuarios = await dbFetchUsuarios();
-        if (savedUsuarios && savedUsuarios.length > 0 && active) {
-          setUsuarios(savedUsuarios);
+        if (!client) {
+          throw new Error('No hay una conexion activa con Supabase.');
         }
-      } catch (err) {
-        console.warn('Usuarios: no se pudo cargar la copia persistida.', err);
-      }
 
-      if (!client) return;
+        const [
+          savedUsuarios,
+          dbMesas,
+          fetchedInsumos,
+          fetchedProducts,
+          fetchedRecipes,
+          dbPedidos,
+          dbMermas,
+        ] = await Promise.all([
+          dbFetchUsuarios(),
+          dbFetchMesas(),
+          dbFetchInsumos(),
+          dbFetchProductosMenu(),
+          dbFetchRecetas(),
+          dbFetchPedidos(),
+          dbFetchMermas(),
+        ]);
 
-      try {
-        const dbMesas = await dbFetchMesas();
-        let dbInsumos = await dbFetchInsumos();
-        let dbProducts = await dbFetchProductosMenu();
-        let dbRecipes = await dbFetchRecetas();
-        const dbPedidos = await dbFetchPedidos();
-        const dbMermas = await dbFetchMermas();
+        let dbInsumos = fetchedInsumos;
+        let dbProducts = fetchedProducts;
+        let dbRecipes = fetchedRecipes;
 
         if (!active) return;
+
+        const missingSources = [
+          ['usuarios', savedUsuarios],
+          ['mesas', dbMesas],
+          ['insumos', dbInsumos],
+          ['menu', dbProducts],
+          ['recetas', dbRecipes],
+          ['pedidos', dbPedidos],
+          ['mermas', dbMermas],
+        ].filter(([, value]) => value === null).map(([name]) => name);
+
+        if (missingSources.length > 0) {
+          throw new Error(`No se pudieron leer: ${missingSources.join(', ')}.`);
+        }
+
+        if ((savedUsuarios ?? []).length > 0) {
+          setUsuarios(savedUsuarios ?? []);
+        }
 
         // Auto-seed new Coca-Cola line if they are missing in the Supabase database
         if (dbProducts && dbProducts.length > 0) {
@@ -282,32 +314,22 @@ export default function App() {
 
         if (!active) return;
 
-        if ((dbMesas ?? []).length > 0) {
-          setMesas((dbMesas ?? []).map(m => ({
-            id_mesa: m.id_mesa,
-            numero_mesa: m.numero_mesa,
-            estado: m.estado || 'libre',
-            comensales: m.comensales || undefined
-          })));
-        }
-        if ((dbInsumos ?? []).length > 0) {
-          setInsumos(dbInsumos ?? []);
-        }
-        if ((dbProducts ?? []).length > 0) {
-          setProductosMenu(dbProducts ?? []);
-        }
-        if ((dbRecipes ?? []).length > 0) {
-          setRecetas(dbRecipes ?? []);
-        }
-        if ((dbPedidos ?? []).length > 0) {
-          setPedidos(dbPedidos ?? []);
-        }
-        if ((dbMermas ?? []).length > 0) {
-          setMermas(dbMermas ?? []);
-        }
+        // Supabase es la unica fuente de verdad, incluso si una tabla esta
+        // vacia. Los servicios ya normalizan los campos del backend.
+        setMesas(dbMesas ?? []);
+        setInsumos(dbInsumos ?? []);
+        setProductosMenu(dbProducts ?? []);
+        setRecetas(dbRecipes ?? []);
+        setPedidos(dbPedidos ?? []);
+        setMermas(dbMermas ?? []);
+        setOperationalDataStatus('ready');
         addLog('sistema', 'SUPABASE: Auto-sincronización exitosa con servidor Supabase.');
       } catch (err) {
-        console.warn('Supabase: Falló auto-sync en el arranque. Usando la caché local del navegador.', err);
+        console.warn('Supabase: Falló la carga inicial de datos operativos.', err);
+        if (active) {
+          setOperationalDataStatus('error');
+          setOperationalDataError(err instanceof Error ? err.message : 'No se pudieron cargar los datos operativos.');
+        }
       }
     };
 
@@ -329,7 +351,7 @@ export default function App() {
       const fetchAndSetPedidos = async () => {
         try {
           const refreshed = await dbFetchPedidos();
-          if (refreshed && active) {
+          if (refreshed !== null && active) {
             setPedidos(refreshed);
           }
         } catch (err) {
@@ -349,7 +371,7 @@ export default function App() {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'mesas' }, async () => {
           try {
             const refreshed = await dbFetchMesas();
-            if (refreshed && active) {
+            if (refreshed !== null && active) {
               setMesas(refreshed);
             }
           } catch (err) {
@@ -631,6 +653,8 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     window.localStorage.setItem('el_patron_session', 'active');
     setActiveMozo(user.nombre);
     setActiveView('home');
+    setOperationalDataStatus('loading');
+    setOperationalDataError('');
 
     setPostLoginLoading(true);
 
@@ -649,6 +673,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
   const handleLogout = () => {
     window.localStorage.removeItem('el_patron_session');
     getSupabaseClient()?.auth.signOut().catch(() => undefined);
+    setOperationalDataStatus('idle');
     setIsStreamlitLoggedIn(false);
     setShowCover(false);
   };
@@ -656,6 +681,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
   const handleLogoClickToLogin = () => {
     window.localStorage.removeItem('el_patron_session');
     getSupabaseClient()?.auth.signOut().catch(() => undefined);
+    setOperationalDataStatus('idle');
     setIsStreamlitLoggedIn(false);
     setShowCover(false);
   };
@@ -1067,6 +1093,52 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     return (
       <ErrorBoundary>
         <PythonStreamlitLogin onLoginSuccess={handleLoginSuccess} onBackToCover={() => setShowCover(true)} />
+      </ErrorBoundary>
+    );
+  }
+
+  if (operationalDataStatus !== 'ready' || postLoginLoading) {
+    const hasLoadError = operationalDataStatus === 'error';
+    return (
+      <ErrorBoundary>
+        <div className="min-h-screen bg-[#F4EBDD] flex items-center justify-center p-6 text-stone-800">
+          <div className="w-full max-w-md rounded-3xl border border-[#8C6239]/20 bg-white/90 p-8 text-center shadow-xl">
+            <ElPatronLogo className="w-24 h-24 mx-auto mb-5" variant="badge" color="#8C6239" />
+            <h1 className="text-xl font-black text-[#4A3428]">El Patron</h1>
+            {hasLoadError ? (
+              <>
+                <p className="mt-3 text-sm font-bold text-rose-700">No pudimos cargar los datos del restaurante.</p>
+                <p className="mt-2 text-xs text-stone-600">{operationalDataError}</p>
+                <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOperationalDataStatus('loading');
+                      setOperationalDataError('');
+                      setSupabaseTrigger(previous => previous + 1);
+                    }}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#6F4E37] px-4 py-3 text-sm font-bold text-white"
+                  >
+                    <RefreshCw className="h-4 w-4" /> Reintentar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="rounded-xl border border-stone-300 px-4 py-3 text-sm font-bold text-stone-700"
+                  >
+                    Cerrar sesion
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <RefreshCw className="mx-auto mt-5 h-7 w-7 animate-spin text-[#8C6239]" />
+                <p className="mt-4 text-sm font-bold text-[#5C4033]">Cargando datos reales desde Supabase...</p>
+                <p className="mt-2 text-xs text-stone-500">Mesas, comandas, menu e inventario se validan antes de abrir el sistema.</p>
+              </>
+            )}
+          </div>
+        </div>
       </ErrorBoundary>
     );
   }
