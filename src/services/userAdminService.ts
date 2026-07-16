@@ -35,8 +35,9 @@ export const userAdminService = {
     const payload = await callUserAdmin('update', { idUsuario, ...input });
     return payload.user as Usuario;
   },
-  async changePassword(idUsuario: number, password: string): Promise<void> {
-    await callUserAdmin('changePassword', { idUsuario, password });
+  async changePassword(idUsuario: number, password: string): Promise<Usuario> {
+    const payload = await callUserAdmin('changePassword', { idUsuario, password });
+    return payload.user as Usuario;
   },
   async setActive(idUsuario: number, activo: boolean): Promise<Usuario> {
     const payload = await callUserAdmin('setActive', { idUsuario, activo });

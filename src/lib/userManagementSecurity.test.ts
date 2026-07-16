@@ -17,6 +17,7 @@ test('el módulo Usuarios no lee ni muestra contraseñas persistidas', () => {
   assert.doesNotMatch(source, /u\.password/);
   assert.doesNotMatch(source, /usuariosService\.(create|update|remove)/);
   assert.match(source, /Credencial protegida en Supabase/);
+  assert.match(source, /Sin acceso: edite y asigne una contraseña/);
 });
 
 test('el servicio de usuarios limita las columnas descargadas', () => {

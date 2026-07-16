@@ -161,12 +161,12 @@ export default function UsuariosModule({
     }
 
     try {
-      const changed = await userAdminService.update(id, {
+      let changed = await userAdminService.update(id, {
           nombre: editNombre.trim(), 
           apellido: editApellido.trim(), 
           rol: editRol,
       });
-      if (editPassword) await userAdminService.changePassword(id, editPassword);
+      if (editPassword) changed = await userAdminService.changePassword(id, editPassword);
       onUsuariosChange(usuarios.map(u => u.id_usuario === id ? changed : u));
       addLog('sistema', `USUARIOS: Modificado personal '${target?.nombre} ${target?.apellido}' → '${editNombre} ${editApellido}' (${editRol})`);
     } catch (error) {
@@ -526,7 +526,9 @@ export default function UsuariosModule({
                         <div className="p-2 bg-stone-50 dark:bg-stone-900 rounded-xl border border-stone-150 dark:border-stone-800 flex items-center text-xs">
                           <div className="flex items-center gap-1.5 text-stone-400">
                             <Lock className="w-3.5 h-3.5" />
-                            <span className="text-[10px] font-bold">Credencial protegida en Supabase</span>
+                            <span className="text-[10px] font-bold">
+                              {u.auth_user_id ? 'Credencial protegida en Supabase' : 'Sin acceso: edite y asigne una contraseña'}
+                            </span>
                           </div>
                         </div>
                       </>

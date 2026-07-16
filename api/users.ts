@@ -152,13 +152,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === "changePassword") {
       const password = cleanPassword(req.body?.password);
       assertPassword(password);
-      const { data: credential, error: credentialReadError } = await admin
+      const { data: storedCredential, error: credentialReadError } = await admin
         .from("app_login_credentials")
         .select("username,auth_user_id,auth_email")
         .eq("profile_id", targetId)
         .maybeSingle();
       if (credentialReadError) throw credentialReadError;
-      if (!credential) return res.status(409).json({ success: false, error: "El usuario todavía no tiene acceso Supabase vinculado." });
+      let credential = storedCredential;
+      let newlyCreatedAuthUserId: string | null = null;
+      if (!credential) {
+        const currentUsername = String(target.username ?? "").trim().toLowerCase();
+        const baseUsername = currentUsername.includes("@")
+          ? currentUsername.split("@")[0].replace(/[^a-z0-9._-]/g, "_")
+          : currentUsername.replace(/[^a-z0-9._-]/g, "_");
+        let username = USERNAME_PATTERN.test(baseUsername) ? baseUsername : `usuario_${targetId}`;
+        const { data: collision } = await admin
+          .from("app_login_credentials")
+          .select("profile_id")
+          .eq("username", username)
+          .maybeSingle();
+        if (collision && Number(collision.profile_id) !== targetId) username = `${username}_${targetId}`;
+        const email = internalEmail(username);
+        const { data: authData, error: authError } = await admin.auth.admin.createUser({
+          email,
+          password: randomBytes(32).toString("base64url"),
+          email_confirm: true,
+          user_metadata: { app_username: username, display_name: `${target.nombre} ${target.apellido}`.trim() },
+        });
+        if (authError || !authData.user) throw authError ?? new Error("No se pudo crear la identidad de acceso.");
+        newlyCreatedAuthUserId = authData.user.id;
+        credential = { username, auth_user_id: authData.user.id, auth_email: email };
+      }
       const wasActive = target.activo !== false;
       const { error } = await admin.rpc("provision_app_username_login", {
         p_profile_id: targetId,
@@ -167,9 +191,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         p_auth_user_id: credential.auth_user_id,
         p_auth_email: credential.auth_email,
       });
-      if (error) throw error;
+      if (error) {
+        if (newlyCreatedAuthUserId) await admin.auth.admin.deleteUser(newlyCreatedAuthUserId);
+        throw error;
+      }
       if (!wasActive) await admin.from("usuarios").update({ activo: false }).eq("id_usuario", targetId);
-      return res.status(200).json({ success: true });
+      const { data: updated, error: updatedError } = await admin
+        .from("usuarios")
+        .select(SAFE_PROFILE_COLUMNS)
+        .eq("id_usuario", targetId)
+        .single();
+      if (updatedError) throw updatedError;
+      return res.status(200).json({ success: true, user: { ...updated, password: "" } });
     }
 
     if (action === "update") {
