@@ -2025,17 +2025,6 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     "requiere_cocina": false
 },
   {
-    "id_producto": "prod_vin_trumpeter_botella",
-    "nombre": "Trumpeter Malbec (Botella)",
-    "precio_venta": 12500,
-    "categoria": "Bodega",
-    "activo": true,
-    "imagen": "https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80&auto=format&fit=crop",
-    "descripcion": "Bodega La Rural. Robusto con aromas a frutos silvestres y madurado en roble.",
-    "tipo": "vino",
-    "requiere_cocina": false
-},
-  {
     "id_producto": "prod_vin_rutini_botella",
     "nombre": "Rutini Cab-Malbec 750ml",
     "precio_venta": 21500,
@@ -2268,7 +2257,6 @@ export const INITIAL_RECETAS_ESCANDALLO: RecetaEscandallo[] = [
   { id_receta: 'esc_ent_charc_embut', id_producto: 'prod_ent_charcuteria', id_insumo: 'ins_embutidos_casa', cantidad_a_descontar: 150.00, unidad_medida: 'g' },
   { id_receta: 'esc_ent_peras_und', id_producto: 'prod_ent_peras_quesoazul', id_insumo: 'ins_peras_und', cantidad_a_descontar: 1.00, unidad_medida: 'unidades' },
   { id_receta: 'esc_ent_peras_qazul', id_producto: 'prod_ent_peras_quesoazul', id_insumo: 'ins_queso_azul', cantidad_a_descontar: 40.00, unidad_medida: 'g' },
-  { id_receta: 'esc_ent_peras_nuec', id_producto: 'prod_ent_peras_quesoazul', id_insumo: 'ins_queso_azul', cantidad_a_descontar: 20.00, unidad_medida: 'g' },
   { id_receta: 'esc_lasagna_pollo', id_producto: 'prod_pas_lasagna_pollo', id_insumo: 'ins_pollo_desmechado', cantidad_a_descontar: 120.00, unidad_medida: 'g' },
   { id_receta: 'esc_lasagna_espin', id_producto: 'prod_pas_lasagna_pollo', id_insumo: 'ins_espinaca_fresca', cantidad_a_descontar: 80.00, unidad_medida: 'g' },
   { id_receta: 'esc_crepes_espin', id_producto: 'prod_pas_crepes_espinaca', id_insumo: 'ins_espinaca_fresca', cantidad_a_descontar: 100.00, unidad_medida: 'g' },

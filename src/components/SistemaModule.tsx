@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { ProductoMenu, Insumo, RecetaEscandallo, Pedido, Mesa } from '../types';
 import SupabaseManager from './SupabaseManager';
+import DataIntegrityPanel from './DataIntegrityPanel';
 import ElPatronLogo from './ElPatronLogo';
 import { useToast, ToastContainer } from './ToastContainer';
 import {
@@ -42,6 +43,8 @@ import { DEFAULT_RESTAURANT_PROFILE } from '../lib/restaurantProfile';
 import { argentinaDateIso } from '../lib/argentinaDate';
 import { calculatePedidoTotal } from '../lib/orderPricing';
 import { tryGetActiveSupabaseClient } from '../lib/supabaseClient';
+import type { DataIntegrityReport } from '../lib/dataIntegrity';
+import { dataIntegrityService } from '../services/dataIntegrityService';
 import {
   diagnosticTargetLabel,
   latencyNeedleAngle,
@@ -96,6 +99,10 @@ export default function SistemaModule({
   const [arcaTesting, setArcaTesting] = useState(false);
   const [arcaDeleting, setArcaDeleting] = useState(false);
   const [arcaPanelError, setArcaPanelError] = useState('');
+  const [integrityReport, setIntegrityReport] = useState<DataIntegrityReport | null>(null);
+  const [integrityLoading, setIntegrityLoading] = useState(true);
+  const [integrityCleaning, setIntegrityCleaning] = useState(false);
+  const [integrityError, setIntegrityError] = useState('');
 
   // Latency test states
   const [dbPingStatus, setDbPingStatus] = useState<'idle' | 'testing' | 'ready' | 'error'>('idle');
@@ -296,6 +303,56 @@ export default function SistemaModule({
     }
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    dataIntegrityService.audit()
+      .then(report => {
+        if (!active) return;
+        setIntegrityReport(report);
+        setIntegrityError('');
+      })
+      .catch(error => {
+        if (active) setIntegrityError(error instanceof Error ? error.message : 'No se pudo auditar Supabase.');
+      })
+      .finally(() => { if (active) setIntegrityLoading(false); });
+    return () => { active = false; };
+  }, []);
+
+  const handleRefreshIntegrity = async () => {
+    setIntegrityLoading(true);
+    setIntegrityError('');
+    try {
+      const report = await dataIntegrityService.audit();
+      setIntegrityReport(report);
+      toast.success('Auditoría de integridad actualizada.');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'No se pudo auditar Supabase.';
+      setIntegrityError(message);
+      toast.error(message);
+    } finally {
+      setIntegrityLoading(false);
+    }
+  };
+
+  const handleSafeCleanup = async () => {
+    if (!window.confirm('Se eliminarán sólo recetas inválidas o huérfanas y se desactivarán productos duplicados sin receta. No se borrarán ventas, facturas ni stocks duplicados.')) return;
+    setIntegrityCleaning(true);
+    setIntegrityError('');
+    try {
+      const result = await dataIntegrityService.cleanupSafe();
+      setIntegrityReport(result.report);
+      const changed = result.actions.reduce((sum, action) => sum + action.count, 0);
+      addLog('sistema', `INTEGRIDAD: Limpieza segura de Supabase completada. ${changed} registros corregidos.`);
+      toast.success(changed > 0 ? `Limpieza segura aplicada a ${changed} registros.` : 'No había correcciones automáticas pendientes.');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'No se pudo limpiar Supabase.';
+      setIntegrityError(message);
+      toast.error(message);
+    } finally {
+      setIntegrityCleaning(false);
+    }
+  };
+
   const supabaseConfigured = useMemo(() => Boolean(tryGetActiveSupabaseClient()), []);
   const arcaReady = Boolean(arcaConfig?.connected && arcaConfig.legalDataComplete && arcaConfig.environment === 'produccion');
 
@@ -440,6 +497,15 @@ export default function SistemaModule({
             currentProductosMenu={productosMenu}
             currentRecetas={recetas}
             onSyncComplete={onSyncComplete}
+          />
+
+          <DataIntegrityPanel
+            report={integrityReport}
+            loading={integrityLoading}
+            cleaning={integrityCleaning}
+            error={integrityError}
+            onRefresh={handleRefreshIntegrity}
+            onCleanup={handleSafeCleanup}
           />
    
           {/* Motor de DB y Velocímetro */}
