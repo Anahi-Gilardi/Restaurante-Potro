@@ -3,7 +3,7 @@ import {
   ApiAccessError,
   applyApiSecurityHeaders,
   requireAuthenticatedDataClient,
-} from "../_security";
+} from "../_security.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!applyApiSecurityHeaders(req, res, ['GET'])) {

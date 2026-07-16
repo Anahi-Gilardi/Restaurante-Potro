@@ -20,6 +20,7 @@ test('los endpoints de pedidos exigen una sesion autenticada y roles', () => {
   for (const file of files) {
     const source = readFileSync(file, 'utf8');
     assert.match(source, /requireAuthenticatedDataClient\(req,/);
+    assert.match(source, /_security\.js/);
     assert.doesNotMatch(source, /const getSupabaseClient/);
     assert.match(source, /applyApiSecurityHeaders/);
   }

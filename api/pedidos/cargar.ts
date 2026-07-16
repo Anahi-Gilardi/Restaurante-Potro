@@ -4,8 +4,8 @@ import {
   applyApiSecurityHeaders,
   requestBodyIsTooLarge,
   requireAuthenticatedDataClient,
-} from "../_security";
-import { isSafeOrderItems } from '../_orderValidation';
+} from "../_security.js";
+import { isSafeOrderItems } from '../_orderValidation.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!applyApiSecurityHeaders(req, res, ['POST'])) {
