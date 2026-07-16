@@ -111,7 +111,7 @@ export const pdfService = {
     const letter = compType === 'factura_a' ? 'A' : (compType === 'factura_c' || compType === 'nota_credito_c' ? 'C' : 'B');
     const isCreditNoteC = compType === 'nota_credito_c';
     const cliente = data.clienteNombre || 'Consumidor Final';
-    const clienteCuit = data.clienteCuit || (data.cuit.startsWith('99') ? 'Consumidor Final' : data.cuit);
+    const clienteCuit = data.clienteCuit || (!data.cuit || data.cuit.startsWith('99') ? 'Consumidor Final' : data.cuit);
 
     // Top Brand Accent Line
     doc.setFillColor(...BRAND.brown);

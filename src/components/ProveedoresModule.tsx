@@ -197,7 +197,7 @@ export default function ProveedoresModule({ addLog }: ProveedoresModuleProps) {
       rawPhone = '54' + rawPhone;
     }
     const url = `https://api.whatsapp.com/send?phone=${rawPhone}&text=${encodeURIComponent(requisitionText)}`;
-    window.open(url, '_blank');
+    window.open(url, '_blank', 'noopener,noreferrer');
     handlePlaceOrder(requisitionModalProv);
   };
 

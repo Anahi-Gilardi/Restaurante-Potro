@@ -1,19 +1,23 @@
 import type { VercelRequest, VercelResponse } from "../../_types";
-import { createClient } from "@supabase/supabase-js";
-
-const getSupabaseClient = () => {
-  const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-  const key = process.env.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY;
-  if (!url || !key) {
-    throw new Error('Supabase configuration missing on process.env');
-  }
-  return createClient(url, key);
-};
+import {
+  ApiAccessError,
+  applyApiSecurityHeaders,
+  requestBodyIsTooLarge,
+  requireAuthenticatedDataClient,
+} from "../../_security";
+import { isSafeOrderItem } from '../../_orderValidation';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (!applyApiSecurityHeaders(req, res, ['POST'])) {
+    return res.status(403).json({ error: 'Origen no autorizado.' });
+  }
+  if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== "POST") {
-    res.setHeader("Allow", "POST");
+    res.setHeader("Allow", "POST, OPTIONS");
     return res.status(405).end();
+  }
+  if (requestBodyIsTooLarge(req)) {
+    return res.status(413).json({ error: 'Solicitud demasiado grande.' });
   }
 
   try {
@@ -23,11 +27,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!id_pedido || isNaN(id_pedido)) {
       return res.status(400).json({ error: "id_pedido inválido u obligatorio" });
     }
-    if (!item || typeof item !== 'object') {
-      return res.status(400).json({ error: "El objeto item es obligatorio" });
+    if (!isSafeOrderItem(item)) {
+      return res.status(400).json({ error: "El item es obligatorio y debe tener datos válidos" });
     }
 
-    const supabase = getSupabaseClient();
+    const supabase = await requireAuthenticatedDataClient(req, ['superadmin', 'administrador', 'mozo']);
 
     // 1. Validar: id_pedido debe existir y NO estar cobrado o cancelado
     const { data: pedido, error: pedidoError } = await supabase
@@ -109,6 +113,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     return res.status(200).json({ ...pedido, items: currentItems });
   } catch (error: any) {
+    if (error instanceof ApiAccessError) {
+      return res.status(error.status).json({ error: error.message });
+    }
     console.error("API error:", error);
     return res.status(500).json({ error: error.message || "Internal Server Error" });
   }

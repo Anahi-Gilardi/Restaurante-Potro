@@ -1,18 +1,17 @@
 import type { VercelRequest, VercelResponse } from "../_types";
-import { createClient } from "@supabase/supabase-js";
-
-const getSupabaseClient = () => {
-  const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-  const key = process.env.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY;
-  if (!url || !key) {
-    throw new Error('Supabase configuration missing on process.env');
-  }
-  return createClient(url, key);
-};
+import {
+  ApiAccessError,
+  applyApiSecurityHeaders,
+  requireAuthenticatedDataClient,
+} from "../_security";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (!applyApiSecurityHeaders(req, res, ['GET'])) {
+    return res.status(403).json({ error: 'Origen no autorizado.' });
+  }
+  if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== "GET") {
-    res.setHeader("Allow", "GET");
+    res.setHeader("Allow", "GET, OPTIONS");
     return res.status(405).end();
   }
 
@@ -23,7 +22,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: "id_pedido inválido u obligatorio" });
     }
 
-    const supabase = getSupabaseClient();
+    const supabase = await requireAuthenticatedDataClient(req, ['superadmin', 'administrador', 'mozo', 'cocina']);
 
     // Validar: id_pedido debe existir
     const { data: pedidoExists, error: existError } = await supabase
@@ -50,6 +49,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     return res.status(200).json(data);
   } catch (error: any) {
+    if (error instanceof ApiAccessError) {
+      return res.status(error.status).json({ error: error.message });
+    }
     console.error("API error:", error);
     return res.status(500).json({ error: error.message || "Internal Server Error" });
   }

@@ -249,7 +249,7 @@ export default function HomeMenuModule({
       color: 'from-emerald-500/10 to-emerald-600/5 hover:border-emerald-400 border-l-4 border-l-emerald-600 dark:border-l-emerald-500',
       iconColor: 'text-emerald-700 dark:text-emerald-400',
       badge: {
-        text: 'Facturación Abierta',
+        text: 'Tickets y Cobros',
         type: 'emerald'
       }
     },
@@ -352,7 +352,7 @@ export default function HomeMenuModule({
     {
       id: 'facturacion',
       title: 'Facturación',
-      description: 'Historial fiscal de facturas y tickets emitidos, con cálculo automático de IVA.',
+      description: 'Emisión de Factura C con CAE y archivo fiscal, separado de los tickets internos de Caja.',
       icon: Receipt,
       color: 'from-stone-500/10 to-stone-650/5 hover:border-stone-400 border-l-4 border-l-stone-500 dark:border-l-stone-450',
       iconColor: 'text-stone-750 dark:text-stone-300',

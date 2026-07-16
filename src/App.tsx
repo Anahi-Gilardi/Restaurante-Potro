@@ -145,7 +145,7 @@ export default function App() {
     {
       id: 'init_log_1',
       tipo: 'sistema',
-      mensaje: 'SISTEMA: Conexión establecida de forma segura. SQLite local cargada con éxito.',
+      mensaje: 'SISTEMA: Conexión establecida de forma segura. Respaldo local del navegador disponible.',
       timestamp: new Date(Date.now() - 35 * 60 * 1000)
     },
     {
@@ -307,7 +307,7 @@ export default function App() {
         }
         addLog('sistema', 'SUPABASE: Auto-sincronización exitosa con servidor Supabase.');
       } catch (err) {
-        console.warn('Supabase: Falló auto-sync en el arranque. Usando datos SQLite locales.', err);
+        console.warn('Supabase: Falló auto-sync en el arranque. Usando la caché local del navegador.', err);
       }
     };
 

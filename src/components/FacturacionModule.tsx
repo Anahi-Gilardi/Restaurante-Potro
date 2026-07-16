@@ -147,7 +147,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
   // Emisión Manual
   const manualTipo = 'C' as const;
   const [manualCliente, setManualCliente] = useState('Consumidor Final');
-  const [manualCuit, setManualCuit] = useState('99-99999999-9');
+  const [manualCuit, setManualCuit] = useState('');
   const [manualTotal, setManualTotal] = useState('0');
   const [manualMedio, setManualMedio] = useState<Factura['medio_pago']>('efectivo');
   const [manualCondicionIva, setManualCondicionIva] = useState(5);
@@ -161,7 +161,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
   const [pagoSearch, setPagoSearch] = useState('');
   const pagoTipo = 'C' as const;
   const [pagoCliente, setPagoCliente] = useState('Consumidor Final');
-  const [pagoCuit, setPagoCuit] = useState('99-99999999-9');
+  const [pagoCuit, setPagoCuit] = useState('');
   const [pagoMedio, setPagoMedio] = useState<Factura['medio_pago']>('efectivo');
   const [pagoCondicionIva, setPagoCondicionIva] = useState(5);
   const [pagoQuery, setPagoQuery] = useState('');
@@ -330,7 +330,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
         id_factura: `fac_${Date.now()}`,
         nro_ticket: nextNumber(facturas, manualTipo, arcaStatus?.puntoVenta),
         cliente: manualCliente.trim() || 'Consumidor Final',
-        cuit: manualCuit.trim() || '99-99999999-9',
+        cuit: manualCuit.trim(),
         total,
         iva_veintiuno: iva,
         medio_pago: manualMedio,
@@ -367,7 +367,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
       setManualObs('');
       setManualQuery('');
       setManualCliente('Consumidor Final');
-      setManualCuit('99-99999999-9');
+      setManualCuit('');
       setActiveTab('archivo');
     } catch (err) {
       console.error(err);
@@ -418,7 +418,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
         id_factura: `fac_${Date.now()}`,
         nro_ticket: nextNumber(facturas, pagoTipo, arcaStatus?.puntoVenta),
         cliente: pagoCliente.trim() || 'Consumidor Final',
-        cuit: pagoCuit.trim() || '99-99999999-9',
+        cuit: pagoCuit.trim(),
         total: totalConsolidado,
         iva_veintiuno: iva,
         medio_pago: pagoMedio,
@@ -507,7 +507,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
       setSelectedPedidos([]);
       setPagoQuery('');
       setPagoCliente('Consumidor Final');
-      setPagoCuit('99-99999999-9');
+      setPagoCuit('');
       setActiveTab('archivo');
     } catch (err) {
       console.error(err);
@@ -1307,7 +1307,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
                     <AlertTriangle className="w-2.5 h-2.5" /> Inválido
                   </span>
                 )}
-                {cuitManualValido && manualCuit !== '99-99999999-9' && (
+                {cuitManualValido && Boolean(manualCuit.trim()) && manualCuit !== '99-99999999-9' && (
                   <span className="text-[8px] text-emerald-600 font-extrabold flex items-center gap-1">
                     <Check className="w-2.5 h-2.5" /> Válido ✓
                   </span>
@@ -1316,7 +1316,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
               <input 
                 value={manualCuit} 
                 onChange={e => setManualCuit(e.target.value)} 
-                placeholder="20-38449102-1"
+                placeholder="Consumidor Final: dejar vacío"
                 className={`w-full p-2.5 rounded-xl border bg-stone-50/50 dark:bg-stone-900 text-stone-800 dark:text-stone-100 text-xs font-mono font-bold ${
                   cuitManualValido ? 'border-stone-200 dark:border-stone-750' : 'border-amber-455 border-amber-500 ring-1 ring-amber-300/30'
                 }`} 
@@ -1622,12 +1622,13 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
                       <span className="text-[10px] font-black uppercase text-stone-400 dark:text-stone-300 flex items-center justify-between">
                         CUIT / DNI
                         {!cuitPagoValido && <span className="text-[8px] text-amber-500 font-extrabold">Formato inválido</span>}
-                        {cuitPagoValido && pagoCuit !== '99-99999999-9' && <span className="text-[8px] text-emerald-600 font-extrabold">Válido ✓</span>}
+                        {cuitPagoValido && Boolean(pagoCuit.trim()) && pagoCuit !== '99-99999999-9' && <span className="text-[8px] text-emerald-600 font-extrabold">Válido ✓</span>}
                       </span>
                       <input
                         type="text"
                         value={pagoCuit}
                         onChange={e => setPagoCuit(e.target.value)}
+                        placeholder="Consumidor Final: dejar vacío"
                         className={`w-full p-2 bg-white dark:bg-stone-955 border rounded-lg text-xs font-mono font-bold text-stone-800 dark:text-stone-100 ${
                           cuitPagoValido ? 'border-stone-200 dark:border-stone-800' : 'border-amber-400 border-amber-500'
                         }`}

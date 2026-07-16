@@ -297,7 +297,7 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
         toast.success('Reserva actualizada correctamente.');
         if (enviarWhatsApp && updated.telefono) {
           const url = getWhatsAppLink(updated.nombre_cliente, updated.telefono, updated.fecha, updated.hora, updated.pax, waTemplate, updated.nombre_mesa);
-          window.open(url, '_blank');
+          window.open(url, '_blank', 'noopener,noreferrer');
         }
         resetForm();
       } catch {
@@ -336,7 +336,7 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
       if (!enviarEspera && saved.id_mesa) onEstadoChange(saved, 'confirmada');
       if (enviarWhatsApp && saved.telefono) {
         const url = getWhatsAppLink(saved.nombre_cliente, saved.telefono, saved.fecha, saved.hora, saved.pax, enviarEspera ? 'espera' : waTemplate, saved.nombre_mesa);
-        window.open(url, '_blank');
+        window.open(url, '_blank', 'noopener,noreferrer');
       }
       resetForm();
       toast.success(enviarEspera ? 'Cliente agregado a la lista de espera.' : 'Reserva confirmada exitosamente.');
@@ -997,7 +997,7 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
                             <button
                               onClick={() => {
                                 const url = getWhatsAppLink(r.nombre_cliente, r.telefono, r.fecha || '', r.hora, r.pax, 'recordatorio', r.nombre_mesa);
-                                window.open(url, '_blank');
+                                window.open(url, '_blank', 'noopener,noreferrer');
                               }}
                               title="Re-enviar recordatorio WhatsApp"
                               className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-150 transition-colors cursor-pointer flex items-center justify-center text-xs"

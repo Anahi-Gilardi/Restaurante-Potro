@@ -18,6 +18,8 @@ import {
   Flame,
   Pizza
 } from 'lucide-react';
+import { argentinaDateIso } from '../lib/argentinaDate';
+import { buildReservationWhatsAppUrl, validatePublicReservation } from '../lib/publicReservation';
 
 export interface RestaurantCoverTheme {
   accentColor: string;
@@ -82,27 +84,14 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
 
   const handleBookingSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!bookingForm.nombre || !bookingForm.telefono || !bookingForm.fecha) {
-      alert('Por favor complete los campos obligatorios para solicitar su mesa.');
+    const validationError = validatePublicReservation(bookingForm, argentinaDateIso());
+    if (validationError) {
+      alert(validationError);
       return;
     }
 
-    // Format date from YYYY-MM-DD to DD/MM/YYYY
-    const parts = bookingForm.fecha.split('-');
-    const formattedDate = parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : bookingForm.fecha;
-
-    const cleanPhone = '5493584373711'; // El Patron WhatsApp line
-    const text = `*SOLICITUD DE RESERVA - EL PATRÓN*\n\n` +
-      `Hola! Me gustaría solicitar una mesa para reservar:\n\n` +
-      `• *Nombre:* ${bookingForm.nombre}\n` +
-      `• *Teléfono:* ${bookingForm.telefono}\n` +
-      `• *Comensales:* ${bookingForm.personas} ${parseInt(bookingForm.personas) === 1 ? 'persona' : 'personas'}\n` +
-      `• *Fecha:* ${formattedDate}\n` +
-      `• *Hora:* ${bookingForm.hora} hs\n\n` +
-      `¡Muchas gracias!`;
-
-    const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
-    window.open(url, '_blank');
+    const url = buildReservationWhatsAppUrl(bookingForm, '5493584373711');
+    window.open(url, '_blank', 'noopener,noreferrer');
 
     setShowBookingSuccess(true);
   };
@@ -469,6 +458,8 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
                   type="tel" 
                   required
                   placeholder="Ej: +54 9 11 1234-5678"
+                  inputMode="tel"
+                  maxLength={25}
                   value={bookingForm.telefono}
                   onChange={(e) => setBookingForm(prev => ({ ...prev, telefono: e.target.value }))}
                   className="w-full px-4 py-3 rounded-xl border border-stone-250 dark:border-stone-800 bg-[#FAF7F0] dark:bg-[#1E140E] text-stone-850 dark:text-white text-xs font-bold focus:outline-none focus:border-[#8C6239] dark:focus:border-[#8C6239]"
@@ -498,6 +489,7 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
                 <input 
                   type="date" 
                   required
+                  min={argentinaDateIso()}
                   value={bookingForm.fecha}
                   onChange={(e) => setBookingForm(prev => ({ ...prev, fecha: e.target.value }))}
                   onClick={(e) => {
@@ -538,7 +530,7 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
               type="submit"
               className="w-full py-4 bg-[#8C6239] hover:bg-[#A0754B] dark:bg-[#8C6239] dark:hover:bg-[#A0754B] text-white dark:text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-200 cursor-pointer shadow-md flex items-center justify-center gap-2"
             >
-              Solicitar Reservación
+              Continuar solicitud por WhatsApp
               <ChevronRight className="w-4 h-4" />
             </button>
           </form>

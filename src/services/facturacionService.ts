@@ -111,7 +111,7 @@ export const facturacionService = {
           id_pedido: f.id_pedido || undefined,
           nro_ticket: f.numero_factura,
           cliente: f.cuit_cliente ? `Clien_CUIT_${f.cuit_cliente}` : 'Consumidor Final',
-          cuit: f.cuit_cliente || '99-99999999-9',
+          cuit: f.cuit_cliente || '',
           total,
           iva_veintiuno: Number(iva.toFixed(2)),
           medio_pago: mapMetodoPagoFromDb(f.metodo_pago),

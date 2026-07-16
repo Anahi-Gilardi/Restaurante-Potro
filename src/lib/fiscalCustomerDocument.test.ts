@@ -3,6 +3,11 @@ import test from 'node:test';
 import { isValidArgentineCuit, parseFiscalCustomerDocument } from './fiscalCustomerDocument';
 
 test('normaliza Consumidor Final sin enviar un documento ficticio a ARCA', () => {
+  assert.deepEqual(parseFiscalCustomerDocument(''), {
+    documentType: 99,
+    documentNumber: 0,
+    consumerFinal: true,
+  });
   assert.deepEqual(parseFiscalCustomerDocument('99-99999999-9'), {
     documentType: 99,
     documentNumber: 0,

@@ -82,7 +82,7 @@ export function useCaja({
   const [selectedPedidoId, setSelectedPedidoId] = useState<number | null>(null);
   
   // Checkout options
-  const [cuitCliente, setCuitCliente] = useState<string>('99-99999999-9'); // Default Consumidor Final
+  const [cuitCliente, setCuitCliente] = useState<string>('');
   const [nombreCliente, setNombreCliente] = useState<string>('Consumidor Final');
   const [metodoPago, setMetodoPago] = useState<'efectivo' | 'tarjeta' | 'transferencia' | 'mp_qr' | 'mixto'>('efectivo');
 

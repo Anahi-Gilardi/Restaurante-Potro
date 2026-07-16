@@ -256,7 +256,7 @@ export default function SupabaseManager({
     setAnonKey('');
     resetSupabaseInstance();
     setConnectionStatus('not_configured');
-    setConnectionMessage('Configuración removida. Volviendo a SQLite Local offline.');
+    setConnectionMessage('Configuración local removida. Se mantiene la caché del navegador para contingencia.');
     addLog('sistema', 'SUPABASE: Desconectado. Retornando a persistencia interna offline.');
     setScannedTables([]);
     setSelectedTableForInspect(null);
@@ -434,7 +434,7 @@ export default function SupabaseManager({
             }`} />
             {connectionStatus === 'connected' ? 'Enlazado Cloud' :
              connectionStatus === 'testing' ? 'Verificando...' :
-             connectionStatus === 'error' ? 'Fallo Conexión' : ' SQLite Offline'}
+             connectionStatus === 'error' ? 'Fallo Conexión' : 'Caché local'}
           </span>
         </div>
       </div>

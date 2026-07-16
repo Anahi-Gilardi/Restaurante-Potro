@@ -17,7 +17,7 @@ export const isValidArgentineCuit = (value: string): boolean => {
 export const parseFiscalCustomerDocument = (value: string): FiscalCustomerDocument => {
   const trimmed = value.trim();
   const digits = trimmed.replace(/\D/g, '');
-  if (trimmed === '99-99999999-9' || digits === '99999999999') {
+  if (trimmed === '' || trimmed === '99-99999999-9' || digits === '99999999999') {
     return { documentType: 99, documentNumber: 0, consumerFinal: true };
   }
   if (/^\d{7,8}$/.test(digits)) {
