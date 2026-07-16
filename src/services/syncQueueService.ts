@@ -4,7 +4,7 @@ import { Factura } from './facturacionService';
 
 export interface SyncQueueItem {
   id: string;
-  action: 'upsert_pedido' | 'upsert_factura' | 'create_merma' | 'update_pedido_estado';
+  action: 'upsert_pedido' | 'upsert_factura' | 'record_sale_bundle' | 'create_merma' | 'update_pedido_estado';
   payload: any;
   timestamp: string;
   attempts: number;
@@ -74,6 +74,7 @@ export const syncQueueService = {
     // Dynamically import services to avoid circular dependency
     const { pedidosService } = await import('./pedidosService');
     const { facturacionService } = await import('./facturacionService');
+    const { salesPersistenceService } = await import('./salesPersistenceService');
     const { mermasService } = await import('./mermasService');
 
     for (const item of queue) {
@@ -92,6 +93,9 @@ export const syncQueueService = {
         } else if (item.action === 'upsert_factura') {
           await facturacionService.upsert([item.payload]);
           success = true;
+        } else if (item.action === 'record_sale_bundle') {
+          const result = await salesPersistenceService.persist(item.payload, false);
+          success = result.synced;
         } else if (item.action === 'create_merma') {
           await mermasService.create(item.payload);
           success = true;

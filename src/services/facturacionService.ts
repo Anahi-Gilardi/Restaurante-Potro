@@ -88,9 +88,32 @@ export const mergeFacturas = (remote: Factura[], local: Factura[]): Factura[] =>
   return Array.from(merged.values()).sort((a, b) => b.id_factura.localeCompare(a.id_factura));
 };
 
-const cacheFactura = (factura: Factura) => {
+export const cacheFacturaLocally = (factura: Factura) => {
   writeLocalFacturas(mergeFacturas([], [factura, ...readLocalFacturas()]));
 };
+
+export const toDbFacturaPayload = (factura: Factura) => ({
+  id_factura: factura.id_factura,
+  id_pedido: factura.id_pedido || null,
+  numero_factura: factura.nro_ticket,
+  total: factura.total,
+  tipo_comprobante: tipoToDb(factura),
+  metodo_pago: mapMetodoPagoToDb(factura.medio_pago),
+  cuit_cliente: factura.cuit,
+  fecha_emision: factura.fecha_completa || new Date().toISOString(),
+  afip_cae: factura.afip_cae,
+  afip_vto: factura.afip_vto,
+  afip_qr: factura.afip_qr,
+  afip_resultado: factura.afip_resultado,
+  fiscal_status: factura.estado === 'autorizado' ? 'authorized' : factura.estado === 'observado' ? 'observed' : factura.estado === 'incierto' ? 'uncertain' : factura.estado === 'rechazado' ? 'rejected' : factura.estado === 'nota_credito' ? 'credited' : 'draft',
+  arca_emission_id: factura.arca_emission_id,
+  afip_cbte_tipo: factura.afip_cbte_tipo,
+  afip_pto_vta: factura.afip_pto_vta,
+  afip_cbte_nro: factura.afip_cbte_nro,
+  afip_observaciones: factura.afip_observaciones || [],
+  arca_emisor: factura.arca_emisor,
+  condicion_iva_receptor: factura.condicion_iva_receptor,
+});
 
 export const facturacionService = {
   async list(): Promise<Factura[]> {
@@ -151,30 +174,9 @@ export const facturacionService = {
   },
 
   async create(factura: Factura): Promise<Factura> {
-    cacheFactura(factura);
+    cacheFacturaLocally(factura);
     const supabase = getActiveSupabaseClient();
-    const dbPayload = {
-      id_factura: factura.id_factura,
-      id_pedido: factura.id_pedido || null,
-      numero_factura: factura.nro_ticket,
-      total: factura.total,
-      tipo_comprobante: tipoToDb(factura),
-      metodo_pago: mapMetodoPagoToDb(factura.medio_pago),
-      cuit_cliente: factura.cuit,
-      fecha_emision: factura.fecha_completa || new Date().toISOString(),
-      afip_cae: factura.afip_cae,
-      afip_vto: factura.afip_vto,
-      afip_qr: factura.afip_qr,
-      afip_resultado: factura.afip_resultado,
-      fiscal_status: factura.estado === 'autorizado' ? 'authorized' : factura.estado === 'observado' ? 'observed' : factura.estado === 'incierto' ? 'uncertain' : factura.estado === 'rechazado' ? 'rejected' : factura.estado === 'nota_credito' ? 'credited' : 'draft',
-      arca_emission_id: factura.arca_emission_id,
-      afip_cbte_tipo: factura.afip_cbte_tipo,
-      afip_pto_vta: factura.afip_pto_vta,
-      afip_cbte_nro: factura.afip_cbte_nro,
-      afip_observaciones: factura.afip_observaciones || [],
-      arca_emisor: factura.arca_emisor,
-      condicion_iva_receptor: factura.condicion_iva_receptor,
-    };
+    const dbPayload = toDbFacturaPayload(factura);
     
     try {
       const { data, error } = await supabase.from('facturas').insert([dbPayload]).select().single();
@@ -197,30 +199,7 @@ export const facturacionService = {
   async upsert(facturas: Factura[]): Promise<void> {
     writeLocalFacturas(mergeFacturas([], [...facturas, ...readLocalFacturas()]));
     const supabase = getActiveSupabaseClient();
-    const dbPayloads = facturas.map(f => {
-      return {
-        id_factura: f.id_factura,
-        id_pedido: f.id_pedido || null,
-        numero_factura: f.nro_ticket,
-        total: f.total,
-        tipo_comprobante: tipoToDb(f),
-        metodo_pago: mapMetodoPagoToDb(f.medio_pago),
-        cuit_cliente: f.cuit,
-        fecha_emision: f.fecha_completa || new Date().toISOString(),
-        afip_cae: f.afip_cae,
-        afip_vto: f.afip_vto,
-        afip_qr: f.afip_qr,
-        afip_resultado: f.afip_resultado,
-        fiscal_status: f.estado === 'autorizado' ? 'authorized' : f.estado === 'observado' ? 'observed' : f.estado === 'incierto' ? 'uncertain' : f.estado === 'rechazado' ? 'rejected' : f.estado === 'nota_credito' ? 'credited' : 'draft',
-        arca_emission_id: f.arca_emission_id,
-        afip_cbte_tipo: f.afip_cbte_tipo,
-        afip_pto_vta: f.afip_pto_vta,
-        afip_cbte_nro: f.afip_cbte_nro,
-        afip_observaciones: f.afip_observaciones || [],
-        arca_emisor: f.arca_emisor,
-        condicion_iva_receptor: f.condicion_iva_receptor,
-      };
-    });
+    const dbPayloads = facturas.map(toDbFacturaPayload);
 
     try {
       const { error } = await supabase.from('facturas').upsert(dbPayloads);

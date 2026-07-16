@@ -11,10 +11,10 @@ import {
   Cliente
 } from '../../../types';
 import { cajaService } from '../../../services/cajaService';
-import { pagosService } from '../../../services/pagosService';
 import { pdfService } from '../../../services/pdfService';
 import { printerService } from '../../../services/printerService';
 import { facturacionService, Factura } from '../../../services/facturacionService';
+import { salesPersistenceService } from '../../../services/salesPersistenceService';
 import { auditoriaService } from '../../../services/auditoriaService';
 import { clientesService } from '../../../services/clientesService';
 import { CONDICIONES_IVA_RECEPTOR } from '../../../services/arcaService';
@@ -597,7 +597,8 @@ export function useCaja({
       }
     }
 
-    const idFactura = `fac_${Date.now()}`;
+    const saleTimestamp = Date.now();
+    const idFactura = `fac_${saleTimestamp}`;
     const compiledTicketNo = internalTicketPreview(lastFacturas.map(factura => factura.nro_ticket));
 
     const dataTicket: TicketData = {
@@ -641,36 +642,32 @@ export function useCaja({
 
     const mappedMedio = pays.map(p => p.metodo.toUpperCase()).join(' + ');
 
-    try {
-      await facturacionService.create({
-        id_factura: idFactura,
-        id_pedido: selectedPedido.id_pedido,
-        nro_ticket: compiledTicketNo,
-        cliente: nombreCliente === 'Consumidor Final' ? 'Consumidor Final' : nombreCliente + ` (CUIT ${cuitCliente})`,
-        cuit: cuitCliente,
-        total: orderBreakdowns.finalTotal,
-        iva_veintiuno: 0,
-        medio_pago: metodoPago,
-        fecha: new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + ' hs',
-        estado: 'borrador',
-        tipo: 'ticket',
-      });
-    } catch (err) {
-      console.warn('Network offline backup creation:', err);
-    }
-
+    const saleDate = new Date(saleTimestamp);
+    const internalFactura: Factura = {
+      id_factura: idFactura,
+      id_pedido: selectedPedido.id_pedido,
+      nro_ticket: compiledTicketNo,
+      cliente: nombreCliente === 'Consumidor Final' ? 'Consumidor Final' : nombreCliente + ` (CUIT ${cuitCliente})`,
+      cuit: cuitCliente,
+      total: orderBreakdowns.finalTotal,
+      iva_veintiuno: 0,
+      medio_pago: metodoPago,
+      fecha: saleDate.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + ' hs',
+      fecha_completa: saleDate.toISOString(),
+      estado: 'borrador',
+      tipo: 'ticket',
+    };
     const paymentRows: PagoDb[] = pays.map((p, idx) => ({
-      id_pago: `pag_${Date.now()}_${idx}`,
+      id_pago: `pag_${saleTimestamp}_${idx}`,
       id_factura: idFactura,
       monto: p.monto,
       metodo: p.metodo,
-      fecha: new Date().toISOString()
+      fecha: saleDate.toISOString()
     }));
 
-    try {
-      await pagosService.bulkCreate(paymentRows);
-    } catch {
-      // fallbacked
+    const persistence = await salesPersistenceService.persist({ factura: internalFactura, pagos: paymentRows });
+    if (persistence.pendingSync) {
+      toast.warning('Cobro respaldado localmente. Se sincronizará con Supabase al recuperar conexión.');
     }
 
     const paymentDesglosesCount = {
