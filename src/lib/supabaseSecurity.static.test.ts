@@ -17,6 +17,12 @@ test('la migración final bloquea anon y limita las tablas operativas a authenti
   assert.doesNotMatch(migration, /FOR ALL TO public/i);
 });
 
+test('el diagnóstico de conexión consulta una columna real y permitida de usuarios', () => {
+  const manager = readFileSync('src/components/SupabaseManager.tsx', 'utf8');
+  assert.match(manager, /select\('id_usuario', \{ count: 'exact', head: true \}\)/);
+  assert.doesNotMatch(manager, /select\('count', \{ count: 'exact', head: true \}\)/);
+});
+
 test('la preparación productiva no exige receta a productos desactivados', () => {
   assert.match(systemModule, /if \(p\.activo === false\) return false/);
   assert.match(systemModule, /const hasUsableRecipe = recetas\.some/);

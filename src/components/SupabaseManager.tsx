@@ -220,7 +220,9 @@ export default function SupabaseManager({
       }
 
       // Test reading tables
-      const { data: userTest, error: userError } = await client.from('usuarios').select('count', { count: 'exact', head: true });
+      const { error: userError } = await client
+        .from('usuarios')
+        .select('id_usuario', { count: 'exact', head: true });
 
       if (userError && userError.code !== '42P01' && userError.code !== 'PGRST116') {
         throw userError;
