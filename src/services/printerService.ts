@@ -50,11 +50,8 @@ export const printerService = {
     esc += '[ESC/POS: TEXT FONT_DOUBLE_SIZE]\n';
     esc += `${data.nombreComercial.toUpperCase()}\n`;
     esc += '[ESC/POS: TEXT FONT_NORMAL]\n';
-    esc += `${data.razonSocial}\n`;
-    esc += `CUIT: ${data.cuit}\n`;
-    esc += `${data.direccion}\n`;
-    esc += `Tel: ${data.telefono}\n`;
-    esc += `Email: ${data.email}\n`;
+    esc += 'TICKET DE CONSUMO\n';
+    esc += 'DOCUMENTO NO VALIDO COMO FACTURA\n';
     esc += `${doubleSeparator}\n`;
     
     esc += '[ESC/POS: ALIGN LEFT]\n';

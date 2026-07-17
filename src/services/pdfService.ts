@@ -453,12 +453,10 @@ export const pdfService = {
     center('DOCUMENTO NO VALIDO COMO FACTURA', 6.5, false);
     y += 1.5;
 
+    // El ticket interno de Caja no es un comprobante fiscal: no debe exponer
+    // razon social, CUIT ni datos personales/fiscales del titular. Esos datos
+    // se imprimen exclusivamente en generateA4Invoice para facturas reales.
     doc.setTextColor(...BRAND.dark);
-    center(data.razonSocial, 7);
-    center(`CUIT ${data.cuit}`, 6.5);
-    center(data.direccion, 6.5);
-    if (data.telefono) center(data.telefono, 6.2);
-    y += 1.5;
     line();
 
     doc.setFont('helvetica', 'bold');
