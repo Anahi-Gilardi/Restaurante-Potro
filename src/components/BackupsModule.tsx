@@ -130,7 +130,8 @@ export default function BackupsModule({
         promociones,
         reservas,
         facturas,
-        logs
+        logs,
+        supplemental
       ] = await Promise.all([
         usuariosService.list().catch(() => operationalData.usuarios),
         mesasService.list().catch(() => operationalData.mesas),
@@ -143,13 +144,14 @@ export default function BackupsModule({
         promocionesService.list().catch(() => []),
         reservasService.list().catch(() => []),
         facturacionService.list().catch(() => []),
-        auditoriaService.list().catch(() => operationalData.logs)
+        auditoriaService.list().catch(() => operationalData.logs),
+        backupsService.captureSupplementalData()
       ]);
 
       const snapshot = {
         meta: {
           exportado: new Date().toISOString(),
-          version: '1.3.0-Supabase',
+          version: '1.4.0-Supabase',
           notas: customBackupNotes.trim() || undefined
         },
         data: {
@@ -164,7 +166,8 @@ export default function BackupsModule({
           promociones,
           reservas,
           facturas,
-          logs
+          logs,
+          ...supplemental
         }
       };
 
@@ -207,11 +210,14 @@ export default function BackupsModule({
     setLoadingId(cp.id_cp);
     try {
       const snapshot = parseBackupContent(cp.contenido);
-      await backupsService.restore(snapshot);
+      const result = await backupsService.restore(snapshot);
       onRestoreData(snapshot);
       addLog('sistema', `SISTEMA: Base de datos y estado del salón restaurados desde el respaldo '${cp.nombre}'.`);
       setRestoredOk(`La copia '${cp.nombre}' se restauró de manera exitosa.`);
       toast.success('Punto de control restaurado correctamente.');
+      if (result.usersSkipped) {
+        toast.info('Los usuarios y contraseñas actuales se conservaron por seguridad.');
+      }
       setTimeout(() => setRestoredOk(null), 5000);
     } catch (error: any) {
       addLog('sistema', `ERROR: Error al restaurar '${cp.nombre}': ${error.message}`);
@@ -286,11 +292,14 @@ export default function BackupsModule({
     setBackingUp(true);
     addLog('sistema', `SISTEMA: Iniciando restauración forzada desde archivo subido '${uploadedFileName}'...`);
     try {
-      await backupsService.restore(uploadedSnapshot);
+      const result = await backupsService.restore(uploadedSnapshot);
       onRestoreData(uploadedSnapshot);
       addLog('sistema', `SISTEMA: Sincronización completa completada desde el archivo importado '${uploadedFileName}'.`);
       setRestoredOk(`El archivo '${uploadedFileName}' se importó y restauró con éxito.`);
       toast.success('El sistema ha sido restaurado desde el archivo importado.');
+      if (result.usersSkipped) {
+        toast.info('Los usuarios y contraseñas actuales se conservaron por seguridad.');
+      }
       setTimeout(() => setRestoredOk(null), 5000);
     } catch (err: any) {
       addLog('sistema', `ERROR: Error al importar respaldo: ${err.message}`);
@@ -433,7 +442,7 @@ export default function BackupsModule({
                       <span>•</span>
                       <span>Peso: <strong className="text-stone-600 dark:text-stone-300 font-mono">{cp.peso}</strong></span>
                       <span>•</span>
-                      <span>Colecciones: <strong className="text-stone-600 dark:text-stone-300">12 Tablas</strong></span>
+                      <span>Colecciones: <strong className="text-stone-600 dark:text-stone-300">20 Tablas</strong></span>
                     </div>
                   </div>
 
@@ -506,9 +515,9 @@ export default function BackupsModule({
               Manual de Procedimiento
             </h5>
             <ul className="list-decimal list-inside space-y-2 text-[10px] font-semibold leading-relaxed">
-              <li>El sistema genera descargas de extensión <strong className="font-mono">.json</strong> que contienen todas las tablas relacionales.</li>
+              <li>El sistema genera descargas <strong className="font-mono">.json</strong> con las 20 colecciones operativas, incluidos pagos, cierres, clientes y trazabilidad de inventario.</li>
               <li>Al restaurar, se sobreescribe el estado de comandas del salón, stock e IVA.</li>
-              <li>Por seguridad, los respaldos externos deben contar con al menos un administrador activo para prevenir bloqueos de inicio de sesión.</li>
+              <li>Por seguridad, las identidades, contraseñas y secretos ARCA nunca se reemplazan desde un archivo de respaldo.</li>
             </ul>
           </div>
 
@@ -614,6 +623,12 @@ export default function BackupsModule({
                   <div>• Productos: <strong className="text-stone-800 dark:text-white">{uploadedSnapshot.productosMenu.length}</strong></div>
                   <div>• Fórmulas/Recetas: <strong className="text-stone-800 dark:text-white">{uploadedSnapshot.recetas.length}</strong></div>
                   <div>• Comandas: <strong className="text-stone-800 dark:text-white">{uploadedSnapshot.pedidos.length}</strong></div>
+                  <div>• Facturas: <strong className="text-stone-800 dark:text-white">{uploadedSnapshot.facturas.length}</strong></div>
+                  <div>• Pagos: <strong className="text-stone-800 dark:text-white">{uploadedSnapshot.pagos.length}</strong></div>
+                  <div>• Cierres: <strong className="text-stone-800 dark:text-white">{uploadedSnapshot.cierresCaja.length}</strong></div>
+                  <div>• Clientes: <strong className="text-stone-800 dark:text-white">{uploadedSnapshot.clientes.length}</strong></div>
+                  <div>• Mov. inventario: <strong className="text-stone-800 dark:text-white">{uploadedSnapshot.movimientosInventario.length}</strong></div>
+                  <div>• Historial costos: <strong className="text-stone-800 dark:text-white">{uploadedSnapshot.historialCostos.length}</strong></div>
                 </div>
               </div>
             </div>

@@ -1025,7 +1025,8 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
   };
 
   const handleRestoreBackupData = (snapshot: BackupSnapshotData) => {
-    setUsuarios(snapshot.usuarios);
+    // Los usuarios continúan vinculados a Supabase Auth y no se reemplazan
+    // con perfiles históricos provenientes de un archivo JSON.
     setMesas(snapshot.mesas);
     setInsumos(snapshot.insumos);
     setProductosMenu(snapshot.productosMenu);

@@ -1,9 +1,15 @@
 import { getActiveSupabaseClient } from '../lib/supabaseClient';
 import type {
+  Categoria,
+  CierreCaja,
+  Cliente,
   EventoLog,
+  HistorialCostoInsumo,
   Insumo,
   Merma,
   Mesa,
+  MovimientoCajaChica,
+  PagoDb,
   Pedido,
   ProductoMenu,
   Proveedor,
@@ -26,7 +32,6 @@ async function getPromocionesService() { return (await import('./promocionesServ
 async function getProveedoresService() { return (await import('./proveedoresService')).proveedoresService; }
 async function getRecetasService() { return (await import('./recetasService')).recetasService; }
 async function getReservasService() { return (await import('./reservasService')).reservasService; }
-async function getUsuariosService() { return (await import('./usuariosService')).usuariosService; }
 
 export interface Checkpoint {
   id_cp: string;
@@ -52,10 +57,30 @@ export interface BackupSnapshotData {
   reservas: Reserva[];
   facturas: Factura[];
   logs: EventoLog[];
+  pagos: PagoDb[];
+  cierresCaja: CierreCaja[];
+  clientes: Cliente[];
+  movimientosCajaChica: MovimientoCajaChica[];
+  historialCostos: HistorialCostoInsumo[];
+  movimientosInventario: Record<string, unknown>[];
+  categorias: Categoria[];
+  configuracion: Record<string, unknown>[];
 }
 
+export type SupplementalBackupData = Pick<
+  BackupSnapshotData,
+  | 'pagos'
+  | 'cierresCaja'
+  | 'clientes'
+  | 'movimientosCajaChica'
+  | 'historialCostos'
+  | 'movimientosInventario'
+  | 'categorias'
+  | 'configuracion'
+>;
+
 const LOCAL_BACKUPS_KEY = 'el_patron_backups_locales';
-const SNAPSHOT_KEYS: Array<keyof BackupSnapshotData> = [
+const REQUIRED_SNAPSHOT_KEYS: Array<keyof BackupSnapshotData> = [
   'usuarios',
   'mesas',
   'insumos',
@@ -68,6 +93,22 @@ const SNAPSHOT_KEYS: Array<keyof BackupSnapshotData> = [
   'reservas',
   'facturas',
   'logs'
+];
+
+const SUPPLEMENTAL_SNAPSHOT_KEYS: Array<keyof SupplementalBackupData> = [
+  'pagos',
+  'cierresCaja',
+  'clientes',
+  'movimientosCajaChica',
+  'historialCostos',
+  'movimientosInventario',
+  'categorias',
+  'configuracion'
+];
+
+const ALL_SNAPSHOT_KEYS: Array<keyof BackupSnapshotData> = [
+  ...REQUIRED_SNAPSHOT_KEYS,
+  ...SUPPLEMENTAL_SNAPSHOT_KEYS
 ];
 
 // Native IndexedDB Helper
@@ -187,6 +228,14 @@ const reviveDates = (snapshot: BackupSnapshotData): BackupSnapshotData => ({
   logs: snapshot.logs.map(log => ({
     ...log,
     timestamp: new Date(log.timestamp)
+  })),
+  clientes: snapshot.clientes.map(cliente => ({
+    ...cliente,
+    fecha_registro: new Date(cliente.fecha_registro)
+  })),
+  historialCostos: snapshot.historialCostos.map(item => ({
+    ...item,
+    fecha: new Date(item.fecha)
   }))
 });
 
@@ -207,24 +256,44 @@ export const parseBackupContent = (contenido?: string): BackupSnapshotData => {
   }
 
   const candidate = parsed as Record<string, unknown>;
-  for (const key of SNAPSHOT_KEYS) {
+  for (const key of REQUIRED_SNAPSHOT_KEYS) {
     if (!Array.isArray(candidate[key])) {
       throw new Error(`El respaldo está incompleto: falta la colección "${key}".`);
     }
   }
 
-  const snapshot = candidate as unknown as BackupSnapshotData;
-  const hasActiveAdmin = snapshot.usuarios.some(usuario => (
-    (usuario.rol === 'superadmin' || usuario.rol === 'administrador') && usuario.activo !== false
-  ));
-  if (!hasActiveAdmin) {
-    throw new Error('El respaldo no contiene ningún administrador activo.');
+  // Compatibilidad con copias 1.3 y anteriores: no incluían las colecciones
+  // contables auxiliares, por lo que se restauran como listas vacías.
+  for (const key of SUPPLEMENTAL_SNAPSHOT_KEYS) {
+    if (!Array.isArray(candidate[key])) candidate[key] = [];
   }
 
-  return reviveDates(snapshot);
+  return reviveDates(candidate as unknown as BackupSnapshotData);
 };
 
 export const backupsService = {
+  async captureSupplementalData(): Promise<SupplementalBackupData> {
+    const supabase = getActiveSupabaseClient();
+    const tableMap = {
+      pagos: 'pagos',
+      cierresCaja: 'cierres_caja',
+      clientes: 'clientes',
+      movimientosCajaChica: 'movimientos_caja_chica',
+      historialCostos: 'historial_costos_insumos',
+      movimientosInventario: 'movimientos_inventario',
+      categorias: 'categorias',
+      configuracion: 'configuracion'
+    } as const;
+
+    const entries = await Promise.all(Object.entries(tableMap).map(async ([key, table]) => {
+      const { data, error } = await supabase.from(table).select('*');
+      if (error) throw new Error(`No se pudo leer ${table}: ${error.message}`);
+      return [key, data ?? []] as const;
+    }));
+
+    return Object.fromEntries(entries) as SupplementalBackupData;
+  },
+
   async list(): Promise<Checkpoint[]> {
     const local = await readLocalBackups();
     try {
@@ -258,7 +327,7 @@ export const backupsService = {
       nombre: backup.nombre,
       fecha: new Date().toLocaleString('es-AR'),
       peso: `${sizeInKb} KB`,
-      tablas_afectadas: SNAPSHOT_KEYS.join(', '),
+      tablas_afectadas: ALL_SNAPSHOT_KEYS.join(', '),
       tipo: 'manual',
       contenido: serialized,
       ubicacion: 'local'
@@ -286,12 +355,11 @@ export const backupsService = {
     return checkpoint;
   },
 
-  async restore(snapshot: BackupSnapshotData): Promise<void> {
+  async restore(snapshot: BackupSnapshotData): Promise<{ usersSkipped: true }> {
     const sync = async <T>(items: T[], upsert: (items: T[]) => Promise<unknown>) => {
       if (items.length > 0) await upsert(items);
     };
 
-    const usuariosSvc = await getUsuariosService();
     const mesasSvc = await getMesasService();
     const insumosSvc = await getInsumosService();
     const menuSvc = await getMenuService();
@@ -304,7 +372,8 @@ export const backupsService = {
     const facturacionSvc = await getFacturacionService();
     const auditoriaSvc = await getAuditoriaService();
 
-    await sync(snapshot.usuarios, items => usuariosSvc.upsert(items));
+    // Las identidades de usuarios pertenecen a Supabase Auth. Restaurar perfiles
+    // desde el navegador rompería ese vínculo y está bloqueado deliberadamente.
     await sync(snapshot.mesas, items => mesasSvc.upsert(items));
     await sync(snapshot.insumos, items => insumosSvc.upsert(items));
     await sync(snapshot.productosMenu, items => menuSvc.upsert(items));
@@ -316,6 +385,24 @@ export const backupsService = {
     await sync(snapshot.mermas, items => mermasSvc.upsert(items));
     await sync(snapshot.facturas, items => facturacionSvc.upsert(items));
     await sync(snapshot.logs, items => auditoriaSvc.upsert(items));
+
+    const supabase = getActiveSupabaseClient();
+    const restoreTable = async (table: string, items: Record<string, unknown>[]) => {
+      if (items.length === 0) return;
+      const { error } = await supabase.from(table).upsert(items);
+      if (error) throw new Error(`No se pudo restaurar ${table}: ${error.message}`);
+    };
+
+    await restoreTable('pagos', snapshot.pagos as unknown as Record<string, unknown>[]);
+    await restoreTable('cierres_caja', snapshot.cierresCaja as unknown as Record<string, unknown>[]);
+    await restoreTable('clientes', snapshot.clientes as unknown as Record<string, unknown>[]);
+    await restoreTable('movimientos_caja_chica', snapshot.movimientosCajaChica as unknown as Record<string, unknown>[]);
+    await restoreTable('historial_costos_insumos', snapshot.historialCostos as unknown as Record<string, unknown>[]);
+    await restoreTable('movimientos_inventario', snapshot.movimientosInventario);
+    await restoreTable('categorias', snapshot.categorias as unknown as Record<string, unknown>[]);
+    await restoreTable('configuracion', snapshot.configuracion);
+
+    return { usersSkipped: true };
   },
 
   async remove(id: string): Promise<boolean> {
