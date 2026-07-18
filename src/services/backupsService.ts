@@ -1,4 +1,5 @@
 import { getActiveSupabaseClient } from '../lib/supabaseClient';
+import { sanitizeBackupConfiguration } from '../lib/automaticBackup';
 import type {
   Categoria,
   CierreCaja,
@@ -288,7 +289,10 @@ export const backupsService = {
     const entries = await Promise.all(Object.entries(tableMap).map(async ([key, table]) => {
       const { data, error } = await supabase.from(table).select('*');
       if (error) throw new Error(`No se pudo leer ${table}: ${error.message}`);
-      return [key, data ?? []] as const;
+      const safeData = table === 'configuracion'
+        ? sanitizeBackupConfiguration(data ?? [])
+        : (data ?? []);
+      return [key, safeData] as const;
     }));
 
     return Object.fromEntries(entries) as SupplementalBackupData;
