@@ -238,3 +238,46 @@ export const expiredAutomaticBackupIds = (
   .sort((a, b) => new Date(String(b.fecha ?? 0)).getTime() - new Date(String(a.fecha ?? 0)).getTime())
   .slice(Math.max(1, retention))
   .map(item => String(item.id_backup));
+
+export type AutomaticBackupHealth = 'healthy' | 'pending' | 'delayed';
+
+export interface AutomaticBackupStatus {
+  health: AutomaticBackupHealth;
+  lastRunAt: Date | null;
+  nextRunAt: Date;
+}
+
+export const nextAutomaticBackupRun = (now = new Date()): Date => {
+  const next = new Date(Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate(),
+    6,
+    0,
+    0,
+    0
+  ));
+  if (next.getTime() <= now.getTime()) next.setUTCDate(next.getUTCDate() + 1);
+  return next;
+};
+
+export const getAutomaticBackupStatus = (
+  backups: Array<{ id_cp?: unknown; fechaIso?: unknown }>,
+  now = new Date()
+): AutomaticBackupStatus => {
+  const lastRunAt = backups
+    .filter(item => String(item.id_cp ?? '').startsWith('auto_'))
+    .map(item => new Date(String(item.fechaIso ?? '')))
+    .filter(date => Number.isFinite(date.getTime()))
+    .sort((a, b) => b.getTime() - a.getTime())[0] ?? null;
+
+  const ageHours = lastRunAt
+    ? (now.getTime() - lastRunAt.getTime()) / (60 * 60 * 1_000)
+    : Number.POSITIVE_INFINITY;
+
+  return {
+    health: lastRunAt === null ? 'pending' : ageHours <= 36 ? 'healthy' : 'delayed',
+    lastRunAt,
+    nextRunAt: nextAutomaticBackupRun(now)
+  };
+};

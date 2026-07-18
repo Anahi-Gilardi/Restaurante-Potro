@@ -151,3 +151,51 @@ test('prioriza el checkpoint remoto cuando también existe copia local', () => {
   assert.equal(merged.length, 1);
   assert.equal(merged[0].nombre, 'Cloud');
 });
+
+test('ordena copias manuales y automaticas por fecha real', () => {
+  const checkpoints = mergeCheckpoints([{
+    id_cp: 'auto_2026-07-18',
+    nombre: 'Automatica',
+    fecha: '18/7/2026',
+    fechaIso: '2026-07-18T06:00:00.000Z',
+    peso: '2 KB',
+    tablas_afectadas: 'mesas',
+    tipo: 'automatica',
+    ubicacion: 'cloud'
+  }], [{
+    id_cp: 'cp_1784260000000',
+    nombre: 'Manual anterior',
+    fecha: '16/7/2026',
+    fechaIso: '2026-07-16T20:00:00.000Z',
+    peso: '1 KB',
+    tablas_afectadas: 'mesas',
+    tipo: 'manual',
+    ubicacion: 'local'
+  }]);
+
+  assert.deepEqual(checkpoints.map(item => item.tipo), ['automatica', 'manual']);
+});
+
+test('el listado remoto conserva el contenido cacheado y no descarga todos los dumps', () => {
+  const local = [{
+    id_cp: 'cp_1',
+    nombre: 'Local',
+    fecha: '1',
+    peso: '1 KB',
+    tablas_afectadas: 'mesas',
+    tipo: 'manual' as const,
+    ubicacion: 'local' as const,
+    contenido: '{"mesas":[]}'
+  }];
+  const remote = [{
+    ...local[0],
+    nombre: 'Cloud',
+    ubicacion: 'cloud' as const,
+    contenido: undefined
+  }];
+
+  assert.equal(mergeCheckpoints(remote, local)[0].contenido, '{"mesas":[]}');
+  const source = readFileSync(new URL('./backupsService.ts', import.meta.url), 'utf8');
+  assert.match(source, /select\('id_backup,nombre_archivo,fecha,tamano,tablas'\)/);
+  assert.doesNotMatch(source, /from\('backups'\)\.select\('\*'\)/);
+});

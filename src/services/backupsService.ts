@@ -38,6 +38,7 @@ export interface Checkpoint {
   id_cp: string;
   nombre: string;
   fecha: string;
+  fechaIso?: string;
   peso: string;
   tablas_afectadas: string;
   tipo: 'automatica' | 'manual';
@@ -196,12 +197,21 @@ const writeLocalBackups = async (backups: Checkpoint[]) => {
   }
 };
 
+export const checkpointTimestamp = (checkpoint: Checkpoint): number => {
+  const isoTimestamp = checkpoint.fechaIso ? Date.parse(checkpoint.fechaIso) : Number.NaN;
+  if (Number.isFinite(isoTimestamp)) return isoTimestamp;
+  const idTimestamp = checkpoint.id_cp.startsWith('cp_')
+    ? Number(checkpoint.id_cp.slice(3))
+    : Number.NaN;
+  return Number.isFinite(idTimestamp) ? idTimestamp : 0;
+};
+
 const cacheCheckpoint = async (checkpoint: Checkpoint) => {
   const localList = await readLocalBackups();
   const merged = new Map(localList.map(item => [item.id_cp, item]));
   merged.set(checkpoint.id_cp, checkpoint);
   const sorted = Array.from(merged.values())
-    .sort((a, b) => b.id_cp.localeCompare(a.id_cp))
+    .sort((a, b) => checkpointTimestamp(b) - checkpointTimestamp(a))
     .slice(0, 10);
   await writeLocalBackups(sorted);
 };
@@ -209,8 +219,15 @@ const cacheCheckpoint = async (checkpoint: Checkpoint) => {
 export const mergeCheckpoints = (remote: Checkpoint[], local: Checkpoint[]) => {
   const merged = new Map<string, Checkpoint>();
   local.forEach(item => merged.set(item.id_cp, item));
-  remote.forEach(item => merged.set(item.id_cp, item));
-  return Array.from(merged.values()).sort((a, b) => b.id_cp.localeCompare(a.id_cp));
+  remote.forEach(item => {
+    const cached = merged.get(item.id_cp);
+    merged.set(item.id_cp, {
+      ...cached,
+      ...item,
+      contenido: item.contenido ?? cached?.contenido
+    });
+  });
+  return Array.from(merged.values()).sort((a, b) => checkpointTimestamp(b) - checkpointTimestamp(a));
 };
 
 const reviveDates = (snapshot: BackupSnapshotData): BackupSnapshotData => ({
@@ -302,17 +319,20 @@ export const backupsService = {
     const local = await readLocalBackups();
     try {
       const supabase = getActiveSupabaseClient();
-      const { data, error } = await supabase.from('backups').select('*').order('fecha', { ascending: false });
+      const { data, error } = await supabase
+        .from('backups')
+        .select('id_backup,nombre_archivo,fecha,tamano,tablas')
+        .order('fecha', { ascending: false });
       if (error) throw error;
 
       const remote = (data || []).map(b => ({
         id_cp: b.id_backup,
         nombre: b.nombre_archivo,
         fecha: new Date(b.fecha).toLocaleString('es-AR'),
+        fechaIso: b.fecha,
         peso: b.tamano,
         tablas_afectadas: b.tablas,
-        tipo: 'manual' as const,
-        contenido: b.contenido,
+        tipo: String(b.id_backup).startsWith('auto_') ? 'automatica' as const : 'manual' as const,
         ubicacion: 'cloud' as const
       }));
       return mergeCheckpoints(remote, local);
@@ -326,10 +346,12 @@ export const backupsService = {
     const serialized = JSON.stringify(backup.dataToDump);
     const sizeInKb = parseFloat((serialized.length / 1024).toFixed(1));
     const checkpointId = `cp_${Date.now()}`;
+    const createdAt = new Date();
     const checkpoint: Checkpoint = {
       id_cp: checkpointId,
       nombre: backup.nombre,
-      fecha: new Date().toLocaleString('es-AR'),
+      fecha: createdAt.toLocaleString('es-AR'),
+      fechaIso: createdAt.toISOString(),
       peso: `${sizeInKb} KB`,
       tablas_afectadas: ALL_SNAPSHOT_KEYS.join(', '),
       tipo: 'manual',
@@ -344,7 +366,7 @@ export const backupsService = {
       const { error } = await supabase.from('backups').insert([{
         id_backup: checkpointId,
         nombre_archivo: backup.nombre,
-        fecha: new Date().toISOString(),
+        fecha: createdAt.toISOString(),
         tamano: `${sizeInKb} KB`,
         tablas: checkpoint.tablas_afectadas,
         contenido: serialized
@@ -357,6 +379,20 @@ export const backupsService = {
     }
 
     return checkpoint;
+  },
+
+  async getContent(checkpoint: Checkpoint): Promise<string> {
+    if (checkpoint.contenido) return checkpoint.contenido;
+    const supabase = getActiveSupabaseClient();
+    const { data, error } = await supabase
+      .from('backups')
+      .select('contenido')
+      .eq('id_backup', checkpoint.id_cp)
+      .single();
+    if (error || !data?.contenido) {
+      throw new Error('No se pudo descargar el contenido del respaldo desde Supabase.');
+    }
+    return data.contenido;
   },
 
   async restore(snapshot: BackupSnapshotData): Promise<{ usersSkipped: true }> {

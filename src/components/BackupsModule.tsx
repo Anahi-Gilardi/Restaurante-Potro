@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useDebounce } from '../hooks/useDebounce';
 import { backupsService, BackupSnapshotData, Checkpoint, parseBackupContent } from '../services/backupsService';
+import { getAutomaticBackupStatus } from '../lib/automaticBackup';
 import { EventoLog, Insumo, Merma, Mesa, Pedido, ProductoMenu, RecetaEscandallo, Usuario } from '../types';
 import { usuariosService } from '../services/usuariosService';
 import { mesasService } from '../services/mesasService';
@@ -72,6 +73,8 @@ export default function BackupsModule({
   const [showUploadPreview, setShowUploadPreview] = useState(false);
 
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [loadingHistory, setLoadingHistory] = useState(true);
+  const [storageEstimate, setStorageEstimate] = useState({ usage: 0, quota: 0 });
   const [backingUp, setBackingUp] = useState(false);
   const [restoredOk, setRestoredOk] = useState<string | null>(null);
 
@@ -79,31 +82,40 @@ export default function BackupsModule({
     cp.nombre.toLowerCase().includes(debouncedSearchBackup.toLowerCase())
   );
 
-  useEffect(() => {
-    backupsService.list().then(setBackups).catch(() => {
+  const loadBackupHistory = async () => {
+    setLoadingHistory(true);
+    try {
+      setBackups(await backupsService.list());
+    } catch {
       toast.error('No se pudo cargar el historial de respaldos.');
-    });
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadBackupHistory();
+    if (navigator.storage?.estimate) {
+      void navigator.storage.estimate().then(estimate => {
+        setStorageEstimate({ usage: estimate.usage ?? 0, quota: estimate.quota ?? 0 });
+      }).catch(() => undefined);
+    }
   }, []);
 
-  // Calcular tamaño y consumo de LocalStorage (límite de 5MB típico en navegadores)
-  const localStorageBytes = useMemo(() => {
-    let total = 0;
-    try {
-      for (const x in localStorage) {
-        if (localStorage.hasOwnProperty(x)) {
-          total += ((localStorage[x] || '').length * 2);
-        }
-      }
-    } catch (e) {
-      console.warn(e);
-    }
-    return total;
-  }, [operationalData]);
+  const automaticStatus = useMemo(() => getAutomaticBackupStatus(backups), [backups]);
+  const formatAutomaticDate = (date: Date) => date.toLocaleString('es-AR', {
+    timeZone: 'America/Argentina/Buenos_Aires',
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
 
+  // Uso real del almacenamiento del origen (Cache API, IndexedDB y localStorage).
   const quotaPercent = useMemo(() => {
-    const limit = 5 * 1024 * 1024; // 5MB
-    return Math.min(Math.round((localStorageBytes / limit) * 100), 100);
-  }, [localStorageBytes]);
+    if (storageEstimate.quota <= 0) return 0;
+    return Math.min(Math.round((storageEstimate.usage / storageEstimate.quota) * 100), 100);
+  }, [storageEstimate]);
 
   const handleOpenCreateModal = () => {
     const timestamp = new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
@@ -209,7 +221,7 @@ export default function BackupsModule({
     setConfirmAction(null);
     setLoadingId(cp.id_cp);
     try {
-      const snapshot = parseBackupContent(cp.contenido);
+      const snapshot = parseBackupContent(await backupsService.getContent(cp));
       const result = await backupsService.restore(snapshot);
       onRestoreData(snapshot);
       addLog('sistema', `SISTEMA: Base de datos y estado del salón restaurados desde el respaldo '${cp.nombre}'.`);
@@ -314,14 +326,14 @@ export default function BackupsModule({
     <div className="space-y-6 text-left">
       
       {/* Indicadores de almacenamiento y estado */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         
-        {/* Cuota LocalStorage */}
+        {/* Almacenamiento real del origen: Cache API, IndexedDB y localStorage */}
         <div className="bg-white dark:bg-stone-900 p-5 rounded-2xl border border-stone-200 dark:border-stone-850 shadow-xs space-y-2">
-          <span className="text-[10px] text-stone-400 dark:text-stone-300 font-black uppercase tracking-wider block">Memoria Local (Cuota 5MB)</span>
+          <span className="text-[10px] text-stone-400 dark:text-stone-300 font-black uppercase tracking-wider block">Almacenamiento del Sitio</span>
           <div className="flex justify-between items-baseline">
             <h4 className="text-xl font-black text-stone-900 dark:text-white font-mono">
-              {(localStorageBytes / (1024 * 1024)).toFixed(2)} MB
+              {(storageEstimate.usage / (1024 * 1024)).toFixed(2)} MB
             </h4>
             <span className="text-xs font-bold text-stone-400">({quotaPercent}%)</span>
           </div>
@@ -333,6 +345,7 @@ export default function BackupsModule({
               style={{ width: `${quotaPercent}%` }}
             />
           </div>
+          <span className="text-[9px] text-stone-450 dark:text-stone-300 font-bold">Incluye caché sin conexión y copias locales.</span>
         </div>
 
         {/* Base de Datos Link status */}
@@ -359,6 +372,55 @@ export default function BackupsModule({
           <span className="text-[9px] text-stone-450 dark:text-stone-300 font-bold block mt-1">
             {backups.length} puntos de control en el historial.
           </span>
+        </div>
+
+        <div className={`bg-white dark:bg-stone-900 p-5 rounded-2xl border shadow-xs border-l-4 flex flex-col justify-between ${
+          automaticStatus.health === 'healthy'
+            ? 'border-emerald-200 dark:border-emerald-900/60 border-l-emerald-500'
+            : automaticStatus.health === 'delayed'
+              ? 'border-red-200 dark:border-red-900/60 border-l-red-500'
+              : 'border-amber-200 dark:border-amber-900/60 border-l-amber-500'
+        }`}>
+          <div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] text-stone-400 dark:text-stone-300 font-black uppercase tracking-wider">Respaldo Automático</span>
+              <button
+                type="button"
+                onClick={() => void loadBackupHistory()}
+                disabled={loadingHistory}
+                className="p-1 rounded-lg text-stone-400 hover:text-[#624A3E] hover:bg-stone-100 dark:hover:bg-stone-800 disabled:opacity-50 cursor-pointer"
+                title="Actualizar estado"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loadingHistory ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+            <h4 className={`text-xs font-black mt-1.5 flex items-center gap-1.5 ${
+              automaticStatus.health === 'healthy'
+                ? 'text-emerald-700 dark:text-emerald-300'
+                : automaticStatus.health === 'delayed'
+                  ? 'text-red-700 dark:text-red-300'
+                  : 'text-amber-700 dark:text-amber-300'
+            }`}>
+              {automaticStatus.health === 'healthy'
+                ? <CheckCircle className="w-4 h-4" />
+                : automaticStatus.health === 'delayed'
+                  ? <AlertTriangle className="w-4 h-4" />
+                  : <CloudLightning className="w-4 h-4" />}
+              {loadingHistory
+                ? 'Verificando...'
+                : automaticStatus.health === 'healthy'
+                  ? 'Funcionando correctamente'
+                  : automaticStatus.health === 'delayed'
+                    ? 'Ejecución demorada'
+                    : 'Primera ejecución pendiente'}
+            </h4>
+          </div>
+          <div className="mt-2 space-y-0.5 text-[9px] text-stone-500 dark:text-stone-300 font-bold">
+            <p>
+              Última: {automaticStatus.lastRunAt ? formatAutomaticDate(automaticStatus.lastRunAt) : 'sin copia automática'}
+            </p>
+            <p>Próxima ventana: {formatAutomaticDate(automaticStatus.nextRunAt)} hs</p>
+          </div>
         </div>
 
       </div>
@@ -430,11 +492,18 @@ export default function BackupsModule({
                     <div className="flex items-center gap-2">
                       <h4 className="font-extrabold text-stone-900 dark:text-white text-sm tracking-tight">{cp.nombre}</h4>
                       <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full border ${
+                        cp.tipo === 'automatica'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-900/50'
+                          : 'bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-900/50'
+                      }`}>
+                        {cp.tipo === 'automatica' ? 'Automática' : 'Manual'}
+                      </span>
+                      <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full border ${
                         cp.ubicacion === 'cloud' 
                           ? 'bg-purple-50 text-purple-700 border-purple-100 dark:bg-purple-950/30 dark:text-purple-300 dark:border-purple-900/50' 
                           : 'bg-stone-100 text-stone-700 border-stone-200 dark:bg-stone-800 dark:text-stone-300 dark:border-stone-700'
                       }`}>
-                        {cp.ubicacion === 'cloud' ? 'Cloud + JSON' : 'Local (Browser)'}
+                        {cp.ubicacion === 'cloud' ? 'Supabase' : 'Este dispositivo'}
                       </span>
                     </div>
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-stone-400 font-bold">
@@ -442,14 +511,14 @@ export default function BackupsModule({
                       <span>•</span>
                       <span>Peso: <strong className="text-stone-600 dark:text-stone-300 font-mono">{cp.peso}</strong></span>
                       <span>•</span>
-                      <span>Colecciones: <strong className="text-stone-600 dark:text-stone-300">20 Tablas</strong></span>
+                      <span>Colecciones: <strong className="text-stone-600 dark:text-stone-300">{cp.tablas_afectadas.split(',').filter(Boolean).length}</strong></span>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
                     <button
                       onClick={() => handleRestoreBackup(cp)}
-                      disabled={isLoading || !cp.contenido}
+                      disabled={isLoading}
                       className="flex-1 sm:flex-initial py-1.5 px-3 rounded-lg bg-orange-50 hover:bg-orange-100 disabled:bg-stone-150 text-orange-700 disabled:text-stone-400 text-[10px] font-black transition-colors flex items-center justify-center gap-1 cursor-pointer dark:bg-orange-950/30 dark:text-orange-300 dark:hover:bg-orange-950/50"
                     >
                       <RefreshCw className={`w-3 h-3 ${isLoading ? 'animate-spin' : ''}`} />

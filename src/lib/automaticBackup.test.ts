@@ -8,6 +8,8 @@ import {
   argentinaDateKey,
   buildAutomaticBackupSnapshot,
   expiredAutomaticBackupIds,
+  getAutomaticBackupStatus,
+  nextAutomaticBackupRun,
   sanitizeBackupConfiguration,
 } from './automaticBackup';
 
@@ -89,6 +91,30 @@ test('la fecha diaria usa el huso horario argentino', () => {
   assert.equal(argentinaDateKey(new Date('2026-07-18T01:30:00.000Z')), '2026-07-17');
 });
 
+test('calcula la siguiente ventana diaria configurada a las 06:00 UTC', () => {
+  assert.equal(
+    nextAutomaticBackupRun(new Date('2026-07-17T05:30:00.000Z')).toISOString(),
+    '2026-07-17T06:00:00.000Z'
+  );
+  assert.equal(
+    nextAutomaticBackupRun(new Date('2026-07-17T06:30:00.000Z')).toISOString(),
+    '2026-07-18T06:00:00.000Z'
+  );
+});
+
+test('informa si el respaldo automatico esta saludable, pendiente o demorado', () => {
+  const now = new Date('2026-07-18T12:00:00.000Z');
+  assert.equal(getAutomaticBackupStatus([], now).health, 'pending');
+  assert.equal(getAutomaticBackupStatus([{
+    id_cp: 'auto_2026-07-18',
+    fechaIso: '2026-07-18T06:02:00.000Z'
+  }], now).health, 'healthy');
+  assert.equal(getAutomaticBackupStatus([{
+    id_cp: 'auto_2026-07-16',
+    fechaIso: '2026-07-16T06:02:00.000Z'
+  }], now).health, 'delayed');
+});
+
 test('no respalda la identidad fiscal ficticia de configuraciones antiguas', () => {
   assert.deepEqual(sanitizeBackupConfiguration([
     { clave: 'cuit', valor: '30-00000000-0' },
@@ -129,4 +155,12 @@ test('el endpoint rechaza llamadas sin la autorización de Vercel', async () => 
   assert.deepEqual(payload, { success: false, error: 'No autorizado.' });
   if (previousSecret === undefined) delete process.env.CRON_SECRET;
   else process.env.CRON_SECRET = previousSecret;
+});
+
+test('el modulo de Backups muestra salud y descarga el dump solo al restaurar', () => {
+  const moduleSource = readFileSync(new URL('../components/BackupsModule.tsx', import.meta.url), 'utf8');
+  assert.match(moduleSource, /getAutomaticBackupStatus\(backups\)/);
+  assert.match(moduleSource, /Respaldo Autom.tico/);
+  assert.match(moduleSource, /backupsService\.getContent\(cp\)/);
+  assert.match(moduleSource, /navigator\.storage\.estimate/);
 });
