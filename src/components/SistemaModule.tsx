@@ -85,7 +85,9 @@ export default function SistemaModule({
   const [activeDbEngine, setActiveDbEngine] = useState<DiagnosticStorageTarget>('supabase-cloud');
   const [arcaConfig, setArcaConfig] = useState<ArcaAdminConfig | null>(null);
   const [arcaCuit, setArcaCuit] = useState(DEFAULT_RESTAURANT_PROFILE.cuit.replace(/\D/g, ''));
-  const [arcaPuntoVenta, setArcaPuntoVenta] = useState('2');
+  // No mostrar un punto de venta provisional: el valor fiscal definitivo debe
+  // venir siempre de la configuracion cifrada del servidor.
+  const [arcaPuntoVenta, setArcaPuntoVenta] = useState('');
   const [arcaEnvironment, setArcaEnvironment] = useState<'homologacion' | 'produccion'>('produccion');
   const [arcaLegalName, setArcaLegalName] = useState(DEFAULT_RESTAURANT_PROFILE.razonSocial);
   const [arcaTradeName, setArcaTradeName] = useState(DEFAULT_RESTAURANT_PROFILE.nombreComercial);
@@ -825,6 +827,8 @@ export default function SistemaModule({
                 <input
                   value={arcaPuntoVenta}
                   inputMode="numeric"
+                  placeholder={arcaLoading ? 'Cargando...' : 'Ej. 1'}
+                  disabled={arcaLoading}
                   onChange={event => setArcaPuntoVenta(event.target.value.replace(/\D/g, '').slice(0, 5))}
                   className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-white dark:bg-stone-950 text-stone-800 dark:text-stone-100 text-xs font-mono font-bold outline-none focus:ring-2 focus:ring-[#8C6239]/20"
                 />
