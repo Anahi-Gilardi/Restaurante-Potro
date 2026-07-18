@@ -11,6 +11,11 @@ const inferFechaApertura = (idCierre: string) => {
 };
 
 const memoryStorage: Record<string, string> = {};
+const LEGACY_DEMO_CIERRE_IDS = new Set(['cie_901', 'cie_902']);
+
+const removeLegacyDemoCierres = (cierres: CierreCaja[]) => cierres.filter(cierre => (
+  !LEGACY_DEMO_CIERRE_IDS.has(cierre.id_cierre)
+));
 
 const safeStorage = {
   getItem(key: string): string | null {
@@ -149,38 +154,18 @@ export const cajaService = {
       const raw = safeStorage.getItem('el_patron_historial_cierres');
       if (raw) {
         try {
-          return JSON.parse(raw);
+          const parsed = JSON.parse(raw);
+          if (!Array.isArray(parsed)) return [];
+          const sanitized = removeLegacyDemoCierres(parsed);
+          if (sanitized.length !== parsed.length) {
+            safeStorage.setItem('el_patron_historial_cierres', JSON.stringify(sanitized));
+          }
+          return sanitized;
         } catch {
           return [];
         }
       }
-      // Populate clean default historical cierres
-      const defaults: CierreCaja[] = [
-        {
-          id_cierre: 'cie_901',
-          fecha_apertura: '2026-06-11 08:00',
-          fecha_cierre: '2026-06-11 16:00',
-          monto_apertura: 40000,
-          monto_ventas: 185000,
-          monto_real: 225000,
-          diferencia: 0,
-          observaciones: 'Arqueo vespertino cuadrado sin novedades',
-          usuario_cajero: 'Clara Scaglia'
-        },
-        {
-          id_cierre: 'cie_902',
-          fecha_apertura: '2026-06-11 16:30',
-          fecha_cierre: '2026-06-11 23:55',
-          monto_apertura: 50000,
-          monto_ventas: 342000,
-          monto_real: 341500,
-          diferencia: -500,
-          observaciones: 'Faltante minimo de caja chica por cambio',
-          usuario_cajero: 'Mariano Closs'
-        }
-      ];
-      safeStorage.setItem('el_patron_historial_cierres', JSON.stringify(defaults));
-      return defaults;
+      return [];
     }
   },
 

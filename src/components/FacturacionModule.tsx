@@ -1000,9 +1000,11 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
               <span className={`w-2 h-2 rounded-full ${arcaStatus?.connected ? 'bg-emerald-500 animate-ping' : 'bg-amber-500'}`} />
             </h3>
             <p className="text-xs text-stone-500 dark:text-stone-300 mt-0.5">
-              {arcaStatus?.configured
+              {arcaStatus === null
+                ? 'Consultando la configuración fiscal segura del servidor…'
+                : arcaStatus.configured
                 ? `${arcaStatus.connected ? 'Operativo' : 'Configurado, pendiente de prueba'} - ${arcaStatus.environment === 'produccion' ? 'Producción' : 'Homologación'} (Pto Vta: ${String(arcaStatus.puntoVenta || 1).padStart(4, '0')} - CUIT: ${arcaStatus.cuitMasked})`
-                : `${arcaStatus?.message || 'Firma digital no configurada.'} La emisión fiscal queda bloqueada; el comprobante X sigue disponible como documento interno.`
+                : `${arcaStatus.message || 'Firma digital no configurada.'} La emisión fiscal queda bloqueada; el comprobante X sigue disponible como documento interno.`
               }
             </p>
           </div>
@@ -1018,13 +1020,17 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
               {isTestingArca ? 'Probando…' : 'Probar conexión'}
             </button>
           )}
-          {arcaStatus?.connected ? (
+          {arcaStatus === null ? (
+            <span className="text-[10px] uppercase font-black px-3 py-1 bg-stone-50 dark:bg-stone-850 text-stone-500 rounded-full border border-stone-200 dark:border-stone-700">
+              Consultando
+            </span>
+          ) : arcaStatus.connected ? (
             <span className="text-[10px] uppercase font-black px-3 py-1 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-300 rounded-full border border-emerald-100 dark:border-emerald-900/50">
               Conectado
             </span>
           ) : (
             <span className="text-[10px] uppercase font-black px-3 py-1 bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-300 rounded-full border border-amber-100 dark:border-amber-900/50">
-              {arcaStatus?.configured ? 'Sin verificar' : 'No configurado'}
+              {arcaStatus.configured ? 'Sin verificar' : 'No configurado'}
             </span>
           )}
         </div>

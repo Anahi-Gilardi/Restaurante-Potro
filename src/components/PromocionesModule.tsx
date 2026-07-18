@@ -33,18 +33,12 @@ const TIPO_LABELS: Record<Promocion['tipo'], string> = {
   descuento_directo: 'Descuento Directo 💸',
 };
 
-const DEFAULT_PROMOS: Promocion[] = [
-  { id_promo: 'p_1', nombre: 'Happy Hour 2x1 Tragos & Cervezas', descuento_porcentaje: 50, tipo: 'happy_hour', dias_vigentes: 'Lun a Vie - 18 a 21hs', activo: true, descripcion: 'Aplica a vinos seleccionados y bebidas de línea comercial' },
-  { id_promo: 'p_2', nombre: 'Combo Ejecutivo El Patrón', descuento_porcentaje: 20, tipo: 'combo', dias_vigentes: 'Lun a Sáb - Almuerzo', activo: true, descripcion: 'Bife de chorizo completo + bebida sin alcohol con descuento integrado' },
-  { id_promo: 'p_3', nombre: '15% Off Pago Efectivo / Arqueo', descuento_porcentaje: 15, tipo: 'descuento_directo', dias_vigentes: 'Todos los días - Completo', activo: true, descripcion: 'Descuento directo que aplica el cajero al cobrar en mostrador' },
-  { id_promo: 'p_4', nombre: '25% Especial Cumpleañeros', descuento_porcentaje: 25, tipo: 'descuento_directo', dias_vigentes: 'Todos los días', activo: false, descripcion: 'Presentando documentación al mesero encargado' },
-];
-
 const DIAS_OPCIONES = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
 export default function PromocionesModule({ addLog }: PromocionesModuleProps) {
   const { toast, toasts, removeToast } = useToast();
   const [promos, setPromos] = useState<Promocion[]>([]);
+  const [promosLoading, setPromosLoading] = useState(true);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
 
   // Formulario fields
@@ -73,11 +67,12 @@ export default function PromocionesModule({ addLog }: PromocionesModuleProps) {
 
   useEffect(() => {
     promocionesService.list()
-      .then(data => setPromos(data && data.length > 0 ? data : DEFAULT_PROMOS))
+      .then(data => setPromos(data || []))
       .catch(() => {
-        setPromos(DEFAULT_PROMOS);
-        toast.warning('No se pudieron cargar las promociones remotas. Mostrando datos locales.');
-      });
+        setPromos([]);
+        toast.error('No se pudieron cargar las promociones de Supabase. No se mostrarán campañas ficticias.');
+      })
+      .finally(() => setPromosLoading(false));
   }, []);
 
   // Compilar selección del programador visual en cadena de vigencia
@@ -330,19 +325,19 @@ export default function PromocionesModule({ addLog }: PromocionesModuleProps) {
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <div className="bg-white dark:bg-stone-900 p-5 rounded-2xl border border-stone-200 dark:border-stone-850 shadow-xs">
           <span className="text-[10px] text-stone-400 dark:text-stone-300 font-black uppercase tracking-wider block">Campañas Totales</span>
-          <h4 className="text-2xl font-black text-stone-900 dark:text-white font-mono mt-1">{kpis.total}</h4>
+          <h4 className="text-2xl font-black text-stone-900 dark:text-white font-mono mt-1">{promosLoading ? '…' : kpis.total}</h4>
         </div>
         <div className="bg-white dark:bg-stone-900 p-5 rounded-2xl border border-stone-200 dark:border-stone-850 shadow-xs">
           <span className="text-[10px] text-stone-400 dark:text-stone-300 font-black uppercase tracking-wider block">Campañas Activas</span>
-          <h4 className="text-2xl font-black text-emerald-600 font-mono mt-1">{kpis.activas}</h4>
+          <h4 className="text-2xl font-black text-emerald-600 font-mono mt-1">{promosLoading ? '…' : kpis.activas}</h4>
         </div>
         <div className="bg-white dark:bg-stone-900 p-5 rounded-2xl border border-stone-200 dark:border-stone-850 shadow-xs">
           <span className="text-[10px] text-stone-400 dark:text-stone-300 font-black uppercase tracking-wider block">Descuento Promedio</span>
-          <h4 className="text-2xl font-black text-[#624A3E] dark:text-[#C8956A] font-mono mt-1">{kpis.promedio}%</h4>
+          <h4 className="text-2xl font-black text-[#624A3E] dark:text-[#C8956A] font-mono mt-1">{promosLoading ? '…' : `${kpis.promedio}%`}</h4>
         </div>
         <div className="bg-white dark:bg-stone-900 p-5 rounded-2xl border border-stone-200 dark:border-stone-850 shadow-[#624A3E]/5 border-l-4 border-l-[#624A3E]">
           <span className="text-[10px] text-stone-400 dark:text-stone-300 font-black uppercase tracking-wider block">Tipo Frecuente</span>
-          <h4 className="text-xs font-black text-stone-700 dark:text-white mt-2 truncate">{kpis.dominantType}</h4>
+          <h4 className="text-xs font-black text-stone-700 dark:text-white mt-2 truncate">{promosLoading ? 'Consultando…' : kpis.dominantType}</h4>
         </div>
       </div>
 
@@ -582,7 +577,7 @@ export default function PromocionesModule({ addLog }: PromocionesModuleProps) {
               />
             </div>
 
-            {filteredPromos.length === 0 && (
+            {!promosLoading && filteredPromos.length === 0 && (
               <div className="text-center py-8 text-stone-400 dark:text-stone-500 bg-white dark:bg-stone-900 border border-dashed border-stone-200 dark:border-stone-800 rounded-2xl">
                 <Sparkles className="w-8 h-8 mx-auto mb-2 opacity-30 text-stone-400 dark:text-stone-500" />
                 <p className="text-xs font-bold text-stone-500 dark:text-stone-400">{debouncedSearch ? 'Sin resultados para la búsqueda.' : 'No hay promociones creadas aún.'}</p>

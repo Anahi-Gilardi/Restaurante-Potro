@@ -2,43 +2,26 @@ import { tryGetActiveSupabaseClient } from '../lib/supabaseClient';
 import { Cliente } from '../types';
 
 const LOCAL_STORAGE_KEY = 'el_patron_clientes';
+const LEGACY_DEMO_CLIENT_IDS = new Set(['cli_001', 'cli_002']);
 
-// Default seed data for offline/testing mode
-const DEFAULT_CLIENTES: Cliente[] = [
-  {
-    id_cliente: 'cli_001',
-    dni_cuit: '20-35492817-9',
-    nombre: 'Juan Carlos Perez',
-    email: 'juan.perez@email.com',
-    telefono: '+54 11 5555-1234',
-    puntos: 150,
-    fecha_registro: new Date('2026-01-15T12:00:00.000Z')
-  },
-  {
-    id_cliente: 'cli_002',
-    dni_cuit: '27-40283948-4',
-    nombre: 'Maria Laura Rodriguez',
-    email: 'maria.rodriguez@email.com',
-    telefono: '+54 11 4444-5678',
-    puntos: 320,
-    fecha_registro: new Date('2026-02-10T14:30:00.000Z')
-  }
-];
+const removeLegacyDemoClientes = (clientes: Cliente[]) => clientes.filter(cliente => (
+  !LEGACY_DEMO_CLIENT_IDS.has(cliente.id_cliente)
+));
 
 const getLocalClientes = (): Cliente[] => {
-  if (typeof window === 'undefined') return DEFAULT_CLIENTES;
+  if (typeof window === 'undefined') return [];
   const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
-  if (!raw) {
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(DEFAULT_CLIENTES));
-    return DEFAULT_CLIENTES;
-  }
+  if (!raw) return [];
   try {
-    return JSON.parse(raw).map((c: any) => ({
+    const parsed = JSON.parse(raw).map((c: any) => ({
       ...c,
       fecha_registro: new Date(c.fecha_registro)
     }));
+    const sanitized = removeLegacyDemoClientes(parsed);
+    if (sanitized.length !== parsed.length) saveLocalClientes(sanitized);
+    return sanitized;
   } catch {
-    return DEFAULT_CLIENTES;
+    return [];
   }
 };
 
@@ -70,8 +53,9 @@ export const clientesService = {
           ...c,
           fecha_registro: new Date(c.fecha_registro)
         }));
-        saveLocalClientes(mapped);
-        return mapped;
+        const sanitized = removeLegacyDemoClientes(mapped);
+        saveLocalClientes(sanitized);
+        return sanitized;
       }
     } catch (err) {
       console.warn('Network error fetching clientes, returning local cache:', err);

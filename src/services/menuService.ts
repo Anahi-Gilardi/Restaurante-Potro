@@ -83,6 +83,11 @@ export const menuService = {
       }
     }
 
+    // Si Supabase estaba configurado pero no respondió, no sustituir la carta
+    // real por productos de demostración. Una carta vacía es más segura que
+    // permitir ventas sobre precios o existencias ficticias.
+    if (client) return [];
+
     // Local/Offline Mode seed cache if no cache is present
     try {
       localStorage.setItem('el_patron_cache_menu', JSON.stringify(INITIAL_PRODUCTOS_MENU));
