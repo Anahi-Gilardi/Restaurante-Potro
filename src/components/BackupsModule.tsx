@@ -20,6 +20,7 @@ import {
 import { useDebounce } from '../hooks/useDebounce';
 import { backupsService, BackupSnapshotData, Checkpoint, parseBackupContent } from '../services/backupsService';
 import { getAutomaticBackupStatus } from '../lib/automaticBackup';
+import { validateBackupSnapshot, type BackupValidationReport } from '../lib/backupValidation';
 import { EventoLog, Insumo, Merma, Mesa, Pedido, ProductoMenu, RecetaEscandallo, Usuario } from '../types';
 import { usuariosService } from '../services/usuariosService';
 import { mesasService } from '../services/mesasService';
@@ -69,12 +70,17 @@ export default function BackupsModule({
   // Drag & Drop state
   const [isDragging, setIsDragging] = useState(false);
   const [uploadedSnapshot, setUploadedSnapshot] = useState<BackupSnapshotData | null>(null);
+  const [uploadedValidation, setUploadedValidation] = useState<BackupValidationReport | null>(null);
   const [uploadedFileName, setUploadedFileName] = useState('');
   const [showUploadPreview, setShowUploadPreview] = useState(false);
 
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [storageEstimate, setStorageEstimate] = useState({ usage: 0, quota: 0 });
+  const [restoreCandidate, setRestoreCandidate] = useState<{
+    snapshot: BackupSnapshotData;
+    validation: BackupValidationReport;
+  } | null>(null);
   const [backingUp, setBackingUp] = useState(false);
   const [restoredOk, setRestoredOk] = useState<string | null>(null);
 
@@ -215,14 +221,27 @@ export default function BackupsModule({
   };
 
   const handleRestoreBackup = async (cp: Checkpoint) => {
-    setConfirmAction({ type: 'restore', cp });
-  };
-
-  const executeRestore = async (cp: Checkpoint) => {
-    setConfirmAction(null);
     setLoadingId(cp.id_cp);
     try {
       const snapshot = parseBackupContent(await backupsService.getContent(cp));
+      setRestoreCandidate({ snapshot, validation: validateBackupSnapshot(snapshot) });
+      setConfirmAction({ type: 'restore', cp });
+    } catch (error: any) {
+      toast.error(`No se pudo verificar la copia: ${error.message}`);
+    } finally {
+      setLoadingId(null);
+    }
+  };
+
+  const executeRestore = async (cp: Checkpoint) => {
+    if (!restoreCandidate?.validation.valid) {
+      toast.error('La restauración está bloqueada porque la copia contiene errores de integridad.');
+      return;
+    }
+    setConfirmAction(null);
+    setLoadingId(cp.id_cp);
+    try {
+      const snapshot = restoreCandidate.snapshot;
       const result = await backupsService.restore(snapshot);
       onRestoreData(snapshot);
       addLog('sistema', `SISTEMA: Base de datos y estado del salón restaurados desde el respaldo '${cp.nombre}'.`);
@@ -237,12 +256,16 @@ export default function BackupsModule({
       toast.error(error.message);
     } finally {
       setLoadingId(null);
+      setRestoreCandidate(null);
     }
   };
 
   const handleDeleteBackup = (id: string) => {
     const cp = backups.find(c => c.id_cp === id);
-    if (cp) setConfirmAction({ type: 'delete', cp });
+    if (cp) {
+      setRestoreCandidate(null);
+      setConfirmAction({ type: 'delete', cp });
+    }
   };
 
   const executeDelete = async (id: string) => {
@@ -274,6 +297,7 @@ export default function BackupsModule({
         const snapshot = parsed.data ? parseBackupContent(JSON.stringify(parsed.data)) : parseBackupContent(text);
         
         setUploadedSnapshot(snapshot);
+        setUploadedValidation(validateBackupSnapshot(snapshot));
         setUploadedFileName(file.name);
         setShowUploadPreview(true);
       } catch (err: any) {
@@ -301,6 +325,10 @@ export default function BackupsModule({
 
   const executeUploadRestore = async () => {
     if (!uploadedSnapshot) return;
+    if (!uploadedValidation?.valid) {
+      toast.error('La restauración está bloqueada porque el archivo contiene errores de integridad.');
+      return;
+    }
     setShowUploadPreview(false);
     setBackingUp(true);
     addLog('sistema', `SISTEMA: Iniciando restauración forzada desde archivo subido '${uploadedFileName}'...`);
@@ -320,6 +348,7 @@ export default function BackupsModule({
     } finally {
       setBackingUp(false);
       setUploadedSnapshot(null);
+      setUploadedValidation(null);
     }
   };
 
@@ -672,6 +701,7 @@ export default function BackupsModule({
               <button onClick={() => {
                 setShowUploadPreview(false);
                 setUploadedSnapshot(null);
+                setUploadedValidation(null);
               }} className="p-1 rounded-lg text-amber-550 hover:bg-amber-100 dark:hover:bg-amber-900/50 cursor-pointer"><X className="w-4 h-4" /></button>
             </div>
 
@@ -701,6 +731,28 @@ export default function BackupsModule({
                   <div>• Historial costos: <strong className="text-stone-800 dark:text-white">{uploadedSnapshot.historialCostos.length}</strong></div>
                 </div>
               </div>
+
+              {uploadedValidation && (
+                <div className={`rounded-xl border p-3 space-y-2 ${
+                  uploadedValidation.valid
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/20 dark:text-emerald-300'
+                    : 'border-red-200 bg-red-50 text-red-800 dark:border-red-900/60 dark:bg-red-950/20 dark:text-red-300'
+                }`}>
+                  <div className="flex items-center justify-between gap-2 text-[10px] font-black uppercase">
+                    <span>{uploadedValidation.valid ? 'Integridad aprobada' : 'Restauración bloqueada'}</span>
+                    <span>{uploadedValidation.totalRecords} registros</span>
+                  </div>
+                  <p className="text-[10px] font-bold">
+                    {uploadedValidation.errors.length} errores · {uploadedValidation.warnings.length} advertencias
+                  </p>
+                  {[...uploadedValidation.errors, ...uploadedValidation.warnings].slice(0, 4).map((issue, index) => (
+                    <p key={`${issue.code}-${index}`} className="text-[9px] font-semibold leading-snug">• {issue.message}</p>
+                  ))}
+                  {uploadedValidation.errors.length + uploadedValidation.warnings.length > 4 && (
+                    <p className="text-[9px] font-black">Hay más observaciones en el diagnóstico.</p>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="p-4 bg-stone-50 dark:bg-stone-850 border-t border-stone-150 dark:border-stone-800 flex justify-end gap-2">
@@ -708,6 +760,7 @@ export default function BackupsModule({
                 onClick={() => {
                   setShowUploadPreview(false);
                   setUploadedSnapshot(null);
+                  setUploadedValidation(null);
                 }}
                 className="py-2 px-4 rounded-xl border border-stone-200 bg-white dark:bg-stone-900 text-stone-605 text-stone-600 dark:text-stone-300 text-xs font-black uppercase hover:bg-stone-50 cursor-pointer"
               >
@@ -715,9 +768,10 @@ export default function BackupsModule({
               </button>
               <button 
                 onClick={executeUploadRestore}
-                className="py-2 px-4 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-black uppercase transition-all cursor-pointer"
+                disabled={!uploadedValidation?.valid}
+                className="py-2 px-4 rounded-xl bg-red-600 hover:bg-red-500 disabled:bg-stone-300 disabled:text-stone-500 text-white text-xs font-black uppercase transition-all cursor-pointer disabled:cursor-not-allowed"
               >
-                Reemplazar Base de Datos
+                {uploadedValidation?.valid ? 'Reemplazar Base de Datos' : 'Copia Bloqueada'}
               </button>
             </div>
           </div>
@@ -742,16 +796,54 @@ export default function BackupsModule({
                   </p>
                 </div>
               </div>
-              <button onClick={() => setConfirmAction(null)} className="p-1 rounded-lg text-amber-500 hover:bg-amber-100 dark:hover:bg-amber-900/50 cursor-pointer"><X className="w-4 h-4" /></button>
+              <button onClick={() => {
+                setConfirmAction(null);
+                setRestoreCandidate(null);
+              }} className="p-1 rounded-lg text-amber-500 hover:bg-amber-100 dark:hover:bg-amber-900/50 cursor-pointer"><X className="w-4 h-4" /></button>
             </div>
-            <div className="p-4 sm:p-5 flex gap-2 justify-end bg-stone-50 dark:bg-stone-850">
-              <button onClick={() => setConfirmAction(null)}
-                className="py-2 px-4 rounded-xl border border-stone-200 bg-white dark:bg-stone-900 text-stone-600 dark:text-stone-300 text-xs font-black uppercase hover:bg-stone-50 cursor-pointer">Cancelar</button>
-              <button onClick={() => confirmAction.type === 'restore' ? executeRestore(confirmAction.cp) : executeDelete(confirmAction.cp.id_cp)}
-                className={`py-2 px-4 rounded-xl text-white text-xs font-black uppercase cursor-pointer transition-colors ${
-                  confirmAction.type === 'restore' ? 'bg-orange-600 hover:bg-orange-500' : 'bg-red-600 hover:bg-red-500'
+            {confirmAction.type === 'restore' && restoreCandidate && (
+              <div className="p-4 bg-white dark:bg-stone-900 space-y-2">
+                <div className={`rounded-xl border p-3 ${
+                  restoreCandidate.validation.valid
+                    ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-900/60 dark:bg-emerald-950/20'
+                    : 'border-red-200 bg-red-50 dark:border-red-900/60 dark:bg-red-950/20'
                 }`}>
-                Confirmar
+                  <div className="flex items-center justify-between gap-2">
+                    <span className={`text-[10px] font-black uppercase ${
+                      restoreCandidate.validation.valid ? 'text-emerald-800 dark:text-emerald-300' : 'text-red-800 dark:text-red-300'
+                    }`}>
+                      {restoreCandidate.validation.valid ? 'Verificación aprobada' : 'Restauración bloqueada'}
+                    </span>
+                    <span className="text-[9px] font-black text-stone-500 dark:text-stone-300">
+                      {restoreCandidate.validation.totalRecords} registros
+                    </span>
+                  </div>
+                  <p className="mt-1 text-[9px] font-bold text-stone-600 dark:text-stone-300">
+                    {restoreCandidate.validation.errors.length} errores · {restoreCandidate.validation.warnings.length} advertencias
+                  </p>
+                  {[...restoreCandidate.validation.errors, ...restoreCandidate.validation.warnings].slice(0, 4).map((issue, index) => (
+                    <p key={`${issue.code}-${index}`} className={`mt-1 text-[9px] font-semibold ${
+                      issue.severity === 'error' ? 'text-red-700 dark:text-red-300' : 'text-amber-700 dark:text-amber-300'
+                    }`}>• {issue.message}</p>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="p-4 sm:p-5 flex gap-2 justify-end bg-stone-50 dark:bg-stone-850">
+              <button onClick={() => {
+                setConfirmAction(null);
+                setRestoreCandidate(null);
+              }}
+                className="py-2 px-4 rounded-xl border border-stone-200 bg-white dark:bg-stone-900 text-stone-600 dark:text-stone-300 text-xs font-black uppercase hover:bg-stone-50 cursor-pointer">Cancelar</button>
+              <button
+                onClick={() => confirmAction.type === 'restore' ? executeRestore(confirmAction.cp) : executeDelete(confirmAction.cp.id_cp)}
+                disabled={confirmAction.type === 'restore' && !restoreCandidate?.validation.valid}
+                className={`py-2 px-4 rounded-xl text-white text-xs font-black uppercase cursor-pointer transition-colors ${
+                  confirmAction.type === 'restore'
+                    ? 'bg-orange-600 hover:bg-orange-500 disabled:bg-stone-300 disabled:text-stone-500 disabled:cursor-not-allowed'
+                    : 'bg-red-600 hover:bg-red-500'
+                }`}>
+                {confirmAction.type === 'restore' && !restoreCandidate?.validation.valid ? 'Copia Bloqueada' : 'Confirmar'}
               </button>
             </div>
           </div>
