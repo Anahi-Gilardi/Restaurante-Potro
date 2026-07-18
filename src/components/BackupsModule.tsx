@@ -108,7 +108,8 @@ export default function BackupsModule({
     day: '2-digit',
     month: '2-digit',
     hour: '2-digit',
-    minute: '2-digit'
+    minute: '2-digit',
+    hour12: false
   });
 
   // Uso real del almacenamiento del origen (Cache API, IndexedDB y localStorage).
@@ -351,7 +352,7 @@ export default function BackupsModule({
         {/* Base de Datos Link status */}
         <div className="bg-white dark:bg-stone-900 p-5 rounded-2xl border border-stone-200 dark:border-stone-850 shadow-xs flex flex-col justify-between">
           <div>
-            <span className="text-[10px] text-stone-400 dark:text-stone-300 font-black uppercase tracking-wider block">Motor de Sincronía</span>
+            <span className="text-[10px] text-stone-400 dark:text-stone-300 font-black uppercase tracking-wider block">Motor de Sincronización</span>
             <h4 className="text-sm font-black text-[#624A3E] dark:text-[#C8956A] mt-1.5 uppercase flex items-center gap-1.5">
               <Server className="w-4 h-4" />
               Supabase PostgreSQL Link
