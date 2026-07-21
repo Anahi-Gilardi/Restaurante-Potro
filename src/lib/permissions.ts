@@ -64,7 +64,7 @@ const ROLE_PERMISSIONS: Record<Usuario['rol'], AppView[]> = {
     'backups'
   ],
   administrador: ALL_SIN_RESTRINGIDOS,
-  mozo: ['home', 'mozo', 'caja', 'reservas'] as AppView[],
+  mozo: ['home', 'mozo', 'mesas', 'caja', 'reservas'] as AppView[],
   cocina: ['home', 'cocina']
 };
 

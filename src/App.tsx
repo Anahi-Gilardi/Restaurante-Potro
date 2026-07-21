@@ -644,9 +644,11 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     if (!canAccessView(activeUser.rol, view)) {
       toast.warning(`El rol ${activeUser.rol} no tiene permiso para abrir este módulo.`);
       setActiveView('home');
+      setIsSidebarCollapsed(true);
       return;
     }
     setActiveView(view);
+    setIsSidebarCollapsed(true);
   };
 
   const handleLoginSuccess = (user: Usuario) => {
