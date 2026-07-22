@@ -6,6 +6,7 @@ import { mesasService } from '../services/mesasService';
 import { reservasService } from '../services/reservasService';
 import MesaAsistente from './MesaAsistente';
 import { tryGetActiveSupabaseClient } from '../lib/supabaseClient';
+import { calculateMesaDragPosition } from '../lib/mesaDrag';
 
 interface MesasModuleProps {
   mesas: Mesa[];
@@ -52,6 +53,19 @@ interface MesaVisual {
   comensales?: number;
   mesas_unidas?: number[];
   parent_id?: number | null;
+}
+
+interface MesaDragState {
+  mesa: MesaVisual;
+  pointerId: number;
+  target: SVGGElement;
+  offsetX: number;
+  offsetY: number;
+  startX: number;
+  startY: number;
+  currentX: number;
+  currentY: number;
+  frameId: number | null;
 }
 
 const POSICIONES_INICIALES: MesaVisual[] = [
@@ -264,8 +278,8 @@ export default function MesasModule({
 
   // Modo editor de posiciones
   const [editorMode, setEditorMode] = useState(false);
-  const [draggingMesa, setDraggingMesa] = useState<MesaVisual | null>(null);
   const svgRef = React.useRef<SVGSVGElement>(null);
+  const dragStateRef = useRef<MesaDragState | null>(null);
 
   // Formulario agregar/editar mesa
   const [showMesaForm, setShowMesaForm] = useState(false);
@@ -274,68 +288,121 @@ export default function MesasModule({
   const [nuevaCapacidad, setNuevaCapacidad] = useState('4');
   const [nuevaZona, setNuevaZona] = useState<Zona>('comedor');
 
-  const updatePosition = (clientX: number, clientY: number) => {
-    if (!editorMode || !draggingMesa || !svgRef.current) return;
+  const getSvgPoint = (clientX: number, clientY: number) => {
+    if (!svgRef.current) return null;
+    const screenMatrix = svgRef.current.getScreenCTM();
+    if (!screenMatrix) return null;
+
     const pt = svgRef.current.createSVGPoint();
     pt.x = clientX;
     pt.y = clientY;
-    const svgP = pt.matrixTransform(svgRef.current.getScreenCTM()?.inverse());
-    const width = draggingMesa.posicion.width;
-    const height = draggingMesa.posicion.height;
+    return pt.matrixTransform(screenMatrix.inverse());
+  };
 
-    // Apply Snapping (Magnetic Grid Snapping to 10px multiples)
-    const rawX = svgP.x - width / 2;
-    const rawY = svgP.y - height / 2;
-    const snapX = Math.round(rawX / 10) * 10;
-    const snapY = Math.round(rawY / 10) * 10;
+  const paintDraggedMesa = (drag: MesaDragState) => {
+    drag.frameId = null;
+    const deltaX = drag.currentX - drag.startX;
+    const deltaY = drag.currentY - drag.startY;
+    drag.target.setAttribute('transform', `translate(${deltaX} ${deltaY})`);
+  };
 
-    const newX = Math.max(15, Math.min(430 - width - 15, snapX));
-    const newY = Math.max(15, Math.min(620 - height - 15, snapY));
+  const handleSvgPointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
+    const drag = dragStateRef.current;
+    if (!editorMode || !drag || drag.pointerId !== e.pointerId) return;
 
-    setVisualMesas(prev => prev.map(m => m.id_mesa === draggingMesa.id_mesa
-      ? { ...m, posicion: { ...m.posicion, x: newX, y: newY } }
+    e.preventDefault();
+    const point = getSvgPoint(e.clientX, e.clientY);
+    if (!point) return;
+
+    const next = calculateMesaDragPosition({
+      pointerX: point.x,
+      pointerY: point.y,
+      offsetX: drag.offsetX,
+      offsetY: drag.offsetY,
+      width: drag.mesa.posicion.width,
+      height: drag.mesa.posicion.height,
+    });
+    drag.currentX = next.x;
+    drag.currentY = next.y;
+
+    if (drag.frameId == null) {
+      drag.frameId = window.requestAnimationFrame(() => paintDraggedMesa(drag));
+    }
+  };
+
+  const persistDraggedMesa = async (drag: MesaDragState, x: number, y: number) => {
+    try {
+      await persistMesaUpdate(drag.mesa.id_mesa, {
+        x,
+        y,
+        width: drag.mesa.posicion.width,
+        height: drag.mesa.posicion.height,
+      });
+      registrarSistema(`MESAS: ${getMesaDisplayName(drag.mesa.numero_mesa)} reposicionada a x:${x}, y:${y}`);
+      registrarMovimiento(drag.mesa.numero_mesa, 'Reposicion', `Nueva posicion x:${x}, y:${y}`, drag.mesa.estado);
+    } catch (err: any) {
+      toast.error(err.message || 'Error guardando posicion');
+    }
+  };
+
+  const finishDrag = (e: React.PointerEvent<SVGSVGElement>) => {
+    const drag = dragStateRef.current;
+    if (!drag || drag.pointerId !== e.pointerId) return;
+
+    e.preventDefault();
+    if (drag.frameId != null) {
+      window.cancelAnimationFrame(drag.frameId);
+      paintDraggedMesa(drag);
+    }
+
+    const finalPosition = calculateMesaDragPosition({
+      pointerX: drag.currentX + drag.offsetX,
+      pointerY: drag.currentY + drag.offsetY,
+      offsetX: drag.offsetX,
+      offsetY: drag.offsetY,
+      width: drag.mesa.posicion.width,
+      height: drag.mesa.posicion.height,
+      snap: 5,
+    });
+
+    drag.target.removeAttribute('transform');
+    if (drag.target.hasPointerCapture(e.pointerId)) {
+      drag.target.releasePointerCapture(e.pointerId);
+    }
+    dragStateRef.current = null;
+
+    const moved = finalPosition.x !== drag.startX || finalPosition.y !== drag.startY;
+    if (!moved) return;
+
+    setVisualMesas(prev => prev.map(m => m.id_mesa === drag.mesa.id_mesa
+      ? { ...m, posicion: { ...m.posicion, ...finalPosition } }
       : m
     ));
+    void persistDraggedMesa(drag, finalPosition.x, finalPosition.y);
   };
 
-  const handleSvgMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
-    updatePosition(e.clientX, e.clientY);
-  };
-
-  const handleSvgTouchMove = (e: React.TouchEvent<SVGSVGElement>) => {
-    const touch = e.touches[0];
-    if (touch) {
-      updatePosition(touch.clientX, touch.clientY);
-    }
-  };
-
-  const handleSvgMouseUp = async () => {
-    if (!editorMode || !draggingMesa) {
-      setDraggingMesa(null);
-      return;
-    }
-    const mesaActualizada = visualMesas.find(m => m.id_mesa === draggingMesa.id_mesa);
-    if (mesaActualizada) {
-      try {
-        await persistMesaUpdate(mesaActualizada.id_mesa, {
-          x: Math.round(mesaActualizada.posicion.x),
-          y: Math.round(mesaActualizada.posicion.y),
-          width: mesaActualizada.posicion.width,
-          height: mesaActualizada.posicion.height,
-        });
-        registrarSistema(`MESAS: Mesa ${mesaActualizada.numero_mesa} reposicionada a x:${Math.round(mesaActualizada.posicion.x)}, y:${Math.round(mesaActualizada.posicion.y)}`);
-        registrarMovimiento(mesaActualizada.numero_mesa, 'Reposicion', `Nueva posicion x:${Math.round(mesaActualizada.posicion.x)}, y:${Math.round(mesaActualizada.posicion.y)}`, mesaActualizada.estado);
-      } catch (err: any) {
-        toast.error(err.message || 'Error guardando posición');
-      }
-    }
-    setDraggingMesa(null);
-  };
-
-  const startDrag = (m: MesaVisual, e: React.MouseEvent | React.TouchEvent) => {
+  const startDrag = (m: MesaVisual, e: React.PointerEvent<SVGGElement>) => {
     if (!editorMode) return;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+
+    const point = getSvgPoint(e.clientX, e.clientY);
+    if (!point) return;
+
+    e.preventDefault();
     e.stopPropagation();
-    setDraggingMesa(m);
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragStateRef.current = {
+      mesa: m,
+      pointerId: e.pointerId,
+      target: e.currentTarget,
+      offsetX: point.x - m.posicion.x,
+      offsetY: point.y - m.posicion.y,
+      startX: m.posicion.x,
+      startY: m.posicion.y,
+      currentX: m.posicion.x,
+      currentY: m.posicion.y,
+      frameId: null,
+    };
   };
 
   const today = formatDate(new Date());
@@ -1012,10 +1079,11 @@ export default function MesasModule({
 
       return (
         <g key={m.id} data-mesa-id={m.id}
-           className={`transition-opacity ${editorMode ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer hover:opacity-95'}`}
+           className={`${editorMode ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer hover:opacity-95'}`}
+           onPointerDown={(e: React.PointerEvent<SVGGElement>) => editorMode ? startDrag(m, e) : undefined}
            onClick={(e: React.MouseEvent) => {
              e.stopPropagation();
-             if (editorMode || draggingMesa) return;
+             if (editorMode) return;
              if (unionMode) toggleUnionSelection(m);
              else openModal(m);
            }}
@@ -1025,8 +1093,6 @@ export default function MesasModule({
             x={x} y={y} width={width} height={height} rx={rx}
             fill={fill} stroke={isSelected ? '#3B82F6' : stroke} strokeWidth={isSelected ? 4 : 2.5}
             pointerEvents="all"
-            onMouseDown={(e: React.MouseEvent) => editorMode ? startDrag(m, e) : undefined}
-            onTouchStart={(e: React.TouchEvent) => editorMode ? startDrag(m, e) : undefined}
           />
           <text x={x + width / 2} y={y + height / 2 - 2} textAnchor="middle" fontSize={planFontSize} fontWeight={800} fill={textColor} fontFamily="Arial, sans-serif" pointerEvents="none">{planLabel}</text>
           <text x={x + width / 2} y={y + height / 2 + 14} textAnchor="middle" fontSize={9} fill={textColor} fontFamily="Arial, sans-serif" opacity={0.8} fontWeight={500} pointerEvents="none">Mesa</text>
@@ -1052,12 +1118,11 @@ export default function MesasModule({
     return (
       <div className="w-full flex justify-center py-2">
         <div className="w-full max-w-[360px] md:max-w-[550px] lg:max-w-[650px] aspect-[430/620] transition-all duration-300">
-          <svg ref={svgRef} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 430 620" preserveAspectRatio="xMidYMid meet" className="w-full h-full drop-shadow-xl"
-            onMouseMove={handleSvgMouseMove}
-            onTouchMove={handleSvgTouchMove}
-            onMouseUp={handleSvgMouseUp}
-            onTouchEnd={handleSvgMouseUp}
-            onMouseLeave={handleSvgMouseUp}
+          <svg ref={svgRef} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 430 620" preserveAspectRatio="xMidYMid meet" className="w-full h-full drop-shadow-xl select-none"
+            style={{ touchAction: editorMode ? 'none' : 'pan-y' }}
+            onPointerMove={handleSvgPointerMove}
+            onPointerUp={finishDrag}
+            onPointerCancel={finishDrag}
           >
             <defs>
               {/* Architectural Grid pattern */}
@@ -1337,7 +1402,7 @@ export default function MesasModule({
                   <div className={`w-2.5 h-2.5 rounded-full mt-1.5 ${mov.estado ? ESTADO_DOT_CLASS[mov.estado] : 'bg-stone-400'}`} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="text-xs font-black text-stone-900 truncate">Mesa {mov.mesa} - {mov.accion}</p>
+                      <p className="text-xs font-black text-stone-900 truncate">{getMesaDisplayName(mov.mesa)} - {mov.accion}</p>
                       <span className="text-[10px] text-stone-500 font-bold shrink-0">{mov.hora}</span>
                     </div>
                     <p className="text-[11px] text-stone-600 mt-0.5">{mov.detalle}</p>

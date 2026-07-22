@@ -34,3 +34,20 @@ test('el plano normaliza nombres y ajusta etiquetas largas de mesas', () => {
   assert.match(mesasModule, /const planFontSize = Math\.min\(18, Math\.max\(9,/);
   assert.match(mesasModule, /getMesaDisplayName\(m\.numero_mesa\)/);
 });
+
+test('el movimiento de mesas no reconstruye el modulo en cada pixel', () => {
+  assert.match(mesasModule, /setPointerCapture\(e\.pointerId\)/);
+  assert.match(mesasModule, /requestAnimationFrame\(\(\) => paintDraggedMesa/);
+  assert.match(mesasModule, /onPointerCancel=\{finishDrag\}/);
+
+  const pointerMove = mesasModule.match(
+    /const handleSvgPointerMove =[\s\S]*?\n\s*};/,
+  );
+  assert.ok(pointerMove, 'debe existir el controlador de movimiento por puntero');
+  assert.doesNotMatch(pointerMove[0], /setVisualMesas/);
+});
+
+test('el historial no duplica el prefijo Mesa', () => {
+  assert.match(mesasModule, /getMesaDisplayName\(mov\.mesa\)/);
+  assert.doesNotMatch(mesasModule, />Mesa \{mov\.mesa\} - \{mov\.accion\}</);
+});
