@@ -633,9 +633,6 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
       return;
     }
     setActiveMozo(mozo);
-    if (!allowedViews.includes(activeView)) {
-      setActiveView('home');
-    }
     addLog('sistema', `SESIÓN: Usuario operativo actualizado a ${mozo} (${nextUser.rol}).`);
   };
 
@@ -1050,8 +1047,9 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
   useEffect(() => {
     if (!allowedViews.includes(activeView)) {
       setActiveView('home');
+      setIsSidebarCollapsed(true);
     }
-  }, [activeUser.rol, activeView, allowedViews]);
+  }, [activeView, allowedViews]);
 
   // Auto simulation ticker
   useEffect(() => {

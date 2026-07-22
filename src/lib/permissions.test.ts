@@ -1,13 +1,16 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { canAccessView, getAllowedViews } from './permissions';
+import { ALL_APP_VIEWS, canAccessView, getAllowedViews } from './permissions';
 
 test('superadmin tiene acceso total', () => {
+  assert.deepEqual(getAllowedViews('superadmin'), ALL_APP_VIEWS);
   assert.equal(canAccessView('superadmin', 'sistema'), true);
   assert.equal(canAccessView('superadmin', 'backups'), true);
   assert.equal(canAccessView('superadmin', 'caja'), true);
   assert.equal(canAccessView('superadmin', 'usuarios'), true);
   assert.equal(canAccessView('superadmin', 'reservas'), true);
+  assert.equal(canAccessView('superadmin', 'clientes'), true);
+  assert.equal(canAccessView('superadmin', 'analytics'), true);
 });
 
 test('administrador no puede acceder a sistema pero si a backups', () => {
