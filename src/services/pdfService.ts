@@ -79,11 +79,64 @@ const addLogo = (doc: jsPDF, logo: string | null, x: number, y: number, size: nu
 
 const sanitizeFile = (value: string) => value.replace(/[\\/:*?"<>|]+/g, '_').replace(/\s+/g, '_');
 
+const fiscalNumberParts = (data: TicketData) => {
+  const match = data.nroComprobante.match(/-(\d{1,5})-(\d{1,8})$/);
+  return {
+    pointOfSale: data.puntoVenta ?? (match ? Number(match[1]) : undefined),
+    voucherNumber: data.numeroFiscal ?? (match ? Number(match[2]) : undefined),
+  };
+};
+
+const formatFiscalDateTime = (value?: string) => {
+  if (!value) return '-';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return new Intl.DateTimeFormat('es-AR', {
+    timeZone: 'America/Argentina/Buenos_Aires',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(parsed);
+};
+
+const formatArcaDate = (value?: string) => (
+  value && /^\d{8}$/.test(value)
+    ? `${value.slice(6, 8)}/${value.slice(4, 6)}/${value.slice(0, 4)}`
+    : value || '-'
+);
+
+export const validateFiscalTicketData = (data: TicketData) => {
+  const { pointOfSale, voucherNumber } = fiscalNumberParts(data);
+  if (!/^\d{14}$/.test(data.cae || '')) throw new Error('La factura fiscal no tiene un CAE valido de ARCA.');
+  if (!/^\d{8}$/.test(data.vto || '')) throw new Error('La factura fiscal no tiene vencimiento de CAE valido.');
+  if (!data.qrData) throw new Error('La factura fiscal no tiene el QR obligatorio de ARCA.');
+  if (!pointOfSale || !voucherNumber) throw new Error('La factura fiscal no tiene punto de venta y numero ARCA validos.');
+  if (!data.items.length) throw new Error('La factura fiscal debe conservar al menos un item.');
+  const itemsTotal = Number(data.items.reduce((sum, item) => sum + Number(item.subtotal || 0), 0).toFixed(2));
+  if (Math.abs(itemsTotal - Number(data.total.toFixed(2))) > 0.02) {
+    throw new Error('El detalle de la factura no coincide con el total autorizado.');
+  }
+  return { pointOfSale, voucherNumber };
+};
+
+export const fiscalReceiverView = (data: Pick<TicketData, 'clienteNombre' | 'clienteCuit' | 'clienteDocumentoTipo'>) => {
+  const isFinalConsumer = data.clienteDocumentoTipo === 'Consumidor Final' || !data.clienteCuit?.trim();
+  return {
+    isFinalConsumer,
+    name: isFinalConsumer ? 'A CONSUMIDOR FINAL' : (data.clienteNombre || 'Cliente'),
+    documentLabel: isFinalConsumer ? 'Documento' : (data.clienteDocumentoTipo || 'CUIT/DNI'),
+    documentNumber: data.clienteCuit?.trim() || 'No requerido',
+  };
+};
+
 export const pdfService = {
   async exportToPDF(data: TicketData): Promise<void> {
     const doc = await this.generateTicketPDF(data);
     const filename = data.tipoComprobante.startsWith('factura') || data.tipoComprobante.startsWith('nota_credito')
-      ? `factura-el-patron-${sanitizeFile(data.nroComprobante)}.pdf`
+      ? `${data.tipoComprobante.startsWith('nota_credito') ? 'nota-credito' : 'factura'}-el-patron-${sanitizeFile(data.nroComprobante)}.pdf`
       : `ticket-el-patron-${sanitizeFile(data.nroComprobante || String(data.idPedido))}.pdf`;
     doc.save(filename);
   },
@@ -96,6 +149,8 @@ export const pdfService = {
     const qrImage = isFiscal && data.cae ? await loadQrDataUrl(data.qrData) : null;
 
     if (isFiscal) {
+      validateFiscalTicketData(data);
+      if (!qrImage) throw new Error('No se pudo generar el QR fiscal obligatorio.');
       return this.generateA4Invoice(data, logo, qrImage);
     }
 
@@ -110,13 +165,21 @@ export const pdfService = {
     const compType = data.tipoComprobante as string;
     const letter = compType === 'factura_a' ? 'A' : (compType === 'factura_c' || compType === 'nota_credito_c' ? 'C' : 'B');
     const isCreditNoteC = compType === 'nota_credito_c';
-    const cliente = data.clienteNombre || 'Consumidor Final';
-    const clienteCuit = data.clienteCuit || (!data.cuit || data.cuit.startsWith('99') ? 'Consumidor Final' : data.cuit);
+    const receiver = fiscalReceiverView(data);
+    const cliente = receiver.name;
+    const clienteCuit = receiver.documentNumber;
+    const { pointOfSale, voucherNumber } = fiscalNumberParts(data);
+    const fiscalDate = formatFiscalDateTime(data.fechaEmision || data.fechaHora);
 
     // Top Brand Accent Line
     doc.setFillColor(...BRAND.brown);
     doc.rect(margin, y, 182, 1.5, 'F');
-    y += 4;
+    y += 5;
+    doc.setTextColor(...BRAND.dark);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.text(data.copia || 'ORIGINAL', 105, y + 2, { align: 'center' });
+    y += 6;
 
     // Header Content Layout (Clean & Open)
     if (logo) {
@@ -179,23 +242,28 @@ export const pdfService = {
     doc.text(`Comprobante: ${isCreditNoteC ? 'Nota de Crédito C' : `Factura ${letter}`}`, margin + 102, y);
     y += 4.5;
     doc.text(`IVA: ${data.condicionIvaEmisor || (letter === 'C' ? 'Monotributo' : 'Responsable Inscripto')}`, margin, y);
-    doc.text(`Nro Comprobante: ${data.nroComprobante}`, margin + 102, y);
+    doc.text(`Punto de venta: ${String(pointOfSale).padStart(5, '0')}`, margin + 102, y);
     y += 4.5;
     doc.text(`IIBB: ${data.ingresosBrutos || 'No informado'}`, margin, y);
-    doc.text(`Fecha/Hora: ${data.fechaHora}`, margin + 102, y);
+    doc.text(`Comp. Nro: ${String(voucherNumber).padStart(8, '0')}`, margin + 102, y);
     y += 4.5;
     doc.text(`Inicio actividades: ${data.inicioActividades || 'No informado'}`, margin, y);
-    doc.text(`Tipo: ${isCreditNoteC ? 'Nota de Crédito C' : `Factura ${letter}`}`, margin + 102, y);
+    doc.text(`Fecha de emision: ${fiscalDate}`, margin + 102, y);
     y += 4.5;
     doc.text(`Email: ${data.email}`, margin, y);
-    doc.text(`Mesa: ${data.mesa} | Mozo: ${data.mozo}`, margin + 102, y);
+    doc.text(`Moneda: ${data.moneda || 'PES'} | Cotizacion: 1`, margin + 102, y);
+    if (isCreditNoteC && data.comprobanteAsociado) {
+      y += 4.5;
+      doc.text(`Comprobante asociado: ${data.comprobanteAsociado}`, margin + 102, y);
+    }
     y += 8;
 
     // Customer Card
     doc.setFillColor(...BRAND.cream);
     doc.setDrawColor(...BRAND.line);
     doc.setLineWidth(0.2);
-    doc.rect(margin, y, 182, 16, 'FD');
+    const receiverHeight = data.clienteDomicilio ? 21 : 17;
+    doc.rect(margin, y, 182, receiverHeight, 'FD');
 
     doc.setTextColor(...BRAND.brown);
     doc.setFont('helvetica', 'bold');
@@ -209,11 +277,12 @@ export const pdfService = {
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8.5);
-    doc.text(`CUIT/DNI: ${clienteCuit}`, margin + 105, y + 8);
+    doc.text(`${receiver.documentLabel}: ${clienteCuit}`, margin + 105, y + 8);
     doc.setFontSize(7.5);
     doc.text(`IVA: ${data.condicionIvaReceptor || 'Consumidor Final'}`, margin + 105, y + 12.5);
+    if (data.clienteDomicilio) doc.text(`Domicilio: ${data.clienteDomicilio}`, margin + 4, y + 16);
     
-    y += 22;
+    y += receiverHeight + 6;
 
     // Items Table Header
     doc.setFillColor(...BRAND.brown);
@@ -230,8 +299,9 @@ export const pdfService = {
     // Items List
     doc.setTextColor(...BRAND.dark);
     data.items.forEach((item, i) => {
-      const rowHeight = 8;
-      if (y > 245) {
+      const descriptionLines = doc.splitTextToSize(String(item.descripcion || '-'), 102) as string[];
+      const rowHeight = Math.max(8, descriptionLines.length * 3.7 + 3);
+      if (y + rowHeight > 246) {
         doc.addPage();
         y = 18;
         doc.setFillColor(...BRAND.brown);
@@ -259,7 +329,7 @@ export const pdfService = {
       doc.setFont('helvetica', 'bold');
       doc.text(String(item.cantidad), margin + 4, y);
       doc.setFont('helvetica', 'normal');
-      doc.text(item.descripcion.slice(0, 58), margin + 20, y);
+      doc.text(descriptionLines, margin + 20, y);
       doc.text(money(itemUnit(item)), margin + 142, y, { align: 'right' });
       doc.text(money(item.subtotal), margin + 178, y, { align: 'right' });
       y += rowHeight;
@@ -346,8 +416,9 @@ export const pdfService = {
       y += 4.5;
     }
 
-    // AFIP/ARCA Footer CAE + QR
-    y = 260;
+    // ARCA footer with the authorization and mandatory fiscal QR.
+    if (y > 238) doc.addPage();
+    y = 255;
     doc.setDrawColor(...BRAND.line);
     doc.setLineWidth(0.2);
     doc.line(margin, y - 2, margin + 182, y - 2);
@@ -363,11 +434,20 @@ export const pdfService = {
       doc.setTextColor(...BRAND.muted);
       doc.setFontSize(7.5);
       doc.setFont('helvetica', 'normal');
-      doc.text('Comprobante electrónico autorizado por ARCA', margin + 24, y + 5);
-      doc.text(`CAE Nro: ${data.cae} | Vto: ${data.vto || '-'}`, margin + 24, y + 10);
+      doc.text(data.resultadoArca === 'O' ? 'Comprobante autorizado por ARCA con observaciones' : 'Comprobante electronico autorizado por ARCA', margin + 24, y + 5);
+      doc.text(`CAE Nro: ${data.cae} | Vto. CAE: ${formatArcaDate(data.vto)}`, margin + 24, y + 10);
       doc.setTextColor(...BRAND.dark);
       doc.setFont('helvetica', 'italic');
       doc.text(data.mensajePie || 'Gracias por su visita.', margin + 24, y + 15);
+      if (data.resultadoArca === 'O' && data.observacionesArca?.length) {
+        const observations = data.observacionesArca
+          .slice(0, 2)
+          .map(item => `[${item.code}] ${item.msg}`)
+          .join(' | ');
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(6.5);
+        doc.text(doc.splitTextToSize(observations, 152), margin + 24, y + 19);
+      }
     } else {
       doc.setDrawColor(190, 24, 24);
       doc.setTextColor(190, 24, 24);
@@ -377,6 +457,15 @@ export const pdfService = {
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(7.5);
       doc.text('Documento interno sin autorización ni CAE de ARCA.', margin, y + 12);
+    }
+
+    const pageCount = doc.getNumberOfPages();
+    for (let page = 1; page <= pageCount; page += 1) {
+      doc.setPage(page);
+      doc.setTextColor(...BRAND.muted);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7);
+      doc.text(`ORIGINAL | Pagina ${page} de ${pageCount}`, 196, 289, { align: 'right' });
     }
 
     return doc;

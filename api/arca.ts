@@ -103,6 +103,18 @@ interface InvoicePayload {
   total: number;
   neto?: number;
   ivaTotal?: number;
+  items?: Array<{
+    descripcion?: string;
+    cantidad?: number;
+    precioUnitario?: number;
+  }>;
+}
+
+interface ValidatedInvoiceItem {
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  subtotal: number;
 }
 
 interface ValidatedInvoice {
@@ -116,6 +128,8 @@ interface ValidatedInvoice {
   vat: number;
   isFacturaC: true;
   idempotencyKey: string;
+  customerName: string;
+  items: ValidatedInvoiceItem[];
 }
 
 interface StoredEmission {
@@ -861,13 +875,38 @@ function validateInvoicePayload(payload: InvoicePayload | undefined): ValidatedI
     throw new Error("La condicion frente al IVA del receptor es invalida.");
   }
 
+  const customerName = String(payload.cliente?.nombre || (documentType === 99 ? "CONSUMIDOR FINAL" : "CLIENTE")).trim();
+  if (!customerName || customerName.length > 200) throw new Error("El nombre del receptor es invalido.");
+  const rawItems = Array.isArray(payload.items) && payload.items.length > 0
+    ? payload.items
+    : [{ descripcion: "Venta gastronomica", cantidad: 1, precioUnitario: total }];
+  if (rawItems.length > 100) throw new Error("La factura supera el maximo de 100 items.");
+  const items = rawItems.map((item, index) => {
+    const description = String(item.descripcion || "").trim();
+    const quantity = Number(item.cantidad);
+    const unitPrice = Number(item.precioUnitario);
+    if (!description || description.length > 250) throw new Error(`La descripcion del item ${index + 1} es invalida.`);
+    if (!Number.isFinite(quantity) || quantity <= 0 || quantity > 999_999) throw new Error(`La cantidad del item ${index + 1} es invalida.`);
+    if (!Number.isFinite(unitPrice) || Math.abs(unitPrice) > 99_999_999_999.99) throw new Error(`El precio del item ${index + 1} es invalido.`);
+    return {
+      description,
+      quantity,
+      unitPrice: roundMoney(unitPrice),
+      subtotal: roundMoney(quantity * unitPrice),
+    };
+  });
+  const itemsTotal = roundMoney(items.reduce((sum, item) => sum + item.subtotal, 0));
+  if (Math.abs(itemsTotal - roundMoney(total)) > 0.02) {
+    throw new Error("La suma de los items no coincide con el total del comprobante.");
+  }
+
   const isFacturaC = true as const;
   const net = roundMoney(total);
   const vat = 0;
   if (Math.abs(roundMoney(net + vat) - roundMoney(total)) > 0.02) {
     throw new Error("El neto mas IVA no coincide con el total.");
   }
-  return { total: roundMoney(total), voucherType, pointOfSale, documentType, documentNumber, vatCondition, net, vat, isFacturaC, idempotencyKey };
+  return { total: roundMoney(total), voucherType, pointOfSale, documentType, documentNumber, vatCondition, net, vat, isFacturaC, idempotencyKey, customerName, items };
 }
 
 function buildFiscalQrPayload(input: {
@@ -1388,9 +1427,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(422).json({ success: false, error: "Solo puede emitirse Nota de Credito C sobre una Factura C autorizada." });
       }
       const invoice = validateInvoicePayload({
-        ...related.request_payload,
         idempotencyKey,
         tipoComprobante: 13,
+        puntoVenta: related.request_payload.pointOfSale,
+        cliente: {
+          tipoDoc: related.request_payload.documentType,
+          nroDoc: related.request_payload.documentNumber,
+          nombre: related.request_payload.customerName,
+          condicionIva: related.request_payload.vatCondition,
+        },
+        items: related.request_payload.items.map(item => ({
+          descripcion: item.description,
+          cantidad: item.quantity,
+          precioUnitario: item.unitPrice,
+        })),
+        total: related.request_payload.total,
+        neto: related.request_payload.net,
+        ivaTotal: related.request_payload.vat,
       });
       const result = await runIdempotentEmission(credentials, authenticated, invoice, related);
       return res.status(result.success ? 200 : 422).json(result);

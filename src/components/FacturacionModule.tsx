@@ -330,6 +330,12 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
     setIsEmitting(true);
     try {
       const { iva } = calcIvaIncluido(total, false);
+      const manualItems = [{
+        cantidad: 1,
+        descripcion: manualObs.trim() || 'Venta gastronomica',
+        precio_unitario: total,
+        subtotal: total,
+      }];
       const factura: FacturaExtendida = {
         id_factura: `fac_${Date.now()}`,
         nro_ticket: nextNumber(facturas, manualTipo, arcaStatus?.puntoVenta),
@@ -345,6 +351,9 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
         observaciones: manualObs || 'Venta de salón / Varios manual',
         fecha_completa: new Date().toISOString(),
         condicion_iva_receptor: manualCondicionIva,
+        documento_tipo_receptor: parseFiscalCustomerDocument(manualCuit).documentType,
+        items: manualItems,
+        moneda: 'PES',
       };
       
       if (manualTipo === 'C') {
@@ -417,6 +426,22 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
 
       const { iva } = calcIvaIncluido(totalConsolidado, pagoTipo !== 'C' && pagoTipo !== 'X');
       const prefixIdsStr = selectedItems.map(p => `#${p.pedido.id_pedido}`).join(', ');
+      const fiscalItems = Object.values(mergedItemsMap).map(item => ({
+        cantidad: item.cantidad,
+        descripcion: item.nombre,
+        precio_unitario: item.precio_unitario,
+        subtotal: roundCurrency(item.precio_unitario * item.cantidad),
+      }));
+      const fiscalItemsTotal = fiscalItems.reduce((sum, item) => sum + item.subtotal, 0);
+      const fiscalAdjustment = roundCurrency(totalConsolidado - fiscalItemsTotal);
+      if (Math.abs(fiscalAdjustment) >= 0.01) {
+        fiscalItems.push({
+          cantidad: 1,
+          descripcion: fiscalAdjustment > 0 ? 'Ajuste de ticket / propina' : 'Bonificacion aplicada en Caja',
+          precio_unitario: fiscalAdjustment,
+          subtotal: fiscalAdjustment,
+        });
+      }
       
       const factura: FacturaExtendida = {
         id_factura: `fac_${Date.now()}`,
@@ -433,6 +458,9 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
         observaciones: `Tickets de origen: ${ticketReferences} - Pedidos: ${prefixIdsStr} - Mesas: ${Array.from(new Set(selectedItems.map(p => p.pedido.numero_mesa))).join(', ')}`,
         fecha_completa: new Date().toISOString(),
         condicion_iva_receptor: pagoCondicionIva,
+        documento_tipo_receptor: parseFiscalCustomerDocument(pagoCuit).documentType,
+        items: fiscalItems,
+        moneda: 'PES',
       };
 
       if (pagoTipo === 'C') {
@@ -473,7 +501,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
         idPedido: principalPedido.id_pedido,
         nroComprobante: factura.nro_ticket,
         tipoComprobante: tipoToComprobante(pagoTipo),
-        fechaHora: factura.fecha,
+        fechaHora: factura.fecha_completa || factura.fecha,
         mesa: Array.from(new Set(selectedItems.map(p => p.pedido.numero_mesa))).join(', '),
         mozo: Array.from(new Set(selectedItems.map(p => p.pedido.mozo))).join(', '),
         cajero: 'Caja Principal',
@@ -500,7 +528,15 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
         clienteCuit: factura.cuit,
         cae: factura.afip_cae,
         vto: factura.afip_vto,
-        qrData: factura.afip_qr
+        qrData: factura.afip_qr,
+        puntoVenta: factura.afip_pto_vta,
+        numeroFiscal: factura.afip_cbte_nro,
+        fechaEmision: factura.fecha_completa,
+        moneda: 'PES',
+        copia: 'ORIGINAL',
+        resultadoArca: factura.afip_resultado === 'O' ? 'O' : 'A',
+        observacionesArca: factura.afip_observaciones,
+        clienteDocumentoTipo: factura.documento_tipo_receptor === 80 ? 'CUIT' : factura.documento_tipo_receptor === 96 ? 'DNI' : 'Consumidor Final',
       };
 
       await pdfService.exportToPDF(ticketData);
@@ -550,12 +586,13 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
         afip_cbte_nro: result.nroCmp,
         afip_observaciones: result.observaciones || [],
         arca_emisor: result.emitter,
+        comprobante_asociado: original.nro_ticket,
         observaciones: `Nota de Crédito C asociada a ${original.nro_ticket}`,
       };
       await facturacionService.create(note);
-      await facturacionService.markNotaCredito(original.id_factura);
-      setFacturas(prev => [note, ...prev.map(f => f.id_factura === id ? { ...f, estado: 'nota_credito' as const } : f)]);
-      setSelectedFactura(previous => previous?.id_factura === id ? { ...previous, estado: 'nota_credito' } : previous);
+      await facturacionService.markNotaCredito(original.id_factura, note.id_factura);
+      setFacturas(prev => [note, ...prev.map(f => f.id_factura === id ? { ...f, estado: 'nota_credito' as const, credited_by_factura_id: note.id_factura } : f)]);
+      setSelectedFactura(previous => previous?.id_factura === id ? { ...previous, estado: 'nota_credito', credited_by_factura_id: note.id_factura } : previous);
       await downloadFacturaPdf(note);
       addLog('sistema', `ARCA: Nota de Crédito C ${note.nro_ticket} autorizada con CAE ${result.CAE}, asociada a ${original.nro_ticket}.`);
       toast.success(`Nota de Crédito C ${note.nro_ticket} autorizada por ARCA.`);
@@ -601,14 +638,19 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
           nombre: factura.cliente,
           condicionIva: factura.condicion_iva_receptor || 5,
         },
-        items: [{
-          descripcion: `Venta Gastronómica según ${factura.nro_ticket}`,
+        items: (factura.items?.length ? factura.items : [{
+          descripcion: factura.observaciones || `Venta gastronomica segun ${factura.nro_ticket}`,
           cantidad: 1,
-          precioUnitario: factura.total,
+          precio_unitario: factura.total,
+          subtotal: factura.total,
+        }]).map(item => ({
+          descripcion: item.descripcion,
+          cantidad: item.cantidad,
+          precioUnitario: item.precio_unitario,
           ivaId: 5,
-          ivaBase: neto,
-          ivaImporte: iva,
-        }],
+          ivaBase: item.subtotal,
+          ivaImporte: 0,
+        })),
         total: factura.total,
         neto,
         ivaTotal: iva,
@@ -637,8 +679,8 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
     const tipo = facturaTipo(factura);
     const { neto, iva } = calcIvaIncluido(factura.total, factura.iva_veintiuno > 0);
     
-    let ticketItems = [];
-    if (pedido && pedido.items.length > 0) {
+    let ticketItems = factura.items || [];
+    if (ticketItems.length === 0 && pedido && pedido.items.length > 0) {
       ticketItems = pedido.items.map(item => {
         const unit = resolvePedidoItemUnitPrice(item, productosMenu);
         return {
@@ -648,7 +690,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
           subtotal: unit * item.cantidad
         };
       });
-    } else {
+    } else if (ticketItems.length === 0) {
       ticketItems = [{
         cantidad: 1,
         descripcion: factura.observaciones || 'Venta Gastronómica Comercial',
@@ -661,7 +703,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
       idPedido: factura.id_pedido || pedido?.id_pedido || 0,
       nroComprobante: factura.nro_ticket,
       tipoComprobante: tipoToComprobante(tipo),
-      fechaHora: factura.fecha,
+      fechaHora: factura.fecha_completa || factura.fecha,
       mesa: pedido?.numero_mesa || 'Venta Directa',
       mozo: pedido?.mozo || 'Caja Central',
       cajero: 'Administración',
@@ -690,7 +732,17 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
       clienteCuit: factura.cuit,
       cae: factura.afip_cae,
       vto: factura.afip_vto,
-      qrData: factura.afip_qr
+      qrData: factura.afip_qr,
+      puntoVenta: factura.afip_pto_vta,
+      numeroFiscal: factura.afip_cbte_nro,
+      fechaEmision: factura.fecha_completa,
+      moneda: factura.moneda || 'PES',
+      copia: 'ORIGINAL',
+      resultadoArca: factura.afip_resultado === 'O' ? 'O' : 'A',
+      observacionesArca: factura.afip_observaciones,
+      clienteDocumentoTipo: factura.documento_tipo_receptor === 80 ? 'CUIT' : factura.documento_tipo_receptor === 96 ? 'DNI' : 'Consumidor Final',
+      clienteDomicilio: factura.cliente_domicilio,
+      comprobanteAsociado: factura.comprobante_asociado,
     };
 
     await pdfService.exportToPDF(ticketData);

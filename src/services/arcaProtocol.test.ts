@@ -115,6 +115,32 @@ test('lee el CUIT del atributo X.509 serialNumber emitido por ARCA', () => {
   assert.equal(value, 'CUIT 27426946136');
 });
 
+test('conserva y valida el detalle comercial que respalda el total', () => {
+  const result = __arcaTestables.validateInvoicePayload({
+    idempotencyKey: 'fac_items_001',
+    tipoComprobante: 11,
+    total: 1500,
+    cliente: { tipoDoc: 99, nroDoc: 0, nombre: 'CONSUMIDOR FINAL', condicionIva: 5 },
+    items: [
+      { descripcion: 'Plato principal', cantidad: 2, precioUnitario: 600 },
+      { descripcion: 'Bebida', cantidad: 1, precioUnitario: 300 },
+    ],
+  });
+
+  assert.equal(result.customerName, 'CONSUMIDOR FINAL');
+  assert.deepEqual(result.items.map(item => item.subtotal), [1200, 300]);
+});
+
+test('rechaza una factura cuyo detalle no coincide con el total', () => {
+  assert.throws(() => __arcaTestables.validateInvoicePayload({
+    idempotencyKey: 'fac_items_bad',
+    tipoComprobante: 11,
+    total: 1500,
+    cliente: { tipoDoc: 99, nroDoc: 0, condicionIva: 5 },
+    items: [{ descripcion: 'Cena', cantidad: 1, precioUnitario: 1400 }],
+  }), /suma de los items/);
+});
+
 test('interpreta los puntos de venta CAE informados por FEParamGetPtosVenta', () => {
   const points = __arcaTestables.parseArcaPointsOfSale(`
     <FEParamGetPtosVentaResult>

@@ -1,5 +1,12 @@
 import { getActiveSupabaseClient } from '../lib/supabaseClient';
 
+export interface FacturaItem {
+  descripcion: string;
+  cantidad: number;
+  precio_unitario: number;
+  subtotal: number;
+}
+
 export interface Factura {
   id_factura: string;
   id_pedido?: number;
@@ -24,11 +31,17 @@ export interface Factura {
   arca_emisor?: Record<string, string>;
   condicion_iva_receptor?: number;
   fecha_completa?: string;
+  cliente_domicilio?: string;
+  documento_tipo_receptor?: number;
+  items?: FacturaItem[];
+  moneda?: 'PES';
+  observaciones?: string;
+  comprobante_asociado?: string;
+  credited_by_factura_id?: string;
 }
 
 const tipoToDb = (factura: Factura): string => {
   if (factura.tipo === 'NC') return 'Nota Credito C';
-  if (factura.estado === 'nota_credito') return 'Nota Credito';
   if (factura.tipo === 'A') return 'Factura A';
   if (factura.tipo === 'B') return 'Factura B';
   if (factura.tipo === 'C') return 'Factura C';
@@ -105,7 +118,9 @@ export const toDbFacturaPayload = (factura: Factura) => ({
   afip_vto: factura.afip_vto,
   afip_qr: factura.afip_qr,
   afip_resultado: factura.afip_resultado,
-  fiscal_status: factura.estado === 'autorizado' ? 'authorized' : factura.estado === 'observado' ? 'observed' : factura.estado === 'incierto' ? 'uncertain' : factura.estado === 'rechazado' ? 'rejected' : factura.estado === 'nota_credito' ? 'credited' : 'draft',
+  fiscal_status: factura.tipo === 'NC'
+    ? (factura.afip_resultado === 'O' ? 'observed' : 'authorized')
+    : factura.estado === 'autorizado' ? 'authorized' : factura.estado === 'observado' ? 'observed' : factura.estado === 'incierto' ? 'uncertain' : factura.estado === 'rechazado' ? 'rejected' : factura.estado === 'nota_credito' ? 'credited' : 'draft',
   arca_emission_id: factura.arca_emission_id,
   afip_cbte_tipo: factura.afip_cbte_tipo,
   afip_pto_vta: factura.afip_pto_vta,
@@ -113,6 +128,14 @@ export const toDbFacturaPayload = (factura: Factura) => ({
   afip_observaciones: factura.afip_observaciones || [],
   arca_emisor: factura.arca_emisor,
   condicion_iva_receptor: factura.condicion_iva_receptor,
+  cliente_nombre: factura.cliente,
+  cliente_domicilio: factura.cliente_domicilio || null,
+  documento_tipo_receptor: factura.documento_tipo_receptor || (factura.cuit ? undefined : 99),
+  items_json: factura.items || [],
+  moneda: factura.moneda || 'PES',
+  observaciones: factura.observaciones || null,
+  comprobante_asociado: factura.comprobante_asociado || null,
+  credited_by_factura_id: factura.credited_by_factura_id || null,
 });
 
 export const facturacionService = {
@@ -133,7 +156,7 @@ export const facturacionService = {
           id_factura: f.id_factura,
           id_pedido: f.id_pedido || undefined,
           nro_ticket: f.numero_factura,
-          cliente: f.cuit_cliente ? `Clien_CUIT_${f.cuit_cliente}` : 'Consumidor Final',
+          cliente: f.cliente_nombre || (f.cuit_cliente ? `Cliente ${f.cuit_cliente}` : 'Consumidor Final'),
           cuit: f.cuit_cliente || '',
           total,
           iva_veintiuno: Number(iva.toFixed(2)),
@@ -141,6 +164,8 @@ export const facturacionService = {
           fecha: new Date(f.fecha_emision).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + ' hs',
           estado: tipoComprobante.toLowerCase().includes('nota')
             ? 'nota_credito' as const
+            : f.fiscal_status === 'credited'
+              ? 'nota_credito' as const
             : f.fiscal_status === 'observed'
               ? 'observado' as const
               : f.fiscal_status === 'authorized'
@@ -162,7 +187,14 @@ export const facturacionService = {
           afip_observaciones: Array.isArray(f.afip_observaciones) ? f.afip_observaciones : [],
           arca_emisor: f.arca_emisor && typeof f.arca_emisor === 'object' ? f.arca_emisor : undefined,
           condicion_iva_receptor: Number(f.condicion_iva_receptor) || 5,
-          fecha_completa: f.fecha_emision
+          fecha_completa: f.fecha_emision,
+          cliente_domicilio: f.cliente_domicilio || undefined,
+          documento_tipo_receptor: Number(f.documento_tipo_receptor) || (f.cuit_cliente ? 80 : 99),
+          items: Array.isArray(f.items_json) ? f.items_json : [],
+          moneda: 'PES' as const,
+          observaciones: f.observaciones || undefined,
+          comprobante_asociado: f.comprobante_asociado || undefined,
+          credited_by_factura_id: f.credited_by_factura_id || undefined,
         };
       });
 
@@ -214,14 +246,16 @@ export const facturacionService = {
     }
   },
 
-  async markNotaCredito(id: string): Promise<void> {
+  async markNotaCredito(id: string, creditNoteId: string): Promise<void> {
     writeLocalFacturas(readLocalFacturas().map(factura => (
-      factura.id_factura === id ? { ...factura, estado: 'nota_credito' } : factura
+      factura.id_factura === id
+        ? { ...factura, estado: 'nota_credito', credited_by_factura_id: creditNoteId }
+        : factura
     )));
     const supabase = getActiveSupabaseClient();
     const { error } = await supabase
       .from('facturas')
-      .update({ tipo_comprobante: 'Nota Credito' })
+      .update({ fiscal_status: 'credited', credited_by_factura_id: creditNoteId })
       .eq('id_factura', id);
     if (error) {
       console.error('Error marking invoice as credit note:', error);
@@ -230,13 +264,31 @@ export const facturacionService = {
   },
 
   async remove(id: string): Promise<boolean> {
-    writeLocalFacturas(readLocalFacturas().filter(factura => factura.id_factura !== id));
+    const local = readLocalFacturas();
+    const localInvoice = local.find(factura => factura.id_factura === id);
+    if (localInvoice && !canDeleteFactura(localInvoice)) {
+      throw new Error('Un comprobante fiscal autorizado no se elimina. Debe anularse mediante una Nota de Credito C.');
+    }
     const supabase = getActiveSupabaseClient();
+    const { data: remoteInvoice, error: readError } = await supabase
+      .from('facturas')
+      .select('fiscal_status, afip_cae')
+      .eq('id_factura', id)
+      .maybeSingle();
+    if (readError) throw readError;
+    if (remoteInvoice && (remoteInvoice.afip_cae || ['authorized', 'observed', 'credited'].includes(remoteInvoice.fiscal_status))) {
+      throw new Error('Un comprobante fiscal autorizado no se elimina. Debe anularse mediante una Nota de Credito C.');
+    }
     const { error } = await supabase.from('facturas').delete().eq('id_factura', id);
     if (error) {
       console.error('Error deleting invoice:', error);
       return false;
     }
+    writeLocalFacturas(local.filter(factura => factura.id_factura !== id));
     return true;
   }
 };
+
+export const canDeleteFactura = (factura: Pick<Factura, 'estado' | 'afip_cae'>): boolean => (
+  !factura.afip_cae && !['autorizado', 'observado', 'nota_credito'].includes(factura.estado)
+);
