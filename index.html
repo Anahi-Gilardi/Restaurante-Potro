@@ -12,19 +12,79 @@
     <link rel="apple-touch-icon" href="/logo-el-patron-192.png?v=5" />
     <link rel="manifest" href="/manifest.webmanifest" crossorigin="anonymous" />
     <script>
-    // Detect chunk load errors and auto-reload BEFORE React mounts
-    window.addEventListener('error', function(e) {
-      if (e.target && (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK')) {
-        if (e.target.href && (e.target.href.includes('/assets/') || e.target.src?.includes('/assets/'))) {
-          e.preventDefault();
-          console.warn('[SW] Asset load error, reloading for new version');
-          if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.getRegistration().then(function(reg) { if (reg) reg.unregister(); });
+      // Recover once from an obsolete PWA cache. A second failure shows a usable
+      // recovery screen instead of trapping the browser in a reload loop.
+      (function () {
+        var recoveryKey = 'el_patron_asset_recovery';
+
+        function showRecovery() {
+          function render() {
+            var root = document.getElementById('root') || document.body;
+            root.innerHTML = '';
+
+            var panel = document.createElement('main');
+            panel.setAttribute('role', 'alert');
+            panel.style.cssText = 'min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:#f5f1e9;font-family:Arial,sans-serif;color:#2d211b;text-align:center';
+            panel.innerHTML = '<div style="max-width:480px;background:#fff;border:1px solid #ded4c9;border-radius:8px;padding:28px;box-shadow:0 10px 28px rgba(45,33,27,.12)"><h1 style="font-size:22px;margin:0 0 10px">No pudimos actualizar la aplicacion</h1><p style="font-size:14px;line-height:1.5;color:#67584f;margin:0 0 20px">La version guardada en este dispositivo esta desactualizada. Presiona el boton para intentar nuevamente.</p><button id="asset-recovery-retry" style="border:0;border-radius:6px;padding:12px 18px;background:#684638;color:#fff;font-weight:700;cursor:pointer">Reintentar carga</button></div>';
+            root.appendChild(panel);
+
+            document.getElementById('asset-recovery-retry').addEventListener('click', function () {
+              sessionStorage.removeItem(recoveryKey);
+              window.location.reload();
+            });
           }
-          location.reload();
+
+          if (document.body) render();
+          else document.addEventListener('DOMContentLoaded', render, { once: true });
         }
-      }
-    }, true);
+
+        async function recoverFromAssetFailure() {
+          var lastAttempt = Number(sessionStorage.getItem(recoveryKey) || 0);
+          var now = Date.now();
+          if (lastAttempt && now - lastAttempt < 60000) {
+            showRecovery();
+            return;
+          }
+
+          sessionStorage.setItem(recoveryKey, String(now));
+          try {
+            if ('serviceWorker' in navigator) {
+              var registrations = await navigator.serviceWorker.getRegistrations();
+              await Promise.all(registrations.map(function (registration) {
+                return registration.unregister();
+              }));
+            }
+            if ('caches' in window) {
+              var cacheNames = await caches.keys();
+              await Promise.all(cacheNames.map(function (name) { return caches.delete(name); }));
+            }
+          } catch (error) {
+            console.warn('[PWA] Cache cleanup failed:', error);
+          }
+
+          var nextUrl = new URL(window.location.href);
+          nextUrl.searchParams.set('_recover', String(now));
+          window.location.replace(nextUrl.toString());
+        }
+
+        window.addEventListener('error', function (event) {
+          var target = event.target;
+          if (!target || (target.tagName !== 'SCRIPT' && target.tagName !== 'LINK')) return;
+
+          var assetUrl = target.src || target.href || '';
+          if (!assetUrl.includes('/assets/')) return;
+
+          event.preventDefault();
+          console.warn('[PWA] Asset load failed; starting bounded recovery.');
+          recoverFromAssetFailure();
+        }, true);
+
+        window.addEventListener('load', function () {
+          window.setTimeout(function () {
+            sessionStorage.removeItem(recoveryKey);
+          }, 10000);
+        }, { once: true });
+      })();
     </script>
   </head>
   <body>

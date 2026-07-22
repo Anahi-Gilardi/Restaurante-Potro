@@ -50,7 +50,10 @@ export default class RetryErrorWrapper extends Component<RetryErrorWrapperProps,
         }
       }).catch(err => {
         console.error('[Retry] Safe reload failed:', err);
-        window.location.reload();
+        this.setState({
+          hasError: true,
+          errorMessage: err instanceof Error ? err.message : String(err),
+        });
       });
     } else {
       console.error('[RetryErrorWrapper] Error en módulo:', error);

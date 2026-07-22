@@ -3,7 +3,7 @@
  * 1. Clearing all registered Service Workers.
  * 2. Clearing all cache storages.
  * 3. Appending a cache-busting timestamp query parameter.
- * 4. Guarding against infinite reload loops using sessionStorage (max 1 reload per 20 seconds).
+ * 4. Guarding against infinite reload loops using sessionStorage (max 1 reload per minute).
  */
 export async function forceCleanReload(): Promise<boolean> {
   if (typeof window === 'undefined') return false;
@@ -11,9 +11,9 @@ export async function forceCleanReload(): Promise<boolean> {
   const lastReload = sessionStorage.getItem('last_auto_reload');
   const now = Date.now();
 
-  // If we reloaded less than 20 seconds ago, do not reload automatically again to avoid loops
-  if (lastReload && now - parseInt(lastReload, 10) < 20000) {
-    console.error('[PWA] Infinite reload loop prevented. Last auto-reload was less than 20s ago.');
+  // Do not trigger another automatic recovery while the current one is settling.
+  if (lastReload && now - parseInt(lastReload, 10) < 60000) {
+    console.error('[PWA] Infinite reload loop prevented. Last auto-reload was less than one minute ago.');
     return false;
   }
 
@@ -33,8 +33,6 @@ export async function forceCleanReload(): Promise<boolean> {
       await Promise.all(keys.map(key => caches.delete(key)));
     }
     
-    // Clear local storage of active session to refresh states
-    window.localStorage.removeItem('el_patron_session');
   } catch (e) {
     console.warn('[PWA] Error clearing SW or caches:', e);
   }
