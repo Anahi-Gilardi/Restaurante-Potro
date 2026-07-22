@@ -672,13 +672,17 @@ function parseArcaPointsOfSale(xml: string): ArcaPointOfSale[] {
 
 const formatPointOfSale = (value: number): string => String(value).padStart(5, "0");
 
+const isCaeEmissionType = (value: string): boolean => (
+  value === "CAE" || /^CAE(?:\s*-\s*|\s+)/.test(value)
+);
+
 function pointOfSaleValidation(
   configuredPointOfSale: number,
   points: ArcaPointOfSale[],
 ): { valid: boolean; message: string; available: number[] } {
   const configured = points.find(point => point.number === configuredPointOfSale);
   const available = points
-    .filter(point => point.emissionType === "CAE" && !point.blocked && !point.disabledAt)
+    .filter(point => isCaeEmissionType(point.emissionType) && !point.blocked && !point.disabledAt)
     .map(point => point.number)
     .sort((left, right) => left - right);
   const label = formatPointOfSale(configuredPointOfSale);
@@ -707,7 +711,7 @@ function pointOfSaleValidation(
       message: `El punto de venta ${label} esta dado de baja en ARCA desde ${configured.disabledAt}. Configure un punto CAE activo antes de emitir.${availableText}`,
     };
   }
-  if (configured.emissionType !== "CAE") {
+  if (!isCaeEmissionType(configured.emissionType)) {
     return {
       valid: false,
       available,

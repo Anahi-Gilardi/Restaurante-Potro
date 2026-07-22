@@ -119,21 +119,21 @@ test('interpreta los puntos de venta CAE informados por FEParamGetPtosVenta', ()
   const points = __arcaTestables.parseArcaPointsOfSale(`
     <FEParamGetPtosVentaResult>
       <ResultGet>
-        <PtoVenta><Nro>2</Nro><EmisionTipo>CAE</EmisionTipo><Bloqueado>N</Bloqueado><FchBaja>NULL</FchBaja></PtoVenta>
+        <PtoVenta><Nro>2</Nro><EmisionTipo>CAE - MONOTRIBUTO</EmisionTipo><Bloqueado>N</Bloqueado><FchBaja>NULL</FchBaja></PtoVenta>
         <PtoVenta><Nro>7</Nro><EmisionTipo>CAEA</EmisionTipo><Bloqueado>S</Bloqueado><FchBaja>20260720</FchBaja></PtoVenta>
       </ResultGet>
     </FEParamGetPtosVentaResult>
   `);
 
   assert.deepEqual(points, [
-    { number: 2, emissionType: 'CAE', blocked: false, disabledAt: null },
+    { number: 2, emissionType: 'CAE - MONOTRIBUTO', blocked: false, disabledAt: null },
     { number: 7, emissionType: 'CAEA', blocked: true, disabledAt: '20260720' },
   ]);
 });
 
 test('bloquea un punto no habilitado y enumera solamente alternativas CAE activas', () => {
   const result = __arcaTestables.pointOfSaleValidation(1, [
-    { number: 2, emissionType: 'CAE', blocked: false, disabledAt: null },
+    { number: 2, emissionType: 'CAE - MONOTRIBUTO', blocked: false, disabledAt: null },
     { number: 3, emissionType: 'CAE', blocked: true, disabledAt: null },
     { number: 4, emissionType: 'CAEA', blocked: false, disabledAt: null },
   ]);
@@ -142,6 +142,19 @@ test('bloquea un punto no habilitado y enumera solamente alternativas CAE activa
   assert.deepEqual(result.available, [2]);
   assert.match(result.message, /00001/);
   assert.match(result.message, /RECE para aplicativo y web services/);
+});
+
+test('acepta el tipo CAE - MONOTRIBUTO informado por ARCA sin confundirlo con CAEA', () => {
+  const valid = __arcaTestables.pointOfSaleValidation(2, [
+    { number: 2, emissionType: 'CAE - MONOTRIBUTO', blocked: false, disabledAt: null },
+  ]);
+  const caea = __arcaTestables.pointOfSaleValidation(4, [
+    { number: 4, emissionType: 'CAEA', blocked: false, disabledAt: null },
+  ]);
+
+  assert.equal(valid.valid, true);
+  assert.deepEqual(valid.available, [2]);
+  assert.equal(caea.valid, false);
 });
 
 test('traduce el rechazo 10005 a una accion concreta sin sugerir otro numero', () => {
