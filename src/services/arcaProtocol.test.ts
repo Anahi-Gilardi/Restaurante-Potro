@@ -119,7 +119,7 @@ test('interpreta los puntos de venta CAE informados por FEParamGetPtosVenta', ()
   const points = __arcaTestables.parseArcaPointsOfSale(`
     <FEParamGetPtosVentaResult>
       <ResultGet>
-        <PtoVenta><Nro>2</Nro><EmisionTipo>CAE</EmisionTipo><Bloqueado>N</Bloqueado><FchBaja></FchBaja></PtoVenta>
+        <PtoVenta><Nro>2</Nro><EmisionTipo>CAE</EmisionTipo><Bloqueado>N</Bloqueado><FchBaja>NULL</FchBaja></PtoVenta>
         <PtoVenta><Nro>7</Nro><EmisionTipo>CAEA</EmisionTipo><Bloqueado>S</Bloqueado><FchBaja>20260720</FchBaja></PtoVenta>
       </ResultGet>
     </FEParamGetPtosVentaResult>

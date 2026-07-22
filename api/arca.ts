@@ -655,12 +655,17 @@ function parseArcaPointsOfSale(xml: string): ArcaPointOfSale[] {
   return blocks.flatMap(block => {
     const number = Number(xmlTag(block, "Nro"));
     if (!Number.isInteger(number) || number < 1 || number > 99_998) return [];
-    const disabledAt = xmlTag(block, "FchBaja");
+    const disabledAt = decodeXmlEntities(xmlTag(block, "FchBaja")).trim();
+    const normalizedDisabledAt = disabledAt
+      && disabledAt !== "00000000"
+      && disabledAt.toUpperCase() !== "NULL"
+      ? disabledAt
+      : null;
     return [{
       number,
       emissionType: decodeXmlEntities(xmlTag(block, "EmisionTipo")).trim().toUpperCase(),
       blocked: xmlTag(block, "Bloqueado").trim().toUpperCase() === "S",
-      disabledAt: disabledAt && disabledAt !== "00000000" ? disabledAt : null,
+      disabledAt: normalizedDisabledAt,
     }];
   });
 }
