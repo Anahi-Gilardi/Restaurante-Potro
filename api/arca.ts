@@ -78,6 +78,18 @@ interface CachedAccessTicket {
   expiresAt: number;
 }
 
+interface ArcaPointOfSale {
+  number: number;
+  emissionType: string;
+  blocked: boolean;
+  disabledAt: string | null;
+}
+
+interface CachedPointsOfSale {
+  points: ArcaPointOfSale[];
+  expiresAt: number;
+}
+
 interface InvoicePayload {
   idempotencyKey?: string;
   tipoComprobante?: number;
@@ -132,8 +144,10 @@ interface StoredEmission {
 
 const globalCache = globalThis as typeof globalThis & {
   __elPatronArcaTa?: Record<string, CachedAccessTicket>;
+  __elPatronArcaPointsOfSale?: Record<string, CachedPointsOfSale>;
 };
 const taCache = globalCache.__elPatronArcaTa ??= {};
+const pointsOfSaleCache = globalCache.__elPatronArcaPointsOfSale ??= {};
 
 const DEFAULT_ALLOWED_ORIGINS = new Set([
   "https://restaurante-potro.vercel.app",
@@ -191,7 +205,8 @@ function getEnvironmentCredentials(): ServerCredentials | null {
   const cuitText = envValue("ARCA_CUIT", "AFIP_CUIT").replace(/\D/g, "");
   const key = decodePem(["ARCA_KEY"], ["ARCA_KEY_BASE64", "AFIP_KEY_BASE64"]);
   const cert = decodePem(["ARCA_CERT"], ["ARCA_CERT_BASE64", "AFIP_CERT_BASE64"]);
-  if (!/^\d{11}$/.test(cuitText) || !key || !cert) return null;
+  const puntoVenta = positiveInteger(envValue("ARCA_PUNTO_VENTA"), 0);
+  if (!/^\d{11}$/.test(cuitText) || !key || !cert || !puntoVenta) return null;
 
   const environmentText = envValue("ARCA_ENV", "AFIP_ENV").toLowerCase();
   const production = envValue("ARCA_PRODUCTION").toLowerCase() === "true"
@@ -203,7 +218,7 @@ function getEnvironmentCredentials(): ServerCredentials | null {
     key,
     cert,
     environment: production ? "produccion" : "homologacion",
-    puntoVenta: positiveInteger(envValue("ARCA_PUNTO_VENTA"), 1),
+    puntoVenta,
     taxProfile: "monotributo",
     source: "environment",
     legalName: envValue("ARCA_LEGAL_NAME"),
@@ -635,6 +650,72 @@ const xmlTag = (xml: string, tag: string): string => {
   return match?.[1]?.trim() ?? "";
 };
 
+function parseArcaPointsOfSale(xml: string): ArcaPointOfSale[] {
+  const blocks = xml.match(/<(?:[\w-]+:)?PtoVenta(?:\s[^>]*)?>[\s\S]*?<\/(?:[\w-]+:)?PtoVenta>/gi) ?? [];
+  return blocks.flatMap(block => {
+    const number = Number(xmlTag(block, "Nro"));
+    if (!Number.isInteger(number) || number < 1 || number > 99_998) return [];
+    const disabledAt = xmlTag(block, "FchBaja");
+    return [{
+      number,
+      emissionType: decodeXmlEntities(xmlTag(block, "EmisionTipo")).trim().toUpperCase(),
+      blocked: xmlTag(block, "Bloqueado").trim().toUpperCase() === "S",
+      disabledAt: disabledAt && disabledAt !== "00000000" ? disabledAt : null,
+    }];
+  });
+}
+
+const formatPointOfSale = (value: number): string => String(value).padStart(5, "0");
+
+function pointOfSaleValidation(
+  configuredPointOfSale: number,
+  points: ArcaPointOfSale[],
+): { valid: boolean; message: string; available: number[] } {
+  const configured = points.find(point => point.number === configuredPointOfSale);
+  const available = points
+    .filter(point => point.emissionType === "CAE" && !point.blocked && !point.disabledAt)
+    .map(point => point.number)
+    .sort((left, right) => left - right);
+  const label = formatPointOfSale(configuredPointOfSale);
+  const availableText = available.length
+    ? ` ARCA informo como puntos CAE activos: ${available.map(formatPointOfSale).join(", ")}.`
+    : " ARCA no informo puntos CAE activos para este CUIT.";
+
+  if (!configured) {
+    return {
+      valid: false,
+      available,
+      message: `El punto de venta ${label} no esta habilitado en ARCA para Web Services con CAE.${availableText} Ingrese al ABM de puntos de venta de ARCA, cree o regularice uno del tipo \"RECE para aplicativo y web services\" y configure aqui ese mismo numero.`,
+    };
+  }
+  if (configured.blocked) {
+    return {
+      valid: false,
+      available,
+      message: `El punto de venta ${label} esta bloqueado en ARCA. Regularicelo en el ABM de puntos de venta antes de emitir.${availableText}`,
+    };
+  }
+  if (configured.disabledAt) {
+    return {
+      valid: false,
+      available,
+      message: `El punto de venta ${label} esta dado de baja en ARCA desde ${configured.disabledAt}. Configure un punto CAE activo antes de emitir.${availableText}`,
+    };
+  }
+  if (configured.emissionType !== "CAE") {
+    return {
+      valid: false,
+      available,
+      message: `El punto de venta ${label} esta habilitado para ${configured.emissionType || "otro tipo de emision"}, pero este sistema solicita CAE.${availableText}`,
+    };
+  }
+  return {
+    valid: true,
+    available,
+    message: `Punto de venta ${label} habilitado por ARCA para emitir con CAE.`,
+  };
+}
+
 function soapFault(xml: string): string | null {
   const message = xmlTag(xml, "faultstring") || xmlTag(xml, "Message");
   return /<(?:[\w-]+:)?Fault(?:\s|>)/i.test(xml) ? (decodeXmlEntities(message) || "ARCA rechazo la solicitud SOAP.") : null;
@@ -674,6 +755,36 @@ const authXml = (credentials: ServerCredentials, auth: CachedAccessTicket) => `
         <fe:Sign>${auth.sign}</fe:Sign>
         <fe:Cuit>${credentials.cuit}</fe:Cuit>
       </fe:Auth>`;
+
+async function getAuthorizedPointsOfSale(
+  credentials: ServerCredentials,
+  auth: CachedAccessTicket,
+  force = false,
+): Promise<ArcaPointOfSale[]> {
+  const cacheKey = `${credentials.environment}:${credentials.cuit}`;
+  const cached = pointsOfSaleCache[cacheKey];
+  if (!force && cached && cached.expiresAt > Date.now()) return cached.points;
+
+  const soap = `<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:fe="http://ar.gov.afip.dif.FEV1/">
+  <soap:Body><fe:FEParamGetPtosVenta>${authXml(credentials, auth)}
+  </fe:FEParamGetPtosVenta></soap:Body>
+</soap:Envelope>`;
+  const response = await requestSoap(
+    URLS[credentials.environment].wsfe,
+    "http://ar.gov.afip.dif.FEV1/FEParamGetPtosVenta",
+    soap,
+  );
+  const fault = soapFault(response);
+  if (fault) throw new Error(fault);
+  const errors = collectArcaMessages(response).filter(message => message.code || message.msg);
+  if (errors.length) {
+    throw new Error(`ARCA no pudo consultar los puntos de venta: ${errors.map(item => `[${item.code}] ${item.msg}`).join("; ")}`);
+  }
+  const points = parseArcaPointsOfSale(response);
+  pointsOfSaleCache[cacheKey] = { points, expiresAt: Date.now() + 60_000 };
+  return points;
+}
 
 async function getLastAuthorized(
   credentials: ServerCredentials,
@@ -844,11 +955,12 @@ async function authorizeInvoice(
   const expiry = xmlTag(response, "CAEFchVto");
   const observations = collectArcaMessages(response);
   if (!["A", "O"].includes(result) || !cae) {
+    const rawError = `ARCA rechazo la solicitud: ${observations.map(item => `[${item.code}] ${item.msg}`).join("; ") || "sin detalle"}`;
     return {
       success: false,
       resultado: result || "R",
       observaciones: observations,
-      error: `ARCA rechazo la solicitud: ${observations.map(item => `[${item.code}] ${item.msg}`).join("; ") || "sin detalle"}`,
+      error: safeErrorMessage(new Error(rawError)),
     };
   }
 
@@ -1028,6 +1140,10 @@ async function runIdempotentEmission(
     }
     return storedEmissionResponse(existing, credentials);
   }
+  const auth = await getAccessTicket(credentials);
+  const pointsOfSale = await getAuthorizedPointsOfSale(credentials, auth);
+  const pointValidation = pointOfSaleValidation(credentials.puntoVenta, pointsOfSale);
+  if (!pointValidation.valid) throw new Error(pointValidation.message);
   await enforceEmissionRateLimit(client, authenticated.id);
 
   const emissionId = randomUUID();
@@ -1064,7 +1180,6 @@ async function runIdempotentEmission(
   }
 
   try {
-    const auth = await getAccessTicket(credentials);
     const voucherNumber = await getLastAuthorized(credentials, auth, credentials.puntoVenta, invoice.voucherType) + 1;
     const issueDate = arcaDate();
     const { data: reserved, error: reserveError } = await client
@@ -1124,6 +1239,9 @@ async function runIdempotentEmission(
 
 const safeErrorMessage = (error: unknown): string => {
   const message = error instanceof Error ? error.message : String(error);
+  if (/\b10005\b|NO AUTORIZADO A EMITIR COMPROBANTES[\s\S]*PUNTO DE VENTA|PUNTO DE VENTA[\s\S]*TIPO RECE/i.test(message)) {
+    return "El punto de venta configurado no esta habilitado en ARCA para Web Services. Ingrese al ABM de puntos de venta de ARCA, cree o regularice uno del tipo \"RECE para aplicativo y web services\" y configure aqui ese mismo numero.";
+  }
   if (/alreadyAuthenticated/i.test(message)) {
     return "ARCA ya tiene un Token de Acceso activo. Espere unos minutos y vuelva a probar.";
   }
@@ -1213,12 +1331,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     if (action === "test") {
       const auth = await getAccessTicket(credentials);
+      const pointsOfSale = await getAuthorizedPointsOfSale(credentials, auth, true);
+      const pointValidation = pointOfSaleValidation(credentials.puntoVenta, pointsOfSale);
+      if (!pointValidation.valid) {
+        return res.status(422).json({
+          ...publicStatus(credentials),
+          connected: false,
+          success: false,
+          pointOfSaleValid: false,
+          authorizedPointsOfSale: pointValidation.available,
+          message: pointValidation.message,
+          error: pointValidation.message,
+        });
+      }
       await getLastAuthorized(credentials, auth, credentials.puntoVenta, 11);
       return res.status(200).json({
         ...publicStatus(credentials),
         connected: true,
         success: true,
-        message: "Conexion a ARCA establecida con exito.",
+        pointOfSaleValid: true,
+        authorizedPointsOfSale: pointValidation.available,
+        message: `Conexion a ARCA establecida. ${pointValidation.message}`,
       });
     }
     if (action === "createInvoice") {
@@ -1279,10 +1412,14 @@ export const __arcaTestables = {
   buildLoginTicketRequest,
   collectArcaMessages,
   getAccessTicket,
+  getAuthorizedPointsOfSale,
   getCertificateField,
   getLastAuthorized,
   isAllowedOrigin,
   isValidArgentineCuit,
+  parseArcaPointsOfSale,
+  pointOfSaleValidation,
+  safeErrorMessage,
   sanitizePem,
   validateCertificatePair,
   validateInvoicePayload,

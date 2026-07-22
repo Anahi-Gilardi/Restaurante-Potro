@@ -22,6 +22,8 @@ test('consulta estado ARCA sin enviar credenciales fiscales', async () => {
       connected: false,
       environment: 'homologacion',
       puntoVenta: 3,
+      pointOfSaleValid: true,
+      authorizedPointsOfSale: [3, 8],
       cuitMasked: '*******6789',
       message: 'Configurado',
     }), { status: 200, headers: { 'Content-Type': 'application/json' } });
@@ -30,6 +32,8 @@ test('consulta estado ARCA sin enviar credenciales fiscales', async () => {
   const status = await getArcaStatus(true);
   assert.equal(status.configured, true);
   assert.equal(status.puntoVenta, 3);
+  assert.equal(status.pointOfSaleValid, true);
+  assert.deepEqual(status.authorizedPointsOfSale, [3, 8]);
   assert.equal(request?.init?.method, 'GET');
   assert.equal(request?.init?.body, undefined);
 });

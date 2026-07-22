@@ -114,3 +114,42 @@ test('lee el CUIT del atributo X.509 serialNumber emitido por ARCA', () => {
   } as any, 'serialNumber');
   assert.equal(value, 'CUIT 27426946136');
 });
+
+test('interpreta los puntos de venta CAE informados por FEParamGetPtosVenta', () => {
+  const points = __arcaTestables.parseArcaPointsOfSale(`
+    <FEParamGetPtosVentaResult>
+      <ResultGet>
+        <PtoVenta><Nro>2</Nro><EmisionTipo>CAE</EmisionTipo><Bloqueado>N</Bloqueado><FchBaja></FchBaja></PtoVenta>
+        <PtoVenta><Nro>7</Nro><EmisionTipo>CAEA</EmisionTipo><Bloqueado>S</Bloqueado><FchBaja>20260720</FchBaja></PtoVenta>
+      </ResultGet>
+    </FEParamGetPtosVentaResult>
+  `);
+
+  assert.deepEqual(points, [
+    { number: 2, emissionType: 'CAE', blocked: false, disabledAt: null },
+    { number: 7, emissionType: 'CAEA', blocked: true, disabledAt: '20260720' },
+  ]);
+});
+
+test('bloquea un punto no habilitado y enumera solamente alternativas CAE activas', () => {
+  const result = __arcaTestables.pointOfSaleValidation(1, [
+    { number: 2, emissionType: 'CAE', blocked: false, disabledAt: null },
+    { number: 3, emissionType: 'CAE', blocked: true, disabledAt: null },
+    { number: 4, emissionType: 'CAEA', blocked: false, disabledAt: null },
+  ]);
+
+  assert.equal(result.valid, false);
+  assert.deepEqual(result.available, [2]);
+  assert.match(result.message, /00001/);
+  assert.match(result.message, /RECE para aplicativo y web services/);
+});
+
+test('traduce el rechazo 10005 a una accion concreta sin sugerir otro numero', () => {
+  const message = __arcaTestables.safeErrorMessage(new Error(
+    '[10005] NO AUTORIZADO A EMITIR COMPROBANTES - EL PUNTO DE VENTA INFORMADO DEBE ESTAR DADO DE ALTA Y SER DEL TIPO RECE',
+  ));
+
+  assert.match(message, /ABM de puntos de venta/);
+  assert.match(message, /RECE para aplicativo y web services/);
+  assert.doesNotMatch(message, /punto de venta 2/i);
+});

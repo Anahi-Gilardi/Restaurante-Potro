@@ -187,8 +187,12 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
       .then(data => setClientes(data || []))
       .catch(err => console.error('Error cargando clientes:', err));
 
-    getArcaStatus().then(status => {
+    getArcaStatus(true).then(async status => {
       setArcaStatus(status);
+      if (status.configured && status.legalDataComplete) {
+        const verification = await testArcaConnection();
+        setArcaStatus(verification.status);
+      }
     });
   }, []);
 
@@ -571,10 +575,16 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
   };
 
   const emitToArca = async (factura: FacturaExtendida): Promise<ArcaInvoiceResult> => {
-    const currentStatus = await getArcaStatus();
-    setArcaStatus(currentStatus);
-    if (!currentStatus.configured) throw new Error('ARCA no esta configurado. Cargue certificado y clave desde Sistema.');
-    if (!currentStatus.legalDataComplete) throw new Error('Complete los datos legales del emisor en Sistema antes de facturar.');
+    const savedStatus = await getArcaStatus();
+    setArcaStatus(savedStatus);
+    if (!savedStatus.configured) throw new Error('ARCA no esta configurado. Cargue certificado y clave desde Sistema.');
+    if (!savedStatus.legalDataComplete) throw new Error('Complete los datos legales del emisor en Sistema antes de facturar.');
+    const verification = await testArcaConnection();
+    setArcaStatus(verification.status);
+    if (!verification.success || verification.status.pointOfSaleValid !== true) {
+      throw new Error(verification.error || verification.status.message || 'El punto de venta no esta habilitado para emitir con CAE.');
+    }
+    const currentStatus = verification.status;
     try {
       const tipoId = 11;
       
@@ -584,7 +594,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
       const result = await createArcaInvoice({
         idempotencyKey: factura.id_factura,
         tipoComprobante: tipoId,
-        puntoVenta: currentStatus.puntoVenta || undefined,
+        puntoVenta: currentStatus.puntoVenta ?? undefined,
         cliente: {
           tipoDoc: document.documentType,
           nroDoc: document.documentNumber,
@@ -1003,7 +1013,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
               {arcaStatus === null
                 ? 'Consultando la configuración fiscal segura del servidor…'
                 : arcaStatus.configured
-                ? `${arcaStatus.connected ? 'Operativo' : 'Configurado, pendiente de prueba'} - ${arcaStatus.environment === 'produccion' ? 'Producción' : 'Homologación'} (Pto Vta: ${String(arcaStatus.puntoVenta || 1).padStart(4, '0')} - CUIT: ${arcaStatus.cuitMasked})`
+                ? `${arcaStatus.connected ? 'Operativo' : arcaStatus.pointOfSaleValid === false ? 'Punto de venta no habilitado' : 'Configurado, pendiente de prueba'} - ${arcaStatus.environment === 'produccion' ? 'Producción' : 'Homologación'} (Pto Vta: ${arcaStatus.puntoVenta ? String(arcaStatus.puntoVenta).padStart(5, '0') : 'sin configurar'} - CUIT: ${arcaStatus.cuitMasked})`
                 : `${arcaStatus.message || 'Firma digital no configurada.'} La emisión fiscal queda bloqueada; el comprobante X sigue disponible como documento interno.`
               }
             </p>
@@ -1035,6 +1045,19 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
           )}
         </div>
       </div>
+
+      {arcaStatus?.pointOfSaleValid === false && (
+        <div className="bg-rose-50 border border-rose-200 text-rose-900 rounded-2xl px-4 py-3 flex items-start gap-3" role="alert">
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+          <div className="text-left">
+            <p className="text-[11px] font-black uppercase">Emisión fiscal bloqueada</p>
+            <p className="text-[11px] font-semibold leading-relaxed mt-1">{arcaStatus.message}</p>
+            {arcaStatus.authorizedPointsOfSale.length > 0 && (
+              <p className="text-[10px] font-bold mt-1">Puntos CAE activos informados por ARCA: {arcaStatus.authorizedPointsOfSale.map(point => String(point).padStart(5, '0')).join(', ')}.</p>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="bg-sky-50 border border-sky-200 text-sky-900 rounded-2xl px-4 py-3 flex items-start gap-3" role="note">
         <Info className="w-4 h-4 mt-0.5 shrink-0" />
@@ -1386,11 +1409,11 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
 
           <div className="flex gap-2 justify-start">
             <button 
-              disabled={isEmitting} 
+              disabled={isEmitting || (manualTipo === 'C' && arcaStatus?.pointOfSaleValid !== true)}
               onClick={emitManual} 
               className="px-5 py-3 rounded-xl bg-[#624A3E] hover:bg-[#503C32] text-white text-xs font-black uppercase shadow disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
             >
-              {isEmitting ? 'Emitiendo comprobante...' : 'Emitir y Descargar Factura PDF'}
+              {isEmitting ? 'Emitiendo comprobante...' : manualTipo === 'C' && arcaStatus?.pointOfSaleValid !== true ? 'Verifique el punto de venta ARCA' : 'Emitir y Descargar Factura PDF'}
             </button>
             {showManualSuggestions && (
               <button 
@@ -1838,7 +1861,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
 
           <div className="flex flex-col sm:flex-row justify-between items-center gap-2 pt-3 border-t border-stone-100 dark:border-stone-855">
             <div className="text-[10px] text-stone-400 dark:text-stone-300 font-bold uppercase text-center sm:text-left">
-              Punto de Venta {String(arcaStatus?.puntoVenta || 1).padStart(5, '0')} · La numeración fiscal se consulta en ARCA al emitir · Notas de crédito: {anuladas}
+              Punto de Venta {arcaStatus?.puntoVenta ? String(arcaStatus.puntoVenta).padStart(5, '0') : 'sin configurar'} · La numeración fiscal se consulta en ARCA al emitir · Notas de crédito: {anuladas}
             </div>
             {filteredFacturas.length > 0 && (
               <button 

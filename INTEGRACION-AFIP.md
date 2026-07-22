@@ -33,15 +33,15 @@ ARCA_CONFIG_ENCRYPTION_KEY=<salida de openssl rand -base64 32>
 
 Ejecutar también la migración
 `supabase/migrations/20260714000000_create_secure_arca_config.sql`. Luego un
-superadministrador puede abrir **Sistema**, seleccionar Producción, CUIT
-`27426946136`, punto de venta `1`, subir `.crt` y `.key`, guardar y probar la
-conexión.
+superadministrador puede abrir **Sistema**, seleccionar Producción, ingresar el
+CUIT real del emisor y el punto de venta que ARCA informe como CAE activo,
+subir `.crt` y `.key`, guardar y probar la conexión.
 
 Como alternativa heredada se admiten variables privadas de Vercel:
 
 ```env
-ARCA_CUIT=27426946136
-ARCA_PUNTO_VENTA=1
+ARCA_CUIT=<CUIT real del emisor>
+ARCA_PUNTO_VENTA=<punto CAE habilitado por ARCA>
 ARCA_ENV=produccion
 ARCA_CERT_BASE64=<certificado .crt codificado en base64>
 ARCA_KEY_BASE64=<clave privada .key codificada en base64>
@@ -74,6 +74,23 @@ explícitamente como **sin validez fiscal**.
 3. Crear un punto de venta de tipo “RECE para aplicativo y web services”.
 4. Asociar el alias del certificado al servicio “Facturación Electrónica” (`wsfe`).
 5. Probar primero en homologación y recién después habilitar producción.
+
+### Rechazo 10005: punto de venta no autorizado
+
+El error `10005` no se corrige cambiando números al azar. El punto utilizado
+por Web Services debe ser específico y distinto de los usados por otros
+sistemas de facturación.
+
+1. Ingresar con clave fiscal a ARCA y abrir el ABM de puntos de venta.
+2. Crear o regularizar un punto del tipo **RECE para aplicativo y web services**.
+3. Asociarlo al domicilio fiscal correspondiente y confirmar que no esté
+   bloqueado ni dado de baja.
+4. En **Sistema > Firma Digital y Factura Electrónica**, guardar exactamente ese
+   mismo número y el entorno correcto.
+5. Pulsar **Probar conexión**. La aplicación consulta `FEParamGetPtosVenta` y
+   solo habilita Factura C cuando ARCA devuelve ese punto como CAE activo.
+
+No emitir comprobantes hasta que la prueba indique **Conectado a ARCA**.
 
 ## Seguridad operacional
 

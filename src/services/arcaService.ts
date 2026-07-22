@@ -26,6 +26,8 @@ export interface ArcaStatus {
   taxProfile: 'monotributo' | null;
   source: 'database' | 'environment' | null;
   legalDataComplete: boolean;
+  pointOfSaleValid: boolean | null;
+  authorizedPointsOfSale: number[];
   message: string;
 }
 
@@ -74,6 +76,8 @@ const disconnectedStatus = (message: string): ArcaStatus => ({
   taxProfile: null,
   source: null,
   legalDataComplete: false,
+  pointOfSaleValid: null,
+  authorizedPointsOfSale: [],
   message,
 });
 
@@ -86,6 +90,10 @@ const parseStatus = (data: any, connected = false): ArcaStatus => ({
   taxProfile: data.taxProfile === 'monotributo' ? 'monotributo' : null,
   source: data.source === 'database' ? 'database' : data.source === 'environment' ? 'environment' : null,
   legalDataComplete: Boolean(data.legalDataComplete),
+  pointOfSaleValid: typeof data.pointOfSaleValid === 'boolean' ? data.pointOfSaleValid : null,
+  authorizedPointsOfSale: Array.isArray(data.authorizedPointsOfSale)
+    ? data.authorizedPointsOfSale.filter((value: unknown) => Number.isInteger(value) && Number(value) > 0).map(Number)
+    : [],
   message: String(data.message || data.error || ''),
 });
 
