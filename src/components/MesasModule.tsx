@@ -11,6 +11,7 @@ interface MesasModuleProps {
   mesas: Mesa[];
   onMesasChange: (mesas: Mesa[]) => void;
   addLog?: (tipo: EventoLog['tipo'], mensaje: string) => void;
+  persistenceEnabled?: boolean;
 }
 
 function formatDate(d: Date): string {
@@ -19,6 +20,15 @@ function formatDate(d: Date): string {
 
 function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function getMesaPlanLabel(value: string): string {
+  return value.trim().replace(/^mesa\s+/i, '') || value.trim();
+}
+
+function getMesaDisplayName(value: string): string {
+  const cleanValue = value.trim();
+  return /^mesa\b/i.test(cleanValue) ? cleanValue : `Mesa ${cleanValue}`;
 }
 
 type Zona = 'comedor' | 'salon';
@@ -40,7 +50,6 @@ interface MesaVisual {
   posicion: MesaPosicion;
   estado: Mesa['estado'];
   comensales?: number;
-  id_pedido?: number;
   mesas_unidas?: number[];
   parent_id?: number | null;
 }
@@ -222,7 +231,12 @@ function renderSillas(mesa: MesaVisual): React.ReactNode[] {
   return sillas;
 }
 
-export default function MesasModule({ mesas, onMesasChange, addLog = () => {} }: MesasModuleProps) {
+export default function MesasModule({
+  mesas,
+  onMesasChange,
+  addLog = () => {},
+  persistenceEnabled = true,
+}: MesasModuleProps) {
   const { toast, toasts, removeToast } = useToast();
   const [visualMesas, setVisualMesas] = useState<MesaVisual[]>(POSICIONES_INICIALES);
   const [reservasHoy, setReservasHoy] = useState<Reserva[]>([]);
@@ -231,7 +245,8 @@ export default function MesasModule({ mesas, onMesasChange, addLog = () => {} }:
   const [zonaFiltro, setZonaFiltro] = useState<'todas' | Zona>('todas');
   const [busquedaMesa, setBusquedaMesa] = useState('');
   const [movimientosMesa, setMovimientosMesa] = useState<MesaMovimiento[]>([]);
-  const hydrationSnapshotRef = useRef<string | null>(null);
+  const hydrationSnapshotRef = useRef<string | null>(mesaSnapshotKey(POSICIONES_INICIALES));
+  const hydrationReadyRef = useRef(false);
 
   // Modal reserva
   const [selectedMesa, setSelectedMesa] = useState<MesaVisual | null>(null);
@@ -344,7 +359,7 @@ export default function MesasModule({ mesas, onMesasChange, addLog = () => {} }:
     addLog('sistema', mensaje);
   };
 
-  const hasRemoteDb = () => Boolean(tryGetActiveSupabaseClient());
+  const hasRemoteDb = () => persistenceEnabled && Boolean(tryGetActiveSupabaseClient());
 
   const persistMesaUpdate = async (id: number, fields: Partial<Mesa>) => {
     if (hasRemoteDb()) {
@@ -382,22 +397,25 @@ export default function MesasModule({ mesas, onMesasChange, addLog = () => {} }:
   useEffect(() => {
     let mounted = true;
     const load = async () => {
+      hydrationReadyRef.current = false;
       try {
         const remoteEnabled = hasRemoteDb();
         const [mData, rData] = await Promise.all([
           remoteEnabled ? mesasService.list() : Promise.resolve(mesas),
-          reservasService.listByFecha ? await reservasService.listByFecha(today) : await reservasService.list()
+          remoteEnabled
+            ? (reservasService.listByFecha ? reservasService.listByFecha(today) : reservasService.list())
+            : Promise.resolve([]),
         ]);
         if (!mounted) return;
 
         if (mData.length > 0) {
-          const merged = mData.map(m => {
+          const merged = mData.reduce<MesaVisual[]>((acc, m) => {
             const existente = POSICIONES_INICIALES.find(p => p.id_mesa === m.id_mesa);
             const zona = (m.zona as Zona) || 'salon';
             const posicion = (m.x != null && m.y != null)
               ? { x: m.x, y: m.y, width: m.width || 64, height: m.height || 52, rx: m.rx || 6 }
-              : (existente?.posicion || generarPosicionNuevaMesa(zona, POSICIONES_INICIALES));
-            return {
+              : (existente?.posicion || generarPosicionNuevaMesa(zona, acc));
+            acc.push({
               id: generarIdMesa(m.numero_mesa, m.capacidad || 4, zona),
               id_mesa: m.id_mesa,
               numero_mesa: m.numero_mesa,
@@ -405,10 +423,12 @@ export default function MesasModule({ mesas, onMesasChange, addLog = () => {} }:
               zona,
               posicion,
               estado: m.estado,
+              comensales: m.comensales,
               mesas_unidas: m.mesas_unidas,
               parent_id: m.parent_id,
-            };
-          });
+            });
+            return acc;
+          }, []);
           hydrationSnapshotRef.current = mesaSnapshotKey(merged);
           setVisualMesas(prev => mesaSnapshotKey(prev) === hydrationSnapshotRef.current ? prev : merged);
         } else {
@@ -424,12 +444,15 @@ export default function MesasModule({ mesas, onMesasChange, addLog = () => {} }:
         console.error(err);
         toast.error('Error cargando datos de mesas');
       } finally {
-        if (mounted) setLoading(false);
+        if (mounted) {
+          hydrationReadyRef.current = true;
+          setLoading(false);
+        }
       }
     };
     load();
     return () => { mounted = false; };
-  }, [mesas, today]);
+  }, [mesas, persistenceEnabled, today]);
 
   // Realtime mesas
   useEffect(() => {
@@ -438,7 +461,13 @@ export default function MesasModule({ mesas, onMesasChange, addLog = () => {} }:
     }
     const channel = mesasService.subscribe((payload: any) => {
       if (payload.eventType === 'UPDATE' && payload.new) {
-        setVisualMesas(prev => prev.map(m => m.id_mesa === payload.new.id_mesa ? { ...m, estado: payload.new.estado, mesas_unidas: payload.new.mesas_unidas, parent_id: payload.new.parent_id } : m));
+        setVisualMesas(prev => prev.map(m => m.id_mesa === payload.new.id_mesa ? {
+          ...m,
+          estado: payload.new.estado,
+          comensales: payload.new.comensales,
+          mesas_unidas: payload.new.mesas_unidas,
+          parent_id: payload.new.parent_id,
+        } : m));
       } else if (payload.eventType === 'INSERT' && payload.new) {
         const m = payload.new as Mesa;
         const zona = (m.zona as Zona) || 'salon';
@@ -454,6 +483,7 @@ export default function MesasModule({ mesas, onMesasChange, addLog = () => {} }:
             zona,
             posicion,
             estado: m.estado,
+            comensales: m.comensales,
             mesas_unidas: m.mesas_unidas,
             parent_id: m.parent_id,
           }];
@@ -465,15 +495,18 @@ export default function MesasModule({ mesas, onMesasChange, addLog = () => {} }:
     return () => {
       channel.unsubscribe();
     };
-  }, []);
+  }, [persistenceEnabled]);
 
   useEffect(() => {
+    if (!hydrationReadyRef.current) return;
+
     const nextMesas = visualMesas.map(m => ({
       id_mesa: m.id_mesa,
       numero_mesa: m.numero_mesa,
       capacidad: m.capacidad,
       zona: m.zona,
       estado: m.estado,
+      comensales: m.comensales,
       x: m.posicion.x,
       y: m.posicion.y,
       width: m.posicion.width,
@@ -942,7 +975,6 @@ export default function MesasModule({ mesas, onMesasChange, addLog = () => {} }:
       zona: zonaAsistente,
       estado: estadoAsistente,
       comensales: mesa.comensales,
-      id_pedido: mesa.id_pedido,
       mesas_unidas: mesa.mesas_unidas,
     };
   }), [visualMesas]);
@@ -975,6 +1007,8 @@ export default function MesasModule({ mesas, onMesasChange, addLog = () => {} }:
       const textColor = ESTADO_TEXT[m.estado];
       const isSelected = unionMode && selectedForUnion.some(s => s.id_mesa === m.id_mesa);
       const { x, y, width, height, rx } = m.posicion;
+      const planLabel = getMesaPlanLabel(m.numero_mesa);
+      const planFontSize = Math.min(18, Math.max(9, width / Math.max(3.5, planLabel.length * 0.7)));
 
       return (
         <g key={m.id} data-mesa-id={m.id}
@@ -994,7 +1028,7 @@ export default function MesasModule({ mesas, onMesasChange, addLog = () => {} }:
             onMouseDown={(e: React.MouseEvent) => editorMode ? startDrag(m, e) : undefined}
             onTouchStart={(e: React.TouchEvent) => editorMode ? startDrag(m, e) : undefined}
           />
-          <text x={x + width / 2} y={y + height / 2 - 2} textAnchor="middle" fontSize={Math.min(18, width / 3.5)} fontWeight={800} fill={textColor} fontFamily="Arial, sans-serif" pointerEvents="none">{m.numero_mesa}</text>
+          <text x={x + width / 2} y={y + height / 2 - 2} textAnchor="middle" fontSize={planFontSize} fontWeight={800} fill={textColor} fontFamily="Arial, sans-serif" pointerEvents="none">{planLabel}</text>
           <text x={x + width / 2} y={y + height / 2 + 14} textAnchor="middle" fontSize={9} fill={textColor} fontFamily="Arial, sans-serif" opacity={0.8} fontWeight={500} pointerEvents="none">Mesa</text>
           
           {/* Reservation calendar icon on table */}
@@ -1373,7 +1407,7 @@ export default function MesasModule({ mesas, onMesasChange, addLog = () => {} }:
               <div className="flex items-center gap-3">
                 <span className={`w-2.5 h-2.5 rounded-full ${ESTADO_DOT_CLASS[m.estado]}`} />
                 <div>
-                  <p className="text-xs font-bold text-stone-800">Mesa {m.numero_mesa}</p>
+                  <p className="text-xs font-bold text-stone-800">{getMesaDisplayName(m.numero_mesa)}</p>
                   <span className={`inline-flex mt-1 text-[9px] px-2 py-0.5 rounded-full border font-black uppercase ${ESTADO_BADGE_CLASS[m.estado]}`}>
                     {ESTADO_LABEL[m.estado]}
                   </span>
@@ -1411,7 +1445,7 @@ export default function MesasModule({ mesas, onMesasChange, addLog = () => {} }:
           <div className="bg-white rounded-t-[20px] sm:rounded-[20px] w-full max-w-md p-6 shadow-2xl border border-stone-200 animate-in slide-in-from-bottom-10">
             <div className="flex justify-between items-center mb-4">
               <div>
-                <h3 className="text-lg font-black text-stone-800">Mesa {selectedMesa.numero_mesa}</h3>
+                <h3 className="text-lg font-black text-stone-800">{getMesaDisplayName(selectedMesa.numero_mesa)}</h3>
                 <p className="text-xs text-stone-500 font-medium">{capitalize(selectedMesa.zona)} · Capacidad {selectedMesa.capacidad} pax · Estado: <span className="font-bold capitalize">{selectedMesa.estado}</span></p>
               </div>
               <button onClick={closeModal} className="p-2 hover:bg-stone-100 rounded-full cursor-pointer"><X className="w-5 h-5 text-stone-500" /></button>
@@ -1433,7 +1467,7 @@ export default function MesasModule({ mesas, onMesasChange, addLog = () => {} }:
               </div>
             ) : selectedMesa.mesas_unidas && selectedMesa.mesas_unidas.length >= 2 ? (
               <div className="space-y-4">
-                <p className="text-sm text-stone-600">Mesa unida: Mesa {selectedMesa.numero_mesa} · Capacidad {selectedMesa.capacidad} pax</p>
+                <p className="text-sm text-stone-600">Mesa unida: {getMesaDisplayName(selectedMesa.numero_mesa)} · Capacidad {selectedMesa.capacidad} pax</p>
                 <button onClick={handleSepararMesas} className="w-full py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold cursor-pointer">Separar mesas</button>
               </div>
             ) : (

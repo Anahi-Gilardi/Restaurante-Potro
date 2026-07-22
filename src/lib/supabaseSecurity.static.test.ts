@@ -32,9 +32,17 @@ test('la preparación productiva no exige receta a productos desactivados', () =
 test('la sincronizacion operativa espera una sesion autenticada y la salida de la portada', () => {
   assert.match(
     appModule,
-    /if \(showCover \|\| !isStreamlitLoggedIn \|\| !hasSupabaseSession\) return;/,
+    /if \(showCover \|\| !isStreamlitLoggedIn \|\| !hasSupabaseSession \|\| isDemoSession\) return;/,
   );
   assert.match(appModule, /setHasSupabaseSession\(Boolean\(session\)\)/);
+});
+
+test('la configuracion remota solo se interpreta cuando la API devuelve JSON valido', () => {
+  assert.match(appModule, /response\.headers\.get\('content-type'\)/);
+  assert.match(
+    appModule,
+    /if \(!response\.ok \|\| !contentType\.includes\('application\/json'\)\) return;/,
+  );
 });
 
 test('el panel ARCA conserva el resultado de la prueba de conexion', () => {

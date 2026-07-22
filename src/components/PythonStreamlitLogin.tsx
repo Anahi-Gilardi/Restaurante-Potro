@@ -24,7 +24,7 @@ import DiagnosticsTester from './DiagnosticsTester';
 
 
 interface PythonStreamlitLoginProps {
-  onLoginSuccess: (user: Usuario) => void;
+  onLoginSuccess: (user: Usuario, mode: 'demo' | 'supabase') => void;
   onBackToCover?: () => void;
 }
 
@@ -57,9 +57,9 @@ export default function PythonStreamlitLogin({ onLoginSuccess, onBackToCover }: 
   const loginInFlightRef = useRef(false);
 
 
-  const completeLogin = async (user: Usuario) => {
+  const completeLogin = async (user: Usuario, mode: 'demo' | 'supabase') => {
     await new Promise(resolve => setTimeout(resolve, 300));
-    onLoginSuccess(user);
+    onLoginSuccess(user, mode);
   };
 
   const handleLogin = async (event?: React.FormEvent) => {
@@ -85,7 +85,7 @@ export default function PythonStreamlitLogin({ onLoginSuccess, onBackToCover }: 
           setError('Este usuario está desactivado.');
           return;
         }
-        await completeLogin(demoUser);
+        await completeLogin(demoUser, 'demo');
         return;
       }
 
@@ -134,7 +134,7 @@ export default function PythonStreamlitLogin({ onLoginSuccess, onBackToCover }: 
         return;
       }
 
-      await completeLogin(safeProfile);
+      await completeLogin(safeProfile, 'supabase');
     } catch (err: unknown) {
       setError(getLoginErrorMessage(err));
     } finally {

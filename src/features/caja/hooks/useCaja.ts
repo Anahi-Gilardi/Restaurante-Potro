@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Pedido, 
   ProductoMenu, 
@@ -21,10 +21,12 @@ import { CONDICIONES_IVA_RECEPTOR } from '../../../services/arcaService';
 import { DEFAULT_RESTAURANT_PROFILE, normalizeRestaurantProfile } from '../../../lib/restaurantProfile';
 import { resolvePedidoItemUnitPrice, roundCurrency } from '../../../lib/orderPricing';
 import { internalTicketPreview } from '../../../lib/fiscalVoucherPolicy';
+import { isSameTable, mergeTableOrders } from '../../../lib/tableOrders';
 
 interface UseCajaProps {
   pedidos: Pedido[];
   productosMenu: ProductoMenu[];
+  operatorName: string;
   onFacturarMesa: (idPedido: number) => void;
   onCambiarEstadoPedido: (idPedido: number, nuevoEstado: Pedido['estado_comanda']) => void;
   addLog: (tipo: 'pedido_creado' | 'descuento_stock' | 'alerta_stock' | 'comanda_estado' | 'merma_registrada' | 'sistema', mensaje: string) => void;
@@ -39,6 +41,7 @@ interface UseCajaProps {
 export function useCaja({
   pedidos,
   productosMenu,
+  operatorName,
   onFacturarMesa,
   onCambiarEstadoPedido,
   addLog,
@@ -74,9 +77,11 @@ export function useCaja({
   const [showOpenModal, setShowOpenModal] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [openingCashInput, setOpeningCashInput] = useState<string>('25000');
-  const [cashierNameInput, setCashierNameInput] = useState<string>('Sofía Colombo');
+  const cashierNameInput = operatorName;
   const [closingPhysicalCashInput, setClosingPhysicalCashInput] = useState<string>('');
-  const [closingObservationsInput, setClosingObservationsInput] = useState<string>('Facturación normal del turno');
+  const [closingObservationsInput, setClosingObservationsInput] = useState<string>('Cierre de turno');
+  const checkoutInFlightRef = useRef(false);
+  const [isCheckoutProcessing, setIsCheckoutProcessing] = useState(false);
 
   // Interactive cashier selection
   const [selectedPedidoId, setSelectedPedidoId] = useState<number | null>(null);
@@ -290,57 +295,6 @@ export function useCaja({
     }
   };
 
-  function mergePedidos(tablePedidos: Pedido[]): Pedido | null {
-    if (tablePedidos.length === 0) return null;
-    const base = tablePedidos[0];
-    
-    const itemMap = new Map<string, { item: any; qty: number }>();
-    tablePedidos.forEach(p => {
-      (p.items || []).forEach(item => {
-        const key = item.id_producto;
-        if (!key) return;
-        const existing = itemMap.get(key);
-        if (existing) {
-          existing.qty += item.cantidad;
-        } else {
-          itemMap.set(key, { item: { ...item }, qty: item.cantidad });
-        }
-      });
-    });
-
-    const mergedItems = Array.from(itemMap.values()).map(({ item, qty }) => ({
-      ...item,
-      cantidad: qty
-    }));
-
-    const mergedObservations = tablePedidos
-      .map(p => p.observaciones?.trim())
-      .filter(Boolean)
-      .join(' | ');
-
-    const oldestFechaHora = tablePedidos.reduce((oldest, current) => {
-      const currentMs = current.fecha_hora ? new Date(current.fecha_hora).getTime() : Date.now();
-      const oldestMs = oldest ? new Date(oldest).getTime() : Date.now();
-      return currentMs < oldestMs ? current.fecha_hora : oldest;
-    }, base.fecha_hora);
-
-    return {
-      ...base,
-      items: mergedItems,
-      observaciones: mergedObservations || undefined,
-      fecha_hora: oldestFechaHora
-    };
-  }
-
-  function isSameTable(p1: { id_mesa?: any; numero_mesa?: string }, p2: { id_mesa?: any; numero_mesa?: string }): boolean {
-    if (p1.id_mesa !== undefined && p1.id_mesa !== null && p2.id_mesa !== undefined && p2.id_mesa !== null) {
-      if (String(p1.id_mesa) === String(p2.id_mesa)) return true;
-    }
-    const norm1 = String(p1.numero_mesa || '').toLowerCase().replace(/mesa\s+/gi, '').trim();
-    const norm2 = String(p2.numero_mesa || '').toLowerCase().replace(/mesa\s+/gi, '').trim();
-    return norm1 !== '' && norm1 === norm2;
-  }
-
   // Filter commands by active state waiting checkout
   const activeBills = useMemo(() => {
     const activePedidos = pedidos.filter(p => p.estado_comanda !== 'entregado_cobrado' && p.estado_comanda !== 'cancelado');
@@ -356,14 +310,14 @@ export function useCaja({
 
     const mergedBills: Pedido[] = [];
     groups.forEach((tablePedidos) => {
-      const merged = mergePedidos(tablePedidos);
+      const merged = mergeTableOrders(tablePedidos, productosMenu);
       if (merged) {
         mergedBills.push(merged);
       }
     });
 
     return mergedBills;
-  }, [pedidos]);
+  }, [pedidos, productosMenu]);
 
   // Selected Order Object
   const selectedPedido = useMemo(() => {
@@ -377,8 +331,8 @@ export function useCaja({
       p.estado_comanda !== 'cancelado'
     );
 
-    return mergePedidos(tablePedidos);
-  }, [selectedPedidoId, pedidos]);
+    return mergeTableOrders(tablePedidos, productosMenu);
+  }, [selectedPedidoId, pedidos, productosMenu]);
 
   // Pricing calculations
   const orderBreakdowns = useMemo(() => {
@@ -491,15 +445,15 @@ export function useCaja({
         return;
       }
 
-      if (!cashierNameInput.trim() || cashierNameInput.trim().length < 2) {
+      if (!operatorName.trim() || operatorName.trim().length < 2) {
         toast.error('El nombre del cajero debe tener al menos 2 caracteres.');
         return;
       }
 
-      const session = await cajaService.open(amt, cashierNameInput);
+      const session = await cajaService.open(amt, operatorName);
       setCajaSession(session);
       setShowOpenModal(false);
-      addLog('sistema', `CAJA: Turno fiscal de caja iniciado por ${cashierNameInput}. Monto inicial: ARS $${amt.toLocaleString('es-AR')}`);
+      addLog('sistema', `CAJA: Turno fiscal de caja iniciado por ${operatorName}. Monto inicial: ARS $${amt.toLocaleString('es-AR')}`);
       loadCajaState();
       toast.success('La jornada fiscal diaria ha sido abierta con éxito.');
     } catch (err: any) {
@@ -557,7 +511,7 @@ export function useCaja({
       setCajaSession(null);
       setShowCloseModal(false);
       setClosingPhysicalCashInput('');
-      setClosingObservationsInput('Facturación normal del turno');
+      setClosingObservationsInput('Cierre de turno');
       loadCajaState();
       toast.success('Jornada finalizada. Arqueo homologado y balance exportado en CSV y PDF.');
     } catch (err: any) {
@@ -566,7 +520,7 @@ export function useCaja({
     }
   };
 
-  const handleConfirmCheckout = async () => {
+  const executeCheckout = async () => {
     if (!selectedPedido) return;
     if (!cajaSession) {
       toast.error('Por favor abra la caja diaria primero para registrar cobros e imprimir tickets.');
@@ -740,6 +694,22 @@ export function useCaja({
     setShowSuccessModal(true);
   };
 
+  const handleConfirmCheckout = async () => {
+    if (checkoutInFlightRef.current) return;
+    checkoutInFlightRef.current = true;
+    setIsCheckoutProcessing(true);
+    try {
+      await executeCheckout();
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      console.error('Error processing checkout:', error);
+      toast.error(`No se pudo completar el cobro. La mesa sigue abierta. Detalle: ${detail}`);
+    } finally {
+      checkoutInFlightRef.current = false;
+      setIsCheckoutProcessing(false);
+    }
+  };
+
   const triggerManualPrint = async () => {
     if (!selectedPedido || !cajaSession) return;
 
@@ -891,7 +861,6 @@ export function useCaja({
     openingCashInput,
     setOpeningCashInput,
     cashierNameInput,
-    setCashierNameInput,
     closingPhysicalCashInput,
     setClosingPhysicalCashInput,
     closingObservationsInput,
@@ -927,6 +896,7 @@ export function useCaja({
     showSuccessModal,
     setShowSuccessModal,
     successDetails,
+    isCheckoutProcessing,
     printerConfig,
     setPrinterConfig,
     showPrinterSettings,

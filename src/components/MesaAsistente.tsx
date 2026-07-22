@@ -45,16 +45,31 @@ interface MesaAsistenteProps {
   onHoverSuggestion?: (mesaIds: number[]) => void;
 }
 
-const parseIntents = (text: string) => {
+export const parseIntents = (text: string) => {
   const lower = text.toLowerCase();
-  const numeros = (lower.match(/\b(mesa\s*)?(\d{1,2})\b/g) || [])
-    .map(n => parseInt(n.replace(/\D/g, ''), 10))
-    .filter(n => LAYOUT_OFICIAL[n]);
-  
   const personasMatch = lower.match(/(\d+)\s*(personas?|pax|comensales?)/) || lower.match(/(para|con)\s+(\d+)/);
   const personas = personasMatch 
     ? parseInt(personasMatch[0].replace(/\D/g, ''), 10) 
     : undefined;
+
+  const referenciasExplicitas = Array.from(
+    lower.matchAll(/\bmesas?\s*(\d{1,3}(?:\s*(?:,|y|\+)\s*(?:mesa\s*)?\d{1,3})*)/g),
+  ).flatMap(match => (match[1].match(/\d{1,3}/g) || []).map(Number));
+
+  let numeros = referenciasExplicitas;
+  if (numeros.length === 0) {
+    let personasDescartadas = false;
+    numeros = (lower.match(/\b\d{1,3}\b/g) || [])
+      .map(Number)
+      .filter(numero => {
+        if (!personasDescartadas && personas !== undefined && numero === personas) {
+          personasDescartadas = true;
+          return false;
+        }
+        return true;
+      });
+  }
+  numeros = Array.from(new Set(numeros)).filter(numero => numero > 0);
 
   let intent = lower.includes('sentar') || lower.includes('ocupar') || lower.includes('asignar')
     ? 'sentar'
@@ -80,11 +95,13 @@ const parseIntents = (text: string) => {
 
 export function sugerirAlojamiento(mesaId: number, personas: number, mesas: MesaEstado[]): AccionJson {
   const meta = LAYOUT_OFICIAL[mesaId];
-  if (!meta) return { accion: 'error', mensaje: `La mesa ${mesaId} no existe en el plano oficial.` };
+  const mesa = mesas.find(item => item.id_mesa === mesaId);
+  if (!mesa && !meta) return { accion: 'error', mensaje: `La mesa ${mesaId} no existe en el salon.` };
+  const capacidad = mesa?.capacidad ?? meta.capacidad;
+  const zona = mesa?.zona ?? meta.zona;
 
   // Si entra perfectamente
-  if (personas <= meta.capacidad) {
-    const mesa = mesas.find(m => m.id_mesa === mesaId);
+  if (personas <= capacidad) {
     if (mesa && mesa.estado !== 'Libre' && mesa.estado !== 'Reservada') {
       return {
         accion: 'error',
@@ -97,17 +114,17 @@ export function sugerirAlojamiento(mesaId: number, personas: number, mesas: Mesa
       mesa_id: mesaId,
       nuevo_estado: 'Ocupada',
       comensales: personas,
-      mensaje: `Perfecto. La Mesa ${mesaId} (${meta.zona}) tiene capacidad para ${meta.capacidad} personas. Asignada a ${personas} comensales.`,
+      mensaje: `Perfecto. La Mesa ${mesaId} (${zona}) tiene capacidad para ${capacidad} personas. Asignada a ${personas} comensales.`,
     };
   }
 
   // Si excede en zona alta, sugerir unión con vecina libre
-  if (meta.zona === 'alta') {
+  if (zona === 'alta') {
     const sugerencias: AccionJson['sugerencias'] = [];
-    for (const vecinaId of meta.vecinas) {
+    for (const vecinaId of meta?.vecinas ?? []) {
       const vecina = mesas.find(m => m.id_mesa === vecinaId);
       if (vecina && (vecina.estado === 'Libre' || vecina.estado === 'Reservada')) {
-        const capComb = meta.capacidad + LAYOUT_OFICIAL[vecinaId].capacidad;
+        const capComb = capacidad + (vecina.capacidad ?? LAYOUT_OFICIAL[vecinaId]?.capacidad ?? 0);
         if (capComb >= personas) {
           sugerencias.push({
             tipo: 'unir',
@@ -150,19 +167,8 @@ export function sugerirAlojamiento(mesaId: number, personas: number, mesas: Mesa
       accion: 'sugerencia',
       mesa_id: mesaId,
       comensales: personas,
-      mensaje: `La Mesa ${mesaId} solo admite ${meta.capacidad} personas. Para ${personas} comensales te sugiero:`,
+      mensaje: `La Mesa ${mesaId} solo admite ${capacidad} personas. Para ${personas} comensales te sugiero:`,
       sugerencias,
-    };
-  }
-
-  // Zona central o VIP
-  if (personas <= meta.capacidad) {
-    return {
-      accion: 'cambio_estado',
-      mesa_id: mesaId,
-      nuevo_estado: 'Ocupada',
-      comensales: personas,
-      mensaje: `Mesa ${mesaId} asignada a ${personas} comensales.`,
     };
   }
 
@@ -170,7 +176,7 @@ export function sugerirAlojamiento(mesaId: number, personas: number, mesas: Mesa
     accion: 'sugerencia',
     mesa_id: mesaId,
     comensales: personas,
-    mensaje: `La Mesa ${mesaId} admite hasta ${meta.capacidad} personas. Para ${personas} comensales te sugiero usar la Mesa 12 VIP (hasta 10 pax) o dividir en dos mesas.`,
+    mensaje: `La Mesa ${mesaId} admite hasta ${capacidad} personas. Para ${personas} comensales te sugiero usar una mesa con mayor capacidad o dividir el grupo.`,
     sugerencias: [
       { tipo: 'mesa_grande', descripcion: 'Usar Mesa 12 VIP (hasta 10 pax)', mesa_id: 12 },
     ],
@@ -238,7 +244,10 @@ export function procesarComando(texto: string, mesas: MesaEstado[]): AccionJson 
   }
 
   if (intent === 'unir' && numeros.length >= 2) {
-    const capacidadTotal = numeros.reduce((sum, id) => sum + (LAYOUT_OFICIAL[id]?.capacidad || 0), 0);
+    const capacidadTotal = numeros.reduce((sum, id) => {
+      const mesa = mesas.find(item => item.id_mesa === id);
+      return sum + (mesa?.capacidad ?? LAYOUT_OFICIAL[id]?.capacidad ?? 0);
+    }, 0);
     return {
       accion: 'combinar_mesas',
       mesa_id: numeros,

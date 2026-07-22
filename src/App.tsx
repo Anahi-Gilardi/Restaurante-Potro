@@ -50,7 +50,6 @@ const UsuariosModule = lazy(() => import('./components/UsuariosModule'));
 const MenuModule = lazy(() => import('./components/MenuModule'));
 const RecetasModule = lazy(() => import('./components/RecetasModule'));
 const MesasModule = lazy(() => import('./components/MesasModule'));
-const MesasProto1 = lazy(() => import('./components/MesasProto1'));
 const ProveedoresModule = lazy(() => import('./components/ProveedoresModule'));
 const PromocionesModule = lazy(() => import('./components/PromocionesModule'));
 const ReservasModule = lazy(() => import('./components/ReservasModule'));
@@ -85,24 +84,7 @@ import { cajaService } from './services/cajaService';
 import { reservasService } from './services/reservasService';
 import { stockEngine } from './services/stock/stockEngine';
 import { resolveSessionOperator } from './lib/sessionOperator';
-
-function isSameTable(p1: { id_mesa?: any; numero_mesa?: string }, p2: { id_mesa?: any; numero_mesa?: string }): boolean {
-  const isP1Delivery = String(p1.numero_mesa || '').toUpperCase().startsWith('DELIVERY');
-  const isP2Delivery = String(p2.numero_mesa || '').toUpperCase().startsWith('DELIVERY');
-  
-  if (isP1Delivery || isP2Delivery) {
-    const norm1 = String(p1.numero_mesa || '').toLowerCase().trim();
-    const norm2 = String(p2.numero_mesa || '').toLowerCase().trim();
-    return norm1 !== '' && norm1 === norm2;
-  }
-
-  if (p1.id_mesa !== undefined && p1.id_mesa !== null && p2.id_mesa !== undefined && p2.id_mesa !== null) {
-    if (String(p1.id_mesa) === String(p2.id_mesa)) return true;
-  }
-  const norm1 = String(p1.numero_mesa || '').toLowerCase().replace(/mesa\s+/gi, '').trim();
-  const norm2 = String(p2.numero_mesa || '').toLowerCase().replace(/mesa\s+/gi, '').trim();
-  return norm1 !== '' && norm1 === norm2;
-}
+import { isSameTable } from './lib/tableOrders';
 
 export default function App() {
   const { toast, toasts, removeToast } = useToast();
@@ -119,6 +101,9 @@ export default function App() {
   ));
   const [showCover, setShowCover] = useState<boolean>(true);
   const [hasSupabaseSession, setHasSupabaseSession] = useState<boolean>(false);
+  const [isDemoSession, setIsDemoSession] = useState<boolean>(() => (
+    typeof window !== 'undefined' && window.localStorage.getItem('el_patron_session_mode') === 'demo'
+  ));
   const [permitirVentaSinStock, setPermitirVentaSinStock] = useState<boolean>(false);
   const [usuarios, setUsuarios] = useState<Usuario[]>(INITIAL_USUARIOS);
   // No mostramos datos de demostracion mientras llega Supabase: daban la
@@ -199,6 +184,9 @@ export default function App() {
     const loadConfig = async () => {
       try {
         const response = await fetch('/api/supabase-config');
+        const contentType = response.headers.get('content-type') ?? '';
+        if (!response.ok || !contentType.includes('application/json')) return;
+
         const data = await response.json();
         if (data.SUPABASE_URL && data.SUPABASE_ANON_KEY) {
           const current = getSupabaseConfig();
@@ -218,7 +206,7 @@ export default function App() {
 
   // 2. Data load and Realtime sync effect (runs on mount and whenever connection parameters update)
   useEffect(() => {
-    if (showCover || !isStreamlitLoggedIn || !hasSupabaseSession) return;
+    if (showCover || !isStreamlitLoggedIn || !hasSupabaseSession || isDemoSession) return;
 
     let active = true;
     let channel: any = null;
@@ -393,7 +381,24 @@ export default function App() {
         });
       }
     };
-  }, [supabaseTrigger, showCover, isStreamlitLoggedIn, hasSupabaseSession, addLog]);
+  }, [supabaseTrigger, showCover, isStreamlitLoggedIn, hasSupabaseSession, isDemoSession, addLog]);
+
+  useEffect(() => {
+    if (showCover || !isStreamlitLoggedIn || !isDemoSession) return;
+
+    setUsuarios(INITIAL_USUARIOS.map(user => ({ ...user })));
+    setMesas(INITIAL_MESAS.map(mesa => ({ ...mesa })));
+    setInsumos(INITIAL_INSUMOS.map(insumo => ({ ...insumo })));
+    setProductosMenu(INITIAL_PRODUCTOS_MENU.map(product => ({ ...product })));
+    setRecetas(INITIAL_RECETAS_ESCANDALLO.map(recipe => ({ ...recipe })));
+    setPedidos(INITIAL_PEDIDOS.map(pedido => ({
+      ...pedido,
+      items: pedido.items.map(item => ({ ...item })),
+    })));
+    setMermas([]);
+    setOperationalDataError('');
+    setOperationalDataStatus('ready');
+  }, [showCover, isStreamlitLoggedIn, isDemoSession]);
 
   // Sync completion callback handed to settings
   const handleSupabaseSync = (newData: {
@@ -648,8 +653,10 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     setIsSidebarCollapsed(true);
   };
 
-  const handleLoginSuccess = (user: Usuario) => {
+  const handleLoginSuccess = (user: Usuario, mode: 'demo' | 'supabase') => {
     window.localStorage.setItem('el_patron_session', 'active');
+    window.localStorage.setItem('el_patron_session_mode', mode);
+    setIsDemoSession(mode === 'demo');
     setActiveMozo(user.nombre);
     setActiveView('home');
     setOperationalDataStatus('loading');
@@ -671,16 +678,20 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
 
   const handleLogout = () => {
     window.localStorage.removeItem('el_patron_session');
+    window.localStorage.removeItem('el_patron_session_mode');
     getSupabaseClient()?.auth.signOut().catch(() => undefined);
     setOperationalDataStatus('idle');
+    setIsDemoSession(false);
     setIsStreamlitLoggedIn(false);
     setShowCover(false);
   };
 
   const handleLogoClickToLogin = () => {
     window.localStorage.removeItem('el_patron_session');
+    window.localStorage.removeItem('el_patron_session_mode');
     getSupabaseClient()?.auth.signOut().catch(() => undefined);
     setOperationalDataStatus('idle');
+    setIsDemoSession(false);
     setIsStreamlitLoggedIn(false);
     setShowCover(false);
   };
@@ -1082,6 +1093,8 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
         <RestaurantCover 
           onEnterSystem={() => {
             window.localStorage.removeItem('el_patron_session');
+            window.localStorage.removeItem('el_patron_session_mode');
+            setIsDemoSession(false);
             setIsStreamlitLoggedIn(false);
             setShowCover(false);
           }} 
@@ -1317,6 +1330,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
               <CajaModule
                 pedidos={pedidos}
                 productosMenu={productosMenu}
+                activeUser={activeUser}
                 onFacturarMesa={handleFacturarMesa}
                 onCambiarEstadoPedido={handleCambiarEstadoPedido}
                 onOpenFacturacion={() => handleNavigate('facturacion')}
@@ -1342,7 +1356,12 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
               </RecetasErrorBoundary>
             )}
             {activeView === 'mesas' && (
-              <MesasProto1 mesas={mesas} onMesasChange={setMesas} addLog={addLog} />
+              <MesasModule
+                mesas={mesas}
+                onMesasChange={setMesas}
+                addLog={addLog}
+                persistenceEnabled={!isDemoSession}
+              />
             )}
             {activeView === 'proveedores' && <ProveedoresModule addLog={addLog} />}
             {activeView === 'promociones' && <PromocionesModule addLog={addLog} />}

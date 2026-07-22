@@ -20,3 +20,11 @@ test('la hidratacion usa Supabase como fuente de verdad y conserva todos los cam
   assert.doesNotMatch(appSource, /setMesas\(\(dbMesas \?\? \[\]\)\.map/);
   assert.match(appSource, /refreshed !== null && active/);
 });
+
+test('el entorno demo se hidrata solo despues de una sesion demo explicita', () => {
+  assert.match(appSource, /el_patron_session_mode/);
+  assert.match(appSource, /if \(showCover \|\| !isStreamlitLoggedIn \|\| !isDemoSession\) return/);
+  assert.match(appSource, /setMesas\(INITIAL_MESAS\.map/);
+  assert.match(appSource, /setPedidos\(INITIAL_PEDIDOS\.map/);
+  assert.match(appSource, /window\.localStorage\.setItem\('el_patron_session_mode', mode\)/);
+});

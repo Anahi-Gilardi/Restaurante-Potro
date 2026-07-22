@@ -33,7 +33,8 @@ import {
   CierreCaja, 
   PrinterConfig, 
   TicketData,
-  TicketItem
+  TicketItem,
+  Usuario
 } from '../types';
 import { useCaja } from '../features/caja/hooks/useCaja';
 import { useToast } from './ToastContainer';
@@ -45,6 +46,7 @@ import { calculatePedidoTotal, resolvePedidoItemUnitPrice } from '../lib/orderPr
 interface CajaModuleProps {
   pedidos: Pedido[];
   productosMenu: ProductoMenu[];
+  activeUser: Usuario;
   onFacturarMesa: (idPedido: number) => void;
   onCambiarEstadoPedido: (idPedido: number, nuevoEstado: Pedido['estado_comanda']) => void;
   onOpenFacturacion?: () => void;
@@ -54,6 +56,7 @@ interface CajaModuleProps {
 export default function CajaModule({
   pedidos,
   productosMenu,
+  activeUser,
   onFacturarMesa,
   onCambiarEstadoPedido,
   onOpenFacturacion,
@@ -76,7 +79,6 @@ export default function CajaModule({
     openingCashInput,
     setOpeningCashInput,
     cashierNameInput,
-    setCashierNameInput,
     closingPhysicalCashInput,
     setClosingPhysicalCashInput,
     closingObservationsInput,
@@ -108,6 +110,7 @@ export default function CajaModule({
     showSuccessModal,
     setShowSuccessModal,
     successDetails,
+    isCheckoutProcessing,
     printerConfig,
     setPrinterConfig,
     showPrinterSettings,
@@ -157,6 +160,7 @@ export default function CajaModule({
   } = useCaja({
     pedidos,
     productosMenu,
+    operatorName: `${activeUser.nombre} ${activeUser.apellido}`.trim(),
     onFacturarMesa,
     onCambiarEstadoPedido,
     addLog,
@@ -1166,6 +1170,7 @@ export default function CajaModule({
                   {splitPayerCount > 1 ? (
                     <button
                       onClick={async () => {
+                        if (isCheckoutProcessing) return;
                         alert(`Se ha procesado y validado el cobro de la parte #${activePayerIndex + 1} por $${(orderBreakdowns.finalTotal / splitPayerCount).toLocaleString('es-AR')}`);
                         if (activePayerIndex + 1 >= splitPayerCount) {
                           await handleConfirmCheckout();
@@ -1173,18 +1178,20 @@ export default function CajaModule({
                           setActivePayerIndex(prev => prev + 1);
                         }
                       }}
-                      className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 hover:scale-[1.01] active:scale-95 text-white text-xs uppercase tracking-wider font-extrabold rounded-xl transition-all shadow-md cursor-pointer flex items-center justify-center gap-2 border-none"
+                      disabled={isCheckoutProcessing}
+                      className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 hover:scale-[1.01] active:scale-95 text-white text-xs uppercase tracking-wider font-extrabold rounded-xl transition-all shadow-md cursor-pointer flex items-center justify-center gap-2 border-none disabled:opacity-60 disabled:cursor-wait"
                     >
-                      <CheckCircle className="w-5 h-5" />
-                      Cobrar Parte #{activePayerIndex + 1} de {splitPayerCount} (${(orderBreakdowns.finalTotal / splitPayerCount).toLocaleString('es-AR', { maximumFractionDigits: 1 })})
+                      {isCheckoutProcessing ? <RefreshCw className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}
+                      {isCheckoutProcessing ? 'Procesando cobro...' : `Cobrar parte #${activePayerIndex + 1} de ${splitPayerCount} ($${(orderBreakdowns.finalTotal / splitPayerCount).toLocaleString('es-AR', { maximumFractionDigits: 1 })})`}
                     </button>
                   ) : (
                     <button
                       onClick={handleConfirmCheckout}
-                      className="btn-premium-primary w-full py-3 text-xs uppercase tracking-wider font-extrabold rounded-xl flex items-center justify-center gap-2 glow-gold cursor-pointer"
+                      disabled={isCheckoutProcessing}
+                      className="btn-premium-primary w-full py-3 text-xs uppercase tracking-wider font-extrabold rounded-xl flex items-center justify-center gap-2 glow-gold cursor-pointer disabled:opacity-60 disabled:cursor-wait"
                     >
-                      <CheckCircle className="w-5 h-5 text-[#E8B800]" />
-                      Cobrar e Imprimir Ticket Normal (${orderBreakdowns.finalTotal.toLocaleString('es-AR')} {restaurante.moneda})
+                      {isCheckoutProcessing ? <RefreshCw className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5 text-[#E8B800]" />}
+                      {isCheckoutProcessing ? 'Procesando cobro...' : `Cobrar e Imprimir Ticket Normal ($${orderBreakdowns.finalTotal.toLocaleString('es-AR')} ${restaurante.moneda})`}
                     </button>
                   )}
 
@@ -1460,9 +1467,9 @@ export default function CajaModule({
                   type="text"
                   required
                   value={cashierNameInput}
-                  onChange={e => setCashierNameInput(e.target.value)}
+                  readOnly
                   className="w-full text-xs p-2.5 rounded-xl border border-stone-200 dark:border-stone-800 focus:ring-1 focus:ring-[#624A3E] focus:outline-none bg-stone-50 dark:bg-stone-955 text-stone-900 dark:text-stone-100"
-                  placeholder="Ej. Sofía Colombo"
+                  title="El responsable se obtiene de la sesión autenticada"
                 />
               </div>
 

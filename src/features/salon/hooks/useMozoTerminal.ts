@@ -5,6 +5,7 @@ import { pdfService } from '../../../services/pdfService';
 import { useCategories } from '../../../hooks/useCategories';
 import { DEFAULT_RESTAURANT_PROFILE } from '../../../lib/restaurantProfile';
 import { resolvePedidoItemUnitPrice } from '../../../lib/orderPricing';
+import { isSameTable, mergeTableOrders } from '../../../lib/tableOrders';
 
 const CHECKOUT_TIMEOUT_MS = 12000;
 
@@ -28,7 +29,7 @@ interface UseMozoTerminalProps {
   usuarios: Usuario[];
   activeMozo: string;
   onMozoChange: (mozo: string) => void;
-  onCrearPedido: (pedido: Omit<Pedido, 'id_pedido' | 'fecha_hora' | 'minutos_transcurridos' | 'origen'> & { origen?: 'Mozo'; idempotency_key?: string }) => void | Promise<void>;
+  onCrearPedido: (pedido: Omit<Pedido, 'id_pedido' | 'fecha_hora' | 'minutos_transcurridos' | 'origen'> & { origen?: 'Mozo'; idempotency_key?: string }) => boolean | void | Promise<boolean | void>;
   pedidos: Pedido[];
   onFacturarMesa: (idPedido: number) => void;
   addLog: (tipo: EventoLog['tipo'], mensaje: string) => void;
@@ -86,15 +87,6 @@ export function useMozoTerminal({
   const activeUser = useMemo(() => usuarios.find(u => u.nombre === activeMozo), [usuarios, activeMozo]);
   const isAdmin = activeUser?.rol === 'superadmin' || activeUser?.rol === 'administrador';
 
-  const isSameTable = useCallback((m: Mesa, p: Pedido) => {
-    if (m.id_mesa !== undefined && m.id_mesa !== null && p.id_mesa !== undefined && p.id_mesa !== null) {
-      if (String(m.id_mesa) === String(p.id_mesa)) return true;
-    }
-    const norm1 = String(m.numero_mesa || '').toLowerCase().replace(/mesa\s+/gi, '').trim();
-    const norm2 = String(p.numero_mesa || '').toLowerCase().replace(/mesa\s+/gi, '').trim();
-    return norm1 !== '' && norm1 === norm2;
-  }, []);
-
   const dynamicMesas = useMemo(() => {
     return mesas.map(m => {
       const activePedido = pedidos.find(p => 
@@ -113,7 +105,7 @@ export function useMozoTerminal({
         estado: m.estado === 'ocupada' ? 'libre' : m.estado
       };
     });
-  }, [mesas, pedidos, isSameTable]);
+  }, [mesas, pedidos]);
 
   const selectedMesa = useMemo(() => {
     return dynamicMesas.find(m => m.id_mesa === selectedMesaId) || null;
@@ -177,55 +169,13 @@ export function useMozoTerminal({
   // Find active order of the selected table if any (to split or pay)
   const activePedidoDeMesa = useMemo(() => {
     if (!selectedMesaId) return null;
-    function mergePedidos(tablePedidos: Pedido[]): Pedido | null {
-      if (tablePedidos.length === 0) return null;
-      const base = tablePedidos[0];
-      
-      const itemMap = new Map<string, { item: PedidoItem; qty: number }>();
-      tablePedidos.forEach(p => {
-        (p.items || []).forEach(item => {
-          const key = item.id_producto;
-          if (!key) return;
-          const existing = itemMap.get(key);
-          if (existing) {
-            existing.qty += item.cantidad;
-          } else {
-            itemMap.set(key, { item: { ...item }, qty: item.cantidad });
-          }
-        });
-      });
-
-      const mergedItems = Array.from(itemMap.values()).map(({ item, qty }) => ({
-        ...item,
-        cantidad: qty
-      }));
-
-      const mergedObservations = tablePedidos
-        .map(p => p.observaciones?.trim())
-        .filter(Boolean)
-        .join(' | ');
-
-      const oldestFechaHora = tablePedidos.reduce((oldest, current) => {
-        const currentMs = current.fecha_hora ? new Date(current.fecha_hora).getTime() : Date.now();
-        const oldestMs = oldest ? new Date(oldest).getTime() : Date.now();
-        return currentMs < oldestMs ? current.fecha_hora : oldest;
-      }, base.fecha_hora);
-
-      return {
-        ...base,
-        items: mergedItems,
-        observaciones: mergedObservations || undefined,
-        fecha_hora: oldestFechaHora
-      };
-    }
-
     const tablePedidos = pedidos.filter(p => {
       const matchMesaId = String(p.id_mesa) === String(selectedMesaId);
       const matchMesaNum = selectedMesa ? String(p.numero_mesa || '').toLowerCase().replace(/mesa\s+/gi, '').trim() === String(selectedMesa.numero_mesa || '').toLowerCase().replace(/mesa\s+/gi, '').trim() : false;
       return (matchMesaId || matchMesaNum) && p.estado_comanda !== 'entregado_cobrado' && p.estado_comanda !== 'cancelado';
     });
-    return mergePedidos(tablePedidos);
-  }, [selectedMesaId, selectedMesa, pedidos]);
+    return mergeTableOrders(tablePedidos, productosMenu);
+  }, [selectedMesaId, selectedMesa, pedidos, productosMenu]);
 
   const getCategorySlug = useCallback((catName: string) => {
     if (!catName) return '';
@@ -422,7 +372,7 @@ export function useMozoTerminal({
     setCartIdempotencyKey(idempotencyKey);
 
     try {
-      await withCheckoutTimeout(Promise.resolve(onCrearPedido({
+      const created = await withCheckoutTimeout(Promise.resolve(onCrearPedido({
         idempotency_key: idempotencyKey,
         id_mesa: selectedMesaId,
         numero_mesa: selectedMesa ? selectedMesa.numero_mesa : `Mesa ${selectedMesaId}`,
@@ -431,6 +381,9 @@ export function useMozoTerminal({
         items,
         observaciones: observaciones.trim() || undefined,
       })));
+      if (created === false) {
+        throw new Error('El pedido fue rechazado durante la validacion final.');
+      }
 
       setCart({});
       setObservaciones('');
