@@ -10,7 +10,7 @@ import {
   requireAuthenticatedProfile,
 } from "./_security.js";
 
-const ROLES = new Set(["mozo", "cocina", "administrador", "superadmin"]);
+const ROLES = new Set(["mozo", "cocina", "cajero", "administrador", "superadmin"]);
 const USERNAME_PATTERN = /^[a-z0-9._-]{3,40}$/;
 const SAFE_PROFILE_COLUMNS = "id_usuario,nombre,apellido,username,rol,activo,auth_user_id,mail";
 

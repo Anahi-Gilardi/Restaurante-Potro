@@ -1486,10 +1486,10 @@ export default function MesasModule({
                 >
                   Gestionar
                 </button>
-                <button onClick={e => openEditMesa(m, e)} className="p-1.5 hover:bg-blue-50 text-stone-400 hover:text-blue-500 rounded-lg cursor-pointer transition-colors">
+                <button onClick={e => openEditMesa(m, e)} aria-label={`Editar ${getMesaDisplayName(m.numero_mesa)}`} className="p-1.5 hover:bg-blue-50 text-stone-400 hover:text-blue-500 rounded-lg cursor-pointer transition-colors">
                   <Pencil className="w-3.5 h-3.5" />
                 </button>
-                <button onClick={e => handleDeleteMesa(m, e)} className="p-1.5 hover:bg-rose-50 text-stone-400 hover:text-rose-500 rounded-lg cursor-pointer transition-colors">
+                <button onClick={e => handleDeleteMesa(m, e)} aria-label={`Eliminar ${getMesaDisplayName(m.numero_mesa)}`} className="p-1.5 hover:bg-rose-50 text-stone-400 hover:text-rose-500 rounded-lg cursor-pointer transition-colors">
                   <Trash className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -1513,7 +1513,7 @@ export default function MesasModule({
                 <h3 className="text-lg font-black text-stone-800">{getMesaDisplayName(selectedMesa.numero_mesa)}</h3>
                 <p className="text-xs text-stone-500 font-medium">{capitalize(selectedMesa.zona)} · Capacidad {selectedMesa.capacidad} pax · Estado: <span className="font-bold capitalize">{selectedMesa.estado}</span></p>
               </div>
-              <button onClick={closeModal} className="p-2 hover:bg-stone-100 rounded-full cursor-pointer"><X className="w-5 h-5 text-stone-500" /></button>
+              <button onClick={closeModal} aria-label="Cerrar gestión de mesa" className="p-2 hover:bg-stone-100 rounded-full cursor-pointer"><X className="w-5 h-5 text-stone-500" /></button>
             </div>
 
             {selectedMesa.estado === 'ocupada' ? (

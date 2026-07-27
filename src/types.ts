@@ -17,7 +17,7 @@ export interface Usuario {
     auth_user_id?: string | null;
     /** Correo de autenticacion; puede ser un alias interno, no requiere Gmail. */
     mail?: string | null;
-    rol: 'superadmin' | 'administrador' | 'mozo' | 'cocina';
+    rol: 'superadmin' | 'administrador' | 'cajero' | 'mozo' | 'cocina';
     activo?: boolean;
 }
 

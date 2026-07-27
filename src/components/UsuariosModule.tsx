@@ -16,7 +16,8 @@ import {
   Activity, 
   Smartphone,
   ChefHat,
-  Shield
+  Shield,
+  Banknote
 } from 'lucide-react';
 import { Usuario, EventoLog } from '../types';
 import { userAdminService } from '../services/userAdminService';
@@ -251,6 +252,13 @@ export default function UsuariosModule({
           icon: Smartphone,
           desc: 'Servicio de salón y comandas en terminal'
         };
+      case 'cajero':
+        return {
+          gradient: 'from-cyan-500 to-teal-600',
+          badge: 'bg-cyan-50 text-cyan-700 border-cyan-100 dark:bg-cyan-950/20 dark:text-cyan-300 dark:border-cyan-900/50',
+          icon: Banknote,
+          desc: 'Cobros, cierres, clientes y facturación'
+        };
       case 'cocina':
         return {
           gradient: 'from-orange-400 to-amber-600',
@@ -355,6 +363,7 @@ export default function UsuariosModule({
               >
                 <option value="mozo">Mozo (Salón / Comandas)</option>
                 <option value="cocina">Cocina (Monitor de Platos)</option>
+                <option value="cajero">Cajero (Caja / Facturación)</option>
                 <option value="administrador">Administrador (Caja / Stock)</option>
                 {activeUser?.rol === 'superadmin' && (
                   <option value="superadmin">Super Admin (Completo)</option>
@@ -455,6 +464,7 @@ export default function UsuariosModule({
                           >
                             <option value="mozo">Mozo</option>
                             <option value="cocina">Cocina</option>
+                            <option value="cajero">Cajero</option>
                             <option value="administrador">Administrador</option>
                             {activeUser?.rol === 'superadmin' && (
                               <option value="superadmin">Super Admin</option>

@@ -58,6 +58,12 @@ export const hydratePedido = (
     stock_descontado: Boolean(header.stock_descontado),
     fecha_descuento_stock: header.fecha_descuento_stock
       ? new Date(header.fecha_descuento_stock)
+      : undefined,
+    fecha_inicio_cocina: header.fecha_inicio_cocina
+      ? new Date(header.fecha_inicio_cocina)
+      : undefined,
+    fecha_listo: header.fecha_listo
+      ? new Date(header.fecha_listo)
       : undefined
   };
 };
@@ -80,6 +86,12 @@ export const serializePedidoHeader = (pedido: Pedido) => ({
   stock_descontado: Boolean(pedido.stock_descontado),
   fecha_descuento_stock: pedido.fecha_descuento_stock
     ? new Date(pedido.fecha_descuento_stock).toISOString()
+    : null,
+  fecha_inicio_cocina: pedido.fecha_inicio_cocina
+    ? new Date(pedido.fecha_inicio_cocina).toISOString()
+    : null,
+  fecha_listo: pedido.fecha_listo
+    ? new Date(pedido.fecha_listo).toISOString()
     : null,
   items: JSON.stringify(pedido.items)
 });

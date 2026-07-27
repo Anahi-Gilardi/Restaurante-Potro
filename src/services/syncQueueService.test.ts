@@ -56,3 +56,24 @@ test('SyncQueueService - conserva solo el estado más reciente de un mismo cierr
   assert.strictEqual(queue[0].action, 'upsert_cierre');
   assert.strictEqual(queue[0].payload.monto_ventas, 250);
 });
+
+test('SyncQueueService - permite recuperar manualmente operaciones fallidas', () => {
+  localStorage.setItem('el_patron_offline_sync_failed', JSON.stringify([{
+    id: 'sync_failed_1',
+    action: 'create_merma',
+    payload: { id_merma: 'merma_3' },
+    timestamp: new Date().toISOString(),
+    attempts: 50,
+    lastError: 'timeout',
+    failedAt: new Date().toISOString()
+  }]));
+
+  const restored = syncQueueService.retryFailed();
+  const queue = syncQueueService.getQueue();
+
+  assert.strictEqual(restored, 1);
+  assert.strictEqual(queue.length, 1);
+  assert.strictEqual(queue[0].attempts, 0);
+  assert.strictEqual(queue[0].payload.id_merma, 'merma_3');
+  assert.strictEqual(syncQueueService.getFailedQueue().length, 0);
+});

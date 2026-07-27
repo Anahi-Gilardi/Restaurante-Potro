@@ -46,11 +46,13 @@ export default function DiagnosticsTester({ onClose }: DiagnosticsTesterProps) {
 
   // Queue and generic states
   const [queue, setQueue] = useState<SyncQueueItem[]>([]);
+  const [failedQueue, setFailedQueue] = useState<SyncQueueItem[]>([]);
   const [isProcessingQueue, setIsProcessingQueue] = useState(false);
   const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
 
   useEffect(() => {
     setQueue(syncQueueService.getQueue());
+    setFailedQueue(syncQueueService.getFailedQueue());
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
 
@@ -271,6 +273,7 @@ export default function DiagnosticsTester({ onClose }: DiagnosticsTesterProps) {
     try {
       await syncQueueService.processQueue();
       setQueue(syncQueueService.getQueue());
+      setFailedQueue(syncQueueService.getFailedQueue());
       alert('Proceso de sincronización completado.');
     } catch (err) {
       alert('Error en la sincronización.');
@@ -283,6 +286,20 @@ export default function DiagnosticsTester({ onClose }: DiagnosticsTesterProps) {
     if (confirm('¿Estás seguro de que deseas vaciar la cola de sincronización pendiente? Perderás los pedidos que se guardaron de forma offline.')) {
       syncQueueService.saveQueue([]);
       setQueue([]);
+    }
+  };
+
+  const handleRetryFailedQueue = () => {
+    const restored = syncQueueService.retryFailed();
+    setQueue(syncQueueService.getQueue());
+    setFailedQueue(syncQueueService.getFailedQueue());
+    alert(`${restored} operación(es) volvieron a la cola de sincronización.`);
+  };
+
+  const handleClearFailedQueue = () => {
+    if (confirm('¿Eliminar definitivamente el historial de operaciones fallidas?')) {
+      syncQueueService.clearFailed();
+      setFailedQueue([]);
     }
   };
 
@@ -506,8 +523,9 @@ export default function DiagnosticsTester({ onClose }: DiagnosticsTesterProps) {
             </span>
             {queue.length > 0 && (
               <div className="flex gap-2">
-                <button
-                  onClick={handleClearSyncQueue}
+                 <button
+                   onClick={handleClearSyncQueue}
+                   aria-label="Vaciar cola de sincronización pendiente"
                   className="p-1 text-red-600 hover:bg-red-50 rounded border border-red-200 cursor-pointer"
                   title="Vaciar Cola"
                 >
@@ -521,8 +539,41 @@ export default function DiagnosticsTester({ onClose }: DiagnosticsTesterProps) {
                   {isProcessingQueue ? 'Sincronizando...' : 'Sincronizar Ahora'}
                 </button>
               </div>
-            )}
-          </div>
+           )}
+
+          {failedQueue.length > 0 && (
+            <div className="border-t border-red-200 pt-3 space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-[11px] font-bold text-red-700">
+                  Requieren intervención ({failedQueue.length})
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleRetryFailedQueue}
+                    className="text-[10px] font-bold px-2 py-1 bg-red-600 text-white rounded border border-red-700"
+                  >
+                    Reintentar
+                  </button>
+                  <button
+                    onClick={handleClearFailedQueue}
+                    aria-label="Eliminar historial de operaciones fallidas"
+                    className="p-1 text-red-700 hover:bg-red-100 rounded border border-red-200"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+              <div className="max-h-24 overflow-y-auto space-y-1">
+                {failedQueue.map(item => (
+                  <div key={item.id} className="p-2 rounded-lg bg-red-50 border border-red-200 text-[10px]">
+                    <strong>{item.action}</strong>
+                    <span className="block text-red-700">{item.lastError || 'Error sin detalle'}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
 
           {queue.length === 0 ? (
             <p className="text-[11px] text-stone-500 italic">No hay pedidos ni facturas pendientes en la cola local.</p>

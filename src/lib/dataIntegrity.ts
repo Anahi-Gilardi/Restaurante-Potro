@@ -114,7 +114,7 @@ export function analyzeDataIntegrity(input: IntegrityDataSet, now = new Date()):
   const orderIds = new Set(pedidos.map(row => text(row.id_pedido)));
   const invoiceIds = new Set(facturas.map(row => text(row.id_factura)));
   const recipeProductIds = new Set(recetas.filter(row => numeric(row.cantidad_a_descontar) > 0).map(row => text(row.id_producto)));
-  const validRoles = new Set(['superadmin', 'administrador', 'mozo', 'cocina']);
+  const validRoles = new Set(['superadmin', 'administrador', 'cajero', 'mozo', 'cocina']);
   const validTableStates = new Set(['libre', 'ocupada', 'esperando_cuenta', 'reservada', 'limpiando', 'unida', 'sucia']);
   const recipeUsage = usageCounts(recetas, 'id_insumo');
   const movementUsage = usageCounts(movimientos, 'id_insumo');

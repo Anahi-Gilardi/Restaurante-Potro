@@ -180,12 +180,18 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
       <header className="sticky top-0 z-50 w-full backdrop-blur-md bg-[#FAF7F0]/80 dark:bg-[#1A110B]/80 border-b border-[#8C6239]/15 dark:border-[#8C6239]/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 flex items-center justify-between">
           {/* Logo Brand */}
-          <div onClick={onEnterSystem} className="flex items-center gap-3.5 cursor-pointer" title="El Patrón">
+          <button
+            type="button"
+            onClick={onEnterSystem}
+            className="flex items-center gap-3.5 cursor-pointer bg-transparent border-0 p-0 text-left"
+            aria-label="Ingresar al sistema El Patrón"
+            title="El Patrón"
+          >
             <img src="/logo-el-patron.jpeg" alt="Logo El Patrón" className="w-20 h-20 object-cover rounded-full shadow-lg border border-[#8C6239]/15" />
             <span className="font-extrabold text-2xl tracking-widest font-display-serif text-[#8C6239] dark:text-[#8C6239]">
               EL PATRÓN
             </span>
-          </div>
+          </button>
 
           {/* Desktop Navigation links */}
           <nav className="hidden md:flex items-center gap-6 text-sm font-semibold text-stone-600 dark:text-stone-300">
@@ -200,6 +206,8 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
             <button 
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="p-1.5 rounded-lg text-stone-700 dark:text-stone-300 hover:bg-[#8C6239]/10"
+              aria-label={mobileMenuOpen ? 'Cerrar menú' : 'Abrir menú'}
+              aria-expanded={mobileMenuOpen}
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
@@ -542,10 +550,16 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
           
           {/* Logo & Brand description */}
           <div className="space-y-4">
-            <div onClick={onEnterSystem} className="flex items-center gap-3.5 cursor-pointer" title="El Patrón">
+            <button
+              type="button"
+              onClick={onEnterSystem}
+              className="flex items-center gap-3.5 cursor-pointer bg-transparent border-0 p-0 text-left"
+              aria-label="Ingresar al sistema El Patrón"
+              title="El Patrón"
+            >
               <img src="/logo-el-patron.jpeg" alt="Logo El Patrón" className="w-16 h-16 object-cover rounded-full border border-black/10" />
               <span className="font-extrabold text-xl tracking-widest text-stone-950 font-display-serif">EL PATRÓN</span>
-            </div>
+            </button>
             <p className="text-xs text-stone-850 leading-relaxed">
               Gastronomía familiar, cocina de hogar, carnes seleccionadas, pastas caseras con recetas originales de la abuela y amplia selección de bodega.
             </p>

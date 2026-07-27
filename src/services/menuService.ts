@@ -138,40 +138,16 @@ export const menuService = {
   },
 
   async update(id: string, prod: Partial<ProductoMenu>): Promise<ProductoMenu> {
-    let updatedData: any = null;
-    let fallback = false;
-
-    try {
-      const supabase = getActiveSupabaseClient();
-      const { data, error } = await supabase.from('productos_menu').update(toDbProductoMenu(prod)).eq('id_producto', id).select().single();
-      if (error) {
-        console.warn('Supabase update failed, falling back to local update:', error);
-        fallback = true;
-      } else {
-        updatedData = data;
-      }
-    } catch (e) {
-      console.warn('Supabase not available, falling back to local update:', e);
-      fallback = true;
-    }
-
-    // In case of fallback or direct local edit, reconstruct the updated object
-    if (fallback || !updatedData) {
-      const cached = localStorage.getItem('el_patron_cache_menu');
-      let currentItem: any = null;
-      if (cached) {
-        try {
-          const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed)) {
-            currentItem = parsed.find((item: any) => item.id_producto === id);
-          }
-        } catch {}
-      }
-      if (!currentItem) {
-        currentItem = INITIAL_PRODUCTOS_MENU.find(p => p.id_producto === id) || { id_producto: id };
-      }
-      // Reconstruct the DB payload format to preserve consistency in cache
-      updatedData = { ...currentItem, ...prod };
+    const supabase = getActiveSupabaseClient();
+    const { data: updatedData, error } = await supabase
+      .from('productos_menu')
+      .update(toDbProductoMenu(prod))
+      .eq('id_producto', id)
+      .select()
+      .single();
+    if (error) {
+      console.error(`No se pudo guardar el producto ${id} en Supabase:`, error);
+      throw error;
     }
 
     const normalized = normalizeProductoMenu(updatedData);
@@ -193,16 +169,6 @@ export const menuService = {
         }
       } catch (e) {
         localStorage.removeItem('el_patron_cache_menu');
-      }
-    } else {
-      // Create new cache with seeded menu plus updated item if cache was empty
-      const initialCache = INITIAL_PRODUCTOS_MENU.map(item =>
-        item.id_producto === id ? { ...item, ...toDbProductoMenu(prod) } : item
-      );
-      try {
-        localStorage.setItem('el_patron_cache_menu', JSON.stringify(initialCache));
-      } catch (storageError) {
-        console.warn('LocalStorage quota exceeded, skipping local cache write:', storageError);
       }
     }
 

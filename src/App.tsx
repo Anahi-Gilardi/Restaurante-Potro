@@ -65,7 +65,6 @@ import {
   dbFetchProductosMenu,
   dbFetchRecetas,
   dbFetchPedidos,
-  dbSavePedidoComplex,
   dbUpsertMesas,
   dbUpsertInsumos,
   dbFetchMermas,
@@ -82,6 +81,7 @@ import { canMergePedidoItems, resolvePedidoItemUnitPrice } from './lib/orderPric
 import { cajaService } from './services/cajaService';
 import { reservasService } from './services/reservasService';
 import { stockEngine } from './services/stock/stockEngine';
+import { orderTransactionService } from './services/orderTransactionService';
 import { resolveSessionOperator } from './lib/sessionOperator';
 import { isSameTable } from './lib/tableOrders';
 
@@ -427,15 +427,25 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
       ? pedidos.find(p => p.idempotency_key === newPedidoData.idempotency_key)
       : undefined;
     if (existingByKey) {
-      await dbSavePedidoComplex(existingByKey);
+      if (!isDemoSession) {
+        try {
+          await orderTransactionService.saveOrder(
+            existingByKey,
+            newPedidoData.comensales || 2,
+            permitirVentaSinStock
+          );
+        } catch (error) {
+          toast.error(error instanceof Error ? error.message : 'No se pudo sincronizar la comanda.');
+          return false;
+        }
+      }
       addLog('sistema', `PEDIDOS: Reintento sincronizado por idempotencia (${newPedidoData.idempotency_key}).`);
       return true;
     }
 
     const existingActivePedido = pedidos.find(p => {
       const match = isSameTable(p, newPedidoData) && 
-        p.estado_comanda !== 'entregado_cobrado' && 
-        p.estado_comanda !== 'cancelado';
+        p.estado_comanda === 'pendiente';
       return match;
     });
 
@@ -451,7 +461,6 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     let stockDescontado = false;
     let itemsDescontados: string[] = [];
     let alarmasBajoStock: string[] = [];
-    const stockMovements: any[] = [];
 
     const isAdvancedState = ['en_cocina', 'listo', 'entregado', 'entregado_cobrado'].includes(newPedidoData.estado_comanda || 'pendiente');
 
@@ -476,7 +485,6 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
         stockDescontado = stockResult.itemsDescontados.length > 0;
         itemsDescontados = stockResult.itemsDescontados;
         alarmasBajoStock = stockResult.alarmasBajoStock;
-        stockResult.stockMovements.forEach(m => stockMovements.push(m));
       } catch (err: any) {
         toast.error(`No es posible crear pedido: ${err.message}`);
         return false;
@@ -551,30 +559,28 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
       addLog('alerta_stock', `CONTROL REPOSICIÓN: El insumo '${nom}' ha caído por debajo del stock de seguridad.`);
     });
 
-    if (existingActivePedido) {
-      import('./services/pedidosService').then(({ pedidosService }) => {
-        pedidosService.agregarItemsAComandaExistente(existingActivePedido.id_pedido, newPedidoData.items, newPedidoData.idempotency_key).catch(err => {
-          console.warn('Background save for order accumulation failed:', err);
-        });
-      });
-    } else {
-      dbSavePedidoComplex(finalPedido).catch(err => {
-        console.warn('Background save for new order failed:', err);
-      });
-    }
-
-    dbUpsertMesas(updatedMesas).catch(err => {
-      console.warn('Background save for mesas failed:', err);
-    });
-
-    if (stockDescontado) {
-      stockMovements.forEach(movement => dbRecordMovement(movement).catch(console.error));
-      dbUpsertInsumos(updatedInsumos).catch(err => {
-        console.warn('Background save for insumos failed:', err);
-      });
+    if (!isDemoSession) {
+      try {
+        await orderTransactionService.saveOrder(
+          finalPedido,
+          newPedidoData.comensales || 2,
+          permitirVentaSinStock
+        );
+      } catch (error) {
+        const [remotePedidos, remoteMesas, remoteInsumos] = await Promise.all([
+          dbFetchPedidos(),
+          dbFetchMesas(),
+          dbFetchInsumos()
+        ]).catch(() => [pedidos, mesas, insumos] as const);
+        setPedidos(remotePedidos);
+        setMesas(remoteMesas);
+        setInsumos(remoteInsumos);
+        toast.error(error instanceof Error ? error.message : 'No se pudo confirmar la comanda.');
+        return false;
+      }
     }
     return true;
-  }, [pedidos, insumos, recetas, productosMenu, addLog, mesas, permitirVentaSinStock, setMesas, setInsumos, setPedidos, activeMozo]);
+  }, [pedidos, insumos, recetas, productosMenu, addLog, mesas, permitirVentaSinStock, setMesas, setInsumos, setPedidos, activeMozo, isDemoSession, toast]);
 
   const handleMozoChange = (mozo: string) => {
     const nextUser = usuarios.find(usuario => usuario.nombre === mozo && usuario.activo !== false);
@@ -642,11 +648,41 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
   };
 
   // --- Handlers for Kitchen View ---
-  const handleCambiarEstadoPedido = (idPedido: number, nuevoEstado: Pedido['estado_comanda']) => {
-    let updatedPedido: Pedido | null = null;
-    let errorMsg = '';
-
+  const handleCambiarEstadoPedido = async (idPedido: number, nuevoEstado: Pedido['estado_comanda']) => {
     const pObj = pedidos.find(p => p.id_pedido === idPedido);
+    if (!pObj) return;
+
+    if (!isDemoSession) {
+      if (nuevoEstado === 'en_cocina' && (!pObj.items || pObj.items.length === 0)) {
+        toast.error('No se puede enviar a cocina un pedido vacío.');
+        return;
+      }
+      try {
+        await orderTransactionService.transitionOrder(idPedido, nuevoEstado, permitirVentaSinStock);
+        const [remotePedidos, remoteMesas, remoteInsumos] = await Promise.all([
+          dbFetchPedidos(),
+          dbFetchMesas(),
+          dbFetchInsumos()
+        ]);
+        setPedidos(remotePedidos);
+        setMesas(remoteMesas);
+        setInsumos(remoteInsumos);
+        addLog(
+          'comanda_estado',
+          `COMANDA #${idPedido} para ${pObj.numero_mesa}: Estado cambiado a ${nuevoEstado.toUpperCase()}`,
+          {
+            terminal: 'KDS',
+            entidad_id: String(idPedido),
+            estado_anterior: pObj.estado_comanda,
+            estado_nuevo: nuevoEstado,
+            duracion_segundos: Math.max(0, pObj.minutos_transcurridos * 60)
+          }
+        );
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'No se pudo cambiar el estado de la comanda.');
+      }
+      return;
+    }
 
     if (nuevoEstado === 'en_cocina' && pObj) {
       if (!pObj.items || pObj.items.length === 0) {
@@ -667,16 +703,11 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
           );
           
           setInsumos(result.updatedInsumos);
-          dbUpsertInsumos(result.updatedInsumos);
-          
           if (result.itemsDescontados.length > 0) {
             addLog('descuento_stock', `ESCANDALLO: Pedido #${idPedido} cambió a EN_COCINA. Descuento automático de: ${result.itemsDescontados.join(', ')}`);
           }
           result.alarmasBajoStock.forEach(alertStr => {
             addLog('alerta_stock', `CRÍTICO REPOSICIÓN: El insumo '${alertStr}' cayó por debajo del stock mínimo estipulado.`);
-          });
-          result.stockMovements.forEach(m => {
-            dbRecordMovement(m).catch(console.error);
           });
         } catch (err: any) {
           toast.error(`No es posible iniciar cocción: ${err.message}`);
@@ -696,14 +727,9 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
           );
           
           setInsumos(result.updatedInsumos);
-          dbUpsertInsumos(result.updatedInsumos);
-          
           if (result.itemsReversados.length > 0) {
             addLog('descuento_stock', `REVERSO ESCANDALLO: Pedido #${idPedido} CANCELADO. Reintegro automático de: ${result.itemsReversados.join(', ')}`);
           }
-          result.stockMovements.forEach(m => {
-            dbRecordMovement(m).catch(console.error);
-          });
         } catch (err: any) {
           console.error('Failed to reverse stock:', err);
         }
@@ -748,7 +774,6 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
           updated.stock_descontado = false;
           updated.fecha_descuento_stock = undefined;
         }
-        updatedPedido = updated;
         return updated;
       }
       return p;
@@ -767,22 +792,9 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
       },
     );
 
-    setTimeout(() => {
-      if (updatedPedido) {
-        dbSavePedidoComplex(updatedPedido).catch(err => {
-          console.warn('dbSavePedidoComplex async error:', err);
-        });
-      } else if (pObj) {
-        dbSavePedidoComplex({ ...pObj, estado_comanda: nuevoEstado }).catch(err => {
-          console.warn('dbSavePedidoComplex async error:', err);
-        });
-      }
-    }, 50);
-
     if ((nuevoEstado === 'entregado_cobrado' || nuevoEstado === 'cancelado') && pObj) {
       const updatedMesas = mesas.map(m => m.id_mesa === pObj.id_mesa ? { ...m, estado: 'libre' as const, comensales: undefined } : m);
       setMesas(updatedMesas);
-      dbUpsertMesas(updatedMesas);
     }
   };
 
@@ -791,7 +803,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
   };
 
   // --- Handlers for Cashier View (Caja & Cierre) ---
-  const handleFacturarMesa = useCallback((idPedido: number, alreadyUpdatedInCaja: boolean = false) => {
+  const handleFacturarMesa = useCallback(async (idPedido: number, alreadyUpdatedInCaja: boolean = false) => {
     const target = pedidos.find(p => p.id_pedido === idPedido);
     if (!target) return;
 
@@ -802,6 +814,14 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     );
 
     const orderIds = ordersToBill.map(o => o.id_pedido);
+    if (!isDemoSession) {
+      try {
+        await orderTransactionService.closeOrders(orderIds, permitirVentaSinStock);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'No se pudo cerrar la mesa.');
+        return;
+      }
+    }
 
     setPedidos(prev => prev.map(p => orderIds.includes(p.id_pedido) ? { ...p, estado_comanda: 'entregado_cobrado' } : p));
 
@@ -815,11 +835,6 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     setMesas(updatedMesas);
 
     addLog('sistema', `CAJA: Facturación completa cobrada correctamente de la mesa ${target.numero_mesa} por Pedido(s) #${orderIds.join(', #')}`);
-
-    ordersToBill.forEach(order => {
-      dbSavePedidoComplex({ ...order, estado_comanda: 'entregado_cobrado' });
-    });
-    dbUpsertMesas(updatedMesas);
 
     // Completar automáticamente la reserva asociada para el día de hoy
     const today = argentinaDateIso();
@@ -856,7 +871,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
         console.error('Error updating sales in cajaService during direct billing:', err);
       });
     }
-  }, [pedidos, mesas, productosMenu, addLog]);
+  }, [pedidos, mesas, productosMenu, addLog, isDemoSession, toast, permitirVentaSinStock]);
 
   // --- Handlers for Inventory View ---
   const handleRegistrarMerma = (idInsumo: string, cantidad: number, motivo: Merma['motivo']) => {

@@ -23,12 +23,21 @@ test('administrador no puede acceder a sistema pero si a backups', () => {
 test('mozo tiene acceso operativo limitado al salón', () => {
   assert.equal(canAccessView('mozo', 'mozo'), true);
   assert.equal(canAccessView('mozo', 'reservas'), true);
-  assert.equal(canAccessView('mozo', 'caja'), true);
+  assert.equal(canAccessView('mozo', 'caja'), false);
   assert.equal(canAccessView('mozo', 'menu'), false);
   assert.equal(canAccessView('mozo', 'inventario'), false);
   assert.equal(canAccessView('mozo', 'usuarios'), false);
   assert.equal(canAccessView('mozo', 'sistema'), false);
   assert.equal(canAccessView('mozo', 'backups'), false);
+});
+
+test('cajero puede cobrar y facturar sin administrar inventario', () => {
+  assert.deepEqual(getAllowedViews('cajero'), ['home', 'caja', 'facturacion', 'clientes']);
+  assert.equal(canAccessView('cajero', 'caja'), true);
+  assert.equal(canAccessView('cajero', 'facturacion'), true);
+  assert.equal(canAccessView('cajero', 'mozo'), false);
+  assert.equal(canAccessView('cajero', 'inventario'), false);
+  assert.equal(canAccessView('cajero', 'usuarios'), false);
 });
 
 test('cocina no puede administrar caja ni usuarios', () => {

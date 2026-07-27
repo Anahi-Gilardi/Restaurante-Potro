@@ -43,19 +43,16 @@ const inferTipo = (categoria: string): ProductoMenu['tipo'] => {
 };
 
 const getFallbackImage = (categoria: string) => {
-  const normalized = normalizeText(categoria);
-  if (normalized === 'bebidas' || normalized.includes('bebida') || normalized === 'bodega') {
-    return 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&q=80';
-  }
-  if (normalized === 'postres') {
-    return 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&q=80';
-  }
-  return 'https://images.unsplash.com/photo-1544025162-d76694265947?w=400&q=80';
+  void categoria;
+  return '/logo-el-patron.jpeg';
 };
+
+const MENU_PAGE_SIZE = 24;
 
 export default function MenuModule({ productosMenu, onProductosChange, recetas, insumos, addLog }: MenuModuleProps) {
   const { categories } = useCategories(true);
   const [items, setItems] = useState<ProductoMenu[]>(productosMenu);
+  const [page, setPage] = useState(1);
   const { toast, toasts, removeToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editFileInputRef = useRef<HTMLInputElement>(null);
@@ -445,6 +442,19 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
     const matchesCat = selectedCategoria === 'todos' || getCategorySlug(item.categoria).toLowerCase() === selectedCategoria.toLowerCase();
     return matchesSearch && matchesCat;
   }), [items, debouncedSearch, selectedCategoria, categories]);
+  const pageCount = Math.max(1, Math.ceil(filtered.length / MENU_PAGE_SIZE));
+  const paginatedItems = useMemo(
+    () => filtered.slice((page - 1) * MENU_PAGE_SIZE, page * MENU_PAGE_SIZE),
+    [filtered, page],
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, selectedCategoria]);
+
+  useEffect(() => {
+    if (page > pageCount) setPage(pageCount);
+  }, [page, pageCount]);
 
   const toggleAllergen = (allergenId: string, isEdit: boolean) => {
     if (isEdit) {
@@ -697,7 +707,7 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
-            {loading ? <div className="col-span-3"><CardSkeleton count={6} /></div> : filtered.map(item => {
+            {loading ? <div className="col-span-3"><CardSkeleton count={6} /></div> : paginatedItems.map(item => {
               const itemBusy = pendingAction === `toggle_${item.id_producto}`
                 || pendingAction === `edit_${item.id_producto}`
                 || pendingAction === `duplicate_${item.id_producto}`;
@@ -725,7 +735,11 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
                     loading="lazy" decoding="async"
                     referrerPolicy="no-referrer"
                     className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-cover shrink-0 bg-stone-100 dark:bg-stone-900 border border-stone-200 dark:border-white/10"
-                    onError={e => { (e.currentTarget as HTMLImageElement).src = getFallbackImage(item.categoria); }}
+                    onError={e => {
+                      const image = e.currentTarget as HTMLImageElement;
+                      image.onerror = null;
+                      image.src = getFallbackImage(item.categoria);
+                    }}
                   />
                   <div className="flex-1 flex flex-col justify-between min-w-0">
                     <div className="space-y-0.5">
@@ -845,8 +859,10 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
 
                           <div className="flex gap-1.5 pt-1">
                             <button onClick={() => void handleSaveEdit(item.id_producto)} disabled={isBusy}
+                              aria-label={`Guardar cambios de ${item.nombre}`}
                               className="p-1.5 rounded bg-[#22C55E]/15 hover:bg-[#22C55E]/20 text-[#22C55E] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"><Check className="w-3.5 h-3.5" /></button>
                             <button onClick={resetEditForm} disabled={isBusy}
+                              aria-label={`Cancelar edición de ${item.nombre}`}
                               className="p-1.5 rounded bg-stone-100 dark:bg-white/5 hover:bg-stone-200 dark:hover:bg-white/10 text-stone-500 dark:text-stone-300 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"><X className="w-3.5 h-3.5" /></button>
                           </div>
                         </div>
@@ -854,6 +870,7 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
                         <div className="flex items-center gap-1.5">
                           <span className="text-sm font-black text-stone-850 dark:text-[#FAF7F0] font-mono tracking-tight">${item.precio_venta.toLocaleString('es-AR')}</span>
                           <button onClick={() => handleStartEditing(item)} disabled={isBusy}
+                            aria-label={`Editar ${item.nombre}`}
                             className="p-1.5 px-2 rounded hover:bg-stone-200/50 dark:hover:bg-white/5 text-stone-400 hover:text-stone-750 dark:hover:text-stone-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer text-[10px]">
                             <Edit2 className="w-3 h-3" />
                           </button>
@@ -912,6 +929,29 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
               );
             })}
           </div>
+          {pageCount > 1 && (
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setPage(current => Math.max(1, current - 1))}
+                disabled={page === 1}
+                className="min-h-10 px-4 rounded-xl border border-stone-200 bg-white text-xs font-bold text-stone-700 disabled:opacity-40"
+              >
+                Anterior
+              </button>
+              <span className="text-xs font-bold text-stone-600" aria-live="polite">
+                Página {page} de {pageCount}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPage(current => Math.min(pageCount, current + 1))}
+                disabled={page === pageCount}
+                className="min-h-10 px-4 rounded-xl border border-stone-200 bg-white text-xs font-bold text-stone-700 disabled:opacity-40"
+              >
+                Siguiente
+              </button>
+            </div>
+          )}
         </div>
       </div>
       )}

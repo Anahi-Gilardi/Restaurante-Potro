@@ -324,7 +324,7 @@ async function isSuperAdmin(user: AuthenticatedUser): Promise<boolean> {
 }
 
 async function canIssueFiscalDocuments(user: AuthenticatedUser): Promise<boolean> {
-  return ["superadmin", "administrador"].includes(await getApplicationRole(user) ?? "");
+  return ["superadmin", "administrador", "cajero"].includes(await getApplicationRole(user) ?? "");
 }
 
 function sanitizePem(pem: string, defaultType: "CERTIFICATE" | "PRIVATE KEY"): string {

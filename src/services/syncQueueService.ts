@@ -8,9 +8,48 @@ export interface SyncQueueItem {
   payload: any;
   timestamp: string;
   attempts: number;
+  nextAttemptAt?: string;
+  lastError?: string;
+  failedAt?: string;
 }
 
 const QUEUE_KEY = 'el_patron_offline_sync_queue';
+const FAILED_QUEUE_KEY = 'el_patron_offline_sync_failed';
+const MAX_ATTEMPTS = 50;
+const MAX_BACKOFF_MS = 5 * 60 * 1000;
+let backgroundSyncStarted = false;
+let backgroundSyncInterval: ReturnType<typeof setInterval> | null = null;
+let queueProcessing = false;
+
+const readStoredQueue = (key: string): SyncQueueItem[] => {
+  if (typeof window === 'undefined') return [];
+  try {
+    const parsed = JSON.parse(localStorage.getItem(key) || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const saveStoredQueue = (key: string, queue: SyncQueueItem[]): void => {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(key, JSON.stringify(queue));
+};
+
+const getErrorMessage = (error: unknown): string => {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'string') return error;
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return 'Error de sincronizacion desconocido';
+  }
+};
+
+const getNextAttemptAt = (attempts: number): string => {
+  const delay = Math.min(MAX_BACKOFF_MS, 2 ** Math.min(attempts, 12) * 1000);
+  return new Date(Date.now() + delay).toISOString();
+};
 
 const markCashShiftSynced = (idCierre: string): void => {
   if (typeof window === 'undefined') return;
@@ -43,17 +82,35 @@ const markCashShiftSynced = (idCierre: string): void => {
 
 export const syncQueueService = {
   getQueue(): SyncQueueItem[] {
-    if (typeof window === 'undefined') return [];
-    try {
-      return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
-    } catch {
-      return [];
-    }
+    return readStoredQueue(QUEUE_KEY);
   },
 
   saveQueue(queue: SyncQueueItem[]): void {
-    if (typeof window === 'undefined') return;
-    localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+    saveStoredQueue(QUEUE_KEY, queue);
+  },
+
+  getFailedQueue(): SyncQueueItem[] {
+    return readStoredQueue(FAILED_QUEUE_KEY);
+  },
+
+  retryFailed(): number {
+    const failed = this.getFailedQueue();
+    if (failed.length === 0) return 0;
+    const pending = this.getQueue();
+    const restored = failed.map(item => ({
+      ...item,
+      attempts: 0,
+      nextAttemptAt: undefined,
+      failedAt: undefined
+    }));
+    this.saveQueue([...pending, ...restored]);
+    saveStoredQueue(FAILED_QUEUE_KEY, []);
+    this.processQueue().catch(error => console.warn('No se pudo reintentar la cola:', error));
+    return restored.length;
+  },
+
+  clearFailed(): void {
+    saveStoredQueue(FAILED_QUEUE_KEY, []);
   },
 
   enqueue(action: SyncQueueItem['action'], payload: any): void {
@@ -68,7 +125,8 @@ export const syncQueueService = {
       action,
       payload,
       timestamp: new Date().toISOString(),
-      attempts: 0
+      attempts: 0,
+      nextAttemptAt: new Date().toISOString()
     };
     queue.push(item);
     this.saveQueue(queue);
@@ -92,88 +150,112 @@ export const syncQueueService = {
   },
 
   async processQueue(): Promise<void> {
+    if (queueProcessing) return;
     const queue = this.getQueue();
     if (queue.length === 0) return;
+    queueProcessing = true;
 
-    // Check if network is online
-    const online = await this.isOnline();
-    if (!online) {
-      console.log('SyncQueue: Device is offline. post-poning sync.');
-      return;
-    }
-
-    console.log(`SyncQueue: Found ${queue.length} pending items to synchronize.`);
-    const remaining: SyncQueueItem[] = [];
-
-    // Dynamically import services to avoid circular dependency
-    const { pedidosService } = await import('./pedidosService');
-    const { facturacionService } = await import('./facturacionService');
-    const { salesPersistenceService } = await import('./salesPersistenceService');
-    const { mermasService } = await import('./mermasService');
-
-    for (const item of queue) {
-      item.attempts += 1;
-      let success = false;
-
-      try {
-        if (item.action === 'upsert_pedido') {
-          if (item.payload.is_accumulation) {
-            await pedidosService.agregarItemsAComandaExistente(item.payload.id_pedido, item.payload.items);
-          } else {
-            // Serialize and push header & details
-            await pedidosService.upsert([item.payload]);
-          }
-          success = true;
-        } else if (item.action === 'upsert_factura') {
-          await facturacionService.upsert([item.payload]);
-          success = true;
-        } else if (item.action === 'record_sale_bundle') {
-          const result = await salesPersistenceService.persist(item.payload, false);
-          success = result.synced;
-        } else if (item.action === 'create_merma') {
-          await mermasService.create(item.payload);
-          success = true;
-        } else if (item.action === 'update_pedido_estado') {
-          await pedidosService.update(item.payload.id, item.payload.fields);
-          success = true;
-        } else if (item.action === 'upsert_cierre') {
-          const supabase = getActiveSupabaseClient();
-          const { error } = await supabase.from('cierres_caja').upsert([item.payload]);
-          if (error) throw error;
-          markCashShiftSynced(item.payload.id_cierre);
-          success = true;
-        }
-      } catch (err) {
-        console.error(`SyncQueue: Failed synchronization attempt #${item.attempts} for task ${item.id}:`, err);
+    try {
+      // Check if network is online
+      const online = await this.isOnline();
+      if (!online) {
+        console.log('SyncQueue: Device is offline. post-poning sync.');
+        return;
       }
 
-      if (success) {
-        console.log(`SyncQueue: Task ${item.id} (${item.action}) successfully synchronized.`);
-      } else {
-        // Keep in queue if it hasn't exceeded too many retries (e.g. 50 attempts)
-        if (item.attempts < 50) {
+      console.log(`SyncQueue: Found ${queue.length} pending items to synchronize.`);
+      const remaining: SyncQueueItem[] = [];
+      const failedQueue = this.getFailedQueue();
+
+      // Dynamically import services to avoid circular dependency
+      const { pedidosService } = await import('./pedidosService');
+      const { facturacionService } = await import('./facturacionService');
+      const { salesPersistenceService } = await import('./salesPersistenceService');
+      const { mermasService } = await import('./mermasService');
+
+      for (const item of queue) {
+        if (item.nextAttemptAt && Date.parse(item.nextAttemptAt) > Date.now()) {
           remaining.push(item);
+          continue;
+        }
+
+        item.attempts += 1;
+        let success = false;
+
+        try {
+          if (item.action === 'upsert_pedido') {
+            if (item.payload.is_accumulation) {
+              await pedidosService.agregarItemsAComandaExistente(item.payload.id_pedido, item.payload.items);
+            } else {
+              await pedidosService.upsert([item.payload]);
+            }
+            success = true;
+          } else if (item.action === 'upsert_factura') {
+            await facturacionService.upsert([item.payload]);
+            success = true;
+          } else if (item.action === 'record_sale_bundle') {
+            const result = await salesPersistenceService.persist(item.payload, false);
+            success = result.synced;
+          } else if (item.action === 'create_merma') {
+            await mermasService.create(item.payload);
+            success = true;
+          } else if (item.action === 'update_pedido_estado') {
+            await pedidosService.update(item.payload.id, item.payload.fields);
+            success = true;
+          } else if (item.action === 'upsert_cierre') {
+            const supabase = getActiveSupabaseClient();
+            const { error } = await supabase.from('cierres_caja').upsert([item.payload]);
+            if (error) throw error;
+            markCashShiftSynced(item.payload.id_cierre);
+            success = true;
+          }
+        } catch (error) {
+          item.lastError = getErrorMessage(error);
+          console.error(`SyncQueue: Failed synchronization attempt #${item.attempts} for task ${item.id}:`, error);
+        }
+
+        if (success) {
+          console.log(`SyncQueue: Task ${item.id} (${item.action}) successfully synchronized.`);
         } else {
-          console.error(`SyncQueue: Task ${item.id} exceeded maximum retry threshold. Discarding.`);
+          if (item.attempts < MAX_ATTEMPTS) {
+            item.nextAttemptAt = getNextAttemptAt(item.attempts);
+            remaining.push(item);
+          } else {
+            failedQueue.push({ ...item, failedAt: new Date().toISOString() });
+            console.error(`SyncQueue: Task ${item.id} moved to the failed queue.`);
+          }
         }
       }
-    }
 
-    this.saveQueue(remaining);
+      this.saveQueue(remaining);
+      saveStoredQueue(FAILED_QUEUE_KEY, failedQueue);
+    } finally {
+      queueProcessing = false;
+    }
   },
 
   initBackgroundSync(): void {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || backgroundSyncStarted) return;
+    backgroundSyncStarted = true;
 
-    // Listen to network change events reactively
-    window.addEventListener('online', () => {
-      console.log('SyncQueue: Network restored! Retrying sync...');
-      this.processQueue().catch(err => console.error('Error in online event sync:', err));
-    });
-
-    // Run interval check every 20 seconds
-    setInterval(() => {
+    window.addEventListener('online', handleOnline);
+    backgroundSyncInterval = setInterval(() => {
       this.processQueue().catch(err => console.error('Error in periodic sync:', err));
     }, 20000);
+  },
+
+  stopBackgroundSync(): void {
+    if (typeof window === 'undefined' || !backgroundSyncStarted) return;
+    window.removeEventListener('online', handleOnline);
+    if (backgroundSyncInterval) clearInterval(backgroundSyncInterval);
+    backgroundSyncInterval = null;
+    backgroundSyncStarted = false;
   }
 };
+
+function handleOnline(): void {
+  console.log('SyncQueue: Network restored! Retrying sync...');
+  syncQueueService.processQueue().catch(err => {
+    console.error('Error in online event sync:', err);
+  });
+}
