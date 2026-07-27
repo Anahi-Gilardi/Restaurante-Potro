@@ -96,7 +96,10 @@ export default function ElPatronLogo({ className = 'w-16 h-16', color = '#5C4033
   }
 
   return (
-    <div className={`relative ${className} select-none overflow-hidden flex items-center justify-center`} id="el-patron-image-logo">
+    <div
+      className={`relative ${className} select-none overflow-hidden flex items-center justify-center`}
+      data-testid="el-patron-image-logo"
+    >
       <img
         src={logoSrc}
         alt="El Patrón Restaurante"

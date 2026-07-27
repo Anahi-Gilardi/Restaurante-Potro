@@ -161,12 +161,12 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
   const [nombre, setNombre] = useState('');
   const [telefono, setTelefono] = useState('');
   const [pax, setPax] = useState('2');
-  const [nombreMesa, setNombreMesa] = useState(mesas[0]?.numero_mesa || 'Mesa 1');
+  const [nombreMesa, setNombreMesa] = useState('');
   const [hora, setHora] = useState('21:00');
   const [observaciones, setObservaciones] = useState('');
   const [formularioDate, setFormularioDate] = useState(formatDate(new Date()));
   const [forceEspera, setForceEspera] = useState(false);
-  const [enviarWhatsApp, setEnviarWhatsApp] = useState(true);
+  const [enviarWhatsApp, setEnviarWhatsApp] = useState(false);
   const [waTemplate, setWaTemplate] = useState<'standard' | 'recordatorio' | 'espera'>('standard');
 
   // Auditor de colisión horaria en vivo (2 horas de margen)
@@ -224,9 +224,20 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
     });
   }, [mesas, reservasEnFecha]);
 
+  const mesasDisponiblesFormulario = useMemo(
+    () => mesasDisponiblesEnFechaHora(
+      formularioDate,
+      hora,
+      parseInt(pax, 10) || 2,
+      editingId ?? undefined,
+    ),
+    [editingId, formularioDate, hora, mesasDisponiblesEnFechaHora, pax],
+  );
+
   const resetForm = () => {
     setNombre(''); setTelefono(''); setObservaciones('');
-    setPax('2'); setHora('21:00'); setForceEspera(false);
+    setPax('2'); setHora('21:00'); setNombreMesa(''); setForceEspera(false);
+    setEnviarWhatsApp(false);
     setEditingId(null);
     setDeleteConfirmId(null);
     setWaTemplate('standard');
@@ -253,18 +264,12 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
     if (!forceEspera && selectedMesa) {
       const disponibles = mesasDisponiblesEnFechaHora(formularioDate, hora, capPax, editingId ?? undefined);
       if (!disponibles.some(m => m.id_mesa === selectedMesa.id_mesa)) {
-        enviarEspera = true;
-        toast.warning('La mesa elegida ya está reservada u ocupada. Se enviará a lista de espera.');
+        toast.error('La mesa dejó de estar disponible. Elegí otra mesa o marcá lista de espera.');
+        return;
       }
     } else if (!forceEspera) {
-      const disponibles = mesasDisponiblesEnFechaHora(formularioDate, hora, capPax, editingId ?? undefined);
-      if (disponibles.length === 0) {
-        enviarEspera = true;
-        toast.info('No hay mesas disponibles. Se enviará a lista de espera.');
-      } else {
-        idMesaAsignada = disponibles[0].id_mesa;
-        nombreMesaAsignada = disponibles[0].numero_mesa;
-      }
+      toast.warning('Elegí una mesa disponible o marcá la opción de lista de espera.');
+      return;
     }
 
     if (editingId) {
@@ -355,7 +360,7 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
     setNombre(r.nombre_cliente);
     setTelefono(r.telefono);
     setPax(String(r.pax));
-    setNombreMesa(r.nombre_mesa === 'En espera' ? (mesas[0]?.numero_mesa || 'Mesa 1') : r.nombre_mesa);
+    setNombreMesa(r.nombre_mesa === 'En espera' ? '' : r.nombre_mesa);
     setHora(r.hora.replace(' hs', ''));
     setObservaciones(r.observaciones || '');
     setFormularioDate(r.fecha || formatDate(new Date()));
@@ -512,11 +517,13 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
             
             <form onSubmit={handleCreateReserva} className="space-y-3">
               <div>
-                <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Fecha</label>
+                <label htmlFor="reserva-fecha" className="text-[10px] font-black text-stone-500 uppercase block mb-1">Fecha</label>
                 <input 
+                  id="reserva-fecha"
                   type="date" 
                   value={formularioDate} 
                   onChange={e => setFormularioDate(e.target.value)}
+                  min={todayStr}
                   className="w-full text-xs p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-955 text-stone-800 dark:text-stone-100 focus:outline-none" 
                   required 
                 />
@@ -575,18 +582,26 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
               </div>
 
               <div>
-                <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Mesa Preferida</label>
+                <label htmlFor="reserva-mesa" className="text-[10px] font-black text-stone-500 uppercase block mb-1">Mesa disponible</label>
                 <select 
+                  id="reserva-mesa"
                   value={nombreMesa} 
                   onChange={e => setNombreMesa(e.target.value)}
+                  disabled={forceEspera}
                   className="w-full text-xs p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-955 text-stone-700 dark:text-stone-200 focus:outline-none cursor-pointer font-bold"
                 >
-                  {mesas.map(m => (
+                  <option value="">Seleccionar una mesa</option>
+                  {mesasDisponiblesFormulario.map(m => (
                     <option key={m.id_mesa} value={m.numero_mesa} className="bg-white dark:bg-stone-900">
                       {m.numero_mesa} ({m.comensales ?? '?'} pax)
                     </option>
                   ))}
                 </select>
+                {!forceEspera && mesasDisponiblesFormulario.length === 0 && (
+                  <p className="mt-1 text-[10px] font-bold text-amber-700">
+                    No hay mesas disponibles para ese horario y cantidad de personas.
+                  </p>
+                )}
               </div>
 
               {/* Auditor en Vivo de colisiones horarias */}
@@ -616,8 +631,11 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
               {/* WhatsApp Template Selector */}
               <div className="space-y-2 border-t border-stone-100 dark:border-stone-800 pt-2.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-black text-stone-505 uppercase">Aviso por WhatsApp</span>
+                  <label htmlFor="reserva-whatsapp" className="text-[10px] font-black text-stone-505 uppercase">
+                    Aviso por WhatsApp con consentimiento
+                  </label>
                   <input 
+                    id="reserva-whatsapp"
                     type="checkbox" 
                     checked={enviarWhatsApp} 
                     onChange={e => setEnviarWhatsApp(e.target.checked)} 

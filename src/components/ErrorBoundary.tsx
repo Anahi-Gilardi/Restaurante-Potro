@@ -1,5 +1,6 @@
 import * as React from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
+import { getActiveSupabaseClient } from '../lib/supabaseClient';
 
 interface Props {
   children: ReactNode;
@@ -14,6 +15,28 @@ interface State {
 
 const TECHNICAL_CACHE_PREFIXES = ['el_patron_cache_'];
 const TECHNICAL_CACHE_KEYS = ['last_auto_reload'];
+
+const reportClientError = async (moduleName: string | undefined, error: Error): Promise<void> => {
+  try {
+    const client = getActiveSupabaseClient();
+    const { data } = await client.auth.getSession();
+    const token = data.session?.access_token;
+    if (!token) return;
+    await fetch('/api/log-error', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        module: moduleName ?? 'aplicacion',
+        message: error.message,
+      }),
+    });
+  } catch {
+    // Reporting must never replace the original application error.
+  }
+};
 
 export const clearTechnicalBrowserCache = (
   localStorageRef: Pick<Storage, 'length' | 'key' | 'removeItem'>,
@@ -40,19 +63,7 @@ export default class ErrorBoundary extends React.Component<Props, State> {
   componentDidCatch(error: Error, info: ErrorInfo): void {
     console.error('[ErrorBoundary]', this.props.moduleName, error, info);
     this.setState({ errorInfo: info.componentStack || null });
-    // Report to Vercel analytics or console
-    try {
-      fetch('/api/log-error', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          module: this.props.moduleName,
-          message: error.message,
-          stack: error.stack?.slice(0, 500),
-          timestamp: new Date().toISOString()
-        })
-      }).catch(() => {});
-    } catch {}
+    void reportClientError(this.props.moduleName, error);
   }
 
   handleRetry = () => {

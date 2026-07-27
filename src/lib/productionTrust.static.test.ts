@@ -11,7 +11,51 @@ test('BI no presenta métricas operativas inventadas', () => {
   assert.doesNotMatch(source, /return '12\.4'/);
   assert.doesNotMatch(source, /return '97\.8%'/);
   assert.doesNotMatch(source, /1\.2 min vs semana anterior/);
+  assert.doesNotMatch(source, /Rappi & PedidosYa integrados|>En Línea</);
   assert.match(source, /Sin comandas cobradas con tiempos de despacho/);
+  assert.match(source, /Sin health check de Rappi o PedidosYa/);
+  assert.match(source, /Cobertura \{bcgCoverage\.reliable\}\/\{bcgCoverage\.total\}/);
+  assert.match(source, /if \(cost === null\) return \[\]/);
+});
+
+test('Reservas no presume mesa ni consentimiento de WhatsApp', () => {
+  const source = readSource('src/components/ReservasModule.tsx');
+  assert.match(source, /useState\(''\);[\s\S]*?const \[hora/);
+  assert.match(source, /const \[enviarWhatsApp, setEnviarWhatsApp\] = useState\(false\)/);
+  assert.match(source, /min=\{todayStr\}/);
+  assert.match(source, /Seleccionar una mesa/);
+  assert.doesNotMatch(source, /idMesaAsignada = disponibles\[0\]\.id_mesa/);
+  assert.match(source, /La mesa dejó de estar disponible/);
+  assert.doesNotMatch(source, /La mesa elegida ya está reservada u ocupada\. Se enviará a lista de espera/);
+});
+
+test('Promociones no presenta combos ni puntos como reglas operativas', () => {
+  const source = readSource('src/components/PromocionesModule.tsx');
+  assert.match(source, /p\.activo && p\.tipo === 'descuento_directo'/);
+  assert.match(source, /Un 2x1 o combo no se convierte en un porcentaje/);
+  assert.doesNotMatch(source, /puntosAcumulados|Puntos acumulados/);
+  const service = readSource('src/services/promocionesService.ts');
+  const migration = readSource('supabase/migrations/20260727020000_persist_promotion_metadata.sql');
+  assert.match(service, /tipo: promo\.tipo/);
+  assert.match(service, /dias_vigentes: promo\.dias_vigentes/);
+  assert.match(migration, /ADD COLUMN IF NOT EXISTS tipo/);
+  assert.match(migration, /Vigencia informativa; no implica aplicación automática en Caja/);
+});
+
+test('el reporte de errores existe, exige sesión y no envía stacks', () => {
+  const boundary = readSource('src/components/ErrorBoundary.tsx');
+  const endpoint = readSource('api/log-error.ts');
+  assert.match(boundary, /Authorization: `Bearer \$\{token\}`/);
+  assert.doesNotMatch(boundary, /stack: error\.stack/);
+  assert.match(endpoint, /requireAuthenticatedProfile/);
+  assert.match(endpoint, /auditoria_eventos/);
+  assert.match(endpoint, /requestBodyIsTooLarge\(req, 4_096\)/);
+});
+
+test('el logo reutilizable no genera identificadores HTML duplicados', () => {
+  const source = readSource('src/components/ElPatronLogo.tsx');
+  assert.doesNotMatch(source, /\sid="el-patron-image-logo"/);
+  assert.match(source, /data-testid="el-patron-image-logo"/);
 });
 
 test('Proveedores no fabrica registros ni calificaciones', () => {

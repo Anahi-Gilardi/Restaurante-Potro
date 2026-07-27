@@ -28,9 +28,9 @@ interface PromocionesModuleProps {
 }
 
 const TIPO_LABELS: Record<Promocion['tipo'], string> = {
-  happy_hour: 'Happy Hour 🍻',
-  combo: 'Combo / Menú 🍔',
-  descuento_directo: 'Descuento Directo 💸',
+  happy_hour: 'Happy Hour (informativa)',
+  combo: 'Combo (informativo)',
+  descuento_directo: 'Descuento porcentual',
 };
 
 const DIAS_OPCIONES = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
@@ -112,8 +112,9 @@ export default function PromocionesModule({ addLog }: PromocionesModuleProps) {
   const kpis = useMemo(() => {
     const total = promos.length;
     const activas = promos.filter(p => p.activo).length;
-    const sumDescuento = promos.reduce((sum, p) => sum + p.descuento_porcentaje, 0);
-    const promedio = total > 0 ? Math.round(sumDescuento / total) : 0;
+    const operationalPromos = promos.filter(p => p.tipo === 'descuento_directo');
+    const sumDescuento = operationalPromos.reduce((sum, p) => sum + p.descuento_porcentaje, 0);
+    const promedio = operationalPromos.length > 0 ? Math.round(sumDescuento / operationalPromos.length) : 0;
     
     // Contar tipo dominante
     const counts = promos.reduce((acc, p) => {
@@ -138,12 +139,14 @@ export default function PromocionesModule({ addLog }: PromocionesModuleProps) {
     const subtotal = parseFloat(simSubtotal) || 0;
     const promo = promos.find(p => p.id_promo === simPromoId);
     if (!promo || !promo.activo || subtotal <= 0) {
-      return { descuentoMonto: 0, totalPagar: subtotal, puntosAcumulados: Math.round(subtotal * 0.01) };
+      return { descuentoMonto: 0, totalPagar: subtotal, supported: true };
+    }
+    if (promo.tipo !== 'descuento_directo') {
+      return { descuentoMonto: 0, totalPagar: subtotal, supported: false };
     }
     const descuentoMonto = subtotal * (promo.descuento_porcentaje / 100);
     const totalPagar = subtotal - descuentoMonto;
-    const puntosAcumulados = Math.round(totalPagar * 0.01); // 1% de fidelidad
-    return { descuentoMonto, totalPagar, puntosAcumulados };
+    return { descuentoMonto, totalPagar, supported: true };
   }, [simSubtotal, simPromoId, promos]);
 
   const resetForm = () => {
@@ -154,6 +157,10 @@ export default function PromocionesModule({ addLog }: PromocionesModuleProps) {
   };
 
   const validateForm = (): boolean => {
+    if (tipo !== 'descuento_directo') {
+      setFormErrors(['Los combos, 2x1 y horarios requieren el nuevo motor de reglas y no se pueden activar como un porcentaje.']);
+      return false;
+    }
     const result = promocionSchema.safeParse({
       nombre,
       descuento_porcentaje: parseInt(descuento, 10) || 0,
@@ -181,7 +188,7 @@ export default function PromocionesModule({ addLog }: PromocionesModuleProps) {
       tipo,
       dias_vigentes: vigencia.trim() || 'Todos los días',
       activo: true,
-      descripcion: desc.trim() || 'Precios promocionales y combos especiales',
+      descripcion: desc.trim() || 'Descuento porcentual configurado manualmente',
     };
 
     const previous = promos;
@@ -370,7 +377,7 @@ export default function PromocionesModule({ addLog }: PromocionesModuleProps) {
                 value={nombre}
                 onChange={e => setNombre(e.target.value)}
                 className="w-full border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-955 text-stone-800 dark:text-stone-100 rounded-xl px-3 py-2 text-xs focus:outline-none font-bold"
-                placeholder="Ej. Happy Hour 2x1 Copa Barda"
+                placeholder="Ej. 15% cena de martes"
                 required
               />
             </div>
@@ -400,12 +407,16 @@ export default function PromocionesModule({ addLog }: PromocionesModuleProps) {
                   onChange={e => setTipo(e.target.value as Promocion['tipo'])}
                   className="w-full border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-955 text-stone-700 dark:text-stone-200 rounded-xl px-3 py-2 text-xs focus:outline-none font-bold cursor-pointer"
                 >
-                  {(Object.keys(TIPO_LABELS) as Promocion['tipo'][]).map(t => (
-                    <option key={t} value={t} className="bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-100">{TIPO_LABELS[t]}</option>
-                  ))}
+                  <option value="descuento_directo">Descuento porcentual</option>
+                  <option value="happy_hour" disabled>Happy Hour: requiere motor de reglas</option>
+                  <option value="combo" disabled>Combo / 2x1: requiere motor de reglas</option>
                 </select>
               </div>
             </div>
+
+            <p className="text-[10px] font-semibold leading-relaxed text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-2.5">
+              Solo los descuentos porcentuales directos son operativos. Un 2x1 o combo no se convierte en un porcentaje.
+            </p>
 
             {/* PROGRAMADOR SEMANALES DE DÍAS (VIGENCIA) */}
             <div className="space-y-1.5">
@@ -510,14 +521,14 @@ export default function PromocionesModule({ addLog }: PromocionesModuleProps) {
         {/* COLUMNA CENTRAL Y DERECHA: Lista y Calculadora Simuladora (Span 3) */}
         <div className="lg:col-span-3 space-y-6">
           
-          {/* Simulador de Descuentos para Caja */}
+          {/* Simulador de descuentos porcentuales */}
           <div className="bg-[#FFFDF9] dark:bg-stone-900 p-5 rounded-2xl border border-[#FAF4EE] dark:border-stone-800 shadow-xs space-y-4">
             <h4 className="text-xs font-black text-[#624A3E] dark:text-[#C8956A] uppercase tracking-tight flex items-center gap-1.5">
               <Calculator className="w-4 h-4" />
-              Simulador de Descuentos (Arqueo)
+              Simulador de descuento porcentual
             </h4>
             <p className="text-[10px] text-stone-550 dark:text-stone-300 font-bold leading-normal">
-              Selecciona una promoción activa e ingresa el consumo de la mesa para simular el cobro de la cuenta.
+              Vista previa administrativa. No aplica descuentos automáticamente en Caja.
             </p>
 
             <div className="space-y-3 text-xs">
@@ -529,7 +540,7 @@ export default function PromocionesModule({ addLog }: PromocionesModuleProps) {
                   className="w-full border border-stone-200 bg-white dark:bg-stone-950 text-stone-750 dark:text-stone-200 rounded-xl px-2.5 py-1.5 font-bold cursor-pointer focus:outline-none"
                 >
                   <option value="">-- Sin promoción --</option>
-                  {promos.filter(p => p.activo).map(p => (
+                  {promos.filter(p => p.activo && p.tipo === 'descuento_directo').map(p => (
                     <option key={p.id_promo} value={p.id_promo}>{p.nombre} (-{p.descuento_porcentaje}%)</option>
                   ))}
                 </select>
@@ -548,6 +559,11 @@ export default function PromocionesModule({ addLog }: PromocionesModuleProps) {
 
               {/* Resultados */}
               <div className="bg-[#FAF4EE] dark:bg-stone-850 p-3 rounded-xl border border-[#FAF4EE] dark:border-stone-800 space-y-1.5 font-semibold">
+                {!simResults.supported && (
+                  <p className="text-[10px] font-bold text-amber-700">
+                    Esta campaña no tiene una regla de cálculo operativa.
+                  </p>
+                )}
                 <div className="flex justify-between text-[10px] text-stone-500">
                   <span>Descuento aplicado:</span>
                   <span className="font-mono text-stone-800 dark:text-white">-${simResults.descuentoMonto.toLocaleString('es-AR')}</span>
@@ -555,10 +571,6 @@ export default function PromocionesModule({ addLog }: PromocionesModuleProps) {
                 <div className="flex justify-between text-[10px] text-stone-550 dark:text-stone-300">
                   <span>Total Neto a Cobrar:</span>
                   <span className="font-mono text-emerald-600 dark:text-emerald-450 font-black">${simResults.totalPagar.toLocaleString('es-AR')}</span>
-                </div>
-                <div className="flex justify-between text-[9px] text-stone-400 border-t border-stone-200/50 pt-1">
-                  <span>Puntos acumulados (Club):</span>
-                  <span className="font-bold text-stone-600 dark:text-white">{simResults.puntosAcumulados} pts</span>
                 </div>
               </div>
             </div>
@@ -612,7 +624,7 @@ export default function PromocionesModule({ addLog }: PromocionesModuleProps) {
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-extrabold text-stone-900 dark:text-white text-xs">{p.nombre}</span>
                         <span className="bg-[#624A3E]/10 dark:bg-[#C8956A]/20 text-[#624A3E] dark:text-[#C8956A] font-black text-[10px] px-2 py-0.5 rounded-full">
-                          -{p.descuento_porcentaje}%
+                          {p.tipo === 'descuento_directo' ? `-${p.descuento_porcentaje}%` : 'No automatizada'}
                         </span>
                       </div>
                       

@@ -3,7 +3,8 @@ import {
   BarChart3, 
   PieChart, 
   TrendingUp, 
-  Activity, 
+  Activity,
+  Unplug,
   Clock, 
   Compass, 
   HelpCircle, 
@@ -49,9 +50,14 @@ export default function BusinessIntelligence({
   }, [pedidos]);
 
   // 2. Calcular costo de elaboración de receta por producto
-  const computeProductCost = (id_producto: string): number => {
+  const computeProductCost = (id_producto: string): number | null => {
     const productRecipes = recetas.filter(r => r.id_producto === id_producto);
-    if (productRecipes.length === 0) return 0;
+    if (productRecipes.length === 0) return null;
+    const hasIncompleteCost = productRecipes.some(r => {
+      const insumo = insumos.find(i => i.id_insumo === r.id_insumo);
+      return !insumo || !Number.isFinite(insumo.costo_unitario) || insumo.costo_unitario < 0;
+    });
+    if (hasIncompleteCost) return null;
     return productRecipes.reduce((sum, r) => {
       const insumo = insumos.find(i => i.id_insumo === r.id_insumo);
       return sum + (r.cantidad_a_descontar * (insumo?.costo_unitario ?? 0));
@@ -63,31 +69,33 @@ export default function BusinessIntelligence({
     const activeProducts = productosMenu.filter(p => p.activo);
     if (activeProducts.length === 0) return [];
 
-    const productsMetrics = activeProducts.map(p => {
+    const productsMetrics = activeProducts.flatMap(p => {
       const cost = computeProductCost(p.id_producto);
+      if (cost === null) return [];
       const marginVal = p.precio_venta - cost;
       const marginPct = p.precio_venta > 0 ? (marginVal / p.precio_venta) * 100 : 0;
       const volume = salesVolumeMap.get(p.id_producto) ?? 0;
 
-      return {
+      return [{
         product: p,
         cost,
         marginVal,
         marginPct,
         volume
-      };
+      }];
     });
+    if (productsMetrics.length === 0) return [];
 
     // Calcular promedios para usar como umbrales divisores
     const totalVolume = productsMetrics.reduce((sum, item) => sum + item.volume, 0);
     const avgVolume = productsMetrics.length > 0 ? totalVolume / productsMetrics.length : 0;
 
     const totalMarginPct = productsMetrics.reduce((sum, item) => sum + item.marginPct, 0);
-    const avgMarginPct = productsMetrics.length > 0 ? totalMarginPct / productsMetrics.length : 50;
+    const avgMarginPct = totalMarginPct / productsMetrics.length;
 
     // Umbrales de clasificación
     const volumeThreshold = Math.max(avgVolume, 1.0); // Al menos 1 unidad de venta promedio
-    const marginPctThreshold = avgMarginPct > 0 ? avgMarginPct : 40; // Default 40% si no hay recetas/insumos
+    const marginPctThreshold = avgMarginPct;
 
     // Determinar valores máximos para escalar las coordenadas X, Y entre 10% y 90%
     const maxVolume = Math.max(...productsMetrics.map(item => item.volume), 5);
@@ -130,6 +138,12 @@ export default function BusinessIntelligence({
       };
     });
   }, [productosMenu, recetas, insumos, salesVolumeMap]);
+
+  const bcgCoverage = useMemo(() => {
+    const activeProducts = productosMenu.filter(p => p.activo);
+    const reliableProducts = activeProducts.filter(p => computeProductCost(p.id_producto) !== null);
+    return { reliable: reliableProducts.length, total: activeProducts.length };
+  }, [productosMenu, recetas, insumos]);
 
   // 4. Calcular el tiempo promedio de despacho operacional real
   const dynamicTiempoPromedio = useMemo(() => {
@@ -270,16 +284,16 @@ export default function BusinessIntelligence({
           </div>
         </div>
 
-        <div className="bg-white border border-stone-200/80 border-l-4 border-l-[#F97316] rounded-2xl p-4 shadow-sm flex items-center justify-between">
+        <div className="bg-white border border-stone-200/80 border-l-4 border-l-stone-400 rounded-2xl p-4 shadow-sm flex items-center justify-between">
           <div>
-            <span className="text-[10px] uppercase font-bold text-stone-500 font-sans tracking-wider block">Canal API Unificado</span>
-            <h4 className="text-xl font-black text-[#624A3E] font-mono mt-1">En Línea</h4>
-            <p className="text-[9px] text-[#F97316] mt-1.5 font-sans font-bold">
-              Rappi & PedidosYa integrados
+            <span className="text-[10px] uppercase font-bold text-stone-500 font-sans tracking-wider block">Canales de delivery</span>
+            <h4 className="text-xl font-black text-stone-700 font-mono mt-1">No configurado</h4>
+            <p className="text-[9px] text-stone-500 mt-1.5 font-sans font-bold">
+              Sin health check de Rappi o PedidosYa
             </p>
           </div>
-          <div className="w-10 h-10 bg-[#1E1E1E] text-white rounded-xl flex items-center justify-center shadow-md">
-            <Activity className="w-5 h-5 text-[#F97316]" />
+          <div className="w-10 h-10 bg-stone-200 text-stone-600 rounded-xl flex items-center justify-center">
+            <Unplug className="w-5 h-5" />
           </div>
         </div>
 
@@ -297,11 +311,11 @@ export default function BusinessIntelligence({
                 Matriz BCG Comercial del Menú
               </h4>
               <p className="text-[11px] text-slate-400">
-                Segmentación estratégica relacionando volumen de demanda (eje X) y rentabilidad neta (eje Y).
+                Volumen vendido y margen bruto estimado. Excluye productos sin receta o costo confiable.
               </p>
             </div>
             <span className="text-[9px] font-mono bg-slate-100 text-slate-700 font-bold px-2 py-0.5 rounded">
-              Matriz 2x2 Dinámica
+              Cobertura {bcgCoverage.reliable}/{bcgCoverage.total}
             </span>
           </div>
 
@@ -337,6 +351,11 @@ export default function BusinessIntelligence({
             </div>
 
             {/* Plotting menu points */}
+            {bcgData.length === 0 && (
+              <div className="absolute inset-0 z-10 flex items-center justify-center p-8 text-center text-xs font-bold text-slate-500">
+                Sin productos con receta y costos completos para calcular la matriz.
+              </div>
+            )}
             {bcgData.map((item, idx) => {
               return (
                 <div
@@ -360,7 +379,7 @@ export default function BusinessIntelligence({
 
           <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 text-[11px] text-slate-500 flex items-start gap-1.5 leading-snug">
             <Info className="w-4 h-4 text-slate-400 shrink-0" />
-            <span>Pase el cursor por encima de los puntos de la matriz para revelar las recomendaciones comerciales y categorización del producto para el cliente.</span>
+            <span>Fuente: comandas cobradas, recetas e inventario disponibles en Supabase. La cobertura indica cuántos productos tienen costo calculable.</span>
           </div>
         </div>
 
