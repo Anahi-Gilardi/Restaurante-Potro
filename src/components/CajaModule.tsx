@@ -477,6 +477,15 @@ export default function CajaModule({
                     <span className="font-mono text-stone-900 dark:text-stone-200">{cajaSession.fecha_apertura}</span>
                   </div>
 
+                  <div className="flex justify-between text-xs font-semibold text-stone-600 dark:text-stone-400">
+                    <span>Supabase:</span>
+                    <span className={`font-black ${
+                      cajaSession.sync_status === 'pending' ? 'text-amber-700' : 'text-emerald-700'
+                    }`}>
+                      {cajaSession.sync_status === 'pending' ? 'Pendiente de sincronizar' : 'Sincronizado'}
+                    </span>
+                  </div>
+
                   <div className="flex justify-between text-xs font-semibold text-stone-600 dark:text-stone-400 pt-1 border-t border-stone-150 dark:border-stone-800">
                     <span>Monto Inicial:</span>
                     <span className="font-mono text-stone-900 dark:text-stone-200">${cajaSession.monto_apertura.toLocaleString('es-AR')}</span>
@@ -1724,6 +1733,11 @@ export default function CajaModule({
                   <div className="space-y-1">
                     <p className="font-extrabold text-[#624A3E] dark:text-amber-550 flex items-center gap-1">
                       Cierre de Caja {cs.usuario_cajero}
+                      {cs.sync_status === 'pending' && (
+                        <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[8px] font-black uppercase text-amber-700">
+                          Pendiente de sincronizar
+                        </span>
+                      )}
                     </p>
                     <p className="text-[10px] text-stone-500 font-medium">
                       Apertura: {cs.fecha_apertura} • Cierre: {cs.fecha_cierre || 'En curso'}

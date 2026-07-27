@@ -1,6 +1,7 @@
 import { getActiveSupabaseClient } from '../lib/supabaseClient';
 import { CierreCaja, MovimientoCajaChica } from '../types';
 import { aperturaCajaSchema } from '../lib/validations';
+import { syncQueueService } from './syncQueueService';
 
 const inferFechaApertura = (idCierre: string) => {
   const timestamp = Number(idCierre.replace('cie_', ''));
@@ -39,15 +40,40 @@ const safeStorage = {
     } catch {
       delete memoryStorage[key];
     }
-  },
-  clear(): void {
-    try {
-      localStorage.clear();
-    } catch {
-      for (const k in memoryStorage) {
-        delete memoryStorage[k];
-      }
-    }
+  }
+};
+
+const toDbCierre = (cierre: CierreCaja) => ({
+  id_cierre: cierre.id_cierre,
+  fecha_apertura: cierre.fecha_apertura,
+  fecha_cierre: cierre.fecha_cierre,
+  monto_apertura: cierre.monto_apertura,
+  monto_ventas: cierre.monto_ventas,
+  monto_real: cierre.monto_real,
+  diferencia: cierre.diferencia,
+  observaciones: cierre.observaciones,
+  usuario_cajero: cierre.usuario_cajero,
+});
+
+const persistCierre = async (cierre: CierreCaja): Promise<void> => {
+  const supabase = getActiveSupabaseClient();
+  const { error } = await supabase.from('cierres_caja').upsert([toDbCierre(cierre)]);
+  if (error) throw error;
+};
+
+const persistOrQueueCierre = async (cierre: CierreCaja): Promise<CierreCaja['sync_status']> => {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    syncQueueService.enqueue('upsert_cierre', toDbCierre(cierre));
+    return 'pending';
+  }
+
+  try {
+    await persistCierre(cierre);
+    return 'synced';
+  } catch (error) {
+    console.warn('El turno de caja quedó pendiente de sincronización:', error);
+    syncQueueService.enqueue('upsert_cierre', toDbCierre(cierre));
+    return 'pending';
   }
 };
 
@@ -103,6 +129,7 @@ export const cajaService = {
             usuario_cajero: parsed.usuario_cajero || 'Cajero',
             fecha_apertura: parsed.fecha_apertura || new Date().toISOString().replace('T', ' ').slice(0, 19),
             observaciones: parsed.observaciones || 'Sesión Activa - En Turno',
+            sync_status: parsed.sync_status === 'synced' ? 'synced' : 'pending',
             registros_totales: parsed.registros_totales ? {
               efectivo: Number(parsed.registros_totales.efectivo) || 0,
               debito: Number(parsed.registros_totales.debito) || 0,
@@ -147,7 +174,8 @@ export const cajaService = {
         monto_real: cc.monto_real ? parseFloat(cc.monto_real) : null,
         diferencia: cc.diferencia ? parseFloat(cc.diferencia) : null,
         observaciones: cc.observaciones || '',
-        usuario_cajero: cc.usuario_cajero || 'Cajero Pro'
+        usuario_cajero: cc.usuario_cajero || 'Cajero Pro',
+        sync_status: 'synced'
       }));
     } catch {
       // Offline fallback lists historical records
@@ -206,6 +234,7 @@ export const cajaService = {
       diferencia: null,
       observaciones: 'Sesión Activa - En Turno',
       usuario_cajero: cajero,
+      sync_status: 'pending',
       registros_totales: {
         efectivo: 0,
         debito: 0,
@@ -215,25 +244,11 @@ export const cajaService = {
       }
     };
 
+    session.sync_status = await persistOrQueueCierre(session);
     safeSetItem('el_patron_caja_activa', JSON.stringify(session));
 
-    // Run remote persistence and predictions asynchronously in the background to prevent UI blockages/freezes
+    // Las predicciones no bloquean la apertura del turno.
     (async () => {
-      // Try Supabase push
-      try {
-        const supabase = getActiveSupabaseClient();
-        await supabase.from('cierres_caja').insert([{
-          id_cierre: session.id_cierre,
-          monto_apertura: session.monto_apertura,
-          observaciones: session.observaciones,
-          monto_ventas: 0,
-          usuario_cajero: session.usuario_cajero
-        }]);
-      } catch (err) {
-        console.warn('Could not persist closure open on remote DB (offline mode active):', err);
-      }
-
-      // Run prediction algorithm on open and log results to audit system
       try {
         const { prediccionService } = await import('./prediccionService');
         const { auditoriaService } = await import('./auditoriaService');
@@ -276,18 +291,8 @@ export const cajaService = {
       };
     }
 
+    active.sync_status = await persistOrQueueCierre(active);
     safeSetItem('el_patron_caja_activa', JSON.stringify(active));
-
-    // Try live update if possible
-    try {
-      const supabase = getActiveSupabaseClient();
-      await supabase
-        .from('cierres_caja')
-        .update({ monto_ventas: active.monto_ventas })
-        .eq('id_cierre', active.id_cierre);
-    } catch {
-      // safe offline pass
-    }
   },
 
   async addMovimientoCajaChica(mov: MovimientoCajaChica): Promise<void> {
@@ -361,11 +366,11 @@ export const cajaService = {
       monto_real: montoReal,
       diferencia: diferencia,
       observaciones: observaciones || 'Cierre de Caja Normal',
-      movimientos_manuales: movsList
+      movimientos_manuales: movsList,
+      sync_status: 'pending'
     };
 
-    // Remove active and add to history
-    safeStorage.removeItem('el_patron_caja_activa');
+    closed.sync_status = await persistOrQueueCierre(closed);
 
     const raw = safeStorage.getItem('el_patron_historial_cierres');
     let history: CierreCaja[] = [];
@@ -378,25 +383,7 @@ export const cajaService = {
     }
     const updatedHistory = [closed, ...history.filter(h => h.id_cierre !== closed.id_cierre)];
     safeSetItem('el_patron_historial_cierres', JSON.stringify(updatedHistory));
-
-    // Persist closed session in database
-    try {
-      const supabase = getActiveSupabaseClient();
-      await supabase
-        .from('cierres_caja')
-        .upsert([{
-          id_cierre: closed.id_cierre,
-          fecha_cierre: closed.fecha_cierre,
-          monto_apertura: closed.monto_apertura,
-          monto_ventas: closed.monto_ventas,
-          monto_real: closed.monto_real,
-          diferencia: closed.diferencia,
-          observaciones: closed.observaciones,
-          usuario_cajero: closed.usuario_cajero
-        }]);
-    } catch (err) {
-      console.warn('Could not fully persist shift save on remote DB:', err);
-    }
+    safeStorage.removeItem('el_patron_caja_activa');
 
     return closed;
   }

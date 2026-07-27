@@ -86,9 +86,8 @@ export default function UsuariosModule({
       return;
     }
 
-    // Validación básica del PIN
-    if (!password.trim() || password.length < 4) {
-      toast.error('La clave o PIN debe tener al menos 4 caracteres.');
+    if (!password.trim() || password.length < 12) {
+      toast.error('La contraseña debe tener al menos 12 caracteres.');
       return;
     }
 
@@ -145,8 +144,8 @@ export default function UsuariosModule({
       toast.error('El nombre y apellido son campos requeridos.');
       return;
     }
-    if (editPassword && editPassword.length < 4) {
-      toast.error('La nueva contraseña debe tener mínimo 4 caracteres.');
+    if (editPassword && editPassword.length < 12) {
+      toast.error('La nueva contraseña debe tener mínimo 12 caracteres.');
       return;
     }
 
@@ -381,7 +380,7 @@ export default function UsuariosModule({
                   type={showPasswordInput ? 'text' : 'password'} 
                   value={password} 
                   onChange={e => setPassword(e.target.value)}
-                  placeholder="Mínimo 4 caracteres"
+                  placeholder="Mínimo 12 caracteres"
                   autoComplete="new-password"
                   className="w-full pl-9 pr-3 py-2.5 text-xs rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-955 text-stone-800 dark:text-stone-100 font-mono font-bold focus:outline-none" 
                   required 

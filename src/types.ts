@@ -190,6 +190,8 @@ export interface CierreCaja {
     diferencia: number | null;
     observaciones: string;
     usuario_cajero: string;
+    /** Estado de persistencia del turno respecto de Supabase. */
+    sync_status?: 'synced' | 'pending';
     registros_totales?: {
       efectivo: number;
       debito: number;

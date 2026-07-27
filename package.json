@@ -20,7 +20,6 @@
     "hooks:install": "git config core.hooksPath .githooks"
   },
   "dependencies": {
-    "@google/genai": "^2.4.0",
     "@supabase/supabase-js": "^2.108.1",
     "@tailwindcss/vite": "^4.1.14",
     "@types/react-window": "^1.8.8",
@@ -33,7 +32,6 @@
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
     "react-window": "^2.2.7",
-    "vite-plugin-pwa": "^1.3.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -44,9 +42,11 @@
     "@types/react-dom": "^19.2.3",
     "autoprefixer": "^10.4.21",
     "esbuild": "^0.28.1",
+    "postcss": "8.5.23",
     "tailwindcss": "^4.1.14",
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",
-    "vite": "^8.0.16"
+    "vite": "7.3.6",
+    "vite-plugin-pwa": "1.2.0"
   }
 }

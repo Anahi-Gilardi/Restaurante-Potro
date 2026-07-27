@@ -28,8 +28,8 @@ const cleanUsername = (value: unknown): string => cleanText(value, 40).toLowerCa
 const cleanPassword = (value: unknown): string => String(value ?? "");
 
 const assertPassword = (password: string) => {
-  if (password.length < 4 || password.length > 128) {
-    throw new ApiAccessError(403, "La contraseña debe tener entre 4 y 128 caracteres.");
+  if (password.length < 12 || password.length > 128) {
+    throw new ApiAccessError(403, "La contraseña debe tener entre 12 y 128 caracteres.");
   }
 };
 

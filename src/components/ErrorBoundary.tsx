@@ -12,6 +12,21 @@ interface State {
   errorInfo: string | null;
 }
 
+const TECHNICAL_CACHE_PREFIXES = ['el_patron_cache_'];
+const TECHNICAL_CACHE_KEYS = ['last_auto_reload'];
+
+export const clearTechnicalBrowserCache = (
+  localStorageRef: Pick<Storage, 'length' | 'key' | 'removeItem'>,
+  sessionStorageRef: Pick<Storage, 'removeItem'>,
+): void => {
+  const keys = Array.from({ length: localStorageRef.length }, (_, index) => localStorageRef.key(index))
+    .filter((key): key is string => Boolean(key));
+  keys
+    .filter(key => TECHNICAL_CACHE_PREFIXES.some(prefix => key.startsWith(prefix)))
+    .forEach(key => localStorageRef.removeItem(key));
+  TECHNICAL_CACHE_KEYS.forEach(key => sessionStorageRef.removeItem(key));
+};
+
 export default class ErrorBoundary extends React.Component<Props, State> {
   constructor(props: Props) {
     super(props);
@@ -62,8 +77,7 @@ export default class ErrorBoundary extends React.Component<Props, State> {
 
   handleResetStorage = async () => {
     try {
-      window.sessionStorage.clear();
-      window.localStorage.clear();
+      clearTechnicalBrowserCache(window.localStorage, window.sessionStorage);
       if ('serviceWorker' in navigator) {
         const registrations = await navigator.serviceWorker.getRegistrations();
         for (const registration of registrations) {
@@ -144,7 +158,7 @@ export default class ErrorBoundary extends React.Component<Props, State> {
               </div>
               <button onClick={this.handleResetStorage}
                 className="text-[10px] text-stone-400 hover:text-red-500 underline transition-colors cursor-pointer">
-                Limpiar cache local y recargar
+                Limpiar caché técnica y recargar
               </button>
             </div>
 

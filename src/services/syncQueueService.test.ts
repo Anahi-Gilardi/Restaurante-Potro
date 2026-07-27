@@ -46,3 +46,13 @@ test('SyncQueueService - processQueue postpones sync when device is offline', as
   assert.strictEqual(queue[0].payload.id_merma, 'merma_2');
   assert.strictEqual(queue[0].attempts, 0);
 });
+
+test('SyncQueueService - conserva solo el estado más reciente de un mismo cierre', () => {
+  syncQueueService.enqueue('upsert_cierre', { id_cierre: 'cie_10', monto_ventas: 100 });
+  syncQueueService.enqueue('upsert_cierre', { id_cierre: 'cie_10', monto_ventas: 250 });
+
+  const queue = syncQueueService.getQueue();
+  assert.strictEqual(queue.length, 1);
+  assert.strictEqual(queue[0].action, 'upsert_cierre');
+  assert.strictEqual(queue[0].payload.monto_ventas, 250);
+});

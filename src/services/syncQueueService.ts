@@ -4,13 +4,42 @@ import { Factura } from './facturacionService';
 
 export interface SyncQueueItem {
   id: string;
-  action: 'upsert_pedido' | 'upsert_factura' | 'record_sale_bundle' | 'create_merma' | 'update_pedido_estado';
+  action: 'upsert_pedido' | 'upsert_factura' | 'record_sale_bundle' | 'create_merma' | 'update_pedido_estado' | 'upsert_cierre';
   payload: any;
   timestamp: string;
   attempts: number;
 }
 
 const QUEUE_KEY = 'el_patron_offline_sync_queue';
+
+const markCashShiftSynced = (idCierre: string): void => {
+  if (typeof window === 'undefined') return;
+  try {
+    const activeRaw = localStorage.getItem('el_patron_caja_activa');
+    if (activeRaw) {
+      const active = JSON.parse(activeRaw);
+      if (active?.id_cierre === idCierre) {
+        localStorage.setItem('el_patron_caja_activa', JSON.stringify({ ...active, sync_status: 'synced' }));
+      }
+    }
+
+    const historyRaw = localStorage.getItem('el_patron_historial_cierres');
+    if (historyRaw) {
+      const history = JSON.parse(historyRaw);
+      if (Array.isArray(history)) {
+        localStorage.setItem('el_patron_historial_cierres', JSON.stringify(
+          history.map(item => item?.id_cierre === idCierre ? { ...item, sync_status: 'synced' } : item),
+        ));
+      }
+    }
+
+    if (typeof window.dispatchEvent === 'function' && typeof CustomEvent !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('el-patron-cash-shift-synced', { detail: { idCierre } }));
+    }
+  } catch (error) {
+    console.warn('No se pudo actualizar el indicador local de Caja:', error);
+  }
+};
 
 export const syncQueueService = {
   getQueue(): SyncQueueItem[] {
@@ -28,7 +57,12 @@ export const syncQueueService = {
   },
 
   enqueue(action: SyncQueueItem['action'], payload: any): void {
-    const queue = this.getQueue();
+    const queue = action === 'upsert_cierre'
+      ? this.getQueue().filter(item => !(
+          item.action === 'upsert_cierre'
+          && item.payload?.id_cierre === payload?.id_cierre
+        ))
+      : this.getQueue();
     const item: SyncQueueItem = {
       id: `sync_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
       action,
@@ -101,6 +135,12 @@ export const syncQueueService = {
           success = true;
         } else if (item.action === 'update_pedido_estado') {
           await pedidosService.update(item.payload.id, item.payload.fields);
+          success = true;
+        } else if (item.action === 'upsert_cierre') {
+          const supabase = getActiveSupabaseClient();
+          const { error } = await supabase.from('cierres_caja').upsert([item.payload]);
+          if (error) throw error;
+          markCashShiftSynced(item.payload.id_cierre);
           success = true;
         }
       } catch (err) {

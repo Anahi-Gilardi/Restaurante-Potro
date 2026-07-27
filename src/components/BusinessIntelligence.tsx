@@ -141,13 +141,13 @@ export default function BusinessIntelligence({
       const sum = pedidosConTiempo.reduce((s, p) => s + (p.tiempo_despacho_minutos ?? 0), 0);
       return (sum / pedidosConTiempo.length).toFixed(1);
     }
-    return '12.4'; // Fallback default
+    return null;
   }, [pedidos]);
 
   // 5. Calcular la efectividad real en base a comandas no retrasadas
   const dynamicEfectividadMesa = useMemo(() => {
     const activeAndClosed = pedidos.filter(p => p.estado_comanda !== 'cancelado');
-    if (activeAndClosed.length === 0) return '97.8%';
+    if (activeAndClosed.length === 0) return null;
 
     // Determinar cuántos pedidos excedieron el tiempo ideal
     let delayedCount = 0;
@@ -182,39 +182,28 @@ export default function BusinessIntelligence({
     return `${effectiveness.toFixed(1)}%`;
   }, [pedidos, productosMenu]);
 
-  // Static performance delay metrics for high fidelity display (can also be calculated dynamically for the chart)
   const waitTimesData = useMemo(() => {
-    // Si tenemos pedidos reales cobrados, podemos sacar el promedio de preparación por plato.
-    // De lo contrario usamos un fallback estático realista.
     const activeProducts = productosMenu.filter(p => p.activo && p.requiere_cocina).slice(0, 4);
-    if (activeProducts.length === 0) {
-      return [
-        { plato: 'Lomo en demiglace de pimienta', minutos: 15.4, ideal: 14.0 },
-        { plato: 'Lasagna de pollo al forno', minutos: 9.8, ideal: 11.0 },
-        { plato: 'Milanesa de entrecot', minutos: 11.2, ideal: 10.0 },
-        { plato: 'Tarta de queso vasca', minutos: 8.5, ideal: 9.0 },
-      ];
-    }
-
-    return activeProducts.map(p => {
+    return activeProducts.flatMap(p => {
       const ideal = p.tiempo_preparacion_estimado ?? 10;
-      // Buscar pedidos que tengan este producto para calcular el tiempo real de despacho promedio
       const matchingPedidos = pedidos.filter(ped => 
         ped.estado_comanda === 'entregado_cobrado' && 
         ped.items.some(item => item.id_producto === p.id_producto) &&
         typeof ped.tiempo_despacho_minutos === 'number' && 
         ped.tiempo_despacho_minutos > 0
       );
-      
-      const realMinutes = matchingPedidos.length > 0
-        ? parseFloat((matchingPedidos.reduce((acc, ped) => acc + (ped.tiempo_despacho_minutos ?? 0), 0) / matchingPedidos.length).toFixed(1))
-        : ideal + (Math.random() > 0.5 ? 1.5 : -0.5); // Fallback dinámico cercano al ideal
+      if (matchingPedidos.length === 0) return [];
 
-      return {
+      const realMinutes = parseFloat((
+        matchingPedidos.reduce((acc, ped) => acc + (ped.tiempo_despacho_minutos ?? 0), 0)
+        / matchingPedidos.length
+      ).toFixed(1));
+
+      return [{
         plato: p.nombre,
         minutos: realMinutes,
         ideal: ideal
-      };
+      }];
     });
   }, [productosMenu, pedidos]);
 
@@ -239,9 +228,11 @@ export default function BusinessIntelligence({
         <div className="bg-white border border-stone-200/80 border-l-4 border-l-[#624A3E]/90 rounded-2xl p-4 shadow-sm flex items-center justify-between">
           <div>
             <span className="text-[10px] uppercase font-bold text-stone-500 font-sans tracking-wider block">Tiempo Promedio</span>
-            <h4 className="text-xl font-black text-stone-900 font-mono mt-1">{dynamicTiempoPromedio} min</h4>
-            <p className="text-[9px] text-[#22C55E] mt-1.5 flex items-center gap-0.5 font-sans font-bold">
-              <span>↓ 1.2 min vs semana anterior</span>
+            <h4 className="text-xl font-black text-stone-900 font-mono mt-1">
+              {dynamicTiempoPromedio === null ? 'Sin datos' : `${dynamicTiempoPromedio} min`}
+            </h4>
+            <p className="text-[9px] text-stone-500 mt-1.5 flex items-center gap-0.5 font-sans font-bold">
+              <span>{dynamicTiempoPromedio === null ? 'Requiere comandas cobradas con tiempo' : 'Calculado con comandas cobradas'}</span>
             </p>
           </div>
           <div className="w-10 h-10 bg-[#624A3E] text-white rounded-xl flex items-center justify-center shadow-md shadow-[#624A3E]/10">
@@ -252,7 +243,9 @@ export default function BusinessIntelligence({
         <div className="bg-white border border-stone-200/80 border-l-4 border-l-[#22C55E] rounded-2xl p-4 shadow-sm flex items-center justify-between">
           <div>
             <span className="text-[10px] uppercase font-bold text-stone-500 font-sans tracking-wider block">Efectividad Mesa</span>
-            <h4 className="text-xl font-black text-stone-900 font-mono mt-1">{dynamicEfectividadMesa}</h4>
+            <h4 className="text-xl font-black text-stone-900 font-mono mt-1">
+              {dynamicEfectividadMesa ?? 'Sin datos'}
+            </h4>
             <p className="text-[9px] text-stone-500 mt-1.5 font-sans leading-tight">
               Despachos antes de semáforo rojo
             </p>
@@ -389,7 +382,16 @@ export default function BusinessIntelligence({
           </div>
 
           {/* SVG Custom Column Chart render */}
-          <div className="relative pt-6 h-56 flex flex-col justify-end">
+          <div className="relative pt-6 min-h-56 flex flex-col justify-end">
+            {waitTimesData.length === 0 && (
+              <div className="h-40 flex items-center justify-center border border-dashed border-slate-200 rounded-xl bg-slate-50/60 px-6 text-center">
+                <p className="text-xs font-semibold text-slate-500">
+                  Sin comandas cobradas con tiempos de despacho para comparar.
+                </p>
+              </div>
+            )}
+            {waitTimesData.length > 0 && (
+              <>
             <div className="flex items-end justify-between h-40 border-b border-slate-100 px-4">
               {waitTimesData.map((d, index) => {
                 const maxVal = 20; // max minutes for scale
@@ -444,6 +446,8 @@ export default function BusinessIntelligence({
                 <span>Límite Estimado</span>
               </div>
             </div>
+              </>
+            )}
           </div>
 
         </div>

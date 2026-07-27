@@ -47,18 +47,7 @@ export default function ProveedoresModule({ addLog }: ProveedoresModuleProps) {
 
   // Load suppliers, insumos and movements
   const loadData = useCallback(() => {
-    proveedoresService.list().then(data => {
-      if (data && data.length > 0) { setProveedores(data); }
-      else {
-        setProveedores([
-          { id_proveedor: 'prov_1', nombre: 'Frigorífico Central Sur S.A.', contacto: 'Federico Balestra', telefono: '+54 11 4488-2993', categoria: 'carnes', correo: 'pedidos@frigorificosursas.com', tiempo_entrega_dias: 1 },
-          { id_proveedor: 'prov_2', nombre: 'Distribuidora Agrícola Verde Fresco', contacto: 'Laura Benítez', telefono: '+54 9 11 3998-2831', categoria: 'verduras', correo: 'ventas@verdefrescodist.com', tiempo_entrega_dias: 1 },
-          { id_proveedor: 'prov_3', nombre: 'Bebidas Unidas S.R.L. Bodegas', contacto: 'Esteban Rutini', telefono: '+54 11 5003-8822', categoria: 'bebidas', correo: 'erutini@bebidasunidas.com', tiempo_entrega_dias: 2 },
-          { id_proveedor: 'prov_4', nombre: 'Almacén Mayorista El Trébol', contacto: 'Jorge Alvarenga', telefono: '+54 11 4055-1212', categoria: 'viveres', correo: 'j.alvarenga@trebolsecos.com.ar', tiempo_entrega_dias: 3 },
-          { id_proveedor: 'prov_5', nombre: 'Envases & Descartables Oeste', contacto: 'Damián Sabor', telefono: '+54 9 11 6554-1010', categoria: 'descartables', correo: 'dsabor@envasesoeste.com', tiempo_entrega_dias: 2 },
-        ]);
-      }
-    }).catch(console.error);
+    proveedoresService.list().then(data => setProveedores(data || [])).catch(console.error);
 
     insumosService.list().then(setInsumos).catch(console.error);
     insumosService.listMovements().then(setMovements).catch(console.error);
@@ -86,25 +75,6 @@ export default function ProveedoresModule({ addLog }: ProveedoresModuleProps) {
       return matchSearch && matchCat;
     });
   }, [proveedores, debouncedSearch, filterCat]);
-
-  // Compute scorecard performance dynamically
-  const getScorecard = useCallback((p: Proveedor) => {
-    const code = p.nombre.charCodeAt(0) + p.nombre.charCodeAt(p.nombre.length - 1);
-    const score = Number((4.0 + (code % 11) / 10).toFixed(1)); // Rating between 4.0 and 5.0
-    const onTimeRate = 88 + (code % 13); // Delivery on-time rate 88% - 100%
-    
-    let tier = 'Estándar';
-    let tierColor = 'text-stone-500 bg-stone-50 border-stone-200 dark:bg-stone-900 dark:border-stone-800 dark:text-stone-400';
-    if (score >= 4.7) {
-      tier = 'VIP Oro';
-      tierColor = 'text-amber-700 bg-amber-50 border-amber-200 dark:bg-amber-955/20 dark:border-amber-900/50 dark:text-amber-300';
-    } else if (score >= 4.3) {
-      tier = 'Preferido Plata';
-      tierColor = 'text-slate-700 bg-slate-50 border-slate-250 dark:bg-stone-850 dark:border-stone-800 dark:text-stone-300';
-    }
-    
-    return { score, onTimeRate, tier, tierColor };
-  }, []);
 
   // Calcular volumen financiero de compras realizadas a este proveedor
   const getPurchaseVolume = useCallback((provNombre: string, provCat: string) => {
@@ -139,7 +109,7 @@ export default function ProveedoresModule({ addLog }: ProveedoresModuleProps) {
     const newProv: Proveedor = {
       id_proveedor: `prov_${Date.now()}`,
       nombre, contacto, telefono, categoria,
-      correo: correo || 'contacto@proveedor.com',
+      correo: correo.trim(),
       tiempo_entrega_dias: parseInt(tiempo) || 1
     };
     setProveedores(prev => [...prev, newProv]);
@@ -355,7 +325,6 @@ Administración de "El Patrón"`;
               if (p.categoria === 'bebidas') tagColor = 'bg-blue-50 text-blue-800 border-blue-100 dark:bg-blue-950/20 dark:text-blue-300 dark:border-blue-900/40';
               if (p.categoria === 'viveres') tagColor = 'bg-amber-50 text-amber-800 border-amber-100 dark:bg-amber-950/20 dark:text-amber-300 dark:border-amber-900/40';
               
-              const scorecard = getScorecard(p);
               const isOrdering = orderedId === p.id_proveedor;
 
               // Insumos asociados
@@ -379,8 +348,8 @@ Administración de "El Patrón"`;
                         <h4 className="font-extrabold text-[#624A3E] dark:text-stone-105 text-sm tracking-tight leading-snug">{p.nombre}</h4>
                         <span className={`text-[8.5px] font-black uppercase px-2 py-0.5 rounded-full border inline-block mt-1 ${tagColor}`}>{p.categoria}</span>
                       </div>
-                      <span className={`text-[8.5px] font-black px-1.5 py-0.5 rounded-full border shadow-2xs shrink-0 ${scorecard.tierColor}`}>
-                        {scorecard.tier}
+                      <span className="text-[8.5px] font-black px-1.5 py-0.5 rounded-full border shadow-2xs shrink-0 text-stone-500 bg-stone-50 border-stone-200 dark:bg-stone-900 dark:border-stone-800 dark:text-stone-400">
+                        Sin medición
                       </span>
                     </div>
 
@@ -390,17 +359,13 @@ Administración de "El Patrón"`;
                         {Array.from({ length: 5 }).map((_, i) => (
                           <Star 
                             key={i} 
-                            className={`w-3.5 h-3.5 ${
-                              i < Math.floor(scorecard.score) 
-                                ? 'text-amber-500 fill-amber-500' 
-                                : 'text-stone-200 dark:text-stone-800'
-                            }`} 
+                            className="w-3.5 h-3.5 text-stone-200 dark:text-stone-800"
                           />
                         ))}
-                        <span className="ml-1 text-stone-800 dark:text-white font-mono">{scorecard.score}</span>
+                        <span className="ml-1 text-stone-500 font-mono">Sin datos</span>
                       </div>
                       <div>
-                        Fiel: <strong className="font-mono text-stone-800 dark:text-white">{scorecard.onTimeRate}%</strong>
+                        Puntualidad: <strong className="font-mono text-stone-500">Sin datos</strong>
                       </div>
                     </div>
 
@@ -410,7 +375,9 @@ Administración de "El Patrón"`;
                         <span>{p.contacto}:</span> 
                         <span className="font-semibold text-stone-700 dark:text-stone-200">{p.telefono}</span>
                       </p>
-                      <p className="text-[10.5px] font-mono text-stone-450 dark:text-stone-400 pl-5">{p.correo || 'sin-correo@elpatron.com'}</p>
+                      <p className="text-[10.5px] font-mono text-stone-450 dark:text-stone-400 pl-5">
+                        {p.correo || 'Correo no registrado'}
+                      </p>
                     </div>
 
                     {/* Volumen histórico de compras */}

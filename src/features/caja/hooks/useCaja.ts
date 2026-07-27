@@ -83,6 +83,22 @@ export function useCaja({
   const checkoutInFlightRef = useRef(false);
   const [isCheckoutProcessing, setIsCheckoutProcessing] = useState(false);
 
+  useEffect(() => {
+    const handleCashShiftSynced = (event: Event) => {
+      const idCierre = (event as CustomEvent<{ idCierre?: string }>).detail?.idCierre;
+      if (!idCierre) return;
+      setCajaSession(current => current?.id_cierre === idCierre
+        ? { ...current, sync_status: 'synced' }
+        : current);
+      setSessionInsumos(current => current.map(shift => shift.id_cierre === idCierre
+        ? { ...shift, sync_status: 'synced' }
+        : shift));
+    };
+
+    window.addEventListener('el-patron-cash-shift-synced', handleCashShiftSynced);
+    return () => window.removeEventListener('el-patron-cash-shift-synced', handleCashShiftSynced);
+  }, []);
+
   // Interactive cashier selection
   const [selectedPedidoId, setSelectedPedidoId] = useState<number | null>(null);
   
@@ -179,7 +195,8 @@ export function useCaja({
               monto_apertura: remote.monto_apertura ?? active.monto_apertura,
               usuario_cajero: remote.usuario_cajero ?? active.usuario_cajero,
               observaciones: remote.observaciones ?? active.observaciones,
-              movimientos_manuales: remote.movimientos_manuales ?? active.movimientos_manuales
+              movimientos_manuales: remote.movimientos_manuales ?? active.movimientos_manuales,
+              sync_status: 'synced' as const
             };
             cajaService.safeStorage.setItem('el_patron_caja_activa', JSON.stringify(updatedActive));
             setCajaSession(updatedActive);
@@ -453,9 +470,13 @@ export function useCaja({
       const session = await cajaService.open(amt, operatorName);
       setCajaSession(session);
       setShowOpenModal(false);
-      addLog('sistema', `CAJA: Turno fiscal de caja iniciado por ${operatorName}. Monto inicial: ARS $${amt.toLocaleString('es-AR')}`);
+      addLog('sistema', `CAJA: Turno de caja iniciado por ${operatorName}. Monto inicial: ARS $${amt.toLocaleString('es-AR')}`);
       loadCajaState();
-      toast.success('La jornada fiscal diaria ha sido abierta con éxito.');
+      if (session.sync_status === 'pending') {
+        toast.warning('Caja abierta localmente. La sincronización con Supabase quedó pendiente.');
+      } else {
+        toast.success('La jornada de caja fue abierta correctamente.');
+      }
     } catch (err: any) {
       console.error('Error opening shift:', err);
       toast.error('Error al abrir la caja: ' + (err?.message || err));
@@ -513,7 +534,11 @@ export function useCaja({
       setClosingPhysicalCashInput('');
       setClosingObservationsInput('Cierre de turno');
       loadCajaState();
-      toast.success('Jornada finalizada. Arqueo homologado y balance exportado en CSV y PDF.');
+      if (finalShift.sync_status === 'pending') {
+        toast.warning('Jornada cerrada y respaldada localmente. Supabase se sincronizará al recuperar conexión.');
+      } else {
+        toast.success('Jornada finalizada. Arqueo sincronizado y balance exportado en CSV y PDF.');
+      }
     } catch (err: any) {
       console.error('Error closing shift:', err);
       toast.error('Error al cerrar la caja: ' + (err?.message || err));
