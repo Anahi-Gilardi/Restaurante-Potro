@@ -19,6 +19,9 @@ test('pedido, mesa y stock se confirman mediante funciones transaccionales', () 
   assert.match(migration, /app_apply_order_stock/);
   assert.match(migration, /La mesa conserva comandas activas fuera del cierre/);
   assert.match(migration, /PERFORM public\.app_apply_order_stock\(v_order_id, false, p_allow_negative\)/);
+  assert.match(migration, /ADD COLUMN IF NOT EXISTS comensales_actuales INTEGER/);
+  assert.match(migration, /comensales_actuales = GREATEST/);
+  assert.doesNotMatch(migration, /SET estado = '(?:ocupada|libre)', comensales =/);
 });
 
 test('la aplicacion usa las transacciones para crear, avanzar y cerrar comandas', () => {

@@ -12,6 +12,27 @@ ALTER TABLE public.pedido_detalle
 ALTER TABLE public.movimientos_inventario
   ALTER COLUMN id_pedido TYPE BIGINT USING id_pedido::BIGINT;
 
+ALTER TABLE public.mesas
+  ADD COLUMN IF NOT EXISTS comensales_actuales INTEGER;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'mesas'
+      AND column_name = 'comensales'
+  ) THEN
+    EXECUTE $copy$
+      UPDATE public.mesas
+      SET comensales_actuales = COALESCE(comensales_actuales, comensales)
+      WHERE comensales IS NOT NULL
+    $copy$;
+  END IF;
+END
+$$;
+
 -- Preserve issued invoices while repairing historical references left by
 -- manually removed orders. Orphan detail rows cannot participate in an order.
 UPDATE public.facturas AS f
@@ -341,7 +362,9 @@ BEGIN
   FROM jsonb_array_elements(p_order->'items') WITH ORDINALITY AS item(value, ordinality);
 
   UPDATE public.mesas
-  SET estado = 'ocupada', comensales = GREATEST(1, COALESCE(p_comensales, 2))
+  SET
+    estado = 'ocupada',
+    comensales_actuales = GREATEST(1, COALESCE(p_comensales, 2))
   WHERE id_mesa = v_table_id;
 
   IF v_state IN ('en_cocina', 'listo', 'entregado', 'entregado_cobrado') THEN
@@ -448,7 +471,7 @@ BEGIN
 
   IF p_new_state IN ('entregado_cobrado', 'cancelado') THEN
     UPDATE public.mesas
-    SET estado = 'libre', comensales = NULL
+    SET estado = 'libre', comensales_actuales = NULL
     WHERE id_mesa = v_order.id_mesa
       AND NOT EXISTS (
         SELECT 1
@@ -546,7 +569,7 @@ BEGIN
     AND estado_comanda <> 'cancelado';
 
   UPDATE public.mesas
-  SET estado = 'libre', comensales = NULL
+  SET estado = 'libre', comensales_actuales = NULL
   WHERE id_mesa = v_table_id;
 END;
 $$;
