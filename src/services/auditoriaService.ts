@@ -14,7 +14,13 @@ export const auditoriaService = {
         id: l.id,
         tipo: l.tipo,
         mensaje: l.mensaje,
-        timestamp: new Date(l.timestamp)
+        timestamp: new Date(l.timestamp),
+        usuario_id: l.created_by ?? undefined,
+        terminal: l.terminal ?? undefined,
+        entidad_id: l.entidad_id ?? undefined,
+        estado_anterior: l.estado_anterior ?? undefined,
+        estado_nuevo: l.estado_nuevo ?? undefined,
+        duracion_segundos: l.duracion_segundos ?? undefined,
       }));
     } catch (err) {
       console.warn('Could not retrieve audit logs from remote database:', err);
@@ -29,7 +35,12 @@ export const auditoriaService = {
         id: log.id,
         tipo: log.tipo,
         mensaje: log.mensaje,
-        timestamp: log.timestamp instanceof Date ? log.timestamp.toISOString() : new Date(log.timestamp).toISOString()
+        timestamp: log.timestamp instanceof Date ? log.timestamp.toISOString() : new Date(log.timestamp).toISOString(),
+        terminal: log.terminal ?? null,
+        entidad_id: log.entidad_id ?? null,
+        estado_anterior: log.estado_anterior ?? null,
+        estado_nuevo: log.estado_nuevo ?? null,
+        duracion_segundos: log.duracion_segundos ?? null,
       };
       const { error } = await supabase.from('auditoria_eventos').insert([payload]);
       if (error) {
@@ -47,7 +58,12 @@ export const auditoriaService = {
         id: l.id,
         tipo: l.tipo,
         mensaje: l.mensaje,
-        timestamp: l.timestamp instanceof Date ? l.timestamp.toISOString() : new Date(l.timestamp).toISOString()
+        timestamp: l.timestamp instanceof Date ? l.timestamp.toISOString() : new Date(l.timestamp).toISOString(),
+        terminal: l.terminal ?? null,
+        entidad_id: l.entidad_id ?? null,
+        estado_anterior: l.estado_anterior ?? null,
+        estado_nuevo: l.estado_nuevo ?? null,
+        duracion_segundos: l.duracion_segundos ?? null,
       }));
       const { error } = await supabase.from('auditoria_eventos').upsert(dbPayloads);
       if (error) {

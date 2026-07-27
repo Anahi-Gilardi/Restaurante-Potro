@@ -73,8 +73,7 @@ import {
   dbRecordMovement,
   dbFetchUsuarios,
   getSupabaseConfig,
-  dbUpsertProductosMenu,
-  dbUpsertRecetas
+  dbInsertLog
 } from './supabase';
 import { AppView, canAccessView, getAllowedViews } from './lib/permissions';
 import { createClientPedidoId } from './lib/pedidoIds';
@@ -130,38 +129,22 @@ export default function App() {
   }, [productosMenu]);
 
   // Helper log registrar
-  const [logs, setLogs] = useState<EventoLog[]>([
-    {
-      id: 'init_log_1',
-      tipo: 'sistema',
-      mensaje: 'SISTEMA: Conexión establecida de forma segura. Respaldo local del navegador disponible.',
-      timestamp: new Date(Date.now() - 35 * 60 * 1000)
-    },
-    {
-      id: 'init_log_2',
-      tipo: 'sistema',
-      mensaje: 'SISTEMA: Inicializando terminales para personal de Mozo, Cocina, Caja y Administrador.',
-      timestamp: new Date(Date.now() - 34 * 60 * 1000)
-    },
-    {
-      id: 'init_log_3',
-      tipo: 'descuento_stock',
-      mensaje: 'ESCANDALLO: Stock de materia prima cargado con 15 insumos controlados.',
-      timestamp: new Date(Date.now() - 33 * 60 * 1000)
-    }
-  ]);
+  const [logs, setLogs] = useState<EventoLog[]>([]);
   const addLog = useCallback(
     (
       tipo: 'pedido_creado' | 'descuento_stock' | 'alerta_stock' | 'comanda_estado' | 'merma_registrada' | 'sistema', 
-      mensaje: string
+      mensaje: string,
+      metadata: Pick<EventoLog, 'terminal' | 'entidad_id' | 'estado_anterior' | 'estado_nuevo' | 'duracion_segundos'> = {},
     ) => {
       const newLogItem: EventoLog = {
         id: `log_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
         tipo,
         mensaje,
-        timestamp: new Date()
+        timestamp: new Date(),
+        ...metadata,
       };
       setLogs(prev => [newLogItem, ...prev]);
+      void dbInsertLog(newLogItem);
     },
     []
   );
@@ -260,44 +243,6 @@ export default function App() {
 
         if ((savedUsuarios ?? []).length > 0) {
           setUsuarios(savedUsuarios ?? []);
-        }
-
-        // Auto-seed new Coca-Cola line if they are missing in the Supabase database
-        if (dbProducts && dbProducts.length > 0) {
-          const hasCocaCola = dbProducts.some(p => p.id_producto === 'prod_coca_cola_original');
-          if (!hasCocaCola) {
-            const cocaColaProducts = INITIAL_PRODUCTOS_MENU.filter(p => 
-              p.id_producto.startsWith('prod_coca_cola') || 
-              p.id_producto.startsWith('prod_sprite') || 
-              p.id_producto.startsWith('prod_fanta')
-            );
-            if (cocaColaProducts.length > 0) {
-              await dbUpsertProductosMenu(cocaColaProducts);
-              
-              const relatedInsumos = INITIAL_INSUMOS.filter(i => 
-                i.id_insumo.startsWith('ins_beb_coca_cola') || 
-                i.id_insumo.startsWith('ins_beb_sprite') || 
-                i.id_insumo.startsWith('ins_beb_fanta')
-              );
-              if (relatedInsumos.length > 0) {
-                await dbUpsertInsumos(relatedInsumos);
-              }
-              
-              const relatedRecipes = INITIAL_RECETAS_ESCANDALLO.filter(r => 
-                r.id_producto.startsWith('prod_coca_cola') || 
-                r.id_producto.startsWith('prod_sprite') || 
-                r.id_producto.startsWith('prod_fanta')
-              );
-              if (relatedRecipes.length > 0) {
-                await dbUpsertRecetas(relatedRecipes);
-              }
-              
-              // Refetch updated data from Supabase
-              dbProducts = await dbFetchProductosMenu();
-              dbInsumos = await dbFetchInsumos();
-              dbRecipes = await dbFetchRecetas();
-            }
-          }
         }
 
         if (!active) return;
@@ -810,7 +755,17 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     }));
 
     const mStr = pObj ? ` para ${pObj.numero_mesa}` : '';
-    addLog('comanda_estado', `COMANDA #${idPedido}${mStr}: Estado cambiado a ${nuevoEstado.toUpperCase()}`);
+    addLog(
+      'comanda_estado',
+      `COMANDA #${idPedido}${mStr}: Estado cambiado a ${nuevoEstado.toUpperCase()}`,
+      {
+        terminal: 'KDS',
+        entidad_id: String(idPedido),
+        estado_anterior: pObj?.estado_comanda,
+        estado_nuevo: nuevoEstado,
+        duracion_segundos: pObj ? Math.max(0, pObj.minutos_transcurridos * 60) : undefined,
+      },
+    );
 
     setTimeout(() => {
       if (updatedPedido) {

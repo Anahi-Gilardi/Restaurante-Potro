@@ -79,6 +79,7 @@ function mapRowToReserva(r: Record<string, unknown>): Reserva {
           observaciones:  asOptionalString(r.observaciones ?? r.notas),
           lista_espera:   listaEspera,
           prioridad_espera: listaEspera ? asOptionalNumber(r.prioridad_espera) ?? 0 : undefined,
+          entrada_lista_espera: asOptionalString(r.entrada_lista_espera),
     };
 }
 
@@ -103,13 +104,22 @@ function toDbPayload(res: Partial<Reserva> & { id_reserva?: string }) {
     if (res.observaciones  !== undefined) payload.observaciones = res.observaciones ?? null;
     if (res.lista_espera   !== undefined) payload.lista_espera  = res.lista_espera;
     if (res.prioridad_espera !== undefined) payload.prioridad_espera = res.prioridad_espera;
+    if (res.entrada_lista_espera !== undefined) payload.entrada_lista_espera = res.entrada_lista_espera ?? null;
     return payload;
+}
+
+function normalizeReservationError(error: any): Error {
+    if (error?.code === '23P01' || String(error?.message ?? '').includes('RESERVA_SOLAPADA')) {
+      return new Error('La mesa acaba de ser reservada para ese horario. Elegí otra mesa o usá la lista de espera.');
+    }
+    return error instanceof Error ? error : new Error('No se pudo guardar la reserva.');
 }
 
 export const __reservasServiceTestables = {
     normalizarFecha,
     mapRowToReserva,
     toDbPayload,
+    normalizeReservationError,
 };
 
 // ---------------------------------------------------------------------------
@@ -165,7 +175,7 @@ export const reservasService = {
             .single();
           if (error) {
                   console.error('reservasService.create:', error);
-                  throw error;
+                  throw normalizeReservationError(error);
           }
           return mapRowToReserva(data);
     },
@@ -184,7 +194,7 @@ export const reservasService = {
             .eq('id_reserva', id);
           if (error) {
                   console.error('reservasService.update:', error);
-                  throw error;
+                  throw normalizeReservationError(error);
           }
     },
 

@@ -9,7 +9,15 @@ export default defineConfig(() => {
     plugins: [react(), tailwindcss(), VitePWA({
       registerType: 'autoUpdate',
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        globPatterns: [
+          '**/*.{js,css,html,ico,svg,woff2}',
+          'logo-el-patron-192.png',
+          'logo-el-patron-512.png',
+        ],
+        globIgnores: [
+          '**/assets/pdf-*.js',
+          '**/assets/html2canvas*.js',
+        ],
         skipWaiting: true,
         clientsClaim: true,
         runtimeCaching: [

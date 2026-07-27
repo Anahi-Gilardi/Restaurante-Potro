@@ -77,6 +77,11 @@ const persistOrQueueCierre = async (cierre: CierreCaja): Promise<CierreCaja['syn
   }
 };
 
+export interface CajaAuditSummary {
+  facturas_a_revisar: number;
+  cierres_a_revisar: number;
+}
+
 const safeSetItem = (key: string, value: string): void => {
   try {
     safeStorage.setItem(key, value);
@@ -114,6 +119,33 @@ const safeSetItem = (key: string, value: string): void => {
 
 export const cajaService = {
   safeStorage,
+  async getAuditSummary(): Promise<CajaAuditSummary | null> {
+    try {
+      const supabase = getActiveSupabaseClient();
+      const [facturasResult, cierresResult] = await Promise.all([
+        supabase
+          .from('v_conciliacion_facturas')
+          .select('*', { count: 'exact', head: true })
+          .eq('estado_conciliacion', 'requiere_revision'),
+        supabase
+          .from('v_cierres_caja_diagnostico')
+          .select('*', { count: 'exact', head: true })
+          .neq('diagnostico', 'ok'),
+      ]);
+      if (facturasResult.error || cierresResult.error) {
+        console.warn('No se pudo cargar el diagnóstico contable.', facturasResult.error || cierresResult.error);
+        return null;
+      }
+      return {
+        facturas_a_revisar: facturasResult.count ?? 0,
+        cierres_a_revisar: cierresResult.count ?? 0,
+      };
+    } catch (error) {
+      console.warn('Diagnóstico contable no disponible:', error);
+      return null;
+    }
+  },
+
   getOpenSession(): CierreCaja | null {
     const raw = safeStorage.getItem('el_patron_caja_activa');
     if (raw) {

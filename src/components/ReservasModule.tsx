@@ -305,9 +305,9 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
           window.open(url, '_blank', 'noopener,noreferrer');
         }
         resetForm();
-      } catch {
+      } catch (error) {
         setReservas(prev => prev.map(r => r.id_reserva === editingId ? current : r));
-        toast.error('No se pudo guardar la reserva. Se revirtió el cambio.');
+        toast.error(error instanceof Error ? error.message : 'No se pudo guardar la reserva. Se revirtió el cambio.');
       } finally {
         finishAction();
       }
@@ -345,9 +345,9 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
       }
       resetForm();
       toast.success(enviarEspera ? 'Cliente agregado a la lista de espera.' : 'Reserva confirmada exitosamente.');
-    } catch {
+    } catch (error) {
       setReservas(prev => prev.filter(r => r.id_reserva !== newRes.id_reserva));
-      toast.error('No se pudo crear la reserva.');
+      toast.error(error instanceof Error ? error.message : 'No se pudo crear la reserva.');
     } finally {
       finishAction();
     }
@@ -447,9 +447,9 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
       onEstadoChange(updated, 'confirmada');
       addLog('sistema', `RESERVAS: '${target.nombre_cliente}' asignado a ${mesa.numero_mesa} desde espera.`);
       toast.success(`Mesa ${mesa.numero_mesa} asignada.`);
-    } catch {
+    } catch (error) {
       setReservas(prev => prev.map(r => r.id_reserva === reservaId ? target : r));
-      toast.error('No se pudo asignar la mesa.');
+      toast.error(error instanceof Error ? error.message : 'No se pudo asignar la mesa.');
     } finally {
       finishAction();
     }

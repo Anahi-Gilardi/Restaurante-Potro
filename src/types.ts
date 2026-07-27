@@ -156,6 +156,12 @@ export interface EventoLog {
       | 'sistema';
     mensaje: string;
     timestamp: Date;
+    usuario_id?: string;
+    terminal?: string;
+    entidad_id?: string;
+    estado_anterior?: string;
+    estado_nuevo?: string;
+    duracion_segundos?: number;
 }
 
 // ---------------------------------------------------------------------------
