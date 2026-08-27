@@ -57,67 +57,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader("Cache-Control", "no-store, max-age=0");
   res.setHeader("X-Content-Type-Options", "nosniff");
 
-  if (req.method !== "GET") {
-    res.setHeader("Allow", "GET");
-    return res.status(405).end();
-  }
-
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret || header(req, "authorization") !== `Bearer ${cronSecret}`) {
-    return res.status(401).json({ success: false, error: "No autorizado." });
-  }
-
-  try {
-    const client = serviceClient();
-    const now = new Date();
-    const dateKey = argentinaDateKey(now);
-    const snapshot = buildAutomaticBackupSnapshot(await collectRows(client));
-    const serialized = JSON.stringify(snapshot);
-    const sizeBytes = Buffer.byteLength(serialized, "utf8");
-    if (sizeBytes > MAX_BACKUP_BYTES) {
-      throw new Error("El respaldo excede el límite operativo de 25 MB.");
-    }
-
-    const idBackup = `auto_${dateKey}`;
-    const { error: backupError } = await client.from("backups").upsert({
-      id_backup: idBackup,
-      nombre_archivo: `Backup automático ${dateKey}`,
-      fecha: now.toISOString(),
-      tamano: `${(sizeBytes / 1024).toFixed(1)} KB`,
-      tablas: AUTOMATIC_BACKUP_COLLECTIONS.join(", "),
-      contenido: serialized,
-    });
-    if (backupError) throw backupError;
-
-    const { data: automaticRows, error: retentionReadError } = await client
-      .from("backups")
-      .select("id_backup,fecha")
-      .like("id_backup", "auto_%")
-      .order("fecha", { ascending: false })
-      .limit(1_000);
-    if (retentionReadError) throw retentionReadError;
-    const expiredIds = expiredAutomaticBackupIds(automaticRows ?? [], RETENTION_DAYS);
-    if (expiredIds.length > 0) {
-      const { error: deleteError } = await client.from("backups").delete().in("id_backup", expiredIds);
-      if (deleteError) throw deleteError;
-    }
-
-    await client.from("auditoria_eventos").upsert({
-      id: `auto_backup_${dateKey}`,
-      tipo: "sistema",
-      mensaje: `BACKUP: copia automática diaria guardada (${AUTOMATIC_BACKUP_COLLECTIONS.length} colecciones, ${(sizeBytes / 1024).toFixed(1)} KB).`,
-      timestamp: now.toISOString(),
-    });
-
-    return res.status(200).json({
-      success: true,
-      idBackup,
-      collections: AUTOMATIC_BACKUP_COLLECTIONS.length,
-      sizeBytes,
-      expiredRemoved: expiredIds.length,
-    });
-  } catch (error) {
-    console.error("[automatic-backup]", error);
-    return res.status(500).json({ success: false, error: "No se pudo completar el respaldo automático." });
-  }
+  return res.status(403).json({
+    success: false,
+    error: "Los respaldos automáticos se encuentran desactivados por configuración.",
+  });
 }

@@ -123,18 +123,15 @@ test('no respalda la identidad fiscal ficticia de configuraciones antiguas', () 
   ]), [{ clave: 'tema_visual', valor: 'patron' }]);
 });
 
-test('Vercel agenda una ejecución diaria y el endpoint exige CRON_SECRET', () => {
+test('los respaldos automáticos están desactivados en Vercel y el endpoint responde 403', () => {
   const vercelConfig = JSON.parse(readFileSync(new URL('../../vercel.json', import.meta.url), 'utf8'));
   const endpoint = readFileSync(new URL('../../api/automatic-backup.ts', import.meta.url), 'utf8');
-  assert.deepEqual(vercelConfig.crons, [{ path: '/api/automatic-backup', schedule: '0 6 * * *' }]);
-  assert.match(endpoint, /process\.env\.CRON_SECRET/);
-  assert.match(endpoint, /Bearer \$\{cronSecret\}/);
-  assert.match(endpoint, /res\.status\(401\)/);
+  assert.equal(vercelConfig.crons, undefined);
+  assert.match(endpoint, /status\(403\)/);
+  assert.match(endpoint, /desactivados/);
 });
 
-test('el endpoint rechaza llamadas sin la autorización de Vercel', async () => {
-  const previousSecret = process.env.CRON_SECRET;
-  process.env.CRON_SECRET = 'cron-secret-de-prueba';
+test('el endpoint de respaldo automático rechaza llamadas con 403 Desactivado', async () => {
   let statusCode = 0;
   let payload: unknown;
   const response = {
@@ -151,15 +148,16 @@ test('el endpoint rechaza llamadas sin la autorización de Vercel', async () => 
   };
 
   await automaticBackupHandler({ method: 'GET', body: null, query: {}, headers: {} }, response);
-  assert.equal(statusCode, 401);
-  assert.deepEqual(payload, { success: false, error: 'No autorizado.' });
-  if (previousSecret === undefined) delete process.env.CRON_SECRET;
-  else process.env.CRON_SECRET = previousSecret;
+  assert.equal(statusCode, 403);
+  assert.deepEqual(payload, {
+    success: false,
+    error: 'Los respaldos automáticos se encuentran desactivados por configuración.'
+  });
 });
 
-test('el modulo de Backups muestra salud y descarga el dump solo al restaurar', () => {
+test('el modulo de Backups muestra que las copias automáticas están desactivadas', () => {
   const moduleSource = readFileSync(new URL('../components/BackupsModule.tsx', import.meta.url), 'utf8');
-  assert.match(moduleSource, /getAutomaticBackupStatus\(backups\)/);
+  assert.match(moduleSource, /Desactivado por configuraci.n/);
   assert.match(moduleSource, /Respaldo Autom.tico/);
   assert.match(moduleSource, /backupsService\.getContent\(cp\)/);
   assert.match(moduleSource, /navigator\.storage\.estimate/);

@@ -404,13 +404,7 @@ export default function BackupsModule({
           </span>
         </div>
 
-        <div className={`bg-white dark:bg-stone-900 p-5 rounded-2xl border shadow-xs border-l-4 flex flex-col justify-between ${
-          automaticStatus.health === 'healthy'
-            ? 'border-emerald-200 dark:border-emerald-900/60 border-l-emerald-500'
-            : automaticStatus.health === 'delayed'
-              ? 'border-red-200 dark:border-red-900/60 border-l-red-500'
-              : 'border-amber-200 dark:border-amber-900/60 border-l-amber-500'
-        }`}>
+        <div className="bg-white dark:bg-stone-900 p-5 rounded-2xl border border-stone-200 dark:border-stone-850 shadow-xs border-l-4 border-l-stone-400 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between gap-2">
               <span className="text-[10px] text-stone-400 dark:text-stone-300 font-black uppercase tracking-wider">Respaldo Automático</span>
@@ -424,32 +418,14 @@ export default function BackupsModule({
                 <RefreshCw className={`w-3.5 h-3.5 ${loadingHistory ? 'animate-spin' : ''}`} />
               </button>
             </div>
-            <h4 className={`text-xs font-black mt-1.5 flex items-center gap-1.5 ${
-              automaticStatus.health === 'healthy'
-                ? 'text-emerald-700 dark:text-emerald-300'
-                : automaticStatus.health === 'delayed'
-                  ? 'text-red-700 dark:text-red-300'
-                  : 'text-amber-700 dark:text-amber-300'
-            }`}>
-              {automaticStatus.health === 'healthy'
-                ? <CheckCircle className="w-4 h-4" />
-                : automaticStatus.health === 'delayed'
-                  ? <AlertTriangle className="w-4 h-4" />
-                  : <CloudLightning className="w-4 h-4" />}
-              {loadingHistory
-                ? 'Verificando...'
-                : automaticStatus.health === 'healthy'
-                  ? 'Funcionando correctamente'
-                  : automaticStatus.health === 'delayed'
-                    ? 'Ejecución demorada'
-                    : 'Primera ejecución pendiente'}
+            <h4 className="text-xs font-black text-stone-600 dark:text-stone-300 mt-1.5 flex items-center gap-1.5">
+              <Clock className="w-4 h-4 text-stone-400" />
+              Desactivado por configuración
             </h4>
           </div>
-          <div className="mt-2 space-y-0.5 text-[9px] text-stone-500 dark:text-stone-300 font-bold">
-            <p>
-              Última: {automaticStatus.lastRunAt ? formatAutomaticDate(automaticStatus.lastRunAt) : 'sin copia automática'}
-            </p>
-            <p>Próxima ventana: {formatAutomaticDate(automaticStatus.nextRunAt)} hs</p>
+          <div className="mt-2 space-y-0.5 text-[9px] text-stone-500 dark:text-stone-400 font-bold">
+            <p>Las copias automáticas diarias han sido desactivadas.</p>
+            <p>Puede generar respaldos manuales en cualquier momento.</p>
           </div>
         </div>
 
