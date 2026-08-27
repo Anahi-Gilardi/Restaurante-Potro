@@ -439,7 +439,7 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
           <h2 className="text-3xl sm:text-4xl font-bold tracking-wide font-serif-rustic text-[#8C6239] dark:text-[#FAF7F0]">
             Solicitud de Reserva Online
           </h2>
-          <p className="text-xs text-stone-600 dark:text-stone-400 max-w-md mx-auto font-serif-rustic italic">
+          <p className="text-sm sm:text-base font-bold text-stone-850 dark:text-stone-200 max-w-lg mx-auto font-serif-rustic italic">
             Reserve su mesa con anticipación. Le enviaremos una confirmación de disponibilidad vía teléfono o WhatsApp a la brevedad.
           </p>
           <div className="w-16 h-1 bg-[#8C6239] dark:bg-[#8C6239] mx-auto rounded-full" />
