@@ -16,7 +16,6 @@ export type AppView =
   | 'facturacion'
   | 'sistema'
   | 'backups'
-  | 'analytics'
   | 'clientes';
 
 export const ALL_APP_VIEWS: AppView[] = [
@@ -35,7 +34,6 @@ export const ALL_APP_VIEWS: AppView[] = [
   'facturacion',
   'sistema',
   'backups',
-  'analytics',
   'clientes'
 ];
 

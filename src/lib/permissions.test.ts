@@ -10,7 +10,6 @@ test('superadmin tiene acceso total', () => {
   assert.equal(canAccessView('superadmin', 'usuarios'), true);
   assert.equal(canAccessView('superadmin', 'reservas'), true);
   assert.equal(canAccessView('superadmin', 'clientes'), true);
-  assert.equal(canAccessView('superadmin', 'analytics'), true);
 });
 
 test('administrador no puede acceder a sistema pero si a backups', () => {

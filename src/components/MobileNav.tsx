@@ -38,7 +38,6 @@ const NAV_ITEMS: { id: AppView; label: string; icon: string }[] = [
   { id: 'facturacion', label: 'Facturación', icon: '🧾' },
   { id: 'usuarios', label: 'Usuarios', icon: '👥' },
   { id: 'clientes', label: 'Clientes', icon: '👥' },
-  { id: 'analytics', label: 'Métricas / BI', icon: '📊' },
   { id: 'sistema', label: 'Sistema', icon: '💻' },
   { id: 'backups', label: 'Backups', icon: '🗄️' },
 ];

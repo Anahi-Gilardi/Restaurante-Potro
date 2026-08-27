@@ -5,18 +5,6 @@ import test from 'node:test';
 
 const readSource = (path: string) => readFileSync(resolve(path), 'utf8');
 
-test('BI no presenta métricas operativas inventadas', () => {
-  const source = readSource('src/components/BusinessIntelligence.tsx');
-  assert.doesNotMatch(source, /Math\.random\(\)/);
-  assert.doesNotMatch(source, /return '12\.4'/);
-  assert.doesNotMatch(source, /return '97\.8%'/);
-  assert.doesNotMatch(source, /1\.2 min vs semana anterior/);
-  assert.doesNotMatch(source, /Rappi & PedidosYa integrados|>En Línea</);
-  assert.match(source, /Sin comandas cobradas con tiempos de despacho/);
-  assert.match(source, /Sin health check de Rappi o PedidosYa/);
-  assert.match(source, /Cobertura \{bcgCoverage\.reliable\}\/\{bcgCoverage\.total\}/);
-  assert.match(source, /if \(cost === null\) return \[\]/);
-});
 
 test('Reservas no presume mesa ni consentimiento de WhatsApp', () => {
   const source = readSource('src/components/ReservasModule.tsx');

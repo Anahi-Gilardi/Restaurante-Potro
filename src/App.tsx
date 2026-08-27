@@ -55,7 +55,6 @@ const PromocionesModule = lazy(() => import('./components/PromocionesModule'));
 const ReservasModule = lazy(() => import('./components/ReservasModule'));
 const FacturacionModule = lazy(() => import('./components/FacturacionModule'));
 const BackupsModule = lazy(() => import('./components/BackupsModule'));
-const BusinessIntelligence = lazy(() => import('./components/BusinessIntelligence'));
 const ClientesModule = lazy(() => import('./components/ClientesModule'));
 import { 
   getSupabaseClient,
@@ -1194,7 +1193,6 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
             { id: 'reservas', label: 'Reservas', icon: '📅' },
             { id: 'facturacion', label: 'Facturación', icon: '🧾' },
             { id: 'clientes', label: 'Clientes', icon: '👥' },
-            { id: 'analytics', label: 'Métricas / BI', icon: '📊' },
             { id: 'usuarios', label: 'Usuarios', icon: '👥' },
             { id: 'sistema', label: 'Sistema', icon: '💻' },
             { id: 'backups', label: 'Backups', icon: '🗄️' },
@@ -1357,15 +1355,6 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
                 operationalData={{ usuarios, mesas, insumos, productosMenu, recetas, pedidos, mermas, logs }}
                 onRestoreData={handleRestoreBackupData}
                 addLog={addLog}
-              />
-            )}
-            {activeView === 'analytics' && (
-              <BusinessIntelligence 
-                productosMenu={productosMenu} 
-                logs={logs} 
-                pedidos={pedidos} 
-                recetas={recetas} 
-                insumos={insumos} 
               />
             )}
             {activeView === 'clientes' && (
