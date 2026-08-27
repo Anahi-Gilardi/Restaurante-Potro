@@ -135,7 +135,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
   const { toast, toasts, dismissToast } = useToast();
   const [facturas, setFacturas] = useState<FacturaExtendida[]>([]);
   const [clientes, setClientes] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<TabKey>('dashboard');
+  const [activeTab, setActiveTab] = useState<TabKey>('manual');
   
   // Filtros de archivo fiscal
   const [search, setSearch] = useState('');
@@ -1129,7 +1129,6 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
       {/* Tabs de Navegación */}
       <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs p-2 flex flex-wrap gap-2">
         {[
-          ['dashboard', 'Analíticas y Reportes', TrendingUp],
           ['manual', 'Emitir Comprobante Manual', Plus],
           ['pagos', 'Facturar Tickets', CreditCard],
           ['archivo', 'Archivo Fiscal', Receipt]
@@ -1142,7 +1141,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
               className={`px-4 py-2 rounded-xl text-xs font-black uppercase flex items-center gap-2 transition-all ${
                 activeTab === key 
                   ? 'bg-[#624A3E] text-white shadow-sm' 
-                  : 'bg-stone-50 dark:bg-stone-850 text-stone-605 text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800'
+                  : 'bg-stone-50 dark:bg-stone-850 text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800'
               }`}
             >
               <ActiveIcon className="w-4 h-4" />
@@ -1151,179 +1150,6 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
           );
         })}
       </div>
-
-      {/* 1. TAB: DASHBOARD (Analíticas SVG) */}
-      {activeTab === 'dashboard' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fadeIn">
-          {/* Gráfico 7 Días */}
-          <div className="bg-white dark:bg-stone-900 p-6 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs lg:col-span-2 space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-black uppercase tracking-wider text-stone-400 dark:text-stone-300">Ventas - Últimos 7 Días</h3>
-              <TrendingUp className="w-4 h-4 text-[#624A3E]" />
-            </div>
-            
-            <div className="h-64 w-full relative flex items-end">
-              {/* Gráfico SVG nativo */}
-              <svg className="w-full h-full" viewBox="0 0 500 220">
-                {/* Líneas horizontales de guía */}
-                <line x1="40" y1="30" x2="480" y2="30" stroke="#f1f1f0" strokeWidth="1" strokeDasharray="3" />
-                <line x1="40" y1="90" x2="480" y2="90" stroke="#f1f1f0" strokeWidth="1" strokeDasharray="3" />
-                <line x1="40" y1="150" x2="480" y2="150" stroke="#f1f1f0" strokeWidth="1" strokeDasharray="3" />
-                <line x1="40" y1="200" x2="480" y2="200" stroke="#d6d6d4" strokeWidth="1" />
-
-                {/* Etiquetas de valores Y */}
-                <text x="30" y="34" fontSize="8" textAnchor="end" fill="#999" fontFamily="monospace">
-                  {money(Math.max(...chartData.dailyTotals.map(d => d.total), 100000) * 0.8)}
-                </text>
-                <text x="30" y="94" fontSize="8" textAnchor="end" fill="#999" fontFamily="monospace">
-                  {money(Math.max(...chartData.dailyTotals.map(d => d.total), 100000) * 0.5)}
-                </text>
-                <text x="30" y="154" fontSize="8" textAnchor="end" fill="#999" fontFamily="monospace">
-                  {money(Math.max(...chartData.dailyTotals.map(d => d.total), 100000) * 0.2)}
-                </text>
-                <text x="30" y="204" fontSize="8" textAnchor="end" fill="#999" fontFamily="monospace">$0</text>
-
-                {/* Generar puntos de la curva */}
-                {(() => {
-                  const maxVal = Math.max(...chartData.dailyTotals.map(d => d.total), 1);
-                  const points = chartData.dailyTotals.map((d, index) => {
-                    const x = 50 + (index * 70);
-                    // Mapeo inverso de Y (el origen 0 está arriba en SVG)
-                    // Altura disponible = 170 (entre y=30 y y=200)
-                    const valRatio = d.total / maxVal;
-                    const y = 200 - (valRatio * 160);
-                    return { x, y, label: d.label, amount: d.total };
-                  });
-
-                  const pathD = points.reduce((path, p, i) => 
-                    i === 0 ? `M ${p.x} ${p.y}` : `${path} L ${p.x} ${p.y}`, ''
-                  );
-
-                  const areaD = points.length > 0 
-                    ? `${pathD} L ${points[points.length - 1].x} 200 L ${points[0].x} 200 Z` 
-                    : '';
-
-                  return (
-                    <>
-                      {/* Área rellena bajo la línea */}
-                      {areaD && <path d={areaD} fill="url(#gradient-sales)" opacity="0.15" />}
-                      
-                      {/* Línea principal */}
-                      {pathD && <path d={pathD} fill="none" stroke="#624A3E" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />}
-                      
-                      {/* Puntos y valores flotantes */}
-                      {points.map((p, i) => (
-                        <g key={i} className="group/dot cursor-pointer">
-                          <circle cx={p.x} cy={p.y} r="5" fill="#624A3E" stroke="#fff" strokeWidth="2.5" />
-                          <circle cx={p.x} cy={p.y} r="10" fill="#624A3E" opacity="0" className="hover:opacity-10 transition-opacity" />
-                          
-                          {/* Label en X */}
-                          <text x={p.x} y="215" fontSize="8" textAnchor="middle" fill="#666" fontWeight="bold">
-                            {p.label}
-                          </text>
-
-                          {/* Valor encima del punto */}
-                          <text x={p.x} y={p.y - 10} fontSize="7" textAnchor="middle" fill="#333" fontWeight="black" className="opacity-0 group-hover/dot:opacity-100 transition-opacity font-mono bg-white">
-                            {money(p.amount)}
-                          </text>
-                        </g>
-                      ))}
-
-                      {/* Definiciones de gradientes */}
-                      <defs>
-                        <linearGradient id="gradient-sales" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#624A3E" />
-                          <stop offset="100%" stopColor="#624A3E" stopOpacity="0" />
-                        </linearGradient>
-                      </defs>
-                    </>
-                  );
-                })()}
-              </svg>
-            </div>
-          </div>
-
-          {/* Gráfico Tipo Comprobante */}
-          <div className="bg-white dark:bg-stone-900 p-6 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs space-y-5 flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-xs font-black uppercase tracking-wider text-stone-400 dark:text-stone-300">Distribución de Comprobantes</h3>
-                <PieChart className="w-4 h-4 text-[#624A3E]" />
-              </div>
-              <p className="text-[11px] text-stone-500">Monto total y porcentaje de facturación según tipo fiscal.</p>
-            </div>
-
-            {/* Barra apilada interactiva en SVG */}
-            <div className="space-y-4">
-              <div className="w-full h-8 rounded-xl overflow-hidden flex border border-stone-100">
-                {chartData.typeDistribution.map((d, index) => {
-                  const colors = ['bg-[#624A3E]', 'bg-[#8F7264]', 'bg-[#C8956A]', 'bg-stone-300'];
-                  if (d.percentage === 0) return null;
-                  return (
-                    <div 
-                      key={d.tipo} 
-                      className={`${colors[index % colors.length]} h-full relative group`} 
-                      style={{ width: `${d.percentage}%` }}
-                      title={`${d.tipo === 'ticket' ? 'Ticket' : `Factura ${d.tipo}`}: ${money(d.amount)} (${d.percentage.toFixed(1)}%)`}
-                    />
-                  );
-                })}
-              </div>
-
-              <div className="space-y-2">
-                {chartData.typeDistribution.map((d, index) => {
-                  const textColors = ['text-[#624A3E]', 'text-[#8F7264]', 'text-[#C8956A]', 'text-stone-500'];
-                  const dotColors = ['bg-[#624A3E]', 'bg-[#8F7264]', 'bg-[#C8956A]', 'bg-stone-300'];
-                  return (
-                    <div key={d.tipo} className="flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2">
-                        <span className={`w-2.5 h-2.5 rounded-full ${dotColors[index % dotColors.length]}`} />
-                        <span className="font-extrabold uppercase text-stone-700 dark:text-stone-350">{d.tipo === 'ticket' ? 'Ticket Consumo' : `Factura ${d.tipo}`}</span>
-                      </div>
-                      <span className="font-mono font-bold text-stone-900 dark:text-white">
-                        {money(d.amount)} <span className="text-[10px] text-stone-400 font-normal">({d.percentage.toFixed(1)}%)</span>
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-
-          {/* Gráfico Medios de Pago */}
-          <div className="bg-white dark:bg-stone-900 p-6 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs lg:col-span-3 space-y-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-xs font-black uppercase tracking-wider text-stone-400 dark:text-stone-300">Recaudación por Medio de Pago</h3>
-                <p className="text-[11px] text-stone-500 mt-1">Ranking de ingresos según la forma de cobro en caja.</p>
-              </div>
-              <BarChart3 className="w-4 h-4 text-emerald-600" />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {chartData.paymentDistribution.map((p, index) => {
-                const colors = ['bg-emerald-600', 'bg-sky-600', 'bg-indigo-600', 'bg-[#624A3E]', 'bg-amber-500', 'bg-purple-600'];
-                return (
-                  <div key={p.key} className="space-y-1">
-                    <div className="flex justify-between text-xs">
-                      <span className="font-bold text-stone-750 dark:text-stone-200">{p.label}</span>
-                      <span className="font-mono font-black text-stone-900 dark:text-white">
-                        {money(p.amount)} <span className="text-[10px] text-stone-400 font-normal">({p.percentage.toFixed(1)}%)</span>
-                      </span>
-                    </div>
-                    <div className="w-full h-2 bg-stone-100 dark:bg-stone-800 rounded-full overflow-hidden">
-                      <div 
-                        className={`${colors[index % colors.length]} h-full rounded-full transition-all duration-500`}
-                        style={{ width: `${p.percentage}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* 2. TAB: EMISION MANUAL (Autocomplete + CUIT Validation) */}
       {activeTab === 'manual' && (
