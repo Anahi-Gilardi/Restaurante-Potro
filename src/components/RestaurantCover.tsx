@@ -423,10 +423,10 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
             La Cava de El Patrón
           </h2>
           <div className="w-12 h-1 bg-stone-900 rounded-full mx-auto" />
-          <p className="text-stone-850 text-xs sm:text-sm font-serif-rustic italic leading-relaxed max-w-2xl mx-auto">
+          <p className="text-stone-950 text-xs sm:text-base font-serif-rustic font-bold italic leading-relaxed max-w-2xl mx-auto">
             Un buen corte merece ser maridado con un gran exponente. Por eso, diseñamos nuestra cava con una amplia colección de varietales argentinos.
           </p>
-          <p className="text-stone-850 text-xs sm:text-sm font-serif-rustic italic leading-relaxed max-w-2xl mx-auto">
+          <p className="text-stone-950 text-xs sm:text-base font-serif-rustic font-bold italic leading-relaxed max-w-2xl mx-auto">
             Contamos con una amplia gama de etiquetas y varietales seleccionados para ofrecer el maridaje perfecto con nuestros platos, garantizando que cada copa sea una celebración para el paladar.
           </p>
         </div>
