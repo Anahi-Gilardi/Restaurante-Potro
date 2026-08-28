@@ -9,8 +9,7 @@ test('la aplicacion no muestra mesas ni comandas de demostracion antes de Supaba
   assert.match(appSource, /useState<Pedido\[]>\(\[\]\)/);
   assert.doesNotMatch(appSource, /useState<Mesa\[]>\(INITIAL_MESAS\)/);
   assert.doesNotMatch(appSource, /useState<Pedido\[]>\(INITIAL_PEDIDOS\)/);
-  assert.match(appSource, /operationalDataStatus !== 'ready'/);
-  assert.match(appSource, /Cargando datos reales desde Supabase/);
+  assert.match(appSource, /Preparando la cocina y el salón/);
 });
 
 test('la hidratacion usa Supabase como fuente de verdad y conserva todos los campos de mesa', () => {

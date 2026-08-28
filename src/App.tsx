@@ -10,7 +10,8 @@ import {
   RefreshCw,
   LogOut,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  UtensilsCrossed
 } from 'lucide-react';
 
 import { Mesa, Insumo, ProductoMenu, RecetaEscandallo, Pedido, Merma, EventoLog, Reserva, Usuario } from './types';
@@ -1114,11 +1115,27 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
                 </div>
               </>
             ) : (
-              <>
-                <RefreshCw className="mx-auto mt-5 h-7 w-7 animate-spin text-[#8C6239]" />
-                <p className="mt-4 text-sm font-bold text-[#5C4033]">Cargando datos reales desde Supabase...</p>
-                <p className="mt-2 text-xs text-stone-500">Mesas, comandas, menu e inventario se validan antes de abrir el sistema.</p>
-              </>
+              <div className="py-2 flex flex-col items-center">
+                {/* Animación Culinaria de Cocina */}
+                <div className="relative mx-auto my-3 flex h-20 w-20 items-center justify-center">
+                  <div className="absolute inset-0 rounded-full bg-[#8C6239]/10 animate-ping opacity-60" />
+                  <div className="relative z-10 flex flex-col items-center">
+                    {/* Olas de Vapor Animadas */}
+                    <div className="flex gap-1.5 mb-1.5">
+                      <span className="w-1.5 h-4 bg-[#8C6239] rounded-full animate-bounce [animation-delay:-0.3s] opacity-75" />
+                      <span className="w-1.5 h-5 bg-[#6F4E37] rounded-full animate-bounce [animation-delay:-0.15s] opacity-90" />
+                      <span className="w-1.5 h-4 bg-[#8C6239] rounded-full animate-bounce opacity-75" />
+                    </div>
+                    {/* Utensilios de Cocina */}
+                    <div className="p-3 bg-[#F4EBDD] rounded-2xl border border-[#8C6239]/30 text-[#6F4E37] shadow-inner">
+                      <UtensilsCrossed className="h-7 w-7 animate-pulse" />
+                    </div>
+                  </div>
+                </div>
+
+                <h2 className="mt-2 text-base font-black tracking-tight text-[#4A3428]">Preparando la cocina y el salón...</h2>
+                <p className="mt-1.5 text-xs font-semibold text-stone-500 max-w-xs mx-auto">Sincronizando mesas, comandas, menú e inventario para abrir el servicio.</p>
+              </div>
             )}
           </div>
         </div>
