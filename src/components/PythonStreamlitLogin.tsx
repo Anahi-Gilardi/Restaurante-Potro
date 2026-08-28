@@ -20,9 +20,6 @@ import {
   getConfiguredDemoCredentials,
   isDemoLoginEnabled,
 } from '../lib/demoLogin';
-import DiagnosticsTester from './DiagnosticsTester';
-
-
 interface PythonStreamlitLoginProps {
   onLoginSuccess: (user: Usuario, mode: 'demo' | 'supabase') => void;
   onBackToCover?: () => void;
@@ -53,7 +50,6 @@ export default function PythonStreamlitLogin({ onLoginSuccess, onBackToCover }: 
   const [showPassword, setShowPassword] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [error, setError] = useState('');
-  const [showDiagnostics, setShowDiagnostics] = useState(false);
   const loginInFlightRef = useRef(false);
 
 
@@ -243,14 +239,6 @@ export default function PythonStreamlitLogin({ onLoginSuccess, onBackToCover }: 
             </button>
             
             <div className="pt-2 text-center space-y-3">
-              <button
-                type="button"
-                onClick={() => setShowDiagnostics(true)}
-                className="text-xs font-semibold text-stone-500 hover:text-[#8C6239] hover:underline transition-all cursor-pointer flex items-center justify-center gap-1 mx-auto"
-              >
-                🔧 ¿Problemas de conexión? Ejecutar diagnóstico
-              </button>
-
               {onBackToCover && (
                 <button
                   type="button"
@@ -264,10 +252,6 @@ export default function PythonStreamlitLogin({ onLoginSuccess, onBackToCover }: 
           </form>
         )}
       </div>
-
-      {showDiagnostics && (
-        <DiagnosticsTester onClose={() => setShowDiagnostics(false)} />
-      )}
 
       <div className="absolute bottom-4 left-0 right-0 text-center text-[10px] text-stone-400/80">
         El Patrón • Terminal POS autorizada
