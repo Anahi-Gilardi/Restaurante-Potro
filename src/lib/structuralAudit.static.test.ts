@@ -29,8 +29,7 @@ test('caja conserva un ledger inmutable y vistas de conciliacion', () => {
   assert.match(migration, /reject_caja_ledger_mutation/);
   assert.match(migration, /CREATE OR REPLACE VIEW public\.v_conciliacion_facturas/);
   assert.match(migration, /CREATE OR REPLACE VIEW public\.v_cierres_caja_diagnostico/);
-  assert.match(cashService, /getAuditSummary/);
-  assert.match(cashModule, /El sistema no modifica\s+estos registros automáticamente/);
+  assert.doesNotMatch(cashModule, /Conciliación histórica pendiente/);
 });
 
 test('KDS persiste actor y metadatos de cada transicion', () => {

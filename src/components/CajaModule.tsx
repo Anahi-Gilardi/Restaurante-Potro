@@ -42,7 +42,7 @@ import { pdfService } from '../services/pdfService';
 import { printerService } from '../services/printerService';
 import { Factura } from '../services/facturacionService';
 import { calculatePedidoTotal, resolvePedidoItemUnitPrice } from '../lib/orderPricing';
-import { cajaService, type CajaAuditSummary } from '../services/cajaService';
+import { cajaService } from '../services/cajaService';
 
 interface CajaModuleProps {
   pedidos: Pedido[];
@@ -170,7 +170,6 @@ export default function CajaModule({
 
   const [selectedShiftForDetail, setSelectedShiftForDetail] = useState<CierreCaja | null>(null);
   const [failedPrintsCount, setFailedPrintsCount] = useState(0);
-  const [auditSummary, setAuditSummary] = useState<CajaAuditSummary | null>(null);
 
   // Calculadora de Billetes para Arqueo Físico
   const [showBillCounter, setShowBillCounter] = useState<'open' | 'close' | null>(null);
@@ -197,15 +196,7 @@ export default function CajaModule({
     refreshFailedPrintsCount();
   }, [cajaSession, lastFacturas]);
 
-  useEffect(() => {
-    let active = true;
-    void cajaService.getAuditSummary().then(summary => {
-      if (active) setAuditSummary(summary);
-    });
-    return () => {
-      active = false;
-    };
-  }, [sessionInsumos.length, lastFacturas.length]);
+
 
   const handleExportCSV = (cierre: CierreCaja) => {
     const movs = cierre.movimientos_manuales || [];
@@ -1733,22 +1724,6 @@ export default function CajaModule({
         <h4 className="text-xs font-black text-stone-800 dark:text-stone-100 uppercase tracking-tight flex items-center gap-1.5 pb-2 border-b border-stone-100 dark:border-stone-800/80">
           <Calendar className="w-4 h-4 text-[#624A3E] dark:text-stone-300" /> Registro de Auditoría de Cierres de Caja Homologados ({sessionInsumos.length})
         </h4>
-
-        {auditSummary && (auditSummary.facturas_a_revisar > 0 || auditSummary.cierres_a_revisar > 0) && (
-          <div
-            role="status"
-            className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[11px] font-semibold leading-relaxed text-amber-900"
-          >
-            <div className="flex items-start gap-2">
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-              <p>
-                Conciliación histórica pendiente: {auditSummary.facturas_a_revisar} comprobante(s) y{' '}
-                {auditSummary.cierres_a_revisar} cierre(s) requieren revisión. El sistema no modifica
-                estos registros automáticamente.
-              </p>
-            </div>
-          </div>
-        )}
 
         {sessionInsumos.length > 0 ? (
           <div className="space-y-2.5 max-h-[220px] overflow-y-auto pr-1">
