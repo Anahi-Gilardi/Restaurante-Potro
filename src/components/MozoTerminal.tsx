@@ -527,7 +527,7 @@ export default function MozoTerminal({
             nombre: `[PROMO ${promo.descuento_porcentaje > 0 ? `${promo.descuento_porcentaje}% OFF` : ''}] ${promo.nombre}`,
             cantidad: Number(qty),
             categoria: 'Promociones',
-            precio_unitario: 0,
+            precio_unitario: promo.precio && promo.precio > 0 ? promo.precio : 0,
           };
         }
         return {
@@ -566,9 +566,14 @@ export default function MozoTerminal({
   const totalCartValue = useMemo(() => {
     return Object.entries(cart).reduce((total, [prodId, qty]) => {
       const p = productosMenu.find(item => item.id_producto === prodId);
-      return total + (p ? p.precio_venta * Number(qty) : 0);
+      if (p) return total + (p.precio_venta * Number(qty));
+      const promo = promociones.find(item => item.id_promo === prodId);
+      if (promo && promo.precio && promo.precio > 0) {
+        return total + (promo.precio * Number(qty));
+      }
+      return total;
     }, 0);
-  }, [cart, productosMenu]);
+  }, [cart, productosMenu, promociones]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6" id="mozo-terminal-container">
@@ -972,9 +977,16 @@ export default function MozoTerminal({
 
                       <div className="p-3.5 space-y-2 flex-1 flex flex-col justify-between">
                         <div className="space-y-1">
-                          <h4 className="font-extrabold text-stone-900 dark:text-white text-xs group-hover:text-[#8C6239] dark:group-hover:text-[#E8B800] transition-colors">
-                            {promo.nombre}
-                          </h4>
+                          <div className="flex items-center justify-between gap-2">
+                            <h4 className="font-extrabold text-stone-900 dark:text-white text-xs group-hover:text-[#8C6239] dark:group-hover:text-[#E8B800] transition-colors">
+                              {promo.nombre}
+                            </h4>
+                            {promo.precio !== undefined && promo.precio > 0 && (
+                              <span className="font-mono font-black text-[#8C6239] dark:text-[#E8B800] text-xs shrink-0">
+                                ${promo.precio.toLocaleString('es-AR')}
+                              </span>
+                            )}
+                          </div>
                           {promo.descripcion && (
                             <p className="text-[11px] text-stone-600 dark:text-stone-300 italic leading-relaxed">
                               {promo.descripcion}

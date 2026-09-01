@@ -530,9 +530,16 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
                       </div>
                     )}
 
-                    <h3 className="text-xl font-bold font-serif-rustic tracking-wide text-[#8C6239] dark:text-[#FAF7F0]">
-                      {promo.nombre}
-                    </h3>
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="text-xl font-bold font-serif-rustic tracking-wide text-[#8C6239] dark:text-[#FAF7F0]">
+                        {promo.nombre}
+                      </h3>
+                      {promo.precio !== undefined && promo.precio > 0 && (
+                        <span className="px-3 py-1 bg-[#8C6239] text-[#FAF7F0] text-sm font-black rounded-xl shadow-xs font-mono shrink-0">
+                          ${promo.precio.toLocaleString('es-AR')}
+                        </span>
+                      )}
+                    </div>
 
                     {promo.descripcion && (
                       <p className="text-xs text-stone-600 dark:text-stone-400 font-serif-rustic italic leading-relaxed">

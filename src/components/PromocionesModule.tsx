@@ -17,7 +17,8 @@ import {
   Play,
   Lightbulb,
   Upload,
-  Image as ImageIcon
+  Image as ImageIcon,
+  DollarSign
 } from 'lucide-react';
 import { useDebounce } from '../hooks/useDebounce';
 import { promocionesService, Promocion } from '../services/promocionesService';
@@ -47,6 +48,7 @@ export default function PromocionesModule({ addLog }: PromocionesModuleProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [nombre, setNombre] = useState('');
+  const [precio, setPrecio] = useState('');
   const [descuento, setDescuento] = useState('');
   const [tipo, setTipo] = useState<Promocion['tipo']>('descuento_directo');
   const [vigencia, setVigencia] = useState('');
@@ -205,7 +207,7 @@ export default function PromocionesModule({ addLog }: PromocionesModuleProps) {
   }, [simSubtotal, simPromoId, promos]);
 
   const resetForm = () => {
-    setNombre(''); setDescuento(''); setTipo('descuento_directo');
+    setNombre(''); setPrecio(''); setDescuento(''); setTipo('descuento_directo');
     setDesc(''); setImagenUrl(''); setFormErrors([]); setEditingId(null);
     setSelectedDays(['Lun', 'Mar', 'Mié', 'Jue', 'Vie']);
     setUseTimeRange(false);
@@ -236,6 +238,8 @@ export default function PromocionesModule({ addLog }: PromocionesModuleProps) {
     if (pendingAction) return;
     if (!validateForm()) return;
 
+    const parsedPrecio = parseFloat(precio);
+
     const newPr: Promocion = {
       id_promo: `p_${Date.now()}`,
       nombre: nombre.trim(),
@@ -245,6 +249,7 @@ export default function PromocionesModule({ addLog }: PromocionesModuleProps) {
       activo: true,
       descripcion: desc.trim() || 'Descuento porcentual configurado manualmente',
       imagen_url: imagenUrl.trim() || undefined,
+      precio: !isNaN(parsedPrecio) && parsedPrecio > 0 ? parsedPrecio : undefined,
     };
 
     const previous = promos;
@@ -267,6 +272,7 @@ export default function PromocionesModule({ addLog }: PromocionesModuleProps) {
   const handleEditPromo = (p: Promocion) => {
     setEditingId(p.id_promo);
     setNombre(p.nombre);
+    setPrecio(p.precio !== undefined && p.precio !== null ? String(p.precio) : '');
     setDescuento(String(p.descuento_porcentaje));
     setTipo(p.tipo);
     setDesc(p.descripcion ?? '');
@@ -305,6 +311,8 @@ export default function PromocionesModule({ addLog }: PromocionesModuleProps) {
     if (!editingId || pendingAction) return;
     if (!validateForm()) return;
 
+    const parsedPrecio = parseFloat(precio);
+
     const updated: Promocion = {
       id_promo: editingId,
       nombre: nombre.trim(),
@@ -314,6 +322,7 @@ export default function PromocionesModule({ addLog }: PromocionesModuleProps) {
       activo: promos.find(p => p.id_promo === editingId)?.activo ?? true,
       descripcion: desc.trim(),
       imagen_url: imagenUrl.trim() || undefined,
+      precio: !isNaN(parsedPrecio) && parsedPrecio > 0 ? parsedPrecio : undefined,
     };
 
     const previous = promos;
@@ -442,12 +451,28 @@ export default function PromocionesModule({ addLog }: PromocionesModuleProps) {
 
             <div className="grid grid-cols-2 gap-2">
               <div>
+                <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Precio Promocional ($)</label>
+                <div className="relative">
+                  <DollarSign className="w-3.5 h-3.5 text-stone-400 absolute right-3 top-2.5" />
+                  <input
+                    type="number"
+                    min={0}
+                    step={100}
+                    value={precio}
+                    onChange={e => setPrecio(e.target.value)}
+                    className="w-full border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-955 text-stone-800 dark:text-stone-100 rounded-xl pl-3 pr-8 py-2 text-xs focus:outline-none font-bold font-mono"
+                    placeholder="Ej. 12500"
+                  />
+                </div>
+              </div>
+
+              <div>
                 <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Descuento % *</label>
                 <div className="relative">
                   <Percent className="w-3.5 h-3.5 text-stone-400 absolute right-3 top-2.5" />
                   <input
                     type="number"
-                    min={1}
+                    min={0}
                     max={100}
                     value={descuento}
                     onChange={e => setDescuento(e.target.value)}
@@ -457,19 +482,19 @@ export default function PromocionesModule({ addLog }: PromocionesModuleProps) {
                   />
                 </div>
               </div>
+            </div>
 
-              <div>
-                <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Tipo de Descuento</label>
-                <select
-                  value={tipo}
-                  onChange={e => setTipo(e.target.value as Promocion['tipo'])}
-                  className="w-full border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-955 text-stone-700 dark:text-stone-200 rounded-xl px-3 py-2 text-xs focus:outline-none font-bold cursor-pointer"
-                >
-                  <option value="descuento_directo">Descuento porcentual</option>
-                  <option value="happy_hour" disabled>Happy Hour: requiere motor de reglas</option>
-                  <option value="combo" disabled>Combo / 2x1: requiere motor de reglas</option>
-                </select>
-              </div>
+            <div>
+              <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Tipo de Descuento</label>
+              <select
+                value={tipo}
+                onChange={e => setTipo(e.target.value as Promocion['tipo'])}
+                className="w-full border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-955 text-stone-700 dark:text-stone-200 rounded-xl px-3 py-2 text-xs focus:outline-none font-bold cursor-pointer"
+              >
+                <option value="descuento_directo">Descuento porcentual</option>
+                <option value="happy_hour" disabled>Happy Hour: requiere motor de reglas</option>
+                <option value="combo" disabled>Combo / 2x1: requiere motor de reglas</option>
+              </select>
             </div>
 
             <p className="text-[10px] font-semibold leading-relaxed text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-2.5">
@@ -744,6 +769,11 @@ export default function PromocionesModule({ addLog }: PromocionesModuleProps) {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-extrabold text-stone-900 dark:text-white text-xs">{p.nombre}</span>
+                        {p.precio !== undefined && p.precio > 0 && (
+                          <span className="bg-[#8C6239] text-white font-mono font-black text-[10px] px-2 py-0.5 rounded-full shadow-xs">
+                            ${p.precio.toLocaleString('es-AR')}
+                          </span>
+                        )}
                         <span className="bg-[#624A3E]/10 dark:bg-[#C8956A]/20 text-[#624A3E] dark:text-[#C8956A] font-black text-[10px] px-2 py-0.5 rounded-full">
                           {p.tipo === 'descuento_directo' ? `-${p.descuento_porcentaje}%` : 'No automatizada'}
                         </span>

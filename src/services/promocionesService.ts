@@ -9,6 +9,7 @@ export interface Promocion {
   activo: boolean;
   descripcion: string;
   imagen_url?: string;
+  precio?: number;
 }
 
 export const promocionesService = {
@@ -27,7 +28,8 @@ export const promocionesService = {
       dias_vigentes: p.dias_vigentes || p.días_vigentes || 'Todos los días',
       activo: p.activa !== undefined ? p.activa : (p.activo !== undefined ? p.activo : true),
       descripcion: p.descripcion || '',
-      imagen_url: p.imagen_url || undefined
+      imagen_url: p.imagen_url || undefined,
+      precio: p.precio !== undefined && p.precio !== null ? Number(p.precio) : (p.precio_promocional !== undefined ? Number(p.precio_promocional) : undefined)
     }));
   },
 
@@ -41,7 +43,8 @@ export const promocionesService = {
       dias_vigentes: promo.dias_vigentes,
       activa: promo.activo,
       descripcion: promo.descripcion,
-      imagen_url: promo.imagen_url || null
+      imagen_url: promo.imagen_url || null,
+      precio: promo.precio || null
     };
     const { data, error } = await supabase.from('promociones').insert([dbPayload]).select().single();
     if (error) {
@@ -56,7 +59,8 @@ export const promocionesService = {
       dias_vigentes: data.dias_vigentes || 'Todos los días',
       activo: data.activa,
       descripcion: data.descripcion,
-      imagen_url: data.imagen_url || undefined
+      imagen_url: data.imagen_url || undefined,
+      precio: data.precio !== undefined && data.precio !== null ? Number(data.precio) : undefined
     };
   },
 
@@ -70,6 +74,7 @@ export const promocionesService = {
     if (fields.activo !== undefined) dbPayload.activa = fields.activo;
     if (fields.descripcion !== undefined) dbPayload.descripcion = fields.descripcion;
     if (fields.imagen_url !== undefined) dbPayload.imagen_url = fields.imagen_url || null;
+    if (fields.precio !== undefined) dbPayload.precio = fields.precio || null;
 
     const { error } = await supabase.from('promociones').update(dbPayload).eq('id_promo', id);
     if (error) {
@@ -88,7 +93,8 @@ export const promocionesService = {
       dias_vigentes: p.dias_vigentes,
       activa: p.activo,
       descripcion: p.descripcion,
-      imagen_url: p.imagen_url || null
+      imagen_url: p.imagen_url || null,
+      precio: p.precio || null
     }));
     const { error } = await supabase.from('promociones').upsert(dbPayloads);
     if (error) {
