@@ -16,10 +16,12 @@ import {
   Menu,
   X,
   Flame,
-  Pizza
+  Pizza,
+  Tag
 } from 'lucide-react';
 import { argentinaDateIso } from '../lib/argentinaDate';
 import { buildReservationWhatsAppUrl, validatePublicReservation } from '../lib/publicReservation';
+import { promocionesService, type Promocion } from '../services/promocionesService';
 
 export interface RestaurantCoverTheme {
   accentColor: string;
@@ -66,9 +68,30 @@ export function getRestaurantCoverTheme(coverTab: 'parrilla' | 'pizzeria'): Rest
 
 interface RestaurantCoverProps {
   onEnterSystem: () => void;
+  promociones?: Promocion[];
 }
 
-export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps) {
+export default function RestaurantCover({ onEnterSystem, promociones: initialPromociones }: RestaurantCoverProps) {
+  // Dynamic Promociones State
+  const [promociones, setPromociones] = useState<Promocion[]>(initialPromociones || []);
+  const [loadingPromos, setLoadingPromos] = useState(!initialPromociones);
+
+  React.useEffect(() => {
+    let isMounted = true;
+    promocionesService.list()
+      .then(list => {
+        if (isMounted) {
+          setPromociones((list || []).filter(p => p.activo !== false));
+          setLoadingPromos(false);
+        }
+      })
+      .catch(err => {
+        console.warn('No se pudieron cargar promociones para la portada:', err);
+        if (isMounted) setLoadingPromos(false);
+      });
+    return () => { isMounted = false; };
+  }, []);
+
   // Mobile Nav Drawer Toggle
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -197,6 +220,7 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
           <nav className="hidden md:flex items-center gap-6 text-sm font-semibold text-stone-600 dark:text-stone-300">
             <a href="#especialidades" className={`transition-colors ${coverTab === 'parrilla' ? 'hover:text-[#8C6239]' : 'hover:text-[#9B2226]'}`}>Especialidades</a>
             <a href="#experiencia" className={`transition-colors ${coverTab === 'parrilla' ? 'hover:text-[#8C6239]' : 'hover:text-[#9B2226]'}`}>Bodega</a>
+            <a href="#promociones" className={`transition-colors ${coverTab === 'parrilla' ? 'hover:text-[#8C6239]' : 'hover:text-[#9B2226]'}`}>Promociones</a>
             <a href="#reserva" className={`transition-colors ${coverTab === 'parrilla' ? 'hover:text-[#8C6239]' : 'hover:text-[#9B2226]'}`}>Reservas</a>
             <a href="#contacto" className={`transition-colors ${coverTab === 'parrilla' ? 'hover:text-[#8C6239]' : 'hover:text-[#9B2226]'}`}>Ubicación</a>
           </nav>
@@ -226,6 +250,7 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
           >
             <a href="#especialidades" onClick={() => setMobileMenuOpen(false)} className="py-2 text-stone-700 dark:text-stone-300 border-b border-stone-100 dark:border-stone-850">Especialidades</a>
             <a href="#experiencia" onClick={() => setMobileMenuOpen(false)} className="py-2 text-stone-700 dark:text-stone-300 border-b border-stone-100 dark:border-stone-850">Bodega</a>
+            <a href="#promociones" onClick={() => setMobileMenuOpen(false)} className="py-2 text-stone-700 dark:text-stone-300 border-b border-stone-100 dark:border-stone-850">Promociones</a>
             <a href="#reserva" onClick={() => setMobileMenuOpen(false)} className="py-2 text-stone-700 dark:text-stone-300 border-b border-stone-100 dark:border-stone-850">Reservas</a>
             <a href="#contacto" onClick={() => setMobileMenuOpen(false)} className="py-2 text-stone-700 dark:text-stone-300">Ubicación</a>
           </motion.div>
@@ -430,6 +455,87 @@ export default function RestaurantCover({ onEnterSystem }: RestaurantCoverProps)
             Contamos con una amplia gama de etiquetas y varietales seleccionados para ofrecer el maridaje perfecto con nuestros platos, garantizando que cada copa sea una celebración para el paladar.
           </p>
         </div>
+      </section>
+
+      {/* 5.b PROMOCIONES VIGENTES SECTION */}
+      <section id="promociones" className="py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
+        <div className="text-center space-y-3">
+          <span className="text-xs uppercase font-bold text-[#8C6239] dark:text-[#8C6239] tracking-widest font-display-serif">
+            Ofertas & Beneficios
+          </span>
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-wide font-serif-rustic text-[#8C6239] dark:text-[#FAF7F0]">
+            Promociones Especiales
+          </h2>
+          <p className="text-sm sm:text-base font-bold text-stone-850 dark:text-stone-200 max-w-lg mx-auto font-serif-rustic italic">
+            Aprovechá nuestras promociones exclusivas para disfrutar de la mejor gastronomía y maridaje.
+          </p>
+          <div className="w-16 h-1 bg-[#8C6239] dark:bg-[#8C6239] mx-auto rounded-full" />
+        </div>
+
+        {loadingPromos ? (
+          <div className="text-center py-10">
+            <p className="text-xs font-bold text-stone-400 animate-pulse">Cargando promociones vigentes...</p>
+          </div>
+        ) : promociones.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {promociones.map(promo => (
+              <motion.div
+                key={promo.id_promo}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                className="bg-white dark:bg-[#251B12] rounded-3xl p-6 border border-stone-200/60 dark:border-stone-850 shadow-lg flex flex-col justify-between space-y-4 hover:shadow-xl transition-all duration-300 relative overflow-hidden"
+              >
+                {/* Top Accent Bar */}
+                <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#8C6239] via-[#C8956A] to-[#8C6239]" />
+
+                <div className="space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="inline-flex items-center gap-1 px-3 py-1 bg-[#8C6239]/10 text-[#8C6239] dark:text-[#C8956A] text-[10px] font-black uppercase tracking-wider rounded-full border border-[#8C6239]/20">
+                      <Tag className="w-3 h-3" />
+                      {promo.tipo === 'happy_hour' ? 'Happy Hour' : promo.tipo === 'combo' ? 'Combo Especial' : 'Descuento Directo'}
+                    </span>
+                    {promo.descuento_porcentaje > 0 && (
+                      <span className="px-3 py-1 bg-[#8C6239] text-[#FAF7F0] text-xs font-black rounded-xl shadow-xs font-mono">
+                        {promo.descuento_porcentaje}% OFF
+                      </span>
+                    )}
+                  </div>
+
+                  <h3 className="text-xl font-bold font-serif-rustic tracking-wide text-[#8C6239] dark:text-[#FAF7F0]">
+                    {promo.nombre}
+                  </h3>
+
+                  {promo.descripcion && (
+                    <p className="text-xs text-stone-600 dark:text-stone-400 font-serif-rustic italic leading-relaxed">
+                      {promo.descripcion}
+                    </p>
+                  )}
+                </div>
+
+                <div className="pt-3 border-t border-stone-100 dark:border-stone-800/80 flex items-center justify-between text-[11px] font-bold text-stone-500 dark:text-stone-400">
+                  <span className="flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-[#8C6239]" />
+                    {promo.dias_vigentes || 'Todos los días'}
+                  </span>
+                  <span className="text-[#8C6239] dark:text-[#C8956A] font-extrabold uppercase text-[9px] tracking-wider">
+                    Vigente
+                  </span>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        ) : (
+          <div className="bg-white dark:bg-[#251B12] rounded-3xl p-8 border border-stone-200/60 dark:border-stone-850 shadow-md text-center max-w-xl mx-auto space-y-3">
+            <Sparkles className="w-8 h-8 text-[#8C6239] mx-auto animate-bounce" />
+            <h3 className="text-base font-bold font-serif-rustic text-stone-800 dark:text-stone-200">
+              Próximamente Nuevas Promociones
+            </h3>
+            <p className="text-xs text-stone-500 dark:text-stone-400 font-serif-rustic italic">
+              Consultá a nuestro personal durante tu visita sobre nuestras sugerencias del chef y promociones del día.
+            </p>
+          </div>
+        )}
       </section>
 
       {/* 6. BOOKING WIDGET */}
