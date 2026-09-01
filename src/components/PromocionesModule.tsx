@@ -556,43 +556,57 @@ export default function PromocionesModule({ addLog }: PromocionesModuleProps) {
             </div>
 
             {/* FOTO / IMAGEN DE LA PROMOCIÓN */}
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-stone-500 uppercase flex items-center justify-between">
-                <span className="flex items-center gap-1">
-                  <ImageIcon className="w-3.5 h-3.5 text-stone-400" />
-                  Foto de la Promoción
-                </span>
+            <div className="space-y-2 bg-[#FAF7F0] dark:bg-[#1E140E] p-3 rounded-2xl border border-[#8C6239]/20 dark:border-[#8C6239]/30">
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] font-black text-[#8C6239] dark:text-[#C8956A] uppercase flex items-center gap-1.5">
+                  <ImageIcon className="w-4 h-4 text-[#8C6239] dark:text-[#C8956A]" />
+                  <span>Foto de la Promoción</span>
+                </label>
                 {imagenUrl && (
                   <button
                     type="button"
                     onClick={() => setImagenUrl('')}
-                    className="text-[9px] text-red-600 hover:underline cursor-pointer"
+                    className="text-[9px] font-bold text-red-600 dark:text-red-400 hover:underline cursor-pointer flex items-center gap-0.5"
                   >
-                    Quitar foto
+                    <Trash className="w-3 h-3" /> Quitar foto
                   </button>
                 )}
-              </label>
+              </div>
 
               {imagenUrl ? (
-                <div className="relative h-28 w-full rounded-xl overflow-hidden border border-stone-200 dark:border-stone-750 group">
-                  <img src={imagenUrl} alt="Vista previa" className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <div className="relative h-32 w-full rounded-xl overflow-hidden border border-[#8C6239]/30 group shadow-sm">
+                  <img src={imagenUrl} alt="Vista previa de la promoción" className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                    <label className="px-3 py-1.5 bg-[#8C6239] text-white rounded-xl text-[10px] font-black uppercase flex items-center gap-1 cursor-pointer shadow hover:bg-[#724e2c] transition-all">
+                      <Upload className="w-3.5 h-3.5" /> Cambiar Foto
+                      <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+                    </label>
                     <button
                       type="button"
                       onClick={() => setImagenUrl('')}
-                      className="px-2.5 py-1 bg-red-600 text-white rounded-lg text-[10px] font-black uppercase flex items-center gap-1 shadow"
+                      className="px-3 py-1.5 bg-red-600 text-white rounded-xl text-[10px] font-black uppercase flex items-center gap-1 shadow hover:bg-red-700 transition-all cursor-pointer"
                     >
-                      <Trash className="w-3 h-3" /> Eliminar foto
+                      <Trash className="w-3.5 h-3.5" /> Eliminar
                     </button>
                   </div>
                 </div>
               ) : (
-                <div className="flex gap-2">
-                  <label className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 border border-dashed border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-850 hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-600 dark:text-stone-300 rounded-xl text-[10px] font-black uppercase cursor-pointer transition-all">
-                    <Upload className="w-3.5 h-3.5 text-[#624A3E]" />
-                    <span>Subir foto de portada</span>
+                <div className="space-y-2">
+                  <label className="w-full flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-[#8C6239]/40 bg-white dark:bg-stone-900 hover:bg-[#8C6239]/5 text-[#8C6239] dark:text-[#C8956A] rounded-xl text-xs font-black uppercase cursor-pointer transition-all shadow-xs">
+                    <Upload className="w-4 h-4 text-[#8C6239] dark:text-[#C8956A]" />
+                    <span>Subir foto desde la computadora</span>
                     <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
                   </label>
+
+                  <div className="relative">
+                    <input
+                      type="url"
+                      value={imagenUrl}
+                      onChange={e => setImagenUrl(e.target.value)}
+                      placeholder="O pegar enlace URL (https://...)"
+                      className="w-full border border-stone-200 dark:border-stone-750 bg-white dark:bg-stone-955 text-stone-800 dark:text-stone-100 rounded-xl px-3 py-1.5 text-[10px] focus:outline-none font-semibold"
+                    />
+                  </div>
                 </div>
               )}
             </div>
