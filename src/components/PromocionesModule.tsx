@@ -15,7 +15,9 @@ import {
   Calculator,
   Percent,
   Play,
-  Lightbulb
+  Lightbulb,
+  Upload,
+  Image as ImageIcon
 } from 'lucide-react';
 import { useDebounce } from '../hooks/useDebounce';
 import { promocionesService, Promocion } from '../services/promocionesService';
@@ -49,7 +51,60 @@ export default function PromocionesModule({ addLog }: PromocionesModuleProps) {
   const [tipo, setTipo] = useState<Promocion['tipo']>('descuento_directo');
   const [vigencia, setVigencia] = useState('');
   const [desc, setDesc] = useState('');
+  const [imagenUrl, setImagenUrl] = useState('');
   const [formErrors, setFormErrors] = useState<string[]>([]);
+
+  // Redimensionar y comprimir fotos a Base64
+  const processImageFile = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new window.Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 600;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > MAX_WIDTH) {
+            height = Math.round((height * MAX_WIDTH) / width);
+            width = MAX_WIDTH;
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            reject(new Error('No se pudo crear canvas'));
+            return;
+          }
+
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.75);
+          resolve(compressedBase64);
+        };
+        img.onerror = () => reject(new Error('Imagen inválida'));
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = () => reject(new Error('Error al leer el archivo'));
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      toast.info('Procesando foto...');
+      const base64 = await processImageFile(file);
+      setImagenUrl(base64);
+      toast.success('Foto cargada correctamente.');
+    } catch {
+      toast.error('No se pudo procesar la foto.');
+    }
+  };
 
   // Campos para el programador visual
   const [selectedDays, setSelectedDays] = useState<string[]>(['Lun', 'Mar', 'Mié', 'Jue', 'Vie']);
@@ -151,7 +206,7 @@ export default function PromocionesModule({ addLog }: PromocionesModuleProps) {
 
   const resetForm = () => {
     setNombre(''); setDescuento(''); setTipo('descuento_directo');
-    setDesc(''); setFormErrors([]); setEditingId(null);
+    setDesc(''); setImagenUrl(''); setFormErrors([]); setEditingId(null);
     setSelectedDays(['Lun', 'Mar', 'Mié', 'Jue', 'Vie']);
     setUseTimeRange(false);
   };
@@ -189,6 +244,7 @@ export default function PromocionesModule({ addLog }: PromocionesModuleProps) {
       dias_vigentes: vigencia.trim() || 'Todos los días',
       activo: true,
       descripcion: desc.trim() || 'Descuento porcentual configurado manualmente',
+      imagen_url: imagenUrl.trim() || undefined,
     };
 
     const previous = promos;
@@ -214,6 +270,7 @@ export default function PromocionesModule({ addLog }: PromocionesModuleProps) {
     setDescuento(String(p.descuento_porcentaje));
     setTipo(p.tipo);
     setDesc(p.descripcion ?? '');
+    setImagenUrl(p.imagen_url ?? '');
     setFormErrors([]);
 
     // Tratar de decodificar días de la semana y horas
@@ -256,6 +313,7 @@ export default function PromocionesModule({ addLog }: PromocionesModuleProps) {
       dias_vigentes: vigencia.trim() || 'Todos los días',
       activo: promos.find(p => p.id_promo === editingId)?.activo ?? true,
       descripcion: desc.trim(),
+      imagen_url: imagenUrl.trim() || undefined,
     };
 
     const previous = promos;
@@ -497,6 +555,48 @@ export default function PromocionesModule({ addLog }: PromocionesModuleProps) {
               />
             </div>
 
+            {/* FOTO / IMAGEN DE LA PROMOCIÓN */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-stone-500 uppercase flex items-center justify-between">
+                <span className="flex items-center gap-1">
+                  <ImageIcon className="w-3.5 h-3.5 text-stone-400" />
+                  Foto de la Promoción
+                </span>
+                {imagenUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setImagenUrl('')}
+                    className="text-[9px] text-red-600 hover:underline cursor-pointer"
+                  >
+                    Quitar foto
+                  </button>
+                )}
+              </label>
+
+              {imagenUrl ? (
+                <div className="relative h-28 w-full rounded-xl overflow-hidden border border-stone-200 dark:border-stone-750 group">
+                  <img src={imagenUrl} alt="Vista previa" className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <button
+                      type="button"
+                      onClick={() => setImagenUrl('')}
+                      className="px-2.5 py-1 bg-red-600 text-white rounded-lg text-[10px] font-black uppercase flex items-center gap-1 shadow"
+                    >
+                      <Trash className="w-3 h-3" /> Eliminar foto
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <label className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 border border-dashed border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-850 hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-600 dark:text-stone-300 rounded-xl text-[10px] font-black uppercase cursor-pointer transition-all">
+                    <Upload className="w-3.5 h-3.5 text-[#624A3E]" />
+                    <span>Subir foto de portada</span>
+                    <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+                  </label>
+                </div>
+              )}
+            </div>
+
             <div className="flex gap-2">
               <button
                 type="submit"
@@ -608,6 +708,13 @@ export default function PromocionesModule({ addLog }: PromocionesModuleProps) {
                         : 'border-stone-100 dark:border-stone-870 opacity-60 bg-stone-50/10'
                     }`}
                   >
+                    {/* Thumbnail foto si posee */}
+                    {p.imagen_url && (
+                      <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-stone-200 dark:border-stone-800 bg-stone-100 dark:bg-stone-850 mt-0.5">
+                        <img src={p.imagen_url} alt={p.nombre} className="w-full h-full object-cover" />
+                      </div>
+                    )}
+
                     {/* Badge tipo */}
                     <div className="shrink-0 mt-0.5">
                       <span className={`text-[8.5px] font-black uppercase px-2 py-0.5 rounded-lg border ${

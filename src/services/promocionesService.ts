@@ -8,6 +8,7 @@ export interface Promocion {
   dias_vigentes: string;
   activo: boolean;
   descripcion: string;
+  imagen_url?: string;
 }
 
 export const promocionesService = {
@@ -25,7 +26,8 @@ export const promocionesService = {
       tipo: p.tipo || 'descuento_directo',
       dias_vigentes: p.dias_vigentes || p.días_vigentes || 'Todos los días',
       activo: p.activa !== undefined ? p.activa : (p.activo !== undefined ? p.activo : true),
-      descripcion: p.descripcion || ''
+      descripcion: p.descripcion || '',
+      imagen_url: p.imagen_url || undefined
     }));
   },
 
@@ -38,7 +40,8 @@ export const promocionesService = {
       tipo: promo.tipo,
       dias_vigentes: promo.dias_vigentes,
       activa: promo.activo,
-      descripcion: promo.descripcion
+      descripcion: promo.descripcion,
+      imagen_url: promo.imagen_url || null
     };
     const { data, error } = await supabase.from('promociones').insert([dbPayload]).select().single();
     if (error) {
@@ -52,7 +55,8 @@ export const promocionesService = {
       tipo: data.tipo || 'descuento_directo',
       dias_vigentes: data.dias_vigentes || 'Todos los días',
       activo: data.activa,
-      descripcion: data.descripcion
+      descripcion: data.descripcion,
+      imagen_url: data.imagen_url || undefined
     };
   },
 
@@ -65,6 +69,7 @@ export const promocionesService = {
     if (fields.dias_vigentes !== undefined) dbPayload.dias_vigentes = fields.dias_vigentes;
     if (fields.activo !== undefined) dbPayload.activa = fields.activo;
     if (fields.descripcion !== undefined) dbPayload.descripcion = fields.descripcion;
+    if (fields.imagen_url !== undefined) dbPayload.imagen_url = fields.imagen_url || null;
 
     const { error } = await supabase.from('promociones').update(dbPayload).eq('id_promo', id);
     if (error) {
@@ -82,7 +87,8 @@ export const promocionesService = {
       tipo: p.tipo,
       dias_vigentes: p.dias_vigentes,
       activa: p.activo,
-      descripcion: p.descripcion
+      descripcion: p.descripcion,
+      imagen_url: p.imagen_url || null
     }));
     const { error } = await supabase.from('promociones').upsert(dbPayloads);
     if (error) {

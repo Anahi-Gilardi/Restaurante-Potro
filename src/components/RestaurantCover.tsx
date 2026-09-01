@@ -484,43 +484,72 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                className="bg-white dark:bg-[#251B12] rounded-3xl p-6 border border-stone-200/60 dark:border-stone-850 shadow-lg flex flex-col justify-between space-y-4 hover:shadow-xl transition-all duration-300 relative overflow-hidden"
+                className="bg-white dark:bg-[#251B12] rounded-3xl border border-stone-200/60 dark:border-stone-850 shadow-lg flex flex-col justify-between overflow-hidden hover:shadow-xl transition-all duration-300 relative group"
               >
-                {/* Top Accent Bar */}
-                <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#8C6239] via-[#C8956A] to-[#8C6239]" />
-
-                <div className="space-y-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <span className="inline-flex items-center gap-1 px-3 py-1 bg-[#8C6239]/10 text-[#8C6239] dark:text-[#C8956A] text-[10px] font-black uppercase tracking-wider rounded-full border border-[#8C6239]/20">
-                      <Tag className="w-3 h-3" />
-                      {promo.tipo === 'happy_hour' ? 'Happy Hour' : promo.tipo === 'combo' ? 'Combo Especial' : 'Descuento Directo'}
-                    </span>
-                    {promo.descuento_porcentaje > 0 && (
-                      <span className="px-3 py-1 bg-[#8C6239] text-[#FAF7F0] text-xs font-black rounded-xl shadow-xs font-mono">
-                        {promo.descuento_porcentaje}% OFF
+                {promo.imagen_url ? (
+                  <div className="h-48 w-full relative overflow-hidden bg-stone-100 dark:bg-stone-900">
+                    <img 
+                      src={promo.imagen_url} 
+                      alt={promo.nombre}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-black/30" />
+                    
+                    <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2">
+                      <span className="inline-flex items-center gap-1 px-3 py-1 bg-black/60 backdrop-blur-md text-[#FAF7F0] text-[10px] font-black uppercase tracking-wider rounded-full border border-white/20">
+                        <Tag className="w-3 h-3 text-[#C8956A]" />
+                        {promo.tipo === 'happy_hour' ? 'Happy Hour' : promo.tipo === 'combo' ? 'Combo Especial' : 'Descuento Directo'}
                       </span>
+                      {promo.descuento_porcentaje > 0 && (
+                        <span className="px-3 py-1 bg-[#8C6239] text-[#FAF7F0] text-xs font-black rounded-xl shadow-md font-mono">
+                          {promo.descuento_porcentaje}% OFF
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="h-1.5 w-full bg-gradient-to-r from-[#8C6239] via-[#C8956A] to-[#8C6239]" />
+                )}
+
+                <div className="p-6 flex-1 flex flex-col justify-between space-y-4">
+                  <div className="space-y-3">
+                    {!promo.imagen_url && (
+                      <div className="flex items-start justify-between gap-3">
+                        <span className="inline-flex items-center gap-1 px-3 py-1 bg-[#8C6239]/10 text-[#8C6239] dark:text-[#C8956A] text-[10px] font-black uppercase tracking-wider rounded-full border border-[#8C6239]/20">
+                          <Tag className="w-3 h-3" />
+                          {promo.tipo === 'happy_hour' ? 'Happy Hour' : promo.tipo === 'combo' ? 'Combo Especial' : 'Descuento Directo'}
+                        </span>
+                        {promo.descuento_porcentaje > 0 && (
+                          <span className="px-3 py-1 bg-[#8C6239] text-[#FAF7F0] text-xs font-black rounded-xl shadow-xs font-mono">
+                            {promo.descuento_porcentaje}% OFF
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    <h3 className="text-xl font-bold font-serif-rustic tracking-wide text-[#8C6239] dark:text-[#FAF7F0]">
+                      {promo.nombre}
+                    </h3>
+
+                    {promo.descripcion && (
+                      <p className="text-xs text-stone-600 dark:text-stone-400 font-serif-rustic italic leading-relaxed">
+                        {promo.descripcion}
+                      </p>
                     )}
                   </div>
 
-                  <h3 className="text-xl font-bold font-serif-rustic tracking-wide text-[#8C6239] dark:text-[#FAF7F0]">
-                    {promo.nombre}
-                  </h3>
-
-                  {promo.descripcion && (
-                    <p className="text-xs text-stone-600 dark:text-stone-400 font-serif-rustic italic leading-relaxed">
-                      {promo.descripcion}
-                    </p>
-                  )}
-                </div>
-
-                <div className="pt-3 border-t border-stone-100 dark:border-stone-800/80 flex items-center justify-between text-[11px] font-bold text-stone-500 dark:text-stone-400">
-                  <span className="flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5 text-[#8C6239]" />
-                    {promo.dias_vigentes || 'Todos los días'}
-                  </span>
-                  <span className="text-[#8C6239] dark:text-[#C8956A] font-extrabold uppercase text-[9px] tracking-wider">
-                    Vigente
-                  </span>
+                  <div className="pt-3 border-t border-stone-100 dark:border-stone-800/80 flex items-center justify-between text-[11px] font-bold text-stone-500 dark:text-stone-400">
+                    <span className="flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-[#8C6239]" />
+                      {promo.dias_vigentes || 'Todos los días'}
+                    </span>
+                    <span className="text-[#8C6239] dark:text-[#C8956A] font-extrabold uppercase text-[9px] tracking-wider">
+                      Vigente
+                    </span>
+                  </div>
                 </div>
               </motion.div>
             ))}
