@@ -20,11 +20,14 @@ import {
   Mic,
   MicOff,
   Volume2,
-  X
+  X,
+  Tag,
+  Clock
 } from 'lucide-react';
 import { Mesa, Insumo, ProductoMenu, RecetaEscandallo, Pedido, PedidoItem } from '../types';
 import { createMozoCartIdempotencyKey } from '../lib/mozoCartDraft';
 import { calculatePedidoTotal, resolvePedidoItemUnitPrice } from '../lib/orderPricing';
+import { promocionesService, Promocion } from '../services/promocionesService';
 
 interface WineMapping {
   macro: 'tintas' | 'blancas' | 'champagne' | 'copas' | 'destilados' | null;
@@ -219,6 +222,26 @@ export default function MozoTerminal({
   const [comensales, setComensales] = useState<number>(2);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategoria, setSelectedCategoria] = useState<string>('todo');
+  
+  // Dynamic Promociones State
+  const [promociones, setPromociones] = useState<Promocion[]>([]);
+  const [promocionesLoading, setPromocionesLoading] = useState(true);
+
+  React.useEffect(() => {
+    let isMounted = true;
+    promocionesService.list()
+      .then(data => {
+        if (isMounted) {
+          setPromociones((data || []).filter(p => p.activo !== false));
+          setPromocionesLoading(false);
+        }
+      })
+      .catch(err => {
+        console.warn('Error al cargar promociones en MozoTerminal:', err);
+        if (isMounted) setPromocionesLoading(false);
+      });
+    return () => { isMounted = false; };
+  }, []);
   
   // Bodega hierarchy states
   const [selectedWineMacro, setSelectedWineMacro] = useState<'tintas' | 'blancas' | 'champagne' | 'copas' | 'destilados' | 'todo'>('todo');
@@ -747,6 +770,7 @@ export default function MozoTerminal({
           <div className="flex gap-1.5 w-full overflow-x-auto py-1 scroll-smooth border-t border-stone-200/30 pt-3 pb-2.5">
             {[
               { id: 'todo', label: 'Todos 🍽️' },
+              { id: 'Promociones', label: `Promociones 🏷️ (${promociones.length})` },
               { id: 'Entradas', label: 'Entradas 🥗' },
               { id: 'Pastas', label: 'Pastas 🍝' },
               { id: 'Carnes', label: 'Carnes 🥩' },
@@ -857,111 +881,207 @@ export default function MozoTerminal({
           )}
         </div>
 
-        {/* Product Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[550px] overflow-y-auto pr-1">
-          {filteredProducts.map(p => {
-            const stockRemaining = getSimulatedStockRemaining(p);
-            const isOutOfStock = stockRemaining <= 0;
-            const isLowStock = stockRemaining > 0 && stockRemaining <= 3;
-            const currentInCart = cart[p.id_producto] || 0;
+        {/* Product Cards Grid / Promociones Grid */}
+        {selectedCategoria === 'Promociones' ? (
+          <div className="space-y-3 max-h-[550px] overflow-y-auto pr-1">
+            <div className="bg-[#FAF7F0] dark:bg-[#1E140E] p-4 rounded-2xl border border-[#8C6239]/20 dark:border-[#8C6239]/30 flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-black text-[#8C6239] dark:text-[#C8956A] uppercase tracking-widest block">
+                  Ofertas & Descuentos
+                </span>
+                <h4 className="text-sm font-bold text-stone-850 dark:text-stone-100 font-serif-rustic">
+                  Promociones Activas en el Sistema
+                </h4>
+              </div>
+              <span className="px-3 py-1 bg-[#8C6239] text-white text-xs font-black rounded-xl shadow-xs">
+                {promociones.length} Activas
+              </span>
+            </div>
 
-            return (
-              <motion.div
-                key={p.id_producto}
-                whileHover={{ scale: 1.02, translateY: -2 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => !isOutOfStock && handleAddToCart(p.id_producto)}
-                className={`group cursor-pointer rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 relative border ${
-                  isOutOfStock 
-                    ? 'opacity-60 border-rose-100 pointer-events-none bg-stone-50 dark:bg-stone-900/40' 
-                    : currentInCart > 0 
-                      ? 'border-[#8C6239] bg-[#8C6239]/5 dark:bg-white/5 ring-1 ring-[#C8956A]/20' 
-                      : 'glass-panel border-stone-200/80 dark:border-white/10'
-                }`}
-                style={{ contentVisibility: 'auto' }}
-              >
-                {/* Product Image */}
-                <div className="h-28 w-full bg-stone-50 dark:bg-stone-900/60 relative overflow-hidden">
-                  <img
-                    src={p.imagen}
-                    alt={p.nombre}
-                    loading="lazy"
-                    decoding="async"
-                    referrerPolicy="no-referrer"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    onError={event => {
-                      const image = event.currentTarget;
-                      image.onerror = null;
-                      image.src = '/logo-el-patron.jpeg';
-                    }}
-                  />
-                  
-                  {/* Category icon badge */}
-                  <div className="absolute top-2 left-2 p-1.5 rounded-lg backdrop-blur-md bg-white/90 shadow-sm border border-stone-100">
-                    {p.categoria.toLowerCase().includes('bebida') ? (
-                      <Wine className="w-3.5 h-3.5 text-[#8C6239]" />
+            {promocionesLoading ? (
+              <div className="text-center py-10 text-stone-400 font-bold text-xs animate-pulse">
+                Cargando promociones del sistema...
+              </div>
+            ) : promociones.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {promociones.map(promo => (
+                  <div
+                    key={promo.id_promo}
+                    className="bg-white dark:bg-[#251B12] rounded-2xl border border-stone-200/80 dark:border-stone-850 shadow-md overflow-hidden flex flex-col justify-between hover:shadow-lg transition-all"
+                  >
+                    {promo.imagen_url ? (
+                      <div className="h-32 w-full relative overflow-hidden bg-stone-100 dark:bg-stone-900">
+                        <img 
+                          src={promo.imagen_url} 
+                          alt={promo.nombre}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                        <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between">
+                          <span className="px-2 py-0.5 bg-black/60 backdrop-blur-md text-white text-[9px] font-black uppercase rounded-full border border-white/20">
+                            {promo.tipo === 'happy_hour' ? 'Happy Hour' : promo.tipo === 'combo' ? 'Combo' : 'Descuento Directo'}
+                          </span>
+                          {promo.descuento_porcentaje > 0 && (
+                            <span className="px-2.5 py-0.5 bg-[#8C6239] text-white text-xs font-black rounded-lg shadow font-mono">
+                              {promo.descuento_porcentaje}% OFF
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     ) : (
-                      <UtensilsCrossed className="w-3.5 h-3.5 text-[#8C6239]" />
+                      <div className="p-2.5 bg-gradient-to-r from-[#8C6239] to-[#C8956A] text-white flex items-center justify-between">
+                        <span className="text-[10px] font-black uppercase tracking-wider flex items-center gap-1">
+                          <Tag className="w-3 h-3" />
+                          {promo.tipo === 'happy_hour' ? 'Happy Hour' : promo.tipo === 'combo' ? 'Combo' : 'Descuento Directo'}
+                        </span>
+                        {promo.descuento_porcentaje > 0 && (
+                          <span className="px-2 py-0.5 bg-black/30 text-white text-xs font-black rounded-lg font-mono">
+                            {promo.descuento_porcentaje}% OFF
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="p-3.5 space-y-2 flex-1 flex flex-col justify-between">
+                      <div className="space-y-1">
+                        <h4 className="font-extrabold text-stone-900 dark:text-white text-xs">
+                          {promo.nombre}
+                        </h4>
+                        {promo.descripcion && (
+                          <p className="text-[11px] text-stone-600 dark:text-stone-300 italic leading-relaxed">
+                            {promo.descripcion}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="pt-2 border-t border-stone-100 dark:border-stone-800 flex items-center justify-between text-[10px] font-bold text-stone-500 dark:text-stone-400">
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3.5 h-3.5 text-[#8C6239]" />
+                          {promo.dias_vigentes || 'Todos los días'}
+                        </span>
+                        <span className="text-[#8C6239] dark:text-[#C8956A] font-extrabold uppercase text-[9px]">
+                          Vigente
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-10 bg-white dark:bg-[#251B12] rounded-2xl border border-stone-200 dark:border-stone-850 p-6 space-y-2">
+                <Tag className="w-8 h-8 text-[#8C6239] mx-auto opacity-50" />
+                <p className="text-xs font-bold text-stone-600 dark:text-stone-300">
+                  No hay promociones activas registradas en este momento.
+                </p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[550px] overflow-y-auto pr-1">
+            {filteredProducts.map(p => {
+              const stockRemaining = getSimulatedStockRemaining(p);
+              const isOutOfStock = stockRemaining <= 0;
+              const isLowStock = stockRemaining > 0 && stockRemaining <= 3;
+              const currentInCart = cart[p.id_producto] || 0;
+
+              return (
+                <motion.div
+                  key={p.id_producto}
+                  whileHover={{ scale: 1.02, translateY: -2 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => !isOutOfStock && handleAddToCart(p.id_producto)}
+                  className={`group cursor-pointer rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 relative border ${
+                    isOutOfStock 
+                      ? 'opacity-60 border-rose-100 pointer-events-none bg-stone-50 dark:bg-stone-900/40' 
+                      : currentInCart > 0 
+                        ? 'border-[#8C6239] bg-[#8C6239]/5 dark:bg-white/5 ring-1 ring-[#C8956A]/20' 
+                        : 'glass-panel border-stone-200/80 dark:border-white/10'
+                  }`}
+                  style={{ contentVisibility: 'auto' }}
+                >
+                  {/* Product Image */}
+                  <div className="h-28 w-full bg-stone-50 dark:bg-stone-900/60 relative overflow-hidden">
+                    <img
+                      src={p.imagen}
+                      alt={p.nombre}
+                      loading="lazy"
+                      decoding="async"
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      onError={event => {
+                        const image = event.currentTarget;
+                        image.onerror = null;
+                        image.src = '/logo-el-patron.jpeg';
+                      }}
+                    />
+                    
+                    {/* Category icon badge */}
+                    <div className="absolute top-2 left-2 p-1.5 rounded-lg backdrop-blur-md bg-white/90 shadow-sm border border-stone-100">
+                      {p.categoria.toLowerCase().includes('bebida') ? (
+                        <Wine className="w-3.5 h-3.5 text-[#8C6239]" />
+                      ) : (
+                        <UtensilsCrossed className="w-3.5 h-3.5 text-[#8C6239]" />
+                      )}
+                    </div>
+
+                    {/* Stock Tag Alert */}
+                    {isOutOfStock ? (
+                      <div className="absolute inset-0 bg-red-950/60 flex items-center justify-center text-center p-2">
+                        <span className="bg-[#EF4444] text-white text-[10px] uppercase font-extrabold tracking-wider px-2 py-1 rounded-md shadow flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3 text-white" />
+                          Sin Stock (Fórmulas 0)
+                        </span>
+                      </div>
+                    ) : isLowStock ? (
+                      <div className="absolute top-2 right-2">
+                        <span className="bg-[#F97316] text-white text-[9px] font-extrabold px-2 py-0.5 rounded shadow">
+                          Bajo stock: {stockRemaining}u
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="absolute top-2 right-2">
+                        <span className="bg-[#22C55E] text-white text-[9px] font-extrabold px-2 py-0.5 rounded shadow">
+                          Disp: {stockRemaining}u
+                        </span>
+                      </div>
                     )}
                   </div>
 
-                  {/* Stock Tag Alert */}
-                  {isOutOfStock ? (
-                    <div className="absolute inset-0 bg-red-950/60 flex items-center justify-center text-center p-2">
-                      <span className="bg-[#EF4444] text-white text-[10px] uppercase font-extrabold tracking-wider px-2 py-1 rounded-md shadow flex items-center gap-1">
-                        <AlertTriangle className="w-3 h-3 text-white" />
-                        Sin Stock (Fórmulas 0)
-                      </span>
-                    </div>
-                  ) : isLowStock ? (
-                    <div className="absolute top-2 right-2">
-                      <span className="bg-[#F97316] text-white text-[9px] font-extrabold px-2 py-0.5 rounded shadow">
-                        Bajo stock: {stockRemaining}u
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="absolute top-2 right-2">
-                      <span className="bg-[#22C55E] text-white text-[9px] font-extrabold px-2 py-0.5 rounded shadow">
-                        Disp: {stockRemaining}u
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Content */}
-                <div className="p-3 flex justify-between items-center bg-[#8C6239]/80 dark:bg-[#8C6239]/40">
-                  <div className="min-w-0 flex-1">
-                    <h4 className="font-extrabold text-white dark:text-white text-xs font-sans break-words whitespace-normal leading-snug group-hover:text-[#E8B800] dark:group-hover:text-[#E8B800] transition-colors">
-                      {p.nombre}
-                    </h4>
-                    <div className="mt-1 flex items-center gap-1.5">
-                      <span className="text-white/90 dark:text-stone-100 font-mono text-xs font-black">
-                        ${p.precio_venta.toLocaleString('es-AR')}
-                      </span>
-                      {currentInCart > 0 && (
-                        <span className="bg-[#8C6239] text-white rounded-full px-1.5 py-0.1 text-[9px] font-black font-mono">
-                          {currentInCart} en bolsa
+                  {/* Content */}
+                  <div className="p-3 flex justify-between items-center bg-[#8C6239]/80 dark:bg-[#8C6239]/40">
+                    <div className="min-w-0 flex-1">
+                      <h4 className="font-extrabold text-white dark:text-white text-xs font-sans break-words whitespace-normal leading-snug group-hover:text-[#E8B800] dark:group-hover:text-[#E8B800] transition-colors">
+                        {p.nombre}
+                      </h4>
+                      <div className="mt-1 flex items-center gap-1.5">
+                        <span className="text-white/90 dark:text-stone-100 font-mono text-xs font-black">
+                          ${p.precio_venta.toLocaleString('es-AR')}
                         </span>
-                      )}
+                        {currentInCart > 0 && (
+                          <span className="bg-[#8C6239] text-white rounded-full px-1.5 py-0.1 text-[9px] font-black font-mono">
+                            {currentInCart} en bolsa
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
 
-                  {/* elastic sum button */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (!isOutOfStock) handleAddToCart(p.id_producto);
-                    }}
-                    className="w-8 h-8 rounded-full bg-[#8C6239] text-white hover:bg-[#C8956A] hover:text-[#8C6239] active:scale-90 transition-all duration-200 flex items-center justify-center font-bold shadow-md shadow-[#8C6239]/20 cursor-pointer border border-amber-950/10 shrink-0"
-                    title="Añadir a comanda"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </button>
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
+                    {/* elastic sum button */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!isOutOfStock) handleAddToCart(p.id_producto);
+                      }}
+                      className="w-8 h-8 rounded-full bg-[#8C6239] text-white hover:bg-[#C8956A] hover:text-[#8C6239] active:scale-90 transition-all duration-200 flex items-center justify-center font-bold shadow-md shadow-[#8C6239]/20 cursor-pointer border border-amber-950/10 shrink-0"
+                      title="Añadir a comanda"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* RIGHT COLUMN: Active Comanda Cart Summary */}
