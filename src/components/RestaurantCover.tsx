@@ -455,9 +455,6 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
                         <span className="text-xs font-bold uppercase tracking-wider text-[#8C6239] dark:text-[#C8956A]">
                           {todayMenu?.categoria || 'Minutas & Especiales'}
                         </span>
-                        <span className="text-2xl font-black font-mono text-[#8C6239] dark:text-[#FAF7F0] bg-[#FAF7F0] dark:bg-[#1E140E] px-3 py-1 rounded-xl border border-stone-200 dark:border-stone-800">
-                          ${todayMenu?.precio ? todayMenu.precio.toLocaleString('es-AR') : '8.500'}
-                        </span>
                       </div>
 
                       <h3 className="text-2xl font-bold font-serif-rustic tracking-wide text-[#8C6239] dark:text-[#FAF7F0] capitalize">
@@ -471,15 +468,8 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
 
                     <div className="pt-4 border-t border-stone-100 dark:border-stone-850 flex items-center justify-between">
                       <span className="text-xs text-stone-500 dark:text-stone-400 font-semibold">
-                        Servido con pan fresco y aderezos
+                        Servido con pan fresco y aderezos caseros
                       </span>
-                      <button
-                        onClick={onEnterSystem}
-                        className="px-5 py-2.5 rounded-xl font-bold text-xs text-white shadow-md hover:shadow-lg transition-all cursor-pointer flex items-center gap-2 active:scale-95"
-                        style={{ backgroundColor: accentColor }}
-                      >
-                        Hacer Pedido <ChevronRight className="w-4 h-4" />
-                      </button>
                     </div>
                   </div>
                 </motion.div>
@@ -518,11 +508,6 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
                           <h5 className="font-bold text-xs text-stone-850 dark:text-stone-100 line-clamp-2 mt-1 min-h-[2rem]">
                             {diaData?.nombre}
                           </h5>
-                        </div>
-                        <div className="mt-2 pt-2 border-t border-stone-100 dark:border-white/5 flex justify-between items-center">
-                          <span className="font-mono font-bold text-xs text-[#8C6239] dark:text-[#C8956A]">
-                            ${diaData?.precio ? diaData.precio.toLocaleString('es-AR') : '8.500'}
-                          </span>
                         </div>
                       </div>
                     );
