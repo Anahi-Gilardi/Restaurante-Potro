@@ -1,4 +1,4 @@
-import { getActiveSupabaseClient } from '../lib/supabaseClient';
+import { tryGetActiveSupabaseClient, getActiveSupabaseClient } from '../lib/supabaseClient';
 
 export interface Promocion {
   id_promo: string;
@@ -12,28 +12,66 @@ export interface Promocion {
   precio?: number;
 }
 
+const LOCAL_STORAGE_KEY = 'el_patron_promociones_cache';
+
+const getLocalCache = (): Promocion[] => {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(LOCAL_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+};
+
+const setLocalCache = (promos: Promocion[]) => {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(promos));
+  } catch (err) {
+    console.warn('Could not save promociones to localStorage:', err);
+  }
+};
+
 export const promocionesService = {
   async list(): Promise<Promocion[]> {
-    const supabase = getActiveSupabaseClient();
-    const { data, error } = await supabase.from('promociones').select('*').order('nombre', { ascending: true });
-    if (error) {
-      console.error('Error fetching promociones:', error);
-      throw error;
+    const client = tryGetActiveSupabaseClient();
+    if (!client) {
+      return getLocalCache();
     }
-    return (data || []).map(p => ({
-      id_promo: p.id_promo,
-      nombre: p.nombre,
-      descuento_porcentaje: p.descuento || p.descuento_porcentaje || 0,
-      tipo: p.tipo || 'descuento_directo',
-      dias_vigentes: p.dias_vigentes || p.días_vigentes || 'Todos los días',
-      activo: p.activa !== undefined ? p.activa : (p.activo !== undefined ? p.activo : true),
-      descripcion: p.descripcion || '',
-      imagen_url: p.imagen_url || undefined,
-      precio: p.precio !== undefined && p.precio !== null ? Number(p.precio) : (p.precio_promocional !== undefined ? Number(p.precio_promocional) : undefined)
-    }));
+
+    try {
+      const { data, error } = await client.from('promociones').select('*').order('nombre', { ascending: true });
+      if (error) {
+        console.warn('Error fetching promociones from Supabase, returning local cache:', error);
+        return getLocalCache();
+      }
+      const mapped: Promocion[] = (data || []).map(p => ({
+        id_promo: p.id_promo,
+        nombre: p.nombre,
+        descuento_porcentaje: p.descuento || p.descuento_porcentaje || 0,
+        tipo: p.tipo || 'descuento_directo',
+        dias_vigentes: p.dias_vigentes || p.días_vigentes || 'Todos los días',
+        activo: p.activa !== undefined ? p.activa : (p.activo !== undefined ? p.activo : true),
+        descripcion: p.descripcion || '',
+        imagen_url: p.imagen_url || undefined,
+        precio: p.precio !== undefined && p.precio !== null ? Number(p.precio) : (p.precio_promocional !== undefined ? Number(p.precio_promocional) : undefined)
+      }));
+
+      if (mapped.length > 0) {
+        setLocalCache(mapped);
+      }
+      return mapped.length > 0 ? mapped : getLocalCache();
+    } catch (err) {
+      console.warn('Network or client error in promocionesService.list, returning local cache:', err);
+      return getLocalCache();
+    }
   },
 
   async create(promo: Promocion): Promise<Promocion> {
+    const local = getLocalCache();
+    setLocalCache([promo, ...local.filter(p => p.id_promo !== promo.id_promo)]);
+
     const supabase = getActiveSupabaseClient();
     const dbPayload = {
       id_promo: promo.id_promo,
@@ -51,7 +89,7 @@ export const promocionesService = {
       console.error('Error creating promocion:', error);
       throw error;
     }
-    return {
+    const created: Promocion = {
       id_promo: data.id_promo,
       nombre: data.nombre,
       descuento_porcentaje: data.descuento,
@@ -62,9 +100,16 @@ export const promocionesService = {
       imagen_url: data.imagen_url || undefined,
       precio: data.precio !== undefined && data.precio !== null ? Number(data.precio) : undefined
     };
+    const currentCache = getLocalCache();
+    setLocalCache([created, ...currentCache.filter(p => p.id_promo !== created.id_promo)]);
+    return created;
   },
 
   async update(id: string, fields: Partial<Promocion>): Promise<void> {
+    const currentCache = getLocalCache();
+    const updatedCache = currentCache.map(p => p.id_promo === id ? { ...p, ...fields } : p);
+    setLocalCache(updatedCache);
+
     const supabase = getActiveSupabaseClient();
     const dbPayload: any = {};
     if (fields.nombre !== undefined) dbPayload.nombre = fields.nombre;
@@ -84,6 +129,7 @@ export const promocionesService = {
   },
 
   async upsert(promos: Promocion[]): Promise<void> {
+    setLocalCache(promos);
     const supabase = getActiveSupabaseClient();
     const dbPayloads = promos.map(p => ({
       id_promo: p.id_promo,
@@ -104,6 +150,9 @@ export const promocionesService = {
   },
 
   async remove(id: string): Promise<boolean> {
+    const currentCache = getLocalCache();
+    setLocalCache(currentCache.filter(p => p.id_promo !== id));
+
     const supabase = getActiveSupabaseClient();
     const { error } = await supabase.from('promociones').delete().eq('id_promo', id);
     if (error) {
