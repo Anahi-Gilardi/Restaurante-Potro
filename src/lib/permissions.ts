@@ -7,7 +7,6 @@ export type AppView =
   | 'caja'
   | 'usuarios'
   | 'menu'
-  | 'recetas'
   | 'mesas'
   | 'inventario'
   | 'proveedores'
@@ -15,8 +14,7 @@ export type AppView =
   | 'reservas'
   | 'facturacion'
   | 'sistema'
-  | 'backups'
-  | 'clientes';
+  | 'backups';
 
 export const ALL_APP_VIEWS: AppView[] = [
   'home',
@@ -25,7 +23,6 @@ export const ALL_APP_VIEWS: AppView[] = [
   'caja',
   'usuarios',
   'menu',
-  'recetas',
   'mesas',
   'inventario',
   'proveedores',
@@ -33,8 +30,7 @@ export const ALL_APP_VIEWS: AppView[] = [
   'reservas',
   'facturacion',
   'sistema',
-  'backups',
-  'clientes'
+  'backups'
 ];
 
 const MODULOS_SOLO_SUPERADMIN: AppView[] = ['sistema'];
@@ -46,7 +42,7 @@ const ALL_SIN_RESTRINGIDOS = ALL_APP_VIEWS.filter(
 const ROLE_PERMISSIONS: Record<Usuario['rol'], AppView[]> = {
   superadmin: ALL_APP_VIEWS,
   administrador: ALL_SIN_RESTRINGIDOS,
-  cajero: ['home', 'caja', 'facturacion', 'clientes'] as AppView[],
+  cajero: ['home', 'caja', 'facturacion'] as AppView[],
   mozo: ['home', 'mozo', 'mesas', 'reservas'] as AppView[],
   cocina: ['home', 'cocina']
 };

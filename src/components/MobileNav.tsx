@@ -29,7 +29,6 @@ const NAV_ITEMS: { id: AppView; label: string; icon: string }[] = [
   { id: 'cocina', label: 'Cocina', icon: '🍳' },
   { id: 'caja', label: 'Caja', icon: '💵' },
   { id: 'menu', label: 'Menú', icon: '📖' },
-  { id: 'recetas', label: 'Recetas', icon: '⚖️' },
   { id: 'mesas', label: 'Mesas', icon: '🪑' },
   { id: 'inventario', label: 'Inventario', icon: '📦' },
   { id: 'proveedores', label: 'Proveedores', icon: '🚚' },
@@ -37,7 +36,6 @@ const NAV_ITEMS: { id: AppView; label: string; icon: string }[] = [
   { id: 'reservas', label: 'Reservas', icon: '📅' },
   { id: 'facturacion', label: 'Facturación', icon: '🧾' },
   { id: 'usuarios', label: 'Usuarios', icon: '👥' },
-  { id: 'clientes', label: 'Clientes', icon: '👥' },
   { id: 'sistema', label: 'Sistema', icon: '💻' },
   { id: 'backups', label: 'Backups', icon: '🗄️' },
 ];

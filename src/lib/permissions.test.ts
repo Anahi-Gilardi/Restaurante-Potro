@@ -9,7 +9,6 @@ test('superadmin tiene acceso total', () => {
   assert.equal(canAccessView('superadmin', 'caja'), true);
   assert.equal(canAccessView('superadmin', 'usuarios'), true);
   assert.equal(canAccessView('superadmin', 'reservas'), true);
-  assert.equal(canAccessView('superadmin', 'clientes'), true);
 });
 
 test('administrador no puede acceder a sistema pero si a backups', () => {
@@ -31,7 +30,7 @@ test('mozo tiene acceso operativo limitado al salón', () => {
 });
 
 test('cajero puede cobrar y facturar sin administrar inventario', () => {
-  assert.deepEqual(getAllowedViews('cajero'), ['home', 'caja', 'facturacion', 'clientes']);
+  assert.deepEqual(getAllowedViews('cajero'), ['home', 'caja', 'facturacion']);
   assert.equal(canAccessView('cajero', 'caja'), true);
   assert.equal(canAccessView('cajero', 'facturacion'), true);
   assert.equal(canAccessView('cajero', 'mozo'), false);

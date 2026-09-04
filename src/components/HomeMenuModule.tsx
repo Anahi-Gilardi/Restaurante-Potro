@@ -277,18 +277,7 @@ export default function HomeMenuModule({
         type: 'neutral'
       }
     },
-    {
-      id: 'recetas',
-      title: 'Recetas / Escandallos',
-      description: 'Vinculación de platos con insumos para descuento automático de stock por producción.',
-      icon: Scale,
-      color: 'from-cyan-500/10 to-cyan-600/5 hover:border-cyan-400 border-l-4 border-l-cyan-500 dark:border-l-cyan-450',
-      iconColor: 'text-cyan-700 dark:text-cyan-400',
-      badge: {
-        text: 'Escandallo',
-        type: 'neutral'
-      }
-    },
+
     {
       id: 'inventario',
       title: 'Inventario',

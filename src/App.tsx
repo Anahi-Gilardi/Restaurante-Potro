@@ -1202,14 +1202,12 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
             { id: 'cocina', label: 'Cocina', icon: '🍳' },
             { id: 'caja', label: 'Caja', icon: '💵' },
             { id: 'menu', label: 'Menú', icon: '📖' },
-            { id: 'recetas', label: 'Recetas', icon: '⚖️' },
             { id: 'mesas', label: 'Mesas', icon: '🪑' },
             { id: 'inventario', label: 'Inventario', icon: '📦' },
             { id: 'proveedores', label: 'Proveedores', icon: '🚚' },
             { id: 'promociones', label: 'Promociones', icon: '🏷️' },
             { id: 'reservas', label: 'Reservas', icon: '📅' },
             { id: 'facturacion', label: 'Facturación', icon: '🧾' },
-            { id: 'clientes', label: 'Clientes', icon: '👥' },
             { id: 'usuarios', label: 'Usuarios', icon: '👥' },
             { id: 'sistema', label: 'Sistema', icon: '💻' },
             { id: 'backups', label: 'Backups', icon: '🗄️' },
@@ -1335,11 +1333,6 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
             {activeView === 'menu' && (
               <MenuModule productosMenu={productosMenu} onProductosChange={setProductosMenu} recetas={recetas} insumos={insumos} addLog={addLog} />
             )}
-            {activeView === 'recetas' && (
-              <RecetasErrorBoundary>
-                <RecetasModule recetas={recetas} onRecetasChange={setRecetas} productosMenu={productosMenu} onProductosChange={setProductosMenu} insumos={insumos} addLog={addLog} />
-              </RecetasErrorBoundary>
-            )}
             {activeView === 'mesas' && (
               <MesasModule
                 mesas={mesas}
@@ -1372,11 +1365,6 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
                 operationalData={{ usuarios, mesas, insumos, productosMenu, recetas, pedidos, mermas, logs }}
                 onRestoreData={handleRestoreBackupData}
                 addLog={addLog}
-              />
-            )}
-            {activeView === 'clientes' && (
-              <ClientesModule 
-                addLog={addLog} 
               />
             )}
           </Suspense>
