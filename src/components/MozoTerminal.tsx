@@ -28,6 +28,7 @@ import { Mesa, Insumo, ProductoMenu, RecetaEscandallo, Pedido, PedidoItem } from
 import { createMozoCartIdempotencyKey } from '../lib/mozoCartDraft';
 import { calculatePedidoTotal, resolvePedidoItemUnitPrice } from '../lib/orderPricing';
 import { promocionesService, Promocion } from '../services/promocionesService';
+import { menuDiarioService, MenuDiarioDia, INITIAL_MENU_DIARIO } from '../services/menuDiarioService';
 
 interface WineMapping {
   macro: 'tintas' | 'blancas' | 'champagne' | 'copas' | 'destilados' | null;
@@ -239,6 +240,26 @@ export default function MozoTerminal({
       .catch(err => {
         console.warn('Error al cargar promociones en MozoTerminal:', err);
         if (isMounted) setPromocionesLoading(false);
+      });
+    return () => { isMounted = false; };
+  }, []);
+
+  // Dynamic Menu Diario State
+  const [menuDiario, setMenuDiario] = useState<Record<string, MenuDiarioDia>>(INITIAL_MENU_DIARIO);
+  const [menuDiarioLoading, setMenuDiarioLoading] = useState(true);
+
+  React.useEffect(() => {
+    let isMounted = true;
+    menuDiarioService.list()
+      .then(data => {
+        if (isMounted) {
+          setMenuDiario(data || INITIAL_MENU_DIARIO);
+          setMenuDiarioLoading(false);
+        }
+      })
+      .catch(err => {
+        console.warn('Error al cargar menú diario en MozoTerminal:', err);
+        if (isMounted) setMenuDiarioLoading(false);
       });
     return () => { isMounted = false; };
   }, []);
@@ -530,6 +551,17 @@ export default function MozoTerminal({
             precio_unitario: promo.precio && promo.precio > 0 ? promo.precio : 0,
           };
         }
+        if (prodId.startsWith('menu_diario_')) {
+          const dayKey = prodId.replace('menu_diario_', '');
+          const diaItem = menuDiario[dayKey] || INITIAL_MENU_DIARIO[dayKey];
+          return {
+            id_producto: prodId,
+            nombre: diaItem ? `[MENÚ DEL DÍA] ${diaItem.nombre}` : 'Menú del Día',
+            cantidad: Number(qty),
+            categoria: 'Menú del Día',
+            precio_unitario: diaItem ? diaItem.precio : 8500,
+          };
+        }
         return {
           id_producto: prodId,
           nombre: 'Promoción Especial',
@@ -571,9 +603,14 @@ export default function MozoTerminal({
       if (promo && promo.precio && promo.precio > 0) {
         return total + (promo.precio * Number(qty));
       }
+      if (prodId.startsWith('menu_diario_')) {
+        const dayKey = prodId.replace('menu_diario_', '');
+        const diaItem = menuDiario[dayKey] || INITIAL_MENU_DIARIO[dayKey];
+        if (diaItem) return total + (diaItem.precio * Number(qty));
+      }
       return total;
     }, 0);
-  }, [cart, productosMenu, promociones]);
+  }, [cart, productosMenu, promociones, menuDiario]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6" id="mozo-terminal-container">
@@ -794,6 +831,7 @@ export default function MozoTerminal({
           <div className="flex gap-1.5 w-full overflow-x-auto py-1 scroll-smooth border-t border-stone-200/30 pt-3 pb-2.5">
             {[
               { id: 'todo', label: 'Todos 🍽️' },
+              { id: 'MenuDelDia', label: 'Menú del Día 🌟' },
               { id: 'Promociones', label: `Promociones 🏷️ (${promociones.length})` },
               { id: 'Entradas', label: 'Entradas 🥗' },
               { id: 'Pastas', label: 'Pastas 🍝' },
@@ -905,8 +943,115 @@ export default function MozoTerminal({
           )}
         </div>
 
-        {/* Product Cards Grid / Promociones Grid */}
-        {selectedCategoria === 'Promociones' ? (
+        {/* Product Cards Grid / Menú del Día Grid / Promociones Grid */}
+        {selectedCategoria === 'MenuDelDia' ? (
+          <div className="space-y-4 max-h-[550px] overflow-y-auto pr-1">
+            {(() => {
+              const daysOrder = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
+              const dayNames: Record<string, string> = {
+                lunes: 'LUNES', martes: 'MARTES', miercoles: 'MIÉRCOLES', jueves: 'JUEVES', viernes: 'VIERNES', sabado: 'SÁBADO', domingo: 'DOMINGO'
+              };
+              const todayKey = daysOrder[new Date().getDay()];
+              const todayData = menuDiario[todayKey] || INITIAL_MENU_DIARIO[todayKey];
+              const todayCartQty = cart[`menu_diario_${todayKey}`] || 0;
+
+              return (
+                <div className="space-y-4">
+                  {/* Hero Card Propuesta del Día Actual */}
+                  <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#5C1D24] to-[#8C6239] p-5 text-white shadow-md border border-[#C8956A]/30">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <span className="inline-block px-2.5 py-0.5 bg-white/20 backdrop-blur-xs text-[10px] font-black uppercase tracking-wider rounded-md mb-1.5">
+                          🌟 PROPUESTA DE HOY — {dayNames[todayKey]}
+                        </span>
+                        <h3 className="text-xl font-black font-serif-rustic capitalize">{todayData?.nombre}</h3>
+                        <p className="text-xs text-white/90 mt-1 max-w-lg leading-relaxed font-sans">{todayData?.descripcion}</p>
+                      </div>
+                      <span className="text-2xl font-black font-mono bg-black/20 px-3 py-1 rounded-xl border border-white/20">
+                        ${todayData?.precio ? todayData.precio.toLocaleString('es-AR') : '8.500'}
+                      </span>
+                    </div>
+
+                    <div className="mt-4 pt-3 border-t border-white/20 flex items-center justify-between">
+                      <span className="text-xs font-bold text-white/80">
+                        Categoría: <strong className="text-white">{todayData?.categoria}</strong>
+                      </span>
+                      <div className="flex items-center gap-2">
+                        {todayCartQty > 0 && (
+                          <span className="text-xs font-black bg-white text-[#5C1D24] px-2.5 py-1 rounded-lg">
+                            {todayCartQty} en pedido
+                          </span>
+                        )}
+                        <button
+                          onClick={() => handleAddToCart(`menu_diario_${todayKey}`)}
+                          className="px-4 py-2 bg-white text-[#5C1D24] hover:bg-stone-100 font-extrabold text-xs rounded-xl shadow-md cursor-pointer transition-all active:scale-95 flex items-center gap-1.5"
+                        >
+                          <Plus className="w-4 h-4" /> Añadir al Pedido
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Menú Semanal Completo Grid */}
+                  <div className="bg-[#FAF7F0] dark:bg-[#1E140E] p-3 rounded-2xl border border-[#8C6239]/20 flex items-center justify-between">
+                    <h4 className="text-xs font-bold text-[#8C6239] dark:text-[#C8956A] uppercase tracking-wider">
+                      📅 Rotación Semanal Completa (Lunes a Domingo)
+                    </h4>
+                    <span className="text-[10px] text-stone-500 font-semibold">Seleccionable para mesa</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'].map(day => {
+                      const diaData = menuDiario[day] || INITIAL_MENU_DIARIO[day];
+                      const isToday = day === todayKey;
+                      const cartQty = cart[`menu_diario_${day}`] || 0;
+
+                      return (
+                        <div
+                          key={day}
+                          className={`p-3.5 rounded-2xl border transition-all flex flex-col justify-between ${
+                            isToday
+                              ? 'border-[#5C1D24] bg-[#5C1D24]/5 ring-1 ring-[#5C1D24]/20'
+                              : 'bg-white dark:bg-[#251B12] border-stone-200 dark:border-stone-850'
+                          }`}
+                        >
+                          <div>
+                            <div className="flex justify-between items-center mb-1">
+                              <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${
+                                isToday ? 'bg-[#5C1D24] text-white' : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300'
+                              }`}>
+                                {dayNames[day]} {isToday && '· (HOY)'}
+                              </span>
+                              <span className="font-mono font-bold text-xs text-[#8C6239] dark:text-stone-200">
+                                ${diaData?.precio ? diaData.precio.toLocaleString('es-AR') : '8.500'}
+                              </span>
+                            </div>
+                            <h5 className="font-bold text-xs text-stone-850 dark:text-stone-100 line-clamp-1">{diaData?.nombre}</h5>
+                            <p className="text-[10px] text-stone-500 dark:text-stone-400 line-clamp-2 mt-0.5">{diaData?.descripcion}</p>
+                          </div>
+
+                          <div className="mt-3 pt-2 border-t border-stone-100 dark:border-white/5 flex justify-between items-center">
+                            <span className="text-[10px] text-stone-400 font-semibold">{diaData?.categoria}</span>
+                            <button
+                              onClick={() => handleAddToCart(`menu_diario_${day}`)}
+                              className={`px-3 py-1 text-xs font-extrabold rounded-lg transition-all cursor-pointer flex items-center gap-1 active:scale-95 ${
+                                isToday
+                                  ? 'bg-[#5C1D24] text-white hover:bg-[#7a2730]'
+                                  : 'bg-[#8C6239] text-white hover:bg-[#704d2c]'
+                              }`}
+                            >
+                              <Plus className="w-3 h-3" /> {cartQty > 0 ? `(${cartQty}) Añadir` : 'Añadir'}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        ) : selectedCategoria === 'Promociones' ? (
           <div className="space-y-3 max-h-[550px] overflow-y-auto pr-1">
             <div className="bg-[#FAF7F0] dark:bg-[#1E140E] p-4 rounded-2xl border border-[#8C6239]/20 dark:border-[#8C6239]/30 flex items-center justify-between">
               <div>
