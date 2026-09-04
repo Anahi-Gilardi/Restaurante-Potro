@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { useDebounce } from '../hooks/useDebounce';
-import { UtensilsCrossed, Plus, Search, Edit2, Check, Copy, X, DollarSign, Image, AlertTriangle } from 'lucide-react';
+import { UtensilsCrossed, Plus, Search, Edit2, Check, Copy, X, DollarSign, Image, AlertTriangle, Calendar } from 'lucide-react';
 import BulkPriceEditor from './BulkPriceEditor';
+import MenuDiarioModule from './MenuDiarioModule';
 import { CardSkeleton } from './Skeleton';
 import { ProductoMenu, EventoLog, RecetaEscandallo, Insumo } from '../types';
 import { menuService } from '../services/menuService';
@@ -64,7 +65,7 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 300);
   const [selectedCategoria, setSelectedCategoria] = useState<string>('todos');
-  const [showBulkEditor, setShowBulkEditor] = useState(false);
+  const [activeTab, setActiveTab] = useState<'catalogo' | 'masivos' | 'diario'>('catalogo');
   const [loading, setLoading] = useState(true);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
 
@@ -473,25 +474,35 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
       <ToastContainer toasts={toasts} removeToast={removeToast} />
 
       <div className="flex gap-2 overflow-x-auto pb-2.5">
-        <button onClick={() => setShowBulkEditor(false)}
+        <button onClick={() => setActiveTab('catalogo')}
           className={`px-4 py-2 text-xs font-extrabold rounded-xl transition-all cursor-pointer border shrink-0 ${
-            !showBulkEditor
+            activeTab === 'catalogo'
               ? 'bg-[#8C6239] dark:bg-[#C8956A] text-white dark:text-[#8C6239] border-[#8C6239] dark:border-[#C8956A] shadow-md'
               : 'bg-white/70 dark:bg-white/5 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-white/10 hover:bg-stone-50 dark:hover:bg-white/10'
           }`}>
-          <UtensilsCrossed className="w-3.5 h-3.5 inline mr-1" /> Catalogo
+          <UtensilsCrossed className="w-3.5 h-3.5 inline mr-1" /> Catálogo
         </button>
-        <button onClick={() => setShowBulkEditor(true)}
+        <button onClick={() => setActiveTab('masivos')}
           className={`px-4 py-2 text-xs font-extrabold rounded-xl transition-all cursor-pointer border shrink-0 ${
-            showBulkEditor
+            activeTab === 'masivos'
               ? 'bg-[#8C6239] dark:bg-[#C8956A] text-white dark:text-[#8C6239] border-[#8C6239] dark:border-[#C8956A] shadow-md'
               : 'bg-white/70 dark:bg-white/5 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-white/10 hover:bg-stone-50 dark:hover:bg-white/10'
           }`}>
           <DollarSign className="w-3.5 h-3.5 inline mr-1" /> Precios masivos
         </button>
+        <button onClick={() => setActiveTab('diario')}
+          className={`px-4 py-2 text-xs font-extrabold rounded-xl transition-all cursor-pointer border shrink-0 ${
+            activeTab === 'diario'
+              ? 'bg-[#8C6239] dark:bg-[#C8956A] text-white dark:text-[#8C6239] border-[#8C6239] dark:border-[#C8956A] shadow-md'
+              : 'bg-white/70 dark:bg-white/5 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-white/10 hover:bg-stone-50 dark:hover:bg-white/10'
+          }`}>
+          <Calendar className="w-3.5 h-3.5 inline mr-1 text-amber-400" /> Menú diario
+        </button>
       </div>
 
-      {showBulkEditor ? (
+      {activeTab === 'diario' ? (
+        <MenuDiarioModule addLog={addLog} />
+      ) : activeTab === 'masivos' ? (
         <BulkPriceEditor items={items} onItemsChange={handleBulkItemsChange} addLog={addLog} />
       ) : (
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 md:gap-6">
