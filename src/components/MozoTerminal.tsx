@@ -29,6 +29,7 @@ import { createMozoCartIdempotencyKey } from '../lib/mozoCartDraft';
 import { calculatePedidoTotal, resolvePedidoItemUnitPrice } from '../lib/orderPricing';
 import { promocionesService, Promocion } from '../services/promocionesService';
 import { menuDiarioService, MenuDiarioDia, INITIAL_MENU_DIARIO } from '../services/menuDiarioService';
+import { printComandaThermalTicket } from '../lib/comandaPrinter';
 
 interface WineMapping {
   macro: 'tintas' | 'blancas' | 'champagne' | 'copas' | 'destilados' | null;
@@ -584,9 +585,21 @@ export default function MozoTerminal({
 
       if (accepted === false) return;
 
+      // Trigger automatic print to connected ticket printer
+      printComandaThermalTicket({
+        mesa: selectedMesa ? `Mesa ${selectedMesa.numero_mesa}` : `Mesa ${selectedMesaId}`,
+        mozo: activeMozo || 'Mozo',
+        items: items.map(i => ({
+          nombre: i.nombre,
+          cantidad: i.cantidad,
+          observaciones: observaciones.trim() || undefined,
+        })),
+        observaciones: observaciones.trim() || undefined,
+      });
+
       setCart({});
       setObservaciones('');
-      addLog('pedido_creado', `Mozo ${activeMozo} inyectó pedido para ${selectedMesa?.numero_mesa} con ${items.length} platos.`);
+      addLog('pedido_creado', `Mozo ${activeMozo} envió e imprimió comanda para ${selectedMesa?.numero_mesa} con ${items.length} platos.`);
     } catch (error) {
       alert(error instanceof Error ? error.message : 'No se pudo enviar la comanda. El carrito permanece disponible.');
     } finally {
@@ -1383,7 +1396,7 @@ export default function MozoTerminal({
                   className="w-full py-2.5 px-4 btn-premium-primary text-xs font-black flex items-center justify-center gap-2 shadow-md"
                 >
                   <Sparkles className="w-3.5 h-3.5 text-amber-350" />
-                  Enviar a Cocina (Nuevo Pedido) 🚀
+                  Enviar comanda 🖨️
                 </button>
               </div>
             </>

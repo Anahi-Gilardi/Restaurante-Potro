@@ -4,12 +4,66 @@ Flujo: seleccionar mozo -> elegir mesa -> armar pedido -> enviar a cocina.
 """
 from __future__ import annotations
 
+from datetime import datetime
 from html import escape
 
 import streamlit as st
 import pandas as pd
 from database import get_connection, init_db, rows as db_rows
 from components.categorias import categorias_visibles, productos_de_categoria
+
+
+def imprimir_comanda_tiquetera(mesa_num: str | int, mozo_nombre: str, cart: dict) -> None:
+    now_str = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+    items_html = ""
+    for item in cart.values():
+        cant = item.get("cantidad", 1)
+        nom = escape(str(item.get("nombre", "")))
+        obs = escape(str(item.get("observaciones", ""))).strip()
+        obs_html = f"<div style='font-size:12px;font-style:italic;'>Obs: {obs}</div>" if obs else ""
+        items_html += f"""
+        <tr style="border-bottom:1px dashed #444;">
+            <td style="font-weight:900;font-size:16px;width:40px;padding:4px 0;">{cant}x</td>
+            <td style="font-size:14px;font-weight:800;padding:4px 0;">{nom}{obs_html}</td>
+        </tr>
+        """
+
+    html_code = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            @page {{ size: auto; margin: 0mm; }}
+            body {{ font-family: 'Courier New', monospace; width: 78mm; margin: 0 auto; padding: 10px 8px; color: #000; background: #fff; }}
+            .header {{ text-align: center; border-bottom: 2px dashed #000; padding-bottom: 8px; margin-bottom: 8px; }}
+            .title {{ font-size: 18px; font-weight: 900; }}
+            .mesa-badge {{ font-size: 20px; font-weight: 900; border: 2px solid #000; padding: 4px; display: inline-block; margin-top: 4px; }}
+            .meta {{ font-size: 12px; font-weight: bold; margin-top: 6px; }}
+            .table {{ width: 100%; border-collapse: collapse; margin-top: 8px; }}
+            .footer {{ border-top: 2px dashed #000; margin-top: 12px; padding-top: 6px; text-align: center; font-size: 11px; font-weight: bold; }}
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <div class="title">*** COMANDA DE COCINA ***</div>
+            <div class="mesa-badge">MESA {mesa_num}</div>
+            <div class="meta">MOZO: {escape(str(mozo_nombre)).upper()}</div>
+            <div style="font-size: 11px; margin-top: 2px;">FECHA: {now_str}</div>
+        </div>
+        <table class="table">
+            <tbody>{items_html}</tbody>
+        </table>
+        <div class="footer">>>> TICKET ENVIADO A TIQUETERA <<<</div>
+        <script>
+            window.onload = function() {{
+                window.print();
+            }};
+        </script>
+    </body>
+    </html>
+    """
+    st.components.v1.html(html_code, height=0, width=0)
 
 
 COLOR_PRIMARY = "#b42318"
@@ -748,25 +802,30 @@ def pantalla_pedido() -> None:
         total_items, total = render_carrito(menu)
         st.divider()
         if st.button(
-            "Enviar pedido a cocina",
+            "Enviar comanda",
             type="primary",
             use_container_width=True,
             disabled=total_items == 0,
         ):
             try:
+                imprimir_comanda_tiquetera(
+                    mesa.get("numero_mesa", mesa.get("id_mesa", "")),
+                    st.session_state.mozo.get("nombre", "Mozo"),
+                    st.session_state.cart,
+                )
                 id_pedido = crear_pedido(
                     mesa["id_mesa"],
                     st.session_state.mozo["id"],
                     st.session_state.cart,
                 )
                 st.session_state.success_msg = (
-                    f"Pedido #{id_pedido} enviado a cocina. "
+                    f"Comanda #{id_pedido} enviada a tiquetera e impresa. "
                     f"Mesa {mesa['numero_mesa']} - total {money(total)}."
                 )
                 volver_a_mesas()
                 st.rerun()
             except Exception as exc:
-                st.error(f"No se pudo crear el pedido: {exc}")
+                st.error(f"No se pudo enviar la comanda: {exc}")
 
         if st.button("Vaciar pedido", use_container_width=True, disabled=total_items == 0):
             st.session_state.cart = {}

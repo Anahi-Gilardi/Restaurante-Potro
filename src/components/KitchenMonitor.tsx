@@ -355,6 +355,18 @@ export default function KitchenMonitor({
 
   return (
     <div className="space-y-5" id="kitchen-monitor-container">
+      {/* BANNER MÓDULO PAUSADO */}
+      <div className="bg-amber-500/15 border-2 border-amber-500/40 rounded-[20px] p-4 text-amber-900 dark:text-amber-200 flex items-center gap-3 shadow-md">
+        <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center text-xl shrink-0 font-bold">
+          ⏸️
+        </div>
+        <div>
+          <h4 className="font-black text-sm uppercase tracking-wide">Módulo de Cocina Temporalmente Pausado</h4>
+          <p className="text-xs font-semibold opacity-90 mt-0.5">
+            Las comandas no se procesan por pantalla. Al presionar <strong>"Enviar comanda"</strong> en el módulo de Mozo, la comanda se imprime automáticamente y en forma directa en su tiquetera térmica.
+          </p>
+        </div>
+      </div>
 
       {/* Producción agrupada */}
       <div className="glass-panel rounded-[20px] p-5 shadow-xs">

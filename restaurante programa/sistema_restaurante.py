@@ -2255,6 +2255,7 @@ def page_cocina() -> None:
         st.warning(f"No se pudo cerrar comandas vencidas: {cierre_vencidos.get('error', 'error desconocido')}")
     offline_banner()
     title("Terminal de cocina", "Comandas vivas, tiempos y despacho tactil.")
+    st.warning("⏸️ **MÓDULO DE COCINA TEMPORALMENTE PAUSADO**: Las comandas no requieren gestión manual en pantalla. Al presionar **'Enviar comanda'** en la terminal de mozo, se genera e imprime el ticket comanda directamente en su tiquetera térmica.")
     cocina_form_open = st.session_state.get("cocina_form_open", False)
     refresh_seconds = kitchen_auto_refresh_seconds(cocina_form_open)
     if refresh_seconds:
