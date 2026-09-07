@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { ALL_APP_VIEWS, canAccessView, getAllowedViews } from './permissions';
+import { ALL_APP_VIEWS, canAccessView, getAllowedViews, COCINA_MODULE_ENABLED } from './permissions';
 
 test('superadmin tiene acceso total', () => {
-  assert.deepEqual(getAllowedViews('superadmin'), ALL_APP_VIEWS);
+  const expectedViews = COCINA_MODULE_ENABLED ? ALL_APP_VIEWS : ALL_APP_VIEWS.filter(v => v !== 'cocina');
+  assert.deepEqual(getAllowedViews('superadmin'), expectedViews);
   assert.equal(canAccessView('superadmin', 'sistema'), true);
   assert.equal(canAccessView('superadmin', 'backups'), true);
   assert.equal(canAccessView('superadmin', 'caja'), true);
@@ -39,7 +40,8 @@ test('cajero puede cobrar y facturar sin administrar inventario', () => {
 });
 
 test('cocina no puede administrar caja ni usuarios', () => {
-  assert.deepEqual(getAllowedViews('cocina'), ['home', 'cocina']);
+  const expectedViews = COCINA_MODULE_ENABLED ? ['home', 'cocina'] : ['home'];
+  assert.deepEqual(getAllowedViews('cocina'), expectedViews);
   assert.equal(canAccessView('cocina', 'caja'), false);
   assert.equal(canAccessView('cocina', 'usuarios'), false);
 });

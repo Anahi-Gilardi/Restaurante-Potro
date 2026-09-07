@@ -835,20 +835,19 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
                         
                         {count > 0 && (
                           <div 
-                            className={`mt-auto w-full py-0.5 px-0.5 rounded text-[7.5px] font-black uppercase tracking-tight flex items-center justify-center gap-1 shadow-xs truncate ${
+                            className={`mt-auto w-full py-0.5 px-1 rounded text-[8px] font-black uppercase tracking-tight flex items-center justify-center shadow-xs truncate ${
                               isSelected 
                                 ? 'bg-white text-red-700 font-black shadow-sm' 
                                 : 'bg-red-600 text-white'
                             }`}
                             title={`${count} reserva${count > 1 ? 's' : ''} activa${count > 1 ? 's' : ''}`}
                           >
-                            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isSelected ? 'bg-red-600' : 'bg-white animate-pulse'}`} />
                             <span className="truncate">{count > 1 ? `${count} Reservas` : 'Reservado'}</span>
                           </div>
                         )}
                         
                         {count > 0 && (
-                          <span className={`absolute top-1 right-1 text-[8px] font-black px-1.5 py-0.2 rounded-full ${
+                          <span className={`absolute top-1 right-1 text-[8px] font-black px-1.5 py-0.2 rounded ${
                             isSelected 
                               ? 'bg-white/25 text-white' 
                               : 'bg-red-600 text-white shadow-xs'
@@ -858,7 +857,9 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
                         )}
                         
                         {ocupadas === mesas.length && isCurrent && (
-                          <span className="absolute bottom-1 right-1 w-1.5 h-1.5 rounded-full bg-rose-500" title="Casa llena (sin mesas)" />
+                          <span className="absolute bottom-1 right-1 text-[7px] font-bold text-rose-600 uppercase" title="Casa llena (sin mesas)">
+                            Lleno
+                          </span>
                         )}
                       </button>
                     );
@@ -867,10 +868,10 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
                 
                 <div className="flex items-center gap-4 mt-3 pt-2.5 border-t border-stone-100 dark:border-stone-800">
                   <span className="flex items-center gap-1.5 text-[9px] text-stone-700 dark:text-stone-300 font-bold">
-                    <span className="w-2.5 h-2.5 rounded-full bg-red-600 shadow-xs" /> Reservado / Con reserva
+                    <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-red-600 text-white shadow-xs">Reservado</span> Días con reservas activas
                   </span>
                   <span className="flex items-center gap-1.5 text-[9px] text-stone-500 font-bold">
-                    <span className="w-2.5 h-2.5 rounded-full bg-rose-500" /> Sin disponibilidad
+                    <span className="w-2.5 h-2.5 rounded-sm bg-rose-500" /> Sin disponibilidad
                   </span>
                 </div>
               </div>
@@ -955,21 +956,36 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
                   onClick={() => setSelectedDate(dStr)}
                   className={`p-4 rounded-2xl border transition-all text-left cursor-pointer ${
                     isSelected 
-                      ? 'bg-[#624A3E] text-white border-[#624A3E] shadow-sm' 
-                      : 'bg-white dark:bg-stone-900 hover:bg-stone-50 dark:hover:bg-stone-850 border-stone-200 dark:border-stone-800 text-stone-800'
+                      ? count > 0
+                        ? 'bg-red-700 text-white border-red-800 shadow-md ring-2 ring-red-400/60'
+                        : 'bg-[#624A3E] text-white border-[#624A3E] shadow-sm' 
+                      : count > 0
+                        ? 'bg-red-50/90 dark:bg-red-950/40 border-2 border-red-500 dark:border-red-600 text-red-950 dark:text-red-100 hover:bg-red-100/90 shadow-xs'
+                        : 'bg-white dark:bg-stone-900 hover:bg-stone-50 dark:hover:bg-stone-850 border-stone-200 dark:border-stone-800 text-stone-800'
                   }`}
                 >
                   <div className="flex justify-between items-center">
-                    <span className={`text-[9px] font-black uppercase tracking-wider ${isSelected ? 'text-white/80' : 'text-stone-450 dark:text-stone-300'}`}>
+                    <span className={`text-[10px] font-black uppercase tracking-wider ${
+                      isSelected ? 'text-white/90' : count > 0 ? 'text-red-800 dark:text-red-300' : 'text-stone-450 dark:text-stone-300'
+                    }`}>
                       {i === 0 ? 'Hoy' : 'Mañana'}
                     </span>
-                    <CalendarClock className={`w-4 h-4 ${isSelected ? 'text-white/70' : 'text-stone-400'}`} />
+                    <div className="flex items-center gap-2">
+                      {count > 0 && (
+                        <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded shadow-xs ${
+                          isSelected ? 'bg-white text-red-700' : 'bg-red-600 text-white'
+                        }`}>
+                          {count > 1 ? `${count} Reservas` : 'Reservado'}
+                        </span>
+                      )}
+                      <CalendarClock className={`w-4 h-4 ${isSelected ? 'text-white/80' : count > 0 ? 'text-red-500' : 'text-stone-400'}`} />
+                    </div>
                   </div>
                   <div className="mt-2 space-y-0.5">
-                    <p className={`text-lg font-black ${isSelected ? 'text-white' : 'text-stone-900 dark:text-white'}`}>
+                    <p className={`text-lg font-black ${isSelected ? 'text-white' : count > 0 ? 'text-red-950 dark:text-red-100' : 'text-stone-900 dark:text-white'}`}>
                       {count} reserva{count !== 1 ? 's' : ''}
                     </p>
-                    <p className={`text-[10px] font-semibold ${isSelected ? 'text-white/75' : 'text-stone-500'}`}>
+                    <p className={`text-[10px] font-semibold ${isSelected ? 'text-white/80' : count > 0 ? 'text-red-800 dark:text-red-300' : 'text-stone-500'}`}>
                       {disponiblesHoy.length} mesas libres
                     </p>
                     {ocupadas === mesas.length && (
