@@ -809,28 +809,50 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
                         onClick={() => setSelectedDate(cellStr)}
                         className={`relative h-14 rounded-xl border text-left p-1.5 transition-all cursor-pointer flex flex-col justify-between ${
                           isSelected 
-                            ? 'bg-[#624A3E] text-white border-[#624A3E] shadow-sm' 
-                            : isToday 
-                              ? 'bg-stone-100 border-[#624A3E] dark:bg-stone-850 text-stone-900 dark:text-white' 
-                              : isCurrent 
-                                ? 'bg-white dark:bg-stone-950 border-stone-200 dark:border-stone-850 hover:bg-stone-50 dark:hover:bg-stone-900 text-stone-800' 
-                                : 'bg-stone-50/50 border-stone-100 dark:bg-stone-900/20 dark:border-stone-950 text-stone-300'
+                            ? count > 0 
+                              ? 'bg-red-700 text-white border-red-800 shadow-md ring-2 ring-red-400/60' 
+                              : 'bg-[#624A3E] text-white border-[#624A3E] shadow-sm'
+                            : count > 0
+                              ? isToday 
+                                ? 'bg-red-50 dark:bg-red-950/50 border-2 border-red-600 text-red-900 dark:text-red-100 ring-2 ring-red-300 dark:ring-red-900/60 shadow-xs'
+                                : 'bg-red-50/90 dark:bg-red-950/40 border-2 border-red-500 dark:border-red-600 text-red-900 dark:text-red-100 hover:bg-red-100/90 shadow-xs'
+                              : isToday 
+                                ? 'bg-stone-100 border-[#624A3E] dark:bg-stone-850 text-stone-900 dark:text-white' 
+                                : isCurrent 
+                                  ? 'bg-white dark:bg-stone-950 border-stone-200 dark:border-stone-850 hover:bg-stone-50 dark:hover:bg-stone-900 text-stone-800' 
+                                  : 'bg-stone-50/50 border-stone-100 dark:bg-stone-900/20 dark:border-stone-950 text-stone-300'
                         }`}
                       >
-                        <span className={`text-[10px] font-black leading-none ${isSelected ? 'text-white' : 'text-stone-605 text-stone-600 dark:text-stone-400'}`}>
+                        <span className={`text-[10px] font-black leading-none ${
+                          isSelected 
+                            ? 'text-white' 
+                            : count > 0 
+                              ? 'text-red-700 dark:text-red-400' 
+                              : 'text-stone-600 dark:text-stone-400'
+                        }`}>
                           {cellDate.getDate()}
                         </span>
                         
                         {count > 0 && (
-                          <div className="flex flex-wrap gap-0.5 mt-auto">
-                            {Array.from({ length: Math.min(count, 4) }).map((_, i) => (
-                              <span key={i} className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-white/70' : 'bg-[#624A3E] dark:bg-[#C8956A]'}`} />
-                            ))}
+                          <div 
+                            className={`mt-auto w-full py-0.5 px-0.5 rounded text-[7.5px] font-black uppercase tracking-tight flex items-center justify-center gap-1 shadow-xs truncate ${
+                              isSelected 
+                                ? 'bg-white text-red-700 font-black shadow-sm' 
+                                : 'bg-red-600 text-white'
+                            }`}
+                            title={`${count} reserva${count > 1 ? 's' : ''} activa${count > 1 ? 's' : ''}`}
+                          >
+                            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isSelected ? 'bg-red-600' : 'bg-white animate-pulse'}`} />
+                            <span className="truncate">{count > 1 ? `${count} Reservas` : 'Reservado'}</span>
                           </div>
                         )}
                         
                         {count > 0 && (
-                          <span className={`absolute top-1 right-1 text-[8px] font-black ${isSelected ? 'text-white/80' : 'text-stone-450 dark:text-stone-300'}`}>
+                          <span className={`absolute top-1 right-1 text-[8px] font-black px-1.5 py-0.2 rounded-full ${
+                            isSelected 
+                              ? 'bg-white/25 text-white' 
+                              : 'bg-red-600 text-white shadow-xs'
+                          }`}>
                             {count}
                           </span>
                         )}
@@ -844,8 +866,8 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
                 </div>
                 
                 <div className="flex items-center gap-4 mt-3 pt-2.5 border-t border-stone-100 dark:border-stone-800">
-                  <span className="flex items-center gap-1.5 text-[9px] text-stone-500 font-bold">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#624A3E] dark:bg-[#C8956A]" /> Reserva Activa
+                  <span className="flex items-center gap-1.5 text-[9px] text-stone-700 dark:text-stone-300 font-bold">
+                    <span className="w-2.5 h-2.5 rounded-full bg-red-600 shadow-xs" /> Reservado / Con reserva
                   </span>
                   <span className="flex items-center gap-1.5 text-[9px] text-stone-500 font-bold">
                     <span className="w-2.5 h-2.5 rounded-full bg-rose-500" /> Sin disponibilidad
@@ -868,10 +890,14 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
                       onClick={() => setSelectedDate(ds)}
                       className={`w-full flex items-center gap-3 p-2.5 rounded-xl border transition-all cursor-pointer text-left ${
                         isSel 
-                          ? 'bg-[#624A3E] text-white border-[#624A3E]' 
-                          : d.getDay() === 0 || d.getDay() === 6 
-                            ? 'bg-stone-50 border-stone-200 dark:bg-stone-950 dark:border-stone-850 text-stone-700 dark:text-stone-200' 
-                            : 'bg-white border-stone-200 dark:bg-stone-900 dark:border-stone-800 hover:bg-stone-50 dark:hover:bg-stone-850 text-stone-800'
+                          ? dayReservas.length > 0
+                            ? 'bg-red-700 text-white border-red-800 shadow-sm'
+                            : 'bg-[#624A3E] text-white border-[#624A3E]' 
+                          : dayReservas.length > 0
+                            ? 'bg-red-50/80 border-2 border-red-300 dark:bg-red-950/30 dark:border-red-800 text-red-950 dark:text-red-100 hover:bg-red-100/80'
+                            : d.getDay() === 0 || d.getDay() === 6 
+                              ? 'bg-stone-50 border-stone-200 dark:bg-stone-950 dark:border-stone-850 text-stone-700 dark:text-stone-200' 
+                              : 'bg-white border-stone-200 dark:bg-stone-900 dark:border-stone-800 hover:bg-stone-50 dark:hover:bg-stone-850 text-stone-800'
                       }`}
                     >
                       <div className="w-10 text-center shrink-0">
@@ -901,8 +927,12 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
                       </div>
                       
                       {dayReservas.length > 0 && (
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isSel ? 'bg-white/20 text-white' : 'bg-stone-105 text-stone-600 dark:bg-stone-800 dark:text-stone-300'}`}>
-                          {dayReservas.length}
+                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                          isSel 
+                            ? 'bg-white text-red-700 shadow-xs' 
+                            : 'bg-red-600 text-white shadow-xs'
+                        }`}>
+                          {dayReservas.length > 1 ? `${dayReservas.length} Reservas` : 'Reservado'}
                         </span>
                       )}
                     </button>
