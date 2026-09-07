@@ -228,12 +228,14 @@ export default function PanelDashboard({
                       <div className="bg-white p-6 rounded-2xl border border-stone-200 space-y-4">
                                 <div className="flex items-center justify-between">
                                             <h4 className="text-xs font-black text-stone-700 uppercase tracking-wider">Pedidos Activos</h4>
-                                            <button
-                                                            onClick={() => onNavigate('cocina')}
-                                                            className="text-[10px] text-[#624A3E] font-bold hover:underline"
-                                                          >
-                                                          Ver Cocina →
-                                            </button>
+                                            {allowedViews.includes('cocina') && (
+                                               <button
+                                                 onClick={() => onNavigate('cocina')}
+                                                 className="text-[10px] text-[#624A3E] font-bold hover:underline"
+                                               >
+                                                 Ver Cocina →
+                                               </button>
+                                             )}
                                 </div>
                                 <div className="space-y-2 max-h-64 overflow-y-auto">
                                   {pedidos

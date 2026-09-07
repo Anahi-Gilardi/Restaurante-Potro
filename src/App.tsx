@@ -74,7 +74,7 @@ import {
   getSupabaseConfig,
   dbInsertLog
 } from './supabase';
-import { AppView, canAccessView, getAllowedViews } from './lib/permissions';
+import { AppView, canAccessView, getAllowedViews, COCINA_MODULE_ENABLED } from './lib/permissions';
 import { createClientPedidoId } from './lib/pedidoIds';
 import { argentinaDateIso } from './lib/argentinaDate';
 import { canMergePedidoItems, resolvePedidoItemUnitPrice } from './lib/orderPricing';
@@ -1298,7 +1298,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
                 addLog={addLog}
               />
             )}
-            {activeView === 'cocina' && (
+            {activeView === 'cocina' && COCINA_MODULE_ENABLED && (
               <KitchenMonitor 
                 pedidos={pedidos}
                 onCambiarEstadoPedido={handleCambiarEstadoPedido}

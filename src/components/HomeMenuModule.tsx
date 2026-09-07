@@ -205,7 +205,7 @@ export default function HomeMenuModule({
     }
 
     const delayedCookings = pedidos.filter(p => (p.estado_comanda === 'pendiente' || p.estado_comanda === 'en_cocina') && p.minutos_transcurridos > 15);
-    if (delayedCookings.length > 0) {
+    if (delayedCookings.length > 0 && allowedViews.includes('cocina')) {
       alerts.push({
         text: `${delayedCookings.length} comandas demoradas en cocina (> 15m).`,
         action: 'cocina',

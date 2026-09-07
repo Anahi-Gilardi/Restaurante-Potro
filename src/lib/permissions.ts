@@ -47,11 +47,21 @@ const ROLE_PERMISSIONS: Record<Usuario['rol'], AppView[]> = {
   cocina: ['home', 'cocina']
 };
 
-export const getAllowedViews = (role: Usuario['rol']): AppView[] => (
-  [...(ROLE_PERMISSIONS[role] || [])]
-);
+// Flag para ocultar temporalmente el módulo de cocina (el chef no lo va a utilizar por el momento)
+export const COCINA_MODULE_ENABLED = false;
+
+export const getAllowedViews = (role: Usuario['rol']): AppView[] => {
+  const views = [...(ROLE_PERMISSIONS[role] || [])];
+  if (!COCINA_MODULE_ENABLED) {
+    return views.filter(v => v !== 'cocina');
+  }
+  return views;
+};
 
 export const canAccessView = (role: Usuario['rol'], view: AppView): boolean => {
-  const views = ROLE_PERMISSIONS[role];
-  return views ? views.includes(view) : false;
+  if (!COCINA_MODULE_ENABLED && view === 'cocina') {
+    return false;
+  }
+  const views = getAllowedViews(role);
+  return views.includes(view);
 };
