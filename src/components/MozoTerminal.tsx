@@ -30,6 +30,7 @@ import { calculatePedidoTotal, resolvePedidoItemUnitPrice } from '../lib/orderPr
 import { promocionesService, Promocion } from '../services/promocionesService';
 import { menuDiarioService, MenuDiarioDia, INITIAL_MENU_DIARIO } from '../services/menuDiarioService';
 import { printComandaThermalTicket } from '../lib/comandaPrinter';
+import { useToast, ToastContainer } from './ToastContainer';
 
 interface WineMapping {
   macro: 'tintas' | 'blancas' | 'champagne' | 'copas' | 'destilados' | null;
@@ -218,6 +219,7 @@ export default function MozoTerminal({
   addLog,
   permitirVentaSinStock = false
 }: MozoTerminalProps) {
+  const { toast, toasts, removeToast } = useToast();
   const checkoutInFlightRef = useRef(false);
   // Waiter selections
   const [selectedMesaId, setSelectedMesaId] = useState<number | null>(null);
@@ -282,7 +284,7 @@ export default function MozoTerminal({
   const startListening = () => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      alert('Tu navegador no soporta control por voz. Probá con Google Chrome.');
+      toast.warning('Tu navegador no soporta control por voz. Probá con Google Chrome.');
       return;
     }
 
@@ -305,7 +307,7 @@ export default function MozoTerminal({
 
       rec.onerror = (e: any) => {
         console.error('Speech recognition error:', e);
-        alert('No se pudo escuchar con claridad. Por favor reintentá.');
+        toast.warning('No se pudo escuchar con claridad. Por favor reintentá.');
         setIsListening(false);
       };
 
@@ -340,7 +342,7 @@ export default function MozoTerminal({
         if (targetMesa) {
           setSelectedMesaId(targetMesa.id_mesa);
         } else {
-          alert(`La Mesa ${voiceResult.mesa} no existe o no está activa.`);
+          toast.error(`La Mesa ${voiceResult.mesa} no existe o no está activa.`);
         }
       }
     }
@@ -362,6 +364,20 @@ export default function MozoTerminal({
   const [splittingPedidoId, setSplittingPedidoId] = useState<number | null>(null);
   const [splitCount, setSplitCount] = useState<number>(2);
   const [splitItemsChecked, setSplitItemsChecked] = useState<{ [itemIdx: number]: boolean }>({});
+
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (searchQuery) setSearchQuery('');
+        if (splittingPedidoId !== null) {
+          setSplittingPedidoId(null);
+          setSplitItemsChecked({});
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [searchQuery, splittingPedidoId]);
 
   const selectedMesa = useMemo(() => {
     if (selectedMesaId === null) return null;
@@ -491,7 +507,7 @@ export default function MozoTerminal({
   // Cart operations
   const handleAddToCart = (productoId: string) => {
     if (!selectedMesaId) {
-      alert("Por favor seleccione primero una mesa.");
+      toast.warning("Por favor seleccione primero una mesa.");
       return;
     }
     const evalResult = evaluateStockAdd(productoId);
@@ -601,7 +617,7 @@ export default function MozoTerminal({
       setObservaciones('');
       addLog('pedido_creado', `Mozo ${activeMozo} envió e imprimió comanda para ${selectedMesa?.numero_mesa} con ${items.length} platos.`);
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'No se pudo enviar la comanda. El carrito permanece disponible.');
+      toast.error(error instanceof Error ? error.message : 'No se pudo enviar la comanda. El carrito permanece disponible.');
     } finally {
       checkoutInFlightRef.current = false;
     }
@@ -1550,7 +1566,7 @@ export default function MozoTerminal({
                     <button
                       onClick={() => {
                         const amntToPay = itemizedTotal > 0 ? itemizedTotal : orderTotal;
-                        alert(`Se procesó el cobro de $${amntToPay.toLocaleString('es-AR')} para ${p.numero_mesa}.`);
+                        toast.success(`Se procesó el cobro de $${amntToPay.toLocaleString('es-AR')} para ${p.numero_mesa}.`);
                         
                         // If fully paid or equal split, complete it
                         if (itemizedTotal === 0 || itemizedTotal === orderTotal) {
@@ -1698,6 +1714,7 @@ export default function MozoTerminal({
           </div>
         </div>
       )}
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
     </div>
   );
 }

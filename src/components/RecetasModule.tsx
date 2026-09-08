@@ -500,6 +500,9 @@ export default function RecetasModule({
         if (kitchenTimerRef.current) clearInterval(kitchenTimerRef.current);
         setKitchenTimeLeft(null);
         setKitchenTimerRunning(false);
+        return () => {
+            if (kitchenTimerRef.current) clearInterval(kitchenTimerRef.current);
+        };
     }, [kitchenStepIdx]);
 
     const startKitchenTimer = () => {

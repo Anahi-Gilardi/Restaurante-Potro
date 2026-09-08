@@ -23,6 +23,7 @@ import {
 import { Insumo, ProductoMenu, RecetaEscandallo, Merma } from '../types';
 import { createOperationalId } from '../lib/operationalId';
 import { argentinaDateIso } from '../lib/argentinaDate';
+import { useToast, ToastContainer } from './ToastContainer';
 
 interface InventoryModuleProps {
   insumos: Insumo[];
@@ -43,6 +44,7 @@ export default function InventoryModule({
   onRestockInsumo,
   addLog
 }: InventoryModuleProps) {
+  const { toast, toasts, removeToast } = useToast();
   
   // Local toggles
   const [activeSubTab, setActiveSubTab] = useState<'deposito' | 'escandallo' | 'compras' | 'movimientos'>('deposito');
@@ -101,7 +103,7 @@ export default function InventoryModule({
   const submitMermaForm = (e: React.FormEvent) => {
     e.preventDefault();
     if (!mermaInsumoId || mermaCantidad <= 0) {
-      alert("Por favor complete todos los datos requeridos.");
+      toast.warning("Por favor complete todos los datos requeridos.");
       return;
     }
 
@@ -109,7 +111,7 @@ export default function InventoryModule({
     if (!insSelected) return;
 
     if (insSelected.stock_actual < mermaCantidad) {
-      alert(`No puede registrar merma mayor al stock disponible (${insSelected.stock_actual}${insSelected.unidad_medida})`);
+      toast.error(`No puede registrar merma mayor al stock disponible (${insSelected.stock_actual}${insSelected.unidad_medida})`);
       return;
     }
 
@@ -126,14 +128,14 @@ export default function InventoryModule({
     // Reset form
     setMermaCantidad(0);
     setMermaInsumoId('');
-    alert("Merma asentada exitosamente.");
+    toast.success("Merma asentada exitosamente.");
   };
 
   // Process manual adjustments (plus/minus)
   const submitAjusteForm = (e: React.FormEvent) => {
     e.preventDefault();
     if (!ajusteInsumoId || ajusteCantidad <= 0) {
-      alert("Por favor complete los datos de ajuste.");
+      toast.warning("Por favor complete los datos de ajuste.");
       return;
     }
 
@@ -141,7 +143,7 @@ export default function InventoryModule({
     if (!insSelected) return;
 
     if (ajusteOperacion === 'restar' && insSelected.stock_actual < ajusteCantidad) {
-      alert("No puede sustraer más que las existencias actuales.");
+      toast.error("No puede sustraer más que las existencias actuales.");
       return;
     }
 
@@ -163,14 +165,14 @@ export default function InventoryModule({
 
     setAjusteCantidad(0);
     setAjusteInsumoId('');
-    alert("Ajuste manual procesado correctamente.");
+    toast.success("Ajuste manual procesado correctamente.");
   };
 
   // Submit Simulated Purchase Order to supplier
   const handleIngresarCompraProveedor = (e: React.FormEvent) => {
     e.preventDefault();
     if (!compraInsumoId || compraCantidad <= 0) {
-      alert("Configure el insumo y cantidad de la compra.");
+      toast.warning("Configure el insumo y cantidad de la compra.");
       return;
     }
 
@@ -207,7 +209,7 @@ export default function InventoryModule({
 
     // Reset Form
     setCompraCantidad(10);
-    alert(`ÓRDEN DE COMPRA ENVIADA Y RECIBIDA\n\nProveedor: ${selectedProveedor}\nSe acreditó el stock físico. Costo estimado devengado: $${calculatedCost.toLocaleString('es-AR')}`);
+    toast.success(`Órden de compra procesada. Proveedor: ${selectedProveedor}. Costo: $${calculatedCost.toLocaleString('es-AR')}`);
   };
 
   // Recipe specs for the selected dish
@@ -274,7 +276,7 @@ export default function InventoryModule({
     document.body.removeChild(link);
 
     addLog('sistema', 'DIAGNOSTICO: Exportado reporte fiscal del historial de stock en CSV.');
-    alert("Reporte CSV de auditoría descargado exitosamente.");
+    toast.success("Reporte CSV de auditoría descargado exitosamente.");
   };
 
   return (
@@ -385,7 +387,7 @@ export default function InventoryModule({
               </div>
 
               {/* Insumos list container */}
-              <div className="border border-slate-50 rounded-xl overflow-hidden max-h-[500px] overflow-y-auto">
+              <div className="border border-slate-50 rounded-xl overflow-x-auto max-h-[500px] overflow-y-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-slate-50/75 dark:bg-stone-900/30 border-b border-slate-100 dark:border-stone-800 text-slate-500 dark:text-stone-300 text-[10px] uppercase font-bold tracking-wider">
@@ -920,7 +922,7 @@ export default function InventoryModule({
               </button>
             </div>
 
-            <div className="border border-slate-100 dark:border-stone-800 rounded-xl overflow-hidden max-h-[450px] overflow-y-auto">
+            <div className="border border-slate-100 dark:border-stone-800 rounded-xl overflow-x-auto max-h-[450px] overflow-y-auto">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="bg-slate-50 dark:bg-stone-900/30 border-b border-slate-100 dark:border-stone-800 text-[10px] text-slate-500 dark:text-stone-300 uppercase font-bold tracking-wider">
@@ -967,6 +969,7 @@ export default function InventoryModule({
 
       </div>
 
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
     </div>
   );
 }

@@ -196,12 +196,24 @@ export default function CajaModule({
     refreshFailedPrintsCount();
   }, [cajaSession, lastFacturas]);
 
-
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (showMovimientoModal) setShowMovimientoModal(false);
+        if (showPrinterSettings) setShowPrinterSettings(false);
+        if (showSuccessModal) setShowSuccessModal(false);
+        if (showBillCounter) setShowBillCounter(null);
+        if (selectedShiftForDetail) setSelectedShiftForDetail(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showMovimientoModal, showPrinterSettings, showSuccessModal, showBillCounter, selectedShiftForDetail, setShowMovimientoModal, setShowPrinterSettings, setShowSuccessModal]);
 
   const handleExportCSV = (cierre: CierreCaja) => {
     const movs = cierre.movimientos_manuales || [];
     if (movs.length === 0) {
-      alert("No hay movimientos de caja chica en esta sesión para exportar.");
+      toast.warning("No hay movimientos de caja chica en esta sesión para exportar.");
       return;
     }
     const headers = ["ID", "Fecha", "Tipo", "Monto", "Concepto"];
@@ -432,7 +444,7 @@ export default function CajaModule({
               onClick={() => {
                 printerService.saveConfig(printerConfig);
                 setShowPrinterSettings(false);
-                alert('Ajustes de ticketera guardados en el almacenamiento del navegador.');
+                toast.success('Ajustes de ticketera guardados en el almacenamiento del navegador.');
               }}
               className="py-1.5 px-3 bg-[#624A3E] text-white text-[10px] font-black uppercase rounded-lg"
             >
@@ -616,12 +628,12 @@ export default function CajaModule({
                       const res = await printerService.retryFailedPrints(printerConfig);
                       refreshFailedPrintsCount();
                       if (res.successCount > 0) {
-                        alert(`¡Se imprimieron con éxito ${res.successCount} ticket(s) de la cola!`);
+                        toast.success(`¡Se imprimieron con éxito ${res.successCount} ticket(s) de la cola!`);
                       } else if (res.failedCount > 0) {
-                        alert(`No se pudo imprimir. Siguen pendientes ${res.failedCount} ticket(s). Verifique la conexión del bridge local en el puerto 8012.`);
+                        toast.error(`No se pudo imprimir. Siguen pendientes ${res.failedCount} ticket(s). Verifique la conexión del bridge local en el puerto 8012.`);
                       }
                     } catch (err: any) {
-                      alert(`Error al reintentar impresión: ${err.message}`);
+                      toast.error(`Error al reintentar impresión: ${err.message}`);
                     }
                   }}
                   className="w-full py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-[10px] uppercase font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-xs border border-amber-500"
@@ -689,7 +701,7 @@ export default function CajaModule({
                       key={b.id_pedido}
                       onClick={() => {
                         if (!cajaSession) {
-                          alert('Tenga a bien abrir primero la caja para proceder con la cuenta.');
+                          toast.warning('Tenga a bien abrir primero la caja para proceder con la cuenta.');
                           return;
                         }
                         setSelectedPedidoId(isSelected ? null : b.id_pedido);
@@ -1183,7 +1195,7 @@ export default function CajaModule({
                     <button
                       onClick={async () => {
                         if (isCheckoutProcessing) return;
-                        alert(`Se ha procesado y validado el cobro de la parte #${activePayerIndex + 1} por $${(orderBreakdowns.finalTotal / splitPayerCount).toLocaleString('es-AR')}`);
+                        toast.success(`Se ha procesado y validado el cobro de la parte #${activePayerIndex + 1} por $${(orderBreakdowns.finalTotal / splitPayerCount).toLocaleString('es-AR')}`);
                         if (activePayerIndex + 1 >= splitPayerCount) {
                           await handleConfirmCheckout();
                         } else {
@@ -1857,7 +1869,7 @@ export default function CajaModule({
             <div className="mt-4 text-xs space-y-2">
               <span className="text-[9px] font-black text-stone-455 text-stone-400 uppercase block">Movimientos de Caja Chica</span>
               {(selectedShiftForDetail.movimientos_manuales || []).length > 0 ? (
-                <div className="border border-stone-200/60 dark:border-stone-800 rounded-xl overflow-hidden shadow-2xs">
+                <div className="border border-stone-200/60 dark:border-stone-800 rounded-xl overflow-x-auto shadow-2xs">
                   <table className="w-full border-collapse">
                     <thead>
                       <tr className="bg-stone-50 dark:bg-stone-955 text-stone-500 font-bold border-b border-stone-200/60 dark:border-stone-850">
