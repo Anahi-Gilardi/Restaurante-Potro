@@ -433,6 +433,18 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     tiempo_preparacion_estimado: 12,
     requiere_cocina: true
   },
+  {
+    id_producto: 'prod_pas_risotto',
+    nombre: 'Risotto',
+    descripcion: 'Arroz cremoso con variedad de hongos, queso parmesano y finas hierbas aromáticas.',
+    precio_venta: 26000.00,
+    categoria: 'Pastas',
+    activo: true,
+    imagen: 'https://images.unsplash.com/photo-1633964913295-ceb43826e7c9?w=500&q=80',
+    tipo: 'plato',
+    tiempo_preparacion_estimado: 18,
+    requiere_cocina: true
+  },
 
   // ================= 3. CARNES =================
   {
