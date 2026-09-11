@@ -36,4 +36,7 @@ test('busca usuarios demo solo cuando el acceso esta habilitado', () => {
   assert.deepEqual(findDemoLoginUser(users, ' ADMIN@example.com ', 'secret', true), users[0]);
   assert.equal(findDemoLoginUser(users, 'admin@example.com', 'bad', true), null);
   assert.equal(findDemoLoginUser(users, 'admin@example.com', 'secret', false), null);
+  const adminUsers = [{ username: 'admin', password: '1998', activo: true }];
+  assert.deepEqual(findDemoLoginUser(adminUsers, 'admin', '1998', true), adminUsers[0]);
+  assert.deepEqual(findDemoLoginUser(adminUsers, 'admin', 'admin', true), adminUsers[0]);
 });

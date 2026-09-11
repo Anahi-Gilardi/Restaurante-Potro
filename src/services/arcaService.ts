@@ -3,7 +3,7 @@
 
 import { tryGetActiveSupabaseClient } from '../lib/supabaseClient';
 
-const SECURE_ARCA_ORIGIN = 'https://restaurante-potro-anahi.vercel.app';
+const SECURE_ARCA_ORIGIN = 'https://restaurante-potro.vercel.app';
 const STATUS_TTL_MS = 60_000;
 
 export function getArcaApiEndpoint(
@@ -11,7 +11,12 @@ export function getArcaApiEndpoint(
 ): string {
   const configured = String((import.meta as { env?: Record<string, unknown> }).env?.VITE_ARCA_API_URL ?? '').trim();
   if (configured) return configured;
-  if (!locationLike?.hostname || locationLike.hostname === 'restaurante-potro-anahi.vercel.app') {
+  if (
+    !locationLike?.hostname
+    || locationLike.hostname.endsWith('.vercel.app')
+    || locationLike.hostname === 'restaurante-potro.vercel.app'
+    || locationLike.hostname === 'restaurante-potro-anahi.vercel.app'
+  ) {
     return '/api/arca';
   }
   return `${SECURE_ARCA_ORIGIN}/api/arca`;
