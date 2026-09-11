@@ -18,7 +18,7 @@ export const DEFAULT_RESTAURANT_PROFILE: RestaurantProfile = {
   razonSocial: 'BELLA ORIANA',
   cuit: '27-42694613-6',
   direccion: 'Fotheringham 33, CP 5800, Río Cuarto, Córdoba',
-  telefono: '+54 9 3584 37-3711',
+  telefono: '+54 9 358 430-3541',
   email: 'bellaoriana47@gmail.com',
   ingresosBrutos: '289734805',
   inicioActividades: '01/06/2026',

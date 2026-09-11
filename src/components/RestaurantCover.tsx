@@ -17,7 +17,8 @@ import {
   X,
   Flame,
   Pizza,
-  Tag
+  Tag,
+  Send
 } from 'lucide-react';
 import { argentinaDateIso } from '../lib/argentinaDate';
 import { buildReservationWhatsAppUrl, validatePublicReservation } from '../lib/publicReservation';
@@ -134,7 +135,7 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
       return;
     }
 
-    const url = buildReservationWhatsAppUrl(bookingForm, '5493584373711');
+    const url = buildReservationWhatsAppUrl(bookingForm, '5493584303541');
     window.open(url, '_blank', 'noopener,noreferrer');
 
     setShowBookingSuccess(true);
@@ -676,11 +677,11 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
           <form onSubmit={handleBookingSubmit} className="space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <label className="text-xs font-bold text-stone-500 dark:text-stone-400 uppercase">Nombre Completo *</label>
+                <label className="text-xs font-bold text-stone-500 dark:text-stone-400 uppercase">Nombre y Apellido *</label>
                 <input 
                   type="text" 
                   required
-                  placeholder="Ej: Juan Pérez"
+                  placeholder="Ej: Oriana Bella"
                   value={bookingForm.nombre}
                   onChange={(e) => setBookingForm(prev => ({ ...prev, nombre: e.target.value }))}
                   className="w-full px-4 py-3 rounded-xl border border-stone-250 dark:border-stone-800 bg-[#FAF7F0] dark:bg-[#1E140E] text-stone-850 dark:text-white text-xs font-bold focus:outline-none focus:border-[#8C6239] dark:focus:border-[#8C6239]"
@@ -688,11 +689,11 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-bold text-stone-500 dark:text-stone-400 uppercase">Teléfono de Contacto *</label>
+                <label className="text-xs font-bold text-stone-500 dark:text-stone-400 uppercase">Número de Teléfono *</label>
                 <input 
                   type="tel" 
                   required
-                  placeholder="Ej: +54 9 11 1234-5678"
+                  placeholder="Ej: 3584303541 o +54 9 358 430-3541"
                   inputMode="tel"
                   maxLength={25}
                   value={bookingForm.telefono}
@@ -704,7 +705,7 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
               <div className="space-y-2">
-                <label className="text-xs font-bold text-stone-500 dark:text-stone-400 uppercase">Comensales</label>
+                <label className="text-xs font-bold text-stone-500 dark:text-stone-400 uppercase">Cantidad de Comensales *</label>
                 <select 
                   value={bookingForm.personas}
                   onChange={(e) => setBookingForm(prev => ({ ...prev, personas: e.target.value }))}
@@ -742,7 +743,7 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-bold text-stone-500 dark:text-stone-400 uppercase">Hora</label>
+                <label className="text-xs font-bold text-stone-500 dark:text-stone-400 uppercase">Horario *</label>
                 <select 
                   value={bookingForm.hora}
                   onChange={(e) => setBookingForm(prev => ({ ...prev, hora: e.target.value }))}
@@ -765,7 +766,7 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
               type="submit"
               className="w-full py-4 bg-[#8C6239] hover:bg-[#A0754B] dark:bg-[#8C6239] dark:hover:bg-[#A0754B] text-white dark:text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-200 cursor-pointer shadow-md flex items-center justify-center gap-2"
             >
-              Continuar solicitud por WhatsApp
+              Solicitar Reserva por WhatsApp (358-4303541)
               <ChevronRight className="w-4 h-4" />
             </button>
           </form>
@@ -817,7 +818,7 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
             <ul className="space-y-3 text-xs">
               <li className="flex items-start gap-2">
                 <Phone className="w-4 h-4 text-stone-950 shrink-0 mt-0.5" />
-                <span className="font-display-serif">+54 9 3584 37-3711</span>
+                <span className="font-display-serif">+54 9 358 430-3541</span>
               </li>
               <li className="flex items-start gap-2">
                 <Mail className="w-4 h-4 text-stone-950 shrink-0 mt-0.5" />
@@ -859,24 +860,42 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
                 <CheckCircle className="w-10 h-10" />
               </div>
               
-              <div className="space-y-2">
-                <h3 className="text-xl font-bold font-serif-rustic text-[#8C6239] dark:text-white tracking-wide">
-                  ¡Solicitud Enviada!
+              <div className="space-y-3 text-left bg-stone-50 dark:bg-stone-900/40 p-4 rounded-2xl border border-stone-200/60 dark:border-stone-800">
+                <h3 className="text-lg font-bold font-serif-rustic text-center text-[#8C6239] dark:text-white tracking-wide">
+                  ¡Solicitud de Reserva Lista!
                 </h3>
-                <p className="text-xs text-stone-600 dark:text-stone-400 leading-relaxed font-serif-rustic italic">
-                  Se ha generado tu solicitud de reserva para <strong>{bookingForm.personas} personas</strong> a las <strong>{bookingForm.hora} hs</strong>.
+                <p className="text-xs text-stone-600 dark:text-stone-300 text-center font-serif-rustic italic">
+                  Se generó el mensaje automático para tomar tu pedido de reserva:
                 </p>
-                <p className="text-[11px] text-stone-400 font-serif-rustic italic">
-                  Te hemos redirigido a WhatsApp para enviar el mensaje pre-completado de confirmación. ¡Muchas gracias!
-                </p>
+                <div className="text-[11px] space-y-1 text-stone-700 dark:text-stone-300 border-t border-stone-200/60 dark:border-stone-800 pt-2 font-mono">
+                  <div><strong>Cliente:</strong> {bookingForm.nombre}</div>
+                  <div><strong>Teléfono:</strong> {bookingForm.telefono}</div>
+                  <div><strong>Comensales:</strong> {bookingForm.personas} personas</div>
+                  <div><strong>Fecha:</strong> {bookingForm.fecha}</div>
+                  <div><strong>Horario:</strong> {bookingForm.hora} hs</div>
+                  <div><strong>Destino:</strong> WhatsApp (3584303541)</div>
+                </div>
               </div>
 
-              <button
-                onClick={closeBookingSuccess}
-                className="w-full py-3 bg-[#8C6239] hover:bg-[#A0754B] dark:bg-[#8C6239] dark:hover:bg-[#A0754B] text-white dark:text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer font-display-serif"
-              >
-                Entendido
-              </button>
+              <div className="space-y-2">
+                <a
+                  href={buildReservationWhatsAppUrl(bookingForm, '5493584303541')}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-3 bg-[#25D366] hover:bg-[#1EBE5D] text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-md cursor-pointer"
+                >
+                  <Send className="w-4 h-4" />
+                  Enviar a WhatsApp (358-4303541)
+                </a>
+
+                <button
+                  type="button"
+                  onClick={closeBookingSuccess}
+                  className="w-full py-2.5 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-200 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer border border-stone-250 dark:border-stone-700"
+                >
+                  Cerrar
+                </button>
+              </div>
             </motion.div>
           </div>
         )}
