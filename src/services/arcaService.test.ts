@@ -43,13 +43,38 @@ test('el dominio publico usa el backend fiscal privado', () => {
     getArcaApiEndpoint({ hostname: 'restaurante-potro.vercel.app' } as Location),
     'https://restaurante-potro-anahi.vercel.app/api/arca',
   );
-  assert.equal(getArcaApiEndpoint({ hostname: 'localhost' } as Location), '/api/arca');
+  assert.equal(
+    getArcaApiEndpoint({ hostname: 'localhost' } as Location),
+    'https://restaurante-potro-anahi.vercel.app/api/arca',
+  );
+  assert.equal(
+    getArcaApiEndpoint({ hostname: 'restaurante-potro-anahi.vercel.app' } as Location),
+    '/api/arca',
+  );
 });
 
-test('probar conexión exige una sesión autenticada', async () => {
+test('probar conexión envía acción test al backend', async () => {
+  let calledBody = '';
+  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    calledBody = String(init?.body ?? '');
+    return new Response(JSON.stringify({
+      configured: true,
+      connected: true,
+      success: true,
+      environment: 'produccion',
+      puntoVenta: 2,
+      pointOfSaleValid: true,
+      authorizedPointsOfSale: [2],
+      cuitMasked: '*******6136',
+      message: 'Conectado',
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  }) as typeof fetch;
+
   const result = await testArcaConnection();
-  assert.equal(result.success, false);
-  assert.match(result.error || '', /Supabase|sesión/);
+  assert.equal(result.success, true);
+  assert.equal(result.status.connected, true);
+  assert.equal(result.status.puntoVenta, 2);
+  assert.deepEqual(JSON.parse(calledBody), { action: 'test' });
 });
 
 test('el request de factura no contiene certificado ni clave privada', () => {

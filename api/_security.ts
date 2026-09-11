@@ -30,7 +30,19 @@ export const applyApiSecurityHeaders = (
   res.setHeader('Cache-Control', 'no-store, max-age=0');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   const origin = readHeader(req, 'origin');
-  if (origin && !TRUSTED_ORIGINS.has(origin)) return false;
+  let allowed = !origin || TRUSTED_ORIGINS.has(origin);
+  if (origin && !allowed) {
+    try {
+      const url = new URL(origin);
+      if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') allowed = true;
+      if (url.hostname.endsWith('.vercel.app') && (url.hostname.includes('restaurante-potro') || url.hostname.includes('el-patron'))) {
+        allowed = true;
+      }
+    } catch {
+      allowed = false;
+    }
+  }
+  if (!allowed) return false;
   if (origin) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');

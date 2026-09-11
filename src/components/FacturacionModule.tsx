@@ -191,7 +191,14 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
       setArcaStatus(status);
       if (status.configured && status.legalDataComplete) {
         const verification = await testArcaConnection();
-        setArcaStatus(verification.status);
+        setArcaStatus(prev => ({
+          ...(prev || status),
+          ...verification.status,
+          configured: prev?.configured ?? status.configured,
+          puntoVenta: verification.status.puntoVenta ?? prev?.puntoVenta ?? status.puntoVenta,
+          cuitMasked: verification.status.cuitMasked ?? prev?.cuitMasked ?? status.cuitMasked,
+          legalDataComplete: prev?.legalDataComplete ?? status.legalDataComplete,
+        }));
       }
     });
   }, []);
@@ -613,15 +620,13 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
 
   const emitToArca = async (factura: FacturaExtendida): Promise<ArcaInvoiceResult> => {
     const savedStatus = await getArcaStatus();
-    setArcaStatus(savedStatus);
-    if (!savedStatus.configured) throw new Error('ARCA no esta configurado. Cargue certificado y clave desde Sistema.');
+    setArcaStatus(prev => ({ ...(prev || savedStatus), ...savedStatus }));
+    if (!savedStatus.configured) throw new Error('ARCA no está configurado. Cargue certificado y clave desde Sistema.');
     if (!savedStatus.legalDataComplete) throw new Error('Complete los datos legales del emisor en Sistema antes de facturar.');
-    const verification = await testArcaConnection();
-    setArcaStatus(verification.status);
-    if (!verification.success || verification.status.pointOfSaleValid !== true) {
-      throw new Error(verification.error || verification.status.message || 'El punto de venta no esta habilitado para emitir con CAE.');
+    if (savedStatus.pointOfSaleValid === false) {
+      throw new Error(savedStatus.message || 'El punto de venta no está habilitado para emitir con CAE.');
     }
-    const currentStatus = verification.status;
+    const currentStatus = savedStatus;
     try {
       const tipoId = 11;
       
@@ -639,7 +644,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
           condicionIva: factura.condicion_iva_receptor || 5,
         },
         items: (factura.items?.length ? factura.items : [{
-          descripcion: factura.observaciones || `Venta gastronomica segun ${factura.nro_ticket}`,
+          descripcion: factura.observaciones || `Venta gastronómica según ${factura.nro_ticket}`,
           cantidad: 1,
           precio_unitario: factura.total,
           subtotal: factura.total,
@@ -663,14 +668,14 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
         if (result.nroCmp && result.puntoVenta) {
           factura.nro_ticket = `${tipoPrefix(factura.tipo || 'ticket')}-${String(result.puntoVenta).padStart(4, '0')}-${String(result.nroCmp).padStart(8, '0')}`;
         }
-        setArcaStatus({ ...currentStatus, connected: true, message: 'Última emisión autorizada correctamente.' });
+        setArcaStatus(prev => ({ ...(prev || currentStatus), ...currentStatus, connected: true, message: 'Última emisión autorizada correctamente.' }));
         addLog('sistema', `ARCA: Comprobante electrónico autorizado. CAE: ${cae}`);
         return result;
       }
-      throw new Error(result.error || 'ARCA rechazo el comprobante.');
+      throw new Error(result.error || 'ARCA rechazó el comprobante.');
     } catch (err: any) {
       console.error('[ARCA] Error:', err);
-      setArcaStatus({ ...currentStatus, connected: false, message: err?.message || 'Error de conexión fiscal.' });
+      setArcaStatus(prev => ({ ...(prev || currentStatus), ...currentStatus, connected: false, message: err?.message || 'Error de conexión fiscal.' }));
       throw err;
     }
   };

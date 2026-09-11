@@ -11,10 +11,10 @@ export function getArcaApiEndpoint(
 ): string {
   const configured = String((import.meta as { env?: Record<string, unknown> }).env?.VITE_ARCA_API_URL ?? '').trim();
   if (configured) return configured;
-  if (locationLike?.hostname === 'restaurante-potro.vercel.app') {
-    return `${SECURE_ARCA_ORIGIN}/api/arca`;
+  if (!locationLike?.hostname || locationLike.hostname === 'restaurante-potro-anahi.vercel.app') {
+    return '/api/arca';
   }
-  return '/api/arca';
+  return `${SECURE_ARCA_ORIGIN}/api/arca`;
 }
 
 export interface ArcaStatus {
@@ -117,6 +117,25 @@ async function readJson(response: Response): Promise<any> {
   return response.json().catch(() => ({}));
 }
 
+async function optionalAuthHeaders(): Promise<Record<string, string>> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  try {
+    const client = tryGetActiveSupabaseClient();
+    if (client) {
+      const { data } = await client.auth.getSession();
+      const token = data.session?.access_token;
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+    }
+  } catch {
+    // Sesión no disponible; continúa con los encabezados base
+  }
+  return headers;
+}
+
 async function authenticatedHeaders(): Promise<Record<string, string>> {
   const client = tryGetActiveSupabaseClient();
   if (!client) throw new Error('Supabase no está configurado para validar la sesión.');
@@ -145,21 +164,33 @@ export async function getArcaStatus(force = false): Promise<ArcaStatus> {
 
 export async function testArcaConnection(): Promise<{ success: boolean; status: ArcaStatus; error?: string }> {
   try {
-    const headers = await authenticatedHeaders();
+    const headers = await optionalAuthHeaders();
     const response = await fetch(getArcaApiEndpoint(), {
       method: 'POST',
       headers,
       body: JSON.stringify({ action: 'test' }),
     });
     const data = await readJson(response);
-    const status = parseStatus(data, response.ok && Boolean(data.success));
+    const isSuccess = response.ok && Boolean(data.success);
+    const currentCached = statusCache?.value;
+    const status: ArcaStatus = {
+      ...parseStatus(data, isSuccess),
+      configured: typeof data.configured === 'boolean' ? data.configured : (currentCached?.configured ?? false),
+      puntoVenta: data.puntoVenta ?? currentCached?.puntoVenta ?? null,
+      cuitMasked: data.cuitMasked ?? currentCached?.cuitMasked ?? null,
+      legalDataComplete: typeof data.legalDataComplete === 'boolean' ? data.legalDataComplete : (currentCached?.legalDataComplete ?? false),
+    };
     statusCache = { value: status, expiresAt: Date.now() + STATUS_TTL_MS };
-    return response.ok
+    return isSuccess
       ? { success: true, status }
-      : { success: false, status, error: String(data.error || `HTTP ${response.status}`) };
+      : { success: false, status, error: String(data.error || data.message || `HTTP ${response.status}`) };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return { success: false, status: disconnectedStatus(message), error: message };
+    const currentCached = statusCache?.value;
+    const fallbackStatus: ArcaStatus = currentCached
+      ? { ...currentCached, connected: false, message }
+      : disconnectedStatus(message);
+    return { success: false, status: fallbackStatus, error: message };
   }
 }
 
@@ -272,7 +303,7 @@ export const buildArcaInvoiceRequest = (payload: ArcaInvoicePayload) => ({
 });
 
 export async function createArcaInvoice(payload: ArcaInvoicePayload): Promise<ArcaInvoiceResult> {
-  const headers = await authenticatedHeaders();
+  const headers = await optionalAuthHeaders();
   const response = await fetch(getArcaApiEndpoint(), {
     method: 'POST',
     headers,
@@ -284,7 +315,7 @@ export async function createArcaInvoice(payload: ArcaInvoicePayload): Promise<Ar
 }
 
 export async function createArcaCreditNote(relatedEmissionId: string, idempotencyKey: string): Promise<ArcaInvoiceResult> {
-  const headers = await authenticatedHeaders();
+  const headers = await optionalAuthHeaders();
   const response = await fetch(getArcaApiEndpoint(), {
     method: 'POST',
     headers,
@@ -296,7 +327,7 @@ export async function createArcaCreditNote(relatedEmissionId: string, idempotenc
 }
 
 export async function reconcileArcaInvoice(emissionId: string): Promise<ArcaInvoiceResult> {
-  const headers = await authenticatedHeaders();
+  const headers = await optionalAuthHeaders();
   const response = await fetch(getArcaApiEndpoint(), {
     method: 'POST',
     headers,

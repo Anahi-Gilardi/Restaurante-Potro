@@ -24,7 +24,7 @@ export function getLoginErrorMessage(error: unknown): string {
       ? String((error as { message?: unknown }).message ?? '')
       : '';
 
-  if (/invalid login credentials/i.test(message)) return 'Usuario o contraseña incorrectos.';
+  if (/invalid login credentials|usuario o contrase|incorrecto/i.test(message)) return 'Usuario o contraseña incorrectos.';
   if (/fetch|network|timeout|failed/i.test(message)) return 'No pudimos conectar con el servidor. Revisá la conexión e intentá nuevamente.';
   return 'No pudimos iniciar sesión. Verificá tus datos e intentá nuevamente.';
 }

@@ -12,8 +12,10 @@ const SECURE_LOGIN_ORIGIN = 'https://restaurante-potro-anahi.vercel.app';
 export function getUsernameLoginEndpoint(locationLike: Pick<Location, 'hostname'> | undefined = globalThis.location): string {
   const configured = String((import.meta as { env?: Record<string, unknown> }).env?.VITE_USERNAME_LOGIN_API_URL ?? '').trim();
   if (configured) return configured;
-  if (locationLike?.hostname === 'restaurante-potro.vercel.app') return `${SECURE_LOGIN_ORIGIN}/api/login`;
-  return '/api/login';
+  if (!locationLike?.hostname || locationLike.hostname === 'restaurante-potro-anahi.vercel.app') {
+    return '/api/login';
+  }
+  return `${SECURE_LOGIN_ORIGIN}/api/login`;
 }
 
 export async function signInWithUsername(
