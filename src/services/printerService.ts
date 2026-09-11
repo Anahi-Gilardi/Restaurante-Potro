@@ -17,19 +17,22 @@ export const printerService = {
       try {
         const parsed = JSON.parse(raw);
         if (parsed.printerName && parsed.paperWidth) {
-          return parsed;
+          return {
+            ...parsed,
+            copies: parsed.copies ? Math.max(1, Number(parsed.copies)) : 2
+          };
         }
       } catch {
         // ignore
       }
     }
-    // Global TP-POS58-USB conectada por defecto en USB001
+    // Global TP-POS58-USB conectada por defecto en USB001 (2 copias: Cliente + Dueño)
     return {
       printerName: 'POS58 Printer',
       paperWidth: '58mm',
       autoCut: true,
       openDrawer: true,
-      copies: 1
+      copies: 2
     };
   },
 
@@ -61,10 +64,14 @@ export const printerService = {
   },
 
   /**
-   * Genera texto formateado a 32 columnas (58 mm) o 42 columnas (80 mm)
-   * con etiquetas virtuales ESC/POS compatibles con el bridge USB.
+   * Genera el texto ESC/POS para una copia individual de ticket (cliente, dueño o estándar).
    */
-  generateEscPosText(data: TicketData, config: PrinterConfig): string {
+  generateSingleTicketEscPos(
+    data: TicketData,
+    config: PrinterConfig,
+    copyType: 'cliente' | 'dueno' | 'standard' = 'standard',
+    openDrawer: boolean = config.openDrawer,
+  ): string {
     const is80 = config.paperWidth === '80mm';
     const charWidth = is80 ? 42 : 32;
 
@@ -82,8 +89,8 @@ export const printerService = {
 
     let esc = '';
     
-    // ESC/POS Commands
-    if (config.openDrawer) {
+    // Apertura de gaveta: solo en la copia que lo habilita
+    if (openDrawer) {
       esc += '[ESC/POS: KICK OUT DRAWER_PORT1]\n';
     }
     
@@ -93,6 +100,13 @@ export const printerService = {
     esc += '[ESC/POS: TEXT FONT_NORMAL]\n';
     esc += 'TICKET DE CONSUMO\n';
     esc += 'DOCUMENTO NO VALIDO COMO FACTURA\n';
+
+    if (copyType === 'cliente') {
+      esc += '*** ORIGINAL - CLIENTE ***\n';
+    } else if (copyType === 'dueno') {
+      esc += '*** DUPLICADO - CONTROL DUEÑO ***\n';
+    }
+
     esc += `${doubleSeparator}\n`;
     
     esc += '[ESC/POS: ALIGN LEFT]\n';
@@ -102,6 +116,13 @@ export const printerService = {
     esc += `MOZO: ${data.mozo}\n`;
     esc += `CAJERO: ${data.cajero}\n`;
     esc += `PEDIDO ID: EP-${data.idPedido}\n`;
+
+    if (copyType === 'cliente') {
+      esc += 'DESTINO: COMPROBANTE CLIENTE\n';
+    } else if (copyType === 'dueno') {
+      esc += 'DESTINO: CONTROL CAJA / DUEÑO\n';
+    }
+
     esc += `${separator}\n`;
     
     esc += padLeftRight('CANT  PRODUCTO', 'SUBTOTAL') + '\n';
@@ -143,7 +164,13 @@ export const printerService = {
     if (data.mensajePie) {
       esc += `${data.mensajePie}\n`;
     }
-    esc += '¡Muchas gracias por su visita!\n';
+
+    if (copyType === 'dueno') {
+      esc += '-- COPIA CONTROL CAJA / DUEÑO --\n';
+    } else {
+      esc += '¡Muchas gracias por su visita!\n';
+    }
+
     esc += 'El Patron Restaurante\n';
     esc += `${doubleSeparator}\n`;
     
@@ -152,6 +179,31 @@ export const printerService = {
     }
     
     return esc;
+  },
+
+  /**
+   * Genera texto formateado a 32 columnas (58 mm) o 42 columnas (80 mm)
+   * con etiquetas virtuales ESC/POS compatibles con el bridge USB.
+   * Si copies >= 2, emite 1 ticket para el cliente y 1 ticket para el dueño.
+   */
+  generateEscPosText(data: TicketData, config: PrinterConfig): string {
+    const copies = Math.max(1, config.copies ?? 2);
+    if (copies === 1) {
+      return this.generateSingleTicketEscPos(data, config, 'standard', config.openDrawer);
+    }
+
+    // Copia 1: Cliente (dispara cajón si está configurado)
+    const ticketCliente = this.generateSingleTicketEscPos(data, config, 'cliente', config.openDrawer);
+    // Copia 2: Dueño (no vuelve a disparar cajón)
+    const ticketDueno = this.generateSingleTicketEscPos(data, config, 'dueno', false);
+
+    let fullEsc = ticketCliente + '\n' + ticketDueno;
+
+    for (let i = 3; i <= copies; i++) {
+      fullEsc += '\n' + this.generateSingleTicketEscPos(data, config, 'standard', false);
+    }
+
+    return fullEsc;
   },
 
   /**
@@ -204,6 +256,83 @@ export const printerService = {
         </div>
       `).join('');
 
+      const copies = Math.max(1, config.copies ?? 2);
+
+      const renderTicketBody = (copyType: 'cliente' | 'dueno' | 'standard') => {
+        let copyBadge = '';
+        let destinoLine = '';
+        let footerText = '¡Muchas gracias por su visita!<br><strong>El Patron Restaurante</strong>';
+
+        if (copyType === 'cliente') {
+          copyBadge = '<div class="subtitle bold" style="font-size: 10px; margin: 3px 0; border: 1px dashed #000; padding: 2px 0;">*** ORIGINAL - CLIENTE ***</div>';
+          destinoLine = '<div class="row"><span>DESTINO:</span><span class="bold">COMPROBANTE CLIENTE</span></div>';
+        } else if (copyType === 'dueno') {
+          copyBadge = '<div class="subtitle bold" style="font-size: 10px; margin: 3px 0; border: 1px dashed #000; padding: 2px 0; background: #eee;">*** DUPLICADO - CONTROL DUEÑO ***</div>';
+          destinoLine = '<div class="row"><span>DESTINO:</span><span class="bold">CONTROL CAJA / DUEÑO</span></div>';
+          footerText = '-- COPIA CONTROL CAJA / DUEÑO --<br><strong>El Patron Restaurante</strong>';
+        }
+
+        return `
+          <div class="ticket-instance" style="margin-bottom: 6mm;">
+            <div class="center">
+              <div class="title">${data.nombreComercial.toUpperCase()}</div>
+              <div class="subtitle">TICKET DE CONSUMO</div>
+              <div style="font-size: 8px;">DOCUMENTO NO VALIDO COMO FACTURA</div>
+              ${copyBadge}
+            </div>
+            <div class="double-divider"></div>
+            
+            <div class="row"><span>TICKET Nº:</span><span class="bold">${data.nroComprobante}</span></div>
+            <div class="row"><span>FECHA:</span><span>${data.fechaHora}</span></div>
+            <div class="row"><span>MESA:</span><span class="bold">${data.mesa.toUpperCase()}</span></div>
+            <div class="row"><span>MOZO:</span><span>${data.mozo}</span></div>
+            <div class="row"><span>CAJERO:</span><span>${data.cajero}</span></div>
+            <div class="row"><span>PEDIDO ID:</span><span>EP-${data.idPedido}</span></div>
+            ${destinoLine}
+            
+            <div class="divider"></div>
+            <div class="row bold"><span>CANT PRODUCTO</span><span>SUBTOTAL</span></div>
+            <div class="divider"></div>
+            
+            ${itemsHtml}
+            
+            <div class="divider"></div>
+            <div class="row"><span>Subtotal Neto:</span><span>$${Math.round(data.subtotal).toLocaleString('es-AR')}</span></div>
+            ${data.descuento > 0 ? `<div class="row"><span>Bonificación:</span><span>-$${Math.round(data.descuento).toLocaleString('es-AR')}</span></div>` : ''}
+            ${data.propina > 0 ? `<div class="row"><span>Propina Sugerida:</span><span>$${Math.round(data.propina).toLocaleString('es-AR')}</span></div>` : ''}
+            
+            <div class="double-divider"></div>
+            <div class="total-row"><span>TOTAL:</span><span>$${Math.round(data.total).toLocaleString('es-AR')}</span></div>
+            <div class="double-divider"></div>
+            
+            <div class="center bold" style="font-size: 10px; margin-top: 3px;">MEDIOS DE PAGO</div>
+            ${pagosHtml}
+            ${data.vuelto > 0 ? `<div class="row bold"><span>VUELTO:</span><span>$${Math.round(data.vuelto).toLocaleString('es-AR')}</span></div>` : ''}
+            
+            <div class="divider"></div>
+            <div class="center" style="margin-top: 4px; font-size: 10px;">
+              ${footerText}
+            </div>
+            <div class="double-divider"></div>
+          </div>
+        `;
+      };
+
+      let bodyTicketsHtml = '';
+      if (copies === 1) {
+        bodyTicketsHtml = renderTicketBody('standard');
+      } else {
+        const cutSeparator = `
+          <div style="page-break-after: always; text-align: center; margin: 8mm 0; border-top: 2px dashed #444; padding-top: 2mm; font-size: 8px; font-weight: bold;">
+            ✂ CORTE DE TICKET (ORIGINAL CLIENTE / DUPLICADO DUEÑO) ✂
+          </div>
+        `;
+        bodyTicketsHtml = renderTicketBody('cliente') + cutSeparator + renderTicketBody('dueno');
+        for (let i = 3; i <= copies; i++) {
+          bodyTicketsHtml += cutSeparator + renderTicketBody('standard');
+        }
+      }
+
       const htmlContent = `
         <!DOCTYPE html>
         <html>
@@ -237,44 +366,7 @@ export const printerService = {
           </style>
         </head>
         <body>
-          <div class="center">
-            <div class="title">${data.nombreComercial.toUpperCase()}</div>
-            <div class="subtitle">TICKET DE CONSUMO</div>
-            <div style="font-size: 8px;">DOCUMENTO NO VALIDO COMO FACTURA</div>
-          </div>
-          <div class="double-divider"></div>
-          
-          <div class="row"><span>TICKET Nº:</span><span class="bold">${data.nroComprobante}</span></div>
-          <div class="row"><span>FECHA:</span><span>${data.fechaHora}</span></div>
-          <div class="row"><span>MESA:</span><span class="bold">${data.mesa.toUpperCase()}</span></div>
-          <div class="row"><span>MOZO:</span><span>${data.mozo}</span></div>
-          <div class="row"><span>CAJERO:</span><span>${data.cajero}</span></div>
-          <div class="row"><span>PEDIDO ID:</span><span>EP-${data.idPedido}</span></div>
-          
-          <div class="divider"></div>
-          <div class="row bold"><span>CANT PRODUCTO</span><span>SUBTOTAL</span></div>
-          <div class="divider"></div>
-          
-          ${itemsHtml}
-          
-          <div class="divider"></div>
-          <div class="row"><span>Subtotal Neto:</span><span>$${Math.round(data.subtotal).toLocaleString('es-AR')}</span></div>
-          ${data.descuento > 0 ? `<div class="row"><span>Bonificación:</span><span>-$${Math.round(data.descuento).toLocaleString('es-AR')}</span></div>` : ''}
-          ${data.propina > 0 ? `<div class="row"><span>Propina Sugerida:</span><span>$${Math.round(data.propina).toLocaleString('es-AR')}</span></div>` : ''}
-          
-          <div class="double-divider"></div>
-          <div class="total-row"><span>TOTAL:</span><span>$${Math.round(data.total).toLocaleString('es-AR')}</span></div>
-          <div class="double-divider"></div>
-          
-          <div class="center bold" style="font-size: 10px; margin-top: 3px;">MEDIOS DE PAGO</div>
-          ${pagosHtml}
-          ${data.vuelto > 0 ? `<div class="row bold"><span>VUELTO:</span><span>$${Math.round(data.vuelto).toLocaleString('es-AR')}</span></div>` : ''}
-          
-          <div class="divider"></div>
-          <div class="center" style="margin-top: 4px; font-size: 10px;">
-            ¡Muchas gracias por su visita!<br>
-            <strong>El Patron Restaurante</strong>
-          </div>
+          ${bodyTicketsHtml}
           <div style="height: 15mm;"></div>
         </body>
         </html>

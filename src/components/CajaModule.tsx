@@ -409,13 +409,13 @@ export default function CajaModule({
                   paperWidth: '58mm',
                   autoCut: true,
                   openDrawer: true,
-                  copies: 1
+                  copies: 2
                 });
-                toast.success('Configuración adaptada a Global TP-POS58-USB (58 mm)');
+                toast.success('Configuración adaptada a Global TP-POS58-USB (58 mm, 2 copias: Cliente + Dueño)');
               }}
               className="text-[10px] bg-amber-50 hover:bg-amber-100 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200 font-bold px-3 py-1.5 rounded-lg transition-all cursor-pointer border border-amber-300 dark:border-amber-700 flex items-center gap-1.5"
             >
-              ⚡ Aplicar Perfil Recomendado: Global TP-POS58-USB (58 mm)
+              ⚡ Aplicar Perfil Recomendado: Global TP-POS58-USB (58 mm, 2 Copias)
             </button>
           </div>
 
@@ -443,15 +443,17 @@ export default function CajaModule({
             </div>
 
             <div>
-              <label className="text-[10px] font-bold text-stone-500 block mb-1">Copias Ticket</label>
-              <input 
-                type="number" 
-                min="1" 
-                max="5"
+              <label className="text-[10px] font-bold text-stone-500 block mb-1">Copias de Ticket</label>
+              <select
                 value={printerConfig.copies}
-                onChange={e => setPrinterConfig(prev => ({ ...prev, copies: parseInt(e.target.value) || 1 }))}
-                className="w-full p-2 text-xs border border-stone-200 dark:border-stone-800 rounded-lg text-stone-700 dark:text-stone-200 bg-white dark:bg-stone-950"
-              />
+                onChange={e => setPrinterConfig(prev => ({ ...prev, copies: parseInt(e.target.value) || 2 }))}
+                className="w-full p-2 text-xs border border-stone-200 dark:border-stone-800 rounded-lg bg-white dark:bg-stone-950 font-bold text-stone-800 dark:text-stone-200"
+              >
+                <option value="2">2 Copias (1 Cliente + 1 Dueño)</option>
+                <option value="1">1 Copia única</option>
+                <option value="3">3 Copias (Cliente + Dueño + Archivo)</option>
+              </select>
+              <span className="text-[8px] text-stone-400 block mt-0.5">Identifica Original y Duplicado</span>
             </div>
 
             <div className="flex items-center gap-2 pt-4">
