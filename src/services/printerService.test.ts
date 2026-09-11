@@ -130,3 +130,33 @@ test('clearFailedPrints vacía la cola de tickets fallidos de localStorage', () 
   assert.equal(store['el_patron_failed_prints'], undefined);
 });
 
+test('getFailedPrints descarta ítems con más de 24 horas y acota a un máximo de 5', () => {
+  const now = Date.now();
+  const oldTimestamp = new Date(now - 30 * 60 * 60 * 1000).toISOString(); // 30 horas atrás
+  const recentTimestamp = new Date(now - 10 * 60 * 1000).toISOString(); // 10 min atrás
+
+  const store: Record<string, string> = {
+    'el_patron_failed_prints': JSON.stringify([
+      { id: 'old1', data: sampleTicket, timestamp: oldTimestamp },
+      { id: 'r1', data: sampleTicket, timestamp: recentTimestamp },
+      { id: 'r2', data: sampleTicket, timestamp: recentTimestamp },
+      { id: 'r3', data: sampleTicket, timestamp: recentTimestamp },
+      { id: 'r4', data: sampleTicket, timestamp: recentTimestamp },
+      { id: 'r5', data: sampleTicket, timestamp: recentTimestamp },
+      { id: 'r6', data: sampleTicket, timestamp: recentTimestamp }
+    ])
+  };
+
+  (globalThis as any).localStorage = {
+    getItem: (key: string) => store[key] || null,
+    setItem: (key: string, val: string) => { store[key] = val; },
+    removeItem: (key: string) => { delete store[key]; }
+  };
+
+  const prints = printerService.getFailedPrints();
+  // El viejo debe ser descartado, y de los 6 recientes solo quedan los últimos 5
+  assert.equal(prints.length, 5);
+  assert.equal(prints[0].id, 'r2');
+  assert.equal(prints[4].id, 'r6');
+});
+

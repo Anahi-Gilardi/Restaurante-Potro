@@ -10,6 +10,8 @@ export interface BridgeStatus {
   charWidth?: number;
 }
 
+let isPrintingLock = false;
+
 export const printerService = {
   getDefaultConfig(): PrinterConfig {
     const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('el_patron_printer_config') : null;
@@ -184,12 +186,12 @@ export const printerService = {
     esc += 'El Patron Restaurante\n';
     esc += `${doubleSeparator}\n`;
     
-    // Avance de líneas generoso para que el ticket supere la barra de corte manual de 58 mm
-    esc += '\n\n\n\n\n';
+    // Avance de líneas calibrado para que el ticket supere la barra de corte manual de 58 mm
+    esc += '\n\n\n\n';
     if (config.autoCut) {
       esc += '[ESC/POS: PARTIAL_CUT_FEED_3LINES]\n';
     }
-    esc += '\n\n';
+    esc += '\n';
     
     return esc;
   },
@@ -336,8 +338,8 @@ export const printerService = {
         bodyTicketsHtml = renderTicketBody('standard');
       } else {
         const cutSeparator = `
-          <div style="page-break-after: always; text-align: center; margin: 8mm 0; border-top: 2px dashed #444; padding-top: 2mm; font-size: 8px; font-weight: bold;">
-            ✂ CORTE DE TICKET (ORIGINAL CLIENTE / DUPLICADO DUEÑO) ✂
+          <div style="text-align: center; margin: 5mm 0; border-top: 1px dashed #000; padding-top: 2mm; font-size: 8px; font-weight: bold; letter-spacing: 1px;">
+            ✂ - - - CORTE MANUAL DE TICKET - - - ✂
           </div>
         `;
         bodyTicketsHtml = renderTicketBody('cliente') + cutSeparator + renderTicketBody('dueno');
@@ -380,7 +382,7 @@ export const printerService = {
         </head>
         <body>
           ${bodyTicketsHtml}
-          <div style="height: 15mm;"></div>
+          <div style="height: 4mm;"></div>
         </body>
         </html>
       `;
@@ -410,7 +412,21 @@ export const printerService = {
   getFailedPrints(): { id: string; data: TicketData; timestamp: string }[] {
     if (typeof localStorage === 'undefined') return [];
     try {
-      return JSON.parse(localStorage.getItem('el_patron_failed_prints') || '[]');
+      const raw = localStorage.getItem('el_patron_failed_prints');
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      const now = Date.now();
+      const valid = parsed.filter(item => {
+        if (!item || !item.data) return false;
+        const time = new Date(item.timestamp).getTime();
+        return !isNaN(time) && (now - time) < 24 * 60 * 60 * 1000;
+      });
+      const capped = valid.slice(-5);
+      if (capped.length !== parsed.length) {
+        this.saveFailedPrints(capped);
+      }
+      return capped;
     } catch {
       return [];
     }
@@ -418,7 +434,8 @@ export const printerService = {
 
   saveFailedPrints(queue: any[]): void {
     if (typeof localStorage === 'undefined') return;
-    localStorage.setItem('el_patron_failed_prints', JSON.stringify(queue));
+    const capped = Array.isArray(queue) ? queue.slice(-5) : [];
+    localStorage.setItem('el_patron_failed_prints', JSON.stringify(capped));
   },
 
   clearFailedPrints(): void {
@@ -431,127 +448,161 @@ export const printerService = {
    * Capa 1: Intenta comunicación directa por Bridge USB (win32print en puerto 8012).
    * Capa 2: Si el bridge no responde, activa la impresión térmica web por navegador en 58 mm.
    */
-  async sendToPrinter(data: TicketData, config: PrinterConfig): Promise<{
+  async sendToPrinter(
+    data: TicketData,
+    config: PrinterConfig,
+    isRetry: boolean = false
+  ): Promise<{
     success: boolean;
     message: string;
     methodUsed: string;
     rawText: string;
   }> {
-    // Garantizar que en caja siempre se impriman al menos 2 copias (Cliente + Dueño) salvo configuración superior
-    const effectiveCopies = (!config.copies || Number(config.copies) < 2) ? 2 : Number(config.copies);
-    const effectiveConfig: PrinterConfig = { ...config, copies: effectiveCopies };
-    const rawText = this.generateEscPosText(data, effectiveConfig);
+    if (isPrintingLock) {
+      return {
+        success: false,
+        message: 'Impresión en curso. Espere un instante antes de enviar otro ticket.',
+        methodUsed: 'DebounceGuard',
+        rawText: ''
+      };
+    }
+    isPrintingLock = true;
 
-    // 1. Intentar Puente USB Local en puerto 8012
     try {
-      const controller = new AbortController();
-      const id = setTimeout(() => controller.abort(), 2500);
+      // Garantizar que en caja siempre se impriman al menos 2 copias (Cliente + Dueño) salvo configuración superior
+      const effectiveCopies = (!config.copies || Number(config.copies) < 2) ? 2 : Number(config.copies);
+      const effectiveConfig: PrinterConfig = { ...config, copies: effectiveCopies };
+      const rawText = this.generateEscPosText(data, effectiveConfig);
 
-      // Si se solicitan 2 copias (1 Cliente + 1 Dueño), despachamos dos trabajos físicos discretos
-      // para que el cabezal de 58 mm corte/avance cada uno por separado y no se superpongan
-      if (effectiveConfig.copies === 2) {
-        const rawCliente = this.generateSingleTicketEscPos(data, effectiveConfig, 'cliente', effectiveConfig.openDrawer);
-        const rawDueno = this.generateSingleTicketEscPos(data, effectiveConfig, 'dueno', false);
+      // 1. Intentar Puente USB Local en puerto 8012
+      try {
+        const controller = new AbortController();
+        const id = setTimeout(() => controller.abort(), 2500);
 
-        const resp1 = await fetch('http://127.0.0.1:8012/print', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ rawText: rawCliente, config: effectiveConfig }),
-          signal: controller.signal
-        });
+        // Si se solicitan 2 copias (1 Cliente + 1 Dueño), despachamos dos trabajos físicos discretos
+        // para que el cabezal de 58 mm corte/avance cada uno por separado y no se superpongan
+        if (effectiveConfig.copies === 2) {
+          const rawCliente = this.generateSingleTicketEscPos(data, effectiveConfig, 'cliente', effectiveConfig.openDrawer);
+          const rawDueno = this.generateSingleTicketEscPos(data, effectiveConfig, 'dueno', false);
 
-        if (resp1.ok) {
-          // Breve pausa para que el cabezal térmico de 58 mm finalice el avance del primer ticket antes de enviar el segundo
-          await new Promise(r => setTimeout(r, 400));
-
-          await fetch('http://127.0.0.1:8012/print', {
+          const resp1 = await fetch('http://127.0.0.1:8012/print', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ rawText: rawDueno, config: { ...effectiveConfig, openDrawer: false } }),
+            body: JSON.stringify({ rawText: rawCliente, config: effectiveConfig }),
+            signal: controller.signal
+          });
+
+          if (resp1.ok) {
+            // Breve pausa para que el cabezal térmico de 58 mm finalice el avance del primer ticket antes de enviar el segundo
+            await new Promise(r => setTimeout(r, 400));
+
+            await fetch('http://127.0.0.1:8012/print', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ rawText: rawDueno, config: { ...effectiveConfig, openDrawer: false } }),
+              signal: controller.signal
+            });
+
+            clearTimeout(id);
+            return {
+              success: true,
+              message: `2 tickets emitidos con éxito (1 Original Cliente + 1 Duplicado Dueño) en ${effectiveConfig.printerName}.`,
+              methodUsed: 'UsbPrintBridge',
+              rawText
+            };
+          }
+        } else {
+          const response = await fetch('http://127.0.0.1:8012/print', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rawText, config: effectiveConfig }),
             signal: controller.signal
           });
 
           clearTimeout(id);
-          return {
-            success: true,
-            message: `2 tickets emitidos con éxito (1 Original Cliente + 1 Duplicado Dueño) en ${effectiveConfig.printerName}.`,
-            methodUsed: 'UsbPrintBridge',
-            rawText
-          };
-        }
-      } else {
-        const response = await fetch('http://127.0.0.1:8012/print', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ rawText, config: effectiveConfig }),
-          signal: controller.signal
-        });
 
+          if (response.ok) {
+            const json = await response.json();
+            return {
+              success: true,
+              message: `Tickets emitidos en impresora térmica USB (${json.printerUsed || effectiveConfig.printerName}).`,
+              methodUsed: 'UsbPrintBridge',
+              rawText
+            };
+          }
+        }
         clearTimeout(id);
-
-        if (response.ok) {
-          const json = await response.json();
-          return {
-            success: true,
-            message: `Tickets emitidos en impresora térmica USB (${json.printerUsed || effectiveConfig.printerName}).`,
-            methodUsed: 'UsbPrintBridge',
-            rawText
-          };
-        }
+      } catch {
+        // continuar a Capa 2
       }
-      clearTimeout(id);
-    } catch {
-      // continuar a Capa 2
-    }
 
-    // 2. Capa 2: Respaldo Térmico de Navegador (58 mm)
-    const browserPrintRes = await this.printThermalViaBrowser(data, effectiveConfig);
-    if (browserPrintRes.success) {
+      // 2. Capa 2: Respaldo Térmico de Navegador (58 mm)
+      const browserPrintRes = await this.printThermalViaBrowser(data, effectiveConfig);
+      if (browserPrintRes.success) {
+        return {
+          success: true,
+          message: '2 tickets enviados a la impresora térmica mediante el navegador (58 mm).',
+          methodUsed: 'BrowserThermal58mm',
+          rawText
+        };
+      }
+
+      // 3. Fallback: Registrar en cola de tickets pendientes solo si no es un reintento
+      if (!isRetry) {
+        const failedItem = {
+          id: `print_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+          data,
+          timestamp: new Date().toISOString()
+        };
+        const queue = this.getFailedPrints();
+        queue.push(failedItem);
+        this.saveFailedPrints(queue);
+      }
+
       return {
-        success: true,
-        message: '2 tickets enviados a la impresora térmica mediante el navegador (58 mm).',
-        methodUsed: 'BrowserThermal58mm',
+        success: false,
+        message: `No se pudo comunicar con la impresora térmica ni con el navegador. Ticket guardado en cola local.`,
+        methodUsed: 'QueueThermalTicket',
         rawText
       };
+    } finally {
+      setTimeout(() => {
+        isPrintingLock = false;
+      }, 500);
     }
-
-    // 3. Fallback: Registrar en cola de tickets pendientes
-    const failedItem = {
-      id: `print_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
-      data,
-      timestamp: new Date().toISOString()
-    };
-    const queue = this.getFailedPrints();
-    queue.push(failedItem);
-    this.saveFailedPrints(queue);
-
-    return {
-      success: false,
-      message: `No se pudo comunicar con la impresora térmica ni con el navegador. Ticket guardado en cola local.`,
-      methodUsed: 'QueueThermalTicket',
-      rawText
-    };
   },
 
   async retryFailedPrints(config: PrinterConfig): Promise<{ successCount: number; failedCount: number }> {
     const queue = this.getFailedPrints();
     if (queue.length === 0) return { successCount: 0, failedCount: 0 };
 
+    // Limpiar de inmediato la cola para evitar bucles concurrentes o reentradas masivas
+    this.clearFailedPrints();
+
     let successCount = 0;
     let failedCount = 0;
     const remaining: any[] = [];
 
-    for (const item of queue) {
-      const res = await this.sendToPrinter(item.data, config);
+    // Por seguridad física en la impresora térmica, procesar únicamente los tickets más recientes (máximo 2)
+    const toRetry = queue.slice(-2);
+
+    for (const item of toRetry) {
+      // isRetry = true evita que sendToPrinter vuelva a agregar ítems a la cola durante el bucle
+      const res = await this.sendToPrinter(item.data, config, true);
       if (res.success) {
         successCount++;
+        // Pausa de 800ms entre tickets para que el hardware térmico procese sin atascos
+        await new Promise(r => setTimeout(r, 800));
       } else {
         failedCount++;
         remaining.push(item);
       }
     }
 
-    this.saveFailedPrints(remaining);
+    if (remaining.length > 0) {
+      this.saveFailedPrints(remaining);
+    }
+
     return { successCount, failedCount };
   },
 
