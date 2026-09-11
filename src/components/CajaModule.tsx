@@ -170,6 +170,14 @@ export default function CajaModule({
 
   const [selectedShiftForDetail, setSelectedShiftForDetail] = useState<CierreCaja | null>(null);
   const [failedPrintsCount, setFailedPrintsCount] = useState(0);
+  const [bridgeStatus, setBridgeStatus] = useState<{ online: boolean; resolvedPrinter?: string } | null>(null);
+  const [isTestingPrinter, setIsTestingPrinter] = useState(false);
+
+  useEffect(() => {
+    printerService.checkBridgeStatus().then(status => {
+      setBridgeStatus(status);
+    });
+  }, [showPrinterSettings]);
 
   // Calculadora de Billetes para Arqueo Físico
   const [showBillCounter, setShowBillCounter] = useState<'open' | 'close' | null>(null);
@@ -373,22 +381,52 @@ export default function CajaModule({
 
       {/* PRINTER SETTINGS MODULE FOR ESC/POS */}
       {showPrinterSettings && (
-        <div className="bg-white border border-stone-200 p-5 rounded-2xl animate-fadeIn space-y-3">
-          <div className="flex justify-between items-center border-b border-stone-100 pb-2">
-            <h4 className="text-xs font-black text-stone-800 uppercase flex items-center gap-1.5">
-              <Printer className="w-4 h-4 text-[#624A3E]" /> Parámetros de Integración Térmica (ESC/POS)
+        <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 p-5 rounded-2xl animate-fadeIn space-y-3.5">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-stone-100 dark:border-stone-800 pb-2.5">
+            <h4 className="text-xs font-black text-stone-800 dark:text-stone-100 uppercase flex items-center gap-1.5">
+              <Printer className="w-4 h-4 text-[#624A3E] dark:text-[#E8B800]" /> Configuración de Ticketera Térmica (Global TP-POS58-USB)
             </h4>
-            <span className="text-[9px] text-[#22C55E] bg-emerald-50 px-2 py-0.5 rounded-full font-bold">API Enlazable</span>
+            <div className="flex items-center gap-2">
+              <span className={`text-[9px] px-2.5 py-1 rounded-full font-bold flex items-center gap-1.5 border ${
+                bridgeStatus?.online 
+                  ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800' 
+                  : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+              }`}>
+                <span className={`w-2 h-2 rounded-full ${bridgeStatus?.online ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+                {bridgeStatus?.online 
+                  ? `Puente USB Conectado (${bridgeStatus.resolvedPrinter || 'POS58 Printer'})` 
+                  : 'Modo Impresión Navegador Activo'}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setPrinterConfig({
+                  printerName: 'POS58 Printer',
+                  paperWidth: '58mm',
+                  autoCut: true,
+                  openDrawer: true,
+                  copies: 1
+                });
+                toast.success('Configuración adaptada a Global TP-POS58-USB (58 mm)');
+              }}
+              className="text-[10px] bg-amber-50 hover:bg-amber-100 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200 font-bold px-3 py-1.5 rounded-lg transition-all cursor-pointer border border-amber-300 dark:border-amber-700 flex items-center gap-1.5"
+            >
+              ⚡ Aplicar Perfil Recomendado: Global TP-POS58-USB (58 mm)
+            </button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
             <div>
-              <label className="text-[10px] font-bold text-stone-500 block mb-1">Nombre de Impresora</label>
+              <label className="text-[10px] font-bold text-stone-500 block mb-1">Nombre Impresora (Windows)</label>
               <input 
                 type="text" 
                 value={printerConfig.printerName}
                 onChange={e => setPrinterConfig(prev => ({ ...prev, printerName: e.target.value }))}
-                className="w-full p-2.5 text-xs border border-stone-200 rounded-lg font-mono text-stone-700"
+                className="w-full p-2 text-xs border border-stone-200 dark:border-stone-800 rounded-lg font-mono text-stone-700 dark:text-stone-200 bg-white dark:bg-stone-950"
               />
             </div>
 
@@ -397,10 +435,10 @@ export default function CajaModule({
               <select
                 value={printerConfig.paperWidth}
                 onChange={e => setPrinterConfig(prev => ({ ...prev, paperWidth: e.target.value as '58mm' | '80mm' }))}
-                className="w-full p-2.5 text-xs border border-stone-200 rounded-lg bg-stone-50 font-bold"
+                className="w-full p-2 text-xs border border-stone-200 dark:border-stone-800 rounded-lg bg-stone-50 dark:bg-stone-950 font-bold text-stone-800 dark:text-stone-200"
               >
-                <option value="80mm">80 milímetros (Estándar)</option>
-                <option value="58mm">58 milímetros (Estrecha)</option>
+                <option value="58mm">58 milímetros (Global TP-POS58-USB)</option>
+                <option value="80mm">80 milímetros (Estándar grande)</option>
               </select>
             </div>
 
@@ -412,11 +450,11 @@ export default function CajaModule({
                 max="5"
                 value={printerConfig.copies}
                 onChange={e => setPrinterConfig(prev => ({ ...prev, copies: parseInt(e.target.value) || 1 }))}
-                className="w-full p-2.5 text-xs border border-stone-200 rounded-lg text-stone-700"
+                className="w-full p-2 text-xs border border-stone-200 dark:border-stone-800 rounded-lg text-stone-700 dark:text-stone-200 bg-white dark:bg-stone-950"
               />
             </div>
 
-            <div className="flex items-center gap-2 pt-5">
+            <div className="flex items-center gap-2 pt-4">
               <input 
                 type="checkbox" 
                 id="autoCutCheck" 
@@ -424,10 +462,10 @@ export default function CajaModule({
                 onChange={e => setPrinterConfig(prev => ({ ...prev, autoCut: e.target.checked }))}
                 className="w-4 h-4 accent-[#624A3E]"
               />
-              <label htmlFor="autoCutCheck" className="text-[10px] font-bold text-stone-600 block cursor-pointer">Corte Automático</label>
+              <label htmlFor="autoCutCheck" className="text-[10px] font-bold text-stone-600 dark:text-stone-300 block cursor-pointer">Avance / Corte Papel</label>
             </div>
 
-            <div className="flex items-center gap-2 pt-5">
+            <div className="flex items-center gap-2 pt-4">
               <input 
                 type="checkbox" 
                 id="openDrawerCheck" 
@@ -435,20 +473,44 @@ export default function CajaModule({
                 onChange={e => setPrinterConfig(prev => ({ ...prev, openDrawer: e.target.checked }))}
                 className="w-4 h-4 accent-[#624A3E]"
               />
-              <label htmlFor="openDrawerCheck" className="text-[10px] font-bold text-stone-600 block cursor-pointer">Abre Cajón Portamonedas</label>
+              <label htmlFor="openDrawerCheck" className="text-[10px] font-bold text-stone-600 dark:text-stone-300 block cursor-pointer">Abre Cajón Dinero</label>
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 pt-2 border-t border-stone-100">
+          <div className="flex flex-wrap justify-between items-center gap-2 pt-2 border-t border-stone-100 dark:border-stone-800">
+            <button
+              type="button"
+              disabled={isTestingPrinter}
+              onClick={async () => {
+                setIsTestingPrinter(true);
+                try {
+                  const res = await printerService.printTestTicket(printerConfig);
+                  if (res.success) {
+                    toast.success(res.message);
+                  } else {
+                    toast.warning(res.message);
+                  }
+                } catch (e: any) {
+                  toast.error(`Error al probar impresora: ${e.message}`);
+                } finally {
+                  setIsTestingPrinter(false);
+                }
+              }}
+              className="py-2 px-3.5 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-200 text-[10px] font-black uppercase rounded-lg border border-stone-300 dark:border-stone-700 cursor-pointer flex items-center gap-1.5 transition-all"
+            >
+              {isTestingPrinter ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Printer className="w-3.5 h-3.5 text-[#624A3E] dark:text-[#E8B800]" />}
+              {isTestingPrinter ? 'Imprimiendo prueba...' : 'Imprimir Ticket de Prueba (58 mm)'}
+            </button>
+
             <button
               onClick={() => {
                 printerService.saveConfig(printerConfig);
                 setShowPrinterSettings(false);
-                toast.success('Ajustes de ticketera guardados en el almacenamiento del navegador.');
+                toast.success('Ajustes de ticketera guardados correctamente.');
               }}
-              className="py-1.5 px-3 bg-[#624A3E] text-white text-[10px] font-black uppercase rounded-lg"
+              className="py-2 px-4 bg-[#624A3E] hover:bg-[#503C32] text-white text-[10px] font-black uppercase rounded-lg cursor-pointer transition-all"
             >
-              Aplicar Cambios
+              Guardar y Cerrar
             </button>
           </div>
         </div>
@@ -1252,7 +1314,7 @@ export default function CajaModule({
                 {/* EPSON TICKET PREVIEW SIMULATOR */}
                 <div className="bg-stone-100/40 dark:bg-stone-900/30 border border-stone-200/30 dark:border-stone-800/40 p-4 rounded-xl flex flex-col items-center justify-start">
                   <span className="text-[10px] font-black text-stone-400 dark:text-stone-300 uppercase tracking-widest mb-3 flex items-center gap-1">
-                    <Printer className="w-3.5 h-3.5 text-[#E8B800]" /> Simulación de Salida Térmica (80mm)
+                    <Printer className="w-3.5 h-3.5 text-[#E8B800]" /> Simulación de Salida Térmica ({printerConfig.paperWidth || '58mm'})
                   </span>
 
                   {/* Simulated thermal roll in 3D container */}

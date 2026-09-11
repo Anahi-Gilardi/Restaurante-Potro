@@ -690,10 +690,14 @@ export function useCaja({
     addLog('sistema', `CAJA: Cobro finalizado para Mesa ${selectedPedido.numero_mesa}. Ticket interno ${compiledTicketNo} registrado sin solicitar CAE.`);
 
     try {
-      await pdfService.exportToPDF(dataTicket);
-      await printerService.sendToPrinter(dataTicket, printerConfig);
+      const printRes = await printerService.sendToPrinter(dataTicket, printerConfig);
+      if (printRes.success) {
+        toast.success(printRes.message);
+      } else {
+        toast.warning(printRes.message);
+      }
     } catch (e: any) {
-      toast.warning(`Cobro registrado, pero hubo un error al generar el PDF/impresión: ${e.message}`);
+      toast.warning(`Cobro registrado, pero hubo un error en la impresora: ${e.message}`);
     }
 
     setSelectedPedidoId(null);
