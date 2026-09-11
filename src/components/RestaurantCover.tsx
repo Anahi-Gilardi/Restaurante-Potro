@@ -681,7 +681,6 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
                 <input 
                   type="text" 
                   required
-                  placeholder="Ej: Oriana Bella"
                   value={bookingForm.nombre}
                   onChange={(e) => setBookingForm(prev => ({ ...prev, nombre: e.target.value }))}
                   className="w-full px-4 py-3 rounded-xl border border-stone-250 dark:border-stone-800 bg-[#FAF7F0] dark:bg-[#1E140E] text-stone-850 dark:text-white text-xs font-bold focus:outline-none focus:border-[#8C6239] dark:focus:border-[#8C6239]"
@@ -693,7 +692,6 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
                 <input 
                   type="tel" 
                   required
-                  placeholder="Ej: 3584303541 o +54 9 358 430-3541"
                   inputMode="tel"
                   maxLength={25}
                   value={bookingForm.telefono}
