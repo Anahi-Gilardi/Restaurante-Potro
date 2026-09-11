@@ -86,3 +86,47 @@ test('generateEscPosText con 1 copia genera un único ticket', () => {
   const cuts = (esc.match(/\[ESC\/POS: PARTIAL_CUT_FEED_3LINES\]/g) || []).length;
   assert.equal(cuts, 1);
 });
+
+test('getDefaultConfig migra copias antiguas de 1 a 2 copias en localStorage', () => {
+  const store: Record<string, string> = {
+    'el_patron_printer_config': JSON.stringify({
+      printerName: 'POS58 Printer',
+      paperWidth: '58mm',
+      autoCut: true,
+      openDrawer: true,
+      copies: 1
+    })
+  };
+
+  (globalThis as any).localStorage = {
+    getItem: (key: string) => store[key] || null,
+    setItem: (key: string, val: string) => { store[key] = val; },
+    removeItem: (key: string) => { delete store[key]; }
+  };
+
+  const config = printerService.getDefaultConfig();
+  assert.equal(config.copies, 2, 'Debe migrar copies: 1 a 2 automáticamente');
+  const persisted = JSON.parse(store['el_patron_printer_config']);
+  assert.equal(persisted.copies, 2, 'Debe haber guardado el valor 2 en localStorage');
+});
+
+test('clearFailedPrints vacía la cola de tickets fallidos de localStorage', () => {
+  const store: Record<string, string> = {
+    'el_patron_failed_prints': JSON.stringify([
+      { id: 'p1', data: sampleTicket, timestamp: '2026-09-11T12:00:00Z' },
+      { id: 'p2', data: sampleTicket, timestamp: '2026-09-11T12:05:00Z' }
+    ])
+  };
+
+  (globalThis as any).localStorage = {
+    getItem: (key: string) => store[key] || null,
+    setItem: (key: string, val: string) => { store[key] = val; },
+    removeItem: (key: string) => { delete store[key]; }
+  };
+
+  assert.equal(printerService.getFailedPrints().length, 2);
+  printerService.clearFailedPrints();
+  assert.equal(printerService.getFailedPrints().length, 0);
+  assert.equal(store['el_patron_failed_prints'], undefined);
+});
+

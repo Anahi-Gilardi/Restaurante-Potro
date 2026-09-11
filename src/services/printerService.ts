@@ -16,11 +16,21 @@ export const printerService = {
     if (raw) {
       try {
         const parsed = JSON.parse(raw);
-        if (parsed.printerName && parsed.paperWidth) {
-          return {
-            ...parsed,
-            copies: parsed.copies ? Math.max(1, Number(parsed.copies)) : 2
+        if (parsed && typeof parsed === 'object') {
+          const loadedCopies = Number(parsed.copies);
+          // Si el navegador tenía 1 copia guardada de versiones previas, migrar automáticamente a 2 copias
+          const finalCopies = (!loadedCopies || loadedCopies < 2) ? 2 : loadedCopies;
+          const config: PrinterConfig = {
+            printerName: parsed.printerName || 'POS58 Printer',
+            paperWidth: parsed.paperWidth || '58mm',
+            autoCut: parsed.autoCut ?? true,
+            openDrawer: parsed.openDrawer ?? true,
+            copies: finalCopies
           };
+          if (typeof localStorage !== 'undefined' && (!loadedCopies || loadedCopies < 2)) {
+            localStorage.setItem('el_patron_printer_config', JSON.stringify(config));
+          }
+          return config;
         }
       } catch {
         // ignore
@@ -174,9 +184,12 @@ export const printerService = {
     esc += 'El Patron Restaurante\n';
     esc += `${doubleSeparator}\n`;
     
+    // Avance de líneas generoso para que el ticket supere la barra de corte manual de 58 mm
+    esc += '\n\n\n\n\n';
     if (config.autoCut) {
       esc += '[ESC/POS: PARTIAL_CUT_FEED_3LINES]\n';
     }
+    esc += '\n\n';
     
     return esc;
   },
@@ -187,7 +200,7 @@ export const printerService = {
    * Si copies >= 2, emite 1 ticket para el cliente y 1 ticket para el dueño.
    */
   generateEscPosText(data: TicketData, config: PrinterConfig): string {
-    const copies = Math.max(1, config.copies ?? 2);
+    const copies = config.copies !== undefined ? Number(config.copies) : 2;
     if (copies === 1) {
       return this.generateSingleTicketEscPos(data, config, 'standard', config.openDrawer);
     }
@@ -197,10 +210,10 @@ export const printerService = {
     // Copia 2: Dueño (no vuelve a disparar cajón)
     const ticketDueno = this.generateSingleTicketEscPos(data, config, 'dueno', false);
 
-    let fullEsc = ticketCliente + '\n' + ticketDueno;
+    let fullEsc = ticketCliente + '\n\n' + ticketDueno;
 
     for (let i = 3; i <= copies; i++) {
-      fullEsc += '\n' + this.generateSingleTicketEscPos(data, config, 'standard', false);
+      fullEsc += '\n\n' + this.generateSingleTicketEscPos(data, config, 'standard', false);
     }
 
     return fullEsc;
@@ -408,6 +421,11 @@ export const printerService = {
     localStorage.setItem('el_patron_failed_prints', JSON.stringify(queue));
   },
 
+  clearFailedPrints(): void {
+    if (typeof localStorage === 'undefined') return;
+    localStorage.removeItem('el_patron_failed_prints');
+  },
+
   /**
    * Envía a la ticketera física térmica Global TP-POS58-USB.
    * Capa 1: Intenta comunicación directa por Bridge USB (win32print en puerto 8012).
@@ -419,41 +437,79 @@ export const printerService = {
     methodUsed: string;
     rawText: string;
   }> {
-    const rawText = this.generateEscPosText(data, config);
+    // Garantizar que en caja siempre se impriman al menos 2 copias (Cliente + Dueño) salvo configuración superior
+    const effectiveCopies = (!config.copies || Number(config.copies) < 2) ? 2 : Number(config.copies);
+    const effectiveConfig: PrinterConfig = { ...config, copies: effectiveCopies };
+    const rawText = this.generateEscPosText(data, effectiveConfig);
 
     // 1. Intentar Puente USB Local en puerto 8012
     try {
       const controller = new AbortController();
-      const id = setTimeout(() => controller.abort(), 1200);
-      
-      const response = await fetch('http://127.0.0.1:8012/print', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rawText, config }),
-        signal: controller.signal
-      }).catch(() => null);
+      const id = setTimeout(() => controller.abort(), 2500);
 
-      clearTimeout(id);
+      // Si se solicitan 2 copias (1 Cliente + 1 Dueño), despachamos dos trabajos físicos discretos
+      // para que el cabezal de 58 mm corte/avance cada uno por separado y no se superpongan
+      if (effectiveConfig.copies === 2) {
+        const rawCliente = this.generateSingleTicketEscPos(data, effectiveConfig, 'cliente', effectiveConfig.openDrawer);
+        const rawDueno = this.generateSingleTicketEscPos(data, effectiveConfig, 'dueno', false);
 
-      if (response && response.ok) {
-        const json = await response.json();
-        return {
-          success: true,
-          message: `Ticket emitido en impresora térmica USB (${json.printerUsed || config.printerName}).`,
-          methodUsed: 'UsbPrintBridge',
-          rawText
-        };
+        const resp1 = await fetch('http://127.0.0.1:8012/print', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rawText: rawCliente, config: effectiveConfig }),
+          signal: controller.signal
+        });
+
+        if (resp1.ok) {
+          // Breve pausa para que el cabezal térmico de 58 mm finalice el avance del primer ticket antes de enviar el segundo
+          await new Promise(r => setTimeout(r, 400));
+
+          await fetch('http://127.0.0.1:8012/print', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rawText: rawDueno, config: { ...effectiveConfig, openDrawer: false } }),
+            signal: controller.signal
+          });
+
+          clearTimeout(id);
+          return {
+            success: true,
+            message: `2 tickets emitidos con éxito (1 Original Cliente + 1 Duplicado Dueño) en ${effectiveConfig.printerName}.`,
+            methodUsed: 'UsbPrintBridge',
+            rawText
+          };
+        }
+      } else {
+        const response = await fetch('http://127.0.0.1:8012/print', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rawText, config: effectiveConfig }),
+          signal: controller.signal
+        });
+
+        clearTimeout(id);
+
+        if (response.ok) {
+          const json = await response.json();
+          return {
+            success: true,
+            message: `Tickets emitidos en impresora térmica USB (${json.printerUsed || effectiveConfig.printerName}).`,
+            methodUsed: 'UsbPrintBridge',
+            rawText
+          };
+        }
       }
+      clearTimeout(id);
     } catch {
       // continuar a Capa 2
     }
 
     // 2. Capa 2: Respaldo Térmico de Navegador (58 mm)
-    const browserPrintRes = await this.printThermalViaBrowser(data, config);
+    const browserPrintRes = await this.printThermalViaBrowser(data, effectiveConfig);
     if (browserPrintRes.success) {
       return {
         success: true,
-        message: 'Ticket enviado a la impresora térmica mediante el navegador (58 mm).',
+        message: '2 tickets enviados a la impresora térmica mediante el navegador (58 mm).',
         methodUsed: 'BrowserThermal58mm',
         rawText
       };

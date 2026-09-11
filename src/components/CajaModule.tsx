@@ -449,8 +449,8 @@ export default function CajaModule({
                 onChange={e => setPrinterConfig(prev => ({ ...prev, copies: parseInt(e.target.value) || 2 }))}
                 className="w-full p-2 text-xs border border-stone-200 dark:border-stone-800 rounded-lg bg-white dark:bg-stone-950 font-bold text-stone-800 dark:text-stone-200"
               >
-                <option value="2">2 Copias (1 Cliente + 1 Dueño)</option>
-                <option value="1">1 Copia única</option>
+                <option value="2">2 Copias (Predeterminado: 1 Cliente + 1 Dueño)</option>
+                <option value="1">1 Copia única (Solo Cliente)</option>
                 <option value="3">3 Copias (Cliente + Dueño + Archivo)</option>
               </select>
               <span className="text-[8px] text-stone-400 block mt-0.5">Identifica Original y Duplicado</span>
@@ -679,32 +679,50 @@ export default function CajaModule({
             {/* Print queue retry card */}
             {failedPrintsCount > 0 && (
               <div className="p-3 bg-amber-50 dark:bg-amber-955/20 border border-amber-200 dark:border-amber-900/60 rounded-xl space-y-2 mt-2">
-                <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300">
-                  <AlertTriangle className="w-4 h-4 shrink-0 animate-pulse text-amber-500" />
-                  <span className="text-[10px] font-black uppercase tracking-wider">Cola de Impresión</span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300">
+                    <AlertTriangle className="w-4 h-4 shrink-0 animate-pulse text-amber-500" />
+                    <span className="text-[10px] font-black uppercase tracking-wider">Cola de Impresión</span>
+                  </div>
+                  <span className="text-[9px] font-bold px-2 py-0.5 bg-amber-200/60 dark:bg-amber-800/40 text-amber-900 dark:text-amber-200 rounded-full font-mono">
+                    {failedPrintsCount} {failedPrintsCount === 1 ? 'ticket' : 'tickets'}
+                  </span>
                 </div>
                 <p className="text-[10px] text-amber-700 dark:text-amber-400 font-medium">
-                  Hay <strong>{failedPrintsCount}</strong> {failedPrintsCount === 1 ? 'ticket pendiente' : 'tickets pendientes'} de impresión física local.
+                  Hay <strong>{failedPrintsCount}</strong> {failedPrintsCount === 1 ? 'ticket pendiente' : 'tickets pendientes'} de impresión física local acumulados.
                 </p>
-                <button
-                  onClick={async () => {
-                    try {
-                      const res = await printerService.retryFailedPrints(printerConfig);
-                      refreshFailedPrintsCount();
-                      if (res.successCount > 0) {
-                        toast.success(`¡Se imprimieron con éxito ${res.successCount} ticket(s) de la cola!`);
-                      } else if (res.failedCount > 0) {
-                        toast.error(`No se pudo imprimir. Siguen pendientes ${res.failedCount} ticket(s). Verifique la conexión del bridge local en el puerto 8012.`);
+                <div className="grid grid-cols-2 gap-2 pt-0.5">
+                  <button
+                    onClick={async () => {
+                      try {
+                        const res = await printerService.retryFailedPrints(printerConfig);
+                        refreshFailedPrintsCount();
+                        if (res.successCount > 0) {
+                          toast.success(`¡Se imprimieron con éxito ${res.successCount} ticket(s) de la cola!`);
+                        } else if (res.failedCount > 0) {
+                          toast.error(`No se pudo imprimir. Siguen pendientes ${res.failedCount} ticket(s). Verifique la conexión del bridge local en el puerto 8012.`);
+                        }
+                      } catch (err: any) {
+                        toast.error(`Error al reintentar impresión: ${err.message}`);
                       }
-                    } catch (err: any) {
-                      toast.error(`Error al reintentar impresión: ${err.message}`);
-                    }
-                  }}
-                  className="w-full py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-[10px] uppercase font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-xs border border-amber-500"
-                >
-                  <Printer className="w-3.5 h-3.5 text-amber-200" />
-                  Reintentar Impresión ({failedPrintsCount})
-                </button>
+                    }}
+                    className="py-2 px-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-[10px] uppercase font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-xs border border-amber-500"
+                  >
+                    <Printer className="w-3.5 h-3.5 text-amber-200" />
+                    Reintentar ({failedPrintsCount})
+                  </button>
+                  <button
+                    onClick={() => {
+                      printerService.clearFailedPrints();
+                      refreshFailedPrintsCount();
+                      toast.info('Se descartaron los tickets pendientes de la cola local.');
+                    }}
+                    className="py-2 px-2 bg-stone-200 hover:bg-stone-300 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 rounded-xl text-[10px] uppercase font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 border border-stone-300 dark:border-stone-700"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-stone-500 dark:text-stone-400" />
+                    Limpiar Cola
+                  </button>
+                </div>
               </div>
             )}
           </div>
