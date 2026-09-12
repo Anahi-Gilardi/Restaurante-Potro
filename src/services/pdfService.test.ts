@@ -57,3 +57,27 @@ test('Consumidor Final nunca hereda el CUIT del emisor', () => {
     documentNumber: 'No requerido',
   });
 });
+
+test('Receptor con CUIT muestra razon social o titular en lugar de consumidor final', () => {
+  assert.deepEqual(fiscalReceiverView({
+    clienteNombre: 'Enzo Girardi',
+    clienteCuit: '20371081004',
+    clienteDocumentoTipo: 'CUIT',
+  }), {
+    isFinalConsumer: false,
+    name: 'Enzo Girardi',
+    documentLabel: 'CUIT',
+    documentNumber: '20371081004',
+  });
+
+  assert.deepEqual(fiscalReceiverView({
+    clienteNombre: 'Consumidor Final',
+    clienteCuit: '20371081004',
+    clienteDocumentoTipo: 'CUIT',
+  }), {
+    isFinalConsumer: false,
+    name: 'Titular CUIT 20371081004',
+    documentLabel: 'CUIT',
+    documentNumber: '20371081004',
+  });
+});

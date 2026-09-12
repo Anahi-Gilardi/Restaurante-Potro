@@ -54,7 +54,7 @@ const loadQrDataUrl = async (qrDataText: string | undefined): Promise<string | n
     if (qrDataText.startsWith('{')) {
       try {
         const base64 = btoa(unescape(encodeURIComponent(qrDataText)));
-        qrUrl = `https://www.arca.gob.ar/fe/qr/?p=${base64}`;
+        qrUrl = `https://www.afip.gob.ar/fe/qr/?p=${base64}`;
       } catch (e) {
         console.warn('Error converting QR JSON to Base64:', e);
       }
@@ -124,9 +124,10 @@ export const validateFiscalTicketData = (data: TicketData) => {
 
 export const fiscalReceiverView = (data: Pick<TicketData, 'clienteNombre' | 'clienteCuit' | 'clienteDocumentoTipo'>) => {
   const isFinalConsumer = data.clienteDocumentoTipo === 'Consumidor Final' || !data.clienteCuit?.trim();
+  const fallbackName = data.clienteCuit?.trim() ? `Titular CUIT ${data.clienteCuit.trim()}` : 'Cliente';
   return {
     isFinalConsumer,
-    name: isFinalConsumer ? 'A CONSUMIDOR FINAL' : (data.clienteNombre || 'Cliente'),
+    name: isFinalConsumer ? 'A CONSUMIDOR FINAL' : (data.clienteNombre && data.clienteNombre !== 'Consumidor Final' ? data.clienteNombre : fallbackName),
     documentLabel: isFinalConsumer ? 'Documento' : (data.clienteDocumentoTipo || 'CUIT/DNI'),
     documentNumber: data.clienteCuit?.trim() || 'No requerido',
   };
@@ -356,9 +357,32 @@ export const pdfService = {
     doc.setDrawColor(...BRAND.line);
     doc.setLineWidth(0.2);
     doc.line(margin, y, margin + 182, y);
-    y += 8;
+    y += 6;
 
-    // Totals Panel
+    const summaryStartY = y;
+    let payY = summaryStartY;
+
+    // Payment Methods (Left Column)
+    if (data.metodosPago && data.metodosPago.length > 0) {
+      doc.setTextColor(...BRAND.dark);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.text('MEDIOS DE PAGO', margin, payY);
+      payY += 5;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      data.metodosPago.forEach(mp => {
+        doc.text(`${mp.metodo.toUpperCase()}: ${money(mp.monto)}`, margin, payY);
+        payY += 4.5;
+      });
+      if (data.vuelto > 0) {
+        doc.text(`Vuelto entregado: ${money(data.vuelto)}`, margin, payY);
+        payY += 4.5;
+      }
+    }
+
+    // Totals Panel (Right Column)
+    y = summaryStartY;
     const totalX = margin + 116;
     const totalValueX = margin + 178;
     doc.setFontSize(9);
@@ -396,45 +420,16 @@ export const pdfService = {
     doc.setFontSize(11);
     doc.text('TOTAL GENERAL', totalX, y + 1.2);
     doc.text(money(data.total), totalValueX, y + 1.2, { align: 'right' });
-    y += 18;
-
-    if (y > 220) {
-      doc.addPage();
-      y = 18;
-    }
     
-    // Payment Methods
-    doc.setTextColor(...BRAND.dark);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8.5);
-    doc.text('MEDIOS DE PAGO', margin, y);
-    y += 5;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    data.metodosPago.forEach(mp => {
-      if (y > 245) {
-        doc.addPage();
-        y = 18;
-      }
-      doc.text(`${mp.metodo.toUpperCase()}: ${money(mp.monto)}`, margin, y);
-      y += 4.5;
-    });
-    if (data.vuelto > 0) {
-      if (y > 245) {
-        doc.addPage();
-        y = 18;
-      }
-      doc.text(`Vuelto entregado: ${money(data.vuelto)}`, margin, y);
-      y += 4.5;
-    }
+    // Position below whichever column is taller
+    y = Math.max(y + 8, payY + 4);
 
     // ARCA footer with the authorization and mandatory fiscal QR.
     const fiscalBoxHeight = data.cae ? 26 : 18;
-    if (y + fiscalBoxHeight > 275) {
+    y += 5;
+    if (y + fiscalBoxHeight > 272) {
       doc.addPage();
       y = 18;
-    } else {
-      y = Math.max(y + 8, 245);
     }
 
     if (data.cae) {

@@ -71,7 +71,7 @@ const fiscalValidationUrl = (qrData?: string): string | null => {
   if (!qrData) return null;
   try {
     const validationUrl = qrData.startsWith('{')
-      ? `https://www.arca.gob.ar/fe/qr/?p=${btoa(unescape(encodeURIComponent(qrData)))}`
+      ? `https://www.afip.gob.ar/fe/qr/?p=${btoa(unescape(encodeURIComponent(qrData)))}`
       : qrData;
     return validationUrl;
   } catch {
@@ -102,6 +102,13 @@ const calcIvaIncluido = (total: number, aplicaIva = true) => {
   if (!aplicaIva) return { neto: total, iva: 0 };
   const neto = Number((total / 1.21).toFixed(2));
   return { neto, iva: Number((total - neto).toFixed(2)) };
+};
+
+const resolveCondicionIvaReceptorLabel = (factura: FacturaExtendida): string => {
+  const effectiveId = (factura.documento_tipo_receptor === 80 && factura.condicion_iva_receptor === 5)
+    ? 6
+    : (factura.condicion_iva_receptor || 5);
+  return CONDICIONES_IVA_RECEPTOR.find(c => c.id === effectiveId)?.label || 'Consumidor Final';
 };
 
 const facturaTipo = (f: FacturaExtendida): 'ticket' | 'A' | 'B' | 'C' | 'NC' | 'X' => {
@@ -356,10 +363,17 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
         precio_unitario: total,
         subtotal: total,
       }];
+      const parsedDoc = parseFiscalCustomerDocument(manualCuit);
+      const isCuit = parsedDoc.documentType === 80;
+      let receptorName = manualCliente.trim();
+      if (!receptorName || (isCuit && receptorName.toLowerCase() === 'consumidor final')) {
+        receptorName = isCuit ? `Titular CUIT ${parsedDoc.documentNumber}` : 'Consumidor Final';
+      }
+      const receptorCondicionIva = (isCuit && manualCondicionIva === 5) ? 6 : manualCondicionIva;
       const factura: FacturaExtendida = {
         id_factura: `fac_${Date.now()}`,
         nro_ticket: nextNumber(facturas, manualTipo, arcaStatus?.puntoVenta),
-        cliente: manualCliente.trim() || 'Consumidor Final',
+        cliente: receptorName,
         cuit: manualCuit.trim(),
         total,
         iva_veintiuno: iva,
@@ -370,8 +384,8 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
         id_pedido: null,
         observaciones: manualObs || 'Venta de salón / Varios manual',
         fecha_completa: new Date().toISOString(),
-        condicion_iva_receptor: manualCondicionIva,
-        documento_tipo_receptor: parseFiscalCustomerDocument(manualCuit).documentType,
+        condicion_iva_receptor: receptorCondicionIva,
+        documento_tipo_receptor: parsedDoc.documentType,
         items: manualItems,
         moneda: 'PES',
       };
@@ -466,10 +480,17 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
         });
       }
       
+      const parsedDoc = parseFiscalCustomerDocument(pagoCuit);
+      const isCuit = parsedDoc.documentType === 80;
+      let receptorName = pagoCliente.trim();
+      if (!receptorName || (isCuit && receptorName.toLowerCase() === 'consumidor final')) {
+        receptorName = isCuit ? `Titular CUIT ${parsedDoc.documentNumber}` : 'Consumidor Final';
+      }
+      const receptorCondicionIva = (isCuit && pagoCondicionIva === 5) ? 6 : pagoCondicionIva;
       const factura: FacturaExtendida = {
         id_factura: `fac_${Date.now()}`,
         nro_ticket: nextNumber(facturas, pagoTipo, arcaStatus?.puntoVenta),
-        cliente: pagoCliente.trim() || 'Consumidor Final',
+        cliente: receptorName,
         cuit: pagoCuit.trim(),
         total: totalConsolidado,
         iva_veintiuno: iva,
@@ -480,8 +501,8 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
         id_pedido: principalPedido.id_pedido,
         observaciones: `Tickets de origen: ${ticketReferences} - Pedidos: ${prefixIdsStr} - Mesas: ${Array.from(new Set(selectedItems.map(p => p.pedido.numero_mesa))).join(', ')}`,
         fecha_completa: new Date().toISOString(),
-        condicion_iva_receptor: pagoCondicionIva,
-        documento_tipo_receptor: parseFiscalCustomerDocument(pagoCuit).documentType,
+        condicion_iva_receptor: receptorCondicionIva,
+        documento_tipo_receptor: parsedDoc.documentType,
         items: fiscalItems,
         moneda: 'PES',
       };
@@ -537,7 +558,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
         ingresosBrutos: factura.arca_emisor?.grossIncomeNumber,
         inicioActividades: factura.arca_emisor?.activityStartDate,
         condicionIvaEmisor: 'Monotributo',
-        condicionIvaReceptor: CONDICIONES_IVA_RECEPTOR.find(condition => condition.id === factura.condicion_iva_receptor)?.label,
+        condicionIvaReceptor: resolveCondicionIvaReceptorLabel(factura),
         items: formattedItems,
         subtotal: totalConsolidado - iva,
         descuento: 0,
@@ -738,7 +759,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
       ingresosBrutos: factura.arca_emisor?.grossIncomeNumber,
       inicioActividades: factura.arca_emisor?.activityStartDate,
       condicionIvaEmisor: 'Monotributo',
-      condicionIvaReceptor: CONDICIONES_IVA_RECEPTOR.find(condition => condition.id === factura.condicion_iva_receptor)?.label,
+      condicionIvaReceptor: resolveCondicionIvaReceptorLabel(factura),
       items: ticketItems,
       subtotal: neto,
       descuento: 0,
@@ -985,7 +1006,35 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
     setManualCuit(c.dni_cuit);
     setManualQuery(c.nombre);
     setShowManualSuggestions(false);
+    const digits = (c.dni_cuit || '').replace(/\D/g, '');
+    if (digits.length === 11 && manualCondicionIva === 5) {
+      setManualCondicionIva(6);
+    }
     toast.success(`Cliente ${c.nombre} cargado.`);
+  };
+
+  const handleManualCuitChange = (val: string) => {
+    setManualCuit(val);
+    const digits = val.replace(/\D/g, '');
+    const match = clientes.find(c => c.dni_cuit.replace(/\D/g, '') === digits);
+    if (match) {
+      setManualCliente(match.nombre);
+      setManualQuery(match.nombre);
+    } else if (digits.length === 11 && (manualCliente === 'Consumidor Final' || !manualCliente.trim())) {
+      setManualCliente('');
+    } else if ((digits.length === 0 || digits === '99999999999') && !manualCliente.trim()) {
+      setManualCliente('Consumidor Final');
+    }
+
+    if (digits.length === 11) {
+      if (manualCondicionIva === 5) {
+        setManualCondicionIva(6);
+      }
+    } else if (digits.length === 0 || digits === '99999999999') {
+      if (manualCondicionIva === 6) {
+        setManualCondicionIva(5);
+      }
+    }
   };
 
   // Selección de sugerencia de cliente (caja)
@@ -994,7 +1043,25 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
     setPagoCuit(c.dni_cuit);
     setPagoQuery(c.nombre);
     setShowPagoSuggestions(false);
+    const digits = (c.dni_cuit || '').replace(/\D/g, '');
+    if (digits.length === 11 && pagoCondicionIva === 5) {
+      setPagoCondicionIva(6);
+    }
     toast.success(`Cliente ${c.nombre} cargado.`);
+  };
+
+  const handlePagoCuitChange = (val: string) => {
+    setPagoCuit(val);
+    const digits = val.replace(/\D/g, '');
+    const match = clientes.find(c => c.dni_cuit.replace(/\D/g, '') === digits);
+    if (match) {
+      setPagoCliente(match.nombre);
+      setPagoQuery(match.nombre);
+    } else if (digits.length === 11 && (pagoCliente === 'Consumidor Final' || !pagoCliente.trim())) {
+      setPagoCliente('');
+    } else if ((digits.length === 0 || digits === '99999999999') && !pagoCliente.trim()) {
+      setPagoCliente('Consumidor Final');
+    }
   };
 
   // Cambiar selección de checkboxes en pendientes
@@ -1236,6 +1303,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
                 <input 
                   type="text"
                   value={manualCliente} 
+                  placeholder={manualCuit.trim() ? "Razón Social / Nombre del titular" : "Consumidor Final"}
                   onChange={e => {
                     setManualCliente(e.target.value);
                     setManualQuery(e.target.value);
@@ -1281,7 +1349,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
               </span>
               <input 
                 value={manualCuit} 
-                onChange={e => setManualCuit(e.target.value)} 
+                onChange={e => handleManualCuitChange(e.target.value)} 
                 placeholder="Consumidor Final: dejar vacío"
                 className={`w-full p-2.5 rounded-xl border bg-stone-50/50 dark:bg-stone-900 text-stone-800 dark:text-stone-100 text-xs font-mono font-bold ${
                   cuitManualValido ? 'border-stone-200 dark:border-stone-750' : 'border-amber-455 border-amber-500 ring-1 ring-amber-300/30'
@@ -1562,6 +1630,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
                         <input
                           type="text"
                           value={pagoCliente}
+                          placeholder={pagoCuit.trim() ? "Razón Social / Nombre del titular" : "Consumidor Final"}
                           onChange={e => {
                             setPagoCliente(e.target.value);
                             setPagoQuery(e.target.value);
@@ -1599,7 +1668,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
                       <input
                         type="text"
                         value={pagoCuit}
-                        onChange={e => setPagoCuit(e.target.value)}
+                        onChange={e => handlePagoCuitChange(e.target.value)}
                         placeholder="Consumidor Final: dejar vacío"
                         className={`w-full p-2 bg-white dark:bg-stone-955 border rounded-lg text-xs font-mono font-bold text-stone-800 dark:text-stone-100 ${
                           cuitPagoValido ? 'border-stone-200 dark:border-stone-800' : 'border-amber-400 border-amber-500'
