@@ -29,3 +29,11 @@ test('rechaza formatos ambiguos y CUIT con verificador inválido', () => {
   assert.throws(() => parseFiscalCustomerDocument('12345'), /DNI/);
   assert.throws(() => parseFiscalCustomerDocument('27-42694613-7'), /verificador/);
 });
+
+test('valida CUIT de emision manual 20371081004 correctamente', () => {
+  assert.equal(isValidArgentineCuit('20371081004'), true);
+  const doc = parseFiscalCustomerDocument('20371081004');
+  assert.equal(doc.documentType, 80);
+  assert.equal(doc.documentNumber, 20371081004);
+  assert.equal(doc.consumerFinal, false);
+});

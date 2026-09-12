@@ -41,11 +41,11 @@ test('consulta estado ARCA sin enviar credenciales fiscales', async () => {
 test('el dominio publico usa el backend fiscal privado', () => {
   assert.equal(
     getArcaApiEndpoint({ hostname: 'restaurante-potro.vercel.app' } as Location),
-    '/api/arca',
+    'https://restaurante-potro-anahi.vercel.app/api/arca',
   );
   assert.equal(
     getArcaApiEndpoint({ hostname: 'localhost' } as Location),
-    'https://restaurante-potro.vercel.app/api/arca',
+    'https://restaurante-potro-anahi.vercel.app/api/arca',
   );
   assert.equal(
     getArcaApiEndpoint({ hostname: 'restaurante-potro-anahi.vercel.app' } as Location),

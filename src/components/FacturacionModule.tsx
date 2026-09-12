@@ -145,7 +145,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
   const [medioFiltro, setMedioFiltro] = useState<MedioFiltro>('todos');
   
   // Emisión Manual
-  const manualTipo = 'C' as const;
+  const [manualTipo, setManualTipo] = useState<'C' | 'X'>('C');
   const [manualCliente, setManualCliente] = useState('Consumidor Final');
   const [manualCuit, setManualCuit] = useState('');
   const [manualTotal, setManualTotal] = useState('0');
@@ -189,7 +189,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
 
     getArcaStatus(true).then(async status => {
       setArcaStatus(status);
-      if (status.configured && status.legalDataComplete) {
+      if (status.configured) {
         const verification = await testArcaConnection();
         setArcaStatus(prev => ({
           ...(prev || status),
@@ -197,7 +197,12 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
           configured: prev?.configured ?? status.configured,
           puntoVenta: verification.status.puntoVenta ?? prev?.puntoVenta ?? status.puntoVenta,
           cuitMasked: verification.status.cuitMasked ?? prev?.cuitMasked ?? status.cuitMasked,
-          legalDataComplete: prev?.legalDataComplete ?? status.legalDataComplete,
+          legalDataComplete: verification.status.legalDataComplete ?? prev?.legalDataComplete ?? status.legalDataComplete,
+          pointOfSaleValid: verification.status.pointOfSaleValid ?? prev?.pointOfSaleValid ?? status.pointOfSaleValid,
+          connected: verification.status.connected ?? prev?.connected ?? status.connected,
+          authorizedPointsOfSale: verification.status.authorizedPointsOfSale?.length
+            ? verification.status.authorizedPointsOfSale
+            : (prev?.authorizedPointsOfSale ?? status.authorizedPointsOfSale),
         }));
       }
     });
@@ -376,6 +381,8 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
         factura.afip_observaciones = arcaResult.observaciones || [];
         factura.arca_emisor = arcaResult.emitter;
         factura.estado = arcaResult.resultado === 'O' ? 'observado' : 'autorizado';
+      } else {
+        factura.estado = 'autorizado';
       }
 
       await persistFactura(factura);
@@ -1166,12 +1173,49 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
             <p className="text-xs text-stone-500 dark:text-stone-300 font-semibold mt-1">Para ventas directas de mostrador, catering externo o ajustes manuales.</p>
           </div>
           
+          {/* Status banner for ARCA when manualTipo === 'C' */}
+          {manualTipo === 'C' && (
+            <div className={`p-3.5 rounded-xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-left ${
+              arcaStatus?.pointOfSaleValid === true
+                ? 'bg-emerald-50/70 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-900 text-emerald-900 dark:text-emerald-200'
+                : 'bg-amber-50/80 border-amber-200 dark:bg-amber-950/20 dark:border-amber-900 text-amber-900 dark:text-amber-200'
+            }`}>
+              <div className="flex items-center gap-2.5">
+                <span className={`w-2.5 h-2.5 rounded-full ${arcaStatus?.pointOfSaleValid === true ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+                <span className="text-xs font-bold font-sans">
+                  {arcaStatus?.pointOfSaleValid === true
+                    ? `ARCA Operativo · Punto de Venta ${String(arcaStatus.puntoVenta || 2).padStart(5, '0')} activo con CAE · CUIT: ${arcaStatus.cuitMasked || '*******6136'}`
+                    : arcaStatus?.configured
+                      ? `ARCA configurado (Pto Vta: ${arcaStatus.puntoVenta ? String(arcaStatus.puntoVenta).padStart(5, '0') : 'Sin verificar'}) · Pendiente de validación activa`
+                      : 'ARCA no conectado · Verifique certificados en Sistema o use Comprobante X'}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={handleTestArca}
+                disabled={isTestingArca}
+                className="px-3 py-1.5 rounded-lg bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-200 hover:bg-stone-50 text-[10px] font-black uppercase tracking-wider shadow-2xs shrink-0 cursor-pointer disabled:opacity-50"
+              >
+                {isTestingArca ? 'Probando...' : 'Probar / Validar ARCA Ahora'}
+              </button>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="space-y-1.5 text-left">
               <span className="text-[10px] font-black uppercase text-stone-400 dark:text-stone-300">Tipo de Comprobante</span>
-              <div className="w-full p-2.5 rounded-xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50/70 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-300 text-xs font-black">
-                Factura C electrónica con CAE
-              </div>
+              <select
+                value={manualTipo}
+                onChange={e => setManualTipo(e.target.value as 'C' | 'X')}
+                className={`w-full p-2.5 rounded-xl border text-xs font-black transition-colors ${
+                  manualTipo === 'C'
+                    ? 'border-emerald-300 dark:border-emerald-800 bg-emerald-50/80 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-300'
+                    : 'border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-850 text-stone-800 dark:text-stone-200'
+                }`}
+              >
+                <option value="C">Factura C electrónica con CAE</option>
+                <option value="X">Comprobante X (Recibo Interno / Sin CAE)</option>
+              </select>
             </div>
 
             {/* Búsqueda Autocomplete de Clientes */}
@@ -1296,7 +1340,13 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
               onClick={emitManual} 
               className="px-5 py-3 rounded-xl bg-[#624A3E] hover:bg-[#503C32] text-white text-xs font-black uppercase shadow disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
             >
-              {isEmitting ? 'Emitiendo comprobante...' : manualTipo === 'C' && arcaStatus?.pointOfSaleValid !== true ? 'Verifique el punto de venta ARCA' : 'Emitir y Descargar Factura PDF'}
+              {isEmitting 
+                ? 'Emitiendo comprobante...' 
+                : manualTipo === 'C' && arcaStatus?.pointOfSaleValid !== true 
+                  ? 'Verifique el punto de venta ARCA' 
+                  : manualTipo === 'C' 
+                    ? 'Emitir y Descargar Factura C PDF' 
+                    : 'Emitir y Descargar Comprobante X PDF'}
             </button>
             {showManualSuggestions && (
               <button 

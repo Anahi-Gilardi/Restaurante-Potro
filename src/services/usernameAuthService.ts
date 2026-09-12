@@ -7,15 +7,13 @@ interface UsernameLoginResponse {
   error?: string;
 }
 
-const SECURE_LOGIN_ORIGIN = 'https://restaurante-potro.vercel.app';
+const SECURE_LOGIN_ORIGIN = 'https://restaurante-potro-anahi.vercel.app';
 
 export function getUsernameLoginEndpoint(locationLike: Pick<Location, 'hostname'> | undefined = globalThis.location): string {
   const configured = String((import.meta as { env?: Record<string, unknown> }).env?.VITE_USERNAME_LOGIN_API_URL ?? '').trim();
   if (configured) return configured;
   if (
     !locationLike?.hostname
-    || locationLike.hostname.endsWith('.vercel.app')
-    || locationLike.hostname === 'restaurante-potro.vercel.app'
     || locationLike.hostname === 'restaurante-potro-anahi.vercel.app'
   ) {
     return '/api/login';
