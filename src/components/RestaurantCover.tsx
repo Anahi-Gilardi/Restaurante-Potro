@@ -565,13 +565,13 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
         <div className="text-center space-y-3">
           <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-[11px] uppercase font-black tracking-widest bg-[#8C6239]/10 text-[#8C6239] dark:text-[#C8956A] border border-[#8C6239]/25 font-display-serif">
             <Sparkles className="w-3.5 h-3.5 text-[#8C6239] animate-pulse" />
-            Gran Inauguración · Jueves 17 de Septiembre de 2026
+            Apertura Oficial · Jueves 17 de Septiembre de 2026
           </span>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-wide font-serif-rustic text-[#8C6239] dark:text-[#FAF7F0]">
             El Patrón Restaurante
           </h2>
           <p className="text-sm sm:text-base font-bold text-stone-700 dark:text-stone-200 max-w-2xl mx-auto font-serif-rustic italic leading-relaxed">
-            Te damos la bienvenida a nuestra nueva casa a partir del <strong>jueves 17 de septiembre de 2026</strong>. Una propuesta pensada para los amantes del buen comer, fusionando carnes de primera selección, pastas artesanales de autor y un salón distinguido de época.
+            Te abrimos las puertas de nuestra nueva casa. Una propuesta pensada para los amantes del buen comer, fusionando carnes de primera selección, pastas artesanales de autor y un salón histórico de época.
           </p>
           <div className="w-20 h-1 bg-[#8C6239] mx-auto rounded-full" />
         </div>
@@ -728,13 +728,13 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
         >
           <div className="space-y-2 text-center md:text-left max-w-xl">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 text-xs font-bold font-sans uppercase tracking-widest text-amber-200">
-              <Calendar className="w-3.5 h-3.5" /> Gran Inauguración · 17 de Septiembre
+              <Calendar className="w-3.5 h-3.5" /> Noche de Apertura
             </div>
             <h3 className="text-2xl sm:text-3xl font-bold font-serif-rustic tracking-wide">
-              Sé parte de nuestra Gran Inauguración el 17/09/2026
+              Asegurá tu lugar en la velada inaugural
             </h3>
             <p className="text-xs sm:text-sm text-amber-100/90 font-serif-rustic italic leading-relaxed">
-              Vení a descubrir nuestra gastronomía y viví una experiencia única a partir del jueves 17 de septiembre de 2026. Te recomendamos reservar tu mesa con anticipación para asegurar tu lugar.
+              Te invitamos a vivir el estreno de nuestra cocina y compartir un momento especial. Solicitá tu lugar online para garantizar tu mesa en el salón.
             </p>
           </div>
 
@@ -757,7 +757,7 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
             Solicitud de Reserva Online
           </h2>
           <p className="text-sm sm:text-base font-bold text-stone-850 dark:text-stone-200 max-w-lg mx-auto font-serif-rustic italic">
-            Inauguración oficial el <strong>17 de Septiembre de 2026</strong>. Reserve su mesa con anticipación. Le enviaremos la confirmación de disponibilidad vía teléfono o WhatsApp a la brevedad.
+            Completá tu solicitud para la fecha inaugural del <strong>17 de Septiembre</strong> o próximas visitas. Nos contactaremos para confirmar tu mesa a la brevedad.
           </p>
           <div className="w-16 h-1 bg-[#8C6239] dark:bg-[#8C6239] mx-auto rounded-full" />
         </div>
