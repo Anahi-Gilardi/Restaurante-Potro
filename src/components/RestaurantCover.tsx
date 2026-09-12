@@ -760,12 +760,6 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
             >
               Reservar Mesa Online
             </a>
-            <a
-              href="#especialidades"
-              className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-white/15 hover:bg-white/25 text-[#FAF7F0] font-bold text-xs uppercase tracking-wider font-sans transition-all border border-white/30 text-center cursor-pointer no-underline"
-            >
-              Ver Nuestra Carta
-            </a>
           </div>
         </motion.div>
       </section>
