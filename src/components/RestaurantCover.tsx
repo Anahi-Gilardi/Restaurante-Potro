@@ -19,7 +19,9 @@ import {
   Pizza,
   Tag,
   Heart,
-  Send
+  Send,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { argentinaDateIso } from '../lib/argentinaDate';
 import { buildReservationWhatsAppUrl, validatePublicReservation } from '../lib/publicReservation';
@@ -434,6 +436,118 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
             </motion.div>
           ))}
         </div>
+
+        {/* TEASER BANNER: MENÚS EJECUTIVOS (ALMUERZO Y CENA) */}
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+          className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-amber-50/90 via-white to-stone-50 dark:from-[#251B12] dark:via-[#1E140E] dark:to-[#18100A] border border-[#8C6239]/25 dark:border-[#8C6239]/30 shadow-xl p-6 sm:p-10"
+        >
+          {/* Subtle background glow */}
+          <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-[#8C6239]/10 rounded-full blur-3xl pointer-events-none" />
+
+          <div className="relative flex flex-col lg:flex-row items-center gap-8 lg:gap-12">
+            
+            {/* Foto gastronómica destacada */}
+            <div className="w-full lg:w-5/12 h-64 sm:h-80 relative rounded-2xl overflow-hidden shadow-lg group">
+              <img 
+                src="/images/inauguracion/pastas_y_salmon_grillado.jpg" 
+                alt="Menús Ejecutivos de El Patrón"
+                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = '/images/ojo_de_bife_grill.png';
+                }}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
+              
+              <div className="absolute top-4 left-4 flex flex-wrap gap-2">
+                <span className="px-3.5 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest bg-[#8C6239] text-[#FAF7F0] shadow-md flex items-center gap-1.5 font-display-serif">
+                  <Sparkles className="w-3.5 h-3.5 animate-pulse" />
+                  Próximamente
+                </span>
+              </div>
+
+              <div className="absolute bottom-4 left-4 right-4 text-white">
+                <p className="text-[11px] font-medium tracking-wide uppercase text-amber-200 font-display-serif">
+                  Cocina Diaria de Autor
+                </p>
+                <p className="text-sm font-bold font-serif-rustic">
+                  Platos caseros, postres de estación y bebidas seleccionadas
+                </p>
+              </div>
+            </div>
+
+            {/* Texto y detalles del anuncio */}
+            <div className="w-full lg:w-7/12 space-y-5 text-left">
+              <div className="space-y-2">
+                <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-[#8C6239] dark:text-[#C8956A] font-display-serif">
+                  <UtensilsCrossed className="w-4 h-4" />
+                  Propuesta en Preparación
+                </span>
+                <h3 className="text-2xl sm:text-3xl lg:text-4xl font-bold font-serif-rustic text-[#8C6239] dark:text-[#FAF7F0] tracking-wide">
+                  Menús Ejecutivos · Almuerzo y Cena
+                </h3>
+              </div>
+
+              <p className="text-sm sm:text-base text-stone-700 dark:text-stone-300 font-serif-rustic italic leading-relaxed">
+                Estamos diseñando una carta ejecutiva especial para acompañar tus jornadas: opciones gourmet y caseras elaboradas en el día, con entrada, plato principal, postre y bebida incluida, pensadas para ofrecerte la máxima calidad gastronómica y un servicio ágil.
+              </p>
+
+              {/* Píldoras informativas */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-white/70 dark:bg-stone-900/60 border border-stone-200/80 dark:border-stone-800">
+                  <div className="p-2 rounded-lg bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-400">
+                    <Sun className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-black uppercase text-stone-800 dark:text-stone-100 block">
+                      Almuerzos Ejecutivos
+                    </span>
+                    <span className="text-[11px] text-stone-500 dark:text-stone-400 font-serif-rustic italic">
+                      Ideal para mediodías corporativos y pausas ágiles
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-white/70 dark:bg-stone-900/60 border border-stone-200/80 dark:border-stone-800">
+                  <div className="p-2 rounded-lg bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300">
+                    <Moon className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-black uppercase text-stone-800 dark:text-stone-100 block">
+                      Cenas Ejecutivas
+                    </span>
+                    <span className="text-[11px] text-stone-500 dark:text-stone-400 font-serif-rustic italic">
+                      Menús completos para cenas de trabajo o cierre del día
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Pie con botón de consulta WhatsApp */}
+              <div className="pt-3 flex flex-wrap items-center justify-between gap-4 border-t border-stone-200/70 dark:border-stone-800">
+                <span className="text-xs text-stone-500 dark:text-stone-400 font-serif-rustic italic flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-[#8C6239]" />
+                  Próximamente disponible en nuestra carta diaria
+                </span>
+
+                <a
+                  href="https://wa.me/5493584303541?text=Hola%20El%20Patr%C3%B3n!%20Quisiera%20consultar%20sobre%20los%20pr%C3%B3ximos%20men%C3%BAs%20ejecutivos."
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-5 py-2.5 rounded-xl bg-[#8C6239] hover:bg-[#A0754B] text-white text-xs font-bold uppercase tracking-wider transition-all duration-200 flex items-center gap-2 shadow-md hover:scale-[1.02] cursor-pointer"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  Consultar por WhatsApp
+                </a>
+              </div>
+
+            </div>
+
+          </div>
+        </motion.div>
       </section>
 
       {/* 5. WINE / CELLAR SECTION (EXPERIENCIA) */}
