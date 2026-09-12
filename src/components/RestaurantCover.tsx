@@ -18,6 +18,7 @@ import {
   Flame,
   Pizza,
   Tag,
+  Heart,
   Send
 } from 'lucide-react';
 import { argentinaDateIso } from '../lib/argentinaDate';
@@ -242,7 +243,7 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
           <nav className="hidden md:flex items-center gap-6 text-sm font-semibold text-stone-600 dark:text-stone-300">
             <a href="#especialidades" className={`transition-colors ${coverTab === 'parrilla' ? 'hover:text-[#8C6239]' : 'hover:text-[#9B2226]'}`}>Especialidades</a>
             <a href="#experiencia" className={`transition-colors ${coverTab === 'parrilla' ? 'hover:text-[#8C6239]' : 'hover:text-[#9B2226]'}`}>Bodega</a>
-            <a href="#promociones" className={`transition-colors ${coverTab === 'parrilla' ? 'hover:text-[#8C6239]' : 'hover:text-[#9B2226]'}`}>Promociones</a>
+            <a href="#inauguracion" className={`transition-colors ${coverTab === 'parrilla' ? 'hover:text-[#8C6239]' : 'hover:text-[#9B2226]'}`}>Inauguración</a>
             <a href="#reserva" className={`transition-colors ${coverTab === 'parrilla' ? 'hover:text-[#8C6239]' : 'hover:text-[#9B2226]'}`}>Reservas</a>
             <a href="#contacto" className={`transition-colors ${coverTab === 'parrilla' ? 'hover:text-[#8C6239]' : 'hover:text-[#9B2226]'}`}>Ubicación</a>
           </nav>
@@ -272,7 +273,7 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
           >
             <a href="#especialidades" onClick={() => setMobileMenuOpen(false)} className="py-2 text-stone-700 dark:text-stone-300 border-b border-stone-100 dark:border-stone-850">Especialidades</a>
             <a href="#experiencia" onClick={() => setMobileMenuOpen(false)} className="py-2 text-stone-700 dark:text-stone-300 border-b border-stone-100 dark:border-stone-850">Bodega</a>
-            <a href="#promociones" onClick={() => setMobileMenuOpen(false)} className="py-2 text-stone-700 dark:text-stone-300 border-b border-stone-100 dark:border-stone-850">Promociones</a>
+            <a href="#inauguracion" onClick={() => setMobileMenuOpen(false)} className="py-2 text-stone-700 dark:text-stone-300 border-b border-stone-100 dark:border-stone-850">Inauguración</a>
             <a href="#reserva" onClick={() => setMobileMenuOpen(false)} className="py-2 text-stone-700 dark:text-stone-300 border-b border-stone-100 dark:border-stone-850">Reservas</a>
             <a href="#contacto" onClick={() => setMobileMenuOpen(false)} className="py-2 text-stone-700 dark:text-stone-300">Ubicación</a>
           </motion.div>
@@ -503,121 +504,201 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
         </div>
       </section>
 
-      {/* 5.b PROMOCIONES VIGENTES SECTION */}
-      <section id="promociones" className="py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
+      {/* 5.b GRAN INAUGURACIÓN & PLATOS DESTACADOS SECTION */}
+      <section id="inauguracion" className="py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12 relative scroll-mt-20">
+        <span id="promociones" className="sr-only" aria-hidden="true" />
+        
         <div className="text-center space-y-3">
-          <span className="text-xs uppercase font-bold text-[#8C6239] dark:text-[#8C6239] tracking-widest font-display-serif">
-            Ofertas & Beneficios
+          <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-[11px] uppercase font-black tracking-widest bg-[#8C6239]/10 text-[#8C6239] dark:text-[#C8956A] border border-[#8C6239]/25 font-display-serif">
+            <Sparkles className="w-3.5 h-3.5 text-[#8C6239] animate-pulse" />
+            Gran Inauguración · Nueva Apertura
           </span>
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-wide font-serif-rustic text-[#8C6239] dark:text-[#FAF7F0]">
-            Promociones Especiales
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-wide font-serif-rustic text-[#8C6239] dark:text-[#FAF7F0]">
+            El Patrón Restaurante
           </h2>
-          <p className="text-sm sm:text-base font-bold text-stone-850 dark:text-stone-200 max-w-lg mx-auto font-serif-rustic italic">
-            Aprovechá nuestras promociones exclusivas para disfrutar de la mejor gastronomía y maridaje.
+          <p className="text-sm sm:text-base font-bold text-stone-700 dark:text-stone-200 max-w-2xl mx-auto font-serif-rustic italic leading-relaxed">
+            Te damos la bienvenida a nuestra nueva casa. Una propuesta pensada para los amantes del buen comer, fusionando carnes de primera selección, pastas artesanales de autor y un salón distinguido de época.
           </p>
-          <div className="w-16 h-1 bg-[#8C6239] dark:bg-[#8C6239] mx-auto rounded-full" />
+          <div className="w-20 h-1 bg-[#8C6239] mx-auto rounded-full" />
         </div>
 
-        {loadingPromos ? (
-          <div className="text-center py-10">
-            <p className="text-xs font-bold text-stone-400 animate-pulse">Cargando promociones vigentes...</p>
-          </div>
-        ) : promociones.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {promociones.map(promo => (
-              <motion.div
-                key={promo.id_promo}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                className="bg-white dark:bg-[#251B12] rounded-3xl border border-stone-200/60 dark:border-stone-850 shadow-lg flex flex-col justify-between overflow-hidden hover:shadow-xl transition-all duration-300 relative group"
-              >
-                {promo.imagen_url ? (
-                  <div className="h-48 w-full relative overflow-hidden bg-stone-100 dark:bg-stone-900">
-                    <img 
-                      src={promo.imagen_url} 
-                      alt={promo.nombre}
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = 'none';
-                      }}
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-black/30" />
-                    
-                    <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2">
-                      <span className="inline-flex items-center gap-1 px-3 py-1 bg-black/60 backdrop-blur-md text-[#FAF7F0] text-[10px] font-black uppercase tracking-wider rounded-full border border-white/20">
-                        <Tag className="w-3 h-3 text-[#C8956A]" />
-                        {promo.tipo === 'happy_hour' ? 'Happy Hour' : promo.tipo === 'combo' ? 'Combo Especial' : 'Descuento Directo'}
-                      </span>
-                      {promo.descuento_porcentaje > 0 && (
-                        <span className="px-3 py-1 bg-[#8C6239] text-[#FAF7F0] text-xs font-black rounded-xl shadow-md font-mono">
-                          {promo.descuento_porcentaje}% OFF
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="h-1.5 w-full bg-gradient-to-r from-[#8C6239] via-[#C8956A] to-[#8C6239]" />
-                )}
+        {/* 3 FEATURED CARDS SHOWCASING THE RESTAURANT DISHES & AMBIENCE */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          
+          {/* Card 1: Pera asada con queso azul y nueces */}
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}
+            className="bg-white dark:bg-[#251B12] rounded-3xl border border-stone-200/80 dark:border-stone-800 shadow-xl overflow-hidden flex flex-col group hover:-translate-y-1.5 transition-all duration-300"
+          >
+            <div className="relative h-64 sm:h-72 w-full overflow-hidden bg-stone-100 dark:bg-stone-900">
+              <img 
+                src="/images/inauguracion/pera_asada_roquefort.jpg" 
+                alt="Pera asada al horno con queso azul fundido y nueces"
+                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+              <div className="absolute top-4 left-4">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-black/65 backdrop-blur-md text-[#FAF7F0] text-[10px] font-black uppercase tracking-wider rounded-full border border-white/20 font-sans">
+                  <UtensilsCrossed className="w-3 h-3 text-[#C8956A]" />
+                  Cocina de Autor
+                </span>
+              </div>
+              <div className="absolute bottom-3 left-4 right-4 text-white">
+                <span className="text-[10px] uppercase font-mono tracking-widest text-[#E8C288] block font-bold">Entrada Destacada</span>
+                <p className="text-base font-serif-rustic font-bold leading-tight">Pera Asada & Queso Azul</p>
+              </div>
+            </div>
 
-                <div className="p-6 flex-1 flex flex-col justify-between space-y-4">
-                  <div className="space-y-3">
-                    {!promo.imagen_url && (
-                      <div className="flex items-start justify-between gap-3">
-                        <span className="inline-flex items-center gap-1 px-3 py-1 bg-[#8C6239]/10 text-[#8C6239] dark:text-[#C8956A] text-[10px] font-black uppercase tracking-wider rounded-full border border-[#8C6239]/20">
-                          <Tag className="w-3 h-3" />
-                          {promo.tipo === 'happy_hour' ? 'Happy Hour' : promo.tipo === 'combo' ? 'Combo Especial' : 'Descuento Directo'}
-                        </span>
-                        {promo.descuento_porcentaje > 0 && (
-                          <span className="px-3 py-1 bg-[#8C6239] text-[#FAF7F0] text-xs font-black rounded-xl shadow-xs font-mono">
-                            {promo.descuento_porcentaje}% OFF
-                          </span>
-                        )}
-                      </div>
-                    )}
+            <div className="p-6 flex-1 flex flex-col justify-between space-y-4 font-serif-rustic">
+              <div className="space-y-2">
+                <h3 className="text-xl font-bold text-[#8C6239] dark:text-[#FAF7F0] leading-snug">
+                  Pera Asada, Gorgonzola & Nueces
+                </h3>
+                <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-300 leading-relaxed italic">
+                  Pera tiernizada al horno con corazón de queso azul fundido, crocante de nueces seleccionadas y emulsión suave sobre bouquet de hojas verdes frescas.
+                </p>
+              </div>
 
-                    <div className="flex items-center justify-between gap-2">
-                      <h3 className="text-xl font-bold font-serif-rustic tracking-wide text-[#8C6239] dark:text-[#FAF7F0]">
-                        {promo.nombre}
-                      </h3>
-                      {promo.precio !== undefined && promo.precio > 0 && (
-                        <span className="px-3 py-1 bg-[#8C6239] text-[#FAF7F0] text-sm font-black rounded-xl shadow-xs font-mono shrink-0">
-                          ${promo.precio.toLocaleString('es-AR')}
-                        </span>
-                      )}
-                    </div>
+              <div className="pt-3 border-t border-stone-150 dark:border-stone-800/80 flex items-center justify-between text-[11px] font-sans">
+                <span className="font-bold text-[#8C6239] dark:text-[#C8956A] flex items-center gap-1">
+                  <Sparkles className="w-3 h-3" /> Especialidad de la Casa
+                </span>
+                <span className="font-semibold text-stone-400">Carta de Autor</span>
+              </div>
+            </div>
+          </motion.div>
 
-                    {promo.descripcion && (
-                      <p className="text-xs text-stone-600 dark:text-stone-400 font-serif-rustic italic leading-relaxed">
-                        {promo.descripcion}
-                      </p>
-                    )}
-                  </div>
+          {/* Card 2: Pastas y Salmón rosado con vegetales */}
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="bg-white dark:bg-[#251B12] rounded-3xl border border-stone-200/80 dark:border-stone-800 shadow-xl overflow-hidden flex flex-col group hover:-translate-y-1.5 transition-all duration-300"
+          >
+            <div className="relative h-64 sm:h-72 w-full overflow-hidden bg-stone-100 dark:bg-stone-900">
+              <img 
+                src="/images/inauguracion/pastas_y_salmon_grillado.jpg" 
+                alt="Cintas caseras al huevo con panceta y salmón rosado grillado con vegetales"
+                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+              <div className="absolute top-4 left-4">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-black/65 backdrop-blur-md text-[#FAF7F0] text-[10px] font-black uppercase tracking-wider rounded-full border border-white/20 font-sans">
+                  <UtensilsCrossed className="w-3 h-3 text-[#C8956A]" />
+                  Platos Principales
+                </span>
+              </div>
+              <div className="absolute bottom-3 left-4 right-4 text-white">
+                <span className="text-[10px] uppercase font-mono tracking-widest text-[#E8C288] block font-bold">Pastas & Pescados</span>
+                <p className="text-base font-serif-rustic font-bold leading-tight">Cintas al Huevo & Salmón Grillé</p>
+              </div>
+            </div>
 
-                  <div className="pt-3 border-t border-stone-100 dark:border-stone-800/80 flex items-center justify-between text-[11px] font-bold text-stone-500 dark:text-stone-400">
-                    <span className="flex items-center gap-1.5">
-                      <Clock className="w-3.5 h-3.5 text-[#8C6239]" />
-                      {promo.dias_vigentes || 'Todos los días'}
-                    </span>
-                    <span className="text-[#8C6239] dark:text-[#C8956A] font-extrabold uppercase text-[9px] tracking-wider">
-                      Vigente
-                    </span>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        ) : (
-          <div className="bg-white dark:bg-[#251B12] rounded-3xl p-8 border border-stone-200/60 dark:border-stone-850 shadow-md text-center max-w-xl mx-auto space-y-3">
-            <Sparkles className="w-8 h-8 text-[#8C6239] mx-auto animate-bounce" />
-            <h3 className="text-base font-bold font-serif-rustic text-stone-800 dark:text-stone-200">
-              Próximamente Nuevas Promociones
+            <div className="p-6 flex-1 flex flex-col justify-between space-y-4 font-serif-rustic">
+              <div className="space-y-2">
+                <h3 className="text-xl font-bold text-[#8C6239] dark:text-[#FAF7F0] leading-snug">
+                  Cintas con Panceta & Salmón a la Plancha
+                </h3>
+                <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-300 leading-relaxed italic">
+                  Pastas frescas amasadas a mano salteadas con panceta crocante dorada, acompañadas de corte fresco de salmón rosado a la plancha con papines andinos y espárragos.
+                </p>
+              </div>
+
+              <div className="pt-3 border-t border-stone-150 dark:border-stone-800/80 flex items-center justify-between text-[11px] font-sans">
+                <span className="font-bold text-[#8C6239] dark:text-[#C8956A] flex items-center gap-1">
+                  <Sparkles className="w-3 h-3" /> Elaboración Artesanal
+                </span>
+                <span className="font-semibold text-stone-400">Cocina al Momento</span>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Card 3: Salón y ambientación histórica */}
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="bg-white dark:bg-[#251B12] rounded-3xl border border-stone-200/80 dark:border-stone-800 shadow-xl overflow-hidden flex flex-col group hover:-translate-y-1.5 transition-all duration-300"
+          >
+            <div className="relative h-64 sm:h-72 w-full overflow-hidden bg-stone-100 dark:bg-stone-900">
+              <img 
+                src="/images/inauguracion/salon_patron_vitral.jpg" 
+                alt="Ambiente del salón de El Patrón con vitrales artísticos y maderas nobles"
+                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+              <div className="absolute top-4 left-4">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-black/65 backdrop-blur-md text-[#FAF7F0] text-[10px] font-black uppercase tracking-wider rounded-full border border-white/20 font-sans">
+                  <Heart className="w-3 h-3 text-[#C8956A]" />
+                  La Experiencia
+                </span>
+              </div>
+              <div className="absolute bottom-3 left-4 right-4 text-white">
+                <span className="text-[10px] uppercase font-mono tracking-widest text-[#E8C288] block font-bold">Nuestro Salón</span>
+                <p className="text-base font-serif-rustic font-bold leading-tight">Tradición & Distinción</p>
+              </div>
+            </div>
+
+            <div className="p-6 flex-1 flex flex-col justify-between space-y-4 font-serif-rustic">
+              <div className="space-y-2">
+                <h3 className="text-xl font-bold text-[#8C6239] dark:text-[#FAF7F0] leading-snug">
+                  Espacio Cálido & Vitrales de Época
+                </h3>
+                <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-300 leading-relaxed italic">
+                  Un salón decorado con mobiliario en roble, vitrales históricos, aromaterapia artesanal y una cuidada acústica para que cada almuerzo o cena sea memorable.
+                </p>
+              </div>
+
+              <div className="pt-3 border-t border-stone-150 dark:border-stone-800/80 flex items-center justify-between text-[11px] font-sans">
+                <span className="font-bold text-[#8C6239] dark:text-[#C8956A] flex items-center gap-1">
+                  <Sparkles className="w-3 h-3" /> Climatización & Confort
+                </span>
+                <span className="font-semibold text-stone-400">Salón & Cava</span>
+              </div>
+            </div>
+          </motion.div>
+
+        </div>
+
+        {/* INVITATION & RESERVATION BANNER */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.98 }}
+          whileInView={{ opacity: 1, scale: 1 }}
+          viewport={{ once: true }}
+          className="rounded-3xl p-6 sm:p-8 bg-gradient-to-r from-[#8C6239] via-[#6f4e2c] to-[#8C6239] text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-6"
+        >
+          <div className="space-y-2 text-center md:text-left max-w-xl">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 text-xs font-bold font-sans uppercase tracking-widest text-amber-200">
+              <Calendar className="w-3.5 h-3.5" /> ¡Puertas Abiertas!
+            </div>
+            <h3 className="text-2xl sm:text-3xl font-bold font-serif-rustic tracking-wide">
+              Sé parte de nuestra Gran Inauguración
             </h3>
-            <p className="text-xs text-stone-500 dark:text-stone-400 font-serif-rustic italic">
-              Consultá a nuestro personal durante tu visita sobre nuestras sugerencias del chef y promociones del día.
+            <p className="text-xs sm:text-sm text-amber-100/90 font-serif-rustic italic leading-relaxed">
+              Vení a descubrir nuestra gastronomía y viví una experiencia única. Te recomendamos reservar tu mesa con anticipación para asegurar tu lugar.
             </p>
           </div>
-        )}
+
+          <div className="flex flex-col sm:flex-row items-center gap-3 shrink-0 w-full md:w-auto">
+            <a
+              href="#reserva"
+              className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-[#FAF7F0] hover:bg-white text-[#8C6239] font-black text-xs uppercase tracking-wider font-sans transition-all shadow-md text-center hover:scale-105 active:scale-95 cursor-pointer no-underline"
+            >
+              Reservar Mesa Online
+            </a>
+            <a
+              href="#especialidades"
+              className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-white/15 hover:bg-white/25 text-[#FAF7F0] font-bold text-xs uppercase tracking-wider font-sans transition-all border border-white/30 text-center cursor-pointer no-underline"
+            >
+              Ver Nuestra Carta
+            </a>
+          </div>
+        </motion.div>
       </section>
 
       {/* 6. BOOKING WIDGET */}
