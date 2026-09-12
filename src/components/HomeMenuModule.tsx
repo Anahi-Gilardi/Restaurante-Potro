@@ -27,6 +27,7 @@ import {
 import { Mesa, Pedido, Insumo, ProductoMenu, Usuario } from '../types';
 import { AppView } from '../lib/permissions';
 import { tryGetActiveSupabaseClient } from '../lib/supabaseClient';
+import { getTableActiveInfo, isTableOccupied } from '../lib/tableOrders';
 import ElPatronLogo from './ElPatronLogo';
 
 interface HomeMenuModuleProps {
@@ -85,7 +86,7 @@ export default function HomeMenuModule({
       }, 0);
   }, [pedidos, precioMap]);
 
-  const occupiedTables = mesas.filter(m => m.estado === 'ocupada').length;
+  const occupiedTables = mesas.filter(m => isTableOccupied(m, pedidos)).length;
   const pendingCooking = pedidos.filter(p => p.estado_comanda === 'pendiente' || p.estado_comanda === 'en_cocina').length;
   const lowStockCount = insumos.filter(i => i.stock_actual <= i.stock_minimo).length;
 
@@ -578,9 +579,10 @@ export default function HomeMenuModule({
         {/* Cuadrícula de Mesas */}
         <div className="grid grid-cols-3 sm:grid-cols-6 md:grid-cols-8 gap-4 pt-2">
           {sortedMesas.map(m => {
+            const info = getTableActiveInfo(m, pedidos);
             let tableStyle = 'bg-emerald-50 text-emerald-800 border-emerald-250 dark:bg-emerald-950/20 dark:text-emerald-350 dark:border-emerald-900/50';
-            if (m.estado === 'ocupada') tableStyle = 'bg-rose-50 text-rose-800 border-rose-250 dark:bg-rose-955/20 dark:text-rose-355 dark:border-rose-900/50';
-            else if (m.estado === 'esperando_cuenta') tableStyle = 'bg-amber-50 text-amber-800 border-amber-250 dark:bg-amber-950/20 dark:text-amber-300 dark:border-amber-900/50 animate-pulse shadow-md shadow-amber-400/5';
+            if (info.isOcupada) tableStyle = 'bg-rose-50 text-rose-800 border-rose-250 dark:bg-rose-955/20 dark:text-rose-355 dark:border-rose-900/50';
+            else if (info.isInCuenta) tableStyle = 'bg-amber-50 text-amber-800 border-amber-250 dark:bg-amber-950/20 dark:text-amber-300 dark:border-amber-900/50 animate-pulse shadow-md shadow-amber-400/5';
 
             const mozoAsignado = mesaMozoMap.get(String(m.id_mesa));
 
@@ -588,7 +590,7 @@ export default function HomeMenuModule({
               <button
                 key={m.id_mesa}
                 onClick={() => {
-                  if (m.estado === 'ocupada' || m.estado === 'esperando_cuenta') {
+                  if (info.isOcupada || info.isInCuenta) {
                     onNavigate('mozo');
                   } else {
                     onNavigate('mesas');
@@ -597,8 +599,8 @@ export default function HomeMenuModule({
                 className={`p-3 rounded-2xl border flex flex-col items-center justify-center text-center cursor-pointer transition-all hover:scale-105 active:scale-95 ${tableStyle}`}
               >
                 <span className="text-xs font-black uppercase tracking-tight">{m.numero_mesa}</span>
-                <span className="text-[9px] font-semibold opacity-70 mt-0.5">{m.comensales ?? '?'} pax</span>
-                {mozoAsignado && m.estado === 'ocupada' && (
+                <span className="text-[9px] font-semibold opacity-70 mt-0.5">{info.comensales ?? m.comensales ?? '?'} pax</span>
+                {mozoAsignado && info.isOcupada && (
                   <span className="text-[8px] font-black uppercase tracking-widest mt-1 bg-black/5 dark:bg-white/5 px-1 rounded truncate max-w-full">
                     👤 {mozoAsignado.split(' ')[0]}
                   </span>

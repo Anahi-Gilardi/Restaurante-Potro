@@ -1,4 +1,4 @@
-import type { Pedido, PedidoItem, ProductoMenu } from '../types';
+import type { Mesa, Pedido, PedidoItem, ProductoMenu } from '../types';
 import { resolvePedidoItemUnitPrice } from './orderPricing';
 
 type TableIdentity = {
@@ -92,3 +92,95 @@ export function mergeTableOrders(
     fecha_hora: oldestDate,
   };
 }
+
+export interface TableActiveInfo {
+  isOcupada: boolean;
+  isInCuenta: boolean;
+  isReservada: boolean;
+  isUnidaHija: boolean;
+  isCombinada: boolean;
+  activeOrders: Pedido[];
+  activeOrder: Pedido | null;
+  comensales: number;
+  labelText: string;
+}
+
+export function isOrderActive(pedido: Pedido): boolean {
+  return pedido.estado_comanda !== 'entregado_cobrado' && pedido.estado_comanda !== 'cancelado';
+}
+
+export function doesOrderBelongToTable(pedido: Pedido, mesa: TableIdentity & Partial<Mesa>): boolean {
+  if (isSameTable(pedido, mesa)) return true;
+  if (pedido.id_mesa !== undefined && pedido.id_mesa !== null && mesa.id_mesa !== undefined && mesa.id_mesa !== null && String(pedido.id_mesa) === String(mesa.id_mesa)) {
+    return true;
+  }
+  if (Array.isArray(mesa.mesas_unidas) && mesa.mesas_unidas.some(id => String(id) === String(pedido.id_mesa))) {
+    return true;
+  }
+  return false;
+}
+
+export function getTableActiveInfo(mesa: Mesa, pedidos: readonly Pedido[]): TableActiveInfo {
+  const isUnidaHija = mesa.estado === 'unida' && Boolean(mesa.parent_id);
+  const isCombinada = Boolean(
+    mesa.estado === 'unida' ||
+    (Array.isArray(mesa.mesas_unidas) && mesa.mesas_unidas.length > 1) ||
+    (mesa.parent_id !== undefined && mesa.parent_id !== null) ||
+    String(mesa.numero_mesa || '').toLowerCase().includes('unida') ||
+    String(mesa.numero_mesa || '').toLowerCase().includes('+') ||
+    (String(mesa.numero_mesa || '').toLowerCase().includes(' y ') && /\d/.test(String(mesa.numero_mesa || '')))
+  );
+
+  const activeOrders = isUnidaHija
+    ? []
+    : pedidos.filter(p => isOrderActive(p) && doesOrderBelongToTable(p, mesa));
+
+  const activeOrder = activeOrders.length > 0 ? activeOrders[0] : null;
+
+  const isInCuenta = !isUnidaHija && (
+    mesa.estado === 'esperando_cuenta' ||
+    activeOrders.some(p => (p as any).estado_comanda === 'esperando_cuenta')
+  );
+
+  const isOcupada = !isUnidaHija && (
+    mesa.estado === 'ocupada' ||
+    activeOrders.length > 0
+  );
+
+  const isReservada = !isUnidaHija && !isOcupada && !isInCuenta && mesa.estado === 'reservada';
+
+  let comensales = mesa.comensales || mesa.capacidad || 2;
+  if (activeOrder && (activeOrder as any).comensales) {
+    comensales = Number((activeOrder as any).comensales) || comensales;
+  }
+
+  let labelText = 'Libre';
+  if (isUnidaHija) {
+    labelText = '🔗 Unida';
+  } else if (isInCuenta) {
+    labelText = 'En Cuenta';
+  } else if (isOcupada) {
+    labelText = isCombinada ? 'Unida (Ocup)' : 'Ocupada';
+  } else if (isReservada) {
+    labelText = 'Reservada';
+  } else if (isCombinada) {
+    labelText = '🔗 Unida';
+  }
+
+  return {
+    isOcupada,
+    isInCuenta,
+    isReservada,
+    isUnidaHija,
+    isCombinada,
+    activeOrders,
+    activeOrder,
+    comensales,
+    labelText
+  };
+}
+
+export function isTableOccupied(mesa: Mesa, pedidos: readonly Pedido[]): boolean {
+  return getTableActiveInfo(mesa, pedidos).isOcupada;
+}
+

@@ -33,6 +33,7 @@ import { promocionesService, Promocion } from '../services/promocionesService';
 import { menuDiarioService, MenuDiarioDia, INITIAL_MENU_DIARIO } from '../services/menuDiarioService';
 import { printComandaThermalTicket } from '../lib/comandaPrinter';
 import { formatTicketTableName, isUnitedTable, formatUnitedTableName } from '../lib/tableUnions';
+import { getTableActiveInfo, isTableOccupied, TableActiveInfo } from '../lib/tableOrders';
 import { useToast, ToastContainer } from './ToastContainer';
 
 interface WineMapping {
@@ -373,6 +374,7 @@ export default function MozoTerminal({
   const [splittingPedidoId, setSplittingPedidoId] = useState<number | null>(null);
   const [splitCount, setSplitCount] = useState<number>(2);
   const [splitItemsChecked, setSplitItemsChecked] = useState<{ [itemIdx: number]: boolean }>({});
+  const [confirmCobrarId, setConfirmCobrarId] = useState<number | null>(null);
 
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -382,22 +384,43 @@ export default function MozoTerminal({
           setSplittingPedidoId(null);
           setSplitItemsChecked({});
         }
+        if (confirmCobrarId !== null) {
+          setConfirmCobrarId(null);
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [searchQuery, splittingPedidoId]);
+  }, [searchQuery, splittingPedidoId, confirmCobrarId]);
+
+  // Map of derived active info for all tables (occupancy, active orders, pax, labels)
+  const mesasActiveInfoMap = useMemo(() => {
+    const map = new Map<number, TableActiveInfo>();
+    mesas.forEach(m => {
+      map.set(m.id_mesa, getTableActiveInfo(m, pedidos));
+    });
+    return map;
+  }, [mesas, pedidos]);
+
+  const occupiedCount = useMemo(() => {
+    return mesas.filter(m => isTableOccupied(m, pedidos)).length;
+  }, [mesas, pedidos]);
 
   const selectedMesa = useMemo(() => {
     if (selectedMesaId === null) return null;
     return mesas.find(m => String(m.id_mesa) === String(selectedMesaId)) || null;
   }, [selectedMesaId, mesas]);
 
+  const selectedMesaInfo = useMemo(() => {
+    if (!selectedMesa) return null;
+    return mesasActiveInfoMap.get(selectedMesa.id_mesa) || getTableActiveInfo(selectedMesa, pedidos);
+  }, [selectedMesa, mesasActiveInfoMap, pedidos]);
+
   // Find active order of the selected table if any (to split or pay)
   const activePedidoDeMesa = useMemo(() => {
-    if (selectedMesaId === null) return null;
-    return pedidos.find(p => String(p.id_mesa) === String(selectedMesaId) && p.estado_comanda !== 'entregado_cobrado' && p.estado_comanda !== 'cancelado') || null;
-  }, [selectedMesaId, pedidos]);
+    if (!selectedMesa) return null;
+    return selectedMesaInfo?.activeOrder || null;
+  }, [selectedMesa, selectedMesaInfo]);
 
   // Filter products by category and search (with hierarchical wine/beverage browsing)
   const filteredProducts = useMemo(() => {
@@ -692,22 +715,24 @@ export default function MozoTerminal({
               Distribución de Mesas
             </h3>
             <span className="text-[10px] font-sans bg-[#8C6239] text-white px-2.5 py-0.5 rounded-lg font-black uppercase tracking-wider shadow-sm">
-              {mesas.filter(m => m.estado === 'ocupada').length} Ocupadas
+              {occupiedCount} Ocupadas
             </span>
           </div>
 
           <div className="grid grid-cols-4 gap-2.5">
             {mesas.map(m => {
               const isSelected = String(m.id_mesa) === String(selectedMesaId);
-              const isOcupada = m.estado === 'ocupada';
-              const isInCuenta = m.estado === 'esperando_cuenta';
-              const isReservada = m.estado === 'reservada';
-              const isUnidaHija = m.estado === 'unida';
-              const isCombinada = isUnitedTable(m);
+              const info = mesasActiveInfoMap.get(m.id_mesa) || getTableActiveInfo(m, pedidos);
+              const isOcupada = info.isOcupada;
+              const isInCuenta = info.isInCuenta;
+              const isReservada = info.isReservada;
+              const isUnidaHija = info.isUnidaHija;
+              const isCombinada = info.isCombinada;
+              const displayComensales = info.comensales;
 
               // Determine visual theme according to exact state specs (El Patrón warm design system)
               let stateClasses = "border-stone-250 dark:border-[#C8956A]/10 bg-[#FAF7F0]/40 dark:bg-[#1A110B]/85 hover:bg-[#FAF7F0] dark:hover:bg-[#251B12]/80 text-stone-750 dark:text-stone-300 hover:border-[#C8956A]/30";
-              let labelText = "Libre";
+              let labelText = info.labelText;
 
               if (isSelected) {
                 stateClasses = "bg-[#8C6239] text-white border-[#C8956A] shadow-lg scale-[1.03] ring-4 ring-[#C8956A]/20 glow-gold";
@@ -740,9 +765,9 @@ export default function MozoTerminal({
                     setIsUniting(false);
                     setTargetUniteMesaId(null);
                     // Prepopulate comensales if occupied
-                    const targetMesa = mesas.find(x => x.id_mesa === targetId) || m;
-                    if (targetMesa.estado === 'ocupada' && targetMesa.comensales) {
-                      setComensales(targetMesa.comensales);
+                    const targetInfo = mesasActiveInfoMap.get(targetId) || getTableActiveInfo(m, pedidos);
+                    if (targetInfo.comensales) {
+                      setComensales(targetInfo.comensales);
                     }
                   }}
                   className={`p-2.5 rounded-xl flex flex-col justify-between items-center transition-all aspect-square border cursor-pointer ${stateClasses}`}
@@ -751,10 +776,10 @@ export default function MozoTerminal({
                   {isOcupada ? (
                     <div className="flex items-center gap-0.5 mt-2">
                       <Users className={`w-3 h-3 ${isSelected ? 'text-white font-black' : 'text-[#9B2226] dark:text-red-400'}`} />
-                      <span className={`text-[10px] font-black ${isSelected ? 'text-white font-black' : 'text-[#9B2226] dark:text-red-400'}`}>{m.comensales || 0}</span>
+                      <span className={`text-[10px] font-black ${isSelected ? 'text-white font-black' : 'text-[#9B2226] dark:text-red-400'}`}>{displayComensales}</span>
                     </div>
                   ) : isInCuenta ? (
-                    <span className={`text-[8px] uppercase tracking-wider font-black ${isSelected ? 'text-white font-black' : 'text-amber-700 dark:text-amber-400'}`}>Salar</span>
+                    <span className={`text-[8px] uppercase tracking-wider font-black ${isSelected ? 'text-white font-black' : 'text-amber-700 dark:text-amber-400'}`}>En Cuenta</span>
                   ) : (
                     <span className={`text-[8px] uppercase tracking-wider font-black ${isSelected ? 'text-white/80' : 'text-stone-600 dark:text-stone-400'}`}>{labelText}</span>
                   )}
@@ -763,18 +788,36 @@ export default function MozoTerminal({
             })}
           </div>
 
-          {selectedMesa && (
+          {selectedMesa && selectedMesaInfo && (
             <div className="mt-4 pt-4 border-t border-stone-200/30 dark:border-white/10 space-y-3">
               <div className="flex justify-between items-center">
                 <div>
                   <h4 className="font-bold text-sm text-[#8C6239] dark:text-[#C8956A]">{selectedMesa.numero_mesa}</h4>
                   <p className="text-xs text-stone-500 dark:text-stone-400">
-                    Estado: <span className={selectedMesa.estado === 'ocupada' ? 'text-[#9B2226] font-bold dark:text-red-400' : 'text-[#3A5A40] dark:text-[#22C55E]'}>
-                      {selectedMesa.estado === 'ocupada' ? 'Ocupada / Con Pedido' : 'Libre para comandar'}
+                    Estado: <span className={
+                      selectedMesaInfo.isOcupada 
+                        ? 'text-[#9B2226] font-bold dark:text-red-400' 
+                        : selectedMesaInfo.isInCuenta
+                        ? 'text-amber-700 font-bold dark:text-amber-400'
+                        : selectedMesaInfo.isReservada
+                        ? 'text-purple-700 font-bold dark:text-purple-400'
+                        : selectedMesaInfo.isUnidaHija || selectedMesaInfo.isCombinada
+                        ? 'text-[#8C6239] font-bold dark:text-[#C8956A]'
+                        : 'text-[#3A5A40] dark:text-[#22C55E]'
+                    }>
+                      {selectedMesaInfo.isOcupada 
+                        ? 'Ocupada / Con Pedido' 
+                        : selectedMesaInfo.isInCuenta 
+                        ? 'Esperando Cuenta' 
+                        : selectedMesaInfo.isReservada 
+                        ? 'Reservada' 
+                        : selectedMesaInfo.isUnidaHija || selectedMesaInfo.isCombinada 
+                        ? 'Mesa Unida' 
+                        : 'Libre para comandar'}
                     </span>
                   </p>
                 </div>
-                {selectedMesa.estado === 'libre' && (
+                {!selectedMesaInfo.isOcupada && !selectedMesaInfo.isInCuenta ? (
                   <div className="flex items-center bg-stone-100 dark:bg-stone-900/60 border border-stone-200 dark:border-white/10 rounded-lg p-1 gap-2">
                     <button 
                       onClick={() => setComensales(c => Math.max(1, c - 1))}
@@ -790,6 +833,11 @@ export default function MozoTerminal({
                       +
                     </button>
                     <span className="text-[10px] text-stone-500 dark:text-stone-400 mr-1">pax</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5 bg-[#9B2226]/10 dark:bg-red-950/30 text-[#9B2226] dark:text-red-400 px-2.5 py-1 rounded-lg border border-[#9B2226]/20 text-xs font-bold font-mono">
+                    <Users className="w-3.5 h-3.5" />
+                    <span>{selectedMesaInfo.comensales} pax</span>
                   </div>
                 )}
               </div>
@@ -837,11 +885,15 @@ export default function MozoTerminal({
                           <option value="">-- Seleccionar mesa a unir --</option>
                           {mesas
                             .filter(m => m.id_mesa !== selectedMesa.id_mesa && m.estado !== 'unida')
-                            .map(m => (
-                              <option key={m.id_mesa} value={m.id_mesa}>
-                                {m.numero_mesa} ({m.estado}) - Cap: {m.capacidad || 2} pax
-                              </option>
-                            ))}
+                            .map(m => {
+                              const candidateInfo = mesasActiveInfoMap.get(m.id_mesa) || getTableActiveInfo(m, pedidos);
+                              const estadoDisplay = candidateInfo.isOcupada ? 'ocupada' : candidateInfo.isInCuenta ? 'en cuenta' : candidateInfo.isReservada ? 'reservada' : 'libre';
+                              return (
+                                <option key={m.id_mesa} value={m.id_mesa}>
+                                  {m.numero_mesa} ({estadoDisplay}) - Cap: {m.capacidad || 2} pax
+                                </option>
+                              );
+                            })}
                         </select>
                         <div className="flex gap-2">
                           <button
@@ -875,10 +927,14 @@ export default function MozoTerminal({
               </div>
 
               {/* ACTIVE ORDER CONTROLS (IF TABLE OCCUPIED) */}
-              {activePedidoDeMesa ? (
-                <div className="bg-stone-50 dark:bg-[#1E140E]/80 rounded-xl p-3 border border-stone-200 dark:border-white/5">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-[11px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">Orden Activa #{activePedidoDeMesa.id_pedido}</span>
+              {activePedidoDeMesa && selectedMesaInfo ? (
+                <div className="bg-stone-50 dark:bg-[#1E140E]/80 rounded-xl p-3 border border-stone-200 dark:border-white/5 space-y-2.5">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[11px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
+                      {selectedMesaInfo.activeOrders.length > 1
+                        ? `Comandas #${selectedMesaInfo.activeOrders.map(o => o.id_pedido).join(', #')}`
+                        : `Orden Activa #${activePedidoDeMesa.id_pedido}`}
+                    </span>
                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full capitalize ${
                       activePedidoDeMesa.estado_comanda === 'listo' 
                         ? 'bg-[#3A5A40]/10 text-[#3A5A40] dark:text-[#22C55E] animate-pulse'
@@ -890,8 +946,8 @@ export default function MozoTerminal({
                     </span>
                   </div>
                   
-                  <div className="space-y-1 mb-3">
-                    {activePedidoDeMesa.items.map((it, idx) => (
+                  <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
+                    {selectedMesaInfo.activeOrders.flatMap(o => o.items).map((it, idx) => (
                       <div key={idx} className="flex justify-between text-xs text-stone-750 dark:text-stone-300 font-medium">
                         <span>{it.cantidad}x {it.nombre}</span>
                         <span className="font-mono text-stone-500 dark:text-stone-450">
@@ -901,21 +957,54 @@ export default function MozoTerminal({
                     ))}
                   </div>
 
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setSplittingPedidoId(activePedidoDeMesa.id_pedido)}
-                      className="flex-1 py-1 px-2.5 bg-[#FAF7F0] dark:bg-[#251B12]/60 border border-[#C8956A]/20 hover:bg-[#F5F1E9] dark:hover:bg-[#8C6239]/40 text-[#8C6239] dark:text-[#C8956A] rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                    >
-                      <Receipt className="w-3.5 h-3.5 text-[#8C6239] dark:text-[#C8956A]" />
-                      Dividir Cuenta
-                    </button>
-                    <button
-                      onClick={() => onFacturarMesa(activePedidoDeMesa.id_pedido)}
-                      className="flex-1 py-1 px-2.5 bg-[#8C6239] dark:bg-[#C8956A] border border-transparent hover:bg-[#5d3a2e] dark:hover:bg-[#d8a478] text-[#FAF7F0] dark:text-[#8C6239] rounded-lg text-xs font-extrabold flex items-center justify-center gap-1 transition-colors shadow-sm cursor-pointer"
-                    >
-                      Cobrar Mesa
-                    </button>
+                  <div className="pt-2 border-t border-stone-200/40 dark:border-white/10 flex justify-between items-center text-xs">
+                    <span className="font-bold text-stone-600 dark:text-stone-400">Total Consumo:</span>
+                    <span className="font-mono font-black text-[#8C6239] dark:text-[#E8B800] text-sm">
+                      ${selectedMesaInfo.activeOrders.reduce((acc, o) => acc + calculatePedidoTotal(o, productosMenu), 0).toLocaleString('es-AR')}
+                    </span>
                   </div>
+
+                  {confirmCobrarId === activePedidoDeMesa.id_pedido ? (
+                    <div className="p-2.5 bg-amber-50 dark:bg-amber-950/40 rounded-lg border border-amber-300 dark:border-amber-700 space-y-2">
+                      <p className="text-[11px] font-bold text-amber-900 dark:text-amber-200 text-center">
+                        ¿Confirmar cobro y liberar {selectedMesa.numero_mesa}?
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            setConfirmCobrarId(null);
+                            onFacturarMesa(activePedidoDeMesa.id_pedido);
+                            toast.success(`Mesa ${selectedMesa.numero_mesa} cobrada y liberada.`);
+                          }}
+                          className="flex-1 py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-black cursor-pointer shadow-sm transition-colors text-center"
+                        >
+                          ✓ Sí, Cobrar
+                        </button>
+                        <button
+                          onClick={() => setConfirmCobrarId(null)}
+                          className="py-1.5 px-3 bg-stone-200 dark:bg-stone-700 text-stone-700 dark:text-stone-300 rounded-lg text-xs font-bold cursor-pointer"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setSplittingPedidoId(activePedidoDeMesa.id_pedido)}
+                        className="flex-1 py-1 px-2.5 bg-[#FAF7F0] dark:bg-[#251B12]/60 border border-[#C8956A]/20 hover:bg-[#F5F1E9] dark:hover:bg-[#8C6239]/40 text-[#8C6239] dark:text-[#C8956A] rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                      >
+                        <Receipt className="w-3.5 h-3.5 text-[#8C6239] dark:text-[#C8956A]" />
+                        Dividir Cuenta
+                      </button>
+                      <button
+                        onClick={() => setConfirmCobrarId(activePedidoDeMesa.id_pedido)}
+                        className="flex-1 py-1 px-2.5 bg-[#8C6239] dark:bg-[#C8956A] border border-transparent hover:bg-[#5d3a2e] dark:hover:bg-[#d8a478] text-[#FAF7F0] dark:text-[#8C6239] rounded-lg text-xs font-extrabold flex items-center justify-center gap-1 transition-colors shadow-sm cursor-pointer"
+                      >
+                        Cobrar Mesa
+                      </button>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <p className="text-xs text-[#8C6239] dark:text-[#C8956A] font-serif-rustic italic bg-[#FAF7F0]/60 dark:bg-[#1E140E]/80 border border-[#C8956A]/25 p-3 text-center rounded-xl shadow-inner">
@@ -1835,14 +1924,15 @@ export const parseVoiceCommand = (text: string, productosMenu: ProductoMenu[]): 
   if (lower.includes('delivery') || lower.includes('envio') || lower.includes('envió') || lower.includes('para llevar')) {
     mesa = 'delivery';
   } else {
-    const mesaMatch = lower.match(/\b(?:mesa|tabla)\s*(\d{1,2})\b/) || lower.match(/\b(?:mesa|tabla)\s*(uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\b/);
+    const mesaMatch = lower.match(/\b(?:mesa|tabla)\s*(\d{1,2})\b/) || lower.match(/\b(?:mesa|tabla)\s*(uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce)\b/);
     if (mesaMatch) {
       const rawVal = mesaMatch[1] || mesaMatch[2] || '';
       if (/^\d+$/.test(rawVal)) {
         mesa = parseInt(rawVal, 10);
       } else {
         const wordsMap: Record<string, number> = {
-          uno: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10
+          uno: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10,
+          once: 11, doce: 12, trece: 13, catorce: 14
         };
         mesa = wordsMap[rawVal] || null;
       }
@@ -1863,7 +1953,8 @@ export const parseVoiceCommand = (text: string, productosMenu: ProductoMenu[]): 
   };
 
   const numbersWordMap: Record<string, number> = {
-    un: 1, uno: 1, una: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10
+    un: 1, uno: 1, una: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10,
+    once: 11, doce: 12, trece: 13, catorce: 14
   };
 
   // Split sentence by connector words like "y", "," or "con"
@@ -1872,12 +1963,17 @@ export const parseVoiceCommand = (text: string, productosMenu: ProductoMenu[]): 
   const unrecognized: string[] = [];
 
   segments.forEach(segment => {
-    const cleanSegment = segment.trim();
-    if (!cleanSegment || cleanSegment.startsWith('mesa') || cleanSegment.startsWith('tabla')) return;
+    let cleanSegment = segment.trim();
+    if (!cleanSegment) return;
+
+    // Remove mesa or delivery prefix if present at start of segment (e.g. "mesa once dos bife de chorizo" -> "dos bife de chorizo")
+    cleanSegment = cleanSegment.replace(/^\b(?:mesa|tabla)\s*(\d{1,2}|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce)\b\s*/i, '').trim();
+    cleanSegment = cleanSegment.replace(/^\b(?:delivery|envio|envió|para llevar)\b\s*/i, '').trim();
+    if (!cleanSegment) return;
 
     // Try to extract quantity at the beginning (only match numbers or known number words followed by a space)
     let qty = 1;
-    const qtyMatch = cleanSegment.match(/^(\d+)\s+(.*)$/) || cleanSegment.match(/^(un|uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\s+(.*)$/i);
+    const qtyMatch = cleanSegment.match(/^(\d+)\s+(.*)$/) || cleanSegment.match(/^(un|uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce)\s+(.*)$/i);
     let potentialProductName = cleanSegment;
 
     if (qtyMatch) {
