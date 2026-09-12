@@ -565,7 +565,7 @@ export default function CajaModule({
             {/* Display detailed figures inside shift */}
             {cajaSession ? (
               <div className="space-y-2">
-                <div className="p-3 bg-[#F5F1E9] dark:bg-stone-955/60 rounded-xl border border-stone-200/60 dark:border-stone-850 font-sans space-y-2">
+                <div className="p-3 bg-[#F5F1E9] dark:bg-stone-950/60 rounded-xl border border-stone-200/60 dark:border-stone-800 font-sans space-y-2">
                   <div className="flex justify-between text-xs font-semibold text-stone-600 dark:text-stone-400">
                     <span>Responsable:</span>
                     <span className="text-stone-900 dark:text-stone-200">{cajaSession.usuario_cajero}</span>
@@ -698,7 +698,7 @@ export default function CajaModule({
 
             {/* Print queue retry card */}
             {failedPrintsCount > 0 && (
-              <div className="p-3 bg-amber-50 dark:bg-amber-955/20 border border-amber-200 dark:border-amber-900/60 rounded-xl space-y-2 mt-2">
+              <div className="p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/60 rounded-xl space-y-2 mt-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300">
                     <AlertTriangle className="w-4 h-4 shrink-0 animate-pulse text-amber-500" />
@@ -785,34 +785,10 @@ export default function CajaModule({
 
             <div className="space-y-2 max-h-[350px] overflow-y-auto pr-1">
               {activeBills.length === 0 ? (
-                <div className="text-center p-8 border border-dashed border-stone-150 rounded-xl bg-stone-50/50">
+                <div className="text-center p-8 border border-dashed border-stone-200 dark:border-stone-800 rounded-xl bg-stone-50/50 dark:bg-stone-900/30">
                   <CheckCircle className="w-7 h-7 text-emerald-500 mx-auto mb-2" />
-                  <p className="text-[11px] text-stone-500 font-black uppercase">¡Todo liquidado!</p>
-                  <p className="text-[9px] text-stone-400 mt-0.5">No hay comandos de mesas pendientes de liquidación.</p>
-                  <div className="mt-5 text-left bg-white rounded-xl border border-stone-200 p-3 space-y-2">
-                    <p className="text-[10px] font-black uppercase text-stone-600 flex items-center gap-1.5">
-                      <Receipt className="w-3.5 h-3.5 text-[#624A3E]" />
-                      Tickets emitidos
-                    </p>
-                    {lastFacturas.length > 0 ? (
-                      lastFacturas.map(factura => (
-                        <div key={factura.id_factura} className="flex items-center justify-between gap-2 border-t border-stone-100 pt-2">
-                          <div className="min-w-0">
-                            <p className="text-[10px] font-mono font-black text-stone-80 truncate">{factura.nro_ticket}</p>
-                            <p className="text-[9px] text-stone-400 truncate">{factura.cliente} - ${factura.total.toLocaleString('es-AR')}</p>
-                          </div>
-                          <button
-                            onClick={() => downloadFacturaHistorialPdf(factura)}
-                            className="px-2 py-1 rounded-lg bg-[#624A3E] text-white text-[9px] font-black uppercase shrink-0 cursor-pointer border-none"
-                          >
-                            Descargar PDF
-                          </button>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-[9px] text-stone-400">Aun no hay tickets emitidos en el historial.</p>
-                    )}
-                  </div>
+                  <p className="text-[11px] text-stone-600 dark:text-stone-300 font-black uppercase">¡Salón al día!</p>
+                  <p className="text-[10px] text-stone-400 mt-0.5">No hay comandas de mesas pendientes de cobro.</p>
                 </div>
               ) : filteredActiveBills.length === 0 ? (
                 <div className="text-center p-6 border border-dashed border-stone-200 dark:border-stone-800 rounded-xl bg-stone-50/50 dark:bg-stone-900/30">
@@ -890,6 +866,58 @@ export default function CajaModule({
             </div>
           </div>
 
+          {/* ÚLTIMOS COMPROBANTES EMITIDOS */}
+          <div className="glass-panel rounded-2xl p-5 shadow-xs space-y-3 font-sans">
+            <div className="flex justify-between items-center pb-2 border-b border-stone-100 dark:border-stone-800/80">
+              <h4 className="font-black text-stone-800 dark:text-stone-100 font-sans tracking-tight text-xs uppercase flex items-center gap-1.5">
+                <Receipt className="w-4 h-4 text-[#624A3E] dark:text-stone-300" />
+                Últimos Comprobantes Emitidos
+              </h4>
+              <span className="text-[9px] font-bold bg-[#F5F1E9] dark:bg-[#FAF7F0]/10 text-[#624A3E] dark:text-stone-300 border border-stone-200 dark:border-stone-800 rounded-full px-2 py-0.5 font-mono">
+                {lastFacturas.length} {lastFacturas.length === 1 ? 'ticket' : 'tickets'}
+              </span>
+            </div>
+
+            {lastFacturas.length > 0 ? (
+              <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                {lastFacturas.map(factura => (
+                  <div 
+                    key={factura.id_factura} 
+                    className="p-2.5 rounded-xl border border-stone-200/80 dark:border-stone-800 bg-stone-50/60 dark:bg-stone-900/40 flex items-center justify-between gap-2"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-mono font-black text-stone-800 dark:text-stone-200 truncate">
+                          {factura.nro_ticket}
+                        </span>
+                        {factura.tipo && (
+                          <span className="text-[8px] font-bold px-1.5 py-0.2 bg-[#624A3E]/10 text-[#624A3E] dark:text-[#C8956A] rounded">
+                            {factura.tipo === 'ticket' ? 'Ticket' : `Factura ${factura.tipo}`}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[9px] text-stone-400 truncate">
+                        {factura.cliente || 'Consumidor Final'} • ${factura.total.toLocaleString('es-AR')}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => downloadFacturaHistorialPdf(factura)}
+                      className="px-2.5 py-1 rounded-lg bg-[#624A3E] hover:bg-[#503C32] text-white text-[9px] font-black uppercase shrink-0 cursor-pointer border-none transition-all shadow-2xs"
+                      title="Descargar comprobante en PDF"
+                    >
+                      Descargar PDF
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[10px] text-stone-400 italic text-center py-3">
+                Aún no hay comprobantes emitidos en el historial de caja.
+              </p>
+            )}
+          </div>
+
         </div>
 
         {/* RIGHT COLUMN: MAIN CHECKOUT WORKSPACE (LG: Span 8) */}
@@ -914,7 +942,7 @@ export default function CajaModule({
 
                 {/* Customer Loyalty Search / Register */}
                 <div className="bg-stone-50 dark:bg-stone-900/50 p-3.5 rounded-xl border border-stone-200/80 dark:border-stone-800/80 space-y-3 font-sans">
-                  <span className="text-[9px] font-black text-stone-550 dark:text-stone-400 uppercase block tracking-wider">
+                  <span className="text-[9px] font-black text-stone-500 dark:text-stone-400 uppercase block tracking-wider">
                     Programa de Fidelización (Clientes Club El Patrón)
                   </span>
 
@@ -936,7 +964,7 @@ export default function CajaModule({
                   </div>
 
                   {selectedCliente ? (
-                    <div className="bg-emerald-50 dark:bg-emerald-955 border border-emerald-250 dark:border-emerald-900/30 p-3 rounded-lg flex items-center justify-between text-xs text-emerald-800 dark:text-emerald-300">
+                    <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/30 p-3 rounded-lg flex items-center justify-between text-xs text-emerald-800 dark:text-emerald-300">
                       <div>
                         <p className="font-extrabold flex items-center gap-1">
                           <CheckCircle className="w-4 h-4 text-emerald-600" />
@@ -958,7 +986,7 @@ export default function CajaModule({
                               max={selectedCliente.puntos}
                               value={puntosRedimidos || ''}
                               onChange={e => setPuntosRedimidos(Math.min(selectedCliente.puntos, Math.max(0, parseInt(e.target.value) || 0)))}
-                              className="p-1 border border-stone-250 rounded w-16 text-xs text-center font-mono font-bold text-stone-800 dark:text-stone-100 bg-white dark:bg-stone-900"
+                              className="p-1 border border-stone-200 dark:border-stone-800 rounded w-16 text-xs text-center font-mono font-bold text-stone-800 dark:text-stone-100 bg-white dark:bg-stone-900"
                             />
                           </div>
                         )}
@@ -966,8 +994,8 @@ export default function CajaModule({
                     </div>
                   ) : (
                     dniCuitBuscar.trim() && (
-                      <div className="bg-stone-100/80 dark:bg-stone-950/40 border border-stone-200 p-3.5 rounded-lg space-y-2.5">
-                        <p className="text-[10px] text-stone-550 dark:text-stone-400 font-bold italic">
+                      <div className="bg-stone-100/80 dark:bg-stone-950/40 border border-stone-200 dark:border-stone-800 p-3.5 rounded-lg space-y-2.5">
+                        <p className="text-[10px] text-stone-500 dark:text-stone-400 font-bold italic">
                           Cliente no encontrado. Complete los datos si desea registrarlo en el club:
                         </p>
                         <form onSubmit={handleRegistrarCliente} className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
@@ -1350,7 +1378,7 @@ export default function CajaModule({
 
                   {/* MercadoPago dynamic QR code placeholder */}
                   {metodoPago === 'mp_qr' && (
-                    <div className="bg-teal-50/50 dark:bg-teal-955/20 border border-teal-200 dark:border-teal-900/40 p-4 rounded-xl space-y-3 animate-fadeIn">
+                    <div className="bg-teal-50/50 dark:bg-teal-950/20 border border-teal-200 dark:border-teal-900/40 p-4 rounded-xl space-y-3 animate-fadeIn">
                       <div className="flex items-center gap-2 text-teal-800 dark:text-teal-300">
                         <Smartphone className="w-4 h-4 text-teal-600 animate-pulse" />
                         <span className="text-[10px] font-black uppercase tracking-wider">Código QR de Pago MercadoPago</span>
@@ -1595,7 +1623,7 @@ export default function CajaModule({
                       <span className="block text-[8px] text-stone-500">Raz. Soc: {restaurante.razonSocial}</span>
                       <span className="block text-[8px] text-stone-500">CUIT: {restaurante.cuit}</span>
                       <span className="block text-[8px] text-stone-500">{restaurante.direccion}</span>
-                      <span className="block text-[8px] text-stone-550">{restaurante.telefono}</span>
+                      <span className="block text-[8px] text-stone-500">{restaurante.telefono}</span>
                     </div>
 
                     <div className="py-2 border-b border-dotted border-stone-300 space-y-0.5 text-[8.5px]">
@@ -1719,7 +1747,7 @@ export default function CajaModule({
 
       {/* SHIFT OPEN MODAL Dialog */}
       {showOpenModal && (
-        <div className="fixed inset-0 bg-stone-955/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className="bg-white dark:bg-[#1e1b18] rounded-2xl border border-stone-200 dark:border-stone-800 max-w-md w-full p-6 animate-scaleIn space-y-4 shadow-lg font-sans">
             <h3 className="text-sm font-black text-stone-900 dark:text-stone-100 uppercase tracking-tight flex items-center gap-2">
               <Unlock className="w-5 h-5 text-emerald-600" />
@@ -1750,7 +1778,7 @@ export default function CajaModule({
                   required
                   value={openingCashInput}
                   onChange={e => setOpeningCashInput(e.target.value)}
-                  className="w-full text-xs p-2.5 rounded-xl border border-stone-200 dark:border-stone-800 font-mono font-extrabold focus:ring-1 focus:ring-[#624A3E] focus:outline-none bg-stone-50 dark:bg-stone-955 text-stone-900 dark:text-stone-100"
+                  className="w-full text-xs p-2.5 rounded-xl border border-stone-200 dark:border-stone-800 font-mono font-extrabold focus:ring-1 focus:ring-[#624A3E] focus:outline-none bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100"
                   placeholder="Ej. 25000"
                 />
               </div>
@@ -1812,7 +1840,7 @@ export default function CajaModule({
                   required
                   value={cashierNameInput}
                   readOnly
-                  className="w-full text-xs p-2.5 rounded-xl border border-stone-200 dark:border-stone-800 focus:ring-1 focus:ring-[#624A3E] focus:outline-none bg-stone-50 dark:bg-stone-955 text-stone-900 dark:text-stone-100"
+                  className="w-full text-xs p-2.5 rounded-xl border border-stone-200 dark:border-stone-800 focus:ring-1 focus:ring-[#624A3E] focus:outline-none bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100"
                   title="El responsable se obtiene de la sesión autenticada"
                 />
               </div>
@@ -1839,7 +1867,7 @@ export default function CajaModule({
 
       {/* SHIFT CLOSE MODAL Dialog */}
       {showCloseModal && (
-        <div className="fixed inset-0 bg-stone-955/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className="bg-white dark:bg-[#1e1b18] rounded-2xl border border-stone-200 dark:border-stone-800 max-w-md w-full p-6 animate-scaleIn space-y-4 shadow-lg font-sans">
             <h3 className="text-sm font-black text-stone-900 dark:text-stone-100 uppercase tracking-tight flex items-center gap-2">
               <Lock className="w-5 h-5 text-stone-900 dark:text-stone-100" />
@@ -1886,7 +1914,7 @@ export default function CajaModule({
             <form onSubmit={handleCloseShift} className="space-y-3">
               <div>
                 <div className="flex justify-between items-center mb-1">
-                  <label className="text-[10px] font-black text-stone-750 dark:text-stone-300 uppercase block">Monto Real Físico de Arqueo ($ ARS)</label>
+                  <label className="text-[10px] font-black text-stone-700 dark:text-stone-300 uppercase block">Monto Real Físico de Arqueo ($ ARS)</label>
                   <button
                     type="button"
                     onClick={() => {
@@ -1903,13 +1931,13 @@ export default function CajaModule({
                   required
                   value={closingPhysicalCashInput}
                   onChange={e => setClosingPhysicalCashInput(e.target.value)}
-                  className="w-full text-xs p-2.5 rounded-xl border border-stone-200 dark:border-stone-800 font-mono font-extrabold focus:ring-1 focus:ring-[#624A3E] focus:outline-none bg-stone-50 dark:bg-stone-955 text-stone-900 dark:text-stone-100"
+                  className="w-full text-xs p-2.5 rounded-xl border border-stone-200 dark:border-stone-800 font-mono font-extrabold focus:ring-1 focus:ring-[#624A3E] focus:outline-none bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100"
                   placeholder="Ej. 120000"
                 />
               </div>
 
               {showBillCounter === 'close' && (
-                <div className="bg-stone-50 dark:bg-stone-955 p-3.5 rounded-xl border border-stone-150 dark:border-stone-850 space-y-3 animate-fadeIn text-left">
+                <div className="bg-stone-50 dark:bg-stone-950 p-3.5 rounded-xl border border-stone-200 dark:border-stone-800 space-y-3 animate-fadeIn text-left">
                   <span className="text-[9px] font-black text-[#624A3E] dark:text-amber-500 uppercase block">Conteo Físico por Denominación</span>
                   <div className="grid grid-cols-2 gap-2 text-[11px]">
                     {[20000, 10000, 2000, 1000, 500, 200, 100, 50].map(denom => (
@@ -1919,7 +1947,7 @@ export default function CajaModule({
                           <button
                             type="button"
                             onClick={() => setBillCounts(prev => ({ ...prev, [denom]: Math.max(0, (prev[denom] || 0) - 1) }))}
-                            className="w-5 h-5 bg-stone-100 dark:bg-stone-850 hover:bg-stone-200 text-stone-700 dark:text-stone-200 font-bold text-xs flex items-center justify-center rounded cursor-pointer border-none"
+                            className="w-5 h-5 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 text-stone-700 dark:text-stone-200 font-bold text-xs flex items-center justify-center rounded cursor-pointer border-none"
                           >
                             -
                           </button>
@@ -1933,7 +1961,7 @@ export default function CajaModule({
                           <button
                             type="button"
                             onClick={() => setBillCounts(prev => ({ ...prev, [denom]: (prev[denom] || 0) + 1 }))}
-                            className="w-5 h-5 bg-stone-100 dark:bg-stone-855 hover:bg-stone-200 text-stone-700 dark:text-stone-200 font-bold text-xs flex items-center justify-center rounded cursor-pointer border-none"
+                            className="w-5 h-5 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 text-stone-700 dark:text-stone-200 font-bold text-xs flex items-center justify-center rounded cursor-pointer border-none"
                           >
                             +
                           </button>
@@ -1959,11 +1987,11 @@ export default function CajaModule({
               )}
 
               <div>
-                <label className="text-[10px] font-black text-stone-750 dark:text-stone-300 uppercase block mb-1">Observaciones Finales</label>
+                <label className="text-[10px] font-black text-stone-700 dark:text-stone-300 uppercase block mb-1">Observaciones Finales</label>
                 <textarea 
                   value={closingObservationsInput}
                   onChange={e => setClosingObservationsInput(e.target.value)}
-                  className="w-full h-16 text-xs p-2.5 rounded-xl border border-stone-200 dark:border-stone-800 focus:ring-1 focus:ring-[#624A3E] focus:outline-none bg-stone-50 dark:bg-stone-955 text-stone-900 dark:text-stone-100"
+                  className="w-full h-16 text-xs p-2.5 rounded-xl border border-stone-200 dark:border-stone-800 focus:ring-1 focus:ring-[#624A3E] focus:outline-none bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100"
                   placeholder="Ex. Todo perfectamente conciliado"
                 />
               </div>
@@ -1978,7 +2006,7 @@ export default function CajaModule({
                 </button>
                 <button
                   type="submit"
-                  className="w-1/2 py-2.5 bg-stone-900 hover:bg-stone-850 dark:bg-stone-100 dark:hover:bg-stone-200 text-white dark:text-stone-900 text-xs font-black uppercase rounded-xl shadow cursor-pointer border border-[#ddd7ce] dark:border-stone-800"
+                  className="w-1/2 py-2.5 bg-stone-900 hover:bg-stone-800 dark:bg-stone-100 dark:hover:bg-stone-200 text-white dark:text-stone-900 text-xs font-black uppercase rounded-xl shadow cursor-pointer border border-[#ddd7ce] dark:border-stone-800"
                 >
                   Confirmar Arqueo & Cerrar
                 </button>
@@ -1990,7 +2018,7 @@ export default function CajaModule({
 
       {/* PETTY CASH MOVEMENT MODAL */}
       {showMovimientoModal && (
-        <div className="fixed inset-0 bg-stone-955/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className="bg-white dark:bg-[#1e1b18] rounded-2xl border border-stone-200 dark:border-stone-800 max-w-md w-full p-6 animate-scaleIn space-y-4 shadow-lg font-sans">
             <h3 className="text-sm font-black text-stone-900 dark:text-stone-100 uppercase tracking-tight flex items-center gap-2">
               <Coins className="w-5 h-5 text-[#624A3E] dark:text-[#C8956A]" />
@@ -2007,7 +2035,7 @@ export default function CajaModule({
                   <select
                     value={movimientoTipo}
                     onChange={e => setMovimientoTipo(e.target.value as 'ingreso' | 'egreso')}
-                    className="w-full text-xs p-2.5 rounded-xl border border-stone-200 dark:border-stone-800 focus:ring-1 focus:ring-[#624A3E] focus:outline-none bg-stone-50 dark:bg-stone-955 text-stone-900 dark:text-stone-100 font-bold"
+                    className="w-full text-xs p-2.5 rounded-xl border border-stone-200 dark:border-stone-800 focus:ring-1 focus:ring-[#624A3E] focus:outline-none bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100 font-bold"
                   >
                     <option value="egreso">Egreso (Salida / Gasto)</option>
                     <option value="ingreso">Ingreso (Entrada / Cambio)</option>
@@ -2021,7 +2049,7 @@ export default function CajaModule({
                     required
                     value={movimientoMonto}
                     onChange={e => setMovimientoMonto(e.target.value)}
-                    className="w-full text-xs p-2.5 rounded-xl border border-stone-200 dark:border-stone-800 font-mono font-extrabold focus:ring-1 focus:ring-[#624A3E] focus:outline-none bg-stone-50 dark:bg-stone-955 text-stone-900 dark:text-stone-100"
+                    className="w-full text-xs p-2.5 rounded-xl border border-stone-200 dark:border-stone-800 font-mono font-extrabold focus:ring-1 focus:ring-[#624A3E] focus:outline-none bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100"
                     placeholder="Ej. 1500"
                   />
                 </div>
@@ -2034,7 +2062,7 @@ export default function CajaModule({
                   required
                   value={movimientoConcepto}
                   onChange={e => setMovimientoConcepto(e.target.value)}
-                  className="w-full text-xs p-2.5 rounded-xl border border-stone-200 dark:border-stone-800 focus:ring-1 focus:ring-[#624A3E] focus:outline-none bg-stone-50 dark:bg-stone-955 text-stone-900 dark:text-stone-100"
+                  className="w-full text-xs p-2.5 rounded-xl border border-stone-200 dark:border-stone-800 focus:ring-1 focus:ring-[#624A3E] focus:outline-none bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100"
                   placeholder="Ej. Compra de perejil / Carga de cambio"
                 />
               </div>
@@ -2072,9 +2100,9 @@ export default function CajaModule({
               const hasDiffErr = hasDiff && (cs.diferencia || 0) !== 0;
 
               return (
-                <div key={idx} className="p-3 bg-stone-50 dark:bg-stone-950 border border-stone-200/60 dark:border-stone-855 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div key={idx} className="p-3 bg-stone-50 dark:bg-stone-950 border border-stone-200/60 dark:border-stone-800 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
                   <div className="space-y-1">
-                    <p className="font-extrabold text-[#624A3E] dark:text-amber-550 flex items-center gap-1">
+                    <p className="font-extrabold text-[#624A3E] dark:text-amber-500 flex items-center gap-1">
                       Cierre de Caja {cs.usuario_cajero}
                       {cs.sync_status === 'pending' && (
                         <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[8px] font-black uppercase text-amber-700">
@@ -2103,7 +2131,7 @@ export default function CajaModule({
 
                     {hasDiff && (
                       <div className={`p-2 rounded border min-w-[90px] text-center ${
-                        hasDiffErr ? 'bg-rose-50 text-rose-700 border-rose-100 dark:bg-rose-950/20 dark:text-rose-400 dark:border-rose-900/30' : 'bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-955/20 dark:text-emerald-400 dark:border-emerald-900/30'
+                        hasDiffErr ? 'bg-rose-50 text-rose-700 border-rose-100 dark:bg-rose-950/20 dark:text-rose-400 dark:border-rose-900/30' : 'bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30'
                       }`}>
                         <span className="text-[8px] block font-black uppercase">Diferencia</span>
                         <span className="font-mono font-bold">
@@ -2145,15 +2173,15 @@ export default function CajaModule({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-              <div className="space-y-1.5 bg-stone-50 dark:bg-stone-950 p-3.5 rounded-xl border border-stone-100 dark:border-stone-850">
-                <span className="text-[9px] font-black text-stone-455 text-stone-400 uppercase block">Información General</span>
+              <div className="space-y-1.5 bg-stone-50 dark:bg-stone-950 p-3.5 rounded-xl border border-stone-100 dark:border-stone-800">
+                <span className="text-[9px] font-black text-stone-400 uppercase block">Información General</span>
                 <p className="font-bold">Cajero: <span className="font-normal text-stone-700 dark:text-stone-300">{selectedShiftForDetail.usuario_cajero}</span></p>
                 <p className="font-bold">Apertura: <span className="font-mono font-normal text-stone-700 dark:text-stone-300">{new Date(selectedShiftForDetail.fecha_apertura).toLocaleString('es-AR')}</span></p>
                 <p className="font-bold">Cierre: <span className="font-mono font-normal text-stone-700 dark:text-stone-300">{selectedShiftForDetail.fecha_cierre ? new Date(selectedShiftForDetail.fecha_cierre).toLocaleString('es-AR') : 'SESIÓN ABIERTA'}</span></p>
               </div>
 
-              <div className="space-y-1.5 bg-stone-50 dark:bg-stone-955 p-3.5 rounded-xl border border-stone-100 dark:border-stone-850">
-                <span className="text-[9px] font-black text-stone-455 text-stone-400 uppercase block">Arqueo Financiero</span>
+              <div className="space-y-1.5 bg-stone-50 dark:bg-stone-950 p-3.5 rounded-xl border border-stone-100 dark:border-stone-800">
+                <span className="text-[9px] font-black text-stone-400 uppercase block">Arqueo Financiero</span>
                 <p className="font-bold">Caja Inicial: <span className="font-mono font-normal text-stone-700 dark:text-stone-300">${selectedShiftForDetail.monto_apertura.toLocaleString('es-AR')}</span></p>
                 <p className="font-bold">Ventas Registradas: <span className="font-mono font-normal text-stone-700 dark:text-stone-300">${selectedShiftForDetail.monto_ventas.toLocaleString('es-AR')}</span></p>
                 {selectedShiftForDetail.monto_real !== null && (
@@ -2166,8 +2194,8 @@ export default function CajaModule({
             </div>
 
             {selectedShiftForDetail.registros_totales && (
-              <div className="mt-4 bg-stone-50 dark:bg-stone-950 p-3.5 rounded-xl text-xs space-y-2 border border-stone-100 dark:border-stone-850">
-                <span className="text-[9px] font-black text-stone-455 text-stone-400 uppercase block">Desglose de Medios de Pago</span>
+              <div className="mt-4 bg-stone-50 dark:bg-stone-950 p-3.5 rounded-xl text-xs space-y-2 border border-stone-100 dark:border-stone-800">
+                <span className="text-[9px] font-black text-stone-400 uppercase block">Desglose de Medios de Pago</span>
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 font-mono">
                   <div className="bg-white dark:bg-stone-900 p-2 rounded text-center border border-stone-200/50 dark:border-stone-800">
                     <span className="text-[8px] text-stone-400 block uppercase font-sans font-bold">Efectivo</span>
@@ -2195,12 +2223,12 @@ export default function CajaModule({
 
             {/* Manual movements table */}
             <div className="mt-4 text-xs space-y-2">
-              <span className="text-[9px] font-black text-stone-455 text-stone-400 uppercase block">Movimientos de Caja Chica</span>
+              <span className="text-[9px] font-black text-stone-400 uppercase block">Movimientos de Caja Chica</span>
               {(selectedShiftForDetail.movimientos_manuales || []).length > 0 ? (
                 <div className="border border-stone-200/60 dark:border-stone-800 rounded-xl overflow-x-auto shadow-2xs">
                   <table className="w-full border-collapse">
                     <thead>
-                      <tr className="bg-stone-50 dark:bg-stone-955 text-stone-500 font-bold border-b border-stone-200/60 dark:border-stone-850">
+                      <tr className="bg-stone-50 dark:bg-stone-950 text-stone-500 font-bold border-b border-stone-200/60 dark:border-stone-800">
                         <th className="py-2 px-3 text-left">Hora</th>
                         <th className="py-2 px-3 text-left">Tipo</th>
                         <th className="py-2 px-3 text-left">Concepto</th>
