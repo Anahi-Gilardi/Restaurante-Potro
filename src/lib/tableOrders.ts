@@ -85,8 +85,12 @@ export function mergeTableOrders(
     return oldest;
   }, base.fecha_hora);
 
+  const hasListo = tableOrders.some(order => order.estado_comanda === 'listo');
+  const resolvedEstado: Pedido['estado_comanda'] = hasListo ? 'listo' : base.estado_comanda;
+
   return {
     ...base,
+    estado_comanda: resolvedEstado,
     items: mergedItems,
     observaciones: observations || undefined,
     fecha_hora: oldestDate,

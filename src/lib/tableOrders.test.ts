@@ -47,3 +47,13 @@ test('no descarta lineas antiguas aunque falte el identificador de producto', ()
   const merged = mergeTableOrders([order({ items: [legacyItem] })], []);
   assert.deepEqual(merged?.items, [legacyItem]);
 });
+
+test('mergeTableOrders propaga el estado listo cuando al menos una comanda está lista', () => {
+  const merged = mergeTableOrders([
+    order({ id_pedido: 1, estado_comanda: 'pendiente' }),
+    order({ id_pedido: 2, estado_comanda: 'listo' }),
+  ], []);
+
+  assert.equal(merged?.estado_comanda, 'listo');
+});
+

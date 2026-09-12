@@ -171,3 +171,18 @@ export function separateTablesInList(
     return m;
   });
 }
+
+/**
+ * Formatea el título legible de la mesa para la UI (evitando duplicar 'Mesa Mesa').
+ * Si ya comienza con 'Mesa', 'Delivery', 'Mostrador', 'Para llevar', etc., lo preserva.
+ * Si es un número o texto sin prefijo (ej: '1' o 1), devuelve 'Mesa 1'.
+ */
+export function formatTableDisplayTitle(tableRef: string | number | undefined | null): string {
+  if (tableRef === undefined || tableRef === null || String(tableRef).trim() === '') return 'Mesa';
+  const str = String(tableRef).trim();
+  if (/^(mesa|delivery|mostrador|take away|para llevar)/i.test(str)) {
+    return str;
+  }
+  return `Mesa ${str}`;
+}
+

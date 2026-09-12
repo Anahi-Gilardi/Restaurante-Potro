@@ -25,7 +25,9 @@ import {
   ChevronRight,
   RefreshCw,
   Smartphone,
-  X
+  X,
+  Search,
+  Bell
 } from 'lucide-react';
 import { 
   Pedido, 
@@ -34,7 +36,8 @@ import {
   PrinterConfig, 
   TicketData,
   TicketItem,
-  Usuario
+  Usuario,
+  Mesa
 } from '../types';
 import { useCaja } from '../features/caja/hooks/useCaja';
 import { useToast } from './ToastContainer';
@@ -43,8 +46,10 @@ import { printerService } from '../services/printerService';
 import { Factura } from '../services/facturacionService';
 import { calculatePedidoTotal, resolvePedidoItemUnitPrice } from '../lib/orderPricing';
 import { cajaService } from '../services/cajaService';
+import { formatTableDisplayTitle, formatTicketTableName } from '../lib/tableUnions';
 
 interface CajaModuleProps {
+  mesas?: Mesa[];
   pedidos: Pedido[];
   productosMenu: ProductoMenu[];
   activeUser: Usuario;
@@ -55,6 +60,7 @@ interface CajaModuleProps {
 }
 
 export default function CajaModule({
+  mesas,
   pedidos,
   productosMenu,
   activeUser,
@@ -159,6 +165,7 @@ export default function CajaModule({
     downloadFacturaHistorialPdf,
     loadCajaState
   } = useCaja({
+    mesas,
     pedidos,
     productosMenu,
     operatorName: `${activeUser.nombre} ${activeUser.apellido}`.trim(),
@@ -172,6 +179,19 @@ export default function CajaModule({
   const [failedPrintsCount, setFailedPrintsCount] = useState(0);
   const [bridgeStatus, setBridgeStatus] = useState<{ online: boolean; resolvedPrinter?: string } | null>(null);
   const [isTestingPrinter, setIsTestingPrinter] = useState(false);
+  const [tableSearchFilter, setTableSearchFilter] = useState('');
+
+  const filteredActiveBills = useMemo(() => {
+    if (!tableSearchFilter.trim()) return activeBills;
+    const q = tableSearchFilter.toLowerCase().trim();
+    return activeBills.filter(b => {
+      const mesaTitle = formatTableDisplayTitle(b.numero_mesa).toLowerCase();
+      const mesaRaw = String(b.numero_mesa || '').toLowerCase();
+      const mozoName = String(b.mozo || '').toLowerCase();
+      const idStr = String(b.id_pedido || '');
+      return mesaTitle.includes(q) || mesaRaw.includes(q) || mozoName.includes(q) || idStr.includes(q);
+    });
+  }, [activeBills, tableSearchFilter]);
 
   useEffect(() => {
     printerService.checkBridgeStatus().then(status => {
@@ -739,6 +759,30 @@ export default function CajaModule({
               </span>
             </div>
 
+            {/* Quick search input */}
+            {activeBills.length > 0 && (
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="Buscar mesa o mozo..."
+                  value={tableSearchFilter}
+                  onChange={e => setTableSearchFilter(e.target.value)}
+                  className="w-full pl-8 pr-7 py-1.5 text-xs bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-lg text-stone-800 dark:text-stone-200 placeholder-stone-400 focus:outline-none focus:ring-1 focus:ring-[#624A3E]"
+                />
+                {tableSearchFilter && (
+                  <button
+                    type="button"
+                    onClick={() => setTableSearchFilter('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 border-none bg-transparent cursor-pointer p-0"
+                    title="Limpiar filtro"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            )}
+
             <div className="space-y-2 max-h-[350px] overflow-y-auto pr-1">
               {activeBills.length === 0 ? (
                 <div className="text-center p-8 border border-dashed border-stone-150 rounded-xl bg-stone-50/50">
@@ -770,12 +814,25 @@ export default function CajaModule({
                     )}
                   </div>
                 </div>
+              ) : filteredActiveBills.length === 0 ? (
+                <div className="text-center p-6 border border-dashed border-stone-200 dark:border-stone-800 rounded-xl bg-stone-50/50 dark:bg-stone-900/30">
+                  <p className="text-xs font-bold text-stone-600 dark:text-stone-400">No se encontraron comandas</p>
+                  <p className="text-[10px] text-stone-400 mt-0.5">No hay resultados para "{tableSearchFilter}".</p>
+                  <button
+                    type="button"
+                    onClick={() => setTableSearchFilter('')}
+                    className="mt-2 text-[10px] font-bold text-[#624A3E] dark:text-[#C8956A] hover:underline cursor-pointer border-none bg-transparent"
+                  >
+                    Ver todas las comandas ({activeBills.length})
+                  </button>
+                </div>
               ) : (
-                activeBills.map(b => {
+                filteredActiveBills.map(b => {
                   const itemsCountSum = b.items.reduce((sum, current) => sum + current.cantidad, 0);
                   const totalPrice = calculatePedidoTotal(b, productosMenu);
 
                   const isSelected = b.id_pedido === selectedPedidoId;
+                  const isCuenta = Boolean((b as any).isEsperandoCuenta || (b as any).estado_comanda === 'esperando_cuenta');
                   const isReady = b.estado_comanda === 'listo';
 
                   return (
@@ -793,17 +850,29 @@ export default function CajaModule({
                       className={`w-full p-3.5 rounded-xl border text-left flex justify-between items-center gap-3 transition-all cursor-pointer ${
                         isSelected 
                           ? 'border-stone-900 bg-stone-950/5 font-extrabold shadow-2xs' 
-                          : 'border-stone-200 dark:border-stone-800 hover:bg-stone-50 text-stone-600 dark:text-stone-300'
+                          : isCuenta
+                            ? 'border-amber-300 dark:border-amber-800/80 bg-amber-50/40 dark:bg-amber-950/20 hover:bg-amber-50/80 text-stone-700 dark:text-stone-200'
+                            : 'border-stone-200 dark:border-stone-800 hover:bg-stone-50 text-stone-600 dark:text-stone-300'
                       }`}
                     >
                       <div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-extrabold text-stone-900 dark:text-stone-100 text-xs font-sans">Mesa {b.numero_mesa}</span>
-                          <span className={`text-[8px] font-black px-1.5 py-0.2 rounded-full uppercase ${
-                            isReady ? 'bg-amber-100 text-amber-800' : 'bg-stone-150 text-stone-500'
-                          }`}>
-                            {b.estado_comanda}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-extrabold text-stone-900 dark:text-stone-100 text-xs font-sans">
+                            {formatTableDisplayTitle(b.numero_mesa)}
                           </span>
+                          {isCuenta ? (
+                            <span className="text-[8px] font-black px-2 py-0.5 rounded-full uppercase bg-amber-500 text-white flex items-center gap-0.5 animate-pulse shadow-xs">
+                              <Bell className="w-2.5 h-2.5" /> Pide Cuenta
+                            </span>
+                          ) : isReady ? (
+                            <span className="text-[8px] font-black px-1.5 py-0.2 rounded-full uppercase bg-emerald-100 text-emerald-800">
+                              Listo
+                            </span>
+                          ) : (
+                            <span className="text-[8px] font-black px-1.5 py-0.2 rounded-full uppercase bg-stone-150 text-stone-500">
+                              {b.estado_comanda}
+                            </span>
+                          )}
                         </div>
                         <p className="text-[10px] text-stone-400 mt-1 font-medium font-sans">
                           Mozo: {b.mozo} • {itemsCountSum} items
@@ -834,7 +903,7 @@ export default function CajaModule({
                 <div className="flex justify-between items-center bg-[#F5F1E9] dark:bg-[#8C6239]/40 p-3 border border-stone-200/50 dark:border-stone-800/80 rounded-xl">
                   <div>
                     <span className="text-[8px] font-black uppercase text-[#624A3E] dark:text-[#C8956A] block">Cuenta Activa</span>
-                    <h4 className="font-extrabold text-stone-900 dark:text-stone-100 text-xs font-sans">Mesa {selectedPedido.numero_mesa}</h4>
+                    <h4 className="font-extrabold text-stone-900 dark:text-stone-100 text-xs font-sans">{formatTableDisplayTitle(selectedPedido.numero_mesa)}</h4>
                   </div>
                   
                   <div className="text-right">
@@ -970,85 +1039,229 @@ export default function CajaModule({
                   )}
                 </div>
 
-                {/* Standard split comensales */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                  <div className="p-3 bg-[#F5F1E9]/50 dark:bg-[#8C6239]/10 border border-stone-200 dark:border-stone-800 rounded-xl space-y-2">
-                    <h5 className="text-[10px] font-black text-stone-600 dark:text-stone-300 flex items-center gap-1 uppercase tracking-wider">
-                      <Users className="w-3.5 h-3.5 text-[#624A3E] dark:text-stone-300" /> Partes Comensales (Partes Iguales)
-                    </h5>
-                    
-                    <div className="flex items-center justify-between gap-2 bg-[#FAF7F0] dark:bg-[#8C6239]/40 border border-stone-200/50 p-1.5 rounded-lg">
+                {/* Divide account options */}
+                <div className="p-3.5 bg-stone-50/80 dark:bg-stone-900/30 border border-stone-200 dark:border-stone-800 rounded-xl space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <span className="text-[10px] font-black uppercase text-stone-600 dark:text-stone-300 tracking-wider">
+                      Modalidad de Cobro & División
+                    </span>
+                    <div className="flex gap-1 bg-stone-200/60 dark:bg-stone-800/80 p-0.5 rounded-lg text-[9px] font-bold self-start sm:self-auto">
                       <button
+                        type="button"
                         onClick={() => {
-                          setSplitPayerCount(prev => Math.max(1, prev - 1));
-                          setActivePayerIndex(0);
+                          setSplitByProducts(false);
+                          setSelectedProductsForSplit([]);
                         }}
-                        className="w-7 h-7 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold flex items-center justify-center cursor-pointer transition-all active:scale-95 rounded-lg border-none"
+                        className={`px-2.5 py-1 rounded-md transition-all cursor-pointer border-none ${
+                          !splitByProducts
+                            ? 'bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 shadow-2xs font-black'
+                            : 'text-stone-500 hover:text-stone-800 dark:hover:text-stone-200 bg-transparent'
+                        }`}
                       >
-                        -
+                        Partes Iguales (Pax)
                       </button>
-                      <span className="text-xs font-mono font-black text-stone-900 dark:text-stone-100">{splitPayerCount} pax</span>
                       <button
+                        type="button"
                         onClick={() => {
-                          setSplitPayerCount(prev => prev + 1);
+                          setSplitByProducts(true);
+                          setSplitPayerCount(1);
                           setActivePayerIndex(0);
+                          if (selectedPedido && selectedProductsForSplit.length === 0) {
+                            setSelectedProductsForSplit(selectedPedido.items.map(it => it.id_producto));
+                          }
                         }}
-                        className="w-7 h-7 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold flex items-center justify-center cursor-pointer transition-all active:scale-95 rounded-lg border-none"
+                        className={`px-2.5 py-1 rounded-md transition-all cursor-pointer border-none ${
+                          splitByProducts
+                            ? 'bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 shadow-2xs font-black'
+                            : 'text-stone-500 hover:text-stone-800 dark:hover:text-stone-200 bg-transparent'
+                        }`}
                       >
-                        +
+                        Por Platos / Ítems
                       </button>
                     </div>
+                  </div>
 
-                    {splitPayerCount > 1 && (
-                      <div className="text-[10px] text-stone-600 leading-normal bg-white p-2 rounded border border-stone-150 space-y-0.5 text-center">
-                        <p className="font-bold">Monto partes iguales:</p>
-                        <p className="text-emerald-700 text-xs font-black font-mono">
-                          ${(orderBreakdowns.finalTotal / splitPayerCount).toLocaleString('es-AR', { maximumFractionDigits: 1 })} c/u
-                        </p>
-                        <span className="bg-[#624A3E]/10 text-[#624A3E] px-1.5 py-0.2 rounded font-extrabold text-[8px] tracking-wider uppercase inline-block">
-                          Pagador Actual: {activePayerIndex + 1} de {splitPayerCount}
+                  {splitByProducts ? (
+                    <div className="space-y-2 bg-white dark:bg-stone-900 p-3 rounded-xl border border-stone-200 dark:border-stone-800">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-[10px] font-black uppercase text-[#624A3E] dark:text-[#C8956A]">
+                          Tilde los platos que abona este comensal:
                         </span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Manual discounts & tip adjustments */}
-                  <div className="p-3 bg-stone-50 dark:bg-[#FAF7F0]/5 border border-stone-200 dark:border-stone-800 rounded-xl space-y-2">
-                    <h5 className="text-[10px] font-black text-stone-600 dark:text-stone-300 flex items-center gap-1 uppercase tracking-wider">
-                      <Percent className="w-3.5 h-3.5 text-[#624A3E] dark:text-stone-300" /> Bonificación & Propinas
-                    </h5>
-                    
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="text-[8px] font-bold text-stone-500 block mb-0.5">Manual Desc %</label>
-                        <select
-                          value={descuentoPorcentaje}
-                          onChange={e => setDescuentoPorcentaje(parseInt(e.target.value) || 0)}
-                          className="w-full text-xs p-1.5 border border-stone-200 dark:border-stone-800 rounded bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 font-bold font-sans"
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (selectedProductsForSplit.length === selectedPedido.items.length) {
+                              setSelectedProductsForSplit([]);
+                            } else {
+                              setSelectedProductsForSplit(selectedPedido.items.map(it => it.id_producto));
+                            }
+                          }}
+                          className="text-[9px] font-black uppercase text-[#624A3E] dark:text-[#C8956A] hover:underline cursor-pointer border-none bg-transparent"
                         >
-                          <option value="0">0%</option>
-                          <option value="5">5%</option>
-                          <option value="10">10%</option>
-                          <option value="15">15%</option>
-                          <option value="20">20%</option>
-                        </select>
+                          {selectedProductsForSplit.length === selectedPedido.items.length ? 'Deseleccionar todos' : 'Tildar todos'}
+                        </button>
                       </div>
 
-                      <div>
-                        <label className="text-[8px] font-bold text-stone-500 block mb-0.5">Propina %</label>
-                        <select
-                          value={propinaPorcentaje}
-                          onChange={e => setPropinaPorcentaje(parseInt(e.target.value) || 0)}
-                          className="w-full text-xs p-1.5 border border-stone-200 dark:border-stone-800 rounded bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 font-bold font-sans"
-                        >
-                          <option value="0">0%</option>
-                          <option value="5">5%</option>
-                          <option value="10">10% (Rec.)</option>
-                          <option value="15">15%</option>
-                        </select>
+                      <div className="space-y-1 max-h-44 overflow-y-auto pr-1">
+                        {selectedPedido.items.map((it, idx) => {
+                          const isChecked = selectedProductsForSplit.includes(it.id_producto);
+                          const unitPrice = resolvePedidoItemUnitPrice(it, productosMenu);
+                          const lineTotal = unitPrice * it.cantidad;
+
+                          return (
+                            <label
+                              key={idx}
+                              className={`flex items-center justify-between p-2 rounded-lg border text-xs cursor-pointer transition-colors ${
+                                isChecked
+                                  ? 'bg-amber-50/60 dark:bg-amber-950/20 border-amber-300 dark:border-amber-800/60 font-bold text-stone-850 dark:text-stone-100'
+                                  : 'bg-stone-50 dark:bg-stone-950 border-stone-200 dark:border-stone-800 text-stone-400'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setSelectedProductsForSplit([...selectedProductsForSplit, it.id_producto]);
+                                    } else {
+                                      setSelectedProductsForSplit(selectedProductsForSplit.filter(id => id !== it.id_producto));
+                                    }
+                                  }}
+                                  className="rounded text-[#624A3E] focus:ring-[#624A3E] cursor-pointer"
+                                />
+                                <span>{it.cantidad}x {it.nombre}</span>
+                              </div>
+                              <span className="font-mono">${lineTotal.toLocaleString('es-AR')}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+
+                      {selectedProductsForSplit.length === 0 && (
+                        <p className="text-[9px] text-amber-700 dark:text-amber-400 font-bold italic text-center">
+                          * Tilde al menos un producto para calcular el total parcial a cobrar.
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                      <div className="p-3 bg-[#F5F1E9]/50 dark:bg-[#8C6239]/10 border border-stone-200 dark:border-stone-800 rounded-xl space-y-2">
+                        <h5 className="text-[10px] font-black text-stone-600 dark:text-stone-300 flex items-center gap-1 uppercase tracking-wider">
+                          <Users className="w-3.5 h-3.5 text-[#624A3E] dark:text-stone-300" /> Partes Comensales (Partes Iguales)
+                        </h5>
+                        
+                        <div className="flex items-center justify-between gap-2 bg-[#FAF7F0] dark:bg-[#8C6239]/40 border border-stone-200/50 p-1.5 rounded-lg">
+                          <button
+                            onClick={() => {
+                              setSplitPayerCount(prev => Math.max(1, prev - 1));
+                              setActivePayerIndex(0);
+                            }}
+                            className="w-7 h-7 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold flex items-center justify-center cursor-pointer transition-all active:scale-95 rounded-lg border-none"
+                          >
+                            -
+                          </button>
+                          <span className="text-xs font-mono font-black text-stone-900 dark:text-stone-100">{splitPayerCount} pax</span>
+                          <button
+                            onClick={() => {
+                              setSplitPayerCount(prev => prev + 1);
+                              setActivePayerIndex(0);
+                            }}
+                            className="w-7 h-7 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold flex items-center justify-center cursor-pointer transition-all active:scale-95 rounded-lg border-none"
+                          >
+                            +
+                          </button>
+                        </div>
+
+                        {splitPayerCount > 1 && (
+                          <div className="text-[10px] text-stone-600 leading-normal bg-white p-2 rounded border border-stone-150 space-y-0.5 text-center">
+                            <p className="font-bold">Monto partes iguales:</p>
+                            <p className="text-emerald-700 text-xs font-black font-mono">
+                              ${(orderBreakdowns.finalTotal / splitPayerCount).toLocaleString('es-AR', { maximumFractionDigits: 1 })} c/u
+                            </p>
+                            <span className="bg-[#624A3E]/10 text-[#624A3E] px-1.5 py-0.2 rounded font-extrabold text-[8px] tracking-wider uppercase inline-block">
+                              Pagador Actual: {activePayerIndex + 1} de {splitPayerCount}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Manual discounts & tip adjustments */}
+                      <div className="p-3 bg-stone-50 dark:bg-[#FAF7F0]/5 border border-stone-200 dark:border-stone-800 rounded-xl space-y-2">
+                        <h5 className="text-[10px] font-black text-stone-600 dark:text-stone-300 flex items-center gap-1 uppercase tracking-wider">
+                          <Percent className="w-3.5 h-3.5 text-[#624A3E] dark:text-stone-300" /> Bonificación & Propinas
+                        </h5>
+                        
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-[8px] font-bold text-stone-500 block mb-0.5">Manual Desc %</label>
+                            <select
+                              value={descuentoPorcentaje}
+                              onChange={e => setDescuentoPorcentaje(parseInt(e.target.value) || 0)}
+                              className="w-full text-xs p-1.5 border border-stone-200 dark:border-stone-800 rounded bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 font-bold font-sans"
+                            >
+                              <option value="0">0%</option>
+                              <option value="5">5%</option>
+                              <option value="10">10%</option>
+                              <option value="15">15%</option>
+                              <option value="20">20%</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="text-[8px] font-bold text-stone-500 block mb-0.5">Propina %</label>
+                            <select
+                              value={propinaPorcentaje}
+                              onChange={e => setPropinaPorcentaje(parseInt(e.target.value) || 0)}
+                              className="w-full text-xs p-1.5 border border-stone-200 dark:border-stone-800 rounded bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 font-bold font-sans"
+                            >
+                              <option value="0">0%</option>
+                              <option value="5">5%</option>
+                              <option value="10">10% (Rec.)</option>
+                              <option value="15">15%</option>
+                            </select>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
+
+                  {splitByProducts && (
+                    <div className="p-3 bg-stone-50 dark:bg-[#FAF7F0]/5 border border-stone-200 dark:border-stone-800 rounded-xl space-y-2">
+                      <h5 className="text-[10px] font-black text-stone-600 dark:text-stone-300 flex items-center gap-1 uppercase tracking-wider">
+                        <Percent className="w-3.5 h-3.5 text-[#624A3E] dark:text-stone-300" /> Bonificación & Propinas
+                      </h5>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[8px] font-bold text-stone-500 block mb-0.5">Manual Desc %</label>
+                          <select
+                            value={descuentoPorcentaje}
+                            onChange={e => setDescuentoPorcentaje(parseInt(e.target.value) || 0)}
+                            className="w-full text-xs p-1.5 border border-stone-200 dark:border-stone-800 rounded bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 font-bold font-sans"
+                          >
+                            <option value="0">0%</option>
+                            <option value="5">5%</option>
+                            <option value="10">10%</option>
+                            <option value="15">15%</option>
+                            <option value="20">20%</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-[8px] font-bold text-stone-500 block mb-0.5">Propina %</label>
+                          <select
+                            value={propinaPorcentaje}
+                            onChange={e => setPropinaPorcentaje(parseInt(e.target.value) || 0)}
+                            className="w-full text-xs p-1.5 border border-stone-200 dark:border-stone-800 rounded bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 font-bold font-sans"
+                          >
+                            <option value="0">0%</option>
+                            <option value="5">5%</option>
+                            <option value="10">10% (Rec.)</option>
+                            <option value="15">15%</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* PAYMENT TYPE / MIXED PAYMENTS LAYOUT */}
@@ -1109,6 +1322,28 @@ export default function CajaModule({
                             ${calculatedChange.toLocaleString('es-AR')}
                           </span>
                         )}
+                      </div>
+
+                      {/* Quick cash denomination buttons */}
+                      <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                        <span className="text-[8px] font-bold text-stone-400 uppercase">Atajos:</span>
+                        <button
+                          type="button"
+                          onClick={() => setMontoEntregadoEfectivo(String(orderBreakdowns.finalTotal))}
+                          className="px-2 py-0.5 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 rounded text-[9px] font-bold cursor-pointer border border-stone-200 dark:border-stone-700 transition-colors"
+                        >
+                          Exacto (${orderBreakdowns.finalTotal.toLocaleString('es-AR')})
+                        </button>
+                        {[10000, 20000, 50000, 100000].map(amt => (
+                          <button
+                            key={amt}
+                            type="button"
+                            onClick={() => setMontoEntregadoEfectivo(String(amt))}
+                            className="px-2 py-0.5 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 rounded text-[9px] font-mono font-bold cursor-pointer border border-stone-200 dark:border-stone-700 transition-colors"
+                          >
+                            ${amt.toLocaleString('es-AR')}
+                          </button>
+                        ))}
                       </div>
                     </div>
                   )}
@@ -1367,7 +1602,7 @@ export default function CajaModule({
                       <p className="font-bold">TICKET DE CONSUMO - NO VALIDO COMO FACTURA</p>
                       <p>CLIENTE: {(selectedCliente?.nombre || 'CONSUMIDOR FINAL').toUpperCase()}</p>
                       <p>FECHA: {new Date().toLocaleDateString('es-AR')} {new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}hs</p>
-                      <p>MESA: {selectedPedido.numero_mesa.toUpperCase()} • MOZO: {selectedPedido.mozo}</p>
+                      <p>MESA: {formatTicketTableName(selectedPedido.numero_mesa)} • MOZO: {selectedPedido.mozo}</p>
                       <p>CAJERO: {cajaSession.usuario_cajero.toUpperCase()}</p>
                     </div>
 
@@ -1378,7 +1613,10 @@ export default function CajaModule({
                         <span>TOTAL ($)</span>
                       </div>
 
-                      {selectedPedido.items.map((it, idx) => {
+                      {(splitByProducts && selectedProductsForSplit.length > 0
+                        ? selectedPedido.items.filter(it => selectedProductsForSplit.includes(it.id_producto))
+                        : selectedPedido.items
+                      ).map((it, idx) => {
                         const unit = resolvePedidoItemUnitPrice(it, productosMenu);
                         return (
                           <div key={idx} className="flex justify-between font-sans">
@@ -1612,30 +1850,38 @@ export default function CajaModule({
               Al procesar este cierre se sumarán las ventas totales de este turno. Por favor cuente físicamente el dinero de caja e ingréselo a continuación. El sistema computará el descuadre o diferencia automáticamente.
             </p>
 
-            {cajaSession && (
-              <div className="bg-stone-50 dark:bg-stone-950 p-3 rounded-xl border border-stone-150 dark:border-stone-850 text-[10px] font-mono space-y-1 text-stone-600 dark:text-stone-400">
-                <div className="flex justify-between">
-                  <span>Monto inicial:</span>
-                  <span>${cajaSession.monto_apertura.toLocaleString('es-AR')}</span>
+            {cajaSession && (() => {
+              const efVentas = cajaSession.registros_totales?.efectivo ?? 0;
+              const efCajonEsperado = cajaSession.monto_apertura + efVentas + sumIngresosManuales - sumEgresosManuales;
+              return (
+                <div className="bg-stone-50 dark:bg-stone-950 p-3 rounded-xl border border-stone-150 dark:border-stone-850 text-[10px] font-mono space-y-1.5 text-stone-600 dark:text-stone-400">
+                  <div className="flex justify-between">
+                    <span>Monto inicial (fondo de cambio):</span>
+                    <span>${cajaSession.monto_apertura.toLocaleString('es-AR')}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Ventas en efectivo (cajón):</span>
+                    <span className="text-emerald-700 font-bold">${efVentas.toLocaleString('es-AR')}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Caja Chica (Ingresos):</span>
+                    <span className="text-emerald-700">+${sumIngresosManuales.toLocaleString('es-AR')}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Caja Chica (Gastos/Egresos):</span>
+                    <span className="text-rose-750">-${sumEgresosManuales.toLocaleString('es-AR')}</span>
+                  </div>
+                  <div className="flex justify-between font-bold text-amber-900 dark:text-amber-300 pt-1 border-t border-stone-200 dark:border-stone-800 border-dotted text-xs font-sans">
+                    <span>Efectivo Físico Esperado en Cajón:</span>
+                    <span>${efCajonEsperado.toLocaleString('es-AR')}</span>
+                  </div>
+                  <div className="flex justify-between text-stone-500 dark:text-stone-400 text-[9px] pt-0.5 border-t border-stone-200/50 dark:border-stone-800/50">
+                    <span>Total Facturado Turno (Todas las formas):</span>
+                    <span>${cajaEsperadaTotal.toLocaleString('es-AR')}</span>
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span>Ventas acumuladas:</span>
-                  <span>${cajaSession.monto_ventas.toLocaleString('es-AR')}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Caja Chica (Ingresos):</span>
-                  <span className="text-emerald-700">${sumIngresosManuales.toLocaleString('es-AR')}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Caja Chica (Gastos/Egresos):</span>
-                  <span className="text-rose-750">-${sumEgresosManuales.toLocaleString('es-AR')}</span>
-                </div>
-                <div className="flex justify-between font-bold text-stone-900 dark:text-stone-100 pt-1 border-t border-stone-200 dark:border-stone-800 border-dotted text-xs font-sans">
-                  <span>Total Esperado:</span>
-                  <span>${cajaEsperadaTotal.toLocaleString('es-AR')}</span>
-                </div>
-              </div>
-            )}
+              );
+            })()}
 
             <form onSubmit={handleCloseShift} className="space-y-3">
               <div>

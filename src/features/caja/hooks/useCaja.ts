@@ -8,7 +8,8 @@ import {
   TicketItem,
   FacturaDb,
   PagoDb,
-  Cliente
+  Cliente,
+  Mesa
 } from '../../../types';
 import { cajaService } from '../../../services/cajaService';
 import { pdfService } from '../../../services/pdfService';
@@ -25,6 +26,7 @@ import { isSameTable, mergeTableOrders } from '../../../lib/tableOrders';
 import { formatTicketTableName } from '../../../lib/tableUnions';
 
 interface UseCajaProps {
+  mesas?: Mesa[];
   pedidos: Pedido[];
   productosMenu: ProductoMenu[];
   operatorName: string;
@@ -40,6 +42,7 @@ interface UseCajaProps {
 }
 
 export function useCaja({
+  mesas,
   pedidos,
   productosMenu,
   operatorName,
@@ -326,16 +329,45 @@ export function useCaja({
       }
     });
 
-    const mergedBills: Pedido[] = [];
+    const mergedBills: (Pedido & { isEsperandoCuenta?: boolean })[] = [];
     groups.forEach((tablePedidos) => {
       const merged = mergeTableOrders(tablePedidos, productosMenu);
       if (merged) {
+        const matchingMesa = mesas?.find(m => {
+          if (merged.id_mesa && m.id_mesa === merged.id_mesa) return true;
+          if (merged.numero_mesa && (m.numero_mesa === merged.numero_mesa || String(m.numero_mesa) === String(merged.numero_mesa))) return true;
+          return false;
+        });
+        const isEsperandoCuenta = matchingMesa?.estado === 'esperando_cuenta' || tablePedidos.some(p => (p as any).estado_comanda === 'esperando_cuenta');
+        (merged as any).isEsperandoCuenta = isEsperandoCuenta;
         mergedBills.push(merged);
       }
     });
 
+    const statePriority: Record<string, number> = {
+      listo: 1,
+      entregado: 2,
+      en_cocina: 3,
+      en_preparacion: 3,
+      pendiente: 4,
+    };
+
+    mergedBills.sort((a, b) => {
+      const isEspA = Boolean((a as any).isEsperandoCuenta || (a as any).estado_comanda === 'esperando_cuenta');
+      const isEspB = Boolean((b as any).isEsperandoCuenta || (b as any).estado_comanda === 'esperando_cuenta');
+      if (isEspA && !isEspB) return -1;
+      if (!isEspA && isEspB) return 1;
+
+      const prioA = statePriority[a.estado_comanda] ?? 99;
+      const prioB = statePriority[b.estado_comanda] ?? 99;
+      if (prioA !== prioB) return prioA - prioB;
+      const timeA = new Date(a.fecha_hora).getTime() || 0;
+      const timeB = new Date(b.fecha_hora).getTime() || 0;
+      return timeA - timeB;
+    });
+
     return mergedBills;
-  }, [pedidos, productosMenu]);
+  }, [pedidos, productosMenu, mesas]);
 
   // Selected Order Object
   const selectedPedido = useMemo(() => {
@@ -594,7 +626,10 @@ export function useCaja({
       mozo: selectedPedido.mozo,
       cajero: cajaSession.usuario_cajero,
       fechaHora: new Date().toLocaleDateString('es-AR') + ' ' + new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + 'hs',
-      items: selectedPedido.items.map(it => {
+      items: (splitByProducts && selectedProductsForSplit.length > 0
+        ? selectedPedido.items.filter(it => selectedProductsForSplit.includes(it.id_producto))
+        : selectedPedido.items
+      ).map(it => {
         const uni = resolvePedidoItemUnitPrice(it, productosMenu);
         return {
           cantidad: it.cantidad,
@@ -756,7 +791,10 @@ export function useCaja({
       mozo: selectedPedido.mozo,
       cajero: cajaSession.usuario_cajero,
       fechaHora: new Date().toLocaleDateString('es-AR') + ' ' + new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }),
-      items: selectedPedido.items.map(it => {
+      items: (splitByProducts && selectedProductsForSplit.length > 0
+        ? selectedPedido.items.filter(it => selectedProductsForSplit.includes(it.id_producto))
+        : selectedPedido.items
+      ).map(it => {
         const uni = resolvePedidoItemUnitPrice(it, productosMenu);
         return {
           cantidad: it.cantidad,
@@ -809,7 +847,10 @@ export function useCaja({
       mozo: selectedPedido.mozo,
       cajero: cajaSession.usuario_cajero,
       fechaHora: new Date().toLocaleDateString('es-AR') + ' ' + new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }),
-      items: selectedPedido.items.map(it => {
+      items: (splitByProducts && selectedProductsForSplit.length > 0
+        ? selectedPedido.items.filter(it => selectedProductsForSplit.includes(it.id_producto))
+        : selectedPedido.items
+      ).map(it => {
         const uni = resolvePedidoItemUnitPrice(it, productosMenu);
         return {
           cantidad: it.cantidad,

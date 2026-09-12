@@ -6,6 +6,7 @@ import {
   formatUnitedTableName,
   isUnitedTable,
   formatTicketTableName,
+  formatTableDisplayTitle,
   uniteTablesInList,
   separateTablesInList
 } from './tableUnions';
@@ -140,3 +141,17 @@ test('printerService genera ticket ESC/POS con MESA 1 Y 2 (UNIDAS) al unir y MES
   assert.match(escMesa2, /MESA: MESA 2/);
   assert.doesNotMatch(escMesa2, /UNIDAS/);
 });
+
+test('formatTableDisplayTitle formatea títulos legibles sin duplicar prefijos de mesa', () => {
+  assert.equal(formatTableDisplayTitle('1'), 'Mesa 1');
+  assert.equal(formatTableDisplayTitle(1), 'Mesa 1');
+  assert.equal(formatTableDisplayTitle('14'), 'Mesa 14');
+  assert.equal(formatTableDisplayTitle('Mesa 1'), 'Mesa 1');
+  assert.equal(formatTableDisplayTitle('Mesa 14'), 'Mesa 14');
+  assert.equal(formatTableDisplayTitle('Mesa 1 y 2 (Unidas)'), 'Mesa 1 y 2 (Unidas)');
+  assert.equal(formatTableDisplayTitle('Delivery Rappi 10'), 'Delivery Rappi 10');
+  assert.equal(formatTableDisplayTitle('Mostrador'), 'Mostrador');
+  assert.equal(formatTableDisplayTitle(''), 'Mesa');
+  assert.equal(formatTableDisplayTitle(null), 'Mesa');
+});
+

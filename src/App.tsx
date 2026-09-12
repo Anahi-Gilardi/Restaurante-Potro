@@ -1354,6 +1354,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
             )}
             {activeView === 'caja' && (
               <CajaModule
+                mesas={mesas}
                 pedidos={pedidos}
                 productosMenu={productosMenu}
                 activeUser={activeUser}
