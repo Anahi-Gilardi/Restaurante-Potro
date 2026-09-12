@@ -83,7 +83,7 @@ import { reservasService } from './services/reservasService';
 import { stockEngine } from './services/stock/stockEngine';
 import { orderTransactionService } from './services/orderTransactionService';
 import { resolveSessionOperator } from './lib/sessionOperator';
-import { isSameTable } from './lib/tableOrders';
+import { isSameTable, doesOrderBelongToTable } from './lib/tableOrders';
 import { uniteTablesInList, separateTablesInList, formatUnitedTableName } from './lib/tableUnions';
 
 export default function App() {
@@ -914,6 +914,50 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     addLog('sistema', `MESAS: Mesas desunidas para ${target.numero_mesa}. Vuelven a operar de forma individual.`);
   }, [mesas, isDemoSession, addLog]);
 
+  const handleLiberarMesa = useCallback(async (idMesa: number) => {
+    const target = mesas.find(m => m.id_mesa === idMesa);
+    if (!target) return;
+
+    // 1. Cancelar cualquier comanda activa asociada a la mesa
+    const relatedOrders = pedidos.filter(p =>
+      doesOrderBelongToTable(p, target) &&
+      p.estado_comanda !== 'entregado_cobrado' &&
+      p.estado_comanda !== 'cancelado'
+    );
+
+    if (relatedOrders.length > 0) {
+      const orderIds = relatedOrders.map(o => o.id_pedido);
+      setPedidos(prev => prev.map(p => orderIds.includes(p.id_pedido) ? { ...p, estado_comanda: 'cancelado' } : p));
+    }
+
+    // 2. Desunir si formaba parte de una unión y marcar como libre
+    const nextMesas = separateTablesInList(target, mesas).map(m => {
+      if (m.id_mesa === idMesa || m.parent_id === idMesa || (target.mesas_unidas && target.mesas_unidas.includes(m.id_mesa))) {
+        return {
+          ...m,
+          estado: 'libre' as const,
+          comensales: undefined,
+          mesas_unidas: undefined,
+          parent_id: undefined,
+          ocupada_desde: undefined
+        };
+      }
+      return m;
+    });
+
+    setMesas(nextMesas);
+
+    if (!isDemoSession) {
+      try {
+        await dbUpsertMesas(nextMesas);
+      } catch (err) {
+        console.warn('Error sincronizando mesa liberada con Supabase:', err);
+      }
+    }
+
+    addLog('sistema', `MESAS: ${target.numero_mesa} liberada manualmente. Estado cambiado a libre.`);
+  }, [mesas, pedidos, isDemoSession, addLog]);
+
   // --- Handlers for Inventory View ---
   const handleRegistrarMerma = (idInsumo: string, cantidad: number, motivo: Merma['motivo']) => {
     const insObj = insumos.find(i => i.id_insumo === idInsumo);
@@ -1338,6 +1382,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
                 onFacturarMesa={handleFacturarMesa}
                 onUnirMesas={handleUnirMesas}
                 onDesunirMesas={handleDesunirMesas}
+                onLiberarMesa={handleLiberarMesa}
                 addLog={addLog}
               />
             )}

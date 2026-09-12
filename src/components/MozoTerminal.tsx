@@ -24,7 +24,10 @@ import {
   Tag,
   Clock,
   Link2,
-  Scissors
+  Scissors,
+  AlertCircle,
+  RotateCcw,
+  Trash2
 } from 'lucide-react';
 import { Mesa, Insumo, ProductoMenu, RecetaEscandallo, Pedido, PedidoItem } from '../types';
 import { createMozoCartIdempotencyKey } from '../lib/mozoCartDraft';
@@ -210,6 +213,7 @@ interface MozoTerminalProps {
   permitirVentaSinStock?: boolean;
   onUnirMesas?: (idMesa1: number, idMesa2: number) => Promise<void> | void;
   onDesunirMesas?: (idMesa: number) => Promise<void> | void;
+  onLiberarMesa?: (idMesa: number) => Promise<void> | void;
 }
 
 export default function MozoTerminal({
@@ -225,7 +229,8 @@ export default function MozoTerminal({
   addLog,
   permitirVentaSinStock = false,
   onUnirMesas,
-  onDesunirMesas
+  onDesunirMesas,
+  onLiberarMesa
 }: MozoTerminalProps) {
   const { toast, toasts, removeToast } = useToast();
   const checkoutInFlightRef = useRef(false);
@@ -233,6 +238,7 @@ export default function MozoTerminal({
   const [selectedMesaId, setSelectedMesaId] = useState<number | null>(null);
   const [isUniting, setIsUniting] = useState(false);
   const [targetUniteMesaId, setTargetUniteMesaId] = useState<number | null>(null);
+  const [confirmLiberarMesaId, setConfirmLiberarMesaId] = useState<number | null>(null);
   const [comensales, setComensales] = useState<number>(2);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategoria, setSelectedCategoria] = useState<string>('todo');
@@ -387,11 +393,14 @@ export default function MozoTerminal({
         if (confirmCobrarId !== null) {
           setConfirmCobrarId(null);
         }
+        if (confirmLiberarMesaId !== null) {
+          setConfirmLiberarMesaId(null);
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [searchQuery, splittingPedidoId, confirmCobrarId]);
+  }, [searchQuery, splittingPedidoId, confirmCobrarId, confirmLiberarMesaId]);
 
   // Map of derived active info for all tables (occupancy, active orders, pax, labels)
   const mesasActiveInfoMap = useMemo(() => {
@@ -989,21 +998,85 @@ export default function MozoTerminal({
                       </div>
                     </div>
                   ) : (
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setSplittingPedidoId(activePedidoDeMesa.id_pedido)}
-                        className="flex-1 py-1 px-2.5 bg-[#FAF7F0] dark:bg-[#251B12]/60 border border-[#C8956A]/20 hover:bg-[#F5F1E9] dark:hover:bg-[#8C6239]/40 text-[#8C6239] dark:text-[#C8956A] rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                      >
-                        <Receipt className="w-3.5 h-3.5 text-[#8C6239] dark:text-[#C8956A]" />
-                        Dividir Cuenta
-                      </button>
-                      <button
-                        onClick={() => setConfirmCobrarId(activePedidoDeMesa.id_pedido)}
-                        className="flex-1 py-1 px-2.5 bg-[#8C6239] dark:bg-[#C8956A] border border-transparent hover:bg-[#5d3a2e] dark:hover:bg-[#d8a478] text-[#FAF7F0] dark:text-[#8C6239] rounded-lg text-xs font-extrabold flex items-center justify-center gap-1 transition-colors shadow-sm cursor-pointer"
-                      >
-                        Cobrar Mesa
-                      </button>
-                    </div>
+                    <>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setSplittingPedidoId(activePedidoDeMesa.id_pedido)}
+                          className="flex-1 py-1 px-2.5 bg-[#FAF7F0] dark:bg-[#251B12]/60 border border-[#C8956A]/20 hover:bg-[#F5F1E9] dark:hover:bg-[#8C6239]/40 text-[#8C6239] dark:text-[#C8956A] rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                        >
+                          <Receipt className="w-3.5 h-3.5 text-[#8C6239] dark:text-[#C8956A]" />
+                          Dividir Cuenta
+                        </button>
+                        <button
+                          onClick={() => setConfirmCobrarId(activePedidoDeMesa.id_pedido)}
+                          className="flex-1 py-1 px-2.5 bg-[#8C6239] dark:bg-[#C8956A] border border-transparent hover:bg-[#5d3a2e] dark:hover:bg-[#d8a478] text-[#FAF7F0] dark:text-[#8C6239] rounded-lg text-xs font-extrabold flex items-center justify-center gap-1 transition-colors shadow-sm cursor-pointer"
+                        >
+                          Cobrar Mesa
+                        </button>
+                      </div>
+
+                      {confirmLiberarMesaId === selectedMesa.id_mesa ? (
+                        <div className="p-2.5 bg-red-50 dark:bg-red-950/40 rounded-lg border border-red-300 dark:border-red-700 space-y-2">
+                          <p className="text-[11px] font-bold text-red-900 dark:text-red-200 text-center">
+                            ¿Cancelar comanda y liberar {selectedMesa.numero_mesa}?
+                          </p>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                setConfirmLiberarMesaId(null);
+                                if (onLiberarMesa) {
+                                  await onLiberarMesa(selectedMesa.id_mesa);
+                                  toast.success(`${selectedMesa.numero_mesa} liberada.`);
+                                }
+                              }}
+                              className="flex-1 py-1.5 px-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-black cursor-pointer shadow-sm text-center transition-colors"
+                            >
+                              ✓ Sí, Liberar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmLiberarMesaId(null)}
+                              className="py-1.5 px-3 bg-stone-200 dark:bg-stone-700 text-stone-700 dark:text-stone-300 rounded-lg text-xs font-bold cursor-pointer"
+                            >
+                              Volver
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setConfirmLiberarMesaId(selectedMesa.id_mesa)}
+                          className="w-full py-1 text-[11px] text-stone-500 hover:text-red-600 dark:text-stone-400 dark:hover:text-red-400 font-medium flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          Cancelar comanda y liberar mesa
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              ) : selectedMesaInfo.isOcupada ? (
+                <div className="bg-amber-50 dark:bg-amber-950/40 rounded-xl p-3 border border-amber-300 dark:border-amber-700 space-y-2.5">
+                  <div className="flex items-center gap-2 text-amber-900 dark:text-amber-200">
+                    <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                    <span className="text-xs font-bold">Mesa marcada como ocupada</span>
+                  </div>
+                  <p className="text-[11px] text-amber-700 dark:text-amber-300 leading-relaxed">
+                    Esta mesa figura ocupada pero no posee comandas activas asociadas. Podés liberarla para volver a dejarla disponible.
+                  </p>
+                  {onLiberarMesa && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await onLiberarMesa(selectedMesa.id_mesa);
+                        toast.success(`${selectedMesa.numero_mesa} liberada correctamente.`);
+                      }}
+                      className="w-full py-2 px-3 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      Liberar {selectedMesa.numero_mesa}
+                    </button>
                   )}
                 </div>
               ) : (

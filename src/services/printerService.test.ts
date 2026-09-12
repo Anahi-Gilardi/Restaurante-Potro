@@ -111,10 +111,11 @@ test('getDefaultConfig migra copias antiguas de 1 a 2 copias en localStorage', (
 });
 
 test('clearFailedPrints vacía la cola de tickets fallidos de localStorage', () => {
+  const nowIso = new Date().toISOString();
   const store: Record<string, string> = {
     'el_patron_failed_prints': JSON.stringify([
-      { id: 'p1', data: sampleTicket, timestamp: '2026-09-11T12:00:00Z' },
-      { id: 'p2', data: sampleTicket, timestamp: '2026-09-11T12:05:00Z' }
+      { id: 'p1', data: sampleTicket, timestamp: nowIso },
+      { id: 'p2', data: sampleTicket, timestamp: nowIso }
     ])
   };
 
