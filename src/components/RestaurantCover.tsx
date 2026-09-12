@@ -475,46 +475,6 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
                   </div>
                 </motion.div>
               </div>
-
-              {/* Rotación Semanal Completa Grid */}
-              <div className="space-y-4 pt-4">
-                <div className="text-center space-y-1">
-                  <h4 className="text-xs font-bold uppercase tracking-widest text-[#8C6239] dark:text-[#C8956A]">
-                    📅 Rotación Semanal Completa (Lunes a Domingo)
-                  </h4>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
-                  {['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'].map((day) => {
-                    const diaData = menuDiario[day] || INITIAL_MENU_DIARIO[day];
-                    const isToday = day === todayKey;
-
-                    return (
-                      <div
-                        key={day}
-                        className={`p-3.5 rounded-2xl border transition-all flex flex-col justify-between ${
-                          isToday
-                            ? 'border-[#8C6239] bg-[#8C6239]/10 dark:bg-[#8C6239]/20 ring-2 ring-[#8C6239]'
-                            : 'bg-white dark:bg-[#251B12] border-stone-200 dark:border-stone-850'
-                        }`}
-                      >
-                        <div>
-                          <div className="flex justify-between items-center mb-1">
-                            <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${
-                              isToday ? 'bg-[#8C6239] text-white' : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300'
-                            }`}>
-                              {dayNames[day]} {isToday && '· HOY'}
-                            </span>
-                          </div>
-                          <h5 className="font-bold text-xs text-stone-850 dark:text-stone-100 line-clamp-2 mt-1 min-h-[2rem]">
-                            {diaData?.nombre}
-                          </h5>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
             </div>
           );
         })()}
