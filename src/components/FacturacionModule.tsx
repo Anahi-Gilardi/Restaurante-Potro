@@ -322,10 +322,18 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
     setFacturas(prev => [factura, ...prev]);
     try {
       await facturacionService.create(factura);
-      toast.success(`Comprobante ${factura.nro_ticket} registrado exitosamente.`);
+      if (factura.afip_cae) {
+        toast.success(`Factura C ${factura.nro_ticket} AUTORIZADA por ARCA (CAE: ${factura.afip_cae})`);
+      } else {
+        toast.success(`Comprobante ${factura.nro_ticket} registrado exitosamente.`);
+      }
     } catch (err) {
       console.warn('Factura persistida localmente:', err);
-      toast.warning(`Comprobante guardado en caché local.`);
+      if (factura.afip_cae) {
+        toast.success(`Factura C ${factura.nro_ticket} AUTORIZADA por ARCA (CAE: ${factura.afip_cae})`);
+      } else {
+        toast.warning(`Comprobante guardado en caché local.`);
+      }
     }
   };
 
@@ -395,6 +403,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
       setManualQuery('');
       setManualCliente('Consumidor Final');
       setManualCuit('');
+      setSelectedFactura(factura);
       setActiveTab('archivo');
     } catch (err) {
       console.error(err);
@@ -562,6 +571,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
       setPagoQuery('');
       setPagoCliente('Consumidor Final');
       setPagoCuit('');
+      setSelectedFactura(factura);
       setActiveTab('archivo');
     } catch (err) {
       console.error(err);

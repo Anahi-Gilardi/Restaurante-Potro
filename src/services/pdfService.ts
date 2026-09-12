@@ -251,7 +251,19 @@ export const pdfService = {
     doc.text(`Fecha de emision: ${fiscalDate}`, margin + 102, y);
     y += 4.5;
     doc.text(`Email: ${data.email}`, margin, y);
-    doc.text(`Moneda: ${data.moneda || 'PES'} | Cotizacion: 1`, margin + 102, y);
+    if (data.cae) {
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...BRAND.dark);
+      doc.text(`CAE Nº: ${data.cae}`, margin + 102, y);
+      y += 4.5;
+      doc.text(`Fecha Vto. CAE: ${formatArcaDate(data.vto)}`, margin + 102, y);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...BRAND.muted);
+      y += 4.5;
+      doc.text(`Moneda: ${data.moneda || 'PES'} | Cotizacion: 1`, margin + 102, y);
+    } else {
+      doc.text(`Moneda: ${data.moneda || 'PES'} | Cotizacion: 1`, margin + 102, y);
+    }
     if (isCreditNoteC && data.comprobanteAsociado) {
       y += 4.5;
       doc.text(`Comprobante asociado: ${data.comprobanteAsociado}`, margin + 102, y);
@@ -417,28 +429,49 @@ export const pdfService = {
     }
 
     // ARCA footer with the authorization and mandatory fiscal QR.
-    if (y > 238) doc.addPage();
-    y = 255;
-    doc.setDrawColor(...BRAND.line);
-    doc.setLineWidth(0.2);
-    doc.line(margin, y - 2, margin + 182, y - 2);
+    const fiscalBoxHeight = data.cae ? 26 : 18;
+    if (y + fiscalBoxHeight > 275) {
+      doc.addPage();
+      y = 18;
+    } else {
+      y = Math.max(y + 8, 245);
+    }
 
     if (data.cae) {
+      doc.setFillColor(...BRAND.cream);
+      doc.setDrawColor(...BRAND.brown);
+      doc.setLineWidth(0.3);
+      doc.roundedRect(margin, y, 182, fiscalBoxHeight, 2, 2, 'FD');
+
       if (qrImage) {
         try {
-          doc.addImage(qrImage, 'PNG', margin, y, 18, 18);
+          doc.addImage(qrImage, 'PNG', margin + 3, y + 2.5, 21, 21);
         } catch (err) {
           console.warn('No se pudo insertar el QR fiscal en el PDF:', err);
         }
       }
+      doc.setTextColor(...BRAND.brown);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.text(data.resultadoArca === 'O' ? 'COMPROBANTE AUTORIZADO POR ARCA (CON OBSERVACIONES)' : 'COMPROBANTE ELECTRONICO AUTORIZADO POR ARCA', margin + 28, y + 5.5);
+
+      doc.setTextColor(...BRAND.dark);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9.5);
+      doc.text(`CAE Nº: ${data.cae}`, margin + 28, y + 11);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      doc.text(`Fecha Vto. CAE: ${formatArcaDate(data.vto)}`, margin + 102, y + 11);
+
       doc.setTextColor(...BRAND.muted);
       doc.setFontSize(7.5);
-      doc.setFont('helvetica', 'normal');
-      doc.text(data.resultadoArca === 'O' ? 'Comprobante autorizado por ARCA con observaciones' : 'Comprobante electronico autorizado por ARCA', margin + 24, y + 5);
-      doc.text(`CAE Nro: ${data.cae} | Vto. CAE: ${formatArcaDate(data.vto)}`, margin + 24, y + 10);
+      doc.text('Agencia de Recaudación y Control Aduanero · Escanee el código QR para validar este comprobante.', margin + 28, y + 16);
+
       doc.setTextColor(...BRAND.dark);
       doc.setFont('helvetica', 'italic');
-      doc.text(data.mensajePie || 'Gracias por su visita.', margin + 24, y + 15);
+      doc.setFontSize(7.5);
+      doc.text(data.mensajePie || 'Gracias por su visita.', margin + 28, y + 21);
+
       if (data.resultadoArca === 'O' && data.observacionesArca?.length) {
         const observations = data.observacionesArca
           .slice(0, 2)
@@ -446,17 +479,20 @@ export const pdfService = {
           .join(' | ');
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(6.5);
-        doc.text(doc.splitTextToSize(observations, 152), margin + 24, y + 19);
+        doc.text(doc.splitTextToSize(observations, 140), margin + 28, y + 24.5);
       }
     } else {
+      doc.setFillColor(254, 242, 242);
       doc.setDrawColor(190, 24, 24);
+      doc.setLineWidth(0.3);
+      doc.roundedRect(margin, y, 182, fiscalBoxHeight, 2, 2, 'FD');
       doc.setTextColor(190, 24, 24);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(10);
-      doc.text('DOCUMENTO X - NO VALIDO COMO FACTURA', margin, y + 6);
+      doc.setFontSize(9.5);
+      doc.text('DOCUMENTO X - NO VALIDO COMO FACTURA', margin + 6, y + 7);
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(7.5);
-      doc.text('Documento interno sin autorización ni CAE de ARCA.', margin, y + 12);
+      doc.text('Documento interno sin autorización ni CAE de ARCA.', margin + 6, y + 13);
     }
 
     const pageCount = doc.getNumberOfPages();
