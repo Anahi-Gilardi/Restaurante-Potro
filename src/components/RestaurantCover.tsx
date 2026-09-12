@@ -20,8 +20,7 @@ import {
   Tag,
   Heart,
   Send,
-  Sun,
-  Moon
+  Sun
 } from 'lucide-react';
 import { argentinaDateIso } from '../lib/argentinaDate';
 import { buildReservationWhatsAppUrl, validatePublicReservation } from '../lib/publicReservation';
@@ -487,7 +486,7 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
                   Propuesta en Preparación
                 </span>
                 <h3 className="text-2xl sm:text-3xl lg:text-4xl font-bold font-serif-rustic text-[#8C6239] dark:text-[#FAF7F0] tracking-wide">
-                  Menús Ejecutivos · Almuerzo y Cena
+                  Menús Ejecutivos · Almuerzo
                 </h3>
               </div>
 
@@ -495,10 +494,10 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
                 Estamos diseñando una carta ejecutiva especial para acompañar tus jornadas: opciones gourmet y caseras elaboradas en el día, con entrada, plato principal, postre y bebida incluida, pensadas para ofrecerte la máxima calidad gastronómica y un servicio ágil.
               </p>
 
-              {/* Píldoras informativas */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                <div className="flex items-center gap-3 p-3 rounded-xl bg-white/70 dark:bg-stone-900/60 border border-stone-200/80 dark:border-stone-800">
-                  <div className="p-2 rounded-lg bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-400">
+              {/* Píldora informativa */}
+              <div className="pt-2">
+                <div className="flex items-center gap-3.5 p-3.5 rounded-xl bg-white/70 dark:bg-stone-900/60 border border-stone-200/80 dark:border-stone-800 max-w-md">
+                  <div className="p-2.5 rounded-lg bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-400">
                     <Sun className="w-5 h-5" />
                   </div>
                   <div>
@@ -506,21 +505,7 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
                       Almuerzos Ejecutivos
                     </span>
                     <span className="text-[11px] text-stone-500 dark:text-stone-400 font-serif-rustic italic">
-                      Ideal para mediodías corporativos y pausas ágiles
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3 p-3 rounded-xl bg-white/70 dark:bg-stone-900/60 border border-stone-200/80 dark:border-stone-800">
-                  <div className="p-2 rounded-lg bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300">
-                    <Moon className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <span className="text-xs font-black uppercase text-stone-800 dark:text-stone-100 block">
-                      Cenas Ejecutivas
-                    </span>
-                    <span className="text-[11px] text-stone-500 dark:text-stone-400 font-serif-rustic italic">
-                      Menús completos para cenas de trabajo o cierre del día
+                      Ideal para mediodías corporativos, reuniones y pausas ágiles
                     </span>
                   </div>
                 </div>
