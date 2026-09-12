@@ -13,16 +13,20 @@ export const INITIAL_USUARIOS: Usuario[] = [
 ];
 
 export const INITIAL_MESAS: Mesa[] = [
-  { id_mesa: 1, numero_mesa: 'Mesa 1', estado: 'libre' },
-  { id_mesa: 2, numero_mesa: 'Mesa 2', estado: 'ocupada', comensales: 2 },
-  { id_mesa: 3, numero_mesa: 'Mesa 3', estado: 'libre' },
-  { id_mesa: 4, numero_mesa: 'Mesa 4', estado: 'ocupada', comensales: 3 },
-  { id_mesa: 5, numero_mesa: 'Mesa 5', estado: 'libre' },
-  { id_mesa: 6, numero_mesa: 'Mesa 6', estado: 'libre' },
-  { id_mesa: 8, numero_mesa: 'Mesa 8', estado: 'ocupada', comensales: 1 },
-  { id_mesa: 12, numero_mesa: 'Mesa 12', estado: 'ocupada', comensales: 4 },
-  { id_mesa: 101, numero_mesa: 'VIP-1', estado: 'libre' },
-  { id_mesa: 102, numero_mesa: 'Terraza-3', estado: 'libre' },
+  { id_mesa: 1, numero_mesa: 'Mesa 1', estado: 'libre', capacidad: 2 },
+  { id_mesa: 2, numero_mesa: 'Mesa 2', estado: 'libre', capacidad: 2 },
+  { id_mesa: 3, numero_mesa: 'Mesa 3', estado: 'libre', capacidad: 2 },
+  { id_mesa: 4, numero_mesa: 'Mesa 4', estado: 'libre', capacidad: 2 },
+  { id_mesa: 5, numero_mesa: 'Mesa 5', estado: 'libre', capacidad: 4 },
+  { id_mesa: 6, numero_mesa: 'Mesa 6', estado: 'libre', capacidad: 4 },
+  { id_mesa: 7, numero_mesa: 'Mesa 7', estado: 'libre', capacidad: 4 },
+  { id_mesa: 8, numero_mesa: 'Mesa 8', estado: 'libre', capacidad: 4 },
+  { id_mesa: 9, numero_mesa: 'Mesa 9', estado: 'libre', capacidad: 4 },
+  { id_mesa: 10, numero_mesa: 'Mesa 10', estado: 'libre', capacidad: 4 },
+  { id_mesa: 11, numero_mesa: 'Mesa 11', estado: 'libre', capacidad: 6 },
+  { id_mesa: 12, numero_mesa: 'Mesa 12', estado: 'libre', capacidad: 6 },
+  { id_mesa: 13, numero_mesa: 'Mesa 13', estado: 'libre', capacidad: 4 },
+  { id_mesa: 14, numero_mesa: 'Mesa 14', estado: 'libre', capacidad: 6 },
 ];
 
 export const INITIAL_INSUMOS: Insumo[] = [

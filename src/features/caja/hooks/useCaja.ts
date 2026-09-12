@@ -22,6 +22,7 @@ import { DEFAULT_RESTAURANT_PROFILE, normalizeRestaurantProfile } from '../../..
 import { resolvePedidoItemUnitPrice, roundCurrency } from '../../../lib/orderPricing';
 import { internalTicketPreview } from '../../../lib/fiscalVoucherPolicy';
 import { isSameTable, mergeTableOrders } from '../../../lib/tableOrders';
+import { formatTicketTableName } from '../../../lib/tableUnions';
 
 interface UseCajaProps {
   pedidos: Pedido[];
@@ -589,7 +590,7 @@ export function useCaja({
       email: restaurante.email,
       nroComprobante: compiledTicketNo,
       idPedido: selectedPedido.id_pedido,
-      mesa: selectedPedido.numero_mesa,
+      mesa: formatTicketTableName(selectedPedido.numero_mesa),
       mozo: selectedPedido.mozo,
       cajero: cajaSession.usuario_cajero,
       fechaHora: new Date().toLocaleDateString('es-AR') + ' ' + new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + 'hs',
@@ -751,7 +752,7 @@ export function useCaja({
       email: restaurante.email,
       nroComprobante: `PREV-001-${selectedPedido.id_pedido}`,
       idPedido: selectedPedido.id_pedido,
-      mesa: selectedPedido.numero_mesa,
+      mesa: formatTicketTableName(selectedPedido.numero_mesa),
       mozo: selectedPedido.mozo,
       cajero: cajaSession.usuario_cajero,
       fechaHora: new Date().toLocaleDateString('es-AR') + ' ' + new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }),
@@ -804,7 +805,7 @@ export function useCaja({
       email: restaurante.email,
       nroComprobante: `PREV-001-${selectedPedido.id_pedido}`,
       idPedido: selectedPedido.id_pedido,
-      mesa: selectedPedido.numero_mesa,
+      mesa: formatTicketTableName(selectedPedido.numero_mesa),
       mozo: selectedPedido.mozo,
       cajero: cajaSession.usuario_cajero,
       fechaHora: new Date().toLocaleDateString('es-AR') + ' ' + new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }),

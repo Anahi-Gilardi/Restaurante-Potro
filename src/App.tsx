@@ -84,6 +84,7 @@ import { stockEngine } from './services/stock/stockEngine';
 import { orderTransactionService } from './services/orderTransactionService';
 import { resolveSessionOperator } from './lib/sessionOperator';
 import { isSameTable } from './lib/tableOrders';
+import { uniteTablesInList, separateTablesInList, formatUnitedTableName } from './lib/tableUnions';
 
 export default function App() {
   const { toast, toasts, removeToast } = useToast();
@@ -825,12 +826,19 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
 
     setPedidos(prev => prev.map(p => orderIds.includes(p.id_pedido) ? { ...p, estado_comanda: 'entregado_cobrado' } : p));
 
+    const targetMesa = mesas.find(m => 
+      (m.id_mesa !== undefined && m.id_mesa !== null && target.id_mesa !== undefined && target.id_mesa !== null && String(m.id_mesa) === String(target.id_mesa)) ||
+      (String(m.numero_mesa || '').toLowerCase().replace(/mesa\s+/gi, '').trim() === String(target.numero_mesa || '').toLowerCase().replace(/mesa\s+/gi, '').trim())
+    );
+
     const updatedMesas = mesas.map(m => {
       const matchId = (m.id_mesa !== undefined && m.id_mesa !== null && target.id_mesa !== undefined && target.id_mesa !== null && String(m.id_mesa) === String(target.id_mesa));
       const norm1 = String(m.numero_mesa || '').toLowerCase().replace(/mesa\s+/gi, '').trim();
       const norm2 = String(target.numero_mesa || '').toLowerCase().replace(/mesa\s+/gi, '').trim();
       const matchNum = norm1 !== '' && norm1 === norm2;
-      return (matchId || matchNum) ? { ...m, estado: 'libre' as const, comensales: undefined } : m;
+      const isPartChild = m.parent_id !== undefined && m.parent_id !== null && String(m.parent_id) === String(target.id_mesa);
+      const isPartUnited = Boolean(targetMesa?.mesas_unidas && targetMesa.mesas_unidas.includes(m.id_mesa));
+      return (matchId || matchNum || isPartChild || isPartUnited) ? { ...m, estado: 'libre' as const, comensales: undefined } : m;
     });
     setMesas(updatedMesas);
 
@@ -872,6 +880,39 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
       });
     }
   }, [pedidos, mesas, productosMenu, addLog, isDemoSession, toast, permitirVentaSinStock]);
+
+  // --- Handlers para Unión y Desunión de Mesas ---
+  const handleUnirMesas = useCallback(async (idMesa1: number, idMesa2: number) => {
+    const m1 = mesas.find(m => m.id_mesa === idMesa1);
+    const m2 = mesas.find(m => m.id_mesa === idMesa2);
+    if (!m1 || !m2) return;
+    const nextMesas = uniteTablesInList(m1, m2, mesas);
+    setMesas(nextMesas);
+    if (!isDemoSession) {
+      try {
+        await dbUpsertMesas(nextMesas);
+      } catch (err) {
+        console.warn('Error sincronizando mesas unidas con Supabase:', err);
+      }
+    }
+    const combinedName = formatUnitedTableName([m1.numero_mesa, m2.numero_mesa]);
+    addLog('sistema', `MESAS: ${m1.numero_mesa} unida con ${m2.numero_mesa}. Identificador: ${combinedName}`);
+  }, [mesas, isDemoSession, addLog]);
+
+  const handleDesunirMesas = useCallback(async (idMesa: number) => {
+    const target = mesas.find(m => m.id_mesa === idMesa);
+    if (!target) return;
+    const nextMesas = separateTablesInList(target, mesas);
+    setMesas(nextMesas);
+    if (!isDemoSession) {
+      try {
+        await dbUpsertMesas(nextMesas);
+      } catch (err) {
+        console.warn('Error sincronizando mesas desunidas con Supabase:', err);
+      }
+    }
+    addLog('sistema', `MESAS: Mesas desunidas para ${target.numero_mesa}. Vuelven a operar de forma individual.`);
+  }, [mesas, isDemoSession, addLog]);
 
   // --- Handlers for Inventory View ---
   const handleRegistrarMerma = (idInsumo: string, cantidad: number, motivo: Merma['motivo']) => {
@@ -1295,6 +1336,8 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
                 onMozoChange={setActiveMozo}
                 onCrearPedido={handleCrearPedido}
                 onFacturarMesa={handleFacturarMesa}
+                onUnirMesas={handleUnirMesas}
+                onDesunirMesas={handleDesunirMesas}
                 addLog={addLog}
               />
             )}

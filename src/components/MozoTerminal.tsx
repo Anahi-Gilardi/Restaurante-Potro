@@ -22,7 +22,9 @@ import {
   Volume2,
   X,
   Tag,
-  Clock
+  Clock,
+  Link2,
+  Scissors
 } from 'lucide-react';
 import { Mesa, Insumo, ProductoMenu, RecetaEscandallo, Pedido, PedidoItem } from '../types';
 import { createMozoCartIdempotencyKey } from '../lib/mozoCartDraft';
@@ -30,6 +32,7 @@ import { calculatePedidoTotal, resolvePedidoItemUnitPrice } from '../lib/orderPr
 import { promocionesService, Promocion } from '../services/promocionesService';
 import { menuDiarioService, MenuDiarioDia, INITIAL_MENU_DIARIO } from '../services/menuDiarioService';
 import { printComandaThermalTicket } from '../lib/comandaPrinter';
+import { formatTicketTableName, isUnitedTable, formatUnitedTableName } from '../lib/tableUnions';
 import { useToast, ToastContainer } from './ToastContainer';
 
 interface WineMapping {
@@ -204,6 +207,8 @@ interface MozoTerminalProps {
   onFacturarMesa: (idPedido: number) => void;
   addLog: (tipo: 'pedido_creado' | 'descuento_stock' | 'alerta_stock' | 'comanda_estado' | 'sistema', mensaje: string) => void;
   permitirVentaSinStock?: boolean;
+  onUnirMesas?: (idMesa1: number, idMesa2: number) => Promise<void> | void;
+  onDesunirMesas?: (idMesa: number) => Promise<void> | void;
 }
 
 export default function MozoTerminal({
@@ -217,12 +222,16 @@ export default function MozoTerminal({
   pedidos,
   onFacturarMesa,
   addLog,
-  permitirVentaSinStock = false
+  permitirVentaSinStock = false,
+  onUnirMesas,
+  onDesunirMesas
 }: MozoTerminalProps) {
   const { toast, toasts, removeToast } = useToast();
   const checkoutInFlightRef = useRef(false);
   // Waiter selections
   const [selectedMesaId, setSelectedMesaId] = useState<number | null>(null);
+  const [isUniting, setIsUniting] = useState(false);
+  const [targetUniteMesaId, setTargetUniteMesaId] = useState<number | null>(null);
   const [comensales, setComensales] = useState<number>(2);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategoria, setSelectedCategoria] = useState<string>('todo');
@@ -588,9 +597,10 @@ export default function MozoTerminal({
         };
       });
 
+      const tableOrderName = selectedMesa ? selectedMesa.numero_mesa : `Mesa ${selectedMesaId}`;
       const accepted = await onCrearPedido({
         id_mesa: selectedMesaId,
-        numero_mesa: selectedMesa ? selectedMesa.numero_mesa : `Mesa ${selectedMesaId}`,
+        numero_mesa: tableOrderName,
         mozo: activeMozo,
         estado_comanda: 'pendiente',
         items,
@@ -603,7 +613,7 @@ export default function MozoTerminal({
 
       // Trigger automatic print to connected ticket printer
       printComandaThermalTicket({
-        mesa: selectedMesa ? `Mesa ${selectedMesa.numero_mesa}` : `Mesa ${selectedMesaId}`,
+        mesa: formatTicketTableName(tableOrderName),
         mozo: activeMozo || 'Mozo',
         items: items.map(i => ({
           nombre: i.nombre,
@@ -615,7 +625,7 @@ export default function MozoTerminal({
 
       setCart({});
       setObservaciones('');
-      addLog('pedido_creado', `Mozo ${activeMozo} envió e imprimió comanda para ${selectedMesa?.numero_mesa} con ${items.length} platos.`);
+      addLog('pedido_creado', `Mozo ${activeMozo} envió e imprimió comanda para ${tableOrderName} con ${items.length} platos.`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'No se pudo enviar la comanda. El carrito permanece disponible.');
     } finally {
@@ -692,6 +702,8 @@ export default function MozoTerminal({
               const isOcupada = m.estado === 'ocupada';
               const isInCuenta = m.estado === 'esperando_cuenta';
               const isReservada = m.estado === 'reservada';
+              const isUnidaHija = m.estado === 'unida';
+              const isCombinada = isUnitedTable(m);
 
               // Determine visual theme according to exact state specs (El Patrón warm design system)
               let stateClasses = "border-stone-250 dark:border-[#C8956A]/10 bg-[#FAF7F0]/40 dark:bg-[#1A110B]/85 hover:bg-[#FAF7F0] dark:hover:bg-[#251B12]/80 text-stone-750 dark:text-stone-300 hover:border-[#C8956A]/30";
@@ -699,7 +711,10 @@ export default function MozoTerminal({
 
               if (isSelected) {
                 stateClasses = "bg-[#8C6239] text-white border-[#C8956A] shadow-lg scale-[1.03] ring-4 ring-[#C8956A]/20 glow-gold";
-                labelText = isOcupada ? "Ocupada (Sel)" : isInCuenta ? "En Cuenta" : isReservada ? "Reservada" : "Libre";
+                labelText = isUnidaHija ? "Unida" : isOcupada ? "Ocupada (Sel)" : isInCuenta ? "En Cuenta" : isReservada ? "Reservada" : isCombinada ? "Unida (Sel)" : "Libre";
+              } else if (isUnidaHija) {
+                stateClasses = "border-amber-400/40 bg-amber-400/10 text-amber-800 dark:text-amber-300 hover:bg-amber-400/20";
+                labelText = "🔗 Unida";
               } else if (isReservada) {
                 stateClasses = "border-fuchsia-750/30 bg-fuchsia-750/10 text-fuchsia-800 dark:text-fuchsia-300 hover:bg-fuchsia-750/15";
                 labelText = "Reservada";
@@ -709,7 +724,10 @@ export default function MozoTerminal({
               } else if (isOcupada) {
                 // Warm, rich red/terracotta for occupied tables to match El Patron
                 stateClasses = "border-[#9B2226]/35 bg-[#9B2226]/10 text-[#9B2226] dark:text-red-400 hover:bg-[#9B2226]/15";
-                labelText = "Ocupada";
+                labelText = isCombinada ? "Unida (Ocup)" : "Ocupada";
+              } else if (isCombinada) {
+                stateClasses = "border-[#8C6239]/50 bg-[#8C6239]/10 text-[#8C6239] dark:text-[#C8956A] hover:bg-[#8C6239]/20";
+                labelText = "🔗 Unida";
               }
 
               return (
@@ -717,10 +735,14 @@ export default function MozoTerminal({
                   key={m.id_mesa}
                   id={`mesa-btn-${m.id_mesa}`}
                   onClick={() => {
-                    setSelectedMesaId(m.id_mesa);
+                    const targetId = m.estado === 'unida' && m.parent_id ? m.parent_id : m.id_mesa;
+                    setSelectedMesaId(targetId);
+                    setIsUniting(false);
+                    setTargetUniteMesaId(null);
                     // Prepopulate comensales if occupied
-                    if (m.estado === 'ocupada' && m.comensales) {
-                      setComensales(m.comensales);
+                    const targetMesa = mesas.find(x => x.id_mesa === targetId) || m;
+                    if (targetMesa.estado === 'ocupada' && targetMesa.comensales) {
+                      setComensales(targetMesa.comensales);
                     }
                   }}
                   className={`p-2.5 rounded-xl flex flex-col justify-between items-center transition-all aspect-square border cursor-pointer ${stateClasses}`}
@@ -768,6 +790,86 @@ export default function MozoTerminal({
                       +
                     </button>
                     <span className="text-[10px] text-stone-500 dark:text-stone-400 mr-1">pax</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Botones de Unión / Desunión de Mesas */}
+              <div className="pt-2 border-t border-stone-200/40 dark:border-white/10">
+                {isUnitedTable(selectedMesa) ? (
+                  <button
+                    onClick={async () => {
+                      if (onDesunirMesas) {
+                        await onDesunirMesas(selectedMesa.id_mesa);
+                        setIsUniting(false);
+                        setTargetUniteMesaId(null);
+                        toast.success(`Mesas desunidas. Vuelven a operar de forma individual.`);
+                      }
+                    }}
+                    className="w-full py-2 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/50 text-amber-800 dark:text-amber-300 text-xs font-bold flex items-center justify-center gap-2 border border-amber-300 dark:border-amber-700 transition-colors shadow-sm cursor-pointer"
+                  >
+                    <Scissors className="w-3.5 h-3.5 text-red-500" />
+                    ✂ Desunir Mesas
+                  </button>
+                ) : (
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => {
+                        setIsUniting(prev => !prev);
+                        setTargetUniteMesaId(null);
+                      }}
+                      className="w-full py-2 px-3 rounded-xl bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-[#8C6239] dark:text-[#C8956A] text-xs font-bold flex items-center justify-center gap-2 border border-[#8C6239]/20 transition-colors cursor-pointer"
+                    >
+                      <Link2 className="w-3.5 h-3.5 text-[#8C6239] dark:text-[#C8956A]" />
+                      {isUniting ? 'Cancelar Unión' : '🔗 Unir con otra mesa'}
+                    </button>
+
+                    {isUniting && (
+                      <div className="p-3 bg-amber-50/80 dark:bg-[#251B12] rounded-xl border border-amber-200 dark:border-[#C8956A]/30 space-y-2.5">
+                        <label className="text-[11px] font-bold text-stone-700 dark:text-stone-300 block">
+                          Seleccionar mesa para unir a {selectedMesa.numero_mesa}:
+                        </label>
+                        <select
+                          value={targetUniteMesaId ?? ''}
+                          onChange={(e) => setTargetUniteMesaId(Number(e.target.value) || null)}
+                          className="w-full p-2 text-xs rounded-lg border border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 font-medium"
+                        >
+                          <option value="">-- Seleccionar mesa a unir --</option>
+                          {mesas
+                            .filter(m => m.id_mesa !== selectedMesa.id_mesa && m.estado !== 'unida')
+                            .map(m => (
+                              <option key={m.id_mesa} value={m.id_mesa}>
+                                {m.numero_mesa} ({m.estado}) - Cap: {m.capacidad || 2} pax
+                              </option>
+                            ))}
+                        </select>
+                        <div className="flex gap-2">
+                          <button
+                            disabled={!targetUniteMesaId}
+                            onClick={async () => {
+                              if (!targetUniteMesaId || !onUnirMesas) return;
+                              await onUnirMesas(selectedMesa.id_mesa, targetUniteMesaId);
+                              setIsUniting(false);
+                              setTargetUniteMesaId(null);
+                              toast.success('Mesas unidas con éxito.');
+                            }}
+                            className="flex-1 py-1.5 px-3 rounded-lg bg-[#3A5A40] hover:bg-[#3A5A40]/90 disabled:opacity-50 text-white text-xs font-bold flex items-center justify-center gap-1 cursor-pointer"
+                          >
+                            <Link2 className="w-3 h-3" />
+                            Confirmar Unión
+                          </button>
+                          <button
+                            onClick={() => {
+                              setIsUniting(false);
+                              setTargetUniteMesaId(null);
+                            }}
+                            className="py-1.5 px-3 rounded-lg bg-stone-200 dark:bg-stone-700 text-stone-700 dark:text-stone-300 text-xs font-bold cursor-pointer"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

@@ -1,4 +1,5 @@
 import { TicketData, PrinterConfig } from '../types';
+import { formatTicketTableName } from '../lib/tableUnions';
 
 export interface BridgeStatus {
   online: boolean;
@@ -124,7 +125,7 @@ export const printerService = {
     esc += '[ESC/POS: ALIGN LEFT]\n';
     esc += `TICKET Nº: ${data.nroComprobante}\n`;
     esc += `FECHA: ${data.fechaHora}\n`;
-    esc += `MESA: ${data.mesa.toUpperCase()}\n`;
+    esc += `MESA: ${formatTicketTableName(data.mesa).toUpperCase()}\n`;
     esc += `MOZO: ${data.mozo}\n`;
     esc += `CAJERO: ${data.cajero}\n`;
     esc += `PEDIDO ID: EP-${data.idPedido}\n`;
@@ -299,7 +300,7 @@ export const printerService = {
             
             <div class="row"><span>TICKET Nº:</span><span class="bold">${data.nroComprobante}</span></div>
             <div class="row"><span>FECHA:</span><span>${data.fechaHora}</span></div>
-            <div class="row"><span>MESA:</span><span class="bold">${data.mesa.toUpperCase()}</span></div>
+            <div class="row"><span>MESA:</span><span class="bold">${formatTicketTableName(data.mesa).toUpperCase()}</span></div>
             <div class="row"><span>MOZO:</span><span>${data.mozo}</span></div>
             <div class="row"><span>CAJERO:</span><span>${data.cajero}</span></div>
             <div class="row"><span>PEDIDO ID:</span><span>EP-${data.idPedido}</span></div>

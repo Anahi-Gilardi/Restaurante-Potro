@@ -7,6 +7,7 @@ import { reservasService } from '../services/reservasService';
 import MesaAsistente from './MesaAsistente';
 import { tryGetActiveSupabaseClient } from '../lib/supabaseClient';
 import { calculateMesaDragPosition } from '../lib/mesaDrag';
+import { formatUnitedTableName } from '../lib/tableUnions';
 
 interface MesasModuleProps {
   mesas: Mesa[];
@@ -86,6 +87,10 @@ const POSICIONES_INICIALES: MesaVisual[] = [
 
   // SECTOR VIP: mesa 12 para eventos
   { id: 'mesa-10-vip-12', id_mesa: 12, numero_mesa: '12', capacidad: 10, zona: 'salon', posicion: { x: 105, y: 540, width: 130, height: 62, rx: 8 }, estado: 'libre' },
+
+  // SECTOR SALÓN / TERRAZA: mesas 13 y 14
+  { id: 'mesa-4-salon-13', id_mesa: 13, numero_mesa: '13', capacidad: 4, zona: 'salon', posicion: { x: 260, y: 540, width: 60, height: 50, rx: 6 }, estado: 'libre' },
+  { id: 'mesa-6-salon-14', id_mesa: 14, numero_mesa: '14', capacidad: 6, zona: 'salon', posicion: { x: 340, y: 540, width: 60, height: 50, rx: 6 }, estado: 'libre' },
 ];
 
 const ESTADO_FILL: Record<Mesa['estado'], string> = {
@@ -631,7 +636,7 @@ export default function MesasModule({
     const [m1, m2] = mesasAUnir;
     const capacidadUnida = (m1.capacidad || 0) + (m2.capacidad || 0);
     const mesaUnida: Partial<Mesa> = {
-      numero_mesa: `${m1.numero_mesa} + ${m2.numero_mesa}`,
+      numero_mesa: formatUnitedTableName([m1.numero_mesa, m2.numero_mesa]),
       capacidad: capacidadUnida,
       zona: m1.zona,
       estado: 'ocupada',
