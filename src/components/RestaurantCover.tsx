@@ -24,7 +24,6 @@ import {
 import { argentinaDateIso } from '../lib/argentinaDate';
 import { buildReservationWhatsAppUrl, validatePublicReservation } from '../lib/publicReservation';
 import { promocionesService, type Promocion } from '../services/promocionesService';
-import { menuDiarioService, type MenuDiarioDia, INITIAL_MENU_DIARIO } from '../services/menuDiarioService';
 
 export interface RestaurantCoverTheme {
   accentColor: string;
@@ -95,25 +94,6 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
     return () => { isMounted = false; };
   }, []);
 
-  // Dynamic Menu Diario State
-  const [menuDiario, setMenuDiario] = useState<Record<string, MenuDiarioDia>>(INITIAL_MENU_DIARIO);
-  const [loadingMenuDiario, setLoadingMenuDiario] = useState(true);
-
-  React.useEffect(() => {
-    let isMounted = true;
-    menuDiarioService.list()
-      .then(data => {
-        if (isMounted) {
-          setMenuDiario(data || INITIAL_MENU_DIARIO);
-          setLoadingMenuDiario(false);
-        }
-      })
-      .catch(err => {
-        console.warn('No se pudo cargar el menú diario en la portada:', err);
-        if (isMounted) setLoadingMenuDiario(false);
-      });
-    return () => { isMounted = false; };
-  }, []);
 
   // Mobile Nav Drawer Toggle
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -403,14 +383,14 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
         </div>
       </section>
 
-      {/* 4. MENU DEL DIA SECTION */}
+      {/* 4. SPECIALTIES SECTION */}
       <section id="especialidades" className="py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
         <div className="text-center space-y-3">
           <span className="text-xs uppercase font-bold text-[#8C6239] dark:text-[#C8956A] tracking-widest font-display-serif">
-            Propuesta Diaria
+            {specSubtitle}
           </span>
           <h2 className="text-3xl sm:text-4xl font-bold tracking-wide font-serif-rustic transition-all text-[#8C6239] dark:text-[#FAF7F0]">
-            Menu del Dia
+            {specTitle}
           </h2>
           <div 
             className="w-16 h-1 mx-auto rounded-full transition-all duration-300"
@@ -418,67 +398,42 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
           />
         </div>
 
-        {(() => {
-          const daysOrder = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
-          const dayNames: Record<string, string> = {
-            lunes: 'LUNES', martes: 'MARTES', miercoles: 'MIÉRCOLES', jueves: 'JUEVES', viernes: 'VIERNES', sabado: 'SÁBADO', domingo: 'DOMINGO'
-          };
-          const todayKey = daysOrder[new Date().getDay()];
-          const todayMenu = menuDiario[todayKey] || INITIAL_MENU_DIARIO[todayKey];
-
-          return (
-            <div className="space-y-10">
-              {/* Tarjeta Destacada del Menú del Día de Hoy */}
-              <div className="max-w-4xl mx-auto">
-                <motion.div
-                  whileHover={{ y: -4 }}
-                  className="bg-white dark:bg-[#251B12] rounded-3xl overflow-hidden border border-stone-200/60 dark:border-stone-850 shadow-xl flex flex-col md:flex-row"
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {specialties.map((spec) => (
+            <motion.div
+              key={spec.id}
+              whileHover={{ y: -6 }}
+              className="bg-white dark:bg-[#251B12] rounded-3xl overflow-hidden border border-stone-200/60 dark:border-stone-850 shadow-xl flex flex-col transition-all duration-300 group"
+            >
+              <div className="h-64 relative overflow-hidden bg-stone-100 dark:bg-stone-900">
+                <img 
+                  src={spec.image} 
+                  alt={spec.title}
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = '/images/ojo_de_bife_grill.png';
+                  }}
+                />
+                <span 
+                  className="absolute top-4 left-4 px-3 py-1 text-[#FAF7F0] text-[10px] font-bold uppercase tracking-wider font-display-serif rounded-lg shadow transition-all duration-300"
+                  style={{ backgroundColor: accentColor }}
                 >
-                  <div className="md:w-1/2 h-72 md:h-auto relative overflow-hidden bg-stone-100 dark:bg-stone-900">
-                    <img 
-                      src={todayMenu?.imagen_url || '/images/ojo_de_bife_grill.png'} 
-                      alt={todayMenu?.nombre || 'Menú del Día'}
-                      className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = '/images/ojo_de_bife_grill.png';
-                      }}
-                    />
-                    <span 
-                      className="absolute top-4 left-4 px-3.5 py-1.5 text-[#FAF7F0] text-xs font-bold uppercase tracking-wider font-display-serif rounded-xl shadow-lg backdrop-blur-xs"
-                      style={{ backgroundColor: accentColor }}
-                    >
-                      🌟 PROPUESTA DE HOY — {dayNames[todayKey]}
-                    </span>
-                  </div>
-
-                  <div className="p-8 md:w-1/2 flex flex-col justify-between space-y-6">
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs font-bold uppercase tracking-wider text-[#8C6239] dark:text-[#C8956A]">
-                          {todayMenu?.categoria || 'Minutas & Especiales'}
-                        </span>
-                      </div>
-
-                      <h3 className="text-2xl font-bold font-serif-rustic tracking-wide text-[#8C6239] dark:text-[#FAF7F0] capitalize">
-                        {todayMenu?.nombre}
-                      </h3>
-
-                      <p className="text-sm text-stone-600 dark:text-stone-300 font-serif-rustic italic leading-relaxed">
-                        {todayMenu?.descripcion}
-                      </p>
-                    </div>
-
-                    <div className="pt-4 border-t border-stone-100 dark:border-stone-850 flex items-center justify-between">
-                      <span className="text-xs text-stone-500 dark:text-stone-400 font-semibold">
-                        Servido con pan fresco y aderezos caseros
-                      </span>
-                    </div>
-                  </div>
-                </motion.div>
+                  {spec.tag}
+                </span>
               </div>
-            </div>
-          );
-        })()}
+              <div className="p-6 flex-1 flex flex-col justify-between space-y-4">
+                <div className="space-y-2">
+                  <h3 className="text-lg font-bold font-serif-rustic tracking-wide transition-all text-[#8C6239] dark:text-[#FAF7F0]">
+                    {spec.title}
+                  </h3>
+                  <p className="text-xs text-stone-600 dark:text-stone-400 font-serif-rustic italic leading-relaxed">
+                    {spec.description}
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
       </section>
 
       {/* 5. WINE / CELLAR SECTION (EXPERIENCIA) */}
