@@ -102,11 +102,34 @@ const formatFiscalDateTime = (value?: string) => {
   }).format(parsed);
 };
 
-const formatArcaDate = (value?: string) => (
-  value && /^\d{8}$/.test(value)
-    ? `${value.slice(6, 8)}/${value.slice(4, 6)}/${value.slice(0, 4)}`
-    : value || '-'
-);
+const formatCuit = (cuit: string | number | undefined) => {
+  if (!cuit) return '-';
+  const clean = String(cuit).replace(/\D/g, '');
+  if (clean.length === 11) {
+    return `${clean.slice(0, 2)}-${clean.slice(2, 10)}-${clean.slice(10)}`;
+  }
+  return clean;
+};
+
+const formatArcaDate = (value?: string) => {
+  if (!value) return '-';
+  if (/^\d{8}$/.test(value)) {
+    return `${value.slice(6, 8)}/${value.slice(4, 6)}/${value.slice(0, 4)}`;
+  }
+  if (/^\d{4}-\d{2}-\d{2}/.test(value)) {
+    return `${value.slice(8, 10)}/${value.slice(5, 7)}/${value.slice(0, 4)}`;
+  }
+  const parsed = new Date(value);
+  if (!Number.isNaN(parsed.getTime())) {
+    return new Intl.DateTimeFormat('es-AR', {
+      timeZone: 'America/Argentina/Buenos_Aires',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(parsed);
+  }
+  return value;
+};
 
 export const validateFiscalTicketData = (data: TicketData) => {
   const { pointOfSale, voucherNumber } = fiscalNumberParts(data);
@@ -159,328 +182,360 @@ export const pdfService = {
     return this.generateThermalTicket(data, logo);
   },
 
-  generateA4Invoice(data: TicketData, logo: string | null, qrImage: string | null): jsPDF {
+  generateA4Invoice(data: TicketData, _logo: string | null, qrImage: string | null): jsPDF {
     const doc = new jsPDF('p', 'mm', 'a4');
-    const margin = 14;
-    let y = 14;
+    const margin = 12;
+    const contentWidth = 186; // 210 - 24
+    let y = 8;
+
+    // Official Black / Dark Gray colors as specified by AFIP RG 1415
+    const black = [0, 0, 0] as const;
+    const darkGray = [60, 60, 60] as const;
+    const lightGray = [240, 240, 240] as const;
+
     const compType = data.tipoComprobante as string;
     const letter = compType === 'factura_a' ? 'A' : (compType === 'factura_c' || compType === 'nota_credito_c' ? 'C' : 'B');
-    const isCreditNoteC = compType === 'nota_credito_c';
+    const isCreditNote = compType.includes('nota_credito');
+    const codComp = compType === 'factura_a' ? '001' : isCreditNote ? '013' : (compType === 'factura_c' ? '011' : '006');
     const receiver = fiscalReceiverView(data);
-    const cliente = receiver.name;
-    const clienteCuit = receiver.documentNumber;
     const { pointOfSale, voucherNumber } = fiscalNumberParts(data);
-    const fiscalDate = formatFiscalDateTime(data.fechaEmision || data.fechaHora);
+    const ptoVta = String(pointOfSale ?? data.puntoVenta ?? 2).padStart(5, '0');
+    const compNro = String(voucherNumber ?? data.numeroFiscal ?? 1).padStart(8, '0');
 
-    // Top Brand Accent Line
-    doc.setFillColor(...BRAND.brown);
-    doc.rect(margin, y, 182, 1.5, 'F');
-    y += 5;
-    doc.setTextColor(...BRAND.dark);
+    // 1. TOP: "ORIGINAL" / "DUPLICADO"
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
+    doc.setTextColor(...black);
     doc.text(data.copia || 'ORIGINAL', 105, y + 2, { align: 'center' });
-    y += 6;
+    y += 4;
 
-    // Header Content Layout (Clean & Open)
-    if (logo) {
-      addLogo(doc, logo, margin, y, 22);
+    const headerBoxY = y;
+    const headerHeight = 40;
+
+    // Outer border of header box
+    doc.setDrawColor(...black);
+    doc.setLineWidth(0.4);
+    doc.rect(margin, headerBoxY, contentWidth, headerHeight);
+
+    // Center Letter Box
+    const letterBoxWidth = 16;
+    const letterBoxHeight = 14;
+    const letterBoxX = 105 - (letterBoxWidth / 2);
+    doc.setFillColor(255, 255, 255);
+    doc.rect(letterBoxX, headerBoxY, letterBoxWidth, letterBoxHeight, 'FD');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(22);
+    doc.setTextColor(...black);
+    doc.text(letter, 105, headerBoxY + 9, { align: 'center' });
+
+    doc.setFontSize(7);
+    doc.text(`COD. ${codComp}`, 105, headerBoxY + 12.5, { align: 'center' });
+
+    // Vertical line dividing left and right below the letter box
+    doc.line(105, headerBoxY + letterBoxHeight, 105, headerBoxY + headerHeight);
+
+    // --- LEFT SIDE: EMISOR ---
+    const leftX = margin + 4;
+    let leftY = headerBoxY + 6;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.text(data.razonSocial || data.nombreComercial, leftX, leftY);
+    leftY += 5;
+
+    if (data.nombreComercial && data.nombreComercial !== data.razonSocial) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(...darkGray);
+      doc.text(data.nombreComercial, leftX, leftY);
+      leftY += 4.5;
     }
-    
-    const detailsX = logo ? margin + 26 : margin;
-    
-    doc.setTextColor(...BRAND.brown);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(...black);
+    doc.text(`Razón Social: ${data.razonSocial}`, leftX, leftY);
+    leftY += 4.5;
+    doc.text(`Domicilio Comercial: ${data.direccion}`, leftX, leftY, { maxWidth: 78 });
+    leftY += 8;
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Condición frente al IVA: ${data.condicionIvaEmisor || (letter === 'C' ? 'Monotributo' : 'Responsable Inscripto')}`, leftX, leftY);
+
+    const writeField = (label: string, value: string, startX: number, curY: number, maxWidth?: number) => {
+      doc.setFont('helvetica', 'bold');
+      doc.text(label, startX, curY);
+      const labelW = doc.getTextWidth(label);
+      doc.setFont('helvetica', 'normal');
+      if (maxWidth) {
+        doc.text(value, startX + labelW + 1.5, curY, { maxWidth });
+      } else {
+        doc.text(value, startX + labelW + 1.5, curY);
+      }
+    };
+
+    // --- RIGHT SIDE: COMPROBANTE ---
+    const rightX = 118;
+    let rightY = headerBoxY + 7;
+
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(16);
-    doc.text(data.nombreComercial.toUpperCase(), detailsX, y + 5);
-    
-    doc.setTextColor(...BRAND.dark);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8.5);
-    doc.text(data.razonSocial, detailsX, y + 10);
-    
-    doc.setTextColor(...BRAND.muted);
-    doc.setFontSize(8);
-    doc.text(`${data.direccion} | Tel: ${data.telefono}`, detailsX, y + 14);
-    doc.text(`Email: ${data.email}`, detailsX, y + 18);
+    doc.setTextColor(...black);
+    doc.text(isCreditNote ? 'NOTA DE CRÉDITO' : 'FACTURA', rightX, rightY);
+    rightY += 6;
 
-    // Invoice type letter badge on the right
-    doc.setFillColor(...BRAND.cream);
-    doc.rect(margin + 152, y, 30, 20, 'F');
-    doc.setDrawColor(...BRAND.brown);
-    doc.setLineWidth(0.3);
-    doc.rect(margin + 152, y, 30, 20, 'D');
-
-    doc.setTextColor(...BRAND.brown);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(18);
-    doc.text(letter, margin + 167, y + 11, { align: 'center' });
-    doc.setTextColor(...BRAND.dark);
-    doc.setFontSize(7);
-    const codComprobante = compType === 'factura_a' ? 'COD. 001' : isCreditNoteC ? 'COD. 013' : (compType === 'factura_c' ? 'COD. 011' : 'COD. 006');
-    doc.text(codComprobante, margin + 167, y + 16, { align: 'center' });
-
-    y += 26;
-
-    // Divider Line
-    doc.setDrawColor(...BRAND.line);
-    doc.setLineWidth(0.2);
-    doc.line(margin, y, margin + 182, y);
-    y += 6;
-
-    // Two Columns for Emisor / Comprobante
-    doc.setTextColor(...BRAND.dark);
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
-    doc.text('DATOS DEL EMISOR', margin, y);
-    doc.text('DATOS DEL COMPROBANTE', margin + 102, y);
-    y += 5;
-
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(...BRAND.muted);
-    doc.setFontSize(8.5);
-    doc.text(`CUIT: ${data.cuit}`, margin, y);
-    doc.text(`Comprobante: ${isCreditNoteC ? 'Nota de Crédito C' : `Factura ${letter}`}`, margin + 102, y);
-    y += 4.5;
-    doc.text(`IVA: ${data.condicionIvaEmisor || (letter === 'C' ? 'Monotributo' : 'Responsable Inscripto')}`, margin, y);
-    doc.text(`Punto de venta: ${String(pointOfSale).padStart(5, '0')}`, margin + 102, y);
-    y += 4.5;
-    doc.text(`IIBB: ${data.ingresosBrutos || 'No informado'}`, margin, y);
-    doc.text(`Comp. Nro: ${String(voucherNumber).padStart(8, '0')}`, margin + 102, y);
-    y += 4.5;
-    doc.text(`Inicio actividades: ${data.inicioActividades || 'No informado'}`, margin, y);
-    doc.text(`Fecha de emision: ${fiscalDate}`, margin + 102, y);
-    y += 4.5;
-    doc.text(`Email: ${data.email}`, margin, y);
-    if (data.cae) {
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(...BRAND.dark);
-      doc.text(`CAE Nº: ${data.cae}`, margin + 102, y);
-      y += 4.5;
-      doc.text(`Fecha Vto. CAE: ${formatArcaDate(data.vto)}`, margin + 102, y);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(...BRAND.muted);
-      y += 4.5;
-      doc.text(`Moneda: ${data.moneda || 'PES'} | Cotizacion: 1`, margin + 102, y);
-    } else {
-      doc.text(`Moneda: ${data.moneda || 'PES'} | Cotizacion: 1`, margin + 102, y);
-    }
-    if (isCreditNoteC && data.comprobanteAsociado) {
-      y += 4.5;
-      doc.text(`Comprobante asociado: ${data.comprobanteAsociado}`, margin + 102, y);
-    }
-    y += 8;
-
-    // Customer Card
-    doc.setFillColor(...BRAND.cream);
-    doc.setDrawColor(...BRAND.line);
-    doc.setLineWidth(0.2);
-    const receiverHeight = data.clienteDomicilio ? 21 : 17;
-    doc.rect(margin, y, 182, receiverHeight, 'FD');
-
-    doc.setTextColor(...BRAND.brown);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
-    doc.text('DATOS DEL RECEPTOR (CLIENTE)', margin + 4, y + 5);
-
-    doc.setTextColor(...BRAND.dark);
-    doc.setFont('helvetica', 'bold');
     doc.setFontSize(9.5);
-    doc.text(`Cliente: ${cliente}`, margin + 4, y + 11);
+    doc.text(`Punto de Venta: ${ptoVta}   Comp. Nro: ${compNro}`, rightX, rightY);
+    rightY += 5;
 
-    doc.setFont('helvetica', 'normal');
     doc.setFontSize(8.5);
-    doc.text(`${receiver.documentLabel}: ${clienteCuit}`, margin + 105, y + 8);
+    const emissionFormatted = formatArcaDate(data.fechaEmision || data.fechaHora);
+    writeField('Fecha de Emisión: ', emissionFormatted, rightX, rightY);
+    rightY += 4.5;
+    writeField('CUIT: ', formatCuit(data.cuit), rightX, rightY);
+    rightY += 4.5;
+    writeField('Ingresos Brutos: ', String(data.ingresosBrutos || 'No informado'), rightX, rightY);
+    rightY += 4.5;
+    writeField('Fecha de Inicio de Actividades: ', formatArcaDate(data.inicioActividades), rightX, rightY);
+
+    y = headerBoxY + headerHeight + 2;
+
+    // 2. PERIODO FACTURADO BOX
+    const periodBoxHeight = 6.5;
+    doc.setDrawColor(...black);
+    doc.setLineWidth(0.3);
+    doc.rect(margin, y, contentWidth, periodBoxHeight);
+
     doc.setFontSize(7.5);
-    doc.text(`IVA: ${data.condicionIvaReceptor || 'Consumidor Final'}`, margin + 105, y + 12.5);
-    if (data.clienteDomicilio) doc.text(`Domicilio: ${data.clienteDomicilio}`, margin + 4, y + 16);
-    
-    y += receiverHeight + 6;
-
-    // Items Table Header
-    doc.setFillColor(...BRAND.brown);
-    doc.rect(margin, y, 182, 7.5, 'F');
-    doc.setTextColor(255, 255, 255);
+    const pDesdeLabel = 'Período Facturado Desde: ';
     doc.setFont('helvetica', 'bold');
+    doc.text(pDesdeLabel, margin + 3, y + 4.5);
+    let pX = margin + 3 + doc.getTextWidth(pDesdeLabel) + 1;
+    doc.setFont('helvetica', 'normal');
+    doc.text(emissionFormatted, pX, y + 4.5);
+
+    const pHastaLabel = '   Hasta: ';
+    pX += doc.getTextWidth(emissionFormatted);
+    doc.setFont('helvetica', 'bold');
+    doc.text(pHastaLabel, pX, y + 4.5);
+    pX += doc.getTextWidth(pHastaLabel);
+    doc.setFont('helvetica', 'normal');
+    doc.text(emissionFormatted, pX, y + 4.5);
+
+    const pVtoLabel = 'Fecha de Vto. para el pago: ';
+    doc.setFont('helvetica', 'bold');
+    doc.text(pVtoLabel, margin + 115, y + 4.5);
+    const pVtoX = margin + 115 + doc.getTextWidth(pVtoLabel) + 1.5;
+    doc.setFont('helvetica', 'normal');
+    doc.text(emissionFormatted, pVtoX, y + 4.5);
+
+    y += periodBoxHeight + 2;
+
+    // 3. DATOS DEL RECEPTOR BOX
+    const receiverBoxHeight = 17;
+    doc.rect(margin, y, contentWidth, receiverBoxHeight);
+
+    const isCuit = receiver.documentLabel === 'CUIT' || (data.clienteCuit && data.clienteCuit.replace(/\D/g, '').length === 11);
+    const docLabel = receiver.documentLabel;
+    const docValue = isCuit ? formatCuit(receiver.documentNumber) : receiver.documentNumber;
+    const clienteNombre = receiver.name;
+    const ivaReceptor = data.condicionIvaReceptor || (receiver.isFinalConsumer ? 'Consumidor Final' : (isCuit ? 'IVA Monotributo' : 'Consumidor Final'));
+
+    let recY = y + 4.8;
     doc.setFontSize(8);
-    doc.text('Cant.', margin + 4, y + 4.8);
-    doc.text('Producto / Descripción', margin + 20, y + 4.8);
-    doc.text('Precio Unit.', margin + 142, y + 4.8, { align: 'right' });
-    doc.text('Subtotal', margin + 178, y + 4.8, { align: 'right' });
-    y += 13;
+    writeField(`${docLabel}: `, docValue, margin + 3, recY);
 
-    // Items List
-    doc.setTextColor(...BRAND.dark);
-    data.items.forEach((item, i) => {
-      const descriptionLines = doc.splitTextToSize(String(item.descripcion || '-'), 102) as string[];
-      const rowHeight = Math.max(8, descriptionLines.length * 3.7 + 3);
-      if (y + rowHeight > 246) {
+    const nombreLabel = 'Apellido y Nombre / Razón Social: ';
+    doc.setFont('helvetica', 'bold');
+    doc.text(nombreLabel, 95, recY);
+    const nombreLabelW = doc.getTextWidth(nombreLabel);
+    doc.setFont('helvetica', 'normal');
+    doc.text(clienteNombre, 95 + nombreLabelW + 1.5, recY, { maxWidth: 52 });
+
+    recY += 5;
+    writeField('Condición frente al IVA: ', ivaReceptor, margin + 3, recY);
+
+    const domLabel = 'Domicilio Comercial: ';
+    doc.setFont('helvetica', 'bold');
+    doc.text(domLabel, 95, recY);
+    const domLabelW = doc.getTextWidth(domLabel);
+    doc.setFont('helvetica', 'normal');
+    doc.text(data.clienteDomicilio || '-', 95 + domLabelW + 1.5, recY, { maxWidth: 68 });
+
+    recY += 5;
+    const medioText = data.metodosPago?.[0]?.metodo || 'Efectivo';
+    writeField('Condición de venta: ', medioText.toUpperCase(), margin + 3, recY);
+
+    y += receiverBoxHeight + 3;
+
+    // 4. ITEMS TABLE
+    const tableHeaderHeight = 6.5;
+    doc.setFillColor(...lightGray);
+    doc.rect(margin, y, contentWidth, tableHeaderHeight, 'FD');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(...black);
+
+    const colX = {
+      cod: margin + 2,
+      cant: margin + 20,
+      desc: margin + 38,
+      unit: margin + 144,
+      subtotal: margin + 182,
+    };
+
+    doc.text('Código', colX.cod, y + 4.5);
+    doc.text('Cantidad', colX.cant, y + 4.5);
+    doc.text('Producto / Servicio', colX.desc, y + 4.5);
+    doc.text('Precio Unit.', colX.unit, y + 4.5, { align: 'right' });
+    doc.text('Subtotal', colX.subtotal, y + 4.5, { align: 'right' });
+
+    // Column separators
+    doc.line(margin + 18, y, margin + 18, y + tableHeaderHeight);
+    doc.line(margin + 36, y, margin + 36, y + tableHeaderHeight);
+    doc.line(margin + 120, y, margin + 120, y + tableHeaderHeight);
+    doc.line(margin + 152, y, margin + 152, y + tableHeaderHeight);
+
+    y += tableHeaderHeight;
+
+    // Rows
+    const tableStartY = y;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+
+    data.items.forEach((item, index) => {
+      const rowHeight = 7.5;
+      const itemCode = String(index + 1).padStart(3, '0');
+      const desc = String(item.descripcion || '-');
+      const unitPrice = itemUnit(item) || (item.cantidad ? (item.subtotal / item.cantidad) : item.subtotal);
+
+      if (y + rowHeight > 235) {
+        doc.rect(margin, tableStartY, contentWidth, y - tableStartY);
+        doc.line(margin + 18, tableStartY, margin + 18, y);
+        doc.line(margin + 36, tableStartY, margin + 36, y);
+        doc.line(margin + 120, tableStartY, margin + 120, y);
+        doc.line(margin + 152, tableStartY, margin + 152, y);
+
         doc.addPage();
-        y = 18;
-        doc.setFillColor(...BRAND.brown);
-        doc.rect(margin, y, 182, 7.5, 'F');
-        doc.setTextColor(255, 255, 255);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(8);
-        doc.text('Cant.', margin + 4, y + 4.8);
-        doc.text('Producto / Descripción', margin + 20, y + 4.8);
-        doc.text('Precio Unit.', margin + 142, y + 4.8, { align: 'right' });
-        doc.text('Subtotal', margin + 178, y + 4.8, { align: 'right' });
-        y += 13;
-        doc.setTextColor(...BRAND.dark);
-      }
-      
-      if (i % 2 === 1) {
-        doc.setFillColor(250, 248, 245);
-        doc.rect(margin, y - 5.5, 182, rowHeight, 'F');
-      }
-      
-      doc.setDrawColor(...BRAND.line);
-      doc.setLineWidth(0.1);
-      doc.line(margin, y + rowHeight - 5.5, margin + 182, y + rowHeight - 5.5);
+        y = 14;
 
-      doc.setFont('helvetica', 'bold');
-      doc.text(String(item.cantidad), margin + 4, y);
-      doc.setFont('helvetica', 'normal');
-      doc.text(descriptionLines, margin + 20, y);
-      doc.text(money(itemUnit(item)), margin + 142, y, { align: 'right' });
-      doc.text(money(item.subtotal), margin + 178, y, { align: 'right' });
+        doc.setFillColor(...lightGray);
+        doc.rect(margin, y, contentWidth, tableHeaderHeight, 'FD');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7.5);
+        doc.setTextColor(...black);
+
+        doc.text('Código', colX.cod, y + 4.5);
+        doc.text('Cantidad', colX.cant, y + 4.5);
+        doc.text('Producto / Servicio', colX.desc, y + 4.5);
+        doc.text('Precio Unit.', colX.unit, y + 4.5, { align: 'right' });
+        doc.text('Subtotal', colX.subtotal, y + 4.5, { align: 'right' });
+
+        doc.line(margin + 18, y, margin + 18, y + tableHeaderHeight);
+        doc.line(margin + 36, y, margin + 36, y + tableHeaderHeight);
+        doc.line(margin + 120, y, margin + 120, y + tableHeaderHeight);
+        doc.line(margin + 152, y, margin + 152, y + tableHeaderHeight);
+
+        y += tableHeaderHeight;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+      }
+
+      doc.text(itemCode, colX.cod + 2, y + 5);
+      doc.text(String(item.cantidad), colX.cant + 6, y + 5, { align: 'center' });
+      doc.text(desc, colX.desc, y + 5, { maxWidth: 80 });
+      doc.text(money(unitPrice), colX.unit, y + 5, { align: 'right' });
+      doc.text(money(item.subtotal), colX.subtotal, y + 5, { align: 'right' });
+
       y += rowHeight;
     });
 
-    y += 4;
-    if (y > 200) {
+    // Close table borders
+    doc.rect(margin, tableStartY, contentWidth, y - tableStartY);
+    doc.line(margin + 18, tableStartY, margin + 18, y);
+    doc.line(margin + 36, tableStartY, margin + 36, y);
+    doc.line(margin + 120, tableStartY, margin + 120, y);
+    doc.line(margin + 152, tableStartY, margin + 152, y);
+
+    y += 2;
+
+    const totalsBoxHeight = 18;
+    const fiscalBoxHeight = data.cae ? 28 : 18;
+    if (y + totalsBoxHeight + 3 + fiscalBoxHeight > 285) {
       doc.addPage();
-      y = 18;
-    }
-    
-    doc.setDrawColor(...BRAND.line);
-    doc.setLineWidth(0.2);
-    doc.line(margin, y, margin + 182, y);
-    y += 6;
-
-    const summaryStartY = y;
-    let payY = summaryStartY;
-
-    // Payment Methods (Left Column)
-    if (data.metodosPago && data.metodosPago.length > 0) {
-      doc.setTextColor(...BRAND.dark);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8.5);
-      doc.text('MEDIOS DE PAGO', margin, payY);
-      payY += 5;
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8);
-      data.metodosPago.forEach(mp => {
-        doc.text(`${mp.metodo.toUpperCase()}: ${money(mp.monto)}`, margin, payY);
-        payY += 4.5;
-      });
-      if (data.vuelto > 0) {
-        doc.text(`Vuelto entregado: ${money(data.vuelto)}`, margin, payY);
-        payY += 4.5;
-      }
+      y = 14;
     }
 
-    // Totals Panel (Right Column)
-    y = summaryStartY;
-    const totalX = margin + 116;
-    const totalValueX = margin + 178;
-    doc.setFontSize(9);
-    doc.setTextColor(...BRAND.dark);
+    // 5. TOTALS SECTION
+    doc.rect(margin, y, contentWidth, totalsBoxHeight);
+
+    const totRightLabelX = margin + 140;
+    const totRightValX = margin + 182;
+
     doc.setFont('helvetica', 'normal');
-    doc.text(letter === 'C' ? 'Subtotal' : 'Subtotal Neto', totalX, y);
-    doc.text(money(data.subtotal), totalValueX, y, { align: 'right' });
-    y += 5.5;
-    
-    if (data.descuento > 0) {
-      doc.text('Bonificación', totalX, y);
-      doc.text(`-${money(data.descuento)}`, totalValueX, y, { align: 'right' });
-      y += 5.5;
-    }
-    if (data.propina > 0) {
-      doc.text('Propina Sugerida', totalX, y);
-      doc.text(money(data.propina), totalValueX, y, { align: 'right' });
-      y += 5.5;
-    }
-    if (letter !== 'C') {
-      doc.text('IVA 21% Incluido', totalX, y);
-      doc.text(money(data.iva), totalValueX, y, { align: 'right' });
-      y += 8;
-    } else {
-      y += 3;
-    }
+    doc.setFontSize(8.5);
+    doc.text(letter === 'C' ? 'Subtotal:' : 'Subtotal Neto:', totRightLabelX, y + 5, { align: 'right' });
+    doc.text(money(data.subtotal), totRightValX, y + 5, { align: 'right' });
 
-    // Total Highlight Box
-    doc.setFillColor(...BRAND.cream);
-    doc.setDrawColor(...BRAND.brown);
-    doc.setLineWidth(0.5);
-    doc.rect(totalX - 4, y - 5, 66, 9.5, 'FD');
-    doc.setTextColor(...BRAND.brown);
+    doc.text('Importe Otros Tributos:', totRightLabelX, y + 9.5, { align: 'right' });
+    doc.text(money(0), totRightValX, y + 9.5, { align: 'right' });
+
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(11);
-    doc.text('TOTAL GENERAL', totalX, y + 1.2);
-    doc.text(money(data.total), totalValueX, y + 1.2, { align: 'right' });
-    
-    // Position below whichever column is taller
-    y = Math.max(y + 8, payY + 4);
+    doc.text('Importe Total:', totRightLabelX, y + 15, { align: 'right' });
+    doc.text(money(data.total), totRightValX, y + 15, { align: 'right' });
 
-    // ARCA footer with the authorization and mandatory fiscal QR.
-    const fiscalBoxHeight = data.cae ? 26 : 18;
-    y += 5;
-    if (y + fiscalBoxHeight > 272) {
-      doc.addPage();
-      y = 18;
-    }
+    y += totalsBoxHeight + 3;
 
+    // 6. OFFICIAL ARCA FISCAL FOOTER BOX
     if (data.cae) {
-      doc.setFillColor(...BRAND.cream);
-      doc.setDrawColor(...BRAND.brown);
-      doc.setLineWidth(0.3);
-      doc.roundedRect(margin, y, 182, fiscalBoxHeight, 2, 2, 'FD');
+      doc.rect(margin, y, contentWidth, fiscalBoxHeight);
 
       if (qrImage) {
         try {
-          doc.addImage(qrImage, 'PNG', margin + 3, y + 2.5, 21, 21);
+          doc.addImage(qrImage, 'PNG', margin + 3, y + 2.5, 23, 23);
         } catch (err) {
           console.warn('No se pudo insertar el QR fiscal en el PDF:', err);
         }
       }
-      doc.setTextColor(...BRAND.brown);
+
+      // Official ARCA logo text next to QR
+      const arcaBrandX = margin + 28;
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8.5);
-      doc.text(data.resultadoArca === 'O' ? 'COMPROBANTE AUTORIZADO POR ARCA (CON OBSERVACIONES)' : 'COMPROBANTE ELECTRONICO AUTORIZADO POR ARCA', margin + 28, y + 5.5);
+      doc.setFontSize(15);
+      doc.setTextColor(15, 23, 42);
+      doc.text('ARCA', arcaBrandX, y + 8);
 
-      doc.setTextColor(...BRAND.dark);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9.5);
-      doc.text(`CAE Nº: ${data.cae}`, margin + 28, y + 11);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8.5);
-      doc.text(`Fecha Vto. CAE: ${formatArcaDate(data.vto)}`, margin + 102, y + 11);
+      doc.setFontSize(6.5);
+      doc.setTextColor(70, 70, 70);
+      doc.text('Agencia de Recaudación y Control Aduanero', arcaBrandX, y + 11.5);
 
-      doc.setTextColor(...BRAND.muted);
-      doc.setFontSize(7.5);
-      doc.text('Agencia de Recaudación y Control Aduanero · Escanee el código QR para validar este comprobante.', margin + 28, y + 16);
-
-      doc.setTextColor(...BRAND.dark);
       doc.setFont('helvetica', 'italic');
-      doc.setFontSize(7.5);
-      doc.text(data.mensajePie || 'Gracias por su visita.', margin + 28, y + 21);
+      doc.setFontSize(6.5);
+      doc.setTextColor(50, 50, 50);
+      doc.text('Comprobante Autorizado', arcaBrandX, y + 17.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(5.5);
+      doc.setTextColor(110, 110, 110);
+      doc.text('Esta Administración Federal no se responsabiliza por los datos ingresados en el comprobante.', arcaBrandX, y + 22.5);
 
-      if (data.resultadoArca === 'O' && data.observacionesArca?.length) {
-        const observations = data.observacionesArca
-          .slice(0, 2)
-          .map(item => `[${item.code}] ${item.msg}`)
-          .join(' | ');
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(6.5);
-        doc.text(doc.splitTextToSize(observations, 140), margin + 28, y + 24.5);
-      }
+      // Right side: CAE and Vto CAE in official format
+      const caeLabelX = margin + 114;
+      const caeVtoY = y + 9;
+
+      doc.setFontSize(10);
+      doc.setTextColor(...black);
+      writeField('CAE Nº: ', String(data.cae || '-'), caeLabelX, caeVtoY);
+
+      doc.setFontSize(9);
+      writeField('Fecha de Vto. de CAE: ', formatArcaDate(data.vto), caeLabelX, caeVtoY + 6.5);
     } else {
       doc.setFillColor(254, 242, 242);
       doc.setDrawColor(190, 24, 24);
       doc.setLineWidth(0.3);
-      doc.roundedRect(margin, y, 182, fiscalBoxHeight, 2, 2, 'FD');
+      doc.roundedRect(margin, y, contentWidth, fiscalBoxHeight, 2, 2, 'FD');
       doc.setTextColor(190, 24, 24);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(9.5);
@@ -490,13 +545,18 @@ export const pdfService = {
       doc.text('Documento interno sin autorización ni CAE de ARCA.', margin + 6, y + 13);
     }
 
-    const pageCount = doc.getNumberOfPages();
-    for (let page = 1; page <= pageCount; page += 1) {
-      doc.setPage(page);
-      doc.setTextColor(...BRAND.muted);
+    // Page numbering
+    const totalPages = doc.getNumberOfPages();
+    for (let p = 1; p <= totalPages; p += 1) {
+      doc.setPage(p);
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7);
-      doc.text(`ORIGINAL | Pagina ${page} de ${pageCount}`, 196, 289, { align: 'right' });
+      doc.setFontSize(7.5);
+      doc.setTextColor(...black);
+      if (p === totalPages) {
+        doc.text(`Pág. ${p} / ${totalPages}`, margin + contentWidth - 4, y + fiscalBoxHeight - 3, { align: 'right' });
+      } else {
+        doc.text(`Pág. ${p} / ${totalPages}`, margin + contentWidth - 4, 288, { align: 'right' });
+      }
     }
 
     return doc;
