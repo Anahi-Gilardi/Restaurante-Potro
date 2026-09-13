@@ -124,22 +124,12 @@ export async function dbRecordMovement(movement: any) {
 // =============================================================================
 export async function dbFetchProductosMenu() {
   try {
-    const data = await sheetFetchTable('productos_menu');
-    if (data && data.length > 0) {
-      return data.map((p: any) => ({
-        ...p,
-        precio_venta: Number(p.precio_venta || 0),
-        precio_original: p.precio_original ? Number(p.precio_original) : undefined,
-        precio_final: p.precio_final ? Number(p.precio_final) : undefined,
-        activo: p.activo !== false && String(p.activo).toLowerCase() !== 'false',
-        requiere_cocina: p.requiere_cocina !== false && String(p.requiere_cocina).toLowerCase() !== 'false',
-      }));
-    }
-  } catch (sheetErr) {
-    console.warn('[GoogleSheets] dbFetchProductosMenu fallback to Supabase:', sheetErr);
+    const { menuService } = await import('./services/menuService');
+    return await menuService.list();
+  } catch (e) {
+    console.warn('dbFetchProductosMenu error:', e);
+    return null;
   }
-  try { return await (await import('./services/menuService')).menuService.list(); }
-  catch (e) { console.warn('dbFetchProductosMenu:', e); return null; }
 }
 
 export async function dbUpsertProductosMenu(productos: any[]) {

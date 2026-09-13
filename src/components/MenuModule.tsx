@@ -10,6 +10,7 @@ import { useCategories } from '../hooks/useCategories';
 import { menuItemSchema } from '../lib/validations';
 import { ToastContainer, useToast } from './ToastContainer';
 import { calculateRecipeCost, calculateMarginPct, getMarginLevel } from '../lib/recetas';
+import { compressImageForUpload, saveMenuImage, getAllMenuImages, isValidImageData } from '../lib/imageStorage';
 
 interface MenuModuleProps {
   productosMenu: ProductoMenu[];
@@ -60,6 +61,23 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
 
   useEffect(() => {
     setItems(productosMenu);
+    let mounted = true;
+    getAllMenuImages().then(storedImgs => {
+      if (!mounted || !storedImgs || Object.keys(storedImgs).length === 0) return;
+      setItems(prev => {
+        let changed = false;
+        const next = prev.map(item => {
+          const localImg = storedImgs[item.id_producto];
+          if (localImg && item.imagen !== localImg) {
+            changed = true;
+            return { ...item, imagen: localImg };
+          }
+          return item;
+        });
+        return changed ? next : prev;
+      });
+    }).catch(() => {});
+    return () => { mounted = false; };
   }, [productosMenu]);
 
   const [search, setSearch] = useState('');
@@ -169,53 +187,18 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
     items.some(item => item.id_producto !== excludedId && normalizeText(item.nombre) === normalizeText(name))
   );
 
-  // Resize and compress files to base64
-  const processImageFile = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const img = new window.Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          const MAX_WIDTH = 400;
-          let width = img.width;
-          let height = img.height;
-
-          if (width > MAX_WIDTH) {
-            height = Math.round((height * MAX_WIDTH) / width);
-            width = MAX_WIDTH;
-          }
-
-          canvas.width = width;
-          canvas.height = height;
-
-          const ctx = canvas.getContext('2d');
-          if (!ctx) {
-            reject(new Error('Canvas context could not be created'));
-            return;
-          }
-
-          ctx.drawImage(img, 0, 0, width, height);
-          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.70);
-          resolve(compressedBase64);
-        };
-        img.onerror = () => reject(new Error('Invalid image file'));
-        img.src = e.target?.result as string;
-      };
-      reader.onerror = () => reject(new Error('File reader failed'));
-      reader.readAsDataURL(file);
-    });
-  };
-
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, isEditMode: boolean) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     try {
-      toast.info('Procesando y comprimiendo imagen...');
-      const base64 = await processImageFile(file);
+      toast.info('Optimizando y preparando imagen...');
+      const base64 = await compressImageForUpload(file);
       if (isEditMode) {
         setEditImagen(base64);
+        if (editingId) {
+          await saveMenuImage(editingId, base64);
+        }
       } else {
         setImagenUrl(base64);
       }
@@ -318,6 +301,9 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
 
     try {
       const saved = await menuService.create(newItem);
+      if (saved.imagen && isValidImageData(saved.imagen)) {
+        await saveMenuImage(saved.id_producto, saved.imagen);
+      }
       syncItems([saved, ...items]);
       addLog('sistema', `MENU: Creado '${saved.nombre}' con precio de venta $${saved.precio_venta}`);
       toast.success('Producto registrado en carta.');
@@ -397,6 +383,9 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
     syncItems(optimistic);
 
     try {
+      if (updated.imagen && isValidImageData(updated.imagen)) {
+        await saveMenuImage(id, updated.imagen);
+      }
       const saved = await menuService.update(id, updated);
       syncItems(optimistic.map(item => item.id_producto === id ? { ...item, ...saved } : item));
       addLog('sistema', `MENU: Actualizado '${target.nombre}' a '${saved.nombre}' ($${saved.precio_venta})`);

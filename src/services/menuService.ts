@@ -3,6 +3,7 @@ import { sheetFetchTable, sheetUpsertRow, sheetDeleteRow } from '../lib/googleSh
 import { ProductoMenu } from '../types';
 import { RECIPES_DETAILS } from '../data/recipesData';
 import { INITIAL_PRODUCTOS_MENU } from '../data/initialData';
+import { isValidImageData, saveMenuImage, getMenuImageSync, getAllMenuImages, deleteMenuImage } from '../lib/imageStorage';
 
 type DbProductoMenu = Record<string, unknown>;
 
@@ -72,7 +73,13 @@ const normalizeProductoMenu = (prod: DbProductoMenu): ProductoMenu => {
     ? true
     : (rawActivo === true || rawActivo === 'true' || (rawActivo !== false && rawActivo !== 'false'));
 
-  const imagen = readString(prod.imagen) || readString(prod.url_imagen) || match?.imagen || '/logo-el-patron.jpeg?v=5';
+  const rawImg = readString(prod.imagen) || readString(prod.url_imagen);
+  const validImg = isValidImageData(rawImg) ? rawImg : null;
+  const localImg = getMenuImageSync(id_producto);
+  const imagen = validImg || localImg || match?.imagen || '/logo-el-patron.jpeg?v=5';
+  if (validImg && !localImg) {
+    saveMenuImage(id_producto, validImg).catch(() => {});
+  }
   const descripcion = readString(prod.descripcion) || match?.descripcion || '';
 
   return {
@@ -100,13 +107,21 @@ const normalizeProductoMenu = (prod: DbProductoMenu): ProductoMenu => {
   };
 };
 
-const toDbProductoMenu = (prod: ProductoMenu | Partial<ProductoMenu>) => ({
-  ...prod,
-  imagen: prod.imagen || null
-});
+const toDbProductoMenu = (prod: ProductoMenu | Partial<ProductoMenu>) => {
+  const img = prod.imagen || (prod as any).url_imagen || null;
+  return {
+    ...prod,
+    imagen: img,
+    url_imagen: img
+  };
+};
 
 export const menuService = {
   async list(): Promise<ProductoMenu[]> {
+    try {
+      await getAllMenuImages();
+    } catch {}
+
     const cached = localStorage.getItem('el_patron_cache_menu');
     if (process.env.NODE_ENV === 'test' && cached) {
       try {
@@ -179,6 +194,10 @@ export const menuService = {
   },
 
   async create(prod: ProductoMenu): Promise<ProductoMenu> {
+    if (prod.imagen && isValidImageData(prod.imagen)) {
+      await saveMenuImage(prod.id_producto, prod.imagen).catch(() => {});
+    }
+
     const payload = toDbProductoMenu(prod);
     try {
       await sheetUpsertRow('productos_menu', payload);
@@ -197,7 +216,7 @@ export const menuService = {
 
     const normalized = normalizeProductoMenu(payload);
 
-    // Update local cache
+    // Update local cache defensively
     const cached = localStorage.getItem('el_patron_cache_menu');
     if (cached) {
       try {
@@ -206,10 +225,12 @@ export const menuService = {
           parsed.push(payload);
           try {
             localStorage.setItem('el_patron_cache_menu', JSON.stringify(parsed));
-          } catch {}
+          } catch (e) {
+            console.warn('LocalStorage quota exceeded on create, skipping cache update:', e);
+          }
         }
-      } catch {
-        localStorage.removeItem('el_patron_cache_menu');
+      } catch (e) {
+        console.warn('Failed parsing menu cache on create:', e);
       }
     }
 
@@ -217,7 +238,19 @@ export const menuService = {
   },
 
   async update(id: string, prod: Partial<ProductoMenu>): Promise<ProductoMenu> {
-    const payload = { ...toDbProductoMenu(prod), id_producto: id };
+    // 1. Fetch current list to merge fields defensively
+    let existing: ProductoMenu | undefined;
+    try {
+      const all = await this.list();
+      existing = all.find(p => p.id_producto === id);
+    } catch {}
+
+    const merged = { ...(existing || {}), ...prod, id_producto: id };
+    if (merged.imagen && isValidImageData(merged.imagen)) {
+      await saveMenuImage(id, merged.imagen).catch(() => {});
+    }
+
+    const payload = { ...toDbProductoMenu(merged), id_producto: id };
     try {
       await sheetUpsertRow('productos_menu', payload);
     } catch (sheetErr) {
@@ -235,7 +268,7 @@ export const menuService = {
 
     const normalized = normalizeProductoMenu(payload);
 
-    // Update local cache in-place
+    // Update local cache in-place defensively
     const cached = localStorage.getItem('el_patron_cache_menu');
     if (cached) {
       try {
@@ -246,10 +279,12 @@ export const menuService = {
           );
           try {
             localStorage.setItem('el_patron_cache_menu', JSON.stringify(updatedCache));
-          } catch {}
+          } catch (e) {
+            console.warn('LocalStorage quota exceeded on update, skipping cache update:', e);
+          }
         }
-      } catch {
-        localStorage.removeItem('el_patron_cache_menu');
+      } catch (e) {
+        console.warn('Failed parsing menu cache on update:', e);
       }
     }
 
@@ -264,6 +299,8 @@ export const menuService = {
   },
 
   async remove(id: string): Promise<boolean> {
+    await deleteMenuImage(id).catch(() => {});
+
     try {
       await sheetDeleteRow('productos_menu', id);
     } catch (sheetErr) {
@@ -279,7 +316,7 @@ export const menuService = {
       console.warn('[menuService.remove] Supabase omitido:', e);
     }
 
-    // Update local cache
+    // Update local cache defensively
     const cached = localStorage.getItem('el_patron_cache_menu');
     if (cached) {
       try {
@@ -288,10 +325,12 @@ export const menuService = {
           const updatedCache = parsed.filter((item: any) => item.id_producto !== id);
           try {
             localStorage.setItem('el_patron_cache_menu', JSON.stringify(updatedCache));
-          } catch {}
+          } catch (e) {
+            console.warn('LocalStorage quota exceeded on remove, skipping cache update:', e);
+          }
         }
-      } catch {
-        localStorage.removeItem('el_patron_cache_menu');
+      } catch (e) {
+        console.warn('Failed parsing menu cache on remove:', e);
       }
     }
 

@@ -3,6 +3,7 @@ import { ChefHat, Hammer, Tag, Plus, Scale, Search, Trash, Edit2, Check, X, Came
 import { RecetaEscandallo, ProductoMenu, Insumo, EventoLog } from '../types';
 import { recetasService } from '../services/recetasService';
 import { menuService } from '../services/menuService';
+import { compressImageForUpload, saveMenuImage } from '../lib/imageStorage';
 import { useToast, ToastContainer } from './ToastContainer';
 import {
   buildRecipeDraft,
@@ -174,55 +175,15 @@ export default function RecetasModule({
         }
 
         setIsUploadingImage(true);
-        const reader = new FileReader();
-
-        reader.onload = (event) => {
-            const img = new Image();
-            img.onload = async () => {
-                const canvas = document.createElement('canvas');
-                const maxDim = 400;
-                let width = img.width;
-                let height = img.height;
-
-                if (width > height) {
-                    if (width > maxDim) {
-                        height = Math.round((height * maxDim) / width);
-                        width = maxDim;
-                    }
-                } else {
-                    if (height > maxDim) {
-                        width = Math.round((width * maxDim) / height);
-                        height = maxDim;
-                    }
-                }
-
-                canvas.width = width;
-                canvas.height = height;
-
-                const ctx = canvas.getContext('2d');
-                if (ctx) {
-                    ctx.drawImage(img, 0, 0, width, height);
-                    const dataUrl = canvas.toDataURL('image/jpeg', 0.70);
-                    setPendingImage(dataUrl);
-                    toast.success('Imagen lista. Presione "Guardar Foto" para confirmar.');
-                } else {
-                    toast.error('No se pudo procesar la imagen.');
-                }
-                setIsUploadingImage(false);
-            };
-            img.onerror = () => {
-                toast.error('Error al cargar la imagen.');
-                setIsUploadingImage(false);
-            };
-            img.src = event.target?.result as string;
-        };
-
-        reader.onerror = () => {
-            toast.error('Error al leer el archivo.');
+        try {
+            const dataUrl = await compressImageForUpload(file);
+            setPendingImage(dataUrl);
+            toast.success('Imagen lista. Presione "Guardar Foto" para confirmar.');
+        } catch {
+            toast.error('No se pudo procesar la imagen.');
+        } finally {
             setIsUploadingImage(false);
-        };
-
-        reader.readAsDataURL(file);
+        }
     }, [toast]);
 
     const handleSavePendingImage = useCallback(async () => {
@@ -231,6 +192,7 @@ export default function RecetasModule({
         setIsUploadingImage(true);
         try {
             const idProducto = selectedProduct.id_producto;
+            await saveMenuImage(idProducto, pendingImage);
             await menuService.update(idProducto, { imagen: pendingImage });
             
             const updatedProducts = productosMenu.map(p => 
