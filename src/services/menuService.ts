@@ -6,6 +6,24 @@ import { INITIAL_PRODUCTOS_MENU } from '../data/initialData';
 
 type DbProductoMenu = Record<string, unknown>;
 
+const normalizeCategoryName = (rawCat: string): string => {
+  const norm = (rawCat || '').trim().toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+  if (norm.includes('entrada')) return 'Entradas Criollas';
+  if (norm.includes('carne') || norm.includes('parrilla') || norm.includes('corte') || norm.includes('bife') || norm.includes('lomo') || norm.includes('bondiola') || norm.includes('milanesa')) return 'Cortes a la Parrilla';
+  if (norm.includes('pasta') || norm.includes('lasana') || norm.includes('fideo') || norm.includes('noqui') || norm.includes('cinta') || norm.includes('rotolo') || norm.includes('crep')) return 'Pastas Artesanales';
+  if (norm.includes('pescad') || norm.includes('marisc') || norm.includes('salmon') || norm.includes('trucha') || norm.includes('pacu')) return 'Pescados y Mariscos';
+  if (norm.includes('criolla') || norm.includes('locro') || norm.includes('humita') || norm.includes('guiso')) return 'Comidas Criollas';
+  if (norm.includes('postre') || norm.includes('dulce') || norm.includes('tiramisu') || norm.includes('flan') || norm.includes('panna cotta') || norm.includes('tarta') || norm.includes('chocolate') || norm.includes('helado')) return 'Postres Tradicionales';
+  if (norm.includes('bodega') || norm.includes('vino')) return 'Bodega y Vinos';
+  if (norm.includes('bebida') || norm.includes('gaseosa') || norm.includes('agua')) return 'Bebidas sin alcohol';
+  if (norm.includes('cocina')) return 'Cortes a la Parrilla';
+
+  return rawCat || 'Entradas Criollas';
+};
+
 const inferTipo = (categoria: string): ProductoMenu['tipo'] => {
   const normalized = categoria.trim().toLowerCase();
   if (normalized.includes('bodega') || normalized.includes('vino')) return 'vino';
@@ -23,27 +41,62 @@ const readNumber = (value: unknown, fallback = 0) => {
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
+const findInitialMatch = (nombre: string): ProductoMenu | undefined => {
+  if (!nombre) return undefined;
+  const clean = nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+  return INITIAL_PRODUCTOS_MENU.find(init => {
+    const initClean = init.nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+    return clean.includes(initClean) || initClean.includes(clean) || (clean.slice(0, 10) === initClean.slice(0, 10) && clean.length > 5);
+  });
+};
+
 const normalizeProductoMenu = (prod: DbProductoMenu): ProductoMenu => {
-  const categoria = readString(prod.categoria, 'Menu');
-  const tipo = readString(prod.tipo) || inferTipo(categoria);
+  const nombre = readString(prod.nombre);
+  const match = findInitialMatch(nombre);
+  const rawCat = readString(prod.categoria, match?.categoria || 'Menu');
+  const categoria = normalizeCategoryName(rawCat);
+  const tipo = readString(prod.tipo) || match?.tipo || inferTipo(categoria);
+
+  const rawId = readString(prod.id_producto);
+  const cleanSlug = nombre
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/(^_|_$)+/g, '')
+    .slice(0, 45);
+  const id_producto = rawId || match?.id_producto || (cleanSlug ? `prod_${cleanSlug}` : `prod_${Date.now()}`);
+
+  const rawActivo = prod.activo;
+  const activo = rawActivo === undefined || rawActivo === null || rawActivo === ''
+    ? true
+    : (rawActivo === true || rawActivo === 'true' || (rawActivo !== false && rawActivo !== 'false'));
+
+  const imagen = readString(prod.imagen) || readString(prod.url_imagen) || match?.imagen || '/logo-el-patron.jpeg?v=5';
+  const descripcion = readString(prod.descripcion) || match?.descripcion || '';
 
   return {
-    id_producto: readString(prod.id_producto, `prod_${Date.now()}`),
-    nombre: readString(prod.nombre),
-    descripcion: readString(prod.descripcion),
-    precio_venta: readNumber(prod.precio_venta),
+    id_producto,
+    nombre,
+    descripcion,
+    precio_venta: readNumber(prod.precio_venta, match?.precio_venta || 0),
     categoria,
-    subcategoria: readString(prod.subcategoria) || undefined,
-    activo: prod.activo !== false,
-    imagen: readString(prod.imagen, '/logo-el-patron.jpeg?v=5'),
+    subcategoria: readString(prod.subcategoria) || match?.subcategoria || undefined,
+    activo: activo ?? true,
+    imagen,
     tipo,
-    tiempo_preparacion_estimado: readNumber(prod.tiempo_preparacion_estimado) || undefined,
+    tiempo_preparacion_estimado: readNumber(prod.tiempo_preparacion_estimado, match?.tiempo_preparacion_estimado || 12),
     requiere_cocina: typeof prod.requiere_cocina === 'boolean'
       ? prod.requiere_cocina
-      : (tipo === 'plato' || tipo === 'postre'),
-    pasos_preparacion: Array.isArray(prod.pasos_preparacion) ? prod.pasos_preparacion : (RECIPES_DETAILS[readString(prod.id_producto)]?.pasos_preparacion || undefined),
-    alergenos: Array.isArray(prod.alergenos) ? prod.alergenos : (RECIPES_DETAILS[readString(prod.id_producto)]?.alergenos || undefined),
-    consejo_emplatado: readString(prod.consejo_emplatado) || (RECIPES_DETAILS[readString(prod.id_producto)]?.consejo_emplatado || undefined)
+      : (match?.requiere_cocina ?? (tipo === 'plato' || tipo === 'postre')),
+    pasos_preparacion: Array.isArray(prod.pasos_preparacion)
+      ? prod.pasos_preparacion
+      : (RECIPES_DETAILS[id_producto]?.pasos_preparacion || match?.pasos_preparacion || undefined),
+    alergenos: Array.isArray(prod.alergenos)
+      ? prod.alergenos
+      : (RECIPES_DETAILS[id_producto]?.alergenos || match?.alergenos || undefined),
+    consejo_emplatado: readString(prod.consejo_emplatado)
+      || (RECIPES_DETAILS[id_producto]?.consejo_emplatado || match?.consejo_emplatado || undefined)
   };
 };
 

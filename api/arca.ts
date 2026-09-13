@@ -451,13 +451,27 @@ function validateCertificatePair(certificateInput: string, privateKeyInput: stri
 
 async function readStoredConfig(): Promise<StoredArcaConfig | null> {
   const client = getServiceSupabaseClient();
-  if (!client) return null;
-  const { data, error } = await client.from("arca_config").select("*").eq("id", ARCA_CONFIG_ID).maybeSingle();
-  if (error) {
-    if (error.code === "42P01" || /does not exist|schema cache/i.test(error.message)) return null;
-    throw new Error(`No se pudo leer la configuracion ARCA: ${error.message}`);
+  if (client) {
+    try {
+      const { data, error } = await client.from("arca_config").select("*").eq("id", ARCA_CONFIG_ID).maybeSingle();
+      if (!error && data) return data as StoredArcaConfig;
+      if (error && error.code !== "42P01" && !/does not exist|schema cache/i.test(error.message)) {
+        console.warn(`No se pudo leer la configuracion ARCA desde Supabase: ${error.message}`);
+      }
+    } catch (e) {
+      console.warn("Error consultando arca_config en base de datos:", e);
+    }
   }
-  return data as StoredArcaConfig | null;
+
+  // Fallback a la configuracion oficial provista para produccion
+  try {
+    const { OFFICIAL_ARCA_CONFIG } = await import("../src/data/arcaConfig");
+    if (OFFICIAL_ARCA_CONFIG) {
+      return OFFICIAL_ARCA_CONFIG as StoredArcaConfig;
+    }
+  } catch {}
+
+  return null;
 }
 
 async function getServerCredentials(): Promise<ServerCredentials | null> {

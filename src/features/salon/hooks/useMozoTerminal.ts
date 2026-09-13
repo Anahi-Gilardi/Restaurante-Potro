@@ -181,29 +181,29 @@ export function useMozoTerminal({
     if (!catName) return '';
     const norm = catName.toLowerCase().trim()
       .normalize('NFD')
-      .replace(/[̀-ͯ]/g, '')
+      .replace(/[\u0300-\u036f]/g, '')
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/(^-|-$)+/g, '');
 
     const cat = categories.find(c => {
       const dbNorm = c.nombre.toLowerCase().trim()
         .normalize('NFD')
-        .replace(/[̀-ͯ]/g, '')
+        .replace(/[\u0300-\u036f]/g, '')
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/(^-|-$)+/g, '');
       return dbNorm === norm || c.slug.toLowerCase() === norm;
     });
     if (cat) return cat.slug.toLowerCase();
 
-    if (norm.includes('bebida') || norm.includes('vino') || norm.includes('cerveza') || norm.includes('gaseosa')) {
-      return 'bebidas';
-    }
-    if (norm.includes('bodega')) {
-      return 'bodega';
-    }
-    if (norm.includes('postre') || norm.includes('dulce') || norm.includes('helado')) {
-      return 'postres';
-    }
+    if (norm.includes('entrada')) return 'entradas-criollas';
+    if (norm.includes('carne') || norm.includes('parrilla') || norm.includes('corte') || norm.includes('bife') || norm.includes('lomo')) return 'cortes-a-la-parrilla';
+    if (norm.includes('pasta') || norm.includes('lasana') || norm.includes('fideo') || norm.includes('noqui')) return 'pastas-artesanales';
+    if (norm.includes('pescad') || norm.includes('marisc')) return 'pescados-y-mariscos';
+    if (norm.includes('criolla') || norm.includes('locro') || norm.includes('humita') || norm.includes('guiso')) return 'comidas-criollas';
+    if (norm.includes('postre') || norm.includes('dulce') || norm.includes('helado')) return 'postres-tradicionales';
+    if (norm.includes('bodega') || norm.includes('vino')) return 'bodega-y-vinos';
+    if (norm.includes('bebida') || norm.includes('gaseosa') || norm.includes('agua')) return 'bebidas-sin-alcohol';
+
     return norm;
   }, [categories]);
 

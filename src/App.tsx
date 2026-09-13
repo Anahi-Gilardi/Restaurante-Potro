@@ -1288,7 +1288,6 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
             { id: 'caja', label: 'Caja', icon: '💵' },
             { id: 'menu', label: 'Menú', icon: '📖' },
             { id: 'mesas', label: 'Mesas', icon: '🪑' },
-            { id: 'inventario', label: 'Inventario', icon: '📦' },
             { id: 'proveedores', label: 'Proveedores', icon: '🚚' },
             { id: 'promociones', label: 'Promociones', icon: '🏷️' },
             { id: 'reservas', label: 'Reservas', icon: '📅' },
@@ -1406,13 +1405,6 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
                 onFacturarMesa={handleFacturarMesa}
                 onCambiarEstadoPedido={handleCambiarEstadoPedido}
                 onOpenFacturacion={() => handleNavigate('facturacion')}
-                addLog={addLog}
-              />
-            )}
-            {activeView === 'inventario' && (
-              <InventoryModule insumos={insumos} productosMenu={productosMenu} recetas={recetas} mermas={mermas}
-                onRegistrarMerma={handleRegistrarMerma}
-                onRestockInsumo={handleRestockInsumo}
                 addLog={addLog}
               />
             )}

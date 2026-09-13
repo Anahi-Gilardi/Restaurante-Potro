@@ -3,15 +3,14 @@ import { sheetFetchTable, sheetUpsertRow } from '../lib/googleSheetsClient';
 import { Categoria } from '../types';
 
 export const DEFAULT_CATEGORIAS: Categoria[] = [
-  { id: 'cat_entradas', nombre: 'Entradas', slug: 'entradas', orden: 1, activa: true, icono: 'UtensilsCrossed' },
-  { id: 'cat_pastas', nombre: 'Pastas', slug: 'pastas', orden: 2, activa: true, icono: 'UtensilsCrossed' },
-  { id: 'cat_carnes', nombre: 'Carnes', slug: 'carnes', orden: 3, activa: true, icono: 'Beef' },
-  { id: 'cat_pescados', nombre: 'Pescados', slug: 'pescados', orden: 4, activa: true, icono: 'Fish' },
+  { id: 'cat_entradas', nombre: 'Entradas Criollas', slug: 'entradas-criollas', orden: 1, activa: true, icono: 'UtensilsCrossed' },
+  { id: 'cat_cortes', nombre: 'Cortes a la Parrilla', slug: 'cortes-a-la-parrilla', orden: 2, activa: true, icono: 'Beef' },
+  { id: 'cat_pastas', nombre: 'Pastas Artesanales', slug: 'pastas-artesanales', orden: 3, activa: true, icono: 'UtensilsCrossed' },
+  { id: 'cat_pescados', nombre: 'Pescados y Mariscos', slug: 'pescados-y-mariscos', orden: 4, activa: true, icono: 'Fish' },
   { id: 'cat_criollas', nombre: 'Comidas Criollas', slug: 'comidas-criollas', orden: 5, activa: true, icono: 'Utensils' },
-  { id: 'cat_postres', nombre: 'Postres', slug: 'postres', orden: 6, activa: true, icono: 'Coffee' },
-  { id: 'cat_bebidas_con_alcohol', nombre: 'Bebidas con Alcohol', slug: 'bebidas-con-alcohol', orden: 7, activa: true, icono: 'Wine' },
-  { id: 'cat_bebidas_sin_alcohol', nombre: 'Bebidas sin Alcohol', slug: 'bebidas-sin-alcohol', orden: 7.5, activa: true, icono: 'Wine' },
-  { id: 'cat_bodega', nombre: 'Bodega', slug: 'bodega', orden: 8, activa: true, icono: 'Wine' }
+  { id: 'cat_bodega', nombre: 'Bodega y Vinos', slug: 'bodega-y-vinos', orden: 6, activa: true, icono: 'Wine' },
+  { id: 'cat_postres', nombre: 'Postres Tradicionales', slug: 'postres-tradicionales', orden: 7, activa: true, icono: 'Coffee' },
+  { id: 'cat_bebidas_sin_alcohol', nombre: 'Bebidas sin alcohol', slug: 'bebidas-sin-alcohol', orden: 8, activa: true, icono: 'Wine' }
 ];
 
 export const categoriasService = {
@@ -22,7 +21,9 @@ export const categoriasService = {
         return sheetData.map((c: any) => ({
           id: c.id_categoria || c.id,
           nombre: c.nombre,
-          slug: c.nombre.toLowerCase().replace(/\s+/g, '-'),
+          slug: c.nombre
+            ? c.nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '')
+            : 'categoria',
           orden: Number(c.orden || 1),
           activa: c.activa !== false && String(c.activa).toLowerCase() !== 'false',
           icono: c.icono || 'UtensilsCrossed'

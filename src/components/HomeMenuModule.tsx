@@ -187,14 +187,7 @@ export default function HomeMenuModule({
   const activeAlerts = useMemo(() => {
     const alerts: { text: string; action: any; type: 'warning' | 'info' | 'danger' }[] = [];
     
-    const criticalInsumos = insumos.filter(i => i.stock_actual <= i.stock_minimo);
-    if (criticalInsumos.length > 0) {
-      alerts.push({
-        text: `${criticalInsumos.length} insumos críticos bajo stock mínimo.`,
-        action: 'inventario',
-        type: 'danger'
-      });
-    }
+
 
     const waitingTables = mesas.filter(m => m.estado === 'esperando_cuenta');
     if (waitingTables.length > 0) {
@@ -279,18 +272,7 @@ export default function HomeMenuModule({
       }
     },
 
-    {
-      id: 'inventario',
-      title: 'Inventario',
-      description: 'Gestión de materias primas por porción/gramaje, mermas físicas y reabastecimiento.',
-      icon: Scale,
-      color: 'from-rose-500/10 to-rose-600/5 hover:border-rose-400 border-l-4 border-l-rose-500 dark:border-l-rose-450',
-      iconColor: 'text-rose-700 dark:text-rose-400',
-      badge: {
-        text: lowStockCount > 1 ? `${lowStockCount} alertas` : 'Nivel óptimo',
-        type: lowStockCount > 1 ? 'rose' : 'emerald'
-      }
-    },
+
     {
       id: 'mesas',
       title: 'Salón Comedor',

@@ -78,7 +78,7 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
   const [nombre, setNombre] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [precio, setPrecio] = useState('');
-  const [categoria, setCategoria] = useState<string>('Entradas');
+  const [categoria, setCategoria] = useState<string>('Entradas Criollas');
   const [imagenUrl, setImagenUrl] = useState('');
   const [tiempoPreparacion, setTiempoPreparacion] = useState('12');
   const [requiereCocina, setRequiereCocina] = useState(true);
@@ -95,37 +95,43 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
   const [editRequiereCocina, setEditRequiereCocina] = useState(true);
   const [editSelectedAllergens, setEditSelectedAllergens] = useState<string[]>([]);
 
-  const normalizeCategorySlug = (categoria: string): string => {
-    const norm = categoria.toLowerCase().trim()
+  const normalizeCategorySlug = (cat: string): string => {
+    const norm = (cat || '').toLowerCase().trim()
       .normalize('NFD')
-      .replace(/[̀-ͯ]/g, '')
+      .replace(/[\u0300-\u036f]/g, '')
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/(^-|-$)+/g, '');
 
-    if (norm.includes('bebida-con-alcohol') || norm.includes('bebidas-con-alcohol')) {
-      return 'bebidas-con-alcohol';
-    }
-    if (norm.includes('bebida-sin-alcohol') || norm.includes('bebidas-sin-alcohol')) {
-      return 'bebidas-sin-alcohol';
-    }
-    if (norm.includes('bodega') || norm.includes('vino')) {
-      return 'bodega';
-    }
-    if (norm.includes('cerveza')) {
-      return 'bebidas-con-alcohol';
-    }
-    if (norm.includes('gaseosa')) {
-      return 'bebidas-sin-alcohol';
-    }
-    if (norm.includes('postre') || norm.includes('dulce') || norm.includes('helado')) {
-      return 'postres';
-    }
+    if (norm.includes('entrada')) return 'entradas-criollas';
+    if (norm.includes('carne') || norm.includes('parrilla') || norm.includes('corte') || norm.includes('bife') || norm.includes('lomo')) return 'cortes-a-la-parrilla';
+    if (norm.includes('pasta') || norm.includes('lasana') || norm.includes('fideo') || norm.includes('noqui')) return 'pastas-artesanales';
+    if (norm.includes('pescad') || norm.includes('marisc')) return 'pescados-y-mariscos';
+    if (norm.includes('criolla') || norm.includes('locro') || norm.includes('humita') || norm.includes('guiso')) return 'comidas-criollas';
+    if (norm.includes('postre') || norm.includes('dulce') || norm.includes('helado')) return 'postres-tradicionales';
+    if (norm.includes('bodega') || norm.includes('vino')) return 'bodega-y-vinos';
+    if (norm.includes('bebida') || norm.includes('gaseosa') || norm.includes('agua')) return 'bebidas-sin-alcohol';
+
     return norm;
   };
 
   const getCategorySlug = (catName: string) => {
-    const cat = categories.find(c => c.nombre.toLowerCase() === catName.toLowerCase());
-    return cat ? cat.slug : normalizeCategorySlug(catName);
+    if (!catName) return '';
+    const norm = catName.toLowerCase().trim()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)+/g, '');
+
+    const direct = categories.find(c => {
+      const cNorm = c.nombre.toLowerCase().trim()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)+/g, '');
+      return cNorm === norm || c.slug.toLowerCase() === norm;
+    });
+
+    return direct ? direct.slug.toLowerCase() : normalizeCategorySlug(catName);
   };
   const isBusy = pendingAction !== null;
 
