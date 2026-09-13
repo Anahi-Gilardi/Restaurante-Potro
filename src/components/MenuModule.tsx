@@ -214,7 +214,8 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
     if (!file) return;
     e.target.value = '';
 
-    const target = items.find(it => it.id_producto === id_producto);
+    const lowerId = id_producto.toLowerCase();
+    const target = items.find(it => it.id_producto === id_producto || it.id_producto?.toLowerCase() === lowerId);
     if (!target) return;
 
     try {
@@ -223,12 +224,12 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
 
       await saveMenuImage(id_producto, base64);
 
-      if (editingId === id_producto) {
+      if (editingId === id_producto || editingId?.toLowerCase() === lowerId) {
         setEditImagen(base64);
       }
 
       const updatedList = items.map(it =>
-        it.id_producto === id_producto ? { ...it, imagen: base64 } : it
+        it.id_producto === id_producto || it.id_producto?.toLowerCase() === lowerId ? { ...it, imagen: base64 } : it
       );
       syncItems(updatedList);
 
@@ -280,7 +281,17 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
       activo?: boolean;
     }
   ): ProductoMenu | null => {
-    const parsedPrice = Number.parseFloat(values.precio);
+    const rawPriceStr = String(values.precio || '').replace(/\$/g, '').trim();
+    let cleanedPrice = rawPriceStr;
+    if (/^\d{1,3}(\.\d{3})+$/.test(cleanedPrice)) {
+      cleanedPrice = cleanedPrice.replace(/\./g, '');
+    } else if (/^\d+,\d{1,2}$/.test(cleanedPrice)) {
+      cleanedPrice = cleanedPrice.replace(',', '.');
+    } else if (cleanedPrice.includes('.') && cleanedPrice.includes(',')) {
+      cleanedPrice = cleanedPrice.replace(/\./g, '').replace(',', '.');
+    }
+    const parsedPrice = Number.parseFloat(cleanedPrice);
+
     const validation = menuItemSchema.safeParse({
       nombre: values.nombre,
       precio_venta: parsedPrice,
@@ -289,7 +300,10 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
     });
 
     if (!validation.success) {
-      toast.error(validation.error.issues.map(i => i.message).join('. '));
+      const errorMsg = validation.error.issues
+        .map(i => (i.message === 'Invalid input' || !i.message ? `El campo '${i.path.join('.')}' contiene un valor inválido` : i.message))
+        .join('. ');
+      toast.error(errorMsg || 'Por favor revise los datos del producto.');
       return null;
     }
 
@@ -394,7 +408,8 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
 
   const handleSaveEdit = async (id: string) => {
     if (isBusy) return;
-    const target = items.find(item => item.id_producto === id);
+    const lowerId = id.toLowerCase();
+    const target = items.find(item => item.id_producto === id || item.id_producto?.toLowerCase() === lowerId);
     if (!target) return;
 
     const updated = buildMenuItem(id, {
@@ -415,7 +430,7 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
     }
 
     const previous = items;
-    const optimistic = items.map(item => item.id_producto === id ? { ...item, ...updated } : item);
+    const optimistic = items.map(item => item.id_producto === id || item.id_producto?.toLowerCase() === lowerId ? { ...item, ...updated } : item);
 
     setPendingAction(`edit_${id}`);
     syncItems(optimistic);
@@ -425,7 +440,7 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
         await saveMenuImage(id, updated.imagen);
       }
       const saved = await menuService.update(id, updated);
-      syncItems(optimistic.map(item => item.id_producto === id ? { ...item, ...saved } : item));
+      syncItems(optimistic.map(item => item.id_producto === id || item.id_producto?.toLowerCase() === lowerId ? { ...item, ...saved } : item));
       addLog('sistema', `MENU: Actualizado '${target.nombre}' a '${saved.nombre}' ($${saved.precio_venta})`);
       toast.success('Producto actualizado.');
       resetEditForm();

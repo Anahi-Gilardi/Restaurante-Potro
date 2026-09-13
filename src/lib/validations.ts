@@ -50,10 +50,10 @@ export const promocionSchema = z.object({
 
 // ── Items del menú ────────────────────────────────────────────────────────────
 export const menuItemSchema = z.object({
-    nombre:       z.string().trim().min(2, 'Nombre del producto requerido').max(80),
-    precio_venta: z.number().positive('El precio debe ser mayor a 0'),
+    nombre:       z.string().trim().min(1, 'Nombre del producto requerido').max(250, 'El nombre no puede superar los 250 caracteres'),
+    precio_venta: z.number({ error: 'El precio debe ser un número válido' }).positive('El precio debe ser mayor a 0'),
     categoria:    z.string().min(1, 'Categoría requerida'),
-    descripcion:  z.string().max(300).optional(),
+    descripcion:  z.string().max(2000, 'La descripción no puede superar los 2000 caracteres').optional(),
 });
 
 // ── Insumos de inventario ─────────────────────────────────────────────────────
