@@ -116,6 +116,7 @@ export default function PythonStreamlitLogin({ onLoginSuccess, onBackToCover }: 
               nombre: found.nombre || 'Usuario',
               apellido: found.apellido || '',
               username: found.username || inputId,
+              password: String(found.password || cleanPass),
               rol: (found.rol || 'mozo') as Usuario['rol'],
               activo: true,
               pin: found.pin ? String(found.pin) : undefined,

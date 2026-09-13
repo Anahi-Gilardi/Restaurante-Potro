@@ -19,6 +19,7 @@ export interface Usuario {
     mail?: string | null;
     rol: 'superadmin' | 'administrador' | 'cajero' | 'mozo' | 'cocina';
     activo?: boolean;
+    pin?: string | null;
 }
 
 export interface Mesa {
