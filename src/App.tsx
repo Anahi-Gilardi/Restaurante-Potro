@@ -100,8 +100,15 @@ export default function App() {
   const [isStreamlitLoggedIn, setIsStreamlitLoggedIn] = useState<boolean>(() => (
     typeof window !== 'undefined' && window.localStorage.getItem('el_patron_session') === 'active'
   ));
-  const [showCover, setShowCover] = useState<boolean>(true);
-  const [hasSupabaseSession, setHasSupabaseSession] = useState<boolean>(false);
+  const [showCover, setShowCover] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true;
+    return window.localStorage.getItem('el_patron_session') !== 'active';
+  });
+  const [hasSupabaseSession, setHasSupabaseSession] = useState<boolean>(() => (
+    typeof window !== 'undefined' &&
+    window.localStorage.getItem('el_patron_session') === 'active' &&
+    window.localStorage.getItem('el_patron_session_mode') === 'supabase'
+  ));
   const [isDemoSession, setIsDemoSession] = useState<boolean>(() => (
     typeof window !== 'undefined' && window.localStorage.getItem('el_patron_session_mode') === 'demo'
   ));
@@ -383,14 +390,36 @@ export default function App() {
   };
 
   // Terminal active configs & simulation states
-  const [activeMozo, setActiveMozo] = useState<string>('Sofía');
-  const [activeView, setActiveView] = useState<AppView>('home');
-  const activeUser = useMemo(
-    () => usuarios.find(usuario => usuario.nombre === activeMozo && usuario.activo !== false)
-      || usuarios.find(usuario => usuario.activo !== false)
-      || INITIAL_USUARIOS[0],
-    [usuarios, activeMozo]
-  );
+  const [activeMozo, setActiveMozo] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = window.localStorage.getItem('el_patron_active_mozo');
+      if (saved) return saved;
+    }
+    return 'Sofía';
+  });
+  const [activeView, setActiveView] = useState<AppView>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = window.localStorage.getItem('el_patron_active_view') as AppView;
+      if (saved) return saved;
+    }
+    return 'home';
+  });
+  const activeUser = useMemo(() => {
+    const fromList = usuarios.find(usuario => usuario.nombre === activeMozo && usuario.activo !== false);
+    if (fromList) return fromList;
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = window.localStorage.getItem('el_patron_active_user');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed && parsed.nombre) return parsed;
+        }
+      } catch {
+        // ignore
+      }
+    }
+    return usuarios.find(usuario => usuario.activo !== false) || INITIAL_USUARIOS[0];
+  }, [usuarios, activeMozo]);
 
   const allowedViews = useMemo(() => {
     return getAllowedViews(activeUser.rol);
@@ -609,6 +638,10 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
       return;
     }
     setActiveMozo(mozo);
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('el_patron_active_mozo', mozo);
+      window.localStorage.setItem('el_patron_active_user', JSON.stringify(nextUser));
+    }
     addLog('sistema', `SESIÓN: Usuario operativo actualizado a ${mozo} (${nextUser.rol}).`);
   };
 
@@ -617,17 +650,25 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     if (!canAccessView(activeUser.rol, view)) {
       toast.warning(`El rol ${activeUser.rol} no tiene permiso para abrir este módulo.`);
       setActiveView('home');
+      if (typeof window !== 'undefined') window.localStorage.setItem('el_patron_active_view', 'home');
       setIsSidebarCollapsed(true);
       return;
     }
     setActiveView(view);
+    if (typeof window !== 'undefined') window.localStorage.setItem('el_patron_active_view', view);
     setIsSidebarCollapsed(true);
   };
 
   const handleLoginSuccess = (user: Usuario, mode: 'demo' | 'supabase') => {
     window.localStorage.setItem('el_patron_session', 'active');
     window.localStorage.setItem('el_patron_session_mode', mode);
+    window.localStorage.setItem('el_patron_active_mozo', user.nombre);
+    window.localStorage.setItem('el_patron_active_user', JSON.stringify(user));
+    window.localStorage.setItem('el_patron_active_view', 'home');
     setIsDemoSession(mode === 'demo');
+    if (mode === 'supabase') {
+      setHasSupabaseSession(true);
+    }
     setActiveMozo(user.nombre);
     setActiveView('home');
     setOperationalDataStatus('loading');
@@ -650,8 +691,12 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
   const handleLogout = () => {
     window.localStorage.removeItem('el_patron_session');
     window.localStorage.removeItem('el_patron_session_mode');
+    window.localStorage.removeItem('el_patron_active_mozo');
+    window.localStorage.removeItem('el_patron_active_user');
+    window.localStorage.removeItem('el_patron_active_view');
     getSupabaseClient()?.auth.signOut().catch(() => undefined);
     setOperationalDataStatus('idle');
+    setHasSupabaseSession(false);
     setIsDemoSession(false);
     setIsStreamlitLoggedIn(false);
     setShowCover(false);
@@ -660,8 +705,12 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
   const handleLogoClickToLogin = () => {
     window.localStorage.removeItem('el_patron_session');
     window.localStorage.removeItem('el_patron_session_mode');
+    window.localStorage.removeItem('el_patron_active_mozo');
+    window.localStorage.removeItem('el_patron_active_user');
+    window.localStorage.removeItem('el_patron_active_view');
     getSupabaseClient()?.auth.signOut().catch(() => undefined);
     setOperationalDataStatus('idle');
+    setHasSupabaseSession(false);
     setIsDemoSession(false);
     setIsStreamlitLoggedIn(false);
     setShowCover(false);
@@ -1166,10 +1215,13 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
       <ErrorBoundary>
         <RestaurantCover 
           onEnterSystem={() => {
-            window.localStorage.removeItem('el_patron_session');
-            window.localStorage.removeItem('el_patron_session_mode');
-            setIsDemoSession(false);
-            setIsStreamlitLoggedIn(false);
+            const hasSession = typeof window !== 'undefined' && window.localStorage.getItem('el_patron_session') === 'active';
+            if (!hasSession) {
+              window.localStorage.removeItem('el_patron_session');
+              window.localStorage.removeItem('el_patron_session_mode');
+              setIsDemoSession(false);
+              setIsStreamlitLoggedIn(false);
+            }
             setShowCover(false);
           }} 
         />
