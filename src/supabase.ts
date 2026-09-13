@@ -373,3 +373,39 @@ export async function dbUpsertFacturas(facturas: any[]) {
   try { await (await import('./services/facturacionService')).facturacionService.upsert(facturas); }
   catch (e) { console.warn('dbUpsertFacturas:', e); }
 }
+
+// =============================================================================
+// 13. Pagos
+// =============================================================================
+export async function dbFetchPagos(idFactura?: string) {
+  try {
+    const data = await sheetFetchTable('pagos');
+    if (data && data.length > 0) {
+      const parsed = data.map((p: any) => ({
+        id_pago: String(p.id_pago),
+        id_factura: String(p.id_factura),
+        monto: Number(p.monto || 0),
+        metodo: p.metodo,
+        fecha: p.fecha
+      }));
+      return idFactura ? parsed.filter((p: any) => p.id_factura === idFactura) : parsed;
+    }
+  } catch (sheetErr) {
+    console.warn('[GoogleSheets] dbFetchPagos fallback:', sheetErr);
+  }
+  try { return await (await import('./services/pagosService')).pagosService.list(idFactura); }
+  catch (e) { console.warn('dbFetchPagos:', e); return null; }
+}
+
+export async function dbUpsertPagos(pagos: any[]) {
+  try {
+    for (const p of pagos) {
+      await sheetUpsertRow('pagos', p);
+    }
+  } catch (sheetErr) {
+    console.warn('[GoogleSheets] dbUpsertPagos error:', sheetErr);
+  }
+  try { await (await import('./services/pagosService')).pagosService.bulkCreate(pagos); }
+  catch (e) { console.warn('dbUpsertPagos:', e); }
+}
+
