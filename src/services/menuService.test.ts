@@ -36,3 +36,48 @@ test('menuService list recupera los datos desde localStorage si el cache existe'
 
   localStorage.removeItem('el_patron_cache_menu');
 });
+
+test('deduplicateMenuProducts consolida platos duplicados conservando activo: true y la imagen real', async () => {
+  const { deduplicateMenuProducts } = await import('./menuService');
+
+  const duplicates: ProductoMenu[] = [
+    {
+      id_producto: 'prod_pera_asada_con_queso_azul_nueces_y_miel_sobre_verdes',
+      nombre: 'Pera asada con queso azul, nueces y miel sobre verdes',
+      precio_venta: 12000,
+      categoria: 'Entradas Criollas',
+      activo: false,
+      imagen: '/logo-el-patron.jpeg?v=5'
+    },
+    {
+      id_producto: 'prod_ent_peras_quesoazul',
+      nombre: 'Pera asada con queso azul, nueces y miel sobre verdes',
+      precio_venta: 12000,
+      categoria: 'Entradas Criollas',
+      activo: true,
+      imagen: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ...'
+    }
+  ];
+
+  const deduped = deduplicateMenuProducts(duplicates);
+  assert.equal(deduped.length, 1);
+  assert.equal(deduped[0].id_producto, 'prod_ent_peras_quesoazul');
+  assert.equal(deduped[0].activo, true);
+  assert.match(deduped[0].imagen || '', /^data:image/);
+});
+
+test('menuService list asigna activo: true a filas sin estado explicito', async () => {
+  const dummyMenu: any[] = [{
+    id_producto: 'prod_sin_estado',
+    nombre: 'Plato Nuevo Importado',
+    precio_venta: 5000,
+    categoria: 'Entradas Criollas'
+  }];
+
+  localStorage.setItem('el_patron_cache_menu', JSON.stringify(dummyMenu));
+  const list = await menuService.list();
+  assert.equal(list.length, 1);
+  assert.equal(list[0].activo, true);
+
+  localStorage.removeItem('el_patron_cache_menu');
+});

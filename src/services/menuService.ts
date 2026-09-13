@@ -69,7 +69,7 @@ const normalizeProductoMenu = (prod: DbProductoMenu): ProductoMenu => {
   const id_producto = rawId || match?.id_producto || (cleanSlug ? `prod_${cleanSlug}` : `prod_${Date.now()}`);
 
   const rawActivo = prod.activo;
-  const activo = rawActivo === undefined || rawActivo === null || rawActivo === ''
+  const activo = rawActivo === undefined || rawActivo === null || rawActivo === '' || !rawId
     ? true
     : (rawActivo === true || rawActivo === 'true' || (rawActivo !== false && rawActivo !== 'false'));
 
@@ -107,6 +107,53 @@ const normalizeProductoMenu = (prod: DbProductoMenu): ProductoMenu => {
   };
 };
 
+export const deduplicateMenuProducts = (items: ProductoMenu[]): ProductoMenu[] => {
+  const byKey = new Map<string, ProductoMenu>();
+  const idToKey = new Map<string, string>();
+
+  for (const item of items) {
+    const normName = (item.nombre || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]/g, '');
+
+    const lowerId = (item.id_producto || '').toLowerCase();
+    const existingKey = (normName && byKey.has(normName) ? normName : null) || idToKey.get(lowerId);
+
+    if (!existingKey) {
+      const canonicalKey = normName || lowerId;
+      byKey.set(canonicalKey, item);
+      if (lowerId) idToKey.set(lowerId, canonicalKey);
+    } else {
+      const existing = byKey.get(existingKey)!;
+      const preferThisId = item.id_producto && !item.id_producto.startsWith('prod_1') && (existing.id_producto.startsWith('prod_1') || existing.id_producto.length > 35);
+      const chosenId = preferThisId ? item.id_producto : existing.id_producto;
+      const chosenActivo = item.activo || existing.activo;
+      const hasRealImgThis = isValidImageData(item.imagen) && !item.imagen.includes('logo-el-patron');
+      const hasRealImgExisting = isValidImageData(existing.imagen) && !existing.imagen.includes('logo-el-patron');
+      const chosenImg = hasRealImgThis ? item.imagen : (hasRealImgExisting ? existing.imagen : (item.imagen || existing.imagen));
+
+      const merged: ProductoMenu = {
+        ...existing,
+        ...item,
+        id_producto: chosenId,
+        activo: chosenActivo,
+        imagen: chosenImg,
+        descripcion: (item.descripcion?.length || 0) >= (existing.descripcion?.length || 0) ? item.descripcion : existing.descripcion,
+        precio_venta: item.precio_venta > 0 ? item.precio_venta : existing.precio_venta,
+        categoria: item.categoria || existing.categoria
+      };
+
+      byKey.set(existingKey, merged);
+      if (lowerId) idToKey.set(lowerId, existingKey);
+      if (chosenId) idToKey.set(chosenId.toLowerCase(), existingKey);
+    }
+  }
+
+  return Array.from(byKey.values());
+};
+
 const toDbProductoMenu = (prod: ProductoMenu | Partial<ProductoMenu>) => {
   const img = prod.imagen || (prod as any).url_imagen || null;
   return {
@@ -122,12 +169,12 @@ export const menuService = {
       await getAllMenuImages();
     } catch {}
 
-    const cached = localStorage.getItem('el_patron_cache_menu');
+    const cached = typeof localStorage !== 'undefined' ? localStorage.getItem('el_patron_cache_menu') : null;
     if (process.env.NODE_ENV === 'test' && cached) {
       try {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.map(normalizeProductoMenu);
+          return deduplicateMenuProducts(parsed.map(normalizeProductoMenu));
         }
       } catch {}
     }
@@ -143,10 +190,12 @@ export const menuService = {
             !sheetPks.has(init.id_producto.toLowerCase()) && !sheetPks.has(init.nombre.toLowerCase())
           )
         ];
+        const normalized = mergedList.map(normalizeProductoMenu);
+        const deduped = deduplicateMenuProducts(normalized);
         try {
-          localStorage.setItem('el_patron_cache_menu', JSON.stringify(mergedList));
+          localStorage.setItem('el_patron_cache_menu', JSON.stringify(deduped));
         } catch {}
-        return mergedList.map(normalizeProductoMenu);
+        return deduped;
       }
     } catch (sheetErr) {
       console.warn('[menuService.list] Fallback desde Google Sheets:', sheetErr);
@@ -165,12 +214,14 @@ export const menuService = {
               !supabasePks.has(init.id_producto.toLowerCase()) && !supabasePks.has(init.nombre.toLowerCase())
             )
           ];
+          const normalized = mergedList.map(normalizeProductoMenu);
+          const deduped = deduplicateMenuProducts(normalized);
           try {
-            localStorage.setItem('el_patron_cache_menu', JSON.stringify(mergedList));
+            localStorage.setItem('el_patron_cache_menu', JSON.stringify(deduped));
           } catch (storageError) {
             console.warn('LocalStorage quota exceeded on background update:', storageError);
           }
-          return mergedList.map(normalizeProductoMenu);
+          return deduped;
         }
       } catch (e) {
         console.warn('Failed fetching fresh menu, falling back to cache:', e);
@@ -181,7 +232,7 @@ export const menuService = {
       try {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.map(normalizeProductoMenu);
+          return deduplicateMenuProducts(parsed.map(normalizeProductoMenu));
         }
       } catch (e) {
         console.warn('Failed parsing menu cache:', e);
@@ -231,7 +282,7 @@ export const menuService = {
     const normalized = normalizeProductoMenu(payload);
 
     // Update local cache defensively
-    const cached = localStorage.getItem('el_patron_cache_menu');
+    const cached = typeof localStorage !== 'undefined' ? localStorage.getItem('el_patron_cache_menu') : null;
     if (cached) {
       try {
         const parsed = JSON.parse(cached);
@@ -284,7 +335,7 @@ export const menuService = {
     const normalized = normalizeProductoMenu(payload);
 
     // Update local cache in-place defensively
-    const cached = localStorage.getItem('el_patron_cache_menu');
+    const cached = typeof localStorage !== 'undefined' ? localStorage.getItem('el_patron_cache_menu') : null;
     if (cached) {
       try {
         const parsed = JSON.parse(cached);

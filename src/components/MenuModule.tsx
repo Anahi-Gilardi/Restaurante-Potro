@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { useDebounce } from '../hooks/useDebounce';
-import { UtensilsCrossed, Plus, Search, Edit2, Check, Copy, X, DollarSign, Image, AlertTriangle, Calendar, Camera } from 'lucide-react';
+import { UtensilsCrossed, Plus, Search, Edit2, Check, Copy, X, DollarSign, Image, AlertTriangle, Calendar, Camera, CheckCircle2 } from 'lucide-react';
 import BulkPriceEditor from './BulkPriceEditor';
 import MenuDiarioModule from './MenuDiarioModule';
 import { CardSkeleton } from './Skeleton';
@@ -20,7 +20,7 @@ interface MenuModuleProps {
   addLog: (tipo: EventoLog['tipo'], mensaje: string) => void;
 }
 
-type PendingAction = 'create' | `toggle_${string}` | `edit_${string}` | `duplicate_${string}`;
+type PendingAction = 'create' | 'enable_all' | `toggle_${string}` | `edit_${string}` | `duplicate_${string}`;
 
 const CATEGORIAS = ['Entradas', 'Pastas', 'Carnes', 'Pescados', 'Comidas Criollas', 'Postres', 'Bebidas con Alcohol', 'Bebidas sin Alcohol', 'Bodega'] as const;
 const FILTER_CATEGORIAS = ['todos', ...CATEGORIAS] as const;
@@ -393,6 +393,35 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
     }
   };
 
+  const handleEnableAllItems = async () => {
+    if (isBusy) return;
+    const paused = items.filter(it => !it.activo);
+    if (paused.length === 0) {
+      toast.info('Todos los productos ya se encuentran habilitados.');
+      return;
+    }
+
+    const previous = items;
+    const allActive = items.map(it => ({ ...it, activo: true }));
+    setPendingAction('enable_all');
+    syncItems(allActive);
+
+    try {
+      toast.info(`Habilitando ${paused.length} productos...`);
+      for (const item of paused) {
+        await menuService.update(item.id_producto, { activo: true });
+      }
+      addLog('sistema', `MENU: Se habilitaron todos los productos de la carta (${items.length} activos)`);
+      toast.success(`Se habilitaron todos los productos del menú (${items.length} activos).`);
+    } catch (err) {
+      console.error('Error al habilitar todos los productos:', err);
+      syncItems(previous);
+      toast.error('Ocurrió un error al habilitar los productos.');
+    } finally {
+      setPendingAction(null);
+    }
+  };
+
   const handleStartEditing = (item: ProductoMenu) => {
     if (isBusy) return;
     setEditingId(item.id_producto);
@@ -722,10 +751,22 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
 
         <div className="glass-panel p-4 sm:p-6 rounded-2xl shadow-sm lg:col-span-3 space-y-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-stone-100 dark:border-white/10">
-            <h3 className="text-sm font-black text-stone-850 dark:text-[#FAF7F0] uppercase tracking-tight flex items-center gap-2">
-              <UtensilsCrossed className="w-5 h-5 text-[#8C6239] dark:text-[#C8956A]" />
-              Catálogo de menú ({filtered.length})
-            </h3>
+            <div className="flex items-center gap-3">
+              <h3 className="text-sm font-black text-stone-850 dark:text-[#FAF7F0] uppercase tracking-tight flex items-center gap-2">
+                <UtensilsCrossed className="w-5 h-5 text-[#8C6239] dark:text-[#C8956A]" />
+                Catálogo de menú ({filtered.length})
+              </h3>
+              <button
+                type="button"
+                onClick={() => void handleEnableAllItems()}
+                disabled={isBusy}
+                className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-all shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                title="Habilitar todos los productos del catálogo"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>{pendingAction === 'enable_all' ? 'Habilitando...' : 'Habilitar todos'}</span>
+              </button>
+            </div>
 
             <div className="flex flex-wrap gap-1">
               <button
