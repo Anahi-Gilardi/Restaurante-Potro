@@ -18,6 +18,7 @@ function normalizarFecha(valor: string | null | undefined): string {
     if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
     const parts = str.split(/[-\/]/);
     if (parts.length === 3) {
+
         const [d, m, y] = parts;
         const dia  = d.padStart(2, '0');
         const mes  = m.padStart(2, '0');
@@ -33,6 +34,12 @@ function normalizarFecha(valor: string | null | undefined): string {
 // ---------------------------------------------------------------------------
 function asString(value: unknown, fallback = ''): string {
     return typeof value === 'string' ? value : fallback;
+}
+
+function normalizarTelefono(value: unknown): string {
+    if (typeof value === 'string') return value.trim();
+    if (typeof value === 'number' && value >= 10000) return String(value);
+    return '';
 }
 
 function asOptionalString(value: unknown): string | undefined {
@@ -70,7 +77,7 @@ function mapRowToReserva(r: Record<string, unknown>): Reserva {
     return {
           id_reserva:     asString(r.id_reserva, `r_${Date.now()}`),
           nombre_cliente: asString(r.cliente ?? r.nombre_cliente),
-          telefono:       asString(r.telefono),
+          telefono:       normalizarTelefono(r.telefono),
           pax:            asNumber(r.personas ?? r.pax, 1),
           id_mesa:        idMesa,
           nombre_mesa:    asString(r.nombre_mesa, idMesa ? `Mesa ${idMesa}` : 'Sin mesa'),
@@ -128,21 +135,51 @@ export const __reservasServiceTestables = {
     normalizeReservationError,
 };
 
+const LOCAL_STORAGE_KEY = 'el_patron_cache_reservas';
+
+function getLocalReservas(): Reserva[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(LOCAL_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function setLocalReservas(list: Reserva[]) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(list));
+  } catch (e) {
+    console.warn('LocalStorage error in reservasService:', e);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Service conectado a Google Sheets
 // ---------------------------------------------------------------------------
 export const reservasService = {
 
-    /** Devuelve todas las reservas directamente desde Google Sheets (con fallback). */
+    /** Devuelve todas las reservas directamente desde Google Sheets (con fallback y caché local). */
     async list(): Promise<Reserva[]> {
+      const local = getLocalReservas();
+
       try {
         const sheetData = await sheetFetchTable('reservas');
         if (sheetData && sheetData.length > 0) {
-          return sheetData.map(mapRowToReserva);
+          const mapped = sheetData.map(mapRowToReserva);
+          setLocalReservas(mapped);
+          return mapped;
         }
       } catch (err) {
         console.warn('[reservasService.list] Leyendo desde Google Sheets falló:', err);
       }
+
+      if (local.length > 0) {
+        return local;
+      }
+
       try {
         const supabase = tryGetActiveSupabaseClient();
         if (supabase) {
@@ -151,12 +188,16 @@ export const reservasService = {
             .select('*')
             .order('fecha', { ascending: true })
             .order('hora',  { ascending: true });
-          if (!error && data) return data.map(mapRowToReserva);
+          if (!error && data) {
+            const mapped = data.map(mapRowToReserva);
+            setLocalReservas(mapped);
+            return mapped;
+          }
         }
       } catch (e) {
         console.warn('[reservasService.list] Supabase error:', e);
       }
-      return [];
+      return local;
     },
 
     /** Devuelve solo las reservas de una fecha específica (YYYY-MM-DD). */
@@ -169,10 +210,10 @@ export const reservasService = {
     },
 
     /**
-     * Crea una reserva nueva en Google Sheets en tiempo real.
+     * Crea una reserva nueva en Google Sheets en tiempo real y la almacena localmente de inmediato.
      */
     async create(res: Reserva): Promise<Reserva> {
-      const row = {
+      const created = mapRowToReserva({
         id_reserva: res.id_reserva || `r_${Date.now()}`,
         cliente: res.nombre_cliente || '',
         nombre_cliente: res.nombre_cliente || '',
@@ -180,7 +221,7 @@ export const reservasService = {
         personas: res.pax || 1,
         pax: res.pax || 1,
         fecha: normalizarFecha(res.fecha),
-        hora: res.hora || '',
+        hora: res.hora || '21:00 hs',
         id_mesa: res.id_mesa ?? null,
         nombre_mesa: res.nombre_mesa || '',
         estado: res.estado || 'confirmada',
@@ -189,30 +230,56 @@ export const reservasService = {
         lista_espera: res.lista_espera ? 'true' : 'false',
         prioridad_espera: res.prioridad_espera ?? '',
         entrada_lista_espera: res.entrada_lista_espera || ''
+      });
+
+      // Guardar de inmediato en localStorage para evitar pérdida en F5
+      const current = getLocalReservas();
+      const updated = [created, ...current.filter(r => r.id_reserva !== created.id_reserva)];
+      setLocalReservas(updated);
+
+      const row = {
+        id_reserva: created.id_reserva,
+        cliente: created.nombre_cliente,
+        nombre_cliente: created.nombre_cliente,
+        telefono: created.telefono,
+        personas: created.pax,
+        pax: created.pax,
+        fecha: created.fecha,
+        hora: created.hora,
+        id_mesa: created.id_mesa,
+        nombre_mesa: created.nombre_mesa,
+        estado: created.estado,
+        email: created.email || '',
+        observaciones: created.observaciones || '',
+        lista_espera: created.lista_espera ? 'true' : 'false',
+        prioridad_espera: created.prioridad_espera ?? '',
+        entrada_lista_espera: created.entrada_lista_espera || ''
       };
 
-      try {
-        await sheetUpsertRow('reservas', row);
-      } catch (sheetErr) {
+      sheetUpsertRow('reservas', row).catch(sheetErr => {
         console.error('[reservasService.create] Error guardando en Google Sheets:', sheetErr);
-      }
+      });
 
       try {
         const supabase = tryGetActiveSupabaseClient();
         if (supabase) {
-          await supabase.from('reservas').insert([toDbPayload(res)]);
+          supabase.from('reservas').insert([toDbPayload(res)]).then();
         }
       } catch (sbErr) {
         console.warn('[reservasService.create] Supabase insert omitido:', sbErr);
       }
 
-      return mapRowToReserva(row);
+      return created;
     },
 
     /**
-     * Actualiza campos específicos de una reserva en Google Sheets.
+     * Actualiza campos específicos de una reserva en Google Sheets y en caché local.
      */
     async update(id: string, fields: Partial<Reserva>): Promise<void> {
+      const current = getLocalReservas();
+      const updated = current.map(r => r.id_reserva === id ? { ...r, ...fields } : r);
+      setLocalReservas(updated);
+
       const row: Record<string, any> = { id_reserva: id };
       if (fields.nombre_cliente !== undefined) {
         row.cliente = fields.nombre_cliente;
@@ -234,18 +301,16 @@ export const reservasService = {
       if (fields.prioridad_espera !== undefined) row.prioridad_espera = fields.prioridad_espera;
       if (fields.entrada_lista_espera !== undefined) row.entrada_lista_espera = fields.entrada_lista_espera;
 
-      try {
-        await sheetUpsertRow('reservas', row);
-      } catch (sheetErr) {
+      sheetUpsertRow('reservas', row).catch(sheetErr => {
         console.error('[reservasService.update] Error actualizando en Google Sheets:', sheetErr);
-      }
+      });
 
       try {
         const supabase = tryGetActiveSupabaseClient();
         if (supabase) {
           const payload = toDbPayload(fields);
           delete payload.id_reserva;
-          await supabase.from('reservas').update(payload).eq('id_reserva', id);
+          supabase.from('reservas').update(payload).eq('id_reserva', id).then();
         }
       } catch (sbErr) {
         console.warn('[reservasService.update] Supabase update omitido:', sbErr);
@@ -261,15 +326,17 @@ export const reservasService = {
 
     /** Elimina una reserva de Google Sheets */
     async remove(id: string): Promise<boolean> {
-      try {
-        await sheetDeleteRow('reservas', id);
-      } catch (sheetErr) {
+      const current = getLocalReservas();
+      setLocalReservas(current.filter(r => r.id_reserva !== id));
+
+      sheetDeleteRow('reservas', id).catch(sheetErr => {
         console.error('[reservasService.remove] Error eliminando en Google Sheets:', sheetErr);
-      }
+      });
+
       try {
         const supabase = tryGetActiveSupabaseClient();
         if (supabase) {
-          await supabase.from('reservas').delete().eq('id_reserva', id);
+          supabase.from('reservas').delete().eq('id_reserva', id).then();
         }
       } catch (sbErr) {
         console.warn('[reservasService.remove] Supabase delete omitido:', sbErr);

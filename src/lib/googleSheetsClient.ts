@@ -19,6 +19,25 @@ export interface SheetApiResponse<T = any> {
 let cachedTables: Record<string, any[]> = {};
 let lastFetchTimestamp = 0;
 
+function getTableStorageCache(tableName: string): any[] | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(`el_patron_sheet_cache_${tableName}`);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function setTableStorageCache(tableName: string, data: any[]) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(`el_patron_sheet_cache_${tableName}`, JSON.stringify(data));
+  } catch (err) {
+    console.warn(`[GoogleSheetsClient] LocalStorage full for ${tableName}:`, err);
+  }
+}
+
 async function safeParseResponse<T = any>(resp: Response): Promise<SheetApiResponse<T>> {
   const text = await resp.text();
   try {
@@ -39,8 +58,7 @@ export async function sheetFetchAllTables(forceFresh = false): Promise<Record<st
 
   try {
     const resp = await fetch(`${GOOGLE_SHEETS_WEBAPP_URL}?action=readAll`, {
-      method: 'GET',
-      headers: { 'Accept': 'application/json' },
+      method: 'GET'
     });
 
     if (!resp.ok) {
@@ -51,6 +69,9 @@ export async function sheetFetchAllTables(forceFresh = false): Promise<Record<st
     if (json.success && json.data) {
       cachedTables = json.data;
       lastFetchTimestamp = now;
+      for (const [tbl, rows] of Object.entries(json.data)) {
+        setTableStorageCache(tbl, rows);
+      }
       return cachedTables;
     }
     throw new Error(json.error || 'Respuesta inválida de Google Sheets');
@@ -69,34 +90,43 @@ export async function sheetFetchTable<T = any>(tableName: string, forceFresh = f
     return cachedTables[tableName] as T[];
   }
 
+  // Cargar de disco inmediatamente para disponibilidad instantánea (0ms)
+  const diskCache = getTableStorageCache(tableName);
+  if (diskCache && Array.isArray(diskCache) && diskCache.length > 0 && (!cachedTables[tableName] || cachedTables[tableName].length === 0)) {
+    cachedTables[tableName] = diskCache;
+  }
+
   try {
     const resp = await fetch(`${GOOGLE_SHEETS_WEBAPP_URL}?action=read&table=${encodeURIComponent(tableName)}`, {
-      method: 'GET',
-      headers: { 'Accept': 'application/json' },
+      method: 'GET'
     });
 
-    if (!resp.ok) {
-      throw new Error(`HTTP ${resp.status} al consultar tabla '${tableName}'`);
+    if (resp.ok) {
+      const json = await safeParseResponse<T[]>(resp);
+      if (json.success && Array.isArray(json.data)) {
+        cachedTables[tableName] = json.data;
+        lastFetchTimestamp = now;
+        setTableStorageCache(tableName, json.data);
+        return json.data;
+      }
     }
-
-    const json = await safeParseResponse<T[]>(resp);
-    if (json.success && Array.isArray(json.data)) {
-      cachedTables[tableName] = json.data;
-      return json.data;
-    }
-    throw new Error(json.error || `Error al leer tabla '${tableName}'`);
   } catch (error) {
-    console.warn(`[GoogleSheetsClient] Error al leer '${tableName}':`, error);
-    if (cachedTables[tableName]) {
-      return cachedTables[tableName] as T[];
-    }
-    throw error;
+    console.warn(`[GoogleSheetsClient] Advertencia al leer '${tableName}':`, error);
   }
+
+  if (cachedTables[tableName] && cachedTables[tableName].length > 0) {
+    return cachedTables[tableName] as T[];
+  }
+  if (diskCache && diskCache.length > 0) {
+    return diskCache as T[];
+  }
+  return [];
 }
 
 export async function sheetUpsertRow<T extends Record<string, any>>(tableName: string, rowData: T): Promise<any> {
   if (!cachedTables[tableName]) {
-    cachedTables[tableName] = [];
+    const disk = getTableStorageCache(tableName);
+    cachedTables[tableName] = disk && Array.isArray(disk) ? disk : [];
   }
 
   const pkFieldMap: Record<string, string> = {
@@ -131,6 +161,7 @@ export async function sheetUpsertRow<T extends Record<string, any>>(tableName: s
     } else {
       cachedTables[tableName].push({ ...rowData });
     }
+    setTableStorageCache(tableName, cachedTables[tableName]);
   }
 
   const payload = {
@@ -161,9 +192,11 @@ export async function sheetBatchInsert<T extends Record<string, any>>(tableName:
   if (!items || items.length === 0) return { count: 0 };
 
   if (!cachedTables[tableName]) {
-    cachedTables[tableName] = [];
+    const disk = getTableStorageCache(tableName);
+    cachedTables[tableName] = disk && Array.isArray(disk) ? disk : [];
   }
   cachedTables[tableName].push(...items);
+  setTableStorageCache(tableName, cachedTables[tableName]);
 
   const payload = {
     action: 'batchInsert',
@@ -210,9 +243,12 @@ export async function sheetDeleteRow(tableName: string, id: string | number): Pr
   };
 
   const pk = pkFieldMap[tableName] || 'id';
-  if (cachedTables[tableName]) {
-    cachedTables[tableName] = cachedTables[tableName].filter(r => String(r[pk]) !== String(id));
+  if (!cachedTables[tableName]) {
+    const disk = getTableStorageCache(tableName);
+    cachedTables[tableName] = disk && Array.isArray(disk) ? disk : [];
   }
+  cachedTables[tableName] = cachedTables[tableName].filter(r => String(r[pk]) !== String(id));
+  setTableStorageCache(tableName, cachedTables[tableName]);
 
   const payload = {
     action: 'delete',

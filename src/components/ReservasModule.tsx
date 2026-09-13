@@ -98,7 +98,15 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
   const { toast, toasts, removeToast } = useToast();
 
   const [selectedDate, setSelectedDate] = useState(formatDate(new Date()));
-  const [reservas, setReservas] = useState<Reserva[]>([]);
+  const [reservas, setReservas] = useState<Reserva[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const cached = window.localStorage.getItem('el_patron_cache_reservas');
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
   const [loadingReservas, setLoadingReservas] = useState(false);
   const fetchRequestRef = useRef(0);
   const pendingActionRef = useRef<PendingAction | null>(null);
@@ -117,7 +125,11 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
 
   const fetchReservasDelDia = useCallback(async (fecha: string): Promise<boolean> => {
     const requestId = ++fetchRequestRef.current;
-    setLoadingReservas(true);
+    setReservas(prev => {
+      if (prev.length === 0) setLoadingReservas(true);
+      return prev;
+    });
+
     try {
       const data = await withTimeout(reservasService.list(), 'No pudimos actualizar las reservas. La conexión está lenta.');
       if (requestId !== fetchRequestRef.current) return false;
@@ -125,14 +137,13 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
       return true;
     } catch (err) {
       if (requestId === fetchRequestRef.current) {
-        console.error('Error cargando reservas del día:', err);
-        toast.error('No pudimos actualizar las reservas. Conservamos la información local.');
+        console.warn('Error sincronizando reservas en segundo plano:', err);
       }
       return false;
     } finally {
       if (requestId === fetchRequestRef.current) setLoadingReservas(false);
     }
-  }, [toast]);
+  }, []);
 
   useEffect(() => {
     fetchReservasDelDia(selectedDate);
