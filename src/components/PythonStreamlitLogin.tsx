@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Loader2,
   ArrowRight,
@@ -15,6 +15,7 @@ import { INITIAL_USUARIOS } from '../data/initialData';
 import { canLogin, getLoginErrorMessage } from '../lib/loginAuth';
 import { tryGetActiveSupabaseClient } from '../lib/supabaseClient';
 import { signInWithUsername } from '../services/usernameAuthService';
+import { sheetFetchTable, preloadGoogleSheetsCache } from '../lib/googleSheetsClient';
 import {
   findDemoLoginUser,
   getConfiguredDemoCredentials,
@@ -52,9 +53,13 @@ export default function PythonStreamlitLogin({ onLoginSuccess, onBackToCover }: 
   const [error, setError] = useState('');
   const loginInFlightRef = useRef(false);
 
+  useEffect(() => {
+    preloadGoogleSheetsCache();
+    sheetFetchTable('usuarios').catch(() => undefined);
+  }, []);
 
   const completeLogin = async (user: Usuario, mode: 'demo' | 'supabase') => {
-    await new Promise(resolve => setTimeout(resolve, 300));
+    await new Promise(resolve => setTimeout(resolve, 80));
     onLoginSuccess(user, mode);
   };
 
@@ -85,46 +90,57 @@ export default function PythonStreamlitLogin({ onLoginSuccess, onBackToCover }: 
         return;
       }
 
-      // 1. Verificación en tiempo real contra la tabla 'usuarios' de Google Sheets
+      // 1. Verificación instantánea (0ms) contra la tabla 'usuarios' de Google Sheets
       try {
-        const { sheetFetchTable } = await import('../lib/googleSheetsClient');
         const sheetUsers = await sheetFetchTable('usuarios');
-        if (Array.isArray(sheetUsers) && sheetUsers.length > 0) {
-          const inputId = email.trim().toLowerCase();
-          const cleanPass = password.trim();
+        const inputId = email.trim().toLowerCase();
+        const cleanPass = password.trim();
 
-          const found = sheetUsers.find((u: any) => {
-            const uName = String(u.username || u.mail || '').trim().toLowerCase();
-            if (uName !== inputId) return false;
+        const matchUser = (usersList: any[]) => usersList.find((u: any) => {
+          const uName = String(u.username || u.mail || '').trim().toLowerCase();
+          if (uName !== inputId) return false;
 
-            const uPass = String(u.password || '').trim();
-            const uPin = String(u.pin || '').trim();
+          const uPass = String(u.password || '').trim();
+          const uPin = String(u.pin || '').trim();
 
-            if (uPass && uPass === cleanPass) return true;
-            if (uPin && uPin === cleanPass) return true;
-            if (!uPass && !uPin && (cleanPass === '1234' || cleanPass === '1999' || cleanPass === 'admin')) return true;
-            return false;
-          });
+          if (uPass && uPass === cleanPass) return true;
+          if (uPin && uPin === cleanPass) return true;
+          if (!uPass && !uPin && (cleanPass === '1234' || cleanPass === '1999' || cleanPass === 'admin')) return true;
+          return false;
+        });
 
-          if (found) {
-            if (found.activo === false || String(found.activo).toLowerCase() === 'false') {
-              setError('Este usuario está desactivado en Google Sheets.');
-              return;
+        let found = Array.isArray(sheetUsers) && sheetUsers.length > 0 ? matchUser(sheetUsers) : null;
+
+        // Si no se encuentra en el caché inmediato, intentar una búsqueda fresca por si fue recién creado en Sheets
+        if (!found) {
+          try {
+            const freshUsers = await sheetFetchTable('usuarios', true);
+            if (Array.isArray(freshUsers) && freshUsers.length > 0) {
+              found = matchUser(freshUsers);
             }
-            const loggedUser: Usuario = {
-              id_usuario: Number(found.id_usuario || 1),
-              nombre: found.nombre || 'Usuario',
-              apellido: found.apellido || '',
-              username: found.username || inputId,
-              password: String(found.password || cleanPass),
-              rol: (found.rol || 'mozo') as Usuario['rol'],
-              activo: true,
-              pin: found.pin ? String(found.pin) : undefined,
-              mail: found.mail ? String(found.mail) : undefined,
-            };
-            await completeLogin(loggedUser, 'supabase');
+          } catch {
+            // Ignorar y seguir con fallback de auth
+          }
+        }
+
+        if (found) {
+          if (found.activo === false || String(found.activo).toLowerCase() === 'false') {
+            setError('Este usuario está desactivado en Google Sheets.');
             return;
           }
+          const loggedUser: Usuario = {
+            id_usuario: Number(found.id_usuario || 1),
+            nombre: found.nombre || 'Usuario',
+            apellido: found.apellido || '',
+            username: found.username || inputId,
+            password: String(found.password || cleanPass),
+            rol: (found.rol || 'mozo') as Usuario['rol'],
+            activo: true,
+            pin: found.pin ? String(found.pin) : undefined,
+            mail: found.mail ? String(found.mail) : undefined,
+          };
+          await completeLogin(loggedUser, 'supabase');
+          return;
         }
       } catch (sheetAuthErr) {
         console.warn('Verificación Google Sheets:', sheetAuthErr);

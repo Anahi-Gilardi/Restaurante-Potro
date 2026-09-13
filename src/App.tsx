@@ -85,6 +85,7 @@ import { orderTransactionService } from './services/orderTransactionService';
 import { resolveSessionOperator } from './lib/sessionOperator';
 import { isSameTable, doesOrderBelongToTable } from './lib/tableOrders';
 import { uniteTablesInList, separateTablesInList, formatUnitedTableName } from './lib/tableUnions';
+import { preloadGoogleSheetsCache, sheetFetchAllTables } from './lib/googleSheetsClient';
 
 export default function App() {
   const { toast, toasts, removeToast } = useToast();
@@ -163,8 +164,9 @@ export default function App() {
     };
   }, []);
 
-  // 1. Config loading effect (runs once on mount)
+  // 1. Config loading & Google Sheets Warmup effect (runs once on mount)
   useEffect(() => {
+    preloadGoogleSheetsCache();
     const loadConfig = async () => {
       try {
         const response = await fetch('/api/supabase-config');
@@ -258,6 +260,23 @@ export default function App() {
         setMermas(dbMermas ?? []);
         setOperationalDataStatus('ready');
         addLog('sistema', 'SUPABASE: Auto-sincronización exitosa con servidor Supabase.');
+
+        // Sincronización silenciosa en segundo plano con Google Sheets (sin bloquear la interfaz)
+        sheetFetchAllTables().then(async () => {
+          if (!active) return;
+          try {
+            const [refreshMesas, refreshPedidos, refreshMenu] = await Promise.all([
+              dbFetchMesas(),
+              dbFetchPedidos(),
+              dbFetchProductosMenu()
+            ]);
+            if (active && refreshMesas) setMesas(refreshMesas);
+            if (active && refreshPedidos) setPedidos(refreshPedidos);
+            if (active && refreshMenu) setProductosMenu(refreshMenu);
+          } catch {
+            // Silencioso en background
+          }
+        }).catch(() => undefined);
       } catch (err) {
         console.warn('Supabase: Falló la carga inicial de datos operativos.', err);
         if (active) {
@@ -624,7 +643,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
       setTimeout(() => {
         setPostLoginLoading(false);
         setIsStreamlitLoggedIn(true);
-      }, 300);
+      }, 50);
     });
   };
 

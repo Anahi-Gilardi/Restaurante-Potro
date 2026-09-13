@@ -82,9 +82,13 @@ try {
 }
 
 import { syncQueueService } from './services/syncQueueService';
+import { preloadGoogleSheetsCache } from './lib/googleSheetsClient';
 
 // Initialize offline background sync queue
 syncQueueService.initBackgroundSync();
+
+// Pre-calentar caché de Google Sheets en segundo plano desde el primer microsegundo
+preloadGoogleSheetsCache();
 
 // Keep the current session stable when a new service worker takes control.
 // A stale lazy chunk is recovered by the bounded handler above.

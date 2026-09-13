@@ -17,7 +17,31 @@ export interface SheetApiResponse<T = any> {
 }
 
 let cachedTables: Record<string, any[]> = {};
-let lastFetchTimestamp = 0;
+const lastFetchTimestamps: Record<string, number> = {};
+const inFlightTableFetches = new Map<string, Promise<any[]>>();
+let inFlightReadAllPromise: Promise<Record<string, any[]>> | null = null;
+const CACHE_TTL_MS = 60_000; // 60 segundos antes de considerar el caché 'stale'
+
+export const KNOWN_SHEET_TABLES = [
+  'productos_menu',
+  'mesas',
+  'categorias',
+  'promociones',
+  'pedidos_cabecera',
+  'pedido_detalle',
+  'pedido_operaciones',
+  'insumos',
+  'proveedores',
+  'reservas',
+  'facturas',
+  'pagos',
+  'cierres_caja',
+  'caja_ledger',
+  'usuarios',
+  'configuracion',
+  'arca_config',
+  'arca_emisiones'
+];
 
 function getTableStorageCache(tableName: string): any[] | null {
   if (typeof window === 'undefined') return null;
@@ -38,6 +62,20 @@ function setTableStorageCache(tableName: string, data: any[]) {
   }
 }
 
+// Hidratación instantánea (0ms) de memoria desde disco al cargar el script
+if (typeof window !== 'undefined') {
+  try {
+    for (const tbl of KNOWN_SHEET_TABLES) {
+      const disk = getTableStorageCache(tbl);
+      if (disk && Array.isArray(disk) && disk.length > 0) {
+        cachedTables[tbl] = disk;
+      }
+    }
+  } catch (err) {
+    console.warn('[GoogleSheetsClient] Error al pre-hidratar memoria desde disco:', err);
+  }
+}
+
 async function safeParseResponse<T = any>(resp: Response): Promise<SheetApiResponse<T>> {
   const text = await resp.text();
   try {
@@ -50,77 +88,162 @@ async function safeParseResponse<T = any>(resp: Response): Promise<SheetApiRespo
   }
 }
 
+/**
+ * Consulta y sincroniza todas las tablas de Google Sheets en una única llamada HTTP.
+ * Utiliza deduplicación para no saturar con múltiples peticiones paralelas.
+ */
 export async function sheetFetchAllTables(forceFresh = false): Promise<Record<string, any[]>> {
   const now = Date.now();
-  if (!forceFresh && Object.keys(cachedTables).length > 0 && now - lastFetchTimestamp < 5000) {
+  const lastAllFetch = Math.max(...Object.values(lastFetchTimestamps), 0);
+  
+  if (!forceFresh && Object.keys(cachedTables).length > 0 && now - lastAllFetch < CACHE_TTL_MS) {
     return cachedTables;
   }
 
-  try {
-    const resp = await fetch(`${GOOGLE_SHEETS_WEBAPP_URL}?action=readAll`, {
-      method: 'GET'
-    });
-
-    if (!resp.ok) {
-      throw new Error(`HTTP ${resp.status} al consultar Google Sheets`);
-    }
-
-    const json = await safeParseResponse<Record<string, any[]>>(resp);
-    if (json.success && json.data) {
-      cachedTables = json.data;
-      lastFetchTimestamp = now;
-      for (const [tbl, rows] of Object.entries(json.data)) {
-        setTableStorageCache(tbl, rows);
-      }
-      return cachedTables;
-    }
-    throw new Error(json.error || 'Respuesta inválida de Google Sheets');
-  } catch (error) {
-    console.warn('[GoogleSheetsClient] Error al leer todas las tablas:', error);
-    if (Object.keys(cachedTables).length > 0) {
-      return cachedTables;
-    }
-    throw error;
+  if (inFlightReadAllPromise) {
+    return inFlightReadAllPromise;
   }
+
+  inFlightReadAllPromise = (async () => {
+    try {
+      const resp = await fetch(`${GOOGLE_SHEETS_WEBAPP_URL}?action=readAll`, {
+        method: 'GET'
+      });
+
+      if (!resp.ok) {
+        throw new Error(`HTTP ${resp.status} al consultar Google Sheets`);
+      }
+
+      const json = await safeParseResponse<Record<string, any[]>>(resp);
+      if (json.success && json.data) {
+        const fetchTime = Date.now();
+        cachedTables = { ...cachedTables, ...json.data };
+        for (const [tbl, rows] of Object.entries(json.data)) {
+          lastFetchTimestamps[tbl] = fetchTime;
+          setTableStorageCache(tbl, rows);
+        }
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('el_patron_sheets_sync_completed', { detail: { timestamp: fetchTime } }));
+        }
+        return cachedTables;
+      }
+      throw new Error(json.error || 'Respuesta inválida de Google Sheets');
+    } catch (error) {
+      console.warn('[GoogleSheetsClient] Error al leer todas las tablas:', error);
+      if (Object.keys(cachedTables).length > 0) {
+        return cachedTables;
+      }
+      throw error;
+    } finally {
+      inFlightReadAllPromise = null;
+    }
+  })();
+
+  return inFlightReadAllPromise;
 }
 
+/**
+ * Revalida una tabla en segundo plano sin bloquear el hilo de ejecución del usuario.
+ */
+function revalidateTableInBackground(tableName: string): void {
+  if (inFlightTableFetches.has(tableName) || inFlightReadAllPromise) {
+    return;
+  }
+
+  executeFetchTable(tableName).catch(err => {
+    console.warn(`[GoogleSheetsClient] Revalidación background '${tableName}' falló:`, err);
+  });
+}
+
+/**
+ * Ejecuta la llamada física de red para una tabla específica con deduplicación en vuelo.
+ */
+async function executeFetchTable<T = any>(tableName: string): Promise<T[]> {
+  if (inFlightTableFetches.has(tableName)) {
+    return inFlightTableFetches.get(tableName)!;
+  }
+
+  const fetchPromise = (async () => {
+    const now = Date.now();
+    try {
+      const resp = await fetch(`${GOOGLE_SHEETS_WEBAPP_URL}?action=read&table=${encodeURIComponent(tableName)}`, {
+        method: 'GET'
+      });
+
+      if (resp.ok) {
+        const json = await safeParseResponse<T[]>(resp);
+        if (json.success && Array.isArray(json.data)) {
+          cachedTables[tableName] = json.data;
+          lastFetchTimestamps[tableName] = now;
+          setTableStorageCache(tableName, json.data);
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('el_patron_sheet_data_updated', {
+              detail: { table: tableName, count: json.data.length }
+            }));
+          }
+          return json.data;
+        }
+      }
+    } catch (error) {
+      console.warn(`[GoogleSheetsClient] Advertencia al leer '${tableName}':`, error);
+    }
+
+    if (cachedTables[tableName] && cachedTables[tableName].length > 0) {
+      return cachedTables[tableName] as T[];
+    }
+    const diskCache = getTableStorageCache(tableName);
+    if (diskCache && diskCache.length > 0) {
+      return diskCache as T[];
+    }
+    return [] as T[];
+  })().finally(() => {
+    inFlightTableFetches.delete(tableName);
+  });
+
+  inFlightTableFetches.set(tableName, fetchPromise);
+  return fetchPromise;
+}
+
+/**
+ * Consulta de tabla con patrón Stale-While-Revalidate:
+ * Si hay datos en memoria o disco, retorna INMEDIATAMENTE (0ms).
+ * Si los datos están vencidos (>60s), revalida en segundo plano sin demorar la UI.
+ */
 export async function sheetFetchTable<T = any>(tableName: string, forceFresh = false): Promise<T[]> {
   const now = Date.now();
-  if (!forceFresh && cachedTables[tableName] && now - lastFetchTimestamp < 5000) {
-    return cachedTables[tableName] as T[];
-  }
+  const lastFetch = lastFetchTimestamps[tableName] || 0;
+  const isStale = now - lastFetch > CACHE_TTL_MS;
 
-  // Cargar de disco inmediatamente para disponibilidad instantánea (0ms)
-  const diskCache = getTableStorageCache(tableName);
-  if (diskCache && Array.isArray(diskCache) && diskCache.length > 0 && (!cachedTables[tableName] || cachedTables[tableName].length === 0)) {
-    cachedTables[tableName] = diskCache;
-  }
-
-  try {
-    const resp = await fetch(`${GOOGLE_SHEETS_WEBAPP_URL}?action=read&table=${encodeURIComponent(tableName)}`, {
-      method: 'GET'
-    });
-
-    if (resp.ok) {
-      const json = await safeParseResponse<T[]>(resp);
-      if (json.success && Array.isArray(json.data)) {
-        cachedTables[tableName] = json.data;
-        lastFetchTimestamp = now;
-        setTableStorageCache(tableName, json.data);
-        return json.data;
+  if (!forceFresh) {
+    // 1. Memoria de acceso inmediato (0ms)
+    if (cachedTables[tableName] && cachedTables[tableName].length > 0) {
+      if (isStale) {
+        revalidateTableInBackground(tableName);
       }
+      return cachedTables[tableName] as T[];
     }
-  } catch (error) {
-    console.warn(`[GoogleSheetsClient] Advertencia al leer '${tableName}':`, error);
+
+    // 2. Disco LocalStorage de acceso inmediato (0ms)
+    const diskCache = getTableStorageCache(tableName);
+    if (diskCache && Array.isArray(diskCache) && diskCache.length > 0) {
+      cachedTables[tableName] = diskCache;
+      revalidateTableInBackground(tableName);
+      return diskCache as T[];
+    }
   }
 
-  if (cachedTables[tableName] && cachedTables[tableName].length > 0) {
-    return cachedTables[tableName] as T[];
-  }
-  if (diskCache && diskCache.length > 0) {
-    return diskCache as T[];
-  }
-  return [];
+  // 3. Si se fuerza frescura o no hay ningún dato previo, esperamos a la red
+  return executeFetchTable<T>(tableName);
+}
+
+/**
+ * Pre-calienta la conexión con Google Sheets y descarga el estado global en segundo plano.
+ */
+export function preloadGoogleSheetsCache(): void {
+  if (typeof window === 'undefined') return;
+  sheetFetchAllTables(false).catch(err => {
+    console.warn('[GoogleSheetsClient] Pre-calentamiento silencioso:', err);
+  });
 }
 
 export async function sheetUpsertRow<T extends Record<string, any>>(tableName: string, rowData: T): Promise<any> {
@@ -162,6 +285,7 @@ export async function sheetUpsertRow<T extends Record<string, any>>(tableName: s
       cachedTables[tableName].push({ ...rowData });
     }
     setTableStorageCache(tableName, cachedTables[tableName]);
+    lastFetchTimestamps[tableName] = Date.now();
   }
 
   const payload = {
@@ -197,6 +321,7 @@ export async function sheetBatchInsert<T extends Record<string, any>>(tableName:
   }
   cachedTables[tableName].push(...items);
   setTableStorageCache(tableName, cachedTables[tableName]);
+  lastFetchTimestamps[tableName] = Date.now();
 
   const payload = {
     action: 'batchInsert',
@@ -249,6 +374,7 @@ export async function sheetDeleteRow(tableName: string, id: string | number): Pr
   }
   cachedTables[tableName] = cachedTables[tableName].filter(r => String(r[pk]) !== String(id));
   setTableStorageCache(tableName, cachedTables[tableName]);
+  lastFetchTimestamps[tableName] = Date.now();
 
   const payload = {
     action: 'delete',
