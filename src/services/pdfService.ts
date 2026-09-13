@@ -1429,5 +1429,416 @@ export const pdfService = {
 
     const filename = `cierre-caja-${cierre.id_cierre}.pdf`;
     doc.save(filename);
+  },
+
+  async exportTicketsAuditReportPDF(params: {
+    facturas: any[];
+    configRestaurante: any;
+    session?: any | null;
+    filtroTitulo?: string;
+    operatorName?: string;
+  }): Promise<void> {
+    const { facturas, configRestaurante, session, filtroTitulo = 'Todos los comprobantes', operatorName = 'Administrador' } = params;
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const margin = 12;
+    const pageWidth = 210;
+    const pageHeight = 297;
+    const contentWidth = pageWidth - margin * 2; // 186 mm
+    let y = margin;
+    let pageNum = 1;
+
+    const logo = await loadLogoDataUrl();
+
+    const drawHeader = (currentPage: number) => {
+      // Top color bar
+      doc.setFillColor(98, 74, 62);
+      doc.rect(margin, 8, contentWidth, 2, 'F');
+
+      let curY = 14;
+
+      if (currentPage === 1) {
+        // Logo
+        if (logo) {
+          addLogo(doc, logo, margin, curY, 18);
+        }
+        const textStartX = logo ? margin + 22 : margin;
+
+        // Restaurant Title
+        doc.setTextColor(98, 74, 62);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(15);
+        doc.text(configRestaurante?.nombreComercial || 'RESTAURANTE EL PATRÓN', textStartX, curY + 5);
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8.5);
+        doc.setTextColor(120, 113, 108);
+        doc.text('Control Administrativo y Auditoría General de Caja', textStartX, curY + 10);
+        doc.text(`Razón Social: ${configRestaurante?.razonSocial || 'GILARDI ANAHI'} | CUIT: ${configRestaurante?.cuit || '27-42694613-6'}`, textStartX, curY + 14);
+
+        // Right side metadata
+        doc.setFontSize(8);
+        doc.setTextColor(70, 70, 70);
+        const metaRightX = margin + contentWidth;
+        doc.text(`Fecha Emisión: ${new Date().toLocaleString('es-AR')}`, metaRightX, curY + 5, { align: 'right' });
+        doc.text(`Operador / Cajero: ${operatorName}`, metaRightX, curY + 10, { align: 'right' });
+        doc.text(`Punto de Venta: 0002 (ARCA Producción)`, metaRightX, curY + 14, { align: 'right' });
+
+        curY += 21;
+
+        // Banner Title
+        doc.setFillColor(245, 241, 233);
+        doc.roundedRect(margin, curY, contentWidth, 11, 2, 2, 'F');
+        doc.setDrawColor(219, 213, 204);
+        doc.roundedRect(margin, curY, contentWidth, 11, 2, 2, 'D');
+
+        doc.setTextColor(98, 74, 62);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10.5);
+        doc.text('REPORTE OFICIAL DE TICKETS Y COBROS (CONTROL DEL PROPIETARIO)', margin + 4, curY + 5);
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.setTextColor(100, 80, 50);
+        doc.text(`Filtro: ${filtroTitulo.toUpperCase()} | Total Comprobantes: ${facturas.length}`, margin + 4, curY + 9);
+
+        curY += 15;
+        return curY;
+      } else {
+        // Simple header for subsequent pages
+        doc.setTextColor(98, 74, 62);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9);
+        doc.text(`EL PATRÓN - REPORTE DE TICKETS (CONTINUACIÓN) - ${filtroTitulo.toUpperCase()}`, margin, 14);
+        doc.setTextColor(120, 113, 108);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.text(`Pág. ${currentPage}`, margin + contentWidth, 14, { align: 'right' });
+        doc.setDrawColor(219, 213, 204);
+        doc.line(margin, 16, margin + contentWidth, 16);
+        return 20;
+      }
+    };
+
+    const drawFooter = (currentPage: number) => {
+      doc.setDrawColor(219, 213, 204);
+      doc.line(margin, pageHeight - 12, margin + contentWidth, pageHeight - 12);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(140, 140, 140);
+      doc.text('Documento oficial de control y conciliación de caja - Sistema El Patrón', margin, pageHeight - 8);
+      doc.text(`Página ${currentPage}`, margin + contentWidth, pageHeight - 8, { align: 'right' });
+    };
+
+    y = drawHeader(1);
+
+    // Compute Totals & Statistics
+    let totalGeneral = 0;
+    let totalArca = 0;
+    let totalSinArca = 0;
+    let countArca = 0;
+    let countSinArca = 0;
+    const paymentTotals: Record<string, number> = {
+      efectivo: 0,
+      tarjeta: 0,
+      transferencia: 0,
+      mp_qr: 0,
+      otros: 0
+    };
+
+    facturas.forEach(f => {
+      const monto = Number(f.total) || 0;
+      totalGeneral += monto;
+      const isArca = Boolean(f.afip_cae || (f.tipo && f.tipo !== 'ticket' && f.tipo !== 'X'));
+      if (isArca) {
+        totalArca += monto;
+        countArca++;
+      } else {
+        totalSinArca += monto;
+        countSinArca++;
+      }
+
+      const m = String(f.medio_pago || '').toLowerCase();
+      if (m.includes('efectivo') || m === 'cash') paymentTotals.efectivo += monto;
+      else if (m.includes('tarjeta') || m.includes('credito') || m.includes('debito')) paymentTotals.tarjeta += monto;
+      else if (m.includes('transf')) paymentTotals.transferencia += monto;
+      else if (m.includes('qr') || m.includes('mercadopago') || m.includes('mp')) paymentTotals.mp_qr += monto;
+      else paymentTotals.otros += monto;
+    });
+
+    // Draw KPI Boxes (4 boxes)
+    const boxW = (contentWidth - 9) / 4;
+    const boxH = 18;
+
+    // Box 1: Total General
+    doc.setFillColor(248, 246, 240);
+    doc.roundedRect(margin, y, boxW, boxH, 2, 2, 'F');
+    doc.setDrawColor(219, 213, 204);
+    doc.roundedRect(margin, y, boxW, boxH, 2, 2, 'D');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(120, 113, 108);
+    doc.text('TOTAL COBRADO', margin + 3, y + 4.5);
+    doc.setFontSize(10.5);
+    doc.setTextColor(98, 74, 62);
+    doc.text(`$ ${totalGeneral.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`, margin + 3, y + 10.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(80, 80, 80);
+    doc.text(`${facturas.length} comprobantes`, margin + 3, y + 15);
+
+    // Box 2: Total Fiscal ARCA
+    const b2X = margin + boxW + 3;
+    doc.setFillColor(240, 248, 245);
+    doc.roundedRect(b2X, y, boxW, boxH, 2, 2, 'F');
+    doc.setDrawColor(180, 220, 200);
+    doc.roundedRect(b2X, y, boxW, boxH, 2, 2, 'D');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(40, 120, 80);
+    doc.text('CON ARCA (CAE FISCAL)', b2X + 3, y + 4.5);
+    doc.setFontSize(10.5);
+    doc.setTextColor(20, 100, 60);
+    doc.text(`$ ${totalArca.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`, b2X + 3, y + 10.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(40, 120, 80);
+    doc.text(`${countArca} facturas con CAE`, b2X + 3, y + 15);
+
+    // Box 3: Total Sin ARCA
+    const b3X = b2X + boxW + 3;
+    doc.setFillColor(254, 249, 240);
+    doc.roundedRect(b3X, y, boxW, boxH, 2, 2, 'F');
+    doc.setDrawColor(240, 210, 160);
+    doc.roundedRect(b3X, y, boxW, boxH, 2, 2, 'D');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(160, 100, 30);
+    doc.text('TICKETS INTERNOS (SIN ARCA)', b3X + 3, y + 4.5);
+    doc.setFontSize(10.5);
+    doc.setTextColor(140, 80, 20);
+    doc.text(`$ ${totalSinArca.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`, b3X + 3, y + 10.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(160, 100, 30);
+    doc.text(`${countSinArca} tickets consumo`, b3X + 3, y + 15);
+
+    // Box 4: Medios de pago
+    const b4X = b3X + boxW + 3;
+    doc.setFillColor(248, 246, 252);
+    doc.roundedRect(b4X, y, boxW, boxH, 2, 2, 'F');
+    doc.setDrawColor(210, 200, 230);
+    doc.roundedRect(b4X, y, boxW, boxH, 2, 2, 'D');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(90, 60, 130);
+    doc.text('MEDIOS DE PAGO', b4X + 3, y + 4.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.8);
+    doc.setTextColor(60, 50, 80);
+    doc.text(`Efec: $${paymentTotals.efectivo.toLocaleString('es-AR')}`, b4X + 3, y + 9);
+    doc.text(`Tarj: $${paymentTotals.tarjeta.toLocaleString('es-AR')}`, b4X + 3, y + 12.5);
+    doc.text(`QR/Transf: $${(paymentTotals.mp_qr + paymentTotals.transferencia).toLocaleString('es-AR')}`, b4X + 3, y + 16);
+
+    y += boxH + 6;
+
+    // Table Header definition
+    const colWidths = {
+      fecha: 24,
+      nro: 28,
+      tipo: 34,
+      clienteMesa: 34,
+      medioPago: 22,
+      items: 26,
+      total: 18
+    };
+
+    const drawTableHead = (currentY: number) => {
+      doc.setFillColor(98, 74, 62);
+      doc.rect(margin, currentY, contentWidth, 7, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.5);
+      doc.setTextColor(255, 255, 255);
+
+      let curX = margin + 2;
+      doc.text('FECHA/HORA', curX, currentY + 4.8);
+      curX += colWidths.fecha;
+      doc.text('COMPROBANTE', curX, currentY + 4.8);
+      curX += colWidths.nro;
+      doc.text('TIPO / CAE FISCAL', curX, currentY + 4.8);
+      curX += colWidths.tipo;
+      doc.text('MESA / CLIENTE', curX, currentY + 4.8);
+      curX += colWidths.clienteMesa;
+      doc.text('MEDIO PAGO', curX, currentY + 4.8);
+      curX += colWidths.medioPago;
+      doc.text('ITEMS / PLATOS', curX, currentY + 4.8);
+      curX += colWidths.items;
+      doc.text('TOTAL', curX + colWidths.total - 4, currentY + 4.8, { align: 'right' });
+
+      return currentY + 7;
+    };
+
+    y = drawTableHead(y);
+
+    if (facturas.length === 0) {
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(9);
+      doc.setTextColor(140, 140, 140);
+      doc.text('No se encontraron comprobantes ni tickets registrados en este período.', margin + contentWidth / 2, y + 10, { align: 'center' });
+      y += 20;
+    } else {
+      facturas.forEach((f, idx) => {
+        // Check page break
+        if (y > pageHeight - 32) {
+          drawFooter(pageNum);
+          doc.addPage();
+          pageNum++;
+          y = drawHeader(pageNum);
+          y = drawTableHead(y);
+        }
+
+        const isEven = idx % 2 === 0;
+        const rowH = 8.5;
+        if (isEven) {
+          doc.setFillColor(252, 250, 247);
+          doc.rect(margin, y, contentWidth, rowH, 'F');
+        }
+
+        doc.setDrawColor(235, 230, 222);
+        doc.line(margin, y + rowH, margin + contentWidth, y + rowH);
+
+        let curX = margin + 2;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7.2);
+        doc.setTextColor(50, 50, 50);
+
+        // Fecha / Hora
+        const fTime = f.fecha_completa
+          ? new Date(f.fecha_completa).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+          : (f.fecha || '-');
+        doc.text(fTime, curX, y + 5.5);
+        curX += colWidths.fecha;
+
+        // Comprobante
+        doc.setFont('helvetica', 'bold');
+        const nroStr = String(f.nro_ticket || f.numero_factura || f.id_factura).slice(0, 16);
+        doc.text(nroStr, curX, y + 5.5);
+        curX += colWidths.nro;
+
+        // Tipo / CAE Fiscal
+        const isArca = Boolean(f.afip_cae);
+        if (isArca) {
+          doc.setTextColor(20, 120, 70);
+          doc.setFont('helvetica', 'bold');
+          doc.text(`FACT. C [CAE]`, curX, y + 3.8);
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(6.5);
+          doc.setTextColor(80, 80, 80);
+          doc.text(`CAE: ${f.afip_cae || ''}`.slice(0, 20), curX, y + 7.2);
+        } else {
+          doc.setTextColor(160, 90, 20);
+          doc.setFont('helvetica', 'bold');
+          doc.text('TICKET CONSUMO', curX, y + 3.8);
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(6.5);
+          doc.setTextColor(120, 113, 108);
+          doc.text('Interno (Sin ARCA)', curX, y + 7.2);
+        }
+        doc.setFontSize(7.2);
+        doc.setTextColor(50, 50, 50);
+        curX += colWidths.tipo;
+
+        // Mesa / Cliente
+        const clientStr = (f.cliente || (f.id_pedido ? `Mesa Pedido #${f.id_pedido}` : 'Consumidor Final')).slice(0, 22);
+        doc.text(clientStr, curX, y + 5.5);
+        curX += colWidths.clienteMesa;
+
+        // Medio de Pago
+        const payStr = (f.medio_pago || 'Efectivo').slice(0, 14);
+        doc.text(payStr, curX, y + 5.5);
+        curX += colWidths.medioPago;
+
+        // Items resumen
+        let itemsStr = '';
+        if (Array.isArray(f.items) && f.items.length > 0) {
+          itemsStr = f.items.map((it: any) => `${it.cantidad || 1}x ${it.nombre || ''}`).join(', ');
+        } else if (typeof f.snapshot_items === 'string') {
+          try {
+            const parsed = JSON.parse(f.snapshot_items);
+            if (Array.isArray(parsed)) {
+              itemsStr = parsed.map((it: any) => `${it.cantidad || 1}x ${it.nombre || ''}`).join(', ');
+            }
+          } catch {
+            itemsStr = 'Consumo salón';
+          }
+        } else {
+          itemsStr = 'Consumo salón';
+        }
+        doc.setFont('helvetica', 'italic');
+        doc.setTextColor(100, 100, 100);
+        doc.text(itemsStr.slice(0, 16), curX, y + 5.5);
+        curX += colWidths.items;
+
+        // Total
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(30, 30, 30);
+        const montoStr = `$ ${Number(f.total || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
+        doc.text(montoStr, curX + colWidths.total - 4, y + 5.5, { align: 'right' });
+
+        y += rowH;
+      });
+    }
+
+    // Check space for summary line and signatures
+    if (y > pageHeight - 45) {
+      drawFooter(pageNum);
+      doc.addPage();
+      pageNum++;
+      y = drawHeader(pageNum);
+    }
+
+    // Consolidated Total Bar
+    y += 4;
+    doc.setFillColor(245, 241, 233);
+    doc.rect(margin, y, contentWidth, 8, 'F');
+    doc.setDrawColor(98, 74, 62);
+    doc.setLineWidth(0.3);
+    doc.rect(margin, y, contentWidth, 8, 'D');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(98, 74, 62);
+    doc.text(`TOTAL AUDITADO (${facturas.length} COMPROBANTES):`, margin + 4, y + 5.5);
+    doc.setFontSize(10.5);
+    doc.text(`$ ${totalGeneral.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`, margin + contentWidth - 4, y + 5.5, { align: 'right' });
+
+    y += 16;
+
+    // Signature boxes
+    const sigBoxW = (contentWidth - 16) / 2;
+    const sigBoxH = 22;
+
+    // Box 1: Cajero
+    doc.setDrawColor(180, 180, 180);
+    doc.setLineDashPattern([2, 2], 0);
+    doc.roundedRect(margin, y, sigBoxW, sigBoxH, 2, 2, 'D');
+    doc.setLineDashPattern([], 0);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(100, 100, 100);
+    doc.text('Firma y Aclaración del Cajero / Responsable', margin + sigBoxW / 2, y + sigBoxH - 3, { align: 'center' });
+
+    // Box 2: Dueño
+    const sig2X = margin + sigBoxW + 16;
+    doc.setDrawColor(180, 180, 180);
+    doc.setLineDashPattern([2, 2], 0);
+    doc.roundedRect(sig2X, y, sigBoxW, sigBoxH, 2, 2, 'D');
+    doc.setLineDashPattern([], 0);
+    doc.text('Firma y Conformidad del Propietario / Dueño', sig2X + sigBoxW / 2, y + sigBoxH - 3, { align: 'center' });
+
+    drawFooter(pageNum);
+
+    const safeDate = new Date().toISOString().slice(0, 10);
+    const filename = `reporte-tickets-cobros-${safeDate}.pdf`;
+    doc.save(filename);
   }
 };

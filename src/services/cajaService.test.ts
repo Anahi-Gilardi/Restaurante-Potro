@@ -42,3 +42,4 @@ test('getOpenSession defensive normalization works with corrupted or string valu
   assert.strictEqual(session.registros_totales.transferencia, 0);
   assert.strictEqual(session.registros_totales.mercadopago, 0);
 });
+

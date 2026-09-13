@@ -163,7 +163,15 @@ export default function CajaModule({
     triggerManualPrint,
     triggerPDFDownloadOnly,
     downloadFacturaHistorialPdf,
-    loadCajaState
+    loadCajaState,
+    showTicketsAuditModal,
+    setShowTicketsAuditModal,
+    isExportingTicketsPdf,
+    auditFilterScope,
+    setAuditFilterScope,
+    auditArcaFilter,
+    setAuditArcaFilter,
+    handleDownloadTicketsAuditPDF
   } = useCaja({
     mesas,
     pedidos,
@@ -232,11 +240,12 @@ export default function CajaModule({
         if (showSuccessModal) setShowSuccessModal(false);
         if (showBillCounter) setShowBillCounter(null);
         if (selectedShiftForDetail) setSelectedShiftForDetail(null);
+        if (showTicketsAuditModal) setShowTicketsAuditModal(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showMovimientoModal, showPrinterSettings, showSuccessModal, showBillCounter, selectedShiftForDetail, setShowMovimientoModal, setShowPrinterSettings, setShowSuccessModal]);
+  }, [showMovimientoModal, showPrinterSettings, showSuccessModal, showBillCounter, selectedShiftForDetail, showTicketsAuditModal, setShowMovimientoModal, setShowPrinterSettings, setShowSuccessModal, setShowTicketsAuditModal]);
 
   const handleExportCSV = (cierre: CierreCaja) => {
     const movs = cierre.movimientos_manuales || [];
@@ -299,6 +308,15 @@ export default function CajaModule({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => setShowTicketsAuditModal(true)}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/60 text-[10px] uppercase font-black text-amber-900 dark:text-amber-200 cursor-pointer shadow-xs transition-all active:scale-95"
+            title="Descargar reporte completo en PDF con todos los tickets y facturas (con y sin ARCA) para auditoría del dueño"
+          >
+            <FileText className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400" />
+            Reporte de Tickets (PDF)
+          </button>
+
           <button
             onClick={() => setEditRestauranteMode(!editRestauranteMode)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-stone-200 bg-stone-50 text-[10px] uppercase font-extrabold text-stone-600 hover:bg-stone-100 cursor-pointer transition-colors"
@@ -668,6 +686,18 @@ export default function CajaModule({
                   >
                     <Plus className="w-3.5 h-3.5 text-[#624A3E]" />
                     Registrar Movimiento de Caja Chica
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuditFilterScope('turno_actual');
+                      setShowTicketsAuditModal(true);
+                    }}
+                    className="w-full py-2 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/30 dark:hover:bg-amber-900/50 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700 rounded-xl text-[10px] uppercase font-black transition-all cursor-pointer shadow-2xs flex items-center justify-center gap-1.5"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400" />
+                    Descargar Tickets del Turno (PDF)
                   </button>
 
                   <button
@@ -2324,6 +2354,163 @@ export default function CajaModule({
             >
               Aceptar
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* TICKETS AUDIT REPORT MODAL (CONTROL DEL DUEÑO) */}
+      {showTicketsAuditModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-[#1e1b18] rounded-2xl border border-stone-200 dark:border-stone-800 max-w-lg w-full p-6 animate-scaleIn space-y-4 shadow-xl font-sans">
+            <div className="flex justify-between items-start border-b border-stone-200/50 dark:border-stone-800 pb-3">
+              <div>
+                <h3 className="text-sm font-black text-stone-900 dark:text-stone-100 uppercase tracking-tight flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                  Control de Caja & Auditoría de Tickets (PDF)
+                </h3>
+                <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5">
+                  Descarga oficial para el dueño con todos los cobros (con ARCA y sin ARCA) sincronizados con Google Sheets.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowTicketsAuditModal(false)}
+                className="p-1 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-full text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 transition-colors border-none bg-transparent cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Scope Filter */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black uppercase text-stone-500 tracking-wider block">
+                1. Período / Alcance del Reporte:
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { key: 'todos', label: 'Histórico Completo' },
+                  { key: 'turno_actual', label: 'Turno Actual' },
+                  { key: 'hoy', label: 'Solo Hoy' }
+                ].map(opt => (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    onClick={() => setAuditFilterScope(opt.key as any)}
+                    className={`py-2 px-2.5 rounded-xl text-xs font-black uppercase transition-all cursor-pointer border ${
+                      auditFilterScope === opt.key
+                        ? 'bg-[#624A3E] text-white border-[#624A3E] shadow-xs'
+                        : 'bg-stone-50 dark:bg-stone-900 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-stone-800 hover:bg-stone-100'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Type Filter (Con ARCA / Sin ARCA / Todos) */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black uppercase text-stone-500 tracking-wider block">
+                2. Tipo de Comprobantes a Incluir:
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { key: 'todos', label: 'Todos (Con y Sin ARCA)' },
+                  { key: 'arca', label: 'Solo ARCA (Fact. C)' },
+                  { key: 'sin_arca', label: 'Solo Tickets Consumo' }
+                ].map(opt => (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    onClick={() => setAuditArcaFilter(opt.key as any)}
+                    className={`py-2 px-2 text-[10px] font-black uppercase transition-all cursor-pointer border ${
+                      auditArcaFilter === opt.key
+                        ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                        : 'bg-stone-50 dark:bg-stone-900 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-stone-800 hover:bg-stone-100'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Live Count & Preview summary */}
+            {(() => {
+              let fList = [...lastFacturas];
+              if (auditFilterScope === 'turno_actual') {
+                if (cajaSession?.fecha_apertura) {
+                  const tOpen = new Date(cajaSession.fecha_apertura).getTime();
+                  fList = fList.filter(f => !f.fecha_completa || new Date(f.fecha_completa).getTime() >= tOpen);
+                }
+              } else if (auditFilterScope === 'hoy') {
+                const today = new Date().toISOString().slice(0, 10);
+                fList = fList.filter(f => !f.fecha_completa || f.fecha_completa.startsWith(today));
+              }
+
+              if (auditArcaFilter === 'arca') {
+                fList = fList.filter(f => Boolean(f.afip_cae || (f.tipo && f.tipo !== 'ticket' && f.tipo !== 'X')));
+              } else if (auditArcaFilter === 'sin_arca') {
+                fList = fList.filter(f => !f.afip_cae && (!f.tipo || f.tipo === 'ticket' || f.tipo === 'X'));
+              }
+
+              const sumMonto = fList.reduce((acc, f) => acc + (Number(f.total) || 0), 0);
+              const countArca = fList.filter(f => Boolean(f.afip_cae)).length;
+              const countNoArca = fList.length - countArca;
+
+              return (
+                <div className="p-3.5 bg-[#F5F1E9] dark:bg-stone-950/80 rounded-xl border border-stone-200 dark:border-stone-800 space-y-2 text-xs">
+                  <div className="flex justify-between items-center font-bold text-stone-700 dark:text-stone-300">
+                    <span>Comprobantes encontrados:</span>
+                    <span className="font-mono text-sm font-black text-stone-900 dark:text-stone-100">{fList.length}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-[11px] font-medium text-stone-600 dark:text-stone-400 pt-1 border-t border-stone-200 dark:border-stone-800">
+                    <div>
+                      <span>Con ARCA (CAE): </span>
+                      <strong className="text-emerald-700 dark:text-emerald-400 font-mono">{countArca}</strong>
+                    </div>
+                    <div>
+                      <span>Sin ARCA (Consumo): </span>
+                      <strong className="text-amber-700 dark:text-amber-400 font-mono">{countNoArca}</strong>
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center pt-1 border-t border-stone-200 dark:border-stone-800 font-bold text-sm">
+                    <span className="text-stone-800 dark:text-stone-200">Monto Total Auditado:</span>
+                    <span className="font-mono text-base font-black text-[#624A3E] dark:text-amber-400">
+                      ${sumMonto.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Actions */}
+            <div className="flex gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowTicketsAuditModal(false)}
+                className="w-1/3 py-2.5 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-200 text-xs font-black uppercase rounded-xl border-none cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={isExportingTicketsPdf}
+                onClick={() => handleDownloadTicketsAuditPDF()}
+                className="w-2/3 py-2.5 bg-[#624A3E] hover:bg-[#503C32] dark:bg-amber-600 dark:hover:bg-amber-500 text-white text-xs font-black uppercase rounded-xl shadow cursor-pointer border-none flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50"
+              >
+                {isExportingTicketsPdf ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin text-amber-300" />
+                    Generando PDF...
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-4 h-4 text-amber-300" />
+                    Descargar PDF Oficial
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

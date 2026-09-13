@@ -60,3 +60,21 @@ test('la factura A4 mantiene los datos fiscales exigidos', () => {
   assert.match(invoiceSource, /ingresosBrutos/);
   assert.match(invoiceSource, /inicioActividades/);
 });
+
+test('el modulo Caja y useCaja incorporan el boton y modal de auditoria de tickets para el dueno', () => {
+  assert.match(cajaModule, /Reporte de Tickets \(PDF\)/);
+  assert.match(cajaModule, /Descargar Tickets del Turno \(PDF\)/);
+  assert.match(cajaModule, /showTicketsAuditModal/);
+  assert.match(cajaModule, /handleDownloadTicketsAuditPDF/);
+  assert.match(cajaHook, /handleDownloadTicketsAuditPDF/);
+  assert.match(cajaHook, /showTicketsAuditModal/);
+});
+
+test('pdfService cuenta con la funcion oficial exportTicketsAuditReportPDF con soporte para ARCA y sin ARCA', () => {
+  assert.match(pdfService, /exportTicketsAuditReportPDF/);
+  assert.match(pdfService, /REPORTE OFICIAL DE TICKETS Y COBROS \(CONTROL DEL PROPIETARIO\)/);
+  assert.match(pdfService, /CON ARCA \(CAE FISCAL\)/);
+  assert.match(pdfService, /TICKETS INTERNOS \(SIN ARCA\)/);
+  assert.match(pdfService, /TOTAL AUDITADO/);
+});
+

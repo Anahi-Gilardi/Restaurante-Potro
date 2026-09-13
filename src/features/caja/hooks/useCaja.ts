@@ -76,6 +76,21 @@ export function useCaja({
   });
   const [sessionInsumos, setSessionInsumos] = useState<CierreCaja[]>([]);
   const [lastFacturas, setLastFacturas] = useState<Factura[]>([]);
+  const [showTicketsAuditModal, setShowTicketsAuditModal] = useState(false);
+  const [isExportingTicketsPdf, setIsExportingTicketsPdf] = useState(false);
+  const [auditFilterScope, setAuditFilterScope] = useState<'todos' | 'turno_actual' | 'hoy'>('todos');
+  const [auditArcaFilter, setAuditArcaFilter] = useState<'todos' | 'arca' | 'sin_arca'>('todos');
+
+  // Load facturas on mount and when cajaSession updates
+  useEffect(() => {
+    let isMounted = true;
+    facturacionService.list().then(list => {
+      if (isMounted && Array.isArray(list)) {
+        setLastFacturas(list);
+      }
+    }).catch(err => console.warn('[useCaja] Error cargando facturas:', err));
+    return () => { isMounted = false; };
+  }, [cajaSession]);
 
   // Shift opening/closing dialog states
   const [showOpenModal, setShowOpenModal] = useState(false);
@@ -917,6 +932,64 @@ export function useCaja({
     });
   };
 
+  const handleDownloadTicketsAuditPDF = async (
+    filtroScope: 'todos' | 'turno_actual' | 'hoy' = auditFilterScope,
+    arcaFilter: 'todos' | 'arca' | 'sin_arca' = auditArcaFilter
+  ) => {
+    setIsExportingTicketsPdf(true);
+    try {
+      // Always query latest from facturas (Google Sheets + cache)
+      const allFacturas = await facturacionService.list();
+      setLastFacturas(allFacturas);
+
+      let filtered = [...allFacturas];
+      let scopeTitle = 'Todos los Comprobantes';
+
+      if (filtroScope === 'turno_actual') {
+        scopeTitle = 'Turno Actual de Caja';
+        if (cajaSession?.fecha_apertura) {
+          const aperturaTime = new Date(cajaSession.fecha_apertura).getTime();
+          filtered = filtered.filter(f => {
+            if (!f.fecha_completa) return true;
+            const fTime = new Date(f.fecha_completa).getTime();
+            return !isNaN(fTime) ? fTime >= aperturaTime : true;
+          });
+        }
+      } else if (filtroScope === 'hoy') {
+        scopeTitle = 'Cobros de Hoy';
+        const todayStr = new Date().toISOString().slice(0, 10);
+        filtered = filtered.filter(f => {
+          if (!f.fecha_completa) return true;
+          return f.fecha_completa.startsWith(todayStr);
+        });
+      }
+
+      if (arcaFilter === 'arca') {
+        scopeTitle += ' (Solo Fiscales ARCA)';
+        filtered = filtered.filter(f => Boolean(f.afip_cae || (f.tipo && f.tipo !== 'ticket' && f.tipo !== 'X')));
+      } else if (arcaFilter === 'sin_arca') {
+        scopeTitle += ' (Solo Tickets Consumo sin ARCA)';
+        filtered = filtered.filter(f => !f.afip_cae && (!f.tipo || f.tipo === 'ticket' || f.tipo === 'X'));
+      }
+
+      await pdfService.exportTicketsAuditReportPDF({
+        facturas: filtered,
+        configRestaurante: restaurante,
+        session: cajaSession,
+        filtroTitulo: scopeTitle,
+        operatorName: operatorName || 'Administrador'
+      });
+
+      toast.success(`Reporte PDF descargado exitosamente (${filtered.length} comprobantes incluidos).`);
+      setShowTicketsAuditModal(false);
+    } catch (err: any) {
+      console.error('Error generando reporte de auditoría de tickets:', err);
+      toast.error(`Error al generar el PDF: ${err.message || 'Error desconocido'}`);
+    } finally {
+      setIsExportingTicketsPdf(false);
+    }
+  };
+
   return {
     restaurante,
     setRestaurante,
@@ -1013,6 +1086,15 @@ export function useCaja({
     triggerManualPrint,
     triggerPDFDownloadOnly,
     downloadFacturaHistorialPdf,
-    loadCajaState
+    loadCajaState,
+    showTicketsAuditModal,
+    setShowTicketsAuditModal,
+    isExportingTicketsPdf,
+    auditFilterScope,
+    setAuditFilterScope,
+    auditArcaFilter,
+    setAuditArcaFilter,
+    handleDownloadTicketsAuditPDF
   };
 }
+
