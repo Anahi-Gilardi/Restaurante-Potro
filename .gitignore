@@ -12,3 +12,9 @@ __pycache__/
 *.py[cod]
 
 .vercel
+
+# Google Cloud / Service Account credentials
+*service_account*.json
+elpatron-*.json
+*credentials*.json
+*.pem
