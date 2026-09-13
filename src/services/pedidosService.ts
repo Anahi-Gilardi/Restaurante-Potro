@@ -1,4 +1,5 @@
 import { tryGetActiveSupabaseClient } from '../lib/supabaseClient';
+import { sheetFetchTable, sheetUpsertRow, sheetBatchInsert, sheetDeleteRow } from '../lib/googleSheetsClient';
 import { Pedido, PedidoItem } from '../types';
 import { stockEngine } from './stock/stockEngine';
 
@@ -109,6 +110,19 @@ export const serializePedidoDetails = (pedido: Pedido) => pedido.items.map((item
 
 export const pedidosService = {
   async list(): Promise<Pedido[]> {
+    try {
+      const headers = await sheetFetchTable('pedidos_cabecera');
+      if (headers && headers.length > 0) {
+        let details: any[] = [];
+        try {
+          details = await sheetFetchTable('pedido_detalle');
+        } catch {}
+        return headers.map(header => hydratePedido(header, details || []));
+      }
+    } catch (sheetErr) {
+      console.warn('[pedidosService.list] Fallback a Supabase:', sheetErr);
+    }
+
     const supabase = tryGetActiveSupabaseClient();
     if (!supabase) return [];
     
@@ -120,7 +134,7 @@ export const pedidosService = {
       
     if (hError) {
       console.error('Error fetching pedidos headers:', hError);
-      throw hError;
+      return [];
     }
     
     if (!headers || headers.length === 0) return [];
@@ -134,7 +148,6 @@ export const pedidosService = {
       
     if (dError) {
       console.error('Error fetching pedido details:', dError);
-      throw dError;
     }
 
     return headers.map(header => hydratePedido(header, details || []));
@@ -175,6 +188,15 @@ export const pedidosService = {
         : null;
     }
     if (fields.items !== undefined) headerFields.items = JSON.stringify(fields.items);
+
+    try {
+      await sheetUpsertRow('pedidos_cabecera', {
+        id_pedido: id,
+        ...headerFields,
+      });
+    } catch (sheetErr) {
+      console.warn('[pedidosService.update] Error en Google Sheets:', sheetErr);
+    }
 
     try {
       if (Object.keys(headerFields).length > 0) {
@@ -259,9 +281,21 @@ export const pedidosService = {
   },
 
   async upsert(pedidos: Pedido[]): Promise<void> {
+    for (const ped of pedidos) {
+      try {
+        const header = serializePedidoHeader(ped);
+        await sheetUpsertRow('pedidos_cabecera', header);
+        const details = serializePedidoDetails(ped);
+        if (details.length > 0) {
+          await sheetBatchInsert('pedido_detalle', details);
+        }
+      } catch (sheetErr) {
+        console.warn('[pedidosService.upsert] Error en Google Sheets:', sheetErr);
+      }
+    }
+
     const supabase = tryGetActiveSupabaseClient();
     if (!supabase) {
-      console.warn('Supabase is not configured or offline. Skipping database upsert.');
       return;
     }
     

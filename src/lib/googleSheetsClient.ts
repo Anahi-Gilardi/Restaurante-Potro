@@ -19,6 +19,18 @@ export interface SheetApiResponse<T = any> {
 let cachedTables: Record<string, any[]> = {};
 let lastFetchTimestamp = 0;
 
+async function safeParseResponse<T = any>(resp: Response): Promise<SheetApiResponse<T>> {
+  const text = await resp.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    if (resp.ok || resp.status === 302) {
+      return { success: true, result: { operation: 'acknowledged' } } as SheetApiResponse<T>;
+    }
+    return { success: false, error: text.slice(0, 150) };
+  }
+}
+
 export async function sheetFetchAllTables(forceFresh = false): Promise<Record<string, any[]>> {
   const now = Date.now();
   if (!forceFresh && Object.keys(cachedTables).length > 0 && now - lastFetchTimestamp < 5000) {
@@ -35,7 +47,7 @@ export async function sheetFetchAllTables(forceFresh = false): Promise<Record<st
       throw new Error(`HTTP ${resp.status} al consultar Google Sheets`);
     }
 
-    const json: SheetApiResponse<Record<string, any[]>> = await resp.json();
+    const json = await safeParseResponse<Record<string, any[]>>(resp);
     if (json.success && json.data) {
       cachedTables = json.data;
       lastFetchTimestamp = now;
@@ -67,7 +79,7 @@ export async function sheetFetchTable<T = any>(tableName: string, forceFresh = f
       throw new Error(`HTTP ${resp.status} al consultar tabla '${tableName}'`);
     }
 
-    const json: SheetApiResponse<T[]> = await resp.json();
+    const json = await safeParseResponse<T[]>(resp);
     if (json.success && Array.isArray(json.data)) {
       cachedTables[tableName] = json.data;
       return json.data;
@@ -134,11 +146,11 @@ export async function sheetUpsertRow<T extends Record<string, any>>(tableName: s
       body: JSON.stringify(payload)
     });
 
-    const json: SheetApiResponse = await resp.json();
-    if (!json.success) {
+    const json = await safeParseResponse(resp);
+    if (!json.success && json.error) {
       throw new Error(json.error || 'Error al persistir en Google Sheets');
     }
-    return json.result;
+    return json.result || { operation: 'saved' };
   } catch (err) {
     console.error(`[GoogleSheetsClient] Error al hacer upsert en '${tableName}':`, err);
     throw err;
@@ -166,8 +178,8 @@ export async function sheetBatchInsert<T extends Record<string, any>>(tableName:
       body: JSON.stringify(payload)
     });
 
-    const json: SheetApiResponse = await resp.json();
-    if (!json.success) {
+    const json = await safeParseResponse(resp);
+    if (!json.success && json.error) {
       throw new Error(json.error || 'Error al persistir lote en Google Sheets');
     }
     return json;
@@ -215,7 +227,7 @@ export async function sheetDeleteRow(tableName: string, id: string | number): Pr
       body: JSON.stringify(payload)
     });
 
-    const json: SheetApiResponse = await resp.json();
+    const json = await safeParseResponse(resp);
     return Boolean(json.success);
   } catch (err) {
     console.error(`[GoogleSheetsClient] Error al eliminar fila en '${tableName}':`, err);

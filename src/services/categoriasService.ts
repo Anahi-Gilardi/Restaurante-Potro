@@ -1,4 +1,5 @@
 import { tryGetActiveSupabaseClient } from '../lib/supabaseClient';
+import { sheetFetchTable, sheetUpsertRow } from '../lib/googleSheetsClient';
 import { Categoria } from '../types';
 
 export const DEFAULT_CATEGORIAS: Categoria[] = [
@@ -15,6 +16,21 @@ export const DEFAULT_CATEGORIAS: Categoria[] = [
 
 export const categoriasService = {
   async list(): Promise<Categoria[]> {
+    try {
+      const sheetData = await sheetFetchTable('categorias');
+      if (sheetData && sheetData.length > 0) {
+        return sheetData.map((c: any) => ({
+          id: c.id_categoria || c.id,
+          nombre: c.nombre,
+          slug: c.nombre.toLowerCase().replace(/\s+/g, '-'),
+          orden: Number(c.orden || 1),
+          activa: c.activa !== false && String(c.activa).toLowerCase() !== 'false',
+          icono: c.icono || 'UtensilsCrossed'
+        }));
+      }
+    } catch (sheetErr) {
+      console.warn('[categoriasService.list] Fallback a caché/Supabase:', sheetErr);
+    }
     const cached = localStorage.getItem('el_patron_cache_categorias');
     const client = tryGetActiveSupabaseClient();
 

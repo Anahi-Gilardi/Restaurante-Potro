@@ -1,4 +1,5 @@
-import { getActiveSupabaseClient } from '../lib/supabaseClient';
+import { getActiveSupabaseClient, tryGetActiveSupabaseClient } from '../lib/supabaseClient';
+import { sheetFetchTable, sheetUpsertRow, sheetDeleteRow } from '../lib/googleSheetsClient';
 import { Insumo, PedidoItem, RecetaEscandallo } from '../types';
 import { insumoSchema } from '../lib/validations';
 
@@ -16,39 +17,63 @@ export function calcularDescuentosInventario(items: PedidoItem[], recetas: Recet
 
 export const insumosService = {
   async list(): Promise<Insumo[]> {
-    const supabase = getActiveSupabaseClient();
-    const { data, error } = await supabase.from('insumos').select('*').order('id_insumo', { ascending: true });
-    if (error) {
-      console.error('Error fetching insumos:', error);
-      throw error;
+    try {
+      const sheetData = await sheetFetchTable('insumos');
+      if (sheetData && sheetData.length > 0) {
+        return sheetData.map(i => ({
+          ...i,
+          stock_actual: Number(i.stock_actual || 0),
+          stock_minimo: Number(i.stock_minimo || 0),
+          costo_unitario: Number(i.costo_unitario || 0),
+          es_bebida_directa: i.es_bebida_directa === true || String(i.es_bebida_directa).toLowerCase() === 'true',
+        }));
+      }
+    } catch (sheetErr) {
+      console.warn('[insumosService.list] Fallback a Supabase:', sheetErr);
     }
-    return data || [];
+    try {
+      const supabase = tryGetActiveSupabaseClient();
+      if (supabase) {
+        const { data, error } = await supabase.from('insumos').select('*').order('id_insumo', { ascending: true });
+        if (!error && data) return data;
+      }
+    } catch (e) {
+      console.warn('[insumosService.list] Supabase error:', e);
+    }
+    return [];
   },
 
   async getById(id: string): Promise<Insumo | null> {
-    const supabase = getActiveSupabaseClient();
-    const { data, error } = await supabase.from('insumos').select('*').eq('id_insumo', id).single();
-    if (error) {
-      console.error(`Error fetching insumo ${id}:`, error);
-      return null;
-    }
-    return data;
+    const all = await this.list();
+    return all.find(i => i.id_insumo === id) || null;
   },
 
   async create(insumo: Insumo): Promise<Insumo> {
     insumoSchema.passthrough().parse(insumo);
-    const supabase = getActiveSupabaseClient();
-    const { data, error } = await supabase.from('insumos').insert([insumo]).select().single();
-    if (error) {
-      console.error('Error creating insumo:', error);
-      throw error;
+    try {
+      await sheetUpsertRow('insumos', insumo);
+    } catch (sheetErr) {
+      console.error('[insumosService.create] Error en Google Sheets:', sheetErr);
     }
-    return data;
+    try {
+      const supabase = tryGetActiveSupabaseClient();
+      if (supabase) {
+        await supabase.from('insumos').insert([insumo]);
+      }
+    } catch (e) {
+      console.warn('[insumosService.create] Supabase omitido:', e);
+    }
+    return insumo;
   },
 
   async update(id: string, insumo: Partial<Insumo>): Promise<Insumo> {
     insumoSchema.partial().passthrough().parse(insumo);
-    const supabase = getActiveSupabaseClient();
+    const row = { id_insumo: id, ...insumo };
+    try {
+      await sheetUpsertRow('insumos', row);
+    } catch (sheetErr) {
+      console.error('[insumosService.update] Error en Google Sheets:', sheetErr);
+    }
     let previousCost = 0;
     try {
       const current = await this.getById(id);
@@ -59,23 +84,30 @@ export const insumosService = {
       console.warn('Could not fetch previous cost:', e);
     }
 
-    const { data, error } = await supabase.from('insumos').update(insumo).eq('id_insumo', id).select().single();
-    if (error) {
-      console.error('Error updating insumo:', error);
-      throw error;
+    try {
+      const supabase = tryGetActiveSupabaseClient();
+      if (supabase) {
+        await supabase.from('insumos').update(insumo).eq('id_insumo', id);
+      }
+    } catch (e) {
+      console.warn('[insumosService.update] Supabase omitido:', e);
     }
+    const data = row as Insumo;
     const newCost = insumo.costo_unitario;
     if (newCost !== undefined && newCost !== null && newCost !== previousCost) {
       try {
-        const id_historial = `his_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
-        await supabase.from('historial_costos_insumos').insert([{
-          id_historial,
-          id_insumo: id,
-          nombre_insumo: data.nombre,
-          costo_anterior: previousCost,
-          costo_nuevo: newCost,
-          fecha: new Date().toISOString()
-        }]);
+        const supabase = tryGetActiveSupabaseClient();
+        if (supabase) {
+          const id_historial = `his_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+          await supabase.from('historial_costos_insumos').insert([{
+            id_historial,
+            id_insumo: id,
+            nombre_insumo: data.nombre,
+            costo_anterior: previousCost,
+            costo_nuevo: newCost,
+            fecha: new Date().toISOString()
+          }]);
+        }
       } catch (e) {
         console.error('Error recording cost history:', e);
       }
@@ -139,17 +171,25 @@ export const insumosService = {
   },
 
   async remove(id: string): Promise<boolean> {
-    const supabase = getActiveSupabaseClient();
-    const { error } = await supabase.from('insumos').delete().eq('id_insumo', id);
-    if (error) {
-      console.error('Error deleting insumo:', error);
-      return false;
+    try {
+      await sheetDeleteRow('insumos', id);
+    } catch (sheetErr) {
+      console.error('[insumosService.remove] Error en Google Sheets:', sheetErr);
+    }
+    try {
+      const supabase = tryGetActiveSupabaseClient();
+      if (supabase) {
+        await supabase.from('insumos').delete().eq('id_insumo', id);
+      }
+    } catch (e) {
+      console.warn('[insumosService.remove] Supabase omitido:', e);
     }
     return true;
   },
 
   async getHistory(idInsumo?: string): Promise<any[]> {
-    const supabase = getActiveSupabaseClient();
+    const supabase = tryGetActiveSupabaseClient();
+    if (!supabase) return [];
     let query = supabase.from('historial_costos_insumos').select('*').order('fecha', { ascending: false });
     if (idInsumo) {
       query = query.eq('id_insumo', idInsumo);
@@ -169,15 +209,29 @@ export const insumosService = {
     stock_anterior: number;
     stock_nuevo: number;
   }): Promise<void> {
-    const supabase = getActiveSupabaseClient();
     const id_movimiento = `mov_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
-    const { error } = await supabase.from('movimientos_inventario').insert([{
-      id_movimiento,
-      ...movement,
-      fecha: new Date().toISOString()
-    }]);
-    if (error) {
-      console.error('Error recording movement:', error);
+    try {
+      await sheetUpsertRow('caja_ledger', {
+        id_ledger: id_movimiento,
+        tipo: movement.tipo_movimiento,
+        monto: movement.cantidad,
+        concepto: `Insumo ${movement.id_insumo}: ${movement.tipo_movimiento}`,
+        fecha: new Date().toISOString()
+      });
+    } catch (sheetErr) {
+      console.warn('[insumosService.recordMovement] Google Sheets error:', sheetErr);
+    }
+    try {
+      const supabase = tryGetActiveSupabaseClient();
+      if (supabase) {
+        await supabase.from('movimientos_inventario').insert([{
+          id_movimiento,
+          ...movement,
+          fecha: new Date().toISOString()
+        }]);
+      }
+    } catch (e) {
+      console.warn('[insumosService.recordMovement] Supabase omitido:', e);
     }
   },
 

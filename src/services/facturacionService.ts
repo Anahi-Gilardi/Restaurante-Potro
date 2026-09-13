@@ -1,4 +1,5 @@
-import { getActiveSupabaseClient } from '../lib/supabaseClient';
+import { getActiveSupabaseClient, tryGetActiveSupabaseClient } from '../lib/supabaseClient';
+import { sheetFetchTable, sheetUpsertRow } from '../lib/googleSheetsClient';
 
 export interface FacturaItem {
   descripcion: string;
@@ -142,7 +143,39 @@ export const facturacionService = {
   async list(): Promise<Factura[]> {
     const local = readLocalFacturas();
     try {
-      const supabase = getActiveSupabaseClient();
+      const sheetData = await sheetFetchTable('facturas');
+      if (sheetData && sheetData.length > 0) {
+        const remote = sheetData.map(f => {
+          const tipoComprobante = String(f.tipo_comprobante || '');
+          const tipo = tipoFromDb(tipoComprobante);
+          const total = Number(f.total) || 0;
+          const iva = tipo === 'C' || tipo === 'X' || tipo === 'ticket' ? 0 : total - total / 1.21;
+
+          return {
+            id_factura: String(f.id_factura),
+            id_pedido: f.id_pedido ? Number(f.id_pedido) : undefined,
+            nro_ticket: String(f.numero_factura || f.id_factura),
+            cliente: f.cliente_nombre || (f.cuit_cliente ? `Cliente ${f.cuit_cliente}` : 'Consumidor Final'),
+            cuit: String(f.cuit_cliente || ''),
+            total,
+            iva_veintiuno: Number(iva.toFixed(2)),
+            medio_pago: mapMetodoPagoFromDb(f.metodo_pago),
+            fecha: new Date(f.fecha_emision || Date.now()).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + ' hs',
+            estado: 'autorizado' as const,
+            tipo,
+            afip_cae: f.cae || f.afip_cae,
+            afip_vto: f.vencimiento_cae || f.afip_vto,
+          };
+        });
+        return mergeFacturas(remote, local);
+      }
+    } catch (sheetErr) {
+      console.warn('[facturacionService.list] Fallback desde Google Sheets:', sheetErr);
+    }
+
+    try {
+      const supabase = tryGetActiveSupabaseClient();
+      if (!supabase) return local;
       const { data, error } = await supabase.from('facturas').select('*').order('fecha_emision', { ascending: false });
       if (error) throw error;
 
@@ -207,42 +240,46 @@ export const facturacionService = {
 
   async create(factura: Factura): Promise<Factura> {
     cacheFacturaLocally(factura);
-    const supabase = getActiveSupabaseClient();
     const dbPayload = toDbFacturaPayload(factura);
+
+    try {
+      await sheetUpsertRow('facturas', dbPayload);
+    } catch (sheetErr) {
+      console.warn('[facturacionService.create] Google Sheets:', sheetErr);
+    }
     
     try {
-      const { data, error } = await supabase.from('facturas').insert([dbPayload]).select().single();
-      if (error) {
-        console.error('Error creating invoice:', error);
-        throw error;
+      const supabase = tryGetActiveSupabaseClient();
+      if (supabase) {
+        const { data, error } = await supabase.from('facturas').insert([dbPayload]).select().single();
+        if (data) {
+          return { ...factura, id_factura: data.id_factura };
+        }
       }
-      return {
-        ...factura,
-        id_factura: data.id_factura
-      };
     } catch (err) {
-      console.warn('facturacionService.create failed remote push, enqueued for sync:', err);
-      const { syncQueueService } = await import('./syncQueueService');
-      syncQueueService.enqueue('upsert_factura', factura);
-      return factura;
+      console.warn('facturacionService.create Supabase omitido:', err);
     }
+    return factura;
   },
 
   async upsert(facturas: Factura[]): Promise<void> {
     writeLocalFacturas(mergeFacturas([], [...facturas, ...readLocalFacturas()]));
-    const supabase = getActiveSupabaseClient();
-    const dbPayloads = facturas.map(toDbFacturaPayload);
+    for (const f of facturas) {
+      try {
+        await sheetUpsertRow('facturas', toDbFacturaPayload(f));
+      } catch (sheetErr) {
+        console.warn('[facturacionService.upsert] Google Sheets:', sheetErr);
+      }
+    }
 
     try {
-      const { error } = await supabase.from('facturas').upsert(dbPayloads);
-      if (error) {
-        console.error('Error upserting invoices:', error);
-        throw error;
+      const supabase = tryGetActiveSupabaseClient();
+      if (supabase) {
+        const dbPayloads = facturas.map(toDbFacturaPayload);
+        await supabase.from('facturas').upsert(dbPayloads);
       }
     } catch (err) {
-      console.warn('facturacionService.upsert failed remote push, enqueued for sync:', err);
-      const { syncQueueService } = await import('./syncQueueService');
-      facturas.forEach(f => syncQueueService.enqueue('upsert_factura', f));
+      console.warn('facturacionService.upsert Supabase omitido:', err);
     }
   },
 

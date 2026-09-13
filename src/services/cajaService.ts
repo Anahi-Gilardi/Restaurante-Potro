@@ -1,4 +1,5 @@
-import { getActiveSupabaseClient } from '../lib/supabaseClient';
+import { getActiveSupabaseClient, tryGetActiveSupabaseClient } from '../lib/supabaseClient';
+import { sheetFetchTable, sheetUpsertRow, sheetDeleteRow } from '../lib/googleSheetsClient';
 import { CierreCaja, MovimientoCajaChica } from '../types';
 import { aperturaCajaSchema } from '../lib/validations';
 import { syncQueueService } from './syncQueueService';
@@ -56,9 +57,20 @@ const toDbCierre = (cierre: CierreCaja) => ({
 });
 
 const persistCierre = async (cierre: CierreCaja): Promise<void> => {
-  const supabase = getActiveSupabaseClient();
-  const { error } = await supabase.from('cierres_caja').upsert([toDbCierre(cierre)]);
-  if (error) throw error;
+  try {
+    await sheetUpsertRow('cierres_caja', toDbCierre(cierre));
+  } catch (sheetErr) {
+    console.warn('[cajaService.persistCierre] Error en Google Sheets:', sheetErr);
+  }
+  try {
+    const supabase = tryGetActiveSupabaseClient();
+    if (supabase) {
+      const { error } = await supabase.from('cierres_caja').upsert([toDbCierre(cierre)]);
+      if (error) console.warn('[cajaService.persistCierre] Supabase warning:', error);
+    }
+  } catch (e) {
+    console.warn('[cajaService.persistCierre] Supabase omitido:', e);
+  }
 };
 
 const persistOrQueueCierre = async (cierre: CierreCaja): Promise<CierreCaja['sync_status']> => {
@@ -186,7 +198,28 @@ export const cajaService = {
 
   async list(): Promise<CierreCaja[]> {
     try {
-      const supabase = getActiveSupabaseClient();
+      const sheetData = await sheetFetchTable('cierres_caja');
+      if (sheetData && sheetData.length > 0) {
+        return sheetData.map(cc => ({
+          id_cierre: String(cc.id_cierre),
+          fecha_apertura: cc.fecha_apertura || inferFechaApertura(String(cc.id_cierre)),
+          fecha_cierre: cc.fecha_cierre || null,
+          monto_apertura: parseFloat(cc.monto_apertura || 0),
+          monto_ventas: parseFloat(cc.monto_ventas || 0),
+          monto_real: cc.monto_real ? parseFloat(cc.monto_real) : null,
+          diferencia: cc.diferencia ? parseFloat(cc.diferencia) : null,
+          observaciones: cc.observaciones || '',
+          usuario_cajero: cc.usuario_cajero || 'Cajero Pro',
+          sync_status: 'synced'
+        }));
+      }
+    } catch (sheetErr) {
+      console.warn('[cajaService.listHistory] Google Sheets:', sheetErr);
+    }
+
+    try {
+      const supabase = tryGetActiveSupabaseClient();
+      if (!supabase) throw new Error('Supabase no configurado');
       const { data, error } = await supabase
         .from('cierres_caja')
         .select('*')
@@ -338,15 +371,30 @@ export const cajaService = {
     safeSetItem('el_patron_caja_activa', JSON.stringify(active));
 
     try {
-      const supabase = getActiveSupabaseClient();
-      await supabase.from('movimientos_caja_chica').insert([{
-        id_movimiento: mov.id_movimiento,
+      await sheetUpsertRow('caja_ledger', {
+        id_ledger: mov.id_movimiento,
         id_cierre: mov.id_cierre,
         tipo: mov.tipo,
         monto: mov.monto,
         concepto: mov.concepto,
         fecha: mov.fecha
-      }]);
+      });
+    } catch (sheetErr) {
+      console.warn('[cajaService.addMovimientoCajaChica] Google Sheets:', sheetErr);
+    }
+
+    try {
+      const supabase = tryGetActiveSupabaseClient();
+      if (supabase) {
+        await supabase.from('movimientos_caja_chica').insert([{
+          id_movimiento: mov.id_movimiento,
+          id_cierre: mov.id_cierre,
+          tipo: mov.tipo,
+          monto: mov.monto,
+          concepto: mov.concepto,
+          fecha: mov.fecha
+        }]);
+      }
     } catch (err) {
       console.warn('Could not persist petty cash movement on remote DB:', err);
     }
@@ -354,7 +402,27 @@ export const cajaService = {
 
   async listMovimientosCajaChica(idCierre: string): Promise<MovimientoCajaChica[]> {
     try {
-      const supabase = getActiveSupabaseClient();
+      const sheetData = await sheetFetchTable('caja_ledger');
+      if (sheetData && sheetData.length > 0) {
+        const filtered = sheetData.filter((m: any) => String(m.id_cierre) === String(idCierre));
+        if (filtered.length > 0) {
+          return filtered.map((m: any) => ({
+            id_movimiento: String(m.id_ledger || m.id_movimiento),
+            id_cierre: String(m.id_cierre),
+            tipo: m.tipo as 'ingreso' | 'egreso',
+            monto: Number(m.monto || 0),
+            concepto: String(m.concepto || ''),
+            fecha: String(m.fecha || '')
+          }));
+        }
+      }
+    } catch (sheetErr) {
+      console.warn('[cajaService.listMovimientosCajaChica] Google Sheets:', sheetErr);
+    }
+
+    try {
+      const supabase = tryGetActiveSupabaseClient();
+      if (!supabase) return [];
       const { data, error } = await supabase
         .from('movimientos_caja_chica')
         .select('*')

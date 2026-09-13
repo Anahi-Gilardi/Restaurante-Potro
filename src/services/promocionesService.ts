@@ -1,4 +1,5 @@
 import { tryGetActiveSupabaseClient, getActiveSupabaseClient } from '../lib/supabaseClient';
+import { sheetFetchTable, sheetUpsertRow, sheetDeleteRow } from '../lib/googleSheetsClient';
 
 export interface Promocion {
   id_promo: string;
@@ -33,8 +34,32 @@ const setLocalCache = (promos: Promocion[]) => {
   }
 };
 
+const normalizePromocion = (p: Record<string, unknown>): Promocion => ({
+  id_promo: String(p.id_promo || `promo_${Date.now()}`),
+  nombre: String(p.nombre || ''),
+  descuento_porcentaje: Number(p.descuento || p.descuento_porcentaje || 0),
+  tipo: ((p.tipo as any) || 'descuento_directo'),
+  dias_vigentes: String(p.dias_vigentes || (p as any)['días_vigentes'] || 'Todos los días'),
+  activo: p.activa !== undefined ? Boolean(p.activa) : (p.activo !== undefined ? Boolean(p.activo) : true),
+  descripcion: String(p.descripcion || ''),
+  imagen_url: p.imagen_url ? String(p.imagen_url) : undefined,
+  precio: p.precio !== undefined && p.precio !== null ? Number(p.precio) : ((p as any).precio_promocional !== undefined ? Number((p as any).precio_promocional) : undefined)
+});
+
 export const promocionesService = {
   async list(): Promise<Promocion[]> {
+    // 1. Intentar Google Sheets primero
+    try {
+      const sheetData = await sheetFetchTable('promociones');
+      if (sheetData && sheetData.length > 0) {
+        const mapped = sheetData.map(normalizePromocion);
+        setLocalCache(mapped);
+        return mapped;
+      }
+    } catch (sheetErr) {
+      console.warn('[promocionesService] Error leyendo Google Sheets:', sheetErr);
+    }
+
     const client = tryGetActiveSupabaseClient();
     if (!client) {
       return getLocalCache();
@@ -46,17 +71,7 @@ export const promocionesService = {
         console.warn('Error fetching promociones from Supabase, returning local cache:', error);
         return getLocalCache();
       }
-      const mapped: Promocion[] = (data || []).map(p => ({
-        id_promo: p.id_promo,
-        nombre: p.nombre,
-        descuento_porcentaje: p.descuento || p.descuento_porcentaje || 0,
-        tipo: p.tipo || 'descuento_directo',
-        dias_vigentes: p.dias_vigentes || p.días_vigentes || 'Todos los días',
-        activo: p.activa !== undefined ? p.activa : (p.activo !== undefined ? p.activo : true),
-        descripcion: p.descripcion || '',
-        imagen_url: p.imagen_url || undefined,
-        precio: p.precio !== undefined && p.precio !== null ? Number(p.precio) : (p.precio_promocional !== undefined ? Number(p.precio_promocional) : undefined)
-      }));
+      const mapped = (data || []).map(normalizePromocion);
 
       if (mapped.length > 0) {
         setLocalCache(mapped);
@@ -72,8 +87,7 @@ export const promocionesService = {
     const local = getLocalCache();
     setLocalCache([promo, ...local.filter(p => p.id_promo !== promo.id_promo)]);
 
-    const supabase = getActiveSupabaseClient();
-    const dbPayload = {
+    sheetUpsertRow('promociones', {
       id_promo: promo.id_promo,
       nombre: promo.nombre,
       descuento: promo.descuento_porcentaje,
@@ -83,26 +97,35 @@ export const promocionesService = {
       descripcion: promo.descripcion,
       imagen_url: promo.imagen_url || null,
       precio: promo.precio || null
-    };
-    const { data, error } = await supabase.from('promociones').insert([dbPayload]).select().single();
-    if (error) {
-      console.error('Error creating promocion:', error);
-      throw error;
+    }).catch(err => console.warn('[promocionesService] Error guardando en Google Sheets:', err));
+
+    const supabase = tryGetActiveSupabaseClient();
+    if (supabase) {
+      const dbPayload = {
+        id_promo: promo.id_promo,
+        nombre: promo.nombre,
+        descuento: promo.descuento_porcentaje,
+        tipo: promo.tipo,
+        dias_vigentes: promo.dias_vigentes,
+        activa: promo.activo,
+        descripcion: promo.descripcion,
+        imagen_url: promo.imagen_url || null,
+        precio: promo.precio || null
+      };
+      try {
+        const { data, error } = await supabase.from('promociones').insert([dbPayload]).select().single();
+        if (!error && data) {
+          const created = normalizePromocion(data);
+          const currentCache = getLocalCache();
+          setLocalCache([created, ...currentCache.filter(p => p.id_promo !== created.id_promo)]);
+          return created;
+        }
+      } catch (sbErr) {
+        console.warn('[promocionesService] Supabase create error:', sbErr);
+      }
     }
-    const created: Promocion = {
-      id_promo: data.id_promo,
-      nombre: data.nombre,
-      descuento_porcentaje: data.descuento,
-      tipo: data.tipo || 'descuento_directo',
-      dias_vigentes: data.dias_vigentes || 'Todos los días',
-      activo: data.activa,
-      descripcion: data.descripcion,
-      imagen_url: data.imagen_url || undefined,
-      precio: data.precio !== undefined && data.precio !== null ? Number(data.precio) : undefined
-    };
-    const currentCache = getLocalCache();
-    setLocalCache([created, ...currentCache.filter(p => p.id_promo !== created.id_promo)]);
-    return created;
+
+    return promo;
   },
 
   async update(id: string, fields: Partial<Promocion>): Promise<void> {
@@ -110,42 +133,75 @@ export const promocionesService = {
     const updatedCache = currentCache.map(p => p.id_promo === id ? { ...p, ...fields } : p);
     setLocalCache(updatedCache);
 
-    const supabase = getActiveSupabaseClient();
-    const dbPayload: any = {};
-    if (fields.nombre !== undefined) dbPayload.nombre = fields.nombre;
-    if (fields.descuento_porcentaje !== undefined) dbPayload.descuento = fields.descuento_porcentaje;
-    if (fields.tipo !== undefined) dbPayload.tipo = fields.tipo;
-    if (fields.dias_vigentes !== undefined) dbPayload.dias_vigentes = fields.dias_vigentes;
-    if (fields.activo !== undefined) dbPayload.activa = fields.activo;
-    if (fields.descripcion !== undefined) dbPayload.descripcion = fields.descripcion;
-    if (fields.imagen_url !== undefined) dbPayload.imagen_url = fields.imagen_url || null;
-    if (fields.precio !== undefined) dbPayload.precio = fields.precio || null;
+    const sheetPayload: Record<string, unknown> = { id_promo: id };
+    if (fields.nombre !== undefined) sheetPayload.nombre = fields.nombre;
+    if (fields.descuento_porcentaje !== undefined) sheetPayload.descuento = fields.descuento_porcentaje;
+    if (fields.tipo !== undefined) sheetPayload.tipo = fields.tipo;
+    if (fields.dias_vigentes !== undefined) sheetPayload.dias_vigentes = fields.dias_vigentes;
+    if (fields.activo !== undefined) sheetPayload.activa = fields.activo;
+    if (fields.descripcion !== undefined) sheetPayload.descripcion = fields.descripcion;
+    if (fields.imagen_url !== undefined) sheetPayload.imagen_url = fields.imagen_url || null;
+    if (fields.precio !== undefined) sheetPayload.precio = fields.precio || null;
 
-    const { error } = await supabase.from('promociones').update(dbPayload).eq('id_promo', id);
-    if (error) {
-      console.error('Error updating promocion:', error);
-      throw error;
+    sheetUpsertRow('promociones', sheetPayload).catch(err =>
+      console.warn('[promocionesService] Error actualizando en Google Sheets:', err)
+    );
+
+    const supabase = tryGetActiveSupabaseClient();
+    if (supabase) {
+      const dbPayload: any = {};
+      if (fields.nombre !== undefined) dbPayload.nombre = fields.nombre;
+      if (fields.descuento_porcentaje !== undefined) dbPayload.descuento = fields.descuento_porcentaje;
+      if (fields.tipo !== undefined) dbPayload.tipo = fields.tipo;
+      if (fields.dias_vigentes !== undefined) dbPayload.dias_vigentes = fields.dias_vigentes;
+      if (fields.activo !== undefined) dbPayload.activa = fields.activo;
+      if (fields.descripcion !== undefined) dbPayload.descripcion = fields.descripcion;
+      if (fields.imagen_url !== undefined) dbPayload.imagen_url = fields.imagen_url || null;
+      if (fields.precio !== undefined) dbPayload.precio = fields.precio || null;
+
+      try {
+        await supabase.from('promociones').update(dbPayload).eq('id_promo', id);
+      } catch (sbErr) {
+        console.warn('[promocionesService] Supabase update error:', sbErr);
+      }
     }
   },
 
   async upsert(promos: Promocion[]): Promise<void> {
     setLocalCache(promos);
-    const supabase = getActiveSupabaseClient();
-    const dbPayloads = promos.map(p => ({
-      id_promo: p.id_promo,
-      nombre: p.nombre,
-      descuento: p.descuento_porcentaje,
-      tipo: p.tipo,
-      dias_vigentes: p.dias_vigentes,
-      activa: p.activo,
-      descripcion: p.descripcion,
-      imagen_url: p.imagen_url || null,
-      precio: p.precio || null
-    }));
-    const { error } = await supabase.from('promociones').upsert(dbPayloads);
-    if (error) {
-      console.error('Error upserting promociones:', error);
-      throw error;
+
+    for (const p of promos) {
+      sheetUpsertRow('promociones', {
+        id_promo: p.id_promo,
+        nombre: p.nombre,
+        descuento: p.descuento_porcentaje,
+        tipo: p.tipo,
+        dias_vigentes: p.dias_vigentes,
+        activa: p.activo,
+        descripcion: p.descripcion,
+        imagen_url: p.imagen_url || null,
+        precio: p.precio || null
+      }).catch(err => console.warn('[promocionesService] Error upserting en Google Sheets:', err));
+    }
+
+    const supabase = tryGetActiveSupabaseClient();
+    if (supabase) {
+      const dbPayloads = promos.map(p => ({
+        id_promo: p.id_promo,
+        nombre: p.nombre,
+        descuento: p.descuento_porcentaje,
+        tipo: p.tipo,
+        dias_vigentes: p.dias_vigentes,
+        activa: p.activo,
+        descripcion: p.descripcion,
+        imagen_url: p.imagen_url || null,
+        precio: p.precio || null
+      }));
+      try {
+        await supabase.from('promociones').upsert(dbPayloads);
+      } catch (sbErr) {
+        console.warn('[promocionesService] Supabase upsert error:', sbErr);
+      }
     }
   },
 
@@ -153,11 +209,17 @@ export const promocionesService = {
     const currentCache = getLocalCache();
     setLocalCache(currentCache.filter(p => p.id_promo !== id));
 
-    const supabase = getActiveSupabaseClient();
-    const { error } = await supabase.from('promociones').delete().eq('id_promo', id);
-    if (error) {
-      console.error('Error deleting promocion:', error);
-      throw error;
+    sheetDeleteRow('promociones', id).catch(err =>
+      console.warn('[promocionesService] Error eliminando de Google Sheets:', err)
+    );
+
+    const supabase = tryGetActiveSupabaseClient();
+    if (supabase) {
+      const { error } = await supabase.from('promociones').delete().eq('id_promo', id);
+      if (error) {
+        console.error('Error deleting promocion:', error);
+        throw error;
+      }
     }
     return true;
   }

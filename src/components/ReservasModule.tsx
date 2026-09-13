@@ -80,7 +80,7 @@ function getWhatsAppLink(
 }
 
 type PendingAction = 'create' | `edit_${string}` | `status_${string}` | `delete_${string}` | `assign_${string}`;
-const SUPABASE_TIMEOUT_MS = 12000;
+const SUPABASE_TIMEOUT_MS = 30000;
 
 function withTimeout<T>(promise: Promise<T>, message = 'La operación tardó demasiado. Revisa la conexión e intenta de nuevo.'): Promise<T> {
   let timeoutId: ReturnType<typeof setTimeout>;

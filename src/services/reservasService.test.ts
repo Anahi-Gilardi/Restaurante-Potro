@@ -40,4 +40,5 @@ test('mapRowToReserva normaliza valores inseguros de Supabase', () => {
 test('normalizarFecha acepta fechas ISO y formato argentino', () => {
   assert.equal(normalizarFecha('2026-06-17'), '2026-06-17');
   assert.equal(normalizarFecha('05/07/2026'), '2026-07-05');
+  assert.equal(normalizarFecha('2026-09-13T03:00:00.000Z'), '2026-09-13');
 });
