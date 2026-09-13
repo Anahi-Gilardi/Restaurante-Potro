@@ -76,7 +76,7 @@ const normalizeProductoMenu = (prod: DbProductoMenu): ProductoMenu => {
   const rawImg = readString(prod.imagen) || readString(prod.url_imagen);
   const validImg = isValidImageData(rawImg) ? rawImg : null;
   const localImg = getMenuImageSync(id_producto);
-  const imagen = validImg || localImg || match?.imagen || '/logo-el-patron.jpeg?v=5';
+  const imagen = localImg || validImg || match?.imagen || '/logo-el-patron.jpeg?v=5';
   if (validImg && !localImg) {
     saveMenuImage(id_producto, validImg).catch(() => {});
   }
@@ -136,10 +136,17 @@ export const menuService = {
     try {
       const sheetData = await sheetFetchTable('productos_menu');
       if (sheetData && sheetData.length > 0) {
+        const sheetPks = new Set(sheetData.map(s => String(s.id_producto || s.nombre || '').toLowerCase()));
+        const mergedList = [
+          ...sheetData,
+          ...INITIAL_PRODUCTOS_MENU.filter(init => 
+            !sheetPks.has(init.id_producto.toLowerCase()) && !sheetPks.has(init.nombre.toLowerCase())
+          )
+        ];
         try {
-          localStorage.setItem('el_patron_cache_menu', JSON.stringify(sheetData));
+          localStorage.setItem('el_patron_cache_menu', JSON.stringify(mergedList));
         } catch {}
-        return sheetData.map(normalizeProductoMenu);
+        return mergedList.map(normalizeProductoMenu);
       }
     } catch (sheetErr) {
       console.warn('[menuService.list] Fallback desde Google Sheets:', sheetErr);
@@ -151,12 +158,19 @@ export const menuService = {
       try {
         const { data, error } = await client.from('productos_menu').select('*').order('id_producto', { ascending: true });
         if (!error && data) {
+          const supabasePks = new Set(data.map((s: any) => String(s.id_producto || s.nombre || '').toLowerCase()));
+          const mergedList = [
+            ...data,
+            ...INITIAL_PRODUCTOS_MENU.filter(init => 
+              !supabasePks.has(init.id_producto.toLowerCase()) && !supabasePks.has(init.nombre.toLowerCase())
+            )
+          ];
           try {
-            localStorage.setItem('el_patron_cache_menu', JSON.stringify(data));
+            localStorage.setItem('el_patron_cache_menu', JSON.stringify(mergedList));
           } catch (storageError) {
             console.warn('LocalStorage quota exceeded on background update:', storageError);
           }
-          return data.map(normalizeProductoMenu);
+          return mergedList.map(normalizeProductoMenu);
         }
       } catch (e) {
         console.warn('Failed fetching fresh menu, falling back to cache:', e);
@@ -185,7 +199,7 @@ export const menuService = {
     } catch (storageError) {
       console.warn('LocalStorage quota exceeded on offline seed:', storageError);
     }
-    return INITIAL_PRODUCTOS_MENU;
+    return INITIAL_PRODUCTOS_MENU.map(normalizeProductoMenu);
   },
 
   async getById(id: string): Promise<ProductoMenu | null> {
@@ -240,9 +254,10 @@ export const menuService = {
   async update(id: string, prod: Partial<ProductoMenu>): Promise<ProductoMenu> {
     // 1. Fetch current list to merge fields defensively
     let existing: ProductoMenu | undefined;
+    const lowerId = id.toLowerCase();
     try {
       const all = await this.list();
-      existing = all.find(p => p.id_producto === id);
+      existing = all.find(p => p.id_producto === id || p.id_producto?.toLowerCase() === lowerId);
     } catch {}
 
     const merged = { ...(existing || {}), ...prod, id_producto: id };
@@ -275,7 +290,7 @@ export const menuService = {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed)) {
           const updatedCache = parsed.map((item: any) =>
-            item.id_producto === id ? { ...item, ...payload } : item
+            item.id_producto === id || item.id_producto?.toLowerCase() === lowerId ? { ...item, ...payload } : item
           );
           try {
             localStorage.setItem('el_patron_cache_menu', JSON.stringify(updatedCache));

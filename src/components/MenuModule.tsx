@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { useDebounce } from '../hooks/useDebounce';
-import { UtensilsCrossed, Plus, Search, Edit2, Check, Copy, X, DollarSign, Image, AlertTriangle, Calendar } from 'lucide-react';
+import { UtensilsCrossed, Plus, Search, Edit2, Check, Copy, X, DollarSign, Image, AlertTriangle, Calendar, Camera } from 'lucide-react';
 import BulkPriceEditor from './BulkPriceEditor';
 import MenuDiarioModule from './MenuDiarioModule';
 import { CardSkeleton } from './Skeleton';
@@ -57,7 +57,6 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
   const [page, setPage] = useState(1);
   const { toast, toasts, removeToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const editFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setItems(productosMenu);
@@ -74,6 +73,9 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
           }
           return item;
         });
+        if (changed) {
+          onProductosChange(next);
+        }
         return changed ? next : prev;
       });
     }).catch(() => {});
@@ -180,7 +182,6 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
     setEditTiempoPreparacion('12');
     setEditRequiereCocina(true);
     setEditSelectedAllergens([]);
-    if (editFileInputRef.current) editFileInputRef.current.value = '';
   };
 
   const hasDuplicateName = (name: string, excludedId?: string) => (
@@ -205,6 +206,43 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
       toast.success('Imagen lista para guardar.');
     } catch (err) {
       toast.error('Error al procesar la imagen. Intente con otra.');
+    }
+  };
+
+  const handleDirectImageUpload = async (id_producto: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+
+    const target = items.find(it => it.id_producto === id_producto);
+    if (!target) return;
+
+    try {
+      toast.info('Optimizando y guardando imagen...');
+      const base64 = await compressImageForUpload(file);
+
+      await saveMenuImage(id_producto, base64);
+
+      if (editingId === id_producto) {
+        setEditImagen(base64);
+      }
+
+      const updatedList = items.map(it =>
+        it.id_producto === id_producto ? { ...it, imagen: base64 } : it
+      );
+      syncItems(updatedList);
+
+      try {
+        await menuService.update(id_producto, { imagen: base64 });
+      } catch (cloudErr) {
+        console.warn('Sync en la nube pendiente:', cloudErr);
+      }
+
+      toast.success(`Foto de '${target.nombre}' guardada con éxito.`);
+      addLog('sistema', `MENU: Foto actualizada para '${target.nombre}'`);
+    } catch (err) {
+      console.error('Error al subir imagen directa:', err);
+      toast.error('No se pudo procesar o guardar la imagen.');
     }
   };
 
@@ -735,18 +773,34 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
                 } ${itemBusy ? 'ring-2 ring-[#C8956A]/30' : ''}`}
               >
                 <div className="flex gap-3">
-                  <img
-                    src={item.imagen}
-                    alt={item.nombre}
-                    loading="lazy" decoding="async"
-                    referrerPolicy="no-referrer"
-                    className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-cover shrink-0 bg-stone-100 dark:bg-stone-900 border border-stone-200 dark:border-white/10"
-                    onError={e => {
-                      const image = e.currentTarget as HTMLImageElement;
-                      image.onerror = null;
-                      image.src = getFallbackImage(item.categoria);
-                    }}
-                  />
+                  <div className="relative group shrink-0 w-16 h-16 sm:w-20 sm:h-20">
+                    <img
+                      src={(editingId === item.id_producto && editImagen) ? editImagen : item.imagen}
+                      alt={item.nombre}
+                      loading="lazy" decoding="async"
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full rounded-xl object-cover bg-stone-100 dark:bg-stone-900 border border-stone-200 dark:border-white/10"
+                      onError={e => {
+                        const image = e.currentTarget as HTMLImageElement;
+                        image.onerror = null;
+                        image.src = getFallbackImage(item.categoria);
+                      }}
+                    />
+                    <label
+                      title="Cambiar foto de este plato"
+                      className="absolute inset-0 bg-black/50 hover:bg-black/65 rounded-xl opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-white cursor-pointer transition-opacity backdrop-blur-[1px]"
+                    >
+                      <Camera className="w-5 h-5 drop-shadow text-amber-200" />
+                      <span className="text-[8px] font-bold mt-0.5 drop-shadow tracking-tight">Cambiar</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        disabled={isBusy}
+                        onChange={e => void handleDirectImageUpload(item.id_producto, e)}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
                   <div className="flex-1 flex flex-col justify-between min-w-0">
                     <div className="space-y-0.5">
                       <div className="flex items-center justify-between">
@@ -838,25 +892,24 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
                               className="w-full text-xs p-1.5 border border-stone-350 dark:border-white/10 rounded bg-white dark:bg-white/5 text-stone-850 dark:text-[#FAF7F0] focus:outline-none focus:ring-1 focus:ring-[#C8956A] dark:placeholder-stone-400/60"
                               disabled={isBusy}
                             />
-                            <input
-                              type="file"
-                              accept="image/*"
-                              onChange={e => handleImageUpload(e, true)}
-                              ref={editFileInputRef}
-                              className="hidden"
-                            />
                             <div className="flex gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() => editFileInputRef.current?.click()}
-                                className="flex-1 py-1 bg-stone-50 dark:bg-white/5 hover:bg-stone-100 dark:hover:bg-white/10 border border-stone-200 dark:border-white/10 rounded text-[9px] font-bold text-stone-650 dark:text-stone-300 flex items-center justify-center gap-1 cursor-pointer"
+                              <label
+                                className={`flex-1 py-1.5 bg-stone-50 dark:bg-white/5 hover:bg-stone-100 dark:hover:bg-white/10 border border-stone-200 dark:border-white/10 rounded text-[10px] font-bold text-stone-650 dark:text-stone-300 flex items-center justify-center gap-1.5 cursor-pointer transition-colors ${isBusy ? 'opacity-50 pointer-events-none' : ''}`}
                               >
-                                <Image className="w-3 h-3 text-stone-550" /> Subir
-                              </button>
+                                <Camera className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                                <span>Subir foto</span>
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  disabled={isBusy}
+                                  onChange={e => void handleDirectImageUpload(item.id_producto, e)}
+                                  className="hidden"
+                                />
+                              </label>
                               <button
                                 type="button"
                                 onClick={() => handleAutoGenerateImage(editNombre, editCategoria, true)}
-                                className="flex-1 py-1 bg-amber-50 dark:bg-amber-500/10 hover:bg-amber-100 dark:hover:bg-amber-500/20 border border-amber-200 dark:border-amber-500/20 text-amber-800 dark:text-amber-300 rounded text-[9px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                                className="flex-1 py-1.5 bg-amber-50 dark:bg-amber-500/10 hover:bg-amber-100 dark:hover:bg-amber-500/20 border border-amber-200 dark:border-amber-500/20 text-amber-800 dark:text-amber-300 rounded text-[10px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors"
                               >
                                 🪄 Auto
                               </button>

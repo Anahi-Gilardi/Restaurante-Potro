@@ -40,6 +40,7 @@ import RestaurantCover from './components/RestaurantCover';
 
 
 import type { BackupSnapshotData } from './services/backupsService';
+import { getAllMenuImages } from './lib/imageStorage';
 // Lazy-loaded modules (code-split, loaded on demand)
 const HomeMenuModule = lazy(() => import('./components/HomeMenuModule'));
 const MozoTerminal = lazy(() => import('./components/MozoTerminal'));
@@ -174,6 +175,7 @@ export default function App() {
   // 1. Config loading & Google Sheets Warmup effect (runs once on mount)
   useEffect(() => {
     preloadGoogleSheetsCache();
+    getAllMenuImages().catch(() => {});
     const loadConfig = async () => {
       try {
         const response = await fetch('/api/supabase-config');
@@ -286,6 +288,13 @@ export default function App() {
         }).catch(() => undefined);
       } catch (err) {
         console.warn('Supabase: Falló la carga inicial de datos operativos.', err);
+        try {
+          const fallbackMenu = await dbFetchProductosMenu();
+          if (active && fallbackMenu && fallbackMenu.length > 0) {
+            setProductosMenu(fallbackMenu);
+          }
+        } catch {}
+
         if (active) {
           setOperationalDataStatus('error');
           setOperationalDataError(err instanceof Error ? err.message : 'No se pudieron cargar los datos operativos.');
@@ -361,7 +370,15 @@ export default function App() {
     setUsuarios(INITIAL_USUARIOS.map(user => ({ ...user })));
     setMesas(INITIAL_MESAS.map(mesa => ({ ...mesa })));
     setInsumos(INITIAL_INSUMOS.map(insumo => ({ ...insumo })));
-    setProductosMenu(INITIAL_PRODUCTOS_MENU.map(product => ({ ...product })));
+    dbFetchProductosMenu().then(menu => {
+      if (menu && menu.length > 0) {
+        setProductosMenu(menu);
+      } else {
+        setProductosMenu(INITIAL_PRODUCTOS_MENU.map(product => ({ ...product })));
+      }
+    }).catch(() => {
+      setProductosMenu(INITIAL_PRODUCTOS_MENU.map(product => ({ ...product })));
+    });
     setRecetas(INITIAL_RECETAS_ESCANDALLO.map(recipe => ({ ...recipe })));
     setPedidos(INITIAL_PEDIDOS.map(pedido => ({
       ...pedido,

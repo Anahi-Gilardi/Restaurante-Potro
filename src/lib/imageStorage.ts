@@ -184,12 +184,29 @@ export function getMenuImageSync(id_producto: string): string | null {
   const inMem = memoryImageCache.get(id_producto);
   if (inMem && isValidImageData(inMem)) return inMem;
 
+  const lower = id_producto.toLowerCase();
+  for (const [k, v] of memoryImageCache.entries()) {
+    if (k.toLowerCase() === lower && isValidImageData(v)) {
+      return v;
+    }
+  }
+
   if (typeof window !== 'undefined' && window.localStorage) {
     try {
       const stored = window.localStorage.getItem('el_patron_img_' + id_producto);
       if (stored && isValidImageData(stored)) {
         memoryImageCache.set(id_producto, stored);
         return stored;
+      }
+      for (let i = 0; i < window.localStorage.length; i++) {
+        const key = window.localStorage.key(i);
+        if (key && key.startsWith('el_patron_img_') && key.slice(14).toLowerCase() === lower) {
+          const val = window.localStorage.getItem(key);
+          if (val && isValidImageData(val)) {
+            memoryImageCache.set(id_producto, val);
+            return val;
+          }
+        }
       }
     } catch {}
   }
@@ -218,7 +235,20 @@ export async function getMenuImage(id_producto: string): Promise<string | null> 
           memoryImageCache.set(id_producto, res);
           resolve(res);
         } else {
-          resolve(null);
+          // Check all keys in store if exact match not found
+          const allReq = store.getAll();
+          allReq.onsuccess = () => {
+            const items = allReq.result || [];
+            const lower = id_producto.toLowerCase();
+            const found = items.find((it: any) => String(it.id || '').toLowerCase() === lower);
+            if (found && isValidImageData(found.dataUrl)) {
+              memoryImageCache.set(id_producto, found.dataUrl);
+              resolve(found.dataUrl);
+            } else {
+              resolve(null);
+            }
+          };
+          allReq.onerror = () => resolve(null);
         }
       };
       req.onerror = () => resolve(null);
