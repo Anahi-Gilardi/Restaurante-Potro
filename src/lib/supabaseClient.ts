@@ -25,15 +25,28 @@ export const normalizeSupabaseUrl = (url: string) => {
     .replace(/\/+$/, '');
 };
 
+const OLD_DELETED_PROJECT = 'sqczmyaoqplrmrgyczjy';
+export const DEFAULT_SUPABASE_URL = 'https://extglaaqlsleibsbtwup.supabase.co';
+export const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV4dGdsYWFxbHNsZWlic2J0d3VwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkzNDE5MDMsImV4cCI6MjEwNDkxNzkwM30.EDwlqgMIpniRG9bHCNiSoP5PF9w_-zJmjRc0FvPUeeg';
+
 export const resolveSupabaseConfig = (
   env: SupabaseRuntimeEnv = {},
   localConfig: SupabaseLocalConfig = {},
 ): SupabaseConfig => {
-  const url = readEnvString(env, 'VITE_SUPABASE_URL') || localConfig.el_patron_supabase_url || '';
-  const key = readEnvString(env, 'VITE_SUPABASE_PUBLISHABLE_KEY')
-    || readEnvString(env, 'VITE_SUPABASE_ANON_KEY')
-    || localConfig.el_patron_supabase_anon_key
-    || '';
+  let envUrl = readEnvString(env, 'VITE_SUPABASE_URL');
+  if (envUrl.includes(OLD_DELETED_PROJECT)) envUrl = '';
+
+  let envKey = readEnvString(env, 'VITE_SUPABASE_PUBLISHABLE_KEY') || readEnvString(env, 'VITE_SUPABASE_ANON_KEY');
+  if (envKey.includes(OLD_DELETED_PROJECT)) envKey = '';
+
+  let localUrl = localConfig.el_patron_supabase_url || '';
+  if (localUrl.includes(OLD_DELETED_PROJECT)) localUrl = '';
+
+  let localKey = localConfig.el_patron_supabase_anon_key || '';
+  if (localKey.includes(OLD_DELETED_PROJECT)) localKey = '';
+
+  const url = envUrl || localUrl || '';
+  const key = envKey || localKey || '';
 
   return { url: normalizeSupabaseUrl(url), key: key.trim() };
 };
@@ -43,12 +56,8 @@ export const getSupabaseConfig = (): SupabaseConfig => {
   let localUrl = readLocalConfig('el_patron_supabase_url');
   let localKey = readLocalConfig('el_patron_supabase_anon_key');
 
-  // Credenciales por defecto para el proyecto Restaurante El Patrón (nuevo Supabase)
-  const defaultUrl = 'https://extglaaqlsleibsbtwup.supabase.co';
-  const defaultKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV4dGdsYWFxbHNsZWlic2J0d3VwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkzNDE5MDMsImV4cCI6MjEwNDkxNzkwM30.EDwlqgMIpniRG9bHCNiSoP5PF9w_-zJmjRc0FvPUeeg';
-
   // Si localUrl es un placeholder o apunta al proyecto anterior de Supabase, limpiamos localStorage
-  if (localUrl && (localUrl.includes('xxx') || localUrl.includes('placeholder') || localUrl.includes('sqczmyaoqplrmrgyczjy'))) {
+  if (localUrl && (localUrl.includes('xxx') || localUrl.includes('placeholder') || localUrl.includes(OLD_DELETED_PROJECT))) {
     if (typeof window !== 'undefined') {
       window.localStorage.removeItem('el_patron_supabase_url');
       window.localStorage.removeItem('el_patron_supabase_anon_key');
@@ -58,8 +67,8 @@ export const getSupabaseConfig = (): SupabaseConfig => {
   }
 
   return resolveSupabaseConfig(env, {
-    el_patron_supabase_url: localUrl || defaultUrl,
-    el_patron_supabase_anon_key: localKey || defaultKey,
+    el_patron_supabase_url: localUrl || DEFAULT_SUPABASE_URL,
+    el_patron_supabase_anon_key: localKey || DEFAULT_SUPABASE_ANON_KEY,
   });
 };
 

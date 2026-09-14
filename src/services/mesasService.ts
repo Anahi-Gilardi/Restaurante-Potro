@@ -187,8 +187,12 @@ export const mesasService = {
           zona: m.zona || 'salon',
           mesas_unidas: m.mesas_unidas || [],
           parent_id: m.parent_id !== undefined && m.parent_id !== null ? Number(m.parent_id) : null,
+          updated_at: new Date().toISOString()
         }));
-        await supabase.from('mesas').upsert(mapped);
+        const { error } = await supabase.from('mesas').upsert(mapped);
+        if (error) {
+          console.error('[mesasService.upsert] Supabase error:', error);
+        }
       } catch (e) {
         console.warn('[mesasService.upsert] Supabase upsert error:', e);
       }
