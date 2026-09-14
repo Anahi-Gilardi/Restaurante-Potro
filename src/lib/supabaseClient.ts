@@ -43,12 +43,12 @@ export const getSupabaseConfig = (): SupabaseConfig => {
   let localUrl = readLocalConfig('el_patron_supabase_url');
   let localKey = readLocalConfig('el_patron_supabase_anon_key');
 
-  // Credenciales por defecto para el proyecto Restaurante El Patrón
-  const defaultUrl = 'https://sqczmyaoqplrmrgyczjy.supabase.co';
-  const defaultKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNxY3pteWFvcXBscm1yZ3ljemp5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyNzQ5NzQsImV4cCI6MjA5Njg1MDk3NH0.R5bPwot9KCMJ9OXWcokL705ZD7_0ujH9fGY_GcqxjYY';
+  // Credenciales por defecto para el proyecto Restaurante El Patrón (nuevo Supabase)
+  const defaultUrl = 'https://extglaaqlsleibsbtwup.supabase.co';
+  const defaultKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV4dGdsYWFxbHNsZWlic2J0d3VwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkzNDE5MDMsImV4cCI6MjEwNDkxNzkwM30.EDwlqgMIpniRG9bHCNiSoP5PF9w_-zJmjRc0FvPUeeg';
 
-  // Si localUrl es un placeholder, limpiamos localStorage
-  if (localUrl && (localUrl.includes('xxx') || localUrl.includes('placeholder'))) {
+  // Si localUrl es un placeholder o apunta al proyecto anterior de Supabase, limpiamos localStorage
+  if (localUrl && (localUrl.includes('xxx') || localUrl.includes('placeholder') || localUrl.includes('sqczmyaoqplrmrgyczjy'))) {
     if (typeof window !== 'undefined') {
       window.localStorage.removeItem('el_patron_supabase_url');
       window.localStorage.removeItem('el_patron_supabase_anon_key');
