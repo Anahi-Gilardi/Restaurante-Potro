@@ -1,13 +1,20 @@
 import type { Usuario } from '../types';
 import { tryGetActiveSupabaseClient } from '../lib/supabaseClient';
 
-const SECURE_ORIGIN = 'https://restaurante-potro-anahi.vercel.app';
+const SECURE_ORIGIN = 'https://restaurante-potro.vercel.app';
 
 export function getUserAdminEndpoint(
   locationLike: Pick<Location, 'hostname'> | undefined = globalThis.location,
 ): string {
-  if (locationLike?.hostname === 'restaurante-potro.vercel.app') return `${SECURE_ORIGIN}/api/users`;
-  return '/api/users';
+  if (
+    !locationLike?.hostname
+    || locationLike.hostname === 'restaurante-potro.vercel.app'
+    || locationLike.hostname === 'restaurante-potro-anahi.vercel.app'
+    || locationLike.hostname.endsWith('.vercel.app')
+  ) {
+    return '/api/users';
+  }
+  return `${SECURE_ORIGIN}/api/users`;
 }
 
 async function callUserAdmin(action: string, body: Record<string, unknown> = {}): Promise<any> {

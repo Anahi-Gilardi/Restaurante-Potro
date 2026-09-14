@@ -3,7 +3,7 @@
 
 import { tryGetActiveSupabaseClient } from '../lib/supabaseClient';
 
-const SECURE_ARCA_ORIGIN = 'https://restaurante-potro-anahi.vercel.app';
+const SECURE_ARCA_ORIGIN = 'https://restaurante-potro.vercel.app';
 const STATUS_TTL_MS = 60_000;
 
 export function getArcaApiEndpoint(
@@ -13,7 +13,9 @@ export function getArcaApiEndpoint(
   if (configured) return configured;
   if (
     !locationLike?.hostname
+    || locationLike.hostname === 'restaurante-potro.vercel.app'
     || locationLike.hostname === 'restaurante-potro-anahi.vercel.app'
+    || locationLike.hostname.endsWith('.vercel.app')
   ) {
     return '/api/arca';
   }
@@ -135,7 +137,8 @@ async function optionalAuthHeaders(): Promise<Record<string, string>> {
       }
       if (!token) {
         try {
-          const loginRes = await fetch(`${SECURE_ARCA_ORIGIN}/api/login`, {
+          const loginEndpoint = getArcaApiEndpoint().replace(/\/api\/arca$/, '/api/login');
+          const loginRes = await fetch(loginEndpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username: 'admin', password: '1998' }),
@@ -254,11 +257,22 @@ export async function testArcaConnection(): Promise<{ success: boolean; status: 
   const currentCached = statusCache?.value;
   try {
     const headers = await optionalAuthHeaders();
-    const response = await fetch(getArcaApiEndpoint(), {
+    const endpoint = getArcaApiEndpoint();
+    let response = await fetch(endpoint, {
       method: 'POST',
       headers,
       body: JSON.stringify({ action: 'test' }),
     });
+    if (!response.ok && endpoint !== '/api/arca') {
+      try {
+        const localRes = await fetch('/api/arca', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ action: 'test' }),
+        });
+        if (localRes.ok) response = localRes;
+      } catch {}
+    }
     const data = await readJson(response);
     const isSuccess = response.ok && Boolean(data.success);
     const isExplicitlyConfigured = typeof data.configured === 'boolean' ? data.configured : (currentCached?.configured ?? false);

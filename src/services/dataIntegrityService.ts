@@ -1,13 +1,20 @@
 import type { DataIntegrityReport } from '../lib/dataIntegrity';
 import { tryGetActiveSupabaseClient } from '../lib/supabaseClient';
 
-const SECURE_ORIGIN = 'https://restaurante-potro-anahi.vercel.app';
+const SECURE_ORIGIN = 'https://restaurante-potro.vercel.app';
 
 export function getDataIntegrityEndpoint(
   locationLike: Pick<Location, 'hostname'> | undefined = globalThis.location,
 ): string {
-  if (locationLike?.hostname === 'restaurante-potro.vercel.app') return `${SECURE_ORIGIN}/api/data-integrity`;
-  return '/api/data-integrity';
+  if (
+    !locationLike?.hostname
+    || locationLike.hostname === 'restaurante-potro.vercel.app'
+    || locationLike.hostname === 'restaurante-potro-anahi.vercel.app'
+    || locationLike.hostname.endsWith('.vercel.app')
+  ) {
+    return '/api/data-integrity';
+  }
+  return `${SECURE_ORIGIN}/api/data-integrity`;
 }
 
 async function authenticatedRequest(method: 'GET' | 'POST', requestBody?: Record<string, unknown>): Promise<any> {
