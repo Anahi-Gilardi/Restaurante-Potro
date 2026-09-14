@@ -29,6 +29,7 @@ import { Pedido, ProductoMenu, TicketData, TipoComprobante } from '../types';
 import { facturacionService, Factura } from '../services/facturacionService';
 import { pdfService } from '../services/pdfService';
 import { ToastContainer, useToast } from './ToastContainer';
+import { sheetUpsertRow } from '../lib/googleSheetsClient';
 import {
   ArcaStatus,
   createArcaCreditNote,
@@ -638,6 +639,35 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
       await facturacionService.markNotaCredito(original.id_factura, note.id_factura);
       setFacturas(prev => [note, ...prev.map(f => f.id_factura === id ? { ...f, estado: 'nota_credito' as const, credited_by_factura_id: note.id_factura } : f)]);
       setSelectedFactura(previous => previous?.id_factura === id ? { ...previous, estado: 'nota_credito', credited_by_factura_id: note.id_factura } : previous);
+
+      // Sincronizar Nota de Crédito en Google Sheets (hoja arca_emisiones)
+      try {
+        const obsText = Array.isArray(result.observaciones)
+          ? result.observaciones.map(o => `${o.code}: ${o.msg}`).join(' | ')
+          : '';
+        const emissionDate = argentinaDateIso(new Date());
+        sheetUpsertRow('arca_emisiones', {
+          id: result.emissionId || note.id_factura,
+          id_factura: note.id_factura,
+          cbte_nro: result.nroCmp || '',
+          cae: result.CAE,
+          vto_cae: result.CAEFchVto || '',
+          resultado: result.resultado || 'A',
+          observaciones: obsText,
+          fecha: emissionDate,
+          tipo_comprobante: 'Nota de Crédito C',
+          punto_venta: result.puntoVenta,
+          nro_comprobante: note.nro_ticket,
+          cliente: note.cliente || 'Consumidor Final',
+          documento: note.cuit || '',
+          total: note.total || 0,
+          estado: 'authorized',
+          error: ''
+        }).catch(e => console.warn('[GoogleSheets] NC arca_emisiones sync error:', e));
+      } catch (sheetSyncErr) {
+        console.warn('[GoogleSheets] NC arca_emisiones sync catch:', sheetSyncErr);
+      }
+
       await downloadFacturaPdf(note);
       addLog('sistema', `ARCA: Nota de Crédito C ${note.nro_ticket} autorizada con CAE ${result.CAE}, asociada a ${original.nro_ticket}.`);
       toast.success(`Nota de Crédito C ${note.nro_ticket} autorizada por ARCA.`);
@@ -708,6 +738,35 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
         }
         setArcaStatus(prev => ({ ...(prev || currentStatus), ...currentStatus, connected: true, message: 'Última emisión autorizada correctamente.' }));
         addLog('sistema', `ARCA: Comprobante electrónico autorizado. CAE: ${cae}`);
+
+        // Sincronizar emisión en Google Sheets (hoja arca_emisiones)
+        try {
+          const obsText = Array.isArray(result.observaciones)
+            ? result.observaciones.map(o => `${o.code}: ${o.msg}`).join(' | ')
+            : '';
+          const emissionDate = argentinaDateIso(new Date());
+          sheetUpsertRow('arca_emisiones', {
+            id: result.emissionId || factura.id_factura,
+            id_factura: factura.id_factura,
+            cbte_nro: result.nroCmp || '',
+            cae,
+            vto_cae: vto,
+            resultado: result.resultado || 'A',
+            observaciones: obsText,
+            fecha: emissionDate,
+            tipo_comprobante: factura.tipo === 'C' ? 'Factura C' : factura.tipo === 'NC' ? 'Nota de Crédito C' : 'Factura C',
+            punto_venta: result.puntoVenta || currentStatus.puntoVenta || 1,
+            nro_comprobante: factura.nro_ticket,
+            cliente: factura.cliente || 'Consumidor Final',
+            documento: document.documentNumber || '',
+            total: factura.total || 0,
+            estado: result.fiscalStatus || 'authorized',
+            error: ''
+          }).catch(e => console.warn('[GoogleSheets] arca_emisiones sync error:', e));
+        } catch (sheetSyncErr) {
+          console.warn('[GoogleSheets] arca_emisiones sync catch:', sheetSyncErr);
+        }
+
         return result;
       }
       throw new Error(result.error || 'ARCA rechazó el comprobante.');

@@ -1157,6 +1157,63 @@ function storedEmissionResponse(emission: StoredEmission, credentials: ServerCre
   };
 }
 
+const GOOGLE_SHEETS_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbw45APBuDOZrZY5P2EBQyR50HdXRSF6CrLNP01ipu0X11_u42IgnhxbuJdO_t-YS-e94Q/exec";
+
+async function syncEmissionToGoogleSheets(emission: StoredEmission) {
+  try {
+    const obsText = Array.isArray(emission.observaciones)
+      ? emission.observaciones.map((o: any) => `${o.code ?? ""}: ${o.msg ?? ""}`).join(" | ")
+      : String(emission.observaciones || "");
+
+    const reqPayload = (emission.request_payload || {}) as any;
+    const docNro = reqPayload?.documentNumber ?? reqPayload?.cliente?.nroDoc ?? "";
+    const clienteName = reqPayload?.cliente?.nombre ?? "Consumidor Final";
+    const totalAmount = Number(reqPayload?.total ?? 0);
+    const cbteTipoName = emission.cbte_tipo === 11 ? "Factura C" : emission.cbte_tipo === 13 ? "Nota de Crédito C" : `Comprobante ${emission.cbte_tipo}`;
+    const nroFormatted = emission.cbte_nro ? `${emission.cbte_tipo === 13 ? "NC" : "FAC"}-${String(emission.punto_venta).padStart(4, "0")}-${String(emission.cbte_nro).padStart(8, "0")}` : "";
+
+    let formattedDate = "";
+    if (emission.cbte_fecha && emission.cbte_fecha.length === 8) {
+      formattedDate = `${emission.cbte_fecha.slice(0, 4)}-${emission.cbte_fecha.slice(4, 6)}-${emission.cbte_fecha.slice(6, 8)}`;
+    } else if (emission.created_at) {
+      formattedDate = emission.created_at.slice(0, 10);
+    } else {
+      formattedDate = new Date().toISOString().slice(0, 10);
+    }
+
+    const sheetRow = {
+      id: emission.id,
+      id_factura: emission.idempotency_key || emission.id,
+      cbte_nro: emission.cbte_nro ?? "",
+      cae: emission.cae ?? "",
+      vto_cae: emission.cae_vencimiento ?? "",
+      resultado: emission.resultado ?? (emission.status === "authorized" ? "A" : emission.status === "rejected" ? "R" : "O"),
+      observaciones: obsText,
+      fecha: formattedDate,
+      tipo_comprobante: cbteTipoName,
+      punto_venta: emission.punto_venta,
+      nro_comprobante: nroFormatted,
+      cliente: clienteName,
+      documento: docNro,
+      total: totalAmount,
+      estado: emission.status,
+      error: emission.error_message ?? "",
+    };
+
+    await fetch(GOOGLE_SHEETS_WEBAPP_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({
+        action: "upsert",
+        table: "arca_emisiones",
+        data: sheetRow,
+      }),
+    });
+  } catch (err) {
+    console.warn("[GoogleSheets] arca_emisiones sync error:", err);
+  }
+}
+
 async function queryAuthorizedVoucher(
   credentials: ServerCredentials,
   auth: CachedAccessTicket,
@@ -1237,7 +1294,9 @@ async function reconcileEmission(
   };
   const { data, error } = await client.from("arca_emisiones").update(updates).eq("id", emission.id).select("*").single();
   if (error) throw new Error(`No se pudo guardar la reconciliacion fiscal: ${error.message}`);
-  return data as StoredEmission;
+  const reconciled = data as StoredEmission;
+  await syncEmissionToGoogleSheets(reconciled);
+  return reconciled;
 }
 
 async function runIdempotentEmission(
@@ -1312,6 +1371,30 @@ async function runIdempotentEmission(
       cae,
     });
     const qrData = JSON.stringify(qrPayload);
+
+    syncEmissionToGoogleSheets({
+      id: emissionId,
+      idempotency_key: invoice.idempotencyKey,
+      request_hash: "",
+      request_payload: invoice,
+      created_by: authenticated.id,
+      environment: credentials.environment,
+      cuit: credentials.cuit,
+      punto_venta: credentials.puntoVenta,
+      cbte_tipo: invoice.voucherType,
+      cbte_nro: voucherNumber,
+      cbte_fecha: issueDate,
+      status: "authorized",
+      resultado: "A",
+      cae,
+      cae_vencimiento: expiry,
+      qr_payload: qrPayload,
+      observaciones: [],
+      error_message: null,
+      related_emission_id: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    } as StoredEmission).catch(() => undefined);
 
     return {
       success: true,
@@ -1409,7 +1492,9 @@ async function runIdempotentEmission(
     };
     const { data: saved, error: saveError } = await client.from("arca_emisiones").update(updates).eq("id", emissionId).select("*").single();
     if (saveError) throw new Error(`ARCA respondio pero no se pudo guardar el resultado: ${saveError.message}`);
-    return storedEmissionResponse(saved as StoredEmission, credentials);
+    const emissionData = saved as StoredEmission;
+    await syncEmissionToGoogleSheets(emissionData);
+    return storedEmissionResponse(emissionData, credentials);
   } catch (error) {
     if (emission.cbte_nro) {
       await client.from("arca_emisiones").update({
