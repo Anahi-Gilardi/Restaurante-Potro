@@ -169,9 +169,6 @@ export const pedidosService = {
   },
 
   async update(id: number, fields: Partial<Pedido>): Promise<void> {
-    const supabase = tryGetActiveSupabaseClient();
-    if (!supabase) return;
-    
     // Map fields to header columns
     const headerFields: any = {};
     if (fields.estado_comanda !== undefined) headerFields.estado_comanda = fields.estado_comanda;
@@ -197,6 +194,9 @@ export const pedidosService = {
     } catch (sheetErr) {
       console.warn('[pedidosService.update] Error en Google Sheets:', sheetErr);
     }
+
+    const supabase = tryGetActiveSupabaseClient();
+    if (!supabase) return;
 
     try {
       if (Object.keys(headerFields).length > 0) {

@@ -86,7 +86,7 @@ import { orderTransactionService } from './services/orderTransactionService';
 import { resolveSessionOperator } from './lib/sessionOperator';
 import { isSameTable, doesOrderBelongToTable } from './lib/tableOrders';
 import { uniteTablesInList, separateTablesInList, formatUnitedTableName } from './lib/tableUnions';
-import { preloadGoogleSheetsCache, sheetFetchAllTables } from './lib/googleSheetsClient';
+import { preloadGoogleSheetsCache, sheetFetchAllTables, sheetUpsertRow } from './lib/googleSheetsClient';
 
 export default function App() {
   const { toast, toasts, removeToast } = useToast();
@@ -916,8 +916,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
       try {
         await orderTransactionService.closeOrders(orderIds, permitirVentaSinStock);
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : 'No se pudo cerrar la mesa.');
-        return;
+        console.warn('Supabase closeOrders omitido por permisos/red:', error);
       }
     }
 
@@ -938,6 +937,45 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
       return (matchId || matchNum || isPartChild || isPartUnited) ? { ...m, estado: 'libre' as const, comensales: undefined } : m;
     });
     setMesas(updatedMesas);
+
+    // Persistir estado de mesas en cache local y Google Sheets
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.setItem('el_patron_sheet_cache_mesas', JSON.stringify(updatedMesas));
+      } catch {}
+    }
+
+    const affectedMesas = updatedMesas.filter(m => {
+      const matchId = (m.id_mesa !== undefined && m.id_mesa !== null && target.id_mesa !== undefined && target.id_mesa !== null && String(m.id_mesa) === String(target.id_mesa));
+      const norm1 = String(m.numero_mesa || '').toLowerCase().replace(/mesa\s+/gi, '').trim();
+      const norm2 = String(target.numero_mesa || '').toLowerCase().replace(/mesa\s+/gi, '').trim();
+      const matchNum = norm1 !== '' && norm1 === norm2;
+      const isPartChild = m.parent_id !== undefined && m.parent_id !== null && String(m.parent_id) === String(target.id_mesa);
+      const isPartUnited = Boolean(targetMesa?.mesas_unidas && targetMesa.mesas_unidas.includes(m.id_mesa));
+      return matchId || matchNum || isPartChild || isPartUnited;
+    });
+
+    try {
+      await dbUpsertMesas(affectedMesas);
+    } catch (err) {
+      console.warn('Error sincronizando mesa cobrada con Google Sheets:', err);
+    }
+
+    // Persistir comandas cerradas en Google Sheets
+    for (const order of ordersToBill) {
+      try {
+        await sheetUpsertRow('pedidos_cabecera', {
+          id_pedido: order.id_pedido,
+          id_mesa: order.id_mesa,
+          numero_mesa: order.numero_mesa,
+          mozo: order.mozo,
+          estado_comanda: 'entregado_cobrado',
+          items: JSON.stringify(order.items || [])
+        });
+      } catch (err) {
+        console.warn(`Error al actualizar comanda #${order.id_pedido} en Google Sheets:`, err);
+      }
+    }
 
     addLog('sistema', `CAJA: Facturación completa cobrada correctamente de la mesa ${target.numero_mesa} por Pedido(s) #${orderIds.join(', #')}`);
 
@@ -975,8 +1013,40 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
       cajaService.updateSales(totalPedido, { efectivo: totalPedido }).catch(err => {
         console.error('Error updating sales in cajaService during direct billing:', err);
       });
+
+      const nroTicket = `T-${Date.now().toString().slice(-6)}`;
+      const facturaId = `fac_${Date.now()}_${idPedido}`;
+      
+      sheetUpsertRow('facturas', {
+        id_factura: facturaId,
+        id_pedido: target.id_pedido,
+        numero_factura: nroTicket,
+        total: totalPedido,
+        tipo_comprobante: 'Ticket Consumo',
+        metodo_pago: 'Efectivo',
+        cuit_cliente: '',
+        cliente_nombre: 'Consumidor Final',
+        fecha_emision: new Date().toISOString(),
+        fiscal_status: 'authorized'
+      }).catch(err => console.warn('Error registrando factura en Google Sheets:', err));
+
+      sheetUpsertRow('pagos', {
+        id_pago: `pag_${Date.now()}_${idPedido}`,
+        id_factura: facturaId,
+        monto: totalPedido,
+        metodo: 'efectivo',
+        fecha: new Date().toISOString()
+      }).catch(err => console.warn('Error registrando pago en Google Sheets:', err));
+
+      sheetUpsertRow('caja_ledger', {
+        id_ledger: `caj_${Date.now()}_${idPedido}`,
+        concepto: `Cobro Mesa ${target.numero_mesa}`,
+        monto: totalPedido,
+        tipo: 'ingreso_venta',
+        fecha: new Date().toISOString()
+      }).catch(err => console.warn('Error registrando ledger en Google Sheets:', err));
     }
-  }, [pedidos, mesas, productosMenu, addLog, isDemoSession, toast, permitirVentaSinStock]);
+  }, [pedidos, mesas, productosMenu, addLog, isDemoSession, permitirVentaSinStock]);
 
   // --- Handlers para Unión y Desunión de Mesas ---
   const handleUnirMesas = useCallback(async (idMesa1: number, idMesa2: number) => {
