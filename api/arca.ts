@@ -1379,7 +1379,7 @@ async function runIdempotentEmission(
       request_payload: invoice,
       created_by: authenticated.id,
       environment: credentials.environment,
-      cuit: credentials.cuit,
+      cuit: String(credentials.cuit),
       punto_venta: credentials.puntoVenta,
       cbte_tipo: invoice.voucherType,
       cbte_nro: voucherNumber,
