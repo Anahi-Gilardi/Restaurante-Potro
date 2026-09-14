@@ -238,7 +238,7 @@ export default function App() {
         if (savedUsuarios && savedUsuarios.length > 0) {
           setUsuarios(savedUsuarios);
         }
-        setMesas(dbMesas && dbMesas.length > 0 ? dbMesas : (prev => prev.length > 0 ? prev : INITIAL_MESAS));
+        setMesas(dbMesas ?? []);
         setInsumos(dbInsumos ?? []);
         setProductosMenu(dbProducts ?? []);
         setRecetas(dbRecipes ?? []);
