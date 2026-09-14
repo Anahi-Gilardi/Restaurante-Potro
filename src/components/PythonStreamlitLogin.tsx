@@ -16,6 +16,7 @@ import { canLogin, getLoginErrorMessage } from '../lib/loginAuth';
 import { tryGetActiveSupabaseClient } from '../lib/supabaseClient';
 import { signInWithUsername } from '../services/usernameAuthService';
 import { sheetFetchTable, preloadGoogleSheetsCache } from '../lib/googleSheetsClient';
+import { cacheUsuario } from '../services/usuariosService';
 import {
   findDemoLoginUser,
   getConfiguredDemoCredentials,
@@ -90,55 +91,124 @@ export default function PythonStreamlitLogin({ onLoginSuccess, onBackToCover }: 
         return;
       }
 
-      // 1. Verificación instantánea (0ms) contra la tabla 'usuarios' de Google Sheets
+      // 1. Verificación contra la tabla 'usuarios' de Google Sheets (flexible y tolerante)
       try {
-        const sheetUsers = await sheetFetchTable('usuarios');
-        const inputId = email.trim().toLowerCase();
-        const cleanPass = password.trim();
+        const normalizeText = (val: unknown): string => (
+          String(val ?? '')
+            .trim()
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+        );
 
-        const matchUser = (usersList: any[]) => usersList.find((u: any) => {
-          const uName = String(u.username || u.mail || '').trim().toLowerCase();
-          if (uName !== inputId) return false;
+        const matchesSheetUser = (u: any, inputRaw: string): boolean => {
+          const normInput = normalizeText(inputRaw);
+          const inputNoSpaces = normInput.replace(/\s+/g, '');
+          if (!normInput) return false;
 
-          const uPass = String(u.password || '').trim();
-          const uPin = String(u.pin || '').trim();
+          const candidates: (string | undefined | null)[] = [
+            u.username,
+            u.usuario,
+            u.user,
+            u.nombre_usuario,
+            u.nombre,
+            u.mail,
+            u.email,
+            u.correo,
+            u.nombre && u.apellido ? `${u.nombre} ${u.apellido}` : null,
+            u.nombre && u.apellido ? `${u.apellido} ${u.nombre}` : null,
+          ];
 
-          if (uPass && uPass === cleanPass) return true;
-          if (uPin && uPin === cleanPass) return true;
-          if (!uPass && !uPin && (cleanPass === '1234' || cleanPass === '1999' || cleanPass === 'admin')) return true;
-          return false;
-        });
+          return candidates.some(c => {
+            if (!c) return false;
+            const norm = normalizeText(c);
+            return norm === normInput || norm.replace(/\s+/g, '') === inputNoSpaces;
+          });
+        };
 
-        let found = Array.isArray(sheetUsers) && sheetUsers.length > 0 ? matchUser(sheetUsers) : null;
+        const matchesSheetPassword = (u: any, passRaw: string): boolean => {
+          const cleanPass = passRaw.trim();
+          if (!cleanPass) return false;
 
-        // Si no se encuentra en el caché inmediato, intentar una búsqueda fresca por si fue recién creado en Sheets
-        if (!found) {
+          const candidates = [
+            u.password,
+            u.pin,
+            u.password_hash,
+            u.clave,
+            u.contraseña,
+            u.contrasena,
+            u.pass,
+          ].filter(val => val !== undefined && val !== null && String(val).trim() !== '');
+
+          if (candidates.length > 0) {
+            return candidates.some(c => {
+              const cStr = String(c).trim();
+              return cStr === cleanPass || cStr.toLowerCase() === cleanPass.toLowerCase();
+            });
+          }
+
+          // Si la fila del Sheet no tiene clave configurada, permitir accesos estándar
+          return cleanPass === '1234' || cleanPass === '1999' || cleanPass === 'admin';
+        };
+
+        let sheetUsers = await sheetFetchTable('usuarios');
+        let userMatch = Array.isArray(sheetUsers) ? sheetUsers.find(u => matchesSheetUser(u, email)) : null;
+
+        // Si no está en el caché inmediato, buscar datos frescos directamente de Google Sheets
+        if (!userMatch) {
           try {
             const freshUsers = await sheetFetchTable('usuarios', true);
             if (Array.isArray(freshUsers) && freshUsers.length > 0) {
-              found = matchUser(freshUsers);
+              sheetUsers = freshUsers;
+              userMatch = freshUsers.find(u => matchesSheetUser(u, email));
             }
           } catch {
-            // Ignorar y seguir con fallback de auth
+            // Ignorar y continuar
           }
         }
 
-        if (found) {
-          if (found.activo === false || String(found.activo).toLowerCase() === 'false') {
+        if (userMatch) {
+          // Verificar si el usuario está inactivo
+          const rawActivo = userMatch.activo;
+          const isInactive = rawActivo === false 
+            || String(rawActivo).trim().toLowerCase() === 'false'
+            || String(rawActivo).trim().toLowerCase() === 'no'
+            || String(rawActivo).trim() === '0'
+            || String(rawActivo).trim().toLowerCase() === 'inactivo';
+
+          if (isInactive) {
             setError('Este usuario está desactivado en Google Sheets.');
             return;
           }
+
+          // Verificar contraseña
+          const passOk = matchesSheetPassword(userMatch, password);
+          if (!passOk) {
+            setError(`Contraseña incorrecta para el usuario ${userMatch.nombre || userMatch.username || 'ingresado'}.`);
+            return;
+          }
+
+          // Normalizar rol
+          const rawRol = String(userMatch.rol || userMatch.cargo || 'mozo').trim().toLowerCase();
+          let rol: Usuario['rol'] = 'mozo';
+          if (rawRol.includes('admin') || rawRol.includes('gerente')) rol = 'administrador';
+          else if (rawRol.includes('cocin') || rawRol.includes('chef')) rol = 'cocina';
+          else if (rawRol.includes('caj')) rol = 'cajero';
+          else if (rawRol.includes('super')) rol = 'superadmin';
+
           const loggedUser: Usuario = {
-            id_usuario: Number(found.id_usuario || 1),
-            nombre: found.nombre || 'Usuario',
-            apellido: found.apellido || '',
-            username: found.username || inputId,
-            password: String(found.password || cleanPass),
-            rol: (found.rol || 'mozo') as Usuario['rol'],
+            id_usuario: Number(userMatch.id_usuario) || Math.floor(Date.now() / 1000),
+            nombre: String(userMatch.nombre || userMatch.username || userMatch.usuario || 'Usuario').trim(),
+            apellido: String(userMatch.apellido || '').trim(),
+            username: String(userMatch.username || userMatch.usuario || userMatch.user || userMatch.nombre || email).trim().toLowerCase(),
+            password: String(userMatch.password || password.trim()),
+            rol,
             activo: true,
-            pin: found.pin ? String(found.pin) : undefined,
-            mail: found.mail ? String(found.mail) : undefined,
+            pin: userMatch.pin ? String(userMatch.pin).trim() : undefined,
+            mail: userMatch.mail ? String(userMatch.mail).trim() : (userMatch.email ? String(userMatch.email).trim() : undefined),
           };
+
+          cacheUsuario(loggedUser);
           await completeLogin(loggedUser, 'supabase');
           return;
         }
@@ -148,21 +218,33 @@ export default function PythonStreamlitLogin({ onLoginSuccess, onBackToCover }: 
 
       const supabase = tryGetActiveSupabaseClient();
       if (!supabase) {
-        setError(demoEnabled ? 'Usuario o contraseña incorrectos.' : 'Acceso demo desactivado. Iniciá con Supabase Auth.');
+        setError(demoEnabled ? 'Usuario o contraseña incorrectos.' : 'Usuario no encontrado en Google Sheets ni en el sistema.');
         return;
       }
 
       const identifier = email.trim().toLowerCase();
       let authenticatedUser;
-      if (identifier.includes('@')) {
-        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-          email: identifier,
-          password,
-        });
-        if (authError) throw authError;
-        authenticatedUser = authData.user;
-      } else {
-        authenticatedUser = await signInWithUsername(supabase, identifier, password);
+
+      const authTimeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Tiempo de espera agotado al conectar con el servidor.')), 6000)
+      );
+
+      const authAction = (async () => {
+        if (identifier.includes('@')) {
+          const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+            email: identifier,
+            password,
+          });
+          if (authError) throw authError;
+          return authData.user;
+        }
+        return signInWithUsername(supabase, identifier, password);
+      })();
+
+      try {
+        authenticatedUser = await Promise.race([authAction, authTimeout]);
+      } catch (authErr) {
+        throw authErr;
       }
 
       if (!authenticatedUser) {

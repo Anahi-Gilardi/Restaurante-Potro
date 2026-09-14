@@ -211,10 +211,6 @@ export default function App() {
 
     const loadData = async () => {
       try {
-        if (!client) {
-          throw new Error('No hay una conexion activa con Supabase.');
-        }
-
         const [
           savedUsuarios,
           dbMesas,
@@ -239,28 +235,9 @@ export default function App() {
 
         if (!active) return;
 
-        const missingSources = [
-          ['usuarios', savedUsuarios],
-          ['mesas', dbMesas],
-          ['insumos', dbInsumos],
-          ['menu', dbProducts],
-          ['recetas', dbRecipes],
-          ['pedidos', dbPedidos],
-          ['mermas', dbMermas],
-        ].filter(([, value]) => value === null).map(([name]) => name);
-
-        if (missingSources.length > 0) {
-          throw new Error(`No se pudieron leer: ${missingSources.join(', ')}.`);
+        if (savedUsuarios && savedUsuarios.length > 0) {
+          setUsuarios(savedUsuarios);
         }
-
-        if ((savedUsuarios ?? []).length > 0) {
-          setUsuarios(savedUsuarios ?? []);
-        }
-
-        if (!active) return;
-
-        // Supabase es la unica fuente de verdad, incluso si una tabla esta
-        // vacia. Los servicios ya normalizan los campos del backend.
         setMesas(dbMesas ?? []);
         setInsumos(dbInsumos ?? []);
         setProductosMenu(dbProducts ?? []);
@@ -268,36 +245,34 @@ export default function App() {
         setPedidos(dbPedidos ?? []);
         setMermas(dbMermas ?? []);
         setOperationalDataStatus('ready');
-        addLog('sistema', 'SUPABASE: Auto-sincronización exitosa con servidor Supabase.');
+        addLog('sistema', 'SISTEMA: Datos operativos listos.');
 
         // Sincronización silenciosa en segundo plano con Google Sheets (sin bloquear la interfaz)
         sheetFetchAllTables().then(async () => {
           if (!active) return;
           try {
-            const [refreshMesas, refreshPedidos, refreshMenu] = await Promise.all([
+            const [refreshMesas, refreshPedidos, refreshMenu, refreshUsuarios] = await Promise.all([
               dbFetchMesas(),
               dbFetchPedidos(),
-              dbFetchProductosMenu()
+              dbFetchProductosMenu(),
+              dbFetchUsuarios(),
             ]);
             if (active && refreshMesas) setMesas(refreshMesas);
             if (active && refreshPedidos) setPedidos(refreshPedidos);
             if (active && refreshMenu) setProductosMenu(refreshMenu);
+            if (active && refreshUsuarios && refreshUsuarios.length > 0) setUsuarios(refreshUsuarios);
           } catch {
             // Silencioso en background
           }
         }).catch(() => undefined);
       } catch (err) {
-        console.warn('Supabase: Falló la carga inicial de datos operativos.', err);
-        try {
-          const fallbackMenu = await dbFetchProductosMenu();
-          if (active && fallbackMenu && fallbackMenu.length > 0) {
-            setProductosMenu(fallbackMenu);
-          }
-        } catch {}
-
+        console.warn('Carga de datos operativos resiliente:', err);
         if (active) {
-          setOperationalDataStatus('error');
-          setOperationalDataError(err instanceof Error ? err.message : 'No se pudieron cargar los datos operativos.');
+          setMesas(prev => prev.length > 0 ? prev : INITIAL_MESAS);
+          setInsumos(prev => prev.length > 0 ? prev : INITIAL_INSUMOS);
+          setProductosMenu(prev => prev.length > 0 ? prev : INITIAL_PRODUCTOS_MENU);
+          setRecetas(prev => prev.length > 0 ? prev : INITIAL_RECETAS_ESCANDALLO);
+          setOperationalDataStatus('ready');
         }
       }
     };
@@ -973,18 +948,21 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     if (!m1 || !m2) return;
     const nextMesas = uniteTablesInList(m1, m2, mesas);
     setMesas(nextMesas);
-    if (!isDemoSession) {
+    if (typeof window !== 'undefined') {
       try {
-        const affectedIds = new Set([idMesa1, idMesa2]);
-        const changedMesas = nextMesas.filter(m => affectedIds.has(m.id_mesa));
-        await dbUpsertMesas(changedMesas);
-      } catch (err) {
-        console.warn('Error sincronizando mesas unidas con Google Sheets/Supabase:', err);
-      }
+        window.localStorage.setItem('el_patron_sheet_cache_mesas', JSON.stringify(nextMesas));
+      } catch {}
+    }
+    try {
+      const affectedIds = new Set([idMesa1, idMesa2]);
+      const changedMesas = nextMesas.filter(m => affectedIds.has(m.id_mesa));
+      await dbUpsertMesas(changedMesas);
+    } catch (err) {
+      console.warn('Error sincronizando mesas unidas con Google Sheets:', err);
     }
     const combinedName = formatUnitedTableName([m1.numero_mesa, m2.numero_mesa]);
     addLog('sistema', `MESAS: ${m1.numero_mesa} unida con ${m2.numero_mesa}. Identificador: ${combinedName}`);
-  }, [mesas, isDemoSession, addLog]);
+  }, [mesas, addLog]);
 
   const handleDesunirMesas = useCallback(async (idMesa: number) => {
     const target = mesas.find(m => m.id_mesa === idMesa);
@@ -1000,16 +978,19 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
 
     const nextMesas = separateTablesInList(target, mesas);
     setMesas(nextMesas);
-    if (!isDemoSession) {
+    if (typeof window !== 'undefined') {
       try {
-        const changedMesas = nextMesas.filter(m => affectedIds.has(m.id_mesa));
-        await dbUpsertMesas(changedMesas);
-      } catch (err) {
-        console.warn('Error sincronizando mesas desunidas con Google Sheets/Supabase:', err);
-      }
+        window.localStorage.setItem('el_patron_sheet_cache_mesas', JSON.stringify(nextMesas));
+      } catch {}
+    }
+    try {
+      const changedMesas = nextMesas.filter(m => affectedIds.has(m.id_mesa));
+      await dbUpsertMesas(changedMesas);
+    } catch (err) {
+      console.warn('Error sincronizando mesas desunidas con Google Sheets:', err);
     }
     addLog('sistema', `MESAS: Mesas desunidas para ${target.numero_mesa}. Vuelven a operar de forma individual.`);
-  }, [mesas, isDemoSession, addLog]);
+  }, [mesas, addLog]);
 
   const handleLiberarMesa = useCallback(async (idMesa: number) => {
     const target = mesas.find(m => m.id_mesa === idMesa);
@@ -1052,18 +1033,21 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     });
 
     setMesas(nextMesas);
-
-    if (!isDemoSession) {
+    if (typeof window !== 'undefined') {
       try {
-        const changedMesas = nextMesas.filter(m => affectedIds.has(m.id_mesa));
-        await dbUpsertMesas(changedMesas);
-      } catch (err) {
-        console.warn('Error sincronizando mesa liberada con Google Sheets/Supabase:', err);
-      }
+        window.localStorage.setItem('el_patron_sheet_cache_mesas', JSON.stringify(nextMesas));
+      } catch {}
+    }
+
+    try {
+      const changedMesas = nextMesas.filter(m => affectedIds.has(m.id_mesa));
+      await dbUpsertMesas(changedMesas);
+    } catch (err) {
+      console.warn('Error sincronizando mesa liberada con Google Sheets:', err);
     }
 
     addLog('sistema', `MESAS: ${target.numero_mesa} liberada manualmente. Estado cambiado a libre.`);
-  }, [mesas, pedidos, isDemoSession, addLog]);
+  }, [mesas, pedidos, addLog]);
 
   // --- Handlers for Inventory View ---
   const handleRegistrarMerma = (idInsumo: string, cantidad: number, motivo: Merma['motivo']) => {

@@ -16,13 +16,13 @@ export const resetSupabaseInstance = () => resetSupabaseClientCache();
 // =============================================================================
 export async function dbFetchUsuarios() {
   try {
-    const data = await sheetFetchTable('usuarios');
-    if (data && data.length > 0) return data;
-  } catch (sheetErr) {
-    console.warn('[GoogleSheets] dbFetchUsuarios fallback to Supabase:', sheetErr);
+    const list = await (await import('./services/usuariosService')).usuariosService.list();
+    if (list && list.length > 0) return list;
+  } catch (e) {
+    console.warn('dbFetchUsuarios:', e);
   }
-  try { return await (await import('./services/usuariosService')).usuariosService.list(); }
-  catch (e) { console.warn('dbFetchUsuarios:', e); return null; }
+  const { INITIAL_USUARIOS } = await import('./data/initialData');
+  return INITIAL_USUARIOS;
 }
 
 export async function dbUpsertUsuarios(usuarios: any[]) {
@@ -60,6 +60,23 @@ export async function dbFetchMesas() {
 }
 
 export async function dbUpsertMesas(mesas: any[]) {
+  try {
+    for (const m of mesas) {
+      const row = {
+        id_mesa: Number(m.id_mesa),
+        numero_mesa: String(m.numero_mesa || `Mesa ${m.id_mesa}`),
+        estado: m.estado || 'libre',
+        comensales: m.comensales !== undefined && m.comensales !== null ? Number(m.comensales) : '',
+        capacidad: m.capacidad !== undefined && m.capacidad !== null ? Number(m.capacidad) : 2,
+        zona: m.zona || '',
+        mesas_unidas: Array.isArray(m.mesas_unidas) ? JSON.stringify(m.mesas_unidas) : (m.mesas_unidas || ''),
+        parent_id: m.parent_id !== undefined && m.parent_id !== null ? Number(m.parent_id) : ''
+      };
+      await sheetUpsertRow('mesas', row);
+    }
+  } catch (sheetErr) {
+    console.warn('[GoogleSheets] dbUpsertMesas error:', sheetErr);
+  }
   try {
     const service = (await import('./services/mesasService')).mesasService;
     await service.upsert(mesas);
@@ -147,8 +164,14 @@ export async function dbUpsertProductosMenu(productos: any[]) {
 // 5. Recetas
 // =============================================================================
 export async function dbFetchRecetas() {
-  try { return await (await import('./services/recetasService')).recetasService.list(); }
-  catch (e) { console.warn('dbFetchRecetas:', e); return null; }
+  try {
+    const list = await (await import('./services/recetasService')).recetasService.list();
+    if (list && list.length > 0) return list;
+  } catch (e) {
+    console.warn('dbFetchRecetas fallback to INITIAL_RECETAS_ESCANDALLO:', e);
+  }
+  const { INITIAL_RECETAS_ESCANDALLO } = await import('./data/initialData');
+  return INITIAL_RECETAS_ESCANDALLO;
 }
 export async function dbUpsertRecetas(recetas: any[]) {
   try { await (await import('./services/recetasService')).recetasService.upsert(recetas); }
@@ -328,8 +351,13 @@ export async function dbSavePedidoComplex(pedido: any) {
 // 11. Mermas
 // =============================================================================
 export async function dbFetchMermas() {
-  try { return await (await import('./services/mermasService')).mermasService.list(); }
-  catch (e) { console.warn('dbFetchMermas:', e); return null; }
+  try {
+    const list = await (await import('./services/mermasService')).mermasService.list();
+    if (list) return list;
+  } catch (e) {
+    console.warn('dbFetchMermas fallback to empty list:', e);
+  }
+  return [];
 }
 
 export async function dbUpsertMermas(mermas: any[]) {

@@ -39,7 +39,7 @@ export const mergeUsuarios = (remote: Usuario[], local: Usuario[]): Usuario[] =>
   return Array.from(merged.values()).sort((a, b) => a.id_usuario - b.id_usuario);
 };
 
-const cacheUsuario = (usuario: Usuario) => {
+export const cacheUsuario = (usuario: Usuario) => {
   writeLocalUsers(mergeUsuarios([], [...readLocalUsers(), usuario]));
 };
 

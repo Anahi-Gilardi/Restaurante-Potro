@@ -434,21 +434,27 @@ export default function MesasModule({
   const hasRemoteDb = () => persistenceEnabled && Boolean(tryGetActiveSupabaseClient());
 
   const persistMesaUpdate = async (id: number, fields: Partial<Mesa>) => {
-    if (hasRemoteDb()) {
+    try {
       await mesasService.update(id, fields);
+    } catch (err) {
+      console.warn('persistMesaUpdate:', err);
     }
   };
 
   const persistMesaCreate = async (mesa: Mesa) => {
-    if (hasRemoteDb()) {
-      return mesasService.create(mesa);
+    try {
+      return await mesasService.create(mesa);
+    } catch (err) {
+      console.warn('persistMesaCreate:', err);
+      return mesa;
     }
-    return mesa;
   };
 
   const persistMesaRemove = async (id: number) => {
-    if (hasRemoteDb()) {
+    try {
       await mesasService.remove(id);
+    } catch (err) {
+      console.warn('persistMesaRemove:', err);
     }
   };
 
@@ -646,6 +652,15 @@ export default function MesasModule({
     try {
       await persistMesaUpdate(m1.id_mesa, mesaUnida);
       await persistMesaUpdate(m2.id_mesa, { parent_id: m1.id_mesa, estado: 'unida' });
+      const updatedGlobal = mesas.map(m => {
+        if (m.id_mesa === m1.id_mesa) return { ...m, ...mesaUnida } as Mesa;
+        if (m.id_mesa === m2.id_mesa) return { ...m, parent_id: m1.id_mesa, estado: 'unida' as const } as Mesa;
+        return m;
+      });
+      onMesasChange(updatedGlobal);
+      if (typeof window !== 'undefined') {
+        try { window.localStorage.setItem('el_patron_sheet_cache_mesas', JSON.stringify(updatedGlobal)); } catch {}
+      }
       setVisualMesas(prev => prev.map(m => {
         if (m.id_mesa === m1.id_mesa) return { ...m, ...mesaUnida, zona: m1.zona, estado: 'ocupada' } as MesaVisual;
         if (m.id_mesa === m2.id_mesa) return { ...m, parent_id: m1.id_mesa, estado: 'unida' };
@@ -712,6 +727,19 @@ export default function MesasModule({
           if (idHija === selectedMesa.id_mesa) continue;
           await persistMesaUpdate(idHija, { parent_id: null, estado: 'libre' });
         }
+      }
+      const updatedGlobal = mesas.map(m => {
+        if (m.id_mesa === selectedMesa.id_mesa) {
+          return { ...m, capacidad: original?.capacidad || m.capacidad, mesas_unidas: [], numero_mesa: original?.numero_mesa || m.numero_mesa, estado: 'libre' as const };
+        }
+        if (selectedMesa.mesas_unidas?.includes(m.id_mesa)) {
+          return { ...m, parent_id: null, estado: 'libre' as const };
+        }
+        return m;
+      });
+      onMesasChange(updatedGlobal);
+      if (typeof window !== 'undefined') {
+        try { window.localStorage.setItem('el_patron_sheet_cache_mesas', JSON.stringify(updatedGlobal)); } catch {}
       }
       setVisualMesas(prev => prev.map(m => {
         if (m.id_mesa === selectedMesa.id_mesa) {
