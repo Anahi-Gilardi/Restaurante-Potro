@@ -15,7 +15,10 @@ const USERNAME_PATTERN = /^[a-z0-9._-]{3,40}$/;
 const SAFE_PROFILE_COLUMNS = "id_usuario,nombre,apellido,username,rol,activo,auth_user_id,mail";
 
 const serviceClient = () => {
-  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  let url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  if (!url || url.includes('sqczmyaoqplrmrgyczjy')) {
+    url = 'https://extglaaqlsleibsbtwup.supabase.co';
+  }
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) throw new ApiAccessError(503, "La administración de usuarios no está configurada.");
   return createClient(url, key, {

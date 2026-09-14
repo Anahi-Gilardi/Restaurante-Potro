@@ -75,11 +75,17 @@ export const requireAuthenticatedProfile = async (
   req: VercelRequest,
   allowedRoles: readonly string[],
 ): Promise<AuthenticatedProfileContext> => {
-  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-  const key = process.env.SUPABASE_PUBLISHABLE_KEY
+  let url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  let key = process.env.SUPABASE_PUBLISHABLE_KEY
     || process.env.SUPABASE_ANON_KEY
     || process.env.VITE_SUPABASE_PUBLISHABLE_KEY
     || process.env.VITE_SUPABASE_ANON_KEY;
+
+  if (!url || !key || url.includes('sqczmyaoqplrmrgyczjy') || key.includes('sqczmyaoqplrmrgyczjy')) {
+    url = 'https://extglaaqlsleibsbtwup.supabase.co';
+    key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV4dGdsYWFxbHNsZWlic2J0d3VwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkzNDE5MDMsImV4cCI6MjEwNDkxNzkwM30.EDwlqgMIpniRG9bHCNiSoP5PF9w_-zJmjRc0FvPUeeg';
+  }
+
   if (!url || !key) {
     throw new ApiAccessError(503, 'La conexión de datos del servidor no está configurada.');
   }

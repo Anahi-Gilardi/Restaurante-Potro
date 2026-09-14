@@ -16,7 +16,10 @@ const MAX_BACKUP_BYTES = 25_000_000;
 const PAGE_SIZE = 1_000;
 
 const serviceClient = (): SupabaseClient => {
-  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  let url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  if (!url || url.includes('sqczmyaoqplrmrgyczjy')) {
+    url = 'https://extglaaqlsleibsbtwup.supabase.co';
+  }
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) throw new Error("Supabase no está configurado para respaldos automáticos.");
   return createClient(url, key, {

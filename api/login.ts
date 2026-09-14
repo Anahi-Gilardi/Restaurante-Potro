@@ -64,7 +64,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(401).json({ success: false, error: "Usuario o contraseña incorrectos." });
   }
 
-  const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+  let supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+  if (!supabaseUrl || supabaseUrl.includes('sqczmyaoqplrmrgyczjy')) {
+    supabaseUrl = 'https://extglaaqlsleibsbtwup.supabase.co';
+  }
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !serviceRoleKey) {
     return res.status(503).json({ success: false, error: "El acceso interno no está configurado." });

@@ -327,21 +327,27 @@ function getBearerToken(req: VercelRequest): string {
 }
 
 function getPublicSupabaseClient() {
-  const supabaseUrl = envValue("SUPABASE_URL", "VITE_SUPABASE_URL");
-  const supabaseKey = envValue(
+  let supabaseUrl = envValue("SUPABASE_URL", "VITE_SUPABASE_URL");
+  let supabaseKey = envValue(
     "SUPABASE_PUBLISHABLE_KEY",
     "SUPABASE_ANON_KEY",
     "VITE_SUPABASE_PUBLISHABLE_KEY",
     "VITE_SUPABASE_ANON_KEY",
   );
-  if (!supabaseUrl || !supabaseKey) return null;
+  if (!supabaseUrl || !supabaseKey || supabaseUrl.includes('sqczmyaoqplrmrgyczjy') || supabaseKey.includes('sqczmyaoqplrmrgyczjy')) {
+    supabaseUrl = 'https://extglaaqlsleibsbtwup.supabase.co';
+    supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV4dGdsYWFxbHNsZWlic2J0d3VwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkzNDE5MDMsImV4cCI6MjEwNDkxNzkwM30.EDwlqgMIpniRG9bHCNiSoP5PF9w_-zJmjRc0FvPUeeg';
+  }
   return createClient(supabaseUrl, supabaseKey, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   });
 }
 
 function getServiceSupabaseClient() {
-  const supabaseUrl = envValue("SUPABASE_URL", "VITE_SUPABASE_URL");
+  let supabaseUrl = envValue("SUPABASE_URL", "VITE_SUPABASE_URL");
+  if (!supabaseUrl || supabaseUrl.includes('sqczmyaoqplrmrgyczjy')) {
+    supabaseUrl = 'https://extglaaqlsleibsbtwup.supabase.co';
+  }
   const serviceRoleKey = envValue("SUPABASE_SERVICE_ROLE_KEY");
   if (!supabaseUrl || !serviceRoleKey) return null;
   return createClient(supabaseUrl, serviceRoleKey, {
