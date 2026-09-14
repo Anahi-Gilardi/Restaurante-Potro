@@ -46,6 +46,26 @@ export const cacheUsuario = (usuario: Usuario) => {
 export const usuariosService = {
   async list(): Promise<Usuario[]> {
     const local = readLocalUsers();
+
+    // 1. Supabase como fuente primaria (tabla 'usuarios')
+    try {
+      const supabase = tryGetActiveSupabaseClient();
+      if (supabase) {
+        const { data, error } = await supabase
+          .from('usuarios')
+          .select(SAFE_USER_COLUMNS)
+          .order('id_usuario', { ascending: true });
+        if (!error && Array.isArray(data) && data.length > 0) {
+          const remote = data.map(usuario => sanitizeUsuario(usuario as Usuario));
+          writeLocalUsers(remote);
+          return remote;
+        }
+      }
+    } catch (error) {
+      console.warn('[usuariosService.list] Error al consultar Supabase:', error);
+    }
+
+    // 2. Fallback a Google Sheets solo si Supabase no responde
     try {
       const sheetUsers = await sheetFetchTable('usuarios');
       if (Array.isArray(sheetUsers) && sheetUsers.length > 0) {
@@ -69,19 +89,7 @@ export const usuariosService = {
       console.warn('[usuariosService.list] Fallback desde Google Sheets:', sheetErr);
     }
 
-    try {
-      const supabase = tryGetActiveSupabaseClient();
-      if (!supabase) return local;
-      const { data, error } = await supabase.from('usuarios').select(SAFE_USER_COLUMNS).order('id_usuario', { ascending: true });
-      if (error) throw error;
-      const remote = (data || []).map(usuario => sanitizeUsuario(usuario as Usuario));
-      const merged = mergeUsuarios(remote, local);
-      writeLocalUsers(merged);
-      return merged;
-    } catch (error) {
-      console.warn('No se pudieron leer usuarios remotos; usando copia local.', error);
-      return local;
-    }
+    return local;
   },
 
   async getById(id: number): Promise<Usuario | null> {

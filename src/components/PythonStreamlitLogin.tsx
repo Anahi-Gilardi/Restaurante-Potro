@@ -141,20 +141,35 @@ export default function PythonStreamlitLogin({ onLoginSuccess, onBackToCover }: 
           return cleanPass === '1234' || cleanPass === '1999' || cleanPass === 'admin';
         };
 
-        let sheetUsers = await sheetFetchTable('usuarios');
-        let userMatch = Array.isArray(sheetUsers) ? sheetUsers.find(u => matchesSheetUser(u, email)) : null;
+        const supabase = tryGetActiveSupabaseClient();
+        let dbUsers: any[] = [];
+        if (supabase) {
+          try {
+            const { data: supaData } = await supabase
+              .from('usuarios')
+              .select('id_usuario,nombre,apellido,username,rol,activo,auth_user_id,mail,password,pin');
+            if (Array.isArray(supaData) && supaData.length > 0) {
+              dbUsers = supaData;
+            }
+          } catch {}
+        }
 
-        // Si no está en el caché inmediato, buscar datos frescos directamente de Google Sheets
+        let userMatch = dbUsers.length > 0
+          ? dbUsers.find(u => matchesSheetUser(u, email))
+          : null;
+
+        // Si no está en Supabase, buscar en Google Sheets como fallback
         if (!userMatch) {
           try {
-            const freshUsers = await sheetFetchTable('usuarios', true);
-            if (Array.isArray(freshUsers) && freshUsers.length > 0) {
-              sheetUsers = freshUsers;
-              userMatch = freshUsers.find(u => matchesSheetUser(u, email));
+            let sheetUsers = await sheetFetchTable('usuarios');
+            userMatch = Array.isArray(sheetUsers) ? sheetUsers.find(u => matchesSheetUser(u, email)) : null;
+            if (!userMatch) {
+              const freshUsers = await sheetFetchTable('usuarios', true);
+              if (Array.isArray(freshUsers) && freshUsers.length > 0) {
+                userMatch = freshUsers.find(u => matchesSheetUser(u, email));
+              }
             }
-          } catch {
-            // Ignorar y continuar
-          }
+          } catch {}
         }
 
         if (userMatch) {
