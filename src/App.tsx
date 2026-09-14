@@ -975,9 +975,11 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     setMesas(nextMesas);
     if (!isDemoSession) {
       try {
-        await dbUpsertMesas(nextMesas);
+        const affectedIds = new Set([idMesa1, idMesa2]);
+        const changedMesas = nextMesas.filter(m => affectedIds.has(m.id_mesa));
+        await dbUpsertMesas(changedMesas);
       } catch (err) {
-        console.warn('Error sincronizando mesas unidas con Supabase:', err);
+        console.warn('Error sincronizando mesas unidas con Google Sheets/Supabase:', err);
       }
     }
     const combinedName = formatUnitedTableName([m1.numero_mesa, m2.numero_mesa]);
@@ -987,13 +989,23 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
   const handleDesunirMesas = useCallback(async (idMesa: number) => {
     const target = mesas.find(m => m.id_mesa === idMesa);
     if (!target) return;
+    const affectedIds = new Set<number>([target.id_mesa]);
+    if (target.parent_id) affectedIds.add(target.parent_id);
+    if (target.mesas_unidas) target.mesas_unidas.forEach(id => affectedIds.add(id));
+    mesas.forEach(m => {
+      if (m.parent_id === target.id_mesa || (target.parent_id && m.parent_id === target.parent_id)) {
+        affectedIds.add(m.id_mesa);
+      }
+    });
+
     const nextMesas = separateTablesInList(target, mesas);
     setMesas(nextMesas);
     if (!isDemoSession) {
       try {
-        await dbUpsertMesas(nextMesas);
+        const changedMesas = nextMesas.filter(m => affectedIds.has(m.id_mesa));
+        await dbUpsertMesas(changedMesas);
       } catch (err) {
-        console.warn('Error sincronizando mesas desunidas con Supabase:', err);
+        console.warn('Error sincronizando mesas desunidas con Google Sheets/Supabase:', err);
       }
     }
     addLog('sistema', `MESAS: Mesas desunidas para ${target.numero_mesa}. Vuelven a operar de forma individual.`);
@@ -1016,6 +1028,15 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     }
 
     // 2. Desunir si formaba parte de una unión y marcar como libre
+    const affectedIds = new Set<number>([idMesa]);
+    if (target.parent_id) affectedIds.add(target.parent_id);
+    if (target.mesas_unidas) target.mesas_unidas.forEach(id => affectedIds.add(id));
+    mesas.forEach(m => {
+      if (m.parent_id === target.id_mesa || (target.parent_id && m.parent_id === target.parent_id)) {
+        affectedIds.add(m.id_mesa);
+      }
+    });
+
     const nextMesas = separateTablesInList(target, mesas).map(m => {
       if (m.id_mesa === idMesa || m.parent_id === idMesa || (target.mesas_unidas && target.mesas_unidas.includes(m.id_mesa))) {
         return {
@@ -1034,9 +1055,10 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
 
     if (!isDemoSession) {
       try {
-        await dbUpsertMesas(nextMesas);
+        const changedMesas = nextMesas.filter(m => affectedIds.has(m.id_mesa));
+        await dbUpsertMesas(changedMesas);
       } catch (err) {
-        console.warn('Error sincronizando mesa liberada con Supabase:', err);
+        console.warn('Error sincronizando mesa liberada con Google Sheets/Supabase:', err);
       }
     }
 
@@ -1127,7 +1149,10 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     });
 
     setMesas(updatedMesas);
-    dbUpsertMesas(updatedMesas);
+    const affectedMesa = updatedMesas.find(m => m.id_mesa === reserva.id_mesa);
+    if (affectedMesa) {
+      dbUpsertMesas([affectedMesa]);
+    }
     addLog('sistema', `RESERVA: Mesa ${reserva.id_mesa} cambio a estado '${estado}'.`);
   }, [mesas, pedidos, addLog]);
 

@@ -8,7 +8,8 @@ import {
   formatTicketTableName,
   formatTableDisplayTitle,
   uniteTablesInList,
-  separateTablesInList
+  separateTablesInList,
+  hydrateTableUnions
 } from './tableUnions';
 import { printerService } from '../services/printerService';
 import type { TicketData, Mesa } from '../types';
@@ -153,5 +154,80 @@ test('formatTableDisplayTitle formatea títulos legibles sin duplicar prefijos d
   assert.equal(formatTableDisplayTitle('Mostrador'), 'Mostrador');
   assert.equal(formatTableDisplayTitle(''), 'Mesa');
   assert.equal(formatTableDisplayTitle(null), 'Mesa');
+});
+
+test('hydrateTableUnions normaliza mesas_unidas y parent_id leídos desde Google Sheets', () => {
+  const rawFromSheet: any[] = [
+    {
+      id_mesa: '1',
+      numero_mesa: 'Mesa 1 y 2 (Unidas)',
+      estado: 'libre',
+      capacidad: '4',
+      comensales: '4',
+      mesas_unidas: '[1, 2]',
+      parent_id: ''
+    },
+    {
+      id_mesa: '2',
+      numero_mesa: 'Mesa 2',
+      estado: 'unida',
+      capacidad: '2',
+      comensales: '',
+      mesas_unidas: '[]',
+      parent_id: '1'
+    }
+  ];
+
+  const hydrated = hydrateTableUnions(rawFromSheet);
+  const m1 = hydrated.find(m => m.id_mesa === 1)!;
+  const m2 = hydrated.find(m => m.id_mesa === 2)!;
+
+  assert.ok(m1);
+  assert.ok(m2);
+  assert.deepEqual(m1.mesas_unidas, [1, 2]);
+  assert.equal(m1.parent_id, null);
+  assert.equal(m2.estado, 'unida');
+  assert.equal(m2.parent_id, 1);
+});
+
+test('hydrateTableUnions reconstruye uniones automáticamente a partir del nombre canónico si faltan las columnas en el Sheet', () => {
+  // Simula un Google Sheet antiguo donde las columnas mesas_unidas y parent_id no existían
+  const rawWithoutColumns: any[] = [
+    {
+      id_mesa: '1',
+      numero_mesa: 'Mesa 1 y 2 (Unidas)',
+      estado: 'libre',
+      capacidad: '4',
+      comensales: ''
+    },
+    {
+      id_mesa: '2',
+      numero_mesa: 'Mesa 2',
+      estado: 'unida',
+      capacidad: '2',
+      comensales: ''
+    },
+    {
+      id_mesa: '3',
+      numero_mesa: 'Mesa 3',
+      estado: 'libre',
+      capacidad: '4',
+      comensales: ''
+    }
+  ];
+
+  const hydrated = hydrateTableUnions(rawWithoutColumns);
+  const m1 = hydrated.find(m => m.id_mesa === 1)!;
+  const m2 = hydrated.find(m => m.id_mesa === 2)!;
+  const m3 = hydrated.find(m => m.id_mesa === 3)!;
+
+  assert.ok(m1);
+  assert.ok(m2);
+  assert.ok(m3);
+  assert.deepEqual(m1.mesas_unidas, [1, 2]);
+  assert.equal(m2.estado, 'unida');
+  assert.equal(m2.parent_id, 1);
+  assert.equal(m3.mesas_unidas, undefined);
+  assert.equal(m3.parent_id, null);
 });
 

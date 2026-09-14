@@ -41,32 +41,31 @@ export async function dbUpsertUsuarios(usuarios: any[]) {
 // 2. Mesas
 // =============================================================================
 export async function dbFetchMesas() {
+  const { hydrateTableUnions } = await import('./lib/tableUnions');
   try {
     const data = await sheetFetchTable('mesas');
     if (data && data.length > 0) {
-      return data.map((m: any) => ({
-        ...m,
-        id_mesa: Number(m.id_mesa || 1),
-        comensales: m.comensales ? Number(m.comensales) : undefined,
-      }));
+      return hydrateTableUnions(data);
     }
   } catch (sheetErr) {
     console.warn('[GoogleSheets] dbFetchMesas fallback to Supabase:', sheetErr);
   }
-  try { return await (await import('./services/mesasService')).mesasService.list(); }
-  catch (e) { console.warn('dbFetchMesas:', e); return null; }
+  try {
+    const list = await (await import('./services/mesasService')).mesasService.list();
+    return hydrateTableUnions(list || []);
+  } catch (e) {
+    console.warn('dbFetchMesas:', e);
+    return null;
+  }
 }
 
 export async function dbUpsertMesas(mesas: any[]) {
   try {
-    for (const m of mesas) {
-      await sheetUpsertRow('mesas', m);
-    }
-  } catch (sheetErr) {
-    console.warn('[GoogleSheets] dbUpsertMesas error:', sheetErr);
+    const service = (await import('./services/mesasService')).mesasService;
+    await service.upsert(mesas);
+  } catch (e) {
+    console.warn('dbUpsertMesas:', e);
   }
-  try { await (await import('./services/mesasService')).mesasService.upsert(mesas); }
-  catch (e) { console.warn('dbUpsertMesas:', e); }
 }
 
 // =============================================================================

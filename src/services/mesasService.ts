@@ -1,18 +1,14 @@
 import { tryGetActiveSupabaseClient } from '../lib/supabaseClient';
 import { sheetFetchTable, sheetUpsertRow, sheetDeleteRow } from '../lib/googleSheetsClient';
 import { Mesa } from '../types';
+import { hydrateTableUnions } from '../lib/tableUnions';
 
 export const mesasService = {
   async list(): Promise<Mesa[]> {
     try {
       const data = await sheetFetchTable('mesas');
       if (data && data.length > 0) {
-        return data.map(m => ({
-          ...m,
-          id_mesa: Number(m.id_mesa || 1),
-          comensales: m.comensales || m.comensales_actuales ? Number(m.comensales || m.comensales_actuales) : undefined,
-          capacidad: Number(m.capacidad || 4),
-        }));
+        return hydrateTableUnions(data);
       }
     } catch (sheetErr) {
       console.warn('[mesasService.list] Error desde Google Sheets:', sheetErr);
@@ -22,10 +18,11 @@ export const mesasService = {
       if (supabase) {
         const { data, error } = await supabase.from('mesas').select('*').order('id_mesa', { ascending: true });
         if (!error && data) {
-          return (data || []).map(m => ({
+          const mapped = (data || []).map(m => ({
             ...m,
-            comensales: m.comensales_actuales || undefined,
+            comensales: m.comensales_actuales || m.comensales || undefined,
           }));
+          return hydrateTableUnions(mapped);
         }
       }
     } catch (e) {
@@ -40,13 +37,15 @@ export const mesasService = {
   },
 
   async create(mesa: Mesa): Promise<Mesa> {
-    const row = {
+    const row: any = {
       id_mesa: mesa.id_mesa,
       numero_mesa: mesa.numero_mesa,
       estado: mesa.estado,
-      comensales: mesa.comensales || 0,
+      comensales: mesa.comensales || '',
       capacidad: mesa.capacidad || 4,
       zona: mesa.zona || 'salon',
+      mesas_unidas: Array.isArray(mesa.mesas_unidas) ? JSON.stringify(mesa.mesas_unidas) : (mesa.mesas_unidas || ''),
+      parent_id: mesa.parent_id !== undefined && mesa.parent_id !== null ? Number(mesa.parent_id) : ''
     };
     try {
       await sheetUpsertRow('mesas', row);
@@ -56,7 +55,8 @@ export const mesasService = {
     try {
       const supabase = tryGetActiveSupabaseClient();
       if (supabase) {
-        await supabase.from('mesas').insert([row]);
+        const { mesas_unidas, parent_id, ...supabasePayload } = mesa;
+        await supabase.from('mesas').insert([supabasePayload]);
       }
     } catch (e) {
       console.warn('[mesasService.create] Supabase omitido:', e);
@@ -65,7 +65,16 @@ export const mesasService = {
   },
 
   async update(id: number, mesa: Partial<Mesa>): Promise<Mesa> {
-    const row: any = { id_mesa: id, ...mesa };
+    const row: any = {
+      id_mesa: id,
+      numero_mesa: mesa.numero_mesa,
+      estado: mesa.estado || 'libre',
+      comensales: mesa.comensales !== undefined && mesa.comensales !== null ? Number(mesa.comensales) : '',
+      capacidad: mesa.capacidad !== undefined && mesa.capacidad !== null ? Number(mesa.capacidad) : '',
+      zona: mesa.zona || '',
+      mesas_unidas: Array.isArray(mesa.mesas_unidas) ? JSON.stringify(mesa.mesas_unidas) : (mesa.mesas_unidas || ''),
+      parent_id: mesa.parent_id !== undefined && mesa.parent_id !== null ? Number(mesa.parent_id) : ''
+    };
     try {
       await sheetUpsertRow('mesas', row);
     } catch (sheetErr) {
@@ -74,7 +83,8 @@ export const mesasService = {
     try {
       const supabase = tryGetActiveSupabaseClient();
       if (supabase) {
-        await supabase.from('mesas').update(mesa).eq('id_mesa', id);
+        const { mesas_unidas, parent_id, ...supabasePayload } = mesa;
+        await supabase.from('mesas').update(supabasePayload).eq('id_mesa', id);
       }
     } catch (e) {
       console.warn('[mesasService.update] Supabase omitido:', e);
@@ -83,9 +93,7 @@ export const mesasService = {
   },
 
   async upsert(mesas: Mesa[]): Promise<Mesa[]> {
-    for (const m of mesas) {
-      await this.update(m.id_mesa, m);
-    }
+    await Promise.all(mesas.map(m => this.update(m.id_mesa, m)));
     return mesas;
   },
 

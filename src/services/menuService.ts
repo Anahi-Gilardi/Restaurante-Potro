@@ -250,7 +250,7 @@ export const menuService = {
     } catch (storageError) {
       console.warn('LocalStorage quota exceeded on offline seed:', storageError);
     }
-    return INITIAL_PRODUCTOS_MENU.map(normalizeProductoMenu);
+    return (INITIAL_PRODUCTOS_MENU as any[]).map(normalizeProductoMenu);
   },
 
   async getById(id: string): Promise<ProductoMenu | null> {

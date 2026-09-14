@@ -186,3 +186,101 @@ export function formatTableDisplayTitle(tableRef: string | number | undefined | 
   return `Mesa ${str}`;
 }
 
+/**
+ * Hidrata y reconstruye la estructura de unión de mesas a partir de los datos
+ * leídos desde Google Sheets, caché local o Supabase.
+ * Normaliza tipos numéricos, interpreta 'mesas_unidas' y 'parent_id',
+ * y si las columnas no existen aún en la hoja, deduce la unión a partir del
+ * nombre canónico ('Mesa 1 y 2 (Unidas)') y estado ('unida').
+ */
+export function hydrateTableUnions(mesas: Mesa[]): Mesa[] {
+  if (!Array.isArray(mesas) || mesas.length === 0) return [];
+
+  // 1. Paso: Normalización básica de tipos
+  const list: Mesa[] = mesas.map(m => {
+    const rawUnidas = (m as any).mesas_unidas;
+    let mesas_unidas: number[] = [];
+    if (Array.isArray(rawUnidas)) {
+      mesas_unidas = rawUnidas.map(Number).filter(n => !isNaN(n));
+    } else if (typeof rawUnidas === 'string' && rawUnidas.trim()) {
+      try {
+        const parsed = JSON.parse(rawUnidas);
+        if (Array.isArray(parsed)) {
+          mesas_unidas = parsed.map(Number).filter(n => !isNaN(n));
+        }
+      } catch {
+        mesas_unidas = rawUnidas.split(',').map((s: string) => parseInt(s.trim(), 10)).filter((n: number) => !isNaN(n));
+      }
+    }
+
+    let parent_id: number | null = null;
+    if (m.parent_id !== undefined && m.parent_id !== null && String(m.parent_id).trim() !== '') {
+      const p = Number(m.parent_id);
+      if (!isNaN(p)) parent_id = p;
+    }
+
+    return {
+      ...m,
+      id_mesa: Number(m.id_mesa),
+      capacidad: Number(m.capacidad || 2),
+      comensales: m.comensales ? Number(m.comensales) : undefined,
+      mesas_unidas: mesas_unidas.length > 0 ? mesas_unidas : undefined,
+      parent_id
+    };
+  });
+
+  // 2. Paso: Deducir uniones a partir de nombres combinados si mesas_unidas está vacío
+  list.forEach(m => {
+    const name = String(m.numero_mesa || '').toLowerCase();
+    const isUnitedName = name.includes('unida') || name.includes('+') || (name.includes(' y ') && /\d/.test(name));
+
+    if (isUnitedName && (!m.mesas_unidas || m.mesas_unidas.length === 0)) {
+      const numbersInName = (String(m.numero_mesa).match(/\d+/g) || []).map(Number);
+      if (numbersInName.length >= 2) {
+        const matchingIds: number[] = [];
+        numbersInName.forEach(n => {
+          const match = list.find(t => t.id_mesa === n || extractTableNumber(t.numero_mesa) === String(n));
+          if (match) matchingIds.push(match.id_mesa);
+        });
+
+        if (matchingIds.length >= 2) {
+          m.mesas_unidas = Array.from(new Set(matchingIds)).sort((a, b) => a - b);
+          m.mesas_unidas.forEach(secId => {
+            if (secId !== m.id_mesa) {
+              const sec = list.find(t => t.id_mesa === secId);
+              if (sec) {
+                sec.estado = 'unida';
+                sec.parent_id = m.id_mesa;
+                sec.mesas_unidas = [];
+              }
+            }
+          });
+        }
+      }
+    }
+  });
+
+  // 3. Paso: Reconstruir parent_id para mesas con estado 'unida' si falta
+  list.forEach(m => {
+    if (m.estado === 'unida' && (m.parent_id === undefined || m.parent_id === null)) {
+      const parent = list.find(p =>
+        p.id_mesa !== m.id_mesa && (
+          (p.mesas_unidas && p.mesas_unidas.includes(m.id_mesa)) ||
+          String(p.numero_mesa || '').includes(String(m.id_mesa)) ||
+          String(p.numero_mesa || '').includes(extractTableNumber(m.numero_mesa))
+        )
+      );
+      if (parent) {
+        m.parent_id = parent.id_mesa;
+        if (!parent.mesas_unidas) parent.mesas_unidas = [parent.id_mesa];
+        if (!parent.mesas_unidas.includes(m.id_mesa)) {
+          parent.mesas_unidas.push(m.id_mesa);
+          parent.mesas_unidas.sort((a, b) => a - b);
+        }
+      }
+    }
+  });
+
+  return list;
+}
+
