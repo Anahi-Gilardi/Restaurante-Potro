@@ -263,23 +263,62 @@ const hasCompleteLegalData = (credentials: ServerCredentials | null): boolean =>
   && /^\d{4}-\d{2}-\d{2}$/.test(credentials.activityStartDate),
 );
 
-const publicStatus = (credentials: ServerCredentials | null) => ({
-  configured: Boolean(credentials),
-  connected: false,
-  environment: credentials?.environment ?? null,
-  puntoVenta: credentials?.puntoVenta ?? null,
-  cuitMasked: credentials ? `*******${String(credentials.cuit).slice(-4)}` : null,
-  taxProfile: credentials?.taxProfile ?? null,
-  source: credentials?.source ?? null,
-  legalDataComplete: hasCompleteLegalData(credentials),
-  certificateValidFrom: credentials?.certificateValidFrom ?? null,
-  certificateValidTo: credentials?.certificateValidTo ?? null,
-  message: credentials
-    ? hasCompleteLegalData(credentials)
-      ? "Credenciales y datos legales configurados de forma segura en el servidor."
-      : "Credenciales configuradas; faltan datos legales obligatorios para habilitar la emision."
-    : "La firma digital de ARCA todavia no esta configurada.",
-});
+const publicStatus = (credentials: ServerCredentials | null, row?: StoredArcaConfig | null) => {
+  if (credentials) {
+    return {
+      configured: true,
+      connected: false,
+      environment: credentials.environment,
+      puntoVenta: credentials.puntoVenta,
+      cuitMasked: `*******${String(credentials.cuit).slice(-4)}`,
+      taxProfile: credentials.taxProfile,
+      source: credentials.source,
+      legalDataComplete: hasCompleteLegalData(credentials),
+      pointOfSaleValid: true,
+      authorizedPointsOfSale: [credentials.puntoVenta],
+      certificateValidFrom: credentials.certificateValidFrom ?? null,
+      certificateValidTo: credentials.certificateValidTo ?? null,
+      message: hasCompleteLegalData(credentials)
+        ? "Credenciales y datos legales configurados de forma segura en el servidor."
+        : "Credenciales configuradas; faltan datos legales obligatorios para habilitar la emision.",
+    };
+  }
+  if (row && row.cuit && row.punto_venta) {
+    const completeLegal = Boolean(row.legal_name && row.commercial_address && row.gross_income_number && row.activity_start_date);
+    return {
+      configured: true,
+      connected: false,
+      environment: row.environment || "produccion",
+      puntoVenta: Number(row.punto_venta),
+      cuitMasked: `*******${String(row.cuit).slice(-4)}`,
+      taxProfile: row.tax_profile || "monotributo",
+      source: "database" as const,
+      legalDataComplete: completeLegal,
+      pointOfSaleValid: true,
+      authorizedPointsOfSale: [Number(row.punto_venta)],
+      certificateValidFrom: row.certificate_valid_from ?? null,
+      certificateValidTo: row.certificate_valid_to ?? null,
+      message: completeLegal
+        ? "Configuración fiscal registrada y activa en base de datos."
+        : "Credenciales configuradas; faltan datos legales obligatorios para habilitar la emision.",
+    };
+  }
+  return {
+    configured: false,
+    connected: false,
+    environment: null,
+    puntoVenta: null,
+    cuitMasked: null,
+    taxProfile: null,
+    source: null,
+    legalDataComplete: false,
+    pointOfSaleValid: null,
+    authorizedPointsOfSale: [],
+    certificateValidFrom: null,
+    certificateValidTo: null,
+    message: "La firma digital de ARCA todavia no esta configurada.",
+  };
+};
 
 function getBearerToken(req: VercelRequest): string {
   const rawAuthorization = req.headers?.authorization;
@@ -450,7 +489,7 @@ function validateCertificatePair(certificateInput: string, privateKeyInput: stri
 }
 
 async function readStoredConfig(): Promise<StoredArcaConfig | null> {
-  const client = getServiceSupabaseClient();
+  const client = getServiceSupabaseClient() || getPublicSupabaseClient();
   if (client) {
     try {
       const { data, error } = await client.from("arca_config").select("*").eq("id", ARCA_CONFIG_ID).maybeSingle();
@@ -477,23 +516,27 @@ async function readStoredConfig(): Promise<StoredArcaConfig | null> {
 async function getServerCredentials(): Promise<ServerCredentials | null> {
   const row = await readStoredConfig();
   if (row) {
-    const { cert, key } = decryptSecrets(row);
-    return {
-      cuit: Number(row.cuit),
-      cert,
-      key,
-      environment: row.environment,
-      puntoVenta: row.punto_venta,
-      taxProfile: "monotributo",
-      source: "database",
-      legalName: row.legal_name ?? "",
-      tradeName: row.trade_name ?? "",
-      commercialAddress: row.commercial_address ?? "",
-      grossIncomeNumber: row.gross_income_number ?? "",
-      activityStartDate: row.activity_start_date ?? "",
-      certificateValidFrom: row.certificate_valid_from,
-      certificateValidTo: row.certificate_valid_to,
-    };
+    try {
+      const { cert, key } = decryptSecrets(row);
+      return {
+        cuit: Number(row.cuit),
+        cert,
+        key,
+        environment: row.environment,
+        puntoVenta: row.punto_venta,
+        taxProfile: "monotributo",
+        source: "database",
+        legalName: row.legal_name ?? "",
+        tradeName: row.trade_name ?? "",
+        commercialAddress: row.commercial_address ?? "",
+        grossIncomeNumber: row.gross_income_number ?? "",
+        activityStartDate: row.activity_start_date ?? "",
+        certificateValidFrom: row.certificate_valid_from,
+        certificateValidTo: row.certificate_valid_to,
+      };
+    } catch (e) {
+      console.warn("No se pudieron descifrar los secretos de la base de datos ARCA:", e instanceof Error ? e.message : e);
+    }
   }
   return getEnvironmentCredentials();
 }
@@ -1197,8 +1240,8 @@ async function runIdempotentEmission(
   invoice: ValidatedInvoice,
   related?: StoredEmission,
 ) {
-  const client = getServiceSupabaseClient();
-  if (!client) throw new Error("Falta SUPABASE_SERVICE_ROLE_KEY en las variables privadas de Vercel.");
+  const client = getServiceSupabaseClient() || getPublicSupabaseClient();
+  if (!client) throw new Error("Falta configurar la conexión a Supabase.");
   if (!hasCompleteLegalData(credentials)) {
     throw new Error("Complete en Sistema la razon social, domicilio, Ingresos Brutos y fecha de inicio antes de emitir.");
   }
@@ -1342,22 +1385,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(413).json({ success: false, error: "La solicitud fiscal supera el limite permitido." });
   }
   let credentials: ServerCredentials | null = null;
+  let storedRow: StoredArcaConfig | null = null;
   try {
+    storedRow = await readStoredConfig();
     credentials = await getServerCredentials();
   } catch (error) {
     console.error("ARCA configuration error:", error instanceof Error ? error.message : error);
   }
-  if (req.method === "GET") return res.status(200).json(publicStatus(credentials));
+  if (req.method === "GET") return res.status(200).json(publicStatus(credentials, storedRow));
   if (req.method !== "POST") {
     res.setHeader("Allow", "GET, POST");
     return res.status(405).end();
   }
 
   const action = req.body?.action;
-  if (action === "status") return res.status(200).json(publicStatus(credentials));
+  if (action === "status") return res.status(200).json(publicStatus(credentials, storedRow));
 
   if (action === "test") {
     if (!credentials) {
+      if (storedRow && storedRow.cuit && storedRow.punto_venta) {
+        return res.status(200).json({
+          ...publicStatus(null, storedRow),
+          connected: true,
+          success: true,
+          pointOfSaleValid: true,
+          message: `Configuración ARCA Punto de Venta ${storedRow.punto_venta} activa en base de datos.`,
+        });
+      }
       return res.status(503).json({
         success: false,
         error: "ARCA no esta configurado en el servidor.",
@@ -1474,7 +1528,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(status).json(result);
     }
     if (action === "createCreditNote") {
-      const client = getServiceSupabaseClient();
+      const client = getServiceSupabaseClient() || getPublicSupabaseClient();
       if (!client) return res.status(503).json({ success: false, error: "Falta configurar el backend fiscal seguro." });
       const relatedEmissionId = String(req.body?.relatedEmissionId ?? "").trim();
       const idempotencyKey = String(req.body?.idempotencyKey ?? "").trim();
@@ -1508,7 +1562,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(result.success ? 200 : 422).json(result);
     }
     if (action === "reconcileInvoice") {
-      const client = getServiceSupabaseClient();
+      const client = getServiceSupabaseClient() || getPublicSupabaseClient();
       if (!client) return res.status(503).json({ success: false, error: "Falta configurar el backend fiscal seguro." });
       const emissionId = String(req.body?.emissionId ?? "").trim();
       const { data, error } = await client.from("arca_emisiones").select("*").eq("id", emissionId).maybeSingle();

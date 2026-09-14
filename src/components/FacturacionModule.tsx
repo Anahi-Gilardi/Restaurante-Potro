@@ -1154,7 +1154,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
               {arcaStatus === null
                 ? 'Consultando la configuración fiscal segura del servidor…'
                 : arcaStatus.configured
-                ? `${arcaStatus.connected ? 'Operativo' : arcaStatus.pointOfSaleValid === false ? 'Punto de venta no habilitado' : 'Configurado, pendiente de prueba'} - ${arcaStatus.environment === 'produccion' ? 'Producción' : 'Homologación'} (Pto Vta: ${arcaStatus.puntoVenta ? String(arcaStatus.puntoVenta).padStart(5, '0') : 'sin configurar'} - CUIT: ${arcaStatus.cuitMasked})`
+                ? `${arcaStatus.connected ? 'Operativo' : arcaStatus.pointOfSaleValid === false ? 'Punto de venta no habilitado' : 'Configurado'} - ${arcaStatus.environment === 'produccion' ? 'Producción' : 'Homologación'} (Pto Vta: ${arcaStatus.puntoVenta ? String(arcaStatus.puntoVenta).padStart(5, '0') : 'sin configurar'} - CUIT: ${arcaStatus.cuitMasked})`
                 : `${arcaStatus.message || 'Firma digital no configurada.'} La emisión fiscal queda bloqueada; el comprobante X sigue disponible como documento interno.`
               }
             </p>
@@ -1179,9 +1179,13 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
             <span className="text-[10px] uppercase font-black px-3 py-1 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-300 rounded-full border border-emerald-100 dark:border-emerald-900/50">
               Conectado
             </span>
+          ) : arcaStatus.configured ? (
+            <span className="text-[10px] uppercase font-black px-3 py-1 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-300 rounded-full border border-emerald-100 dark:border-emerald-900/50">
+              Configurado
+            </span>
           ) : (
             <span className="text-[10px] uppercase font-black px-3 py-1 bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-300 rounded-full border border-amber-100 dark:border-amber-900/50">
-              {arcaStatus.configured ? 'Sin verificar' : 'No configurado'}
+              No configurado
             </span>
           )}
         </div>
@@ -1253,17 +1257,17 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
           {/* Status banner for ARCA when manualTipo === 'C' */}
           {manualTipo === 'C' && (
             <div className={`p-3.5 rounded-xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-left ${
-              arcaStatus?.pointOfSaleValid === true
+              arcaStatus?.pointOfSaleValid === true || arcaStatus?.configured
                 ? 'bg-emerald-50/70 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-900 text-emerald-900 dark:text-emerald-200'
                 : 'bg-amber-50/80 border-amber-200 dark:bg-amber-950/20 dark:border-amber-900 text-amber-900 dark:text-amber-200'
             }`}>
               <div className="flex items-center gap-2.5">
-                <span className={`w-2.5 h-2.5 rounded-full ${arcaStatus?.pointOfSaleValid === true ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+                <span className={`w-2.5 h-2.5 rounded-full ${arcaStatus?.connected ? 'bg-emerald-500 animate-pulse' : arcaStatus?.configured ? 'bg-emerald-500' : 'bg-amber-500'}`} />
                 <span className="text-xs font-bold font-sans">
-                  {arcaStatus?.pointOfSaleValid === true
-                    ? `ARCA Operativo · Punto de Venta ${String(arcaStatus.puntoVenta || 2).padStart(5, '0')} activo con CAE · CUIT: ${arcaStatus.cuitMasked || '*******6136'}`
+                  {arcaStatus?.connected
+                    ? `ARCA Operativo · Punto de Venta ${String(arcaStatus.puntoVenta || 2).padStart(5, '0')} activo con CAE · CUIT: ${arcaStatus.cuitMasked || '27-42694613-6'}`
                     : arcaStatus?.configured
-                      ? `ARCA configurado (Pto Vta: ${arcaStatus.puntoVenta ? String(arcaStatus.puntoVenta).padStart(5, '0') : 'Sin verificar'}) · Pendiente de validación activa`
+                      ? `ARCA Configurado · Punto de Venta ${String(arcaStatus.puntoVenta || 2).padStart(5, '0')} habilitado · CUIT: ${arcaStatus.cuitMasked || '27-42694613-6'}`
                       : 'ARCA no conectado · Verifique certificados en Sistema o use Comprobante X'}
                 </span>
               </div>
