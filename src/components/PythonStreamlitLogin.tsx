@@ -196,10 +196,10 @@ export default function PythonStreamlitLogin({ onLoginSuccess, onBackToCover }: 
           // Normalizar rol
           const rawRol = String(userMatch.rol || userMatch.cargo || 'mozo').trim().toLowerCase();
           let rol: Usuario['rol'] = 'mozo';
-          if (rawRol.includes('admin') || rawRol.includes('gerente')) rol = 'administrador';
+          if (rawRol.includes('super')) rol = 'superadmin';
+          else if (rawRol.includes('admin') || rawRol.includes('gerente')) rol = 'administrador';
           else if (rawRol.includes('cocin') || rawRol.includes('chef')) rol = 'cocina';
           else if (rawRol.includes('caj')) rol = 'cajero';
-          else if (rawRol.includes('super')) rol = 'superadmin';
 
           const loggedUser: Usuario = {
             id_usuario: Number(userMatch.id_usuario) || Math.floor(Date.now() / 1000),
