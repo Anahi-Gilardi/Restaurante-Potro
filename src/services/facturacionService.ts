@@ -1,5 +1,4 @@
-import { getActiveSupabaseClient, tryGetActiveSupabaseClient } from '../lib/supabaseClient';
-import { sheetFetchTable, sheetUpsertRow } from '../lib/googleSheetsClient';
+import { sheetDeleteRow, sheetFetchTable, sheetUpsertRow } from '../lib/googleSheetsClient';
 
 export interface FacturaItem {
   descripcion: string;
@@ -145,97 +144,85 @@ export const facturacionService = {
     try {
       const sheetData = await sheetFetchTable('facturas');
       if (sheetData && sheetData.length > 0) {
-        const remote = sheetData.map(f => {
+        const remote = sheetData.map((f: any) => {
           const tipoComprobante = String(f.tipo_comprobante || '');
           const tipo = tipoFromDb(tipoComprobante);
           const total = Number(f.total) || 0;
           const iva = tipo === 'C' || tipo === 'X' || tipo === 'ticket' ? 0 : total - total / 1.21;
 
+          let items: FacturaItem[] = [];
+          if (Array.isArray(f.items_json)) {
+            items = f.items_json;
+          } else if (typeof f.items_json === 'string') {
+            try { items = JSON.parse(f.items_json); } catch { items = []; }
+          }
+
+          let observacionesList: Array<{ code: number; msg: string }> = [];
+          if (Array.isArray(f.afip_observaciones)) {
+            observacionesList = f.afip_observaciones;
+          } else if (typeof f.afip_observaciones === 'string') {
+            try { observacionesList = JSON.parse(f.afip_observaciones); } catch { observacionesList = []; }
+          }
+
+          let emisorObj: Record<string, string> | undefined = undefined;
+          if (f.arca_emisor && typeof f.arca_emisor === 'object') {
+            emisorObj = f.arca_emisor;
+          } else if (typeof f.arca_emisor === 'string') {
+            try { emisorObj = JSON.parse(f.arca_emisor); } catch { emisorObj = undefined; }
+          }
+
+          const rawFiscalStatus = String(f.fiscal_status || '').toLowerCase();
+          const estado: Factura['estado'] = tipoComprobante.toLowerCase().includes('nota') || rawFiscalStatus === 'credited'
+            ? 'nota_credito'
+            : rawFiscalStatus === 'observed'
+              ? 'observado'
+            : rawFiscalStatus === 'authorized'
+              ? 'autorizado'
+            : rawFiscalStatus === 'uncertain'
+              ? 'incierto'
+            : rawFiscalStatus === 'rejected'
+              ? 'rechazado'
+            : (f.estado as Factura['estado']) || (f.afip_cae || f.cae ? 'autorizado' : 'borrador');
+
           return {
             id_factura: String(f.id_factura),
             id_pedido: f.id_pedido ? Number(f.id_pedido) : undefined,
-            nro_ticket: String(f.numero_factura || f.id_factura),
-            cliente: f.cliente_nombre || (f.cuit_cliente ? `Cliente ${f.cuit_cliente}` : 'Consumidor Final'),
-            cuit: String(f.cuit_cliente || ''),
+            nro_ticket: String(f.numero_factura || f.nro_ticket || f.id_factura),
+            cliente: f.cliente_nombre || f.cliente || (f.cuit_cliente ? `Cliente ${f.cuit_cliente}` : 'Consumidor Final'),
+            cuit: String(f.cuit_cliente || f.cuit || ''),
             total,
             iva_veintiuno: Number(iva.toFixed(2)),
             medio_pago: mapMetodoPagoFromDb(f.metodo_pago),
-            fecha: new Date(f.fecha_emision || Date.now()).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + ' hs',
-            estado: 'autorizado' as const,
+            fecha: new Date(f.fecha_emision || f.fecha || Date.now()).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + ' hs',
+            estado,
             tipo,
-            afip_cae: f.cae || f.afip_cae,
-            afip_vto: f.vencimiento_cae || f.afip_vto,
+            afip_cae: f.cae || f.afip_cae || undefined,
+            afip_vto: f.vencimiento_cae || f.afip_vto || undefined,
+            afip_qr: f.afip_qr || undefined,
+            afip_resultado: f.afip_resultado || undefined,
+            arca_emission_id: f.arca_emission_id || undefined,
+            afip_cbte_tipo: f.afip_cbte_tipo ? Number(f.afip_cbte_tipo) : undefined,
+            afip_pto_vta: f.afip_pto_vta ? Number(f.afip_pto_vta) : undefined,
+            afip_cbte_nro: f.afip_cbte_nro ? Number(f.afip_cbte_nro) : undefined,
+            afip_observaciones: observacionesList,
+            arca_emisor: emisorObj,
+            condicion_iva_receptor: Number(f.condicion_iva_receptor) || 5,
+            fecha_completa: f.fecha_emision || f.fecha || undefined,
+            cliente_domicilio: f.cliente_domicilio || undefined,
+            documento_tipo_receptor: Number(f.documento_tipo_receptor) || (f.cuit_cliente ? 80 : 99),
+            items,
+            moneda: 'PES' as const,
+            observaciones: f.observaciones || undefined,
+            comprobante_asociado: f.comprobante_asociado || undefined,
+            credited_by_factura_id: f.credited_by_factura_id || undefined,
           };
         });
         return mergeFacturas(remote, local);
       }
     } catch (sheetErr) {
-      console.warn('[facturacionService.list] Fallback desde Google Sheets:', sheetErr);
+      console.warn('[facturacionService.list] Fallback a cache local:', sheetErr);
     }
-
-    try {
-      const supabase = tryGetActiveSupabaseClient();
-      if (!supabase) return local;
-      const { data, error } = await supabase.from('facturas').select('*').order('fecha_emision', { ascending: false });
-      if (error) throw error;
-
-      const remote = (data || []).map(f => {
-        const tipoComprobante = String(f.tipo_comprobante || '');
-        const tipo = tipoFromDb(tipoComprobante);
-        const total = Number(f.total) || 0;
-        const iva = tipo === 'C' || tipo === 'X' || tipo === 'ticket' ? 0 : total - total / 1.21;
-
-        return {
-          id_factura: f.id_factura,
-          id_pedido: f.id_pedido || undefined,
-          nro_ticket: f.numero_factura,
-          cliente: f.cliente_nombre || (f.cuit_cliente ? `Cliente ${f.cuit_cliente}` : 'Consumidor Final'),
-          cuit: f.cuit_cliente || '',
-          total,
-          iva_veintiuno: Number(iva.toFixed(2)),
-          medio_pago: mapMetodoPagoFromDb(f.metodo_pago),
-          fecha: new Date(f.fecha_emision).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + ' hs',
-          estado: tipoComprobante.toLowerCase().includes('nota')
-            ? 'nota_credito' as const
-            : f.fiscal_status === 'credited'
-              ? 'nota_credito' as const
-            : f.fiscal_status === 'observed'
-              ? 'observado' as const
-              : f.fiscal_status === 'authorized'
-                ? 'autorizado' as const
-                : f.fiscal_status === 'uncertain'
-                  ? 'incierto' as const
-                  : f.fiscal_status === 'rejected'
-                    ? 'rechazado' as const
-                    : 'borrador' as const,
-          tipo,
-          afip_cae: f.afip_cae,
-          afip_vto: f.afip_vto,
-          afip_qr: f.afip_qr,
-          afip_resultado: f.afip_resultado,
-          arca_emission_id: f.arca_emission_id,
-          afip_cbte_tipo: f.afip_cbte_tipo,
-          afip_pto_vta: f.afip_pto_vta,
-          afip_cbte_nro: f.afip_cbte_nro,
-          afip_observaciones: Array.isArray(f.afip_observaciones) ? f.afip_observaciones : [],
-          arca_emisor: f.arca_emisor && typeof f.arca_emisor === 'object' ? f.arca_emisor : undefined,
-          condicion_iva_receptor: Number(f.condicion_iva_receptor) || 5,
-          fecha_completa: f.fecha_emision,
-          cliente_domicilio: f.cliente_domicilio || undefined,
-          documento_tipo_receptor: Number(f.documento_tipo_receptor) || (f.cuit_cliente ? 80 : 99),
-          items: Array.isArray(f.items_json) ? f.items_json : [],
-          moneda: 'PES' as const,
-          observaciones: f.observaciones || undefined,
-          comprobante_asociado: f.comprobante_asociado || undefined,
-          credited_by_factura_id: f.credited_by_factura_id || undefined,
-        };
-      });
-
-      return mergeFacturas(remote, local);
-    } catch (error) {
-      console.warn('No se pudo leer facturas remotas; usando respaldo local.', error);
-      return local;
-    }
+    return local;
   },
 
   async create(factura: Factura): Promise<Factura> {
@@ -245,20 +232,9 @@ export const facturacionService = {
     try {
       await sheetUpsertRow('facturas', dbPayload);
     } catch (sheetErr) {
-      console.warn('[facturacionService.create] Google Sheets:', sheetErr);
+      console.warn('[facturacionService.create] Error al guardar factura en Google Sheets:', sheetErr);
     }
-    
-    try {
-      const supabase = tryGetActiveSupabaseClient();
-      if (supabase) {
-        const { data, error } = await supabase.from('facturas').insert([dbPayload]).select().single();
-        if (data) {
-          return { ...factura, id_factura: data.id_factura };
-        }
-      }
-    } catch (err) {
-      console.warn('facturacionService.create Supabase omitido:', err);
-    }
+
     return factura;
   },
 
@@ -268,35 +244,27 @@ export const facturacionService = {
       try {
         await sheetUpsertRow('facturas', toDbFacturaPayload(f));
       } catch (sheetErr) {
-        console.warn('[facturacionService.upsert] Google Sheets:', sheetErr);
+        console.warn('[facturacionService.upsert] Error al sincronizar facturas en Google Sheets:', sheetErr);
       }
-    }
-
-    try {
-      const supabase = tryGetActiveSupabaseClient();
-      if (supabase) {
-        const dbPayloads = facturas.map(toDbFacturaPayload);
-        await supabase.from('facturas').upsert(dbPayloads);
-      }
-    } catch (err) {
-      console.warn('facturacionService.upsert Supabase omitido:', err);
     }
   },
 
   async markNotaCredito(id: string, creditNoteId: string): Promise<void> {
-    writeLocalFacturas(readLocalFacturas().map(factura => (
+    const currentLocal = readLocalFacturas();
+    const updated = currentLocal.map(factura => (
       factura.id_factura === id
-        ? { ...factura, estado: 'nota_credito', credited_by_factura_id: creditNoteId }
+        ? { ...factura, estado: 'nota_credito' as const, credited_by_factura_id: creditNoteId }
         : factura
-    )));
-    const supabase = getActiveSupabaseClient();
-    const { error } = await supabase
-      .from('facturas')
-      .update({ fiscal_status: 'credited', credited_by_factura_id: creditNoteId })
-      .eq('id_factura', id);
-    if (error) {
-      console.error('Error marking invoice as credit note:', error);
-      throw error;
+    ));
+    writeLocalFacturas(updated);
+
+    const target = updated.find(f => f.id_factura === id);
+    if (target) {
+      try {
+        await sheetUpsertRow('facturas', toDbFacturaPayload(target));
+      } catch (err) {
+        console.warn('[facturacionService.markNotaCredito] Error al actualizar nota de crédito en Google Sheets:', err);
+      }
     }
   },
 
@@ -306,21 +274,29 @@ export const facturacionService = {
     if (localInvoice && !canDeleteFactura(localInvoice)) {
       throw new Error('Un comprobante fiscal autorizado no se elimina. Debe anularse mediante una Nota de Credito C.');
     }
-    const supabase = getActiveSupabaseClient();
-    const { data: remoteInvoice, error: readError } = await supabase
-      .from('facturas')
-      .select('fiscal_status, afip_cae')
-      .eq('id_factura', id)
-      .maybeSingle();
-    if (readError) throw readError;
-    if (remoteInvoice && (remoteInvoice.afip_cae || ['authorized', 'observed', 'credited'].includes(remoteInvoice.fiscal_status))) {
-      throw new Error('Un comprobante fiscal autorizado no se elimina. Debe anularse mediante una Nota de Credito C.');
+
+    try {
+      const sheetData = await sheetFetchTable('facturas');
+      const remote = sheetData?.find((f: any) => String(f.id_factura) === String(id));
+      if (remote) {
+        const isFiscal = remote.cae || remote.afip_cae || ['authorized', 'observed', 'credited'].includes(remote.fiscal_status);
+        if (isFiscal) {
+          throw new Error('Un comprobante fiscal autorizado no se elimina. Debe anularse mediante una Nota de Credito C.');
+        }
+      }
+    } catch (err: any) {
+      if (err.message && err.message.includes('Nota de Credito')) {
+        throw err;
+      }
+      console.warn('[facturacionService.remove] Verificación de factura en Sheets omitida:', err);
     }
-    const { error } = await supabase.from('facturas').delete().eq('id_factura', id);
-    if (error) {
-      console.error('Error deleting invoice:', error);
-      return false;
+
+    try {
+      await sheetDeleteRow('facturas', id);
+    } catch (sheetErr) {
+      console.warn('[facturacionService.remove] Error al eliminar factura de Google Sheets:', sheetErr);
     }
+
     writeLocalFacturas(local.filter(factura => factura.id_factura !== id));
     return true;
   }
