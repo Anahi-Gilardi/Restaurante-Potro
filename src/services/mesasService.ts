@@ -110,17 +110,46 @@ export const mesasService = {
     const supabase = tryGetActiveSupabaseClient();
     if (supabase) {
       try {
-        const supabasePayload: any = {
-          id_mesa: id,
-          numero_mesa: resolvedNumero,
-          estado: mesa.estado || existing?.estado || 'libre',
-          comensales_actuales: resolvedComensales !== '' ? Number(resolvedComensales) : null,
-          capacidad: resolvedCapacidad,
-          zona: resolvedZona,
-          mesas_unidas: resolvedMesasUnidas,
-          parent_id: resolvedParentId
+        const updatePayload: any = {
+          updated_at: new Date().toISOString()
         };
-        await supabase.from('mesas').upsert([supabasePayload]);
+        if (mesa.numero_mesa !== undefined) updatePayload.numero_mesa = mesa.numero_mesa;
+        if (mesa.estado !== undefined) updatePayload.estado = mesa.estado;
+        if (mesa.capacidad !== undefined && mesa.capacidad !== null) updatePayload.capacidad = Number(mesa.capacidad);
+        if (mesa.zona !== undefined) updatePayload.zona = mesa.zona;
+        if (mesa.comensales !== undefined) {
+          updatePayload.comensales_actuales = mesa.comensales ? Number(mesa.comensales) : null;
+        }
+        if (mesa.mesas_unidas !== undefined) {
+          updatePayload.mesas_unidas = Array.isArray(mesa.mesas_unidas) ? mesa.mesas_unidas : [];
+        }
+        if (mesa.parent_id !== undefined) {
+          updatePayload.parent_id = mesa.parent_id !== null && !isNaN(Number(mesa.parent_id)) ? Number(mesa.parent_id) : null;
+        }
+
+        const { data: updatedRows, error } = await supabase
+          .from('mesas')
+          .update(updatePayload)
+          .eq('id_mesa', id)
+          .select();
+
+        if (error) {
+          console.warn('[mesasService.update] Supabase error:', error);
+        } else if (!updatedRows || updatedRows.length === 0) {
+          // Fallback a upsert si la mesa aún no existía
+          const supabasePayload: any = {
+            id_mesa: id,
+            numero_mesa: resolvedNumero,
+            estado: mesa.estado || existing?.estado || 'libre',
+            comensales_actuales: resolvedComensales !== '' ? Number(resolvedComensales) : null,
+            capacidad: resolvedCapacidad,
+            zona: resolvedZona,
+            mesas_unidas: resolvedMesasUnidas,
+            parent_id: resolvedParentId,
+            updated_at: new Date().toISOString()
+          };
+          await supabase.from('mesas').upsert([supabasePayload]);
+        }
       } catch (e) {
         console.warn('[mesasService.update] Supabase error:', e);
       }
