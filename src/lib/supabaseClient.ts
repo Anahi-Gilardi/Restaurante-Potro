@@ -28,6 +28,7 @@ export const normalizeSupabaseUrl = (url: string) => {
 const OLD_DELETED_PROJECT = 'sqczmyaoqplrmrgyczjy';
 export const DEFAULT_SUPABASE_URL = 'https://extglaaqlsleibsbtwup.supabase.co';
 export const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV4dGdsYWFxbHNsZWlic2J0d3VwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkzNDE5MDMsImV4cCI6MjEwNDkxNzkwM30.EDwlqgMIpniRG9bHCNiSoP5PF9w_-zJmjRc0FvPUeeg';
+export const DEFAULT_SUPABASE_SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV4dGdsYWFxbHNsZWlic2J0d3VwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4OTM0MTkwMywiZXhwIjoyMTA0OTE3OTAzfQ.X0Nsmadjvr9COuJF0aar3FLqe16saWWQwoWtFTA9lUA';
 
 export const resolveSupabaseConfig = (
   env: SupabaseRuntimeEnv = {},

@@ -68,7 +68,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!supabaseUrl || supabaseUrl.includes('sqczmyaoqplrmrgyczjy')) {
     supabaseUrl = 'https://extglaaqlsleibsbtwup.supabase.co';
   }
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV4dGdsYWFxbHNsZWlic2J0d3VwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4OTM0MTkwMywiZXhwIjoyMTA0OTE3OTAzfQ.X0Nsmadjvr9COuJF0aar3FLqe16saWWQwoWtFTA9lUA';
   if (!supabaseUrl || !serviceRoleKey) {
     return res.status(503).json({ success: false, error: "El acceso interno no está configurado." });
   }
