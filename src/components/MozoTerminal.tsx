@@ -38,6 +38,39 @@ import { printComandaThermalTicket } from '../lib/comandaPrinter';
 import { formatTicketTableName, isUnitedTable, formatUnitedTableName } from '../lib/tableUnions';
 import { getTableActiveInfo, isTableOccupied, TableActiveInfo } from '../lib/tableOrders';
 import { useToast, ToastContainer } from './ToastContainer';
+import { useCategories } from '../hooks/useCategories';
+
+export const normalizeCategoryString = (str?: string | null): string => {
+  return (str || '')
+    .toLowerCase()
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '');
+};
+
+export const isBodegaCategory = (catName?: string | null): boolean => {
+  const norm = (catName || '').toLowerCase();
+  return norm.includes('bodega') || norm.includes('vino');
+};
+
+export const getCategoryDisplayIcon = (icono?: string | null, nombre?: string): string => {
+  if (icono && (/\p{Extended_Pictographic}/u.test(icono) || (icono.length <= 4 && !/^[a-zA-Z]+$/.test(icono)))) {
+    return icono;
+  }
+  const target = ((icono || '') + ' ' + (nombre || '')).toLowerCase();
+  if (target.includes('carne') || target.includes('beef') || target.includes('parrilla') || target.includes('corte')) return '🥩';
+  if (target.includes('pasta') || target.includes('pizza') || target.includes('fideo')) return '🍝';
+  if (target.includes('pescad') || target.includes('fish') || target.includes('marisco')) return '🐟';
+  if (target.includes('criolla') || target.includes('empanada') || target.includes('locro')) return '🥟';
+  if (target.includes('postre') || target.includes('dulce') || target.includes('flan') || target.includes('helado') || target.includes('torta')) return '🍮';
+  if (target.includes('vino') || target.includes('bodega') || target.includes('wine')) return '🍷';
+  if (target.includes('cerveza') || target.includes('alcohol') || target.includes('beer') || target.includes('trago')) return '🍺';
+  if (target.includes('bebida') || target.includes('gaseosa') || target.includes('jugo') || target.includes('agua')) return '🥤';
+  if (target.includes('cafe') || target.includes('coffee') || target.includes('te') || target.includes('infusion')) return '☕';
+  if (target.includes('entrada') || target.includes('salad') || target.includes('verde') || target.includes('ensalada')) return '🥗';
+  return '🍽️';
+};
 
 interface WineMapping {
   macro: 'tintas' | 'blancas' | 'champagne' | 'copas' | 'destilados' | null;
@@ -52,7 +85,7 @@ function getWineMapping(p: ProductoMenu): WineMapping {
   const varietales: string[] = [];
 
   // Categorize based on category, subcategory or name
-  if (p.categoria === 'Bodega') {
+  if (p.categoria === 'Bodega' || isBodegaCategory(p.categoria)) {
     const sub = (p.subcategoria || '').toLowerCase();
     if (sub.includes('espumantes') || sub.includes('champagne') || name.includes('champagne') || name.includes('chandon') || name.includes('baron b') || name.includes('aluda') || name.includes('rosé') || name.includes('brut')) {
       macro = 'champagne';
@@ -233,6 +266,7 @@ export default function MozoTerminal({
   onLiberarMesa
 }: MozoTerminalProps) {
   const { toast, toasts, removeToast } = useToast();
+  const { categories } = useCategories();
   const checkoutInFlightRef = useRef(false);
   // Waiter selections
   const [selectedMesaId, setSelectedMesaId] = useState<number | null>(null);
@@ -246,6 +280,25 @@ export default function MozoTerminal({
   // Dynamic Promociones State
   const [promociones, setPromociones] = useState<Promocion[]>([]);
   const [promocionesLoading, setPromocionesLoading] = useState(true);
+
+  // Dynamic categories combined: system fixed items + dynamic categories from Sheet/DB
+  const displayCategories = useMemo(() => {
+    const fixed = [
+      { id: 'todo', label: 'Todos 🍽️' },
+      { id: 'MenuDelDia', label: 'Menú del Día 🌟' },
+      { id: 'Promociones', label: `Promociones 🏷️ (${promociones.length})` }
+    ];
+
+    const dynamic = (categories || [])
+      .filter(c => c.activa !== false)
+      .sort((a, b) => Number(a.orden || 99) - Number(b.orden || 99))
+      .map(c => ({
+        id: c.nombre,
+        label: `${c.nombre} ${getCategoryDisplayIcon(c.icono, c.nombre)}`.trim()
+      }));
+
+    return [...fixed, ...dynamic];
+  }, [categories, promociones.length]);
 
   React.useEffect(() => {
     let isMounted = true;
@@ -438,11 +491,26 @@ export default function MozoTerminal({
       let matchCat = false;
       if (selectedCategoria === 'todo') {
         matchCat = true;
-      } else if (selectedCategoria === 'Bodega') {
+      } else if (isBodegaCategory(selectedCategoria)) {
         const mapping = getWineMapping(p);
-        matchCat = p.categoria === 'Bodega' || mapping.macro === 'destilados';
+        matchCat = isBodegaCategory(p.categoria) || mapping.macro === 'destilados';
       } else {
-        matchCat = p.categoria === selectedCategoria;
+        if (p.categoria === selectedCategoria) {
+          matchCat = true;
+        } else {
+          const pNorm = normalizeCategoryString(p.categoria);
+          const sNorm = normalizeCategoryString(selectedCategoria);
+          if (pNorm && sNorm && (pNorm === sNorm || pNorm.includes(sNorm) || sNorm.includes(pNorm))) {
+            matchCat = true;
+          } else if (
+            (sNorm.includes('corte') || sNorm.includes('parrilla')) && (pNorm.includes('carne') || pNorm.includes('asado')) ||
+            (sNorm.includes('carne') || sNorm.includes('asado')) && (pNorm.includes('corte') || pNorm.includes('parrilla')) ||
+            (sNorm.includes('pescad') || sNorm.includes('marisco')) && (pNorm.includes('pescad') || pNorm.includes('marisco')) ||
+            (sNorm.includes('criolla') || sNorm.includes('empanada')) && (pNorm.includes('criolla') || pNorm.includes('empanada'))
+          ) {
+            matchCat = true;
+          }
+        }
       }
 
       // 2. Text Search match
@@ -450,7 +518,7 @@ export default function MozoTerminal({
       if (!matchCat || !matchSearch) return false;
 
       // 3. Hierarchical Wine/Bodega filter
-      if (selectedCategoria === 'Bodega') {
+      if (isBodegaCategory(selectedCategoria)) {
         const mapping = getWineMapping(p);
         
         // Macro category filter
@@ -1122,27 +1190,14 @@ export default function MozoTerminal({
           </div>
 
           <div className="flex gap-1.5 w-full overflow-x-auto py-1 scroll-smooth border-t border-stone-200/30 pt-3 pb-2.5">
-            {[
-              { id: 'todo', label: 'Todos 🍽️' },
-              { id: 'MenuDelDia', label: 'Menú del Día 🌟' },
-              { id: 'Promociones', label: `Promociones 🏷️ (${promociones.length})` },
-              { id: 'Entradas', label: 'Entradas 🥗' },
-              { id: 'Pastas', label: 'Pastas 🍝' },
-              { id: 'Carnes', label: 'Carnes 🥩' },
-              { id: 'Pescados', label: 'Pescados 🐟' },
-              { id: 'Comidas Criollas', label: 'Criollas 🥧' },
-              { id: 'Postres', label: 'Postres 🍰' },
-              { id: 'Bebidas con Alcohol', label: 'Bebidas C/A 🍺' },
-              { id: 'Bebidas sin Alcohol', label: 'Bebidas S/A 🥤' },
-              { id: 'Bodega', label: 'Bodega 🍷' }
-            ].map(cat => {
+            {displayCategories.map(cat => {
               const isActive = selectedCategoria === cat.id;
               return (
                 <button
                   key={cat.id}
                   onClick={() => {
                     setSelectedCategoria(cat.id);
-                    if (cat.id !== 'Bodega') {
+                    if (!isBodegaCategory(cat.id)) {
                       setSelectedWineMacro('todo');
                       setSelectedWineVarietal('todo');
                     }
@@ -1167,7 +1222,7 @@ export default function MozoTerminal({
           </div>
 
           {/* HIERARCHICAL BODEGA/WINE BROWSER */}
-          {selectedCategoria === 'Bodega' && (
+          {isBodegaCategory(selectedCategoria) && (
             <div className="space-y-2.5 pt-3 border-t border-stone-250/30 transition-all duration-300">
               {/* Macro categories */}
               <div className="flex items-center gap-1.5 overflow-x-auto pb-2.5">

@@ -18,16 +18,25 @@ export const categoriasService = {
     try {
       const sheetData = await sheetFetchTable('categorias');
       if (sheetData && sheetData.length > 0) {
-        return sheetData.map((c: any) => ({
-          id: c.id_categoria || c.id,
-          nombre: c.nombre,
-          slug: c.nombre
-            ? c.nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '')
-            : 'categoria',
-          orden: Number(c.orden || 1),
-          activa: c.activa !== false && String(c.activa).toLowerCase() !== 'false',
-          icono: c.icono || 'UtensilsCrossed'
-        }));
+        const mapped: Categoria[] = sheetData
+          .map((c: any) => ({
+            id: c.id_categoria || c.id || c.nombre,
+            nombre: c.nombre,
+            slug: c.nombre
+              ? c.nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '')
+              : 'categoria',
+            orden: Number(c.orden || 1),
+            activa: c.activa !== false && String(c.activa).toLowerCase() !== 'false',
+            icono: c.icono || 'UtensilsCrossed'
+          }))
+          .sort((a: Categoria, b: Categoria) => Number(a.orden || 99) - Number(b.orden || 99));
+
+        try {
+          localStorage.setItem('el_patron_cache_categorias', JSON.stringify(mapped));
+        } catch (e) {
+          console.warn('Failed to cache categories to localStorage:', e);
+        }
+        return mapped;
       }
     } catch (sheetErr) {
       console.warn('[categoriasService.list] Fallback a caché/Supabase:', sheetErr);

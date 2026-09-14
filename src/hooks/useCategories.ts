@@ -2,13 +2,24 @@ import { useEffect, useState, useCallback } from 'react';
 import { Categoria } from '../types';
 import { categoriasService, DEFAULT_CATEGORIAS } from '../services/categoriasService';
 
+function getInitialCategories(): Categoria[] {
+  try {
+    const cached = localStorage.getItem('el_patron_cache_categorias');
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {}
+  return DEFAULT_CATEGORIAS;
+}
+
 // Global in-memory cache to prevent multiple mounts from firing multiple fetch requests simultaneously
 let globalCategoriesCache: Categoria[] | null = null;
 let globalCachePromise: Promise<Categoria[]> | null = null;
 
 export function useCategories(isAdmin = false) {
-  const [categories, setCategories] = useState<Categoria[]>(globalCategoriesCache ?? DEFAULT_CATEGORIAS);
-  const [loading, setLoading] = useState<boolean>(!globalCategoriesCache);
+  const [categories, setCategories] = useState<Categoria[]>(() => globalCategoriesCache ?? getInitialCategories());
+  const [loading, setLoading] = useState<boolean>(() => !globalCategoriesCache && !localStorage.getItem('el_patron_cache_categorias'));
   const [error, setError] = useState<Error | null>(null);
 
   const fetchCategories = useCallback(async (force = false) => {
