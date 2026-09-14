@@ -80,18 +80,8 @@ export default function PythonStreamlitLogin({ onLoginSuccess, onBackToCover }: 
 
     try {
       const demoEnabled = isDemoLoginEnabled(getRuntimeEnv());
-      const demoUser = findDemoLoginUser(getDemoUsers(), email, password, demoEnabled);
 
-      if (demoUser) {
-        if (!canLogin(demoUser)) {
-          setError('Este usuario está desactivado.');
-          return;
-        }
-        await completeLogin(demoUser, 'demo');
-        return;
-      }
-
-      // 1. Verificación contra la tabla 'usuarios' de Google Sheets (flexible y tolerante)
+      // 1. Verificación prioritaria contra la tabla 'usuarios' de Google Sheets (flexible y tolerante)
       try {
         const normalizeText = (val: unknown): string => (
           String(val ?? '')
@@ -216,64 +206,73 @@ export default function PythonStreamlitLogin({ onLoginSuccess, onBackToCover }: 
         console.warn('Verificación Google Sheets:', sheetAuthErr);
       }
 
+      // 2. Verificación contra Supabase Auth (si está configurado)
       const supabase = tryGetActiveSupabaseClient();
-      if (!supabase) {
-        setError(demoEnabled ? 'Usuario o contraseña incorrectos.' : 'Usuario no encontrado en Google Sheets ni en el sistema.');
-        return;
-      }
+      if (supabase) {
+        const identifier = email.trim().toLowerCase();
+        let authenticatedUser;
 
-      const identifier = email.trim().toLowerCase();
-      let authenticatedUser;
+        const authTimeout = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Tiempo de espera agotado al conectar con el servidor.')), 6000)
+        );
 
-      const authTimeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Tiempo de espera agotado al conectar con el servidor.')), 6000)
-      );
+        const authAction = (async () => {
+          if (identifier.includes('@')) {
+            const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+              email: identifier,
+              password,
+            });
+            if (authError) throw authError;
+            return authData.user;
+          }
+          return signInWithUsername(supabase, identifier, password);
+        })();
 
-      const authAction = (async () => {
-        if (identifier.includes('@')) {
-          const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-            email: identifier,
-            password,
-          });
-          if (authError) throw authError;
-          return authData.user;
+        try {
+          authenticatedUser = await Promise.race([authAction, authTimeout]);
+        } catch {
+          // Si falla Supabase, permitimos continuar a verificación demo
         }
-        return signInWithUsername(supabase, identifier, password);
-      })();
 
-      try {
-        authenticatedUser = await Promise.race([authAction, authTimeout]);
-      } catch (authErr) {
-        throw authErr;
+        if (authenticatedUser) {
+          const safeEmail = (authenticatedUser.email || identifier).trim().toLowerCase().replace(/[(),]/g, '');
+          const { data: profile, error: profileError } = await supabase
+            .from('usuarios')
+            .select('id_usuario,nombre,apellido,username,rol,activo,auth_user_id,mail')
+            .or(`auth_user_id.eq.${authenticatedUser.id},username.eq.${safeEmail},mail.eq.${safeEmail}`)
+            .limit(1)
+            .single();
+
+          if (profileError) throw profileError;
+
+          if (!profile) {
+            setError('Tu cuenta no tiene un perfil operativo asignado.');
+            return;
+          }
+
+          const safeProfile = { ...profile, password: '' } as Usuario;
+          if (!canLogin(safeProfile)) {
+            setError('Este usuario está desactivado.');
+            return;
+          }
+
+          await completeLogin(safeProfile, 'supabase');
+          return;
+        }
       }
 
-      if (!authenticatedUser) {
-        setError('No pudimos validar la sesión. Intentá nuevamente.');
+      // 3. Verificación de usuario Demo (modo demostración aislado)
+      const demoUser = findDemoLoginUser(getDemoUsers(), email, password, demoEnabled);
+      if (demoUser) {
+        if (!canLogin(demoUser)) {
+          setError('Este usuario está desactivado.');
+          return;
+        }
+        await completeLogin(demoUser, 'demo');
         return;
       }
 
-      const safeEmail = (authenticatedUser.email || identifier).trim().toLowerCase().replace(/[(),]/g, '');
-      const { data: profile, error: profileError } = await supabase
-        .from('usuarios')
-        .select('id_usuario,nombre,apellido,username,rol,activo,auth_user_id,mail')
-        .or(`auth_user_id.eq.${authenticatedUser.id},username.eq.${safeEmail},mail.eq.${safeEmail}`)
-        .limit(1)
-        .single();
-
-      if (profileError) throw profileError;
-
-      if (!profile) {
-        setError('Tu cuenta no tiene un perfil operativo asignado.');
-        return;
-      }
-
-      const safeProfile = { ...profile, password: '' } as Usuario;
-      if (!canLogin(safeProfile)) {
-        setError('Este usuario está desactivado.');
-        return;
-      }
-
-      await completeLogin(safeProfile, 'supabase');
+      setError(demoEnabled ? 'Usuario o contraseña incorrectos.' : 'Usuario no encontrado en Google Sheets ni en el sistema.');
     } catch (err: unknown) {
       setError(getLoginErrorMessage(err));
     } finally {
