@@ -99,12 +99,13 @@ export default function SupabaseManager({
 
   const candidateTables = [
     { name: 'usuarios', desc: 'Credenciales, roles y perfiles de operarios/as.', key: 'id_usuario' },
-    { name: 'mesetas', desc: 'Configuración y estado actual de mesas físicas en salón.', key: 'id_mesa' },
-    { name: 'mesas', desc: 'Nomenclatura alternativa para mesas físicas.', key: 'id_mesa' },
-    { name: 'depósitos', desc: 'Historial y stock actual de insumos y materias primas.', key: 'id_insumo' },
-    { name: 'insumos', desc: 'Nomenclatura alternativa para depósitos/insumos.', key: 'id_insumo' },
-    { name: 'productos_menú', desc: 'Platos, tragos y artículos activos del catálogo de venta.', key: 'id_producto' },
-    { name: 'productos', desc: 'Nomenclatura alternativa para productos.', key: 'id_producto' },
+    { name: 'mesas', desc: 'Configuración y estado actual de mesas físicas en salón.', key: 'id_mesa' },
+    { name: 'mesetas', desc: 'Nomenclatura secundaria para mesas físicas.', key: 'id_mesa' },
+    { name: 'productos_menu', desc: 'Platos, bebidas y artículos activos del catálogo de venta (Supabase).', key: 'id_producto' },
+    { name: 'productos_menú', desc: 'Nomenclatura con acento para catálogo de venta.', key: 'id_producto' },
+    { name: 'productos', desc: 'Nomenclatura genérica para productos.', key: 'id_producto' },
+    { name: 'insumos', desc: 'Historial y stock actual de insumos y materias primas.', key: 'id_insumo' },
+    { name: 'depósitos', desc: 'Nomenclatura alternativa para depósitos/insumos.', key: 'id_insumo' },
     { name: 'recetas_escandallo', desc: 'Asociación e ingredientes de platos con descuento para cocina.', key: 'id_receta' },
     { name: 'promociones', desc: 'Campañas de descuento Happy Hour o combos especiales.', key: 'id_promo' },
     { name: 'proveedores', desc: 'Directorio de suministro y plazos de entrega estimados.', key: 'id_proveedor' },
@@ -113,6 +114,7 @@ export default function SupabaseManager({
     { name: 'facturas', desc: 'Archivo fiscal e historial de facturación AFIP.', key: 'id_factura' },
     { name: 'pedidos_cabecera', desc: 'Cabecera de comandas vivas o terminadas del turno.', key: 'id_pedido' },
     { name: 'pedido_detalle', desc: 'Detalles de platillos asociados por cada comanda.', key: 'id_detalle' },
+    { name: 'arca_config', desc: 'Configuración oficial fiscal de ARCA / AFIP.', key: 'id' },
     { name: 'auditoria_eventos', desc: 'Trazabilidad y logs de auditoría técnica del software.', key: 'id' }
   ];
 
@@ -315,7 +317,15 @@ export default function SupabaseManager({
       // 5. Send recetas
       await dbUpsertRecetas(currentRecetas.length > 0 ? currentRecetas : INITIAL_RECETAS_ESCANDALLO);
 
-      addLog('sistema', 'SUPABASE: ¡Base de Datos sembrada con éxito! Todos los registros de inventario, recetas y mesas están sincronizados en el servidor.');
+      // 6. Send arca_config
+      try {
+        const { OFFICIAL_ARCA_CONFIG } = await import('../data/arcaConfig');
+        await client.from('arca_config').upsert([OFFICIAL_ARCA_CONFIG]);
+      } catch (arcaErr) {
+        console.warn('Advertencia al sembrar arca_config:', arcaErr);
+      }
+
+      addLog('sistema', 'SUPABASE: ¡Base de Datos sembrada con éxito! Todos los registros de inventario, recetas, mesas y configuración fiscal están sincronizados en el servidor.');
       alert('¡Base de Datos sembrada y sincronizada correctamente en Supabase! Las tablas ahora tienen registros operacionales.');
 
       // Refresh counts

@@ -43,23 +43,31 @@ export async function dbUpsertUsuarios(usuarios: any[]) {
 export async function dbFetchMesas(forceFresh = false) {
   const { hydrateTableUnions } = await import('./lib/tableUnions');
   try {
+    const list = await (await import('./services/mesasService')).mesasService.list(forceFresh);
+    if (list && list.length > 0) {
+      return hydrateTableUnions(list);
+    }
+  } catch (e) {
+    console.warn('dbFetchMesas (Supabase) error:', e);
+  }
+  try {
     const data = await sheetFetchTable('mesas', forceFresh);
     if (data && data.length > 0) {
       return hydrateTableUnions(data);
     }
   } catch (sheetErr) {
-    console.warn('[GoogleSheets] dbFetchMesas fallback to Supabase:', sheetErr);
+    console.warn('[GoogleSheets] dbFetchMesas fallback error:', sheetErr);
   }
-  try {
-    const list = await (await import('./services/mesasService')).mesasService.list(forceFresh);
-    return hydrateTableUnions(list || []);
-  } catch (e) {
-    console.warn('dbFetchMesas:', e);
-    return null;
-  }
+  return null;
 }
 
 export async function dbUpsertMesas(mesas: any[]) {
+  try {
+    const service = (await import('./services/mesasService')).mesasService;
+    await service.upsert(mesas);
+  } catch (e) {
+    console.warn('dbUpsertMesas (Supabase) error:', e);
+  }
   try {
     for (const m of mesas) {
       const row = {
@@ -76,12 +84,6 @@ export async function dbUpsertMesas(mesas: any[]) {
     }
   } catch (sheetErr) {
     console.warn('[GoogleSheets] dbUpsertMesas error:', sheetErr);
-  }
-  try {
-    const service = (await import('./services/mesasService')).mesasService;
-    await service.upsert(mesas);
-  } catch (e) {
-    console.warn('dbUpsertMesas:', e);
   }
 }
 
@@ -150,14 +152,17 @@ export async function dbFetchProductosMenu() {
 
 export async function dbUpsertProductosMenu(productos: any[]) {
   try {
+    await (await import('./services/menuService')).menuService.upsert(productos);
+  } catch (e) {
+    console.warn('dbUpsertProductosMenu (Supabase) error:', e);
+  }
+  try {
     for (const p of productos) {
       await sheetUpsertRow('productos_menu', p);
     }
   } catch (sheetErr) {
     console.warn('[GoogleSheets] dbUpsertProductosMenu error:', sheetErr);
   }
-  try { await (await import('./services/menuService')).menuService.upsert(productos); }
-  catch (e) { console.warn('dbUpsertProductosMenu:', e); }
 }
 
 // =============================================================================
@@ -425,4 +430,45 @@ export async function dbUpsertPagos(pagos: any[]) {
   try { await (await import('./services/pagosService')).pagosService.bulkCreate(pagos); }
   catch (e) { console.warn('dbUpsertPagos:', e); }
 }
+
+// =============================================================================
+// 14. ARCA Configuración Fiscal
+// =============================================================================
+export async function dbFetchArcaConfig() {
+  try {
+    const client = tryGetActiveSupabaseClient();
+    if (client) {
+      const { data, error } = await client
+        .from('arca_config')
+        .select('*')
+        .eq('id', 'primary')
+        .maybeSingle();
+      if (!error && data) return data;
+    }
+  } catch (e) {
+    console.warn('dbFetchArcaConfig Supabase error:', e);
+  }
+  const { OFFICIAL_ARCA_CONFIG } = await import('./data/arcaConfig');
+  return OFFICIAL_ARCA_CONFIG;
+}
+
+export async function dbUpsertArcaConfig(config: any) {
+  try {
+    const client = tryGetActiveSupabaseClient();
+    if (client) {
+      const { error } = await client
+        .from('arca_config')
+        .upsert({ ...config, id: 'primary' });
+      if (error) throw error;
+    }
+  } catch (e) {
+    console.warn('dbUpsertArcaConfig Supabase error:', e);
+  }
+  try {
+    await sheetUpsertRow('arca_config', { ...config, id: 'primary' });
+  } catch (sheetErr) {
+    console.warn('[GoogleSheets] dbUpsertArcaConfig error:', sheetErr);
+  }
+}
+
 

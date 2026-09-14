@@ -5,19 +5,12 @@ import { hydrateTableUnions } from '../lib/tableUnions';
 
 export const mesasService = {
   async list(forceFresh = false): Promise<Mesa[]> {
-    try {
-      const data = await sheetFetchTable('mesas', forceFresh);
-      if (data && data.length > 0) {
-        return hydrateTableUnions(data);
-      }
-    } catch (sheetErr) {
-      console.warn('[mesasService.list] Error desde Google Sheets:', sheetErr);
-    }
+    // 1. Supabase como fuente primaria
     try {
       const supabase = tryGetActiveSupabaseClient();
       if (supabase) {
         const { data, error } = await supabase.from('mesas').select('*').order('id_mesa', { ascending: true });
-        if (!error && data) {
+        if (!error && data && data.length > 0) {
           const mapped = (data || []).map(m => ({
             ...m,
             comensales: m.comensales_actuales || m.comensales || undefined,
@@ -28,39 +21,67 @@ export const mesasService = {
     } catch (e) {
       console.warn('[mesasService.list] Supabase error:', e);
     }
+
+    // 2. Fallback a Google Sheets
+    try {
+      const data = await sheetFetchTable('mesas', forceFresh);
+      if (data && data.length > 0) {
+        return hydrateTableUnions(data);
+      }
+    } catch (sheetErr) {
+      console.warn('[mesasService.list] Error desde Google Sheets:', sheetErr);
+    }
+
     return [];
   },
 
   async getById(id: number): Promise<Mesa | null> {
+    const supabase = tryGetActiveSupabaseClient();
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.from('mesas').select('*').eq('id_mesa', id).single();
+        if (!error && data) {
+          return { ...data, comensales: data.comensales_actuales || data.comensales || undefined };
+        }
+      } catch {}
+    }
     const all = await this.list();
     return all.find(m => m.id_mesa === id) || null;
   },
 
   async create(mesa: Mesa): Promise<Mesa> {
-    const row: any = {
+    const supabase = tryGetActiveSupabaseClient();
+    const dbMesa = {
       id_mesa: mesa.id_mesa,
       numero_mesa: mesa.numero_mesa,
       estado: mesa.estado,
-      comensales: mesa.comensales || '',
+      comensales_actuales: mesa.comensales || null,
       capacidad: mesa.capacidad || 4,
       zona: mesa.zona || 'salon',
-      mesas_unidas: Array.isArray(mesa.mesas_unidas) ? JSON.stringify(mesa.mesas_unidas) : (mesa.mesas_unidas || ''),
-      parent_id: mesa.parent_id !== undefined && mesa.parent_id !== null ? Number(mesa.parent_id) : ''
+      mesas_unidas: mesa.mesas_unidas || [],
+      parent_id: mesa.parent_id !== undefined && mesa.parent_id !== null ? Number(mesa.parent_id) : null
     };
+
+    if (supabase) {
+      try {
+        await supabase.from('mesas').insert([dbMesa]);
+      } catch (e) {
+        console.warn('[mesasService.create] Supabase error:', e);
+      }
+    }
+
+    // Backup a Google Sheets
     try {
-      await sheetUpsertRow('mesas', row);
+      await sheetUpsertRow('mesas', {
+        ...dbMesa,
+        comensales: mesa.comensales || '',
+        mesas_unidas: Array.isArray(mesa.mesas_unidas) ? JSON.stringify(mesa.mesas_unidas) : (mesa.mesas_unidas || ''),
+        parent_id: mesa.parent_id !== undefined && mesa.parent_id !== null ? Number(mesa.parent_id) : ''
+      });
     } catch (sheetErr) {
       console.error('[mesasService.create] Error en Google Sheets:', sheetErr);
     }
-    try {
-      const supabase = tryGetActiveSupabaseClient();
-      if (supabase) {
-        const { mesas_unidas, parent_id, ...supabasePayload } = mesa;
-        await supabase.from('mesas').insert([supabasePayload]);
-      }
-    } catch (e) {
-      console.warn('[mesasService.create] Supabase omitido:', e);
-    }
+
     return mesa;
   },
 
@@ -80,11 +101,30 @@ export const mesasService = {
       ? Number(mesa.comensales)
       : (existing?.comensales !== undefined ? existing.comensales : '');
     const resolvedMesasUnidas = mesa.mesas_unidas !== undefined
-      ? (Array.isArray(mesa.mesas_unidas) ? JSON.stringify(mesa.mesas_unidas) : mesa.mesas_unidas)
-      : (existing?.mesas_unidas ? JSON.stringify(existing.mesas_unidas) : '');
+      ? (Array.isArray(mesa.mesas_unidas) ? mesa.mesas_unidas : [])
+      : (existing?.mesas_unidas || []);
     const resolvedParentId = mesa.parent_id !== undefined
-      ? (mesa.parent_id !== null && !isNaN(Number(mesa.parent_id)) ? Number(mesa.parent_id) : '')
-      : (existing?.parent_id ? Number(existing.parent_id) : '');
+      ? (mesa.parent_id !== null && !isNaN(Number(mesa.parent_id)) ? Number(mesa.parent_id) : null)
+      : (existing?.parent_id ? Number(existing.parent_id) : null);
+
+    const supabase = tryGetActiveSupabaseClient();
+    if (supabase) {
+      try {
+        const supabasePayload: any = {
+          id_mesa: id,
+          numero_mesa: resolvedNumero,
+          estado: mesa.estado || existing?.estado || 'libre',
+          comensales_actuales: resolvedComensales !== '' ? Number(resolvedComensales) : null,
+          capacidad: resolvedCapacidad,
+          zona: resolvedZona,
+          mesas_unidas: resolvedMesasUnidas,
+          parent_id: resolvedParentId
+        };
+        await supabase.from('mesas').upsert([supabasePayload]);
+      } catch (e) {
+        console.warn('[mesasService.update] Supabase error:', e);
+      }
+    }
 
     const row: any = {
       id_mesa: id,
@@ -93,44 +133,71 @@ export const mesasService = {
       comensales: resolvedComensales,
       capacidad: resolvedCapacidad,
       zona: resolvedZona,
-      mesas_unidas: resolvedMesasUnidas,
-      parent_id: resolvedParentId
+      mesas_unidas: Array.isArray(resolvedMesasUnidas) ? JSON.stringify(resolvedMesasUnidas) : resolvedMesasUnidas,
+      parent_id: resolvedParentId ?? ''
     };
     try {
       await sheetUpsertRow('mesas', row);
     } catch (sheetErr) {
-      console.error('[mesasService.update] Error en Google Sheets:', sheetErr);
+      console.warn('[mesasService.update] Error en Google Sheets:', sheetErr);
     }
-    try {
-      const supabase = tryGetActiveSupabaseClient();
-      if (supabase) {
-        const { mesas_unidas, parent_id, ...supabasePayload } = mesa;
-        await supabase.from('mesas').update(supabasePayload).eq('id_mesa', id);
-      }
-    } catch (e) {
-      console.warn('[mesasService.update] Supabase omitido:', e);
-    }
+
     return row as Mesa;
   },
 
   async upsert(mesas: Mesa[]): Promise<Mesa[]> {
-    await Promise.all(mesas.map(m => this.update(m.id_mesa, m)));
+    const supabase = tryGetActiveSupabaseClient();
+    if (supabase) {
+      try {
+        const mapped = mesas.map(m => ({
+          id_mesa: m.id_mesa,
+          numero_mesa: m.numero_mesa,
+          estado: m.estado,
+          comensales_actuales: m.comensales !== undefined && m.comensales !== null ? Number(m.comensales) : null,
+          capacidad: m.capacidad || 4,
+          zona: m.zona || 'salon',
+          mesas_unidas: m.mesas_unidas || [],
+          parent_id: m.parent_id !== undefined && m.parent_id !== null ? Number(m.parent_id) : null,
+        }));
+        await supabase.from('mesas').upsert(mapped);
+      } catch (e) {
+        console.warn('[mesasService.upsert] Supabase upsert error:', e);
+      }
+    }
+
+    for (const m of mesas) {
+      try {
+        await sheetUpsertRow('mesas', {
+          id_mesa: m.id_mesa,
+          numero_mesa: m.numero_mesa,
+          estado: m.estado,
+          comensales: m.comensales || '',
+          capacidad: m.capacidad || 4,
+          zona: m.zona || 'salon',
+          mesas_unidas: Array.isArray(m.mesas_unidas) ? JSON.stringify(m.mesas_unidas) : (m.mesas_unidas || ''),
+          parent_id: m.parent_id !== undefined && m.parent_id !== null ? Number(m.parent_id) : ''
+        });
+      } catch (err) {
+        console.warn('[mesasService.upsert] Google Sheets sync error:', err);
+      }
+    }
+
     return mesas;
   },
 
   async remove(id: number): Promise<boolean> {
+    const supabase = tryGetActiveSupabaseClient();
+    if (supabase) {
+      try {
+        await supabase.from('mesas').delete().eq('id_mesa', id);
+      } catch (e) {
+        console.warn('[mesasService.remove] Supabase error:', e);
+      }
+    }
     try {
       await sheetDeleteRow('mesas', id);
     } catch (sheetErr) {
-      console.error('[mesasService.remove] Error en Google Sheets:', sheetErr);
-    }
-    try {
-      const supabase = tryGetActiveSupabaseClient();
-      if (supabase) {
-        await supabase.from('mesas').delete().eq('id_mesa', id);
-      }
-    } catch (e) {
-      console.warn('[mesasService.remove] Supabase omitido:', e);
+      console.warn('[mesasService.remove] Google Sheets error:', sheetErr);
     }
     return true;
   },

@@ -179,7 +179,35 @@ export const menuService = {
       } catch {}
     }
 
-    // 1. Intentar leer directo desde Google Sheets
+    // 1. Supabase como fuente primaria (la tabla productos_menu ya existe en Supabase)
+    const client = tryGetActiveSupabaseClient();
+
+    if (client) {
+      try {
+        const { data, error } = await client.from('productos_menu').select('*').order('id_producto', { ascending: true });
+        if (!error && data && data.length > 0) {
+          const supabasePks = new Set(data.map((s: any) => String(s.id_producto || s.nombre || '').toLowerCase()));
+          const mergedList = [
+            ...data,
+            ...INITIAL_PRODUCTOS_MENU.filter(init => 
+              !supabasePks.has(init.id_producto.toLowerCase()) && !supabasePks.has(init.nombre.toLowerCase())
+            )
+          ];
+          const normalized = mergedList.map(normalizeProductoMenu);
+          const deduped = deduplicateMenuProducts(normalized);
+          try {
+            localStorage.setItem('el_patron_cache_menu', JSON.stringify(deduped));
+          } catch (storageError) {
+            console.warn('LocalStorage quota exceeded on background update:', storageError);
+          }
+          return deduped;
+        }
+      } catch (e) {
+        console.warn('Failed fetching fresh menu from Supabase:', e);
+      }
+    }
+
+    // 2. Fallback a Google Sheets
     try {
       const sheetData = await sheetFetchTable('productos_menu');
       if (sheetData && sheetData.length > 0) {
@@ -199,33 +227,6 @@ export const menuService = {
       }
     } catch (sheetErr) {
       console.warn('[menuService.list] Fallback desde Google Sheets:', sheetErr);
-    }
-
-    const client = tryGetActiveSupabaseClient();
-
-    if (client) {
-      try {
-        const { data, error } = await client.from('productos_menu').select('*').order('id_producto', { ascending: true });
-        if (!error && data) {
-          const supabasePks = new Set(data.map((s: any) => String(s.id_producto || s.nombre || '').toLowerCase()));
-          const mergedList = [
-            ...data,
-            ...INITIAL_PRODUCTOS_MENU.filter(init => 
-              !supabasePks.has(init.id_producto.toLowerCase()) && !supabasePks.has(init.nombre.toLowerCase())
-            )
-          ];
-          const normalized = mergedList.map(normalizeProductoMenu);
-          const deduped = deduplicateMenuProducts(normalized);
-          try {
-            localStorage.setItem('el_patron_cache_menu', JSON.stringify(deduped));
-          } catch (storageError) {
-            console.warn('LocalStorage quota exceeded on background update:', storageError);
-          }
-          return deduped;
-        }
-      } catch (e) {
-        console.warn('Failed fetching fresh menu, falling back to cache:', e);
-      }
     }
 
     if (cached) {
@@ -264,11 +265,6 @@ export const menuService = {
     }
 
     const payload = toDbProductoMenu(prod);
-    try {
-      await sheetUpsertRow('productos_menu', payload);
-    } catch (sheetErr) {
-      console.error('[menuService.create] Error en Google Sheets:', sheetErr);
-    }
 
     try {
       const supabase = tryGetActiveSupabaseClient();
@@ -277,6 +273,12 @@ export const menuService = {
       }
     } catch (e) {
       console.warn('[menuService.create] Supabase omitido:', e);
+    }
+
+    try {
+      await sheetUpsertRow('productos_menu', payload);
+    } catch (sheetErr) {
+      console.error('[menuService.create] Error en Google Sheets:', sheetErr);
     }
 
     const normalized = normalizeProductoMenu(payload);
@@ -303,25 +305,31 @@ export const menuService = {
   },
 
   async update(id: string, prod: Partial<ProductoMenu>): Promise<ProductoMenu> {
-    // 1. Fetch current list to merge fields defensively
-    let existing: ProductoMenu | undefined;
     const lowerId = id.toLowerCase();
-    try {
-      const all = await this.list();
-      existing = all.find(p => p.id_producto === id || p.id_producto?.toLowerCase() === lowerId);
-    } catch {}
+    const currentList = await this.list();
+    const existing = currentList.find(p => p.id_producto === id || p.id_producto?.toLowerCase() === lowerId);
+    const merged: ProductoMenu = {
+      id_producto: id,
+      nombre: prod.nombre ?? existing?.nombre ?? '',
+      descripcion: prod.descripcion ?? existing?.descripcion,
+      precio_venta: prod.precio_venta ?? existing?.precio_venta ?? 0,
+      categoria: prod.categoria ?? existing?.categoria ?? 'Menu',
+      subcategoria: prod.subcategoria ?? existing?.subcategoria,
+      activo: prod.activo !== undefined ? prod.activo : (existing?.activo ?? true),
+      imagen: prod.imagen !== undefined ? prod.imagen : existing?.imagen,
+      tipo: prod.tipo ?? existing?.tipo,
+      tiempo_preparacion_estimado: prod.tiempo_preparacion_estimado ?? existing?.tiempo_preparacion_estimado,
+      requiere_cocina: prod.requiere_cocina !== undefined ? prod.requiere_cocina : existing?.requiere_cocina,
+      pasos_preparacion: prod.pasos_preparacion ?? existing?.pasos_preparacion,
+      alergenos: prod.alergenos ?? existing?.alergenos,
+      consejo_emplatado: prod.consejo_emplatado ?? existing?.consejo_emplatado,
+    };
 
-    const merged = { ...(existing || {}), ...prod, id_producto: id };
     if (merged.imagen && isValidImageData(merged.imagen)) {
       await saveMenuImage(id, merged.imagen).catch(() => {});
     }
 
     const payload = { ...toDbProductoMenu(merged), id_producto: id };
-    try {
-      await sheetUpsertRow('productos_menu', payload);
-    } catch (sheetErr) {
-      console.error('[menuService.update] Error en Google Sheets:', sheetErr);
-    }
 
     try {
       const supabase = tryGetActiveSupabaseClient();
@@ -329,7 +337,13 @@ export const menuService = {
         await supabase.from('productos_menu').update(payload).eq('id_producto', id);
       }
     } catch (e) {
-      console.warn('[menuService.update] Supabase omitido:', e);
+      console.warn('[menuService.update] Supabase error:', e);
+    }
+
+    try {
+      await sheetUpsertRow('productos_menu', payload);
+    } catch (sheetErr) {
+      console.error('[menuService.update] Error en Google Sheets:', sheetErr);
     }
 
     const normalized = normalizeProductoMenu(payload);
@@ -358,6 +372,14 @@ export const menuService = {
   },
 
   async upsert(prods: ProductoMenu[]): Promise<ProductoMenu[]> {
+    try {
+      const supabase = tryGetActiveSupabaseClient();
+      if (supabase) {
+        await supabase.from('productos_menu').upsert(prods.map(p => ({ ...toDbProductoMenu(p), id_producto: p.id_producto })));
+      }
+    } catch (e) {
+      console.warn('[menuService.upsert] Supabase error:', e);
+    }
     for (const p of prods) {
       await this.update(p.id_producto, p);
     }
@@ -368,18 +390,18 @@ export const menuService = {
     await deleteMenuImage(id).catch(() => {});
 
     try {
-      await sheetDeleteRow('productos_menu', id);
-    } catch (sheetErr) {
-      console.error('[menuService.remove] Error en Google Sheets:', sheetErr);
-    }
-
-    try {
       const supabase = tryGetActiveSupabaseClient();
       if (supabase) {
         await supabase.from('productos_menu').delete().eq('id_producto', id);
       }
     } catch (e) {
-      console.warn('[menuService.remove] Supabase omitido:', e);
+      console.warn('[menuService.remove] Supabase error:', e);
+    }
+
+    try {
+      await sheetDeleteRow('productos_menu', id);
+    } catch (sheetErr) {
+      console.error('[menuService.remove] Error en Google Sheets:', sheetErr);
     }
 
     // Update local cache defensively

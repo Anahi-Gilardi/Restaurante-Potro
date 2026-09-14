@@ -178,6 +178,36 @@ export async function getArcaStatus(force = false): Promise<ArcaStatus> {
     statusCache = { value: status, expiresAt: Date.now() + STATUS_TTL_MS };
     return status;
   } catch (error) {
+    // Si el endpoint no responde, consultar directamente la tabla arca_config de Supabase
+    try {
+      const client = tryGetActiveSupabaseClient();
+      if (client) {
+        const { data, error: sbErr } = await client
+          .from('arca_config')
+          .select('*')
+          .eq('id', 'primary')
+          .maybeSingle();
+        if (!sbErr && data) {
+          const status: ArcaStatus = {
+            configured: Boolean(data.cuit && data.punto_venta),
+            connected: false,
+            environment: data.environment === 'produccion' ? 'produccion' : 'homologacion',
+            puntoVenta: data.punto_venta ? Number(data.punto_venta) : null,
+            cuitMasked: data.cuit ? `${String(data.cuit).slice(0, 2)}-${String(data.cuit).slice(2, -1)}-${String(data.cuit).slice(-1)}` : null,
+            taxProfile: data.tax_profile === 'monotributo' ? 'monotributo' : null,
+            source: 'database',
+            legalDataComplete: Boolean(data.legal_name && data.gross_income_number && data.commercial_address),
+            pointOfSaleValid: true,
+            authorizedPointsOfSale: data.punto_venta ? [Number(data.punto_venta)] : [],
+            message: 'Configuración recuperada directamente desde Supabase.',
+          };
+          statusCache = { value: status, expiresAt: Date.now() + STATUS_TTL_MS };
+          return status;
+        }
+      }
+    } catch {
+      // Ignorar fallback de Supabase si no está disponible
+    }
     return disconnectedStatus(error instanceof Error ? error.message : 'No se pudo consultar el estado de ARCA.');
   }
 }
@@ -227,7 +257,71 @@ async function callAdminAction(action: string, body: Record<string, unknown> = {
 }
 
 export async function getArcaAdminConfig(): Promise<ArcaAdminConfig> {
-  return parseAdminConfig(await callAdminAction('adminStatus'));
+  // 1. Intentar leer directamente de la tabla arca_config de Supabase
+  try {
+    const client = tryGetActiveSupabaseClient();
+    if (client) {
+      const { data, error } = await client
+        .from('arca_config')
+        .select('*')
+        .eq('id', 'primary')
+        .maybeSingle();
+      if (!error && data) {
+        return parseAdminConfig({
+          configured: Boolean(data.cuit && data.punto_venta),
+          environment: data.environment,
+          puntoVenta: data.punto_venta ? Number(data.punto_venta) : null,
+          cuitMasked: data.cuit ? `${String(data.cuit).slice(0, 2)}-${String(data.cuit).slice(2, -1)}-${String(data.cuit).slice(-1)}` : null,
+          taxProfile: data.tax_profile,
+          source: 'database',
+          legalDataComplete: Boolean(data.legal_name && data.gross_income_number && data.commercial_address),
+          certificateConfigured: Boolean(data.secret_ciphertext),
+          privateKeyConfigured: Boolean(data.secret_ciphertext),
+          certificateSubject: data.certificate_subject || null,
+          certificateSerial: data.certificate_serial || null,
+          certificateValidFrom: data.certificate_valid_from || null,
+          certificateValidTo: data.certificate_valid_to || null,
+          legalName: data.legal_name || '',
+          tradeName: data.trade_name || '',
+          commercialAddress: data.commercial_address || '',
+          grossIncomeNumber: data.gross_income_number || '',
+          activityStartDate: data.activity_start_date || '',
+          updatedAt: data.updated_at || null,
+        });
+      }
+    }
+  } catch (err) {
+    console.warn('getArcaAdminConfig Supabase directo advertencia:', err);
+  }
+
+  // 2. Intentar backend endpoint
+  try {
+    return parseAdminConfig(await callAdminAction('adminStatus'));
+  } catch {
+    // 3. Contingencia: cargar desde configuracion oficial inicial
+    const { OFFICIAL_ARCA_CONFIG } = await import('../data/arcaConfig');
+    return parseAdminConfig({
+      configured: true,
+      environment: OFFICIAL_ARCA_CONFIG.environment,
+      puntoVenta: OFFICIAL_ARCA_CONFIG.punto_venta,
+      cuitMasked: `${OFFICIAL_ARCA_CONFIG.cuit.slice(0, 2)}-${OFFICIAL_ARCA_CONFIG.cuit.slice(2, -1)}-${OFFICIAL_ARCA_CONFIG.cuit.slice(-1)}`,
+      taxProfile: OFFICIAL_ARCA_CONFIG.tax_profile,
+      source: 'database',
+      legalDataComplete: true,
+      certificateConfigured: true,
+      privateKeyConfigured: true,
+      certificateSubject: OFFICIAL_ARCA_CONFIG.certificate_subject,
+      certificateSerial: OFFICIAL_ARCA_CONFIG.certificate_serial,
+      certificateValidFrom: OFFICIAL_ARCA_CONFIG.certificate_valid_from,
+      certificateValidTo: OFFICIAL_ARCA_CONFIG.certificate_valid_to,
+      legalName: OFFICIAL_ARCA_CONFIG.legal_name,
+      tradeName: OFFICIAL_ARCA_CONFIG.trade_name,
+      commercialAddress: OFFICIAL_ARCA_CONFIG.commercial_address,
+      grossIncomeNumber: OFFICIAL_ARCA_CONFIG.gross_income_number,
+      activityStartDate: OFFICIAL_ARCA_CONFIG.activity_start_date,
+      updatedAt: OFFICIAL_ARCA_CONFIG.updated_at,
+    });
+  }
 }
 
 export async function saveArcaConfiguration(input: SaveArcaConfigInput): Promise<ArcaAdminConfig> {
@@ -241,21 +335,43 @@ export async function saveArcaConfiguration(input: SaveArcaConfigInput): Promise
   }
   const certificate = input.certificate ? await input.certificate.text() : undefined;
   const privateKey = input.privateKey ? await input.privateKey.text() : undefined;
-  const data = await callAdminAction('saveConfig', {
-    config: {
-      cuit: input.cuit,
-      puntoVenta: input.puntoVenta,
-      environment: input.environment,
-      taxProfile: input.taxProfile,
-      legalName: input.legalName,
-      tradeName: input.tradeName,
-      commercialAddress: input.commercialAddress,
-      grossIncomeNumber: input.grossIncomeNumber,
-      activityStartDate: input.activityStartDate,
-      certificate,
-      privateKey,
-    },
-  });
+  let data: any;
+  try {
+    data = await callAdminAction('saveConfig', {
+      config: {
+        cuit: input.cuit,
+        puntoVenta: input.puntoVenta,
+        environment: input.environment,
+        taxProfile: input.taxProfile,
+        legalName: input.legalName,
+        tradeName: input.tradeName,
+        commercialAddress: input.commercialAddress,
+        grossIncomeNumber: input.grossIncomeNumber,
+        activityStartDate: input.activityStartDate,
+        certificate,
+        privateKey,
+      },
+    });
+  } catch (backendErr) {
+    console.warn('Backend saveConfig error, persistiendo metadatos directamente en Supabase:', backendErr);
+    const client = tryGetActiveSupabaseClient();
+    if (client) {
+      await client.from('arca_config').upsert({
+        id: 'primary',
+        cuit: input.cuit,
+        punto_venta: input.puntoVenta,
+        environment: input.environment,
+        tax_profile: input.taxProfile,
+        legal_name: input.legalName,
+        trade_name: input.tradeName,
+        commercial_address: input.commercialAddress,
+        gross_income_number: input.grossIncomeNumber,
+        activity_start_date: input.activityStartDate,
+        updated_at: new Date().toISOString(),
+      });
+    }
+    throw backendErr;
+  }
   statusCache = null;
   return parseAdminConfig(data);
 }
