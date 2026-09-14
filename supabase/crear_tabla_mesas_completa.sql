@@ -1,9 +1,9 @@
 -- =============================================================================
 -- TABLA 'mesas' - RESTAURANTE EL PATRÓN / BELLA ORIANA
--- Script definitivo de estructura, permisos, RLS y Realtime para Supabase
+-- Script definitivo para habilitar ediciones, altas, bajas, unión de mesas y sincronización en vivo
 -- =============================================================================
 
--- 1. Crear tabla con todas las columnas necesarias si no existe
+-- 1. Crear tabla con todas las columnas si no existe
 CREATE TABLE IF NOT EXISTS public.mesas (
   id_mesa INT PRIMARY KEY,
   numero_mesa TEXT NOT NULL,
@@ -20,13 +20,13 @@ CREATE TABLE IF NOT EXISTS public.mesas (
   rx NUMERIC DEFAULT 8,
   forma TEXT DEFAULT 'rectangular',
   mesas_unidas JSONB NOT NULL DEFAULT '[]'::jsonb,
-  parent_id INT,
+  parent_id INT DEFAULT NULL,
   reserva_cliente TEXT DEFAULT NULL,
   reserva_hora TEXT DEFAULT NULL,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 2. Asegurar que existan todas las columnas si la tabla ya había sido creada
+-- 2. Asegurar que todas las columnas existan si la tabla ya había sido creada previamente
 ALTER TABLE public.mesas ADD COLUMN IF NOT EXISTS comensales INT DEFAULT NULL;
 ALTER TABLE public.mesas ADD COLUMN IF NOT EXISTS comensales_actuales INT DEFAULT NULL;
 ALTER TABLE public.mesas ADD COLUMN IF NOT EXISTS capacidad INT NOT NULL DEFAULT 2;
@@ -39,27 +39,28 @@ ALTER TABLE public.mesas ADD COLUMN IF NOT EXISTS height NUMERIC DEFAULT 80;
 ALTER TABLE public.mesas ADD COLUMN IF NOT EXISTS rx NUMERIC DEFAULT 8;
 ALTER TABLE public.mesas ADD COLUMN IF NOT EXISTS forma TEXT DEFAULT 'rectangular';
 ALTER TABLE public.mesas ADD COLUMN IF NOT EXISTS mesas_unidas JSONB NOT NULL DEFAULT '[]'::jsonb;
-ALTER TABLE public.mesas ADD COLUMN IF NOT EXISTS parent_id INT;
+ALTER TABLE public.mesas ADD COLUMN IF NOT EXISTS parent_id INT DEFAULT NULL;
 ALTER TABLE public.mesas ADD COLUMN IF NOT EXISTS reserva_cliente TEXT DEFAULT NULL;
 ALTER TABLE public.mesas ADD COLUMN IF NOT EXISTS reserva_hora TEXT DEFAULT NULL;
 ALTER TABLE public.mesas ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
--- 3. Quitar restricciones que puedan bloquear la unión de mesas
+-- 3. Crear secuencia para id_mesa automático por si se inserta sin ID explícito
+CREATE SEQUENCE IF NOT EXISTS public.mesas_id_seq;
+ALTER TABLE public.mesas ALTER COLUMN id_mesa SET DEFAULT nextval('public.mesas_id_seq');
+SELECT setval('public.mesas_id_seq', GREATEST(COALESCE((SELECT MAX(id_mesa) FROM public.mesas), 0) + 1, 1), false);
+
+-- 4. Eliminar restricciones CHECK o UNIQUE restrictivas que puedan trabar altas o unión de mesas
 ALTER TABLE public.mesas DROP CONSTRAINT IF EXISTS mesas_estado_check;
 ALTER TABLE public.mesas DROP CONSTRAINT IF EXISTS mesas_zona_check;
 ALTER TABLE public.mesas DROP CONSTRAINT IF EXISTS mesas_sector_check;
 ALTER TABLE public.mesas DROP CONSTRAINT IF EXISTS mesas_forma_check;
 ALTER TABLE public.mesas DROP CONSTRAINT IF EXISTS mesas_numero_mesa_key;
 
--- Agregar restricción de estado que incluye 'unida'
-ALTER TABLE public.mesas ADD CONSTRAINT mesas_estado_check 
-  CHECK (estado IN ('libre', 'ocupada', 'esperando_cuenta', 'reservada', 'limpiando', 'unida', 'sucia'));
-
--- 4. Índices de rendimiento
+-- 5. Índices de rendimiento
 CREATE INDEX IF NOT EXISTS idx_mesas_estado ON public.mesas (estado);
 CREATE INDEX IF NOT EXISTS idx_mesas_parent_id ON public.mesas (parent_id);
 
--- 5. Trigger para sincronizar comensales y updated_at automáticamente
+-- 6. Trigger para sincronizar comensales y updated_at automáticamente
 CREATE OR REPLACE FUNCTION public.trg_sync_mesas_fields()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -79,19 +80,45 @@ BEFORE INSERT OR UPDATE ON public.mesas
 FOR EACH ROW
 EXECUTE FUNCTION public.trg_sync_mesas_fields();
 
--- 6. PERMISOS Y POLÍTICAS RLS (Habilita lectura, inserción y actualización abierta para anon y authenticated)
-ALTER TABLE public.mesas ENABLE ROW LEVEL SECURITY;
+-- 7. PERMISOS COMPLETOS: GRANT de schema, tablas y secuencias a todos los roles
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role, postgres;
 GRANT ALL ON TABLE public.mesas TO anon, authenticated, service_role, postgres;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role, postgres;
+
+-- 8. POLÍTICAS RLS PERMISIVAS: Permitir SELECT, INSERT, UPDATE y DELETE desde el sistema
+ALTER TABLE public.mesas ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Permitir todo en mesas" ON public.mesas;
+DROP POLICY IF EXISTS "Enable all access for anon and authenticated" ON public.mesas;
+DROP POLICY IF EXISTS "Enable all operations for all users" ON public.mesas;
+DROP POLICY IF EXISTS "Allow all for anon and auth" ON public.mesas;
+DROP POLICY IF EXISTS "Allow anon read" ON public.mesas;
+DROP POLICY IF EXISTS "Allow anon insert" ON public.mesas;
+DROP POLICY IF EXISTS "Allow anon update" ON public.mesas;
+DROP POLICY IF EXISTS "Allow anon delete" ON public.mesas;
+
 CREATE POLICY "Permitir todo en mesas"
   ON public.mesas
   FOR ALL
-  TO public
+  TO public, anon, authenticated, service_role
   USING (true)
   WITH CHECK (true);
 
--- 7. Cargar o actualizar las 14 mesas del salón
+-- 9. REPLICA IDENTITY FULL para que Supabase Realtime difunda el registro entero al editar o borrar
+ALTER TABLE public.mesas REPLICA IDENTITY FULL;
+
+-- 10. Publicación en Realtime
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND tablename = 'mesas'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.mesas;
+  END IF;
+END $$;
+
+-- 11. Cargar las 14 mesas iniciales (si ya existen, no altera sus estados actuales)
 INSERT INTO public.mesas (
   id_mesa, numero_mesa, estado, capacidad, zona, sector,
   x, y, width, height, rx, forma, mesas_unidas, updated_at
@@ -122,15 +149,8 @@ ON CONFLICT (id_mesa) DO UPDATE SET
   forma = EXCLUDED.forma,
   updated_at = NOW();
 
--- 8. Habilitar Supabase Realtime para que los cambios en mesas se sincronicen en vivo entre dispositivos
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_publication_tables 
-    WHERE pubname = 'supabase_realtime' AND tablename = 'mesas'
-  ) THEN
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.mesas;
-  END IF;
-END $$;
+-- 12. Actualizar el valor de la secuencia al ID más alto
+SELECT setval('public.mesas_id_seq', GREATEST(COALESCE((SELECT MAX(id_mesa) FROM public.mesas), 0) + 1, 1), false);
 
+-- 13. Notificar a PostgREST para recargar el esquema en caliente
 NOTIFY pgrst, 'reload schema';
