@@ -40,10 +40,10 @@ export async function dbUpsertUsuarios(usuarios: any[]) {
 // =============================================================================
 // 2. Mesas
 // =============================================================================
-export async function dbFetchMesas() {
+export async function dbFetchMesas(forceFresh = false) {
   const { hydrateTableUnions } = await import('./lib/tableUnions');
   try {
-    const data = await sheetFetchTable('mesas');
+    const data = await sheetFetchTable('mesas', forceFresh);
     if (data && data.length > 0) {
       return hydrateTableUnions(data);
     }
@@ -51,7 +51,7 @@ export async function dbFetchMesas() {
     console.warn('[GoogleSheets] dbFetchMesas fallback to Supabase:', sheetErr);
   }
   try {
-    const list = await (await import('./services/mesasService')).mesasService.list();
+    const list = await (await import('./services/mesasService')).mesasService.list(forceFresh);
     return hydrateTableUnions(list || []);
   } catch (e) {
     console.warn('dbFetchMesas:', e);

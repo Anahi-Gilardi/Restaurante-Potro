@@ -248,11 +248,11 @@ export default function App() {
         addLog('sistema', 'SISTEMA: Datos operativos listos.');
 
         // Sincronización silenciosa en segundo plano con Google Sheets (sin bloquear la interfaz)
-        sheetFetchAllTables().then(async () => {
+        sheetFetchAllTables(true).then(async () => {
           if (!active) return;
           try {
             const [refreshMesas, refreshPedidos, refreshMenu, refreshUsuarios] = await Promise.all([
-              dbFetchMesas(),
+              dbFetchMesas(true),
               dbFetchPedidos(),
               dbFetchProductosMenu(),
               dbFetchUsuarios(),
@@ -329,8 +329,31 @@ export default function App() {
         });
     }
 
+    const handleSheetDataUpdated = (e: Event) => {
+      const customEvent = e as CustomEvent<{ table?: string }>;
+      if (!customEvent.detail || customEvent.detail.table === 'mesas') {
+        dbFetchMesas().then(refreshedMesas => {
+          if (refreshedMesas !== null && active) {
+            setMesas(refreshedMesas);
+          }
+        }).catch(() => undefined);
+      }
+    };
+    const handleSheetsSyncCompleted = () => {
+      dbFetchMesas().then(refreshedMesas => {
+        if (refreshedMesas !== null && active) {
+          setMesas(refreshedMesas);
+        }
+      }).catch(() => undefined);
+    };
+
+    window.addEventListener('el_patron_sheet_data_updated', handleSheetDataUpdated);
+    window.addEventListener('el_patron_sheets_sync_completed', handleSheetsSyncCompleted);
+
     return () => {
       active = false;
+      window.removeEventListener('el_patron_sheet_data_updated', handleSheetDataUpdated);
+      window.removeEventListener('el_patron_sheets_sync_completed', handleSheetsSyncCompleted);
       if (client && channel) {
         client.removeChannel(channel).catch((err: any) => {
           console.warn('Failed to remove channel cleanly:', err);
@@ -440,11 +463,25 @@ export default function App() {
     if (!client) return;
 
     client.auth.getSession().then(({ data }) => {
-      setHasSupabaseSession(Boolean(data.session));
+      const isLocalSheetSession = typeof window !== 'undefined' &&
+        window.localStorage.getItem('el_patron_session') === 'active' &&
+        window.localStorage.getItem('el_patron_session_mode') === 'supabase';
+      if (isLocalSheetSession && !data.session) {
+        setHasSupabaseSession(true);
+      } else {
+        setHasSupabaseSession(Boolean(data.session));
+      }
       if (data.session) applyAuthenticatedSession(data.session);
     }).catch(err => console.error('Auth session error:', err));
     const { data: listener } = client.auth.onAuthStateChange((_event, session) => {
-      setHasSupabaseSession(Boolean(session));
+      const isLocalSheetSession = typeof window !== 'undefined' &&
+        window.localStorage.getItem('el_patron_session') === 'active' &&
+        window.localStorage.getItem('el_patron_session_mode') === 'supabase';
+      if (isLocalSheetSession && !session) {
+        setHasSupabaseSession(true);
+      } else {
+        setHasSupabaseSession(Boolean(session));
+      }
       if (session) applyAuthenticatedSession(session);
     });
     return () => listener.subscription.unsubscribe();

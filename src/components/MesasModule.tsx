@@ -479,7 +479,9 @@ export default function MesasModule({
       try {
         const remoteEnabled = hasRemoteDb();
         const [mData, rData] = await Promise.all([
-          remoteEnabled ? mesasService.list() : Promise.resolve(mesas),
+          (mesas && mesas.length > 0)
+            ? Promise.resolve(mesas)
+            : (remoteEnabled ? mesasService.list() : Promise.resolve(mesas)),
           remoteEnabled
             ? (reservasService.listByFecha ? reservasService.listByFecha(today) : reservasService.list())
             : Promise.resolve([]),
@@ -1082,9 +1084,9 @@ export default function MesasModule({
   const renderSvg = () => {
     // 1. Draw connection lines between child tables and parents (united tables)
     const unionConnectionLines = visualMesas
-      .filter(m => m.parent_id != null)
+      .filter(m => m.parent_id != null && String(m.parent_id).trim() !== '')
       .map(child => {
-        const parent = visualMesas.find(p => p.id_mesa === child.parent_id);
+        const parent = visualMesas.find(p => Number(p.id_mesa) === Number(child.parent_id));
         if (!parent) return null;
         const cx1 = child.posicion.x + child.posicion.width / 2;
         const cy1 = child.posicion.y + child.posicion.height / 2;
