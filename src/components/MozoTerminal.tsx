@@ -752,6 +752,14 @@ export default function MozoTerminal({
     }, 0);
   }, [cart, productosMenu, promociones, menuDiario]);
 
+  const mozosList = useMemo(() => {
+    const base = ['Enzo', 'Micaela', 'Sofía'];
+    if (activeMozo && !base.includes(activeMozo)) {
+      return [activeMozo, ...base];
+    }
+    return base;
+  }, [activeMozo]);
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6" id="mozo-terminal-container">
       {/* LEFT COLUMN: Mesa Grid and active waiter selector */}
@@ -768,8 +776,8 @@ export default function MozoTerminal({
               <h3 className="font-bold text-[#8C6239] dark:text-stone-105 font-sans tracking-tight">Terminal Registrada</h3>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-2">
-            {['Enzo', 'Micaela', 'Sofía'].map(mozoName => (
+          <div className={`grid ${mozosList.length > 3 ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3'} gap-2`}>
+            {mozosList.map(mozoName => (
               <button
                 key={mozoName}
                 onClick={() => onMozoChange(mozoName)}
@@ -798,7 +806,14 @@ export default function MozoTerminal({
           </div>
 
           <div className="grid grid-cols-4 gap-2.5">
-            {mesas.map(m => {
+            {mesas.length === 0 ? (
+              <div className="col-span-4 py-8 flex flex-col items-center justify-center text-center text-stone-400 dark:text-stone-500">
+                <UtensilsCrossed className="w-8 h-8 mb-2 opacity-50 animate-pulse text-[#8C6239]" />
+                <p className="text-xs font-semibold text-stone-600 dark:text-stone-300">Cargando distribución de mesas...</p>
+                <p className="text-[10px] text-stone-400 mt-0.5">Conectando con la base de datos</p>
+              </div>
+            ) : (
+              mesas.map(m => {
               const isSelected = String(m.id_mesa) === String(selectedMesaId);
               const info = mesasActiveInfoMap.get(m.id_mesa) || getTableActiveInfo(m, pedidos);
               const isOcupada = info.isOcupada;
@@ -863,7 +878,7 @@ export default function MozoTerminal({
                   )}
                 </button>
               );
-            })}
+            }))}
           </div>
 
           {selectedMesa && selectedMesaInfo && (

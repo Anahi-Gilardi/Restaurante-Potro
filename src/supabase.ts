@@ -58,7 +58,12 @@ export async function dbFetchMesas(forceFresh = false) {
   } catch (sheetErr) {
     console.warn('[GoogleSheets] dbFetchMesas fallback error:', sheetErr);
   }
-  return null;
+  try {
+    const { INITIAL_MESAS } = await import('./data/initialData');
+    return hydrateTableUnions(INITIAL_MESAS);
+  } catch {
+    return null;
+  }
 }
 
 export async function dbUpsertMesas(mesas: any[]) {

@@ -32,7 +32,13 @@ export const mesasService = {
       console.warn('[mesasService.list] Error desde Google Sheets:', sheetErr);
     }
 
-    return [];
+    // 3. Fallback de resiliencia (INITIAL_MESAS) si no hay conexión o datos en la nube
+    try {
+      const { INITIAL_MESAS } = await import('../data/initialData');
+      return hydrateTableUnions(INITIAL_MESAS);
+    } catch {
+      return [];
+    }
   },
 
   async getById(id: number): Promise<Mesa | null> {
