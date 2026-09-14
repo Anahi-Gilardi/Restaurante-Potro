@@ -113,7 +113,7 @@ export default function App() {
   const [isDemoSession, setIsDemoSession] = useState<boolean>(() => (
     typeof window !== 'undefined' && window.localStorage.getItem('el_patron_session_mode') === 'demo'
   ));
-  const [permitirVentaSinStock, setPermitirVentaSinStock] = useState<boolean>(false);
+  const [permitirVentaSinStock, setPermitirVentaSinStock] = useState<boolean>(true);
   const [usuarios, setUsuarios] = useState<Usuario[]>(INITIAL_USUARIOS);
   // No mostramos datos de demostracion mientras llega Supabase: daban la
   // impresion de que mesas y comandas reales se borraban segundos despues.
@@ -1587,6 +1587,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
                 onDesunirMesas={handleDesunirMesas}
                 onLiberarMesa={handleLiberarMesa}
                 addLog={addLog}
+                permitirVentaSinStock={permitirVentaSinStock}
               />
             )}
             {activeView === 'cocina' && COCINA_MODULE_ENABLED && (

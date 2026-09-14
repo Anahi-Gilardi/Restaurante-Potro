@@ -260,7 +260,7 @@ export default function MozoTerminal({
   pedidos,
   onFacturarMesa,
   addLog,
-  permitirVentaSinStock = false,
+  permitirVentaSinStock = true,
   onUnirMesas,
   onDesunirMesas,
   onLiberarMesa
@@ -559,6 +559,9 @@ export default function MozoTerminal({
 
   // Helper: evaluate if adding 1 unit of a product breaches current stock
   const evaluateStockAdd = (productoId: string): { allowed: boolean; warning?: string; isCritical: boolean } => {
+    if (permitirVentaSinStock) {
+      return { allowed: true, isCritical: false };
+    }
     const nextCart = { ...cart, [productoId]: (cart[productoId] || 0) + 1 };
     const requirements = calculateCartInsumoRequirements(nextCart);
 
@@ -567,19 +570,11 @@ export default function MozoTerminal({
       if (!insumo) continue;
 
       if (insumo.stock_actual < reqAmount) {
-        if (permitirVentaSinStock) {
-          return { 
-            allowed: true, 
-            isCritical: false, 
-            warning: `[FORZADO] Stock insuficiente de: "${insumo.nombre}" (Faltante: ${(reqAmount - insumo.stock_actual).toFixed(2)}${insumo.unidad_medida}).` 
-          };
-        } else {
-          return { 
-            allowed: false, 
-            isCritical: true, 
-            warning: `¡BLOQUEDADO! Sin material suficiente de: "${insumo.nombre}". Se requiere ${reqAmount}${insumo.unidad_medida} y el stock actual es de ${insumo.stock_actual}${insumo.unidad_medida}.` 
-          };
-        }
+        return { 
+          allowed: false, 
+          isCritical: true, 
+          warning: `¡BLOQUEADO! Sin material suficiente de: "${insumo.nombre}". Se requiere ${reqAmount}${insumo.unidad_medida} y el stock actual es de ${insumo.stock_actual}${insumo.unidad_medida}.` 
+        };
       }
 
       if (insumo.stock_actual - reqAmount <= insumo.stock_minimo) {
@@ -596,8 +591,14 @@ export default function MozoTerminal({
 
   // Quick check of remaining simulated capacity for UI tags
   const getSimulatedStockRemaining = (prod: ProductoMenu) => {
+    if (permitirVentaSinStock) {
+      return 999;
+    }
     // Find recipes associated to this product
     const productRecipes = recetas.filter(r => r.id_producto === prod.id_producto);
+    if (productRecipes.length === 0) {
+      return 999;
+    }
     let maxPlatesSimulated = 999;
 
     productRecipes.forEach(rec => {
@@ -610,7 +611,7 @@ export default function MozoTerminal({
       }
     });
 
-    return maxPlatesSimulated === 999 ? 0 : maxPlatesSimulated;
+    return maxPlatesSimulated;
   };
 
   // Cart operations
@@ -1523,8 +1524,8 @@ export default function MozoTerminal({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[550px] overflow-y-auto pr-1">
             {filteredProducts.map(p => {
               const stockRemaining = getSimulatedStockRemaining(p);
-              const isOutOfStock = stockRemaining <= 0;
-              const isLowStock = stockRemaining > 0 && stockRemaining <= 3;
+              const isOutOfStock = !permitirVentaSinStock && stockRemaining <= 0;
+              const isLowStock = !permitirVentaSinStock && stockRemaining > 0 && stockRemaining <= 3;
               const currentInCart = cart[p.id_producto] || 0;
 
               return (
@@ -1572,7 +1573,7 @@ export default function MozoTerminal({
                       <div className="absolute inset-0 bg-red-950/60 flex items-center justify-center text-center p-2">
                         <span className="bg-[#EF4444] text-white text-[10px] uppercase font-extrabold tracking-wider px-2 py-1 rounded-md shadow flex items-center gap-1">
                           <AlertTriangle className="w-3 h-3 text-white" />
-                          Sin Stock (Fórmulas 0)
+                          Sin Stock
                         </span>
                       </div>
                     ) : isLowStock ? (
@@ -1583,8 +1584,9 @@ export default function MozoTerminal({
                       </div>
                     ) : (
                       <div className="absolute top-2 right-2">
-                        <span className="bg-[#22C55E] text-white text-[9px] font-extrabold px-2 py-0.5 rounded shadow">
-                          Disp: {stockRemaining}u
+                        <span className="bg-[#22C55E] text-white text-[9px] font-extrabold px-2 py-0.5 rounded shadow flex items-center gap-1">
+                          <CheckCircle className="w-2.5 h-2.5" />
+                          {permitirVentaSinStock ? 'Disp: ∞' : `Disp: ${stockRemaining}u`}
                         </span>
                       </div>
                     )}
