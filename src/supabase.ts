@@ -73,23 +73,6 @@ export async function dbUpsertMesas(mesas: any[]) {
   } catch (e) {
     console.warn('dbUpsertMesas (Supabase) error:', e);
   }
-  try {
-    for (const m of mesas) {
-      const row = {
-        id_mesa: Number(m.id_mesa),
-        numero_mesa: String(m.numero_mesa || `Mesa ${m.id_mesa}`),
-        estado: m.estado || 'libre',
-        comensales: m.comensales !== undefined && m.comensales !== null ? Number(m.comensales) : '',
-        capacidad: m.capacidad !== undefined && m.capacidad !== null ? Number(m.capacidad) : 2,
-        zona: m.zona || '',
-        mesas_unidas: Array.isArray(m.mesas_unidas) ? JSON.stringify(m.mesas_unidas) : (m.mesas_unidas || ''),
-        parent_id: m.parent_id !== undefined && m.parent_id !== null ? Number(m.parent_id) : ''
-      };
-      await sheetUpsertRow('mesas', row);
-    }
-  } catch (sheetErr) {
-    console.warn('[GoogleSheets] dbUpsertMesas error:', sheetErr);
-  }
 }
 
 // =============================================================================
@@ -301,9 +284,9 @@ export async function dbInsertLog(log: any) {
 // =============================================================================
 // 10. Pedidos (Comandas del Mozo a Google Sheets)
 // =============================================================================
-export async function dbFetchPedidos() {
+export async function dbFetchPedidos(forceFresh = false) {
   try {
-    const data = await sheetFetchTable('pedidos_cabecera');
+    const data = await sheetFetchTable('pedidos_cabecera', forceFresh);
     if (data && data.length > 0) {
       return data.map((p: any) => ({
         ...p,

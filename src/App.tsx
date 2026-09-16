@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef, Suspense, lazy } from 'react';
 import { 
   User,
   Clock,
@@ -199,6 +199,102 @@ export default function App() {
     loadConfig();
   }, []);
 
+  // Refs para sincronización de mesas y comandas en tiempo real
+  const activeChannelRef = useRef<any>(null);
+  const broadcastChannelRef = useRef<BroadcastChannel | null>(null);
+  const cobradoOrderIdsSetRef = useRef<Set<number>>(new Set());
+
+  // Liberación simultánea de mesa y comanda en memoria (0ms)
+  const applyMesaLiberada = useCallback((payload: { id_mesa?: any; numero_mesa?: string; orderIds?: number[] }) => {
+    if (!payload) return;
+    const { id_mesa, numero_mesa, orderIds = [] } = payload;
+    
+    orderIds.forEach(id => cobradoOrderIdsSetRef.current.add(id));
+
+    // 1. Inmediatamente marcar comandas de esta mesa como entregado_cobrado
+    setPedidos(prev => prev.map(p => {
+      const matchOrder = orderIds.includes(p.id_pedido);
+      const matchTable = isSameTable(p, { id_mesa, numero_mesa });
+      if (matchOrder || matchTable) {
+        cobradoOrderIdsSetRef.current.add(p.id_pedido);
+        return { ...p, estado_comanda: 'entregado_cobrado' as const };
+      }
+      return p;
+    }));
+
+    // 2. Inmediatamente liberar la mesa y mesas unidas/hijas
+    setMesas(prev => {
+      const targetMesa = prev.find(m =>
+        (id_mesa !== undefined && id_mesa !== null && m.id_mesa !== undefined && m.id_mesa !== null && String(m.id_mesa) === String(id_mesa)) ||
+        (numero_mesa && String(m.numero_mesa || '').toLowerCase().replace(/mesa\s+/gi, '').trim() === String(numero_mesa).toLowerCase().replace(/mesa\s+/gi, '').trim())
+      );
+      const updated = prev.map(m => {
+        const matchId = (id_mesa !== undefined && id_mesa !== null && m.id_mesa !== undefined && m.id_mesa !== null && String(m.id_mesa) === String(id_mesa));
+        const norm1 = String(m.numero_mesa || '').toLowerCase().replace(/mesa\s+/gi, '').trim();
+        const norm2 = numero_mesa ? String(numero_mesa).toLowerCase().replace(/mesa\s+/gi, '').trim() : '';
+        const matchNum = norm1 !== '' && norm2 !== '' && norm1 === norm2;
+        const isPartChild = id_mesa !== undefined && id_mesa !== null && m.parent_id !== undefined && m.parent_id !== null && String(m.parent_id) === String(id_mesa);
+        const isPartUnited = Boolean(targetMesa?.mesas_unidas && targetMesa.mesas_unidas.includes(m.id_mesa));
+        return (matchId || matchNum || isPartChild || isPartUnited) ? { ...m, estado: 'libre' as const, comensales: undefined } : m;
+      });
+
+      if (typeof window !== 'undefined') {
+        try {
+          window.localStorage.setItem('el_patron_sheet_cache_mesas', JSON.stringify(updated));
+        } catch {}
+      }
+      return updated;
+    });
+  }, []);
+
+  // Sincronización entre pestañas locales mediante BroadcastChannel y eventos
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    let bc: BroadcastChannel | null = null;
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        bc = new BroadcastChannel('el_patron_table_sync');
+        broadcastChannelRef.current = bc;
+        bc.onmessage = (event) => {
+          if (!event.data) return;
+          if (event.data.type === 'mesa_liberada' && event.data.payload) {
+            applyMesaLiberada(event.data.payload);
+          } else if (event.data.type === 'pedido_creado' && event.data.payload?.pedido) {
+            const { pedido, id_mesa } = event.data.payload;
+            setPedidos(prev => {
+              if (prev.some(p => p.id_pedido === pedido.id_pedido)) {
+                return prev.map(p => p.id_pedido === pedido.id_pedido ? pedido : p);
+              }
+              return [pedido, ...prev];
+            });
+            if (id_mesa) {
+              setMesas(prev => prev.map(m => String(m.id_mesa) === String(id_mesa) ? { ...m, estado: 'ocupada' as const } : m));
+            }
+          }
+        };
+      }
+    } catch (e) {
+      console.warn('BroadcastChannel error:', e);
+    }
+
+    const handleLocalMesaLiberada = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail) {
+        applyMesaLiberada(customEvent.detail);
+      }
+    };
+    window.addEventListener('el_patron_mesa_liberada', handleLocalMesaLiberada);
+
+    return () => {
+      window.removeEventListener('el_patron_mesa_liberada', handleLocalMesaLiberada);
+      if (bc) {
+        try { bc.close(); } catch {}
+        broadcastChannelRef.current = null;
+      }
+    };
+  }, [applyMesaLiberada]);
+
   // 2. Data load and Realtime sync effect (runs on mount and whenever connection parameters update)
   useEffect(() => {
     if (showCover || !isStreamlitLoggedIn || !hasSupabaseSession || isDemoSession) return;
@@ -282,6 +378,7 @@ export default function App() {
     if (client) {
       const activeChannel = client.channel('realtime_pedidos_app');
       channel = activeChannel;
+      activeChannelRef.current = activeChannel;
 
       // Simple debounce function to prevent multiple rapid database requests
       const debounce = <T extends (...args: any[]) => any>(fn: T, delay: number) => {
@@ -294,18 +391,49 @@ export default function App() {
 
       const fetchAndSetPedidos = async () => {
         try {
-          const refreshed = await dbFetchPedidos();
+          const refreshed = await dbFetchPedidos(true);
           if (refreshed !== null && active) {
-            setPedidos(refreshed);
+            const cobradoIds = cobradoOrderIdsSetRef.current;
+            setPedidos(refreshed.map(p => cobradoIds.has(p.id_pedido) ? { ...p, estado_comanda: 'entregado_cobrado' as const } : p));
           }
         } catch (err) {
           console.warn('Realtime fetch for pedidos failed:', err);
         }
       };
 
+      const fetchAndSetMesas = async () => {
+        try {
+          const refreshed = await dbFetchMesas(true);
+          if (refreshed !== null && active) {
+            setMesas(refreshed);
+          }
+        } catch (err) {
+          console.warn('Realtime fetch for mesas failed:', err);
+        }
+      };
+
       const debouncedFetchPedidos = debounce(fetchAndSetPedidos, 400);
+      const debouncedFetchMesas = debounce(fetchAndSetMesas, 400);
 
       activeChannel
+        .on('broadcast', { event: 'mesa_liberada' }, ({ payload }: any) => {
+          if (active && payload) {
+            applyMesaLiberada(payload);
+          }
+        })
+        .on('broadcast', { event: 'pedido_creado' }, ({ payload }: any) => {
+          if (active && payload?.pedido) {
+            setPedidos(prev => {
+              if (prev.some(p => p.id_pedido === payload.pedido.id_pedido)) {
+                return prev.map(p => p.id_pedido === payload.pedido.id_pedido ? payload.pedido : p);
+              }
+              return [payload.pedido, ...prev];
+            });
+            if (payload.id_mesa) {
+              setMesas(prev => prev.map(m => String(m.id_mesa) === String(payload.id_mesa) ? { ...m, estado: 'ocupada' as const } : m));
+            }
+          }
+        })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos_cabecera' }, () => {
           debouncedFetchPedidos();
         })
@@ -313,14 +441,8 @@ export default function App() {
           debouncedFetchPedidos();
         })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'mesas' }, async () => {
-          try {
-            const refreshed = await dbFetchMesas();
-            if (refreshed !== null && active) {
-              setMesas(refreshed);
-            }
-          } catch (err) {
-            console.warn('Realtime fetch for mesas failed:', err);
-          }
+          debouncedFetchMesas();
+          debouncedFetchPedidos();
         })
         .subscribe((status) => {
           if (status === 'SUBSCRIBED') {
@@ -332,7 +454,7 @@ export default function App() {
     const handleSheetDataUpdated = (e: Event) => {
       const customEvent = e as CustomEvent<{ table?: string }>;
       if (!customEvent.detail || customEvent.detail.table === 'mesas') {
-        dbFetchMesas().then(refreshedMesas => {
+        dbFetchMesas(true).then(refreshedMesas => {
           if (refreshedMesas !== null && active) {
             setMesas(refreshedMesas);
           }
@@ -340,9 +462,15 @@ export default function App() {
       }
     };
     const handleSheetsSyncCompleted = () => {
-      dbFetchMesas().then(refreshedMesas => {
+      dbFetchMesas(true).then(refreshedMesas => {
         if (refreshedMesas !== null && active) {
           setMesas(refreshedMesas);
+        }
+      }).catch(() => undefined);
+      dbFetchPedidos(true).then(refreshedPedidos => {
+        if (refreshedPedidos !== null && active) {
+          const cobradoIds = cobradoOrderIdsSetRef.current;
+          setPedidos(refreshedPedidos.map(p => cobradoIds.has(p.id_pedido) ? { ...p, estado_comanda: 'entregado_cobrado' as const } : p));
         }
       }).catch(() => undefined);
     };
@@ -350,17 +478,46 @@ export default function App() {
     window.addEventListener('el_patron_sheet_data_updated', handleSheetDataUpdated);
     window.addEventListener('el_patron_sheets_sync_completed', handleSheetsSyncCompleted);
 
+    // Sincronización al volver a enfocar la pantalla o cambiar de pestaña
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && active) {
+        dbFetchMesas(true).then(m => m && setMesas(m)).catch(() => {});
+        dbFetchPedidos(true).then(p => {
+          if (p) {
+            const cobradoIds = cobradoOrderIdsSetRef.current;
+            setPedidos(p.map(order => cobradoIds.has(order.id_pedido) ? { ...order, estado_comanda: 'entregado_cobrado' as const } : order));
+          }
+        }).catch(() => {});
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Heartbeat cada 6 segundos para reconciliar mesas y comandas silenciosamente
+    const heartbeatTimer = setInterval(() => {
+      if (!active || (typeof document !== 'undefined' && document.visibilityState === 'hidden')) return;
+      dbFetchMesas(true).then(m => m && setMesas(m)).catch(() => {});
+      dbFetchPedidos(true).then(p => {
+        if (p) {
+          const cobradoIds = cobradoOrderIdsSetRef.current;
+          setPedidos(p.map(order => cobradoIds.has(order.id_pedido) ? { ...order, estado_comanda: 'entregado_cobrado' as const } : order));
+        }
+      }).catch(() => {});
+    }, 6000);
+
     return () => {
       active = false;
+      clearInterval(heartbeatTimer);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('el_patron_sheet_data_updated', handleSheetDataUpdated);
       window.removeEventListener('el_patron_sheets_sync_completed', handleSheetsSyncCompleted);
       if (client && channel) {
         client.removeChannel(channel).catch((err: any) => {
           console.warn('Failed to remove channel cleanly:', err);
         });
+        activeChannelRef.current = null;
       }
     };
-  }, [supabaseTrigger, showCover, isStreamlitLoggedIn, hasSupabaseSession, isDemoSession, addLog]);
+  }, [supabaseTrigger, showCover, isStreamlitLoggedIn, hasSupabaseSession, isDemoSession, addLog, applyMesaLiberada]);
 
   useEffect(() => {
     if (showCover || !isStreamlitLoggedIn || !isDemoSession) return;
@@ -627,6 +784,29 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
 
     const updatedMesas = mesas.map(m => String(m.id_mesa) === String(newPedidoData.id_mesa) ? { ...m, estado: 'ocupada' as const, comensales: newPedidoData.comensales || 2 } : m);
     setMesas(updatedMesas);
+
+    // Difusión simultánea a caja y otros dispositivos
+    const broadcastPayload = {
+      pedido: finalPedido,
+      id_mesa: newPedidoData.id_mesa,
+      numero_mesa: newPedidoData.numero_mesa
+    };
+
+    if (broadcastChannelRef.current) {
+      try {
+        broadcastChannelRef.current.postMessage({ type: 'pedido_creado', payload: broadcastPayload });
+      } catch {}
+    }
+
+    if (activeChannelRef.current) {
+      try {
+        activeChannelRef.current.send({
+          type: 'broadcast',
+          event: 'pedido_creado',
+          payload: broadcastPayload
+        }).catch?.(() => undefined);
+      } catch {}
+    }
 
     if (itemsDescontados.length > 0) {
       setInsumos(updatedInsumos);
@@ -902,7 +1082,10 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
 
   // --- Handlers for Cashier View (Caja & Cierre) ---
   const handleFacturarMesa = useCallback(async (idPedido: number, alreadyUpdatedInCaja: boolean = false) => {
-    const target = pedidos.find(p => p.id_pedido === idPedido);
+    let target = pedidos.find(p => p.id_pedido === idPedido);
+    if (!target) {
+      target = pedidos.find(p => p.id_mesa === idPedido && p.estado_comanda !== 'entregado_cobrado');
+    }
     if (!target) return;
 
     const ordersToBill = pedidos.filter(p => 
@@ -912,6 +1095,46 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     );
 
     const orderIds = ordersToBill.map(o => o.id_pedido);
+    if (!orderIds.includes(target.id_pedido)) {
+      orderIds.push(target.id_pedido);
+    }
+
+    const payload = {
+      id_mesa: target.id_mesa,
+      numero_mesa: target.numero_mesa,
+      orderIds
+    };
+
+    // 1. APLICAR LOCALMENTE DE FORMA INMEDIATA (0ms)
+    applyMesaLiberada(payload);
+
+    // 2. TRANSMITIR INMEDIATAMENTE POR BROADCASTCHANNEL (otra pestaña en el mismo navegador/equipo)
+    if (broadcastChannelRef.current) {
+      try {
+        broadcastChannelRef.current.postMessage({ type: 'mesa_liberada', payload });
+      } catch (bcErr) {
+        console.warn('BroadcastChannel sync error:', bcErr);
+      }
+    }
+
+    // 3. TRANSMITIR INMEDIATAMENTE POR SUPABASE REALTIME (dispositivos mozos, celulares, tablets)
+    if (activeChannelRef.current) {
+      try {
+        activeChannelRef.current.send({
+          type: 'broadcast',
+          event: 'mesa_liberada',
+          payload
+        }).catch?.(() => undefined);
+      } catch (rtErr) {
+        console.warn('Supabase Realtime broadcast error:', rtErr);
+      }
+    }
+
+    // 4. DISPARAR EVENTO LOCAL EN VENTANA
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('el_patron_mesa_liberada', { detail: payload }));
+    }
+
     if (!isDemoSession) {
       try {
         await orderTransactionService.closeOrders(orderIds, permitirVentaSinStock);
@@ -920,45 +1143,25 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
       }
     }
 
-    setPedidos(prev => prev.map(p => orderIds.includes(p.id_pedido) ? { ...p, estado_comanda: 'entregado_cobrado' } : p));
-
     const targetMesa = mesas.find(m => 
       (m.id_mesa !== undefined && m.id_mesa !== null && target.id_mesa !== undefined && target.id_mesa !== null && String(m.id_mesa) === String(target.id_mesa)) ||
       (String(m.numero_mesa || '').toLowerCase().replace(/mesa\s+/gi, '').trim() === String(target.numero_mesa || '').toLowerCase().replace(/mesa\s+/gi, '').trim())
     );
 
-    const updatedMesas = mesas.map(m => {
+    const affectedMesas = mesas.filter(m => {
       const matchId = (m.id_mesa !== undefined && m.id_mesa !== null && target.id_mesa !== undefined && target.id_mesa !== null && String(m.id_mesa) === String(target.id_mesa));
       const norm1 = String(m.numero_mesa || '').toLowerCase().replace(/mesa\s+/gi, '').trim();
       const norm2 = String(target.numero_mesa || '').toLowerCase().replace(/mesa\s+/gi, '').trim();
-      const matchNum = norm1 !== '' && norm1 === norm2;
-      const isPartChild = m.parent_id !== undefined && m.parent_id !== null && String(m.parent_id) === String(target.id_mesa);
-      const isPartUnited = Boolean(targetMesa?.mesas_unidas && targetMesa.mesas_unidas.includes(m.id_mesa));
-      return (matchId || matchNum || isPartChild || isPartUnited) ? { ...m, estado: 'libre' as const, comensales: undefined } : m;
-    });
-    setMesas(updatedMesas);
-
-    // Persistir estado de mesas en cache local y Google Sheets
-    if (typeof window !== 'undefined') {
-      try {
-        window.localStorage.setItem('el_patron_sheet_cache_mesas', JSON.stringify(updatedMesas));
-      } catch {}
-    }
-
-    const affectedMesas = updatedMesas.filter(m => {
-      const matchId = (m.id_mesa !== undefined && m.id_mesa !== null && target.id_mesa !== undefined && target.id_mesa !== null && String(m.id_mesa) === String(target.id_mesa));
-      const norm1 = String(m.numero_mesa || '').toLowerCase().replace(/mesa\s+/gi, '').trim();
-      const norm2 = String(target.numero_mesa || '').toLowerCase().replace(/mesa\s+/gi, '').trim();
-      const matchNum = norm1 !== '' && norm1 === norm2;
+      const matchNum = norm1 !== '' && norm2 !== '' && norm1 === norm2;
       const isPartChild = m.parent_id !== undefined && m.parent_id !== null && String(m.parent_id) === String(target.id_mesa);
       const isPartUnited = Boolean(targetMesa?.mesas_unidas && targetMesa.mesas_unidas.includes(m.id_mesa));
       return matchId || matchNum || isPartChild || isPartUnited;
-    });
+    }).map(m => ({ ...m, estado: 'libre' as const, comensales: undefined }));
 
     try {
       await dbUpsertMesas(affectedMesas);
     } catch (err) {
-      console.warn('Error sincronizando mesa cobrada con Google Sheets:', err);
+      console.warn('Error sincronizando mesa cobrada con Supabase:', err);
     }
 
     // Persistir comandas cerradas en Google Sheets
@@ -1046,7 +1249,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
         fecha: new Date().toISOString()
       }).catch(err => console.warn('Error registrando ledger en Google Sheets:', err));
     }
-  }, [pedidos, mesas, productosMenu, addLog, isDemoSession, permitirVentaSinStock]);
+  }, [pedidos, mesas, productosMenu, addLog, isDemoSession, permitirVentaSinStock, applyMesaLiberada]);
 
   // --- Handlers para Unión y Desunión de Mesas ---
   const handleUnirMesas = useCallback(async (idMesa1: number, idMesa2: number) => {
