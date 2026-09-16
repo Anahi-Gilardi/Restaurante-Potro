@@ -38,6 +38,8 @@ const throwRpcError = (operation: string, error: unknown): never => {
   throw new Error(`${operation}: ${detail}`);
 };
 
+let rpcAvailable: boolean | null = null;
+
 export const orderTransactionService = {
   async saveOrder(
     pedido: Pedido,
@@ -55,39 +57,55 @@ export const orderTransactionService = {
         fecha_hora: pedido.fecha_hora instanceof Date ? pedido.fecha_hora.toISOString() : new Date(pedido.fecha_hora).toISOString(),
         items: JSON.stringify(pedido.items || [])
       });
-      if (pedido.id_mesa) {
-        await sheetUpsertRow('mesas', {
-          id_mesa: pedido.id_mesa,
-          estado: 'ocupada',
-          comensales: comensales || 2
-        });
-      }
     } catch (sheetErr) {
       console.warn('[orderTransactionService.saveOrder] Google Sheets sync warning:', sheetErr);
     }
 
-    try {
-      const supabase = getActiveSupabaseClient();
-      const { data, error } = await supabase.rpc('save_order_transaction', {
-        p_order: toRpcOrder(pedido),
-        p_comensales: comensales,
-        p_allow_negative: allowNegativeStock
-      });
-      if (error) {
-        if (isRpcPermissionOrMissingError(error)) {
-          console.warn('[orderTransactionService.saveOrder] Supabase RPC omitido por permisos / modo Google Sheets:', error.message);
+    if (pedido.id_mesa) {
+      try {
+        const supabase = getActiveSupabaseClient();
+        await supabase
+          .from('mesas')
+          .update({
+            estado: 'ocupada',
+            comensales_actuales: comensales || 2,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id_mesa', pedido.id_mesa);
+      } catch (mesaErr) {
+        console.warn('[orderTransactionService.saveOrder] Supabase mesas update warning:', mesaErr);
+      }
+    }
+
+    if (rpcAvailable !== false) {
+      try {
+        const supabase = getActiveSupabaseClient();
+        const { data, error } = await supabase.rpc('save_order_transaction', {
+          p_order: toRpcOrder(pedido),
+          p_comensales: comensales,
+          p_allow_negative: allowNegativeStock
+        });
+        if (error) {
+          if (isRpcPermissionOrMissingError(error)) {
+            rpcAvailable = false;
+            console.warn('[orderTransactionService.saveOrder] Supabase RPC omitido por permisos / modo Google Sheets:', error.message);
+            return pedido.id_pedido;
+          }
+          throwRpcError('No se pudo confirmar la comanda', error);
+        }
+        rpcAvailable = true;
+        return Number(data);
+      } catch (err: any) {
+        if (isRpcPermissionOrMissingError(err)) {
+          rpcAvailable = false;
+          console.warn('[orderTransactionService.saveOrder] Supabase RPC omitido:', err?.message);
           return pedido.id_pedido;
         }
-        throwRpcError('No se pudo confirmar la comanda', error);
+        throw err;
       }
-      return Number(data);
-    } catch (err: any) {
-      if (isRpcPermissionOrMissingError(err)) {
-        console.warn('[orderTransactionService.saveOrder] Supabase RPC omitido:', err?.message);
-        return pedido.id_pedido;
-      }
-      throw err;
     }
+
+    return pedido.id_pedido;
   },
 
   async transitionOrder(
@@ -104,26 +122,31 @@ export const orderTransactionService = {
       console.warn('[orderTransactionService.transitionOrder] Google Sheets sync warning:', sheetErr);
     }
 
-    try {
-      const supabase = getActiveSupabaseClient();
-      const { error } = await supabase.rpc('transition_order_transaction', {
-        p_order_id: idPedido,
-        p_new_state: newState,
-        p_allow_negative: allowNegativeStock
-      });
-      if (error) {
-        if (isRpcPermissionOrMissingError(error)) {
-          console.warn('[orderTransactionService.transitionOrder] Supabase RPC omitido por permisos / modo Google Sheets:', error.message);
+    if (rpcAvailable !== false) {
+      try {
+        const supabase = getActiveSupabaseClient();
+        const { error } = await supabase.rpc('transition_order_transaction', {
+          p_order_id: idPedido,
+          p_new_state: newState,
+          p_allow_negative: allowNegativeStock
+        });
+        if (error) {
+          if (isRpcPermissionOrMissingError(error)) {
+            rpcAvailable = false;
+            console.warn('[orderTransactionService.transitionOrder] Supabase RPC omitido por permisos / modo Google Sheets:', error.message);
+            return;
+          }
+          throwRpcError('No se pudo cambiar el estado de la comanda', error);
+        }
+        rpcAvailable = true;
+      } catch (err: any) {
+        if (isRpcPermissionOrMissingError(err)) {
+          rpcAvailable = false;
+          console.warn('[orderTransactionService.transitionOrder] Supabase RPC omitido:', err?.message);
           return;
         }
-        throwRpcError('No se pudo cambiar el estado de la comanda', error);
+        throw err;
       }
-    } catch (err: any) {
-      if (isRpcPermissionOrMissingError(err)) {
-        console.warn('[orderTransactionService.transitionOrder] Supabase RPC omitido:', err?.message);
-        return;
-      }
-      throw err;
     }
   },
 
@@ -139,25 +162,30 @@ export const orderTransactionService = {
       }
     }
 
-    try {
-      const supabase = getActiveSupabaseClient();
-      const { error } = await supabase.rpc('close_table_orders_transaction', {
-        p_order_ids: orderIds,
-        p_allow_negative: allowNegativeStock
-      });
-      if (error) {
-        if (isRpcPermissionOrMissingError(error)) {
-          console.warn('[orderTransactionService.closeOrders] Supabase RPC omitido por permisos / modo Google Sheets:', error.message);
+    if (rpcAvailable !== false) {
+      try {
+        const supabase = getActiveSupabaseClient();
+        const { error } = await supabase.rpc('close_table_orders_transaction', {
+          p_order_ids: orderIds,
+          p_allow_negative: allowNegativeStock
+        });
+        if (error) {
+          if (isRpcPermissionOrMissingError(error)) {
+            rpcAvailable = false;
+            console.warn('[orderTransactionService.closeOrders] Supabase RPC omitido por permisos / modo Google Sheets:', error.message);
+            return;
+          }
+          throwRpcError('No se pudo cerrar la mesa', error);
+        }
+        rpcAvailable = true;
+      } catch (err: any) {
+        if (isRpcPermissionOrMissingError(err)) {
+          rpcAvailable = false;
+          console.warn('[orderTransactionService.closeOrders] Supabase RPC omitido:', err?.message);
           return;
         }
-        throwRpcError('No se pudo cerrar la mesa', error);
+        throw err;
       }
-    } catch (err: any) {
-      if (isRpcPermissionOrMissingError(err)) {
-        console.warn('[orderTransactionService.closeOrders] Supabase RPC omitido:', err?.message);
-        return;
-      }
-      throw err;
     }
   }
 };

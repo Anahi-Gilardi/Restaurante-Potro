@@ -76,16 +76,18 @@ export const mesasService = {
       }
     }
 
-    // Backup a Google Sheets
-    try {
-      await sheetUpsertRow('mesas', {
-        ...dbMesa,
-        comensales: mesa.comensales || '',
-        mesas_unidas: Array.isArray(mesa.mesas_unidas) ? JSON.stringify(mesa.mesas_unidas) : (mesa.mesas_unidas || ''),
-        parent_id: mesa.parent_id !== undefined && mesa.parent_id !== null ? Number(mesa.parent_id) : ''
-      });
-    } catch (sheetErr) {
-      console.error('[mesasService.create] Error en Google Sheets:', sheetErr);
+    // Backup a Google Sheets solo si Supabase no está activo
+    if (!supabase) {
+      try {
+        await sheetUpsertRow('mesas', {
+          ...dbMesa,
+          comensales: mesa.comensales || '',
+          mesas_unidas: Array.isArray(mesa.mesas_unidas) ? JSON.stringify(mesa.mesas_unidas) : (mesa.mesas_unidas || ''),
+          parent_id: mesa.parent_id !== undefined && mesa.parent_id !== null ? Number(mesa.parent_id) : ''
+        });
+      } catch (sheetErr) {
+        console.error('[mesasService.create] Error en Google Sheets:', sheetErr);
+      }
     }
 
     return mesa;
@@ -171,10 +173,12 @@ export const mesasService = {
       mesas_unidas: Array.isArray(resolvedMesasUnidas) ? JSON.stringify(resolvedMesasUnidas) : resolvedMesasUnidas,
       parent_id: resolvedParentId ?? ''
     };
-    try {
-      await sheetUpsertRow('mesas', row);
-    } catch (sheetErr) {
-      console.warn('[mesasService.update] Error en Google Sheets:', sheetErr);
+    if (!supabase) {
+      try {
+        await sheetUpsertRow('mesas', row);
+      } catch (sheetErr) {
+        console.warn('[mesasService.update] Error en Google Sheets:', sheetErr);
+      }
     }
 
     return row as Mesa;
@@ -204,20 +208,22 @@ export const mesasService = {
       }
     }
 
-    for (const m of mesas) {
-      try {
-        await sheetUpsertRow('mesas', {
-          id_mesa: m.id_mesa,
-          numero_mesa: m.numero_mesa,
-          estado: m.estado,
-          comensales: m.comensales || '',
-          capacidad: m.capacidad || 4,
-          zona: m.zona || 'salon',
-          mesas_unidas: Array.isArray(m.mesas_unidas) ? JSON.stringify(m.mesas_unidas) : (m.mesas_unidas || ''),
-          parent_id: m.parent_id !== undefined && m.parent_id !== null ? Number(m.parent_id) : ''
-        });
-      } catch (err) {
-        console.warn('[mesasService.upsert] Google Sheets sync error:', err);
+    if (!supabase) {
+      for (const m of mesas) {
+        try {
+          await sheetUpsertRow('mesas', {
+            id_mesa: m.id_mesa,
+            numero_mesa: m.numero_mesa,
+            estado: m.estado,
+            comensales: m.comensales || '',
+            capacidad: m.capacidad || 4,
+            zona: m.zona || 'salon',
+            mesas_unidas: Array.isArray(m.mesas_unidas) ? JSON.stringify(m.mesas_unidas) : (m.mesas_unidas || ''),
+            parent_id: m.parent_id !== undefined && m.parent_id !== null ? Number(m.parent_id) : ''
+          });
+        } catch (err) {
+          console.warn('[mesasService.upsert] Google Sheets sync error:', err);
+        }
       }
     }
 
@@ -233,10 +239,12 @@ export const mesasService = {
         console.warn('[mesasService.remove] Supabase error:', e);
       }
     }
-    try {
-      await sheetDeleteRow('mesas', id);
-    } catch (sheetErr) {
-      console.warn('[mesasService.remove] Google Sheets error:', sheetErr);
+    if (!supabase) {
+      try {
+        await sheetDeleteRow('mesas', id);
+      } catch (sheetErr) {
+        console.warn('[mesasService.remove] Google Sheets error:', sheetErr);
+      }
     }
     return true;
   },

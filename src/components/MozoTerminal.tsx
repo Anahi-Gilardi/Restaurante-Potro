@@ -699,33 +699,37 @@ export default function MozoTerminal({
       });
 
       const tableOrderName = selectedMesa ? selectedMesa.numero_mesa : `Mesa ${selectedMesaId}`;
-      const accepted = await onCrearPedido({
-        id_mesa: selectedMesaId,
-        numero_mesa: tableOrderName,
-        mozo: activeMozo,
-        estado_comanda: 'pendiente',
-        items,
-        observaciones: observaciones.trim() || undefined,
-        comensales,
-        idempotency_key: createMozoCartIdempotencyKey(selectedMesaId),
-      });
+      const cleanObs = observaciones.trim() || undefined;
 
-      if (accepted === false) return;
-
-      // Trigger automatic print to connected ticket printer
+      // Disparar la impresión INMEDIATAMENTE dentro del evento del click del usuario (0ms de latencia y sin bloqueo de popups)
       printComandaThermalTicket({
         mesa: formatTicketTableName(tableOrderName),
         mozo: activeMozo || 'Mozo',
         items: items.map(i => ({
           nombre: i.nombre,
           cantidad: i.cantidad,
-          observaciones: observaciones.trim() || undefined,
+          observaciones: cleanObs,
         })),
-        observaciones: observaciones.trim() || undefined,
+        observaciones: cleanObs,
       });
 
+      // Limpiar de inmediato el carrito y observaciones para respuesta instantánea de la UI
       setCart({});
       setObservaciones('');
+
+      const accepted = await onCrearPedido({
+        id_mesa: selectedMesaId,
+        numero_mesa: tableOrderName,
+        mozo: activeMozo,
+        estado_comanda: 'pendiente',
+        items,
+        observaciones: cleanObs,
+        comensales,
+        idempotency_key: createMozoCartIdempotencyKey(selectedMesaId),
+      });
+
+      if (accepted === false) return;
+
       addLog('pedido_creado', `Mozo ${activeMozo} envió e imprimió comanda para ${tableOrderName} con ${items.length} platos.`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'No se pudo enviar la comanda. El carrito permanece disponible.');

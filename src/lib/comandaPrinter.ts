@@ -36,11 +36,11 @@ export function printComandaThermalTicket(params: ComandaPrintParams): void {
   const itemsHtml = params.items
     .map(
       it => `
-    <tr style="border-bottom: 1px dashed #444;">
-      <td style="font-weight: 900; font-size: 16px; width: 42px; vertical-align: top; padding: 4px 0;">${it.cantidad}x</td>
-      <td style="font-size: 14px; font-weight: 800; padding: 4px 0;">
-        ${it.nombre}
-        ${it.observaciones ? `<div style="font-size: 12px; font-weight: normal; font-style: italic; color: #333; margin-top: 2px;">Obs: ${it.observaciones}</div>` : ''}
+    <tr style="border-bottom: 1px dashed #000;">
+      <td style="font-weight: 900; font-size: 16px; width: 44px; vertical-align: top; padding: 5px 0;">${it.cantidad}x</td>
+      <td style="font-size: 15px; font-weight: 900; padding: 5px 0;">
+        <div style="font-weight: 900;">${it.nombre}</div>
+        ${it.observaciones ? `<div style="font-size: 13px; font-weight: 900; color: #000; margin-top: 2px;">OBS: ${it.observaciones.toUpperCase()}</div>` : ''}
       </td>
     </tr>
   `
@@ -54,8 +54,16 @@ export function printComandaThermalTicket(params: ComandaPrintParams): void {
         <title>Comanda - ${params.mesa}</title>
         <style>
           @page { size: auto; margin: 0mm; }
+          * {
+            box-sizing: border-box;
+            font-weight: 900 !important;
+            color: #000 !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
           body {
             font-family: 'Courier New', Courier, monospace;
+            font-weight: 900;
             width: 78mm;
             margin: 0 auto;
             padding: 10px 8px;
@@ -64,11 +72,12 @@ export function printComandaThermalTicket(params: ComandaPrintParams): void {
           }
           .header { text-align: center; border-bottom: 2px dashed #000; padding-bottom: 8px; margin-bottom: 8px; }
           .title { font-size: 18px; font-weight: 900; letter-spacing: 1px; }
-          .mesa-badge { font-size: 20px; font-weight: 900; margin-top: 4px; border: 2px solid #000; padding: 4px; display: inline-block; }
-          .meta { font-size: 12px; font-weight: bold; margin-top: 6px; }
+          .mesa-badge { font-size: 22px; font-weight: 900; margin-top: 4px; border: 2px solid #000; padding: 4px 8px; display: inline-block; }
+          .meta { font-size: 13px; font-weight: 900; margin-top: 6px; }
+          .fecha { font-size: 12px; font-weight: 900; margin-top: 3px; }
           .table { width: 100%; border-collapse: collapse; margin-top: 8px; text-align: left; }
-          .obs-box { margin-top: 10px; padding: 6px; border: 1px solid #000; font-size: 12px; }
-          .footer { border-top: 2px dashed #000; margin-top: 12px; padding-top: 6px; text-align: center; font-size: 11px; font-weight: bold; }
+          .obs-box { margin-top: 10px; padding: 6px; border: 2px solid #000; font-size: 13px; font-weight: 900; }
+          .footer { border-top: 2px dashed #000; margin-top: 12px; padding-top: 6px; text-align: center; font-size: 12px; font-weight: 900; }
         </style>
       </head>
       <body>
@@ -76,7 +85,7 @@ export function printComandaThermalTicket(params: ComandaPrintParams): void {
           <div class="title">*** COMANDA DE COCINA ***</div>
           <div class="mesa-badge">${params.mesa.toUpperCase()}</div>
           <div class="meta">MOZO: ${params.mozo.toUpperCase()}</div>
-          <div style="font-size: 11px; margin-top: 2px;">FECHA: ${dateStr}</div>
+          <div class="fecha">FECHA: ${dateStr}</div>
         </div>
 
         <table class="table">
@@ -89,7 +98,8 @@ export function printComandaThermalTicket(params: ComandaPrintParams): void {
           params.observaciones
             ? `
           <div class="obs-box">
-            <strong>OBSERVACIONES GENERALES:</strong><br/>${params.observaciones}
+            <div style="font-weight: 900; text-decoration: underline;">OBSERVACIONES GENERALES:</div>
+            <div style="font-weight: 900; margin-top: 4px;">${params.observaciones.toUpperCase()}</div>
           </div>
         `
             : ''
@@ -101,10 +111,13 @@ export function printComandaThermalTicket(params: ComandaPrintParams): void {
 
         <script>
           window.onload = function() {
+            try {
+              window.focus();
+            } catch (e) {}
             window.print();
             setTimeout(function() {
               window.close();
-            }, 600);
+            }, 800);
           };
         </script>
       </body>
