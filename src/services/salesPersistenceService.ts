@@ -1,4 +1,5 @@
 import { getActiveSupabaseClient } from '../lib/supabaseClient';
+import { sheetUpsertRow } from '../lib/googleSheetsClient';
 import type { PagoDb } from '../types';
 import {
   cacheFacturaLocally,
@@ -35,27 +36,66 @@ export const validateSaleBundle = ({ factura, pagos }: SaleBundle) => {
   }
 };
 
+let rpcRecordSaleAvailable: boolean | null = null;
+
 export const salesPersistenceService = {
   async persist(bundle: SaleBundle, enqueueOnFailure = true): Promise<SalePersistenceResult> {
     validateSaleBundle(bundle);
     cacheFacturaLocally(bundle.factura);
     cachePaymentsLocally(bundle.pagos);
 
+    // 1. Guardar factura y pagos en Google Sheets (donde residen las ventas y facturas)
     try {
-      const supabase = getActiveSupabaseClient();
-      const { error } = await supabase.rpc('record_internal_sale', {
-        p_factura: toDbFacturaPayload(bundle.factura),
-        p_pagos: bundle.pagos.map(toDbPagoPayload),
-      });
-      if (error) throw error;
-      return { synced: true, pendingSync: false };
-    } catch (error) {
-      console.warn('Cobro guardado localmente y pendiente de sincronización:', error);
-      if (enqueueOnFailure) {
-        const { syncQueueService } = await import('./syncQueueService');
-        syncQueueService.enqueue('record_sale_bundle', bundle);
+      await sheetUpsertRow('facturas', toDbFacturaPayload(bundle.factura));
+      for (const p of bundle.pagos) {
+        await sheetUpsertRow('pagos', toDbPagoPayload(p));
       }
-      return { synced: false, pendingSync: true };
+    } catch (sheetErr) {
+      console.warn('[salesPersistenceService] Google Sheets sync warning:', sheetErr);
     }
+
+    // 2. Intentar Supabase RPC atómico solo si está disponible en la base de datos
+    if (rpcRecordSaleAvailable !== false) {
+      try {
+        const supabase = getActiveSupabaseClient();
+        const { error } = await supabase.rpc('record_internal_sale', {
+          p_factura: toDbFacturaPayload(bundle.factura),
+          p_pagos: bundle.pagos.map(toDbPagoPayload),
+        });
+        if (error) {
+          if (
+            error.message?.includes('function') ||
+            error.message?.includes('does not exist') ||
+            error.message?.includes('schema cache') ||
+            error.message?.includes('permission')
+          ) {
+            rpcRecordSaleAvailable = false;
+            console.warn('[salesPersistenceService] Supabase RPC record_internal_sale omitido (facturas en Google Sheets):', error.message);
+            return { synced: true, pendingSync: false };
+          }
+          throw error;
+        }
+        rpcRecordSaleAvailable = true;
+        return { synced: true, pendingSync: false };
+      } catch (error: any) {
+        if (
+          error?.message?.includes('function') ||
+          error?.message?.includes('does not exist') ||
+          error?.message?.includes('schema cache')
+        ) {
+          rpcRecordSaleAvailable = false;
+          console.warn('[salesPersistenceService] Supabase RPC no disponible; guardado en Google Sheets.');
+          return { synced: true, pendingSync: false };
+        }
+        console.warn('Cobro guardado localmente y pendiente de sincronización:', error);
+        if (enqueueOnFailure) {
+          const { syncQueueService } = await import('./syncQueueService');
+          syncQueueService.enqueue('record_sale_bundle', bundle);
+        }
+        return { synced: false, pendingSync: true };
+      }
+    }
+
+    return { synced: true, pendingSync: false };
   },
 };

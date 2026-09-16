@@ -56,20 +56,34 @@ const toDbCierre = (cierre: CierreCaja) => ({
   usuario_cajero: cierre.usuario_cajero,
 });
 
+let cierresTableAvailableInSupabase: boolean | null = null;
+
 const persistCierre = async (cierre: CierreCaja): Promise<void> => {
   try {
     await sheetUpsertRow('cierres_caja', toDbCierre(cierre));
   } catch (sheetErr) {
     console.warn('[cajaService.persistCierre] Error en Google Sheets:', sheetErr);
   }
-  try {
-    const supabase = tryGetActiveSupabaseClient();
-    if (supabase) {
-      const { error } = await supabase.from('cierres_caja').upsert([toDbCierre(cierre)]);
-      if (error) console.warn('[cajaService.persistCierre] Supabase warning:', error);
+  if (cierresTableAvailableInSupabase !== false) {
+    try {
+      const supabase = tryGetActiveSupabaseClient();
+      if (supabase) {
+        const { error } = await supabase.from('cierres_caja').upsert([toDbCierre(cierre)]);
+        if (error) {
+          if (error.message?.includes('schema cache') || error.message?.includes('does not exist')) {
+            cierresTableAvailableInSupabase = false;
+          }
+          console.warn('[cajaService.persistCierre] Supabase warning:', error);
+        } else {
+          cierresTableAvailableInSupabase = true;
+        }
+      }
+    } catch (e: any) {
+      if (e?.message?.includes('schema cache') || e?.message?.includes('does not exist')) {
+        cierresTableAvailableInSupabase = false;
+      }
+      console.warn('[cajaService.persistCierre] Supabase omitido:', e);
     }
-  } catch (e) {
-    console.warn('[cajaService.persistCierre] Supabase omitido:', e);
   }
 };
 

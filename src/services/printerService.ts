@@ -12,6 +12,32 @@ export interface BridgeStatus {
 }
 
 let isPrintingLock = false;
+let bridgeOnlineCache: boolean | null = null;
+let lastBridgeCheckTime = 0;
+const BRIDGE_CACHE_TTL = 30000;
+
+async function isBridgeOnlineFast(): Promise<boolean> {
+  const now = Date.now();
+  if (bridgeOnlineCache !== null && now - lastBridgeCheckTime < BRIDGE_CACHE_TTL) {
+    return bridgeOnlineCache;
+  }
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 200);
+    const res = await fetch('http://127.0.0.1:8012/status', {
+      method: 'GET',
+      signal: controller.signal
+    });
+    clearTimeout(timer);
+    bridgeOnlineCache = res.ok;
+    lastBridgeCheckTime = now;
+    return bridgeOnlineCache;
+  } catch {
+    bridgeOnlineCache = false;
+    lastBridgeCheckTime = now;
+    return false;
+  }
+}
 
 export const printerService = {
   getDefaultConfig(): PrinterConfig {
@@ -60,7 +86,7 @@ export const printerService = {
   async checkBridgeStatus(): Promise<BridgeStatus> {
     try {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 1200);
+      const timer = setTimeout(() => controller.abort(), 300);
       const res = await fetch('http://127.0.0.1:8012/status', {
         method: 'GET',
         signal: controller.signal
@@ -68,11 +94,15 @@ export const printerService = {
       clearTimeout(timer);
       if (res.ok) {
         const data = await res.json();
+        bridgeOnlineCache = true;
+        lastBridgeCheckTime = Date.now();
         return { online: true, ...data };
       }
     } catch {
       // safe bypass
     }
+    bridgeOnlineCache = false;
+    lastBridgeCheckTime = Date.now();
     return { online: false };
   },
 
@@ -360,8 +390,16 @@ export const printerService = {
               size: ${pageWidth} auto;
               margin: 0;
             }
+            * {
+              box-sizing: border-box;
+              font-weight: 900 !important;
+              color: #000 !important;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
             body {
               font-family: 'Courier New', Courier, monospace;
+              font-weight: 900;
               width: ${printableWidth};
               margin: 0 auto;
               padding: 2mm 1mm;
@@ -372,12 +410,12 @@ export const printerService = {
             }
             .center { text-align: center; }
             .right { text-align: right; }
-            .bold { font-weight: bold; }
+            .bold { font-weight: 900; }
             .title { font-size: 14px; font-weight: 900; margin-bottom: 2px; }
-            .subtitle { font-size: 10px; font-weight: bold; }
+            .subtitle { font-size: 10px; font-weight: 900; }
             .divider { border-bottom: 1px dashed #000; margin: 4px 0; }
             .double-divider { border-bottom: 2px solid #000; margin: 4px 0; }
-            .row { display: flex; justify-content: space-between; font-size: 10px; }
+            .row { display: flex; justify-content: space-between; font-size: 10px; font-weight: 900; }
             .total-row { display: flex; justify-content: space-between; font-size: 13px; font-weight: 900; margin: 4px 0; }
           </style>
         </head>
@@ -392,7 +430,7 @@ export const printerService = {
       iframeDoc.write(htmlContent);
       iframeDoc.close();
 
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise(resolve => setTimeout(resolve, 60));
       iframe.contentWindow?.focus();
       iframe.contentWindow?.print();
 
@@ -475,66 +513,69 @@ export const printerService = {
       const effectiveConfig: PrinterConfig = { ...config, copies: effectiveCopies };
       const rawText = this.generateEscPosText(data, effectiveConfig);
 
-      // 1. Intentar Puente USB Local en puerto 8012
-      try {
-        const controller = new AbortController();
-        const id = setTimeout(() => controller.abort(), 2500);
+      // 1. Intentar Puente USB Local solo si está en línea (verificación ultra rápida con caché)
+      const isBridgeOnline = await isBridgeOnlineFast();
+      if (isBridgeOnline) {
+        try {
+          const controller = new AbortController();
+          const id = setTimeout(() => controller.abort(), 1200);
 
-        // Si se solicitan 2 copias (1 Cliente + 1 Dueño), despachamos dos trabajos físicos discretos
-        // para que el cabezal de 58 mm corte/avance cada uno por separado y no se superpongan
-        if (effectiveConfig.copies === 2) {
-          const rawCliente = this.generateSingleTicketEscPos(data, effectiveConfig, 'cliente', effectiveConfig.openDrawer);
-          const rawDueno = this.generateSingleTicketEscPos(data, effectiveConfig, 'dueno', false);
+          // Si se solicitan 2 copias (1 Cliente + 1 Dueño), despachamos dos trabajos físicos discretos
+          // para que el cabezal de 58 mm corte/avance cada uno por separado y no se superpongan
+          if (effectiveConfig.copies === 2) {
+            const rawCliente = this.generateSingleTicketEscPos(data, effectiveConfig, 'cliente', effectiveConfig.openDrawer);
+            const rawDueno = this.generateSingleTicketEscPos(data, effectiveConfig, 'dueno', false);
 
-          const resp1 = await fetch('http://127.0.0.1:8012/print', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ rawText: rawCliente, config: effectiveConfig }),
-            signal: controller.signal
-          });
-
-          if (resp1.ok) {
-            // Breve pausa para que el cabezal térmico de 58 mm finalice el avance del primer ticket antes de enviar el segundo
-            await new Promise(r => setTimeout(r, 400));
-
-            await fetch('http://127.0.0.1:8012/print', {
+            const resp1 = await fetch('http://127.0.0.1:8012/print', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ rawText: rawDueno, config: { ...effectiveConfig, openDrawer: false } }),
+              body: JSON.stringify({ rawText: rawCliente, config: effectiveConfig }),
+              signal: controller.signal
+            });
+
+            if (resp1.ok) {
+              // Breve pausa para que el cabezal térmico de 58 mm finalice el avance del primer ticket antes de enviar el segundo
+              await new Promise(r => setTimeout(r, 200));
+
+              await fetch('http://127.0.0.1:8012/print', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ rawText: rawDueno, config: { ...effectiveConfig, openDrawer: false } }),
+                signal: controller.signal
+              });
+
+              clearTimeout(id);
+              return {
+                success: true,
+                message: `2 tickets emitidos con éxito (1 Original Cliente + 1 Duplicado Dueño) en ${effectiveConfig.printerName}.`,
+                methodUsed: 'UsbPrintBridge',
+                rawText
+              };
+            }
+          } else {
+            const response = await fetch('http://127.0.0.1:8012/print', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ rawText, config: effectiveConfig }),
               signal: controller.signal
             });
 
             clearTimeout(id);
-            return {
-              success: true,
-              message: `2 tickets emitidos con éxito (1 Original Cliente + 1 Duplicado Dueño) en ${effectiveConfig.printerName}.`,
-              methodUsed: 'UsbPrintBridge',
-              rawText
-            };
-          }
-        } else {
-          const response = await fetch('http://127.0.0.1:8012/print', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ rawText, config: effectiveConfig }),
-            signal: controller.signal
-          });
 
+            if (response.ok) {
+              const json = await response.json();
+              return {
+                success: true,
+                message: `Tickets emitidos en impresora térmica USB (${json.printerUsed || effectiveConfig.printerName}).`,
+                methodUsed: 'UsbPrintBridge',
+                rawText
+              };
+            }
+          }
           clearTimeout(id);
-
-          if (response.ok) {
-            const json = await response.json();
-            return {
-              success: true,
-              message: `Tickets emitidos en impresora térmica USB (${json.printerUsed || effectiveConfig.printerName}).`,
-              methodUsed: 'UsbPrintBridge',
-              rawText
-            };
-          }
+        } catch {
+          bridgeOnlineCache = false;
         }
-        clearTimeout(id);
-      } catch {
-        // continuar a Capa 2
       }
 
       // 2. Capa 2: Respaldo Térmico de Navegador (58 mm)

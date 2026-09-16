@@ -695,6 +695,9 @@ export function useCaja({
       fecha: saleDate.toISOString()
     }));
 
+    // Disparar la impresión del ticket de inmediato en el evento del usuario (0ms de demora)
+    const printPromise = printerService.sendToPrinter(dataTicket, printerConfig);
+
     const persistence = await salesPersistenceService.persist({ factura: internalFactura, pagos: paymentRows });
     if (persistence.pendingSync) {
       toast.warning('Cobro respaldado localmente. Se sincronizará con Supabase al recuperar conexión.');
@@ -741,7 +744,7 @@ export function useCaja({
     addLog('sistema', `CAJA: Cobro finalizado para Mesa ${selectedPedido.numero_mesa}. Ticket interno ${compiledTicketNo} registrado sin solicitar CAE.`);
 
     try {
-      const printRes = await printerService.sendToPrinter(dataTicket, printerConfig);
+      const printRes = await printPromise;
       if (printRes.success) {
         toast.success(printRes.message);
       } else {

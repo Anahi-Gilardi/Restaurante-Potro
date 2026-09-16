@@ -24,16 +24,23 @@ const writeLocalLogs = (logs: EventoLog[]) => {
   } catch {}
 };
 
+let auditoriaTableAvailable: boolean | null = null;
+
 export const auditoriaService = {
   async list(): Promise<EventoLog[]> {
     const local = readLocalLogs();
+    if (auditoriaTableAvailable === false) return local;
     try {
       const supabase = getActiveSupabaseClient();
       const { data, error } = await supabase.from('auditoria_eventos').select('*').order('timestamp', { ascending: false });
       if (error) {
+        if (error.message?.includes('schema cache') || error.message?.includes('does not exist')) {
+          auditoriaTableAvailable = false;
+        }
         console.warn('auditoria_eventos no disponible en Supabase, usando respaldo local:', error.message);
         return local;
       }
+      auditoriaTableAvailable = true;
       const remote = (data || []).map(l => ({
         id: l.id,
         tipo: l.tipo,
@@ -57,25 +64,35 @@ export const auditoriaService = {
   async create(log: EventoLog): Promise<void> {
     const local = readLocalLogs();
     writeLocalLogs([log, ...local.filter(l => l.id !== log.id)]);
-    try {
-      const supabase = getActiveSupabaseClient();
-      const payload = {
-        id: log.id,
-        tipo: log.tipo,
-        mensaje: log.mensaje,
-        timestamp: log.timestamp instanceof Date ? log.timestamp.toISOString() : new Date(log.timestamp).toISOString(),
-        terminal: log.terminal ?? null,
-        entidad_id: log.entidad_id ?? null,
-        estado_anterior: log.estado_anterior ?? null,
-        estado_nuevo: log.estado_nuevo ?? null,
-        duracion_segundos: log.duracion_segundos ?? null,
-      };
-      const { error } = await supabase.from('auditoria_eventos').insert([payload]);
-      if (error) {
-        console.warn('Auditoría remota omitida (tabla no disponible):', error.message);
+    if (auditoriaTableAvailable !== false) {
+      try {
+        const supabase = getActiveSupabaseClient();
+        const payload = {
+          id: log.id,
+          tipo: log.tipo,
+          mensaje: log.mensaje,
+          timestamp: log.timestamp instanceof Date ? log.timestamp.toISOString() : new Date(log.timestamp).toISOString(),
+          terminal: log.terminal ?? null,
+          entidad_id: log.entidad_id ?? null,
+          estado_anterior: log.estado_anterior ?? null,
+          estado_nuevo: log.estado_nuevo ?? null,
+          duracion_segundos: log.duracion_segundos ?? null,
+        };
+        const { error } = await supabase.from('auditoria_eventos').insert([payload]);
+        if (error) {
+          if (error.message?.includes('schema cache') || error.message?.includes('does not exist')) {
+            auditoriaTableAvailable = false;
+          }
+          console.warn('Auditoría remota omitida (tabla no disponible):', error.message);
+        } else {
+          auditoriaTableAvailable = true;
+        }
+      } catch (err: any) {
+        if (err?.message?.includes('schema cache') || err?.message?.includes('does not exist')) {
+          auditoriaTableAvailable = false;
+        }
+        console.warn('Could not persist audit log to remote database:', err);
       }
-    } catch (err) {
-      console.warn('Could not persist audit log to remote database:', err);
     }
   },
 
