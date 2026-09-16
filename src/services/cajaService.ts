@@ -56,8 +56,6 @@ const toDbCierre = (cierre: CierreCaja) => ({
   usuario_cajero: cierre.usuario_cajero,
 });
 
-let cierresTableAvailableInSupabase = false;
-
 export const broadcastAppEvent = (event: string, payload: any) => {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent(`el_patron_${event}`, { detail: payload }));
@@ -91,24 +89,6 @@ const persistCierre = async (cierre: CierreCaja): Promise<void> => {
     await sheetUpsertRow('cierres_caja', toDbCierre(cierre));
   } catch (sheetErr) {
     console.warn('[cajaService.persistCierre] Error en Google Sheets:', sheetErr);
-  }
-  if (cierresTableAvailableInSupabase) {
-    try {
-      const supabase = tryGetActiveSupabaseClient();
-      if (supabase) {
-        const { error } = await supabase.from('cierres_caja').upsert([toDbCierre(cierre)]);
-        if (error) {
-          if (error.message?.includes('schema cache') || error.message?.includes('does not exist')) {
-            cierresTableAvailableInSupabase = false;
-          }
-          console.warn('[cajaService.persistCierre] Supabase warning:', error);
-        }
-      }
-    } catch (e: any) {
-      if (e?.message?.includes('schema cache') || e?.message?.includes('does not exist')) {
-        cierresTableAvailableInSupabase = false;
-      }
-    }
   }
 };
 
@@ -256,32 +236,6 @@ export const cajaService = {
       console.warn('[cajaService.listHistory] Google Sheets:', sheetErr);
     }
 
-    if (cierresTableAvailableInSupabase) {
-      try {
-        const supabase = tryGetActiveSupabaseClient();
-        if (supabase) {
-          const { data, error } = await supabase
-            .from('cierres_caja')
-            .select('*')
-            .order('id_cierre', { ascending: false });
-            
-          if (!error && data && data.length > 0) {
-            return data.map(cc => ({
-              id_cierre: cc.id_cierre,
-              fecha_apertura: cc.fecha_apertura || inferFechaApertura(cc.id_cierre),
-              fecha_cierre: cc.fecha_cierre,
-              monto_apertura: parseFloat(cc.monto_apertura),
-              monto_ventas: parseFloat(cc.monto_ventas),
-              monto_real: cc.monto_real ? parseFloat(cc.monto_real) : null,
-              diferencia: cc.diferencia ? parseFloat(cc.diferencia) : null,
-              observaciones: cc.observaciones || '',
-              usuario_cajero: cc.usuario_cajero || 'Cajero Pro',
-              sync_status: 'synced'
-            }));
-          }
-        }
-      } catch {}
-    }
     // Offline fallback lists historical records
     const raw = safeStorage.getItem('el_patron_historial_cierres');
     if (raw) {
@@ -302,44 +256,80 @@ export const cajaService = {
 
   async findActiveSessionRemote(): Promise<CierreCaja | null> {
     try {
+      const lastClosedId = safeStorage.getItem('el_patron_ultimo_cierre_cerrado_id');
+      const rawHistory = safeStorage.getItem('el_patron_historial_cierres');
+      const closedIds = new Set<string>();
+      if (lastClosedId) closedIds.add(lastClosedId);
+      if (rawHistory) {
+        try {
+          const parsedHistory = JSON.parse(rawHistory);
+          if (Array.isArray(parsedHistory)) {
+            parsedHistory.forEach((h: any) => {
+              if (h.id_cierre && h.fecha_cierre) closedIds.add(String(h.id_cierre));
+            });
+          }
+        } catch {}
+      }
+
       const sheetData = await sheetFetchTable('cierres_caja');
       if (sheetData && Array.isArray(sheetData) && sheetData.length > 0) {
+        // Ordenar del más reciente al más antiguo
         const sorted = [...sheetData].sort((a, b) => {
           const tA = Number(String(a.id_cierre || '').replace(/\D/g, '')) || new Date(a.fecha_apertura || 0).getTime();
           const tB = Number(String(b.id_cierre || '').replace(/\D/g, '')) || new Date(b.fecha_apertura || 0).getTime();
           return tB - tA;
         });
 
-        const activeRow = sorted.find(r => {
-          const hasNoFechaCierre = !r.fecha_cierre || String(r.fecha_cierre).trim() === '' || String(r.fecha_cierre) === 'null';
-          const isActiva = String(r.observaciones || '').includes('Activa') || String(r.observaciones || '').includes('Turno') || hasNoFechaCierre;
-          return hasNoFechaCierre && isActiva;
-        });
+        // REGLA FUNDAMENTAL: Solo el turno MÁS RECIENTE del restaurante puede estar activo.
+        // Si el más reciente ya fue cerrado (o fue cerrado en este terminal), NO HAY caja abierta.
+        const latest = sorted[0];
+        if (!latest) return null;
 
-        if (activeRow) {
-          let regTotales = { efectivo: 0, debito: 0, credito: 0, transferencia: 0, mercadopago: 0 };
-          if (activeRow.registros_totales) {
-            try {
-              regTotales = typeof activeRow.registros_totales === 'string'
-                ? JSON.parse(activeRow.registros_totales)
-                : activeRow.registros_totales;
-            } catch {}
-          }
-          const session: CierreCaja = {
-            id_cierre: String(activeRow.id_cierre),
-            fecha_apertura: activeRow.fecha_apertura || inferFechaApertura(String(activeRow.id_cierre)),
-            fecha_cierre: null,
-            monto_apertura: parseFloat(activeRow.monto_apertura || 0),
-            monto_ventas: parseFloat(activeRow.monto_ventas || 0),
-            monto_real: null,
-            diferencia: null,
-            observaciones: activeRow.observaciones || 'Sesión Activa - En Turno',
-            usuario_cajero: activeRow.usuario_cajero || 'Cajero Pro',
-            sync_status: 'synced',
-            registros_totales: regTotales
-          };
-          return session;
+        const hasFechaCierre = Boolean(
+          latest.fecha_cierre && 
+          String(latest.fecha_cierre).trim() !== '' && 
+          String(latest.fecha_cierre) !== 'null'
+        );
+
+        if (hasFechaCierre) {
+          return null;
         }
+
+        if (closedIds.has(String(latest.id_cierre))) {
+          return null;
+        }
+
+        // Si la apertura tiene más de 24 horas y quedó huérfana, ignorar
+        if (latest.fecha_apertura) {
+          const openedAt = new Date(latest.fecha_apertura).getTime();
+          if (!isNaN(openedAt) && (Date.now() - openedAt > 24 * 3600 * 1000)) {
+            return null;
+          }
+        }
+
+        let regTotales = { efectivo: 0, debito: 0, credito: 0, transferencia: 0, mercadopago: 0 };
+        if (latest.registros_totales) {
+          try {
+            regTotales = typeof latest.registros_totales === 'string'
+              ? JSON.parse(latest.registros_totales)
+              : latest.registros_totales;
+          } catch {}
+        }
+
+        const session: CierreCaja = {
+          id_cierre: String(latest.id_cierre),
+          fecha_apertura: latest.fecha_apertura || inferFechaApertura(String(latest.id_cierre)),
+          fecha_cierre: null,
+          monto_apertura: parseFloat(latest.monto_apertura || 0),
+          monto_ventas: parseFloat(latest.monto_ventas || 0),
+          monto_real: null,
+          diferencia: null,
+          observaciones: latest.observaciones || 'Sesión Activa - En Turno',
+          usuario_cajero: latest.usuario_cajero || 'Cajero Pro',
+          sync_status: 'synced',
+          registros_totales: regTotales
+        };
+        return session;
       }
     } catch (err) {
       console.warn('[cajaService.findActiveSessionRemote] Error:', err);
@@ -364,35 +354,8 @@ export const cajaService = {
           };
         }
       }
-    } catch {}
-
-    if (!cierresTableAvailableInSupabase) return null;
-    try {
-      const supabase = tryGetActiveSupabaseClient();
-      if (!supabase) return null;
-      const { data, error } = await supabase
-        .from('cierres_caja')
-        .select('*')
-        .eq('id_cierre', idCierre)
-        .single();
-      if (error) {
-        if (error.message?.includes('schema cache') || error.message?.includes('does not exist')) {
-          cierresTableAvailableInSupabase = false;
-        }
-        return null;
-      }
-      if (data) {
-        return {
-          monto_ventas: parseFloat(data.monto_ventas),
-          monto_apertura: parseFloat(data.monto_apertura),
-          observaciones: data.observaciones,
-          usuario_cajero: data.usuario_cajero,
-          fecha_cierre: data.fecha_cierre,
-          fecha_apertura: data.fecha_apertura
-        };
-      }
-    } catch {
-      cierresTableAvailableInSupabase = false;
+    } catch (err) {
+      console.warn('[cajaService.getOpenSessionRemote] Error:', err);
     }
     return null;
   },
@@ -418,6 +381,9 @@ export const cajaService = {
         mercadopago: 0
       }
     };
+
+    // Limpiar cualquier bandera de cierre anterior en este terminal
+    safeStorage.removeItem('el_patron_ultimo_cierre_cerrado_id');
 
     // Guardar inmediatamente en almacenamiento local (0ms de latencia)
     safeSetItem('el_patron_caja_activa', JSON.stringify(session));
@@ -466,7 +432,11 @@ export const cajaService = {
 
   // Helper de sincronización para compatibilidad y encolado
   async syncShiftRemote(cierre: CierreCaja): Promise<void> {
-    cierre.sync_status = await persistOrQueueCierre(cierre);
+    try {
+      cierre.sync_status = await persistOrQueueCierre(cierre);
+    } catch (error) {
+      if (error) throw error;
+    }
   },
 
   async addMovimientoCajaChica(mov: MovimientoCajaChica): Promise<void> {
@@ -491,22 +461,6 @@ export const cajaService = {
     } catch (sheetErr) {
       console.warn('[cajaService.addMovimientoCajaChica] Google Sheets:', sheetErr);
     }
-
-    try {
-      const supabase = tryGetActiveSupabaseClient();
-      if (supabase) {
-        await supabase.from('movimientos_caja_chica').insert([{
-          id_movimiento: mov.id_movimiento,
-          id_cierre: mov.id_cierre,
-          tipo: mov.tipo,
-          monto: mov.monto,
-          concepto: mov.concepto,
-          fecha: mov.fecha
-        }]);
-      }
-    } catch (err) {
-      console.warn('Could not persist petty cash movement on remote DB:', err);
-    }
   },
 
   async listMovimientosCajaChica(idCierre: string): Promise<MovimientoCajaChica[]> {
@@ -529,31 +483,11 @@ export const cajaService = {
       console.warn('[cajaService.listMovimientosCajaChica] Google Sheets:', sheetErr);
     }
 
-    try {
-      const supabase = tryGetActiveSupabaseClient();
-      if (!supabase) return [];
-      const { data, error } = await supabase
-        .from('movimientos_caja_chica')
-        .select('*')
-        .eq('id_cierre', idCierre)
-        .order('fecha', { ascending: true });
-      if (error) throw error;
-      return (data || []).map(m => ({
-        id_movimiento: m.id_movimiento,
-        id_cierre: m.id_cierre,
-        tipo: m.tipo as 'ingreso' | 'egreso',
-        monto: parseFloat(m.monto),
-        concepto: m.concepto,
-        fecha: m.fecha
-      }));
-    } catch {
-      // Offline fallback
-      const active = this.getOpenSession();
-      if (active && active.id_cierre === idCierre) {
-        return active.movimientos_manuales || [];
-      }
-      return [];
+    const active = this.getOpenSession();
+    if (active && active.id_cierre === idCierre) {
+      return active.movimientos_manuales || [];
     }
+    return [];
   },
 
   async close(montoReal: number, observaciones: string, movimientos?: MovimientoCajaChica[]): Promise<CierreCaja> {
@@ -590,15 +524,16 @@ export const cajaService = {
     }
     const updatedHistory = [closed, ...history.filter(h => h.id_cierre !== closed.id_cierre)];
     safeSetItem('el_patron_historial_cierres', JSON.stringify(updatedHistory));
+
+    // Marcar como cerrado explícitamente para impedir que findActiveSessionRemote lo reviva
+    safeStorage.setItem('el_patron_ultimo_cierre_cerrado_id', closed.id_cierre);
     safeStorage.removeItem('el_patron_caja_activa');
 
     // Notificar a otras pestañas y computadoras en tiempo real
     broadcastAppEvent('caja_cerrada', { id_cierre: closed.id_cierre });
 
-    // Persistir en Google Sheets en segundo plano sin congelar la interfaz
-    persistCierre(closed).catch(err => {
-      console.warn('Persistencia de cierre en segundo plano:', err);
-    });
+    // Actualizar inmediatamente en Google Sheets y caché local
+    await persistCierre(closed);
 
     return closed;
   }

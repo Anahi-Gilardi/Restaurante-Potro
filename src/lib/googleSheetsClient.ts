@@ -348,7 +348,7 @@ export async function sheetUpsertRow<T extends Record<string, any>>(tableName: s
   try {
     const resp = await fetchFromSheets(`?action=upsert&table=${encodeURIComponent(tableName)}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(payload)
     });
 
@@ -383,7 +383,7 @@ export async function sheetBatchInsert<T extends Record<string, any>>(tableName:
   try {
     const resp = await fetchFromSheets(`?action=batchInsert&table=${encodeURIComponent(tableName)}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(payload)
     });
 
@@ -436,7 +436,7 @@ export async function sheetDeleteRow(tableName: string, id: string | number): Pr
   try {
     const resp = await fetchFromSheets(`?action=delete&table=${encodeURIComponent(tableName)}&id=${encodeURIComponent(String(id))}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(payload)
     });
 

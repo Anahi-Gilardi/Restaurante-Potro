@@ -216,6 +216,8 @@ export function useCaja({
     // Instantly set the local session to avoid UI flicker or requiring reopen on refresh
     if (active) {
       setCajaSession(active);
+    } else {
+      setCajaSession(null);
     }
 
     try {
@@ -233,10 +235,13 @@ export function useCaja({
 
       // Sincronización entre múltiples computadoras
       if (!active && remoteSession) {
-        // La caja fue abierta desde otra computadora
-        cajaService.safeStorage.setItem('el_patron_caja_activa', JSON.stringify(remoteSession));
-        setCajaSession(remoteSession);
-        active = remoteSession;
+        const lastClosedId = cajaService.safeStorage.getItem('el_patron_ultimo_cierre_cerrado_id');
+        if (remoteSession.id_cierre !== lastClosedId) {
+          // La caja fue abierta desde otra computadora
+          cajaService.safeStorage.setItem('el_patron_caja_activa', JSON.stringify(remoteSession));
+          setCajaSession(remoteSession);
+          active = remoteSession;
+        }
       } else if (active && !remoteSession) {
         // Si teníamos sesión local pero en Google Sheets ya figura cerrada en el historial
         const inHistory = history.find(h => h.id_cierre === active?.id_cierre);
