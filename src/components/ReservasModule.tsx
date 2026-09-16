@@ -566,7 +566,7 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Pax</label>
+                  <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Personas</label>
                   <select 
                     value={pax} 
                     onChange={e => setPax(e.target.value)}
@@ -604,7 +604,7 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
                   <option value="">Seleccionar una mesa</option>
                   {mesasDisponiblesFormulario.map(m => (
                     <option key={m.id_mesa} value={m.numero_mesa} className="bg-white dark:bg-stone-900">
-                      {m.numero_mesa} ({m.comensales ?? '?'} pax)
+                      {m.numero_mesa}
                     </option>
                   ))}
                 </select>
@@ -1061,7 +1061,7 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
                           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-stone-600 dark:text-stone-300 font-semibold">
                             <span className="flex items-center gap-1 font-mono"><Clock className="w-3.5 h-3.5 text-stone-400" />{r.hora}</span>
                             <span className="flex items-center gap-1"><Phone className="w-3.5 h-3.5 text-stone-400" />{r.telefono || '-'}</span>
-                            <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5 text-stone-400" />{r.pax} pax</span>
+                            <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5 text-stone-400" />{r.pax} {r.pax === 1 ? 'persona' : 'personas'}</span>
                             <span className="flex items-center gap-1"><Armchair className="w-3.5 h-3.5 text-stone-400" />{r.nombre_mesa}</span>
                           </div>
                         </div>
@@ -1214,7 +1214,7 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
                           <h5 className="text-xs font-extrabold text-stone-900 dark:text-white">{r.nombre_cliente}</h5>
                         </div>
                         <span className="text-[9px] font-black text-stone-700 bg-stone-150 px-1.5 py-0.5 rounded">
-                          {r.pax} pax
+                          {r.pax} {r.pax === 1 ? 'persona' : 'personas'}
                         </span>
                       </div>
                       
@@ -1300,7 +1300,7 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
                       <div className="flex-1 min-w-0">
                         <p className="text-[11px] font-bold text-stone-800 dark:text-stone-105 truncate leading-tight">{r.nombre_cliente}</p>
                         <p className="text-[9px] text-stone-450 dark:text-stone-300 mt-0.5 flex items-center gap-1 font-semibold font-mono">
-                          {r.hora} &middot; {r.nombre_mesa} &middot; {r.pax} pax
+                          {r.hora} &middot; {r.nombre_mesa} &middot; {r.pax} {r.pax === 1 ? 'persona' : 'personas'}
                         </p>
                       </div>
                     </button>
