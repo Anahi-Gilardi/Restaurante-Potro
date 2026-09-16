@@ -87,16 +87,36 @@ async function fetchFromSheets(urlOrAction: string, options?: RequestInit): Prom
   const isDirect = urlOrAction.startsWith('http');
   const endpoint = isDirect ? urlOrAction : `${getSheetsEndpoint()}${urlOrAction}`;
 
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+
   try {
-    const res = await fetch(endpoint, options);
+    const res = await fetch(endpoint, {
+      ...options,
+      signal: options?.signal || controller.signal
+    });
+    clearTimeout(timer);
     if (res.ok || isDirect || endpoint === GOOGLE_SHEETS_WEBAPP_URL) {
       return res;
     }
     throw new Error(`Proxy status ${res.status}`);
   } catch (proxyErr) {
+    clearTimeout(timer);
     if (!isDirect && endpoint !== GOOGLE_SHEETS_WEBAPP_URL) {
       const fallbackUrl = `${GOOGLE_SHEETS_WEBAPP_URL}${urlOrAction}`;
-      return fetch(fallbackUrl, options);
+      const fbController = new AbortController();
+      const fbTimer = setTimeout(() => fbController.abort(), 8000);
+      try {
+        const fbRes = await fetch(fallbackUrl, {
+          ...options,
+          signal: options?.signal || fbController.signal
+        });
+        clearTimeout(fbTimer);
+        return fbRes;
+      } catch (fbErr) {
+        clearTimeout(fbTimer);
+        throw fbErr;
+      }
     }
     throw proxyErr;
   }
@@ -303,6 +323,11 @@ export async function sheetUpsertRow<T extends Record<string, any>>(tableName: s
   const pk = pkFieldMap[tableName] || 'id';
   const pkVal = rowData[pk];
 
+  if (!cachedTables[tableName]) {
+    const disk = getTableStorageCache(tableName);
+    cachedTables[tableName] = disk && Array.isArray(disk) ? disk : [];
+  }
+
   if (pkVal !== undefined) {
     const idx = cachedTables[tableName].findIndex(r => String(r[pk]) === String(pkVal));
     if (idx >= 0) {
@@ -321,9 +346,9 @@ export async function sheetUpsertRow<T extends Record<string, any>>(tableName: s
   };
 
   try {
-    const resp = await fetchFromSheets('', {
+    const resp = await fetchFromSheets(`?action=upsert&table=${encodeURIComponent(tableName)}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
 
@@ -356,9 +381,9 @@ export async function sheetBatchInsert<T extends Record<string, any>>(tableName:
   };
 
   try {
-    const resp = await fetchFromSheets('', {
+    const resp = await fetchFromSheets(`?action=batchInsert&table=${encodeURIComponent(tableName)}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
 
@@ -409,9 +434,9 @@ export async function sheetDeleteRow(tableName: string, id: string | number): Pr
   };
 
   try {
-    const resp = await fetchFromSheets('', {
+    const resp = await fetchFromSheets(`?action=delete&table=${encodeURIComponent(tableName)}&id=${encodeURIComponent(String(id))}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
 

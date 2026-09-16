@@ -358,8 +358,19 @@ export const cajaService = {
       };
     }
 
-    active.sync_status = await persistOrQueueCierre(active);
+    // Actualizar inmediatamente en memoria / disco local (0ms)
+    active.sync_status = 'synced';
     safeSetItem('el_patron_caja_activa', JSON.stringify(active));
+
+    // Persistir cierre actualizado en Google Sheets en segundo plano sin congelar la interfaz
+    persistCierre(active).catch(err => {
+      console.warn('[cajaService.updateSales] Sincronización diferida en segundo plano:', err);
+    });
+  },
+
+  // Helper de sincronización para compatibilidad y encolado
+  async syncShiftRemote(cierre: CierreCaja): Promise<void> {
+    cierre.sync_status = await persistOrQueueCierre(cierre);
   },
 
   async addMovimientoCajaChica(mov: MovimientoCajaChica): Promise<void> {

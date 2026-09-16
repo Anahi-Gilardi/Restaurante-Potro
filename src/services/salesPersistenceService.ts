@@ -36,7 +36,7 @@ export const validateSaleBundle = ({ factura, pagos }: SaleBundle) => {
   }
 };
 
-let rpcRecordSaleAvailable: boolean | null = null;
+let rpcRecordSaleAvailable = false;
 
 export const salesPersistenceService = {
   async persist(bundle: SaleBundle, enqueueOnFailure = true): Promise<SalePersistenceResult> {
@@ -44,18 +44,20 @@ export const salesPersistenceService = {
     cacheFacturaLocally(bundle.factura);
     cachePaymentsLocally(bundle.pagos);
 
-    // 1. Guardar factura y pagos en Google Sheets (donde residen las ventas y facturas)
-    try {
-      await sheetUpsertRow('facturas', toDbFacturaPayload(bundle.factura));
-      for (const p of bundle.pagos) {
-        await sheetUpsertRow('pagos', toDbPagoPayload(p));
+    // 1. Guardar factura y pagos en Google Sheets en segundo plano para respuesta inmediata (0ms)
+    (async () => {
+      try {
+        await sheetUpsertRow('facturas', toDbFacturaPayload(bundle.factura));
+        for (const p of bundle.pagos) {
+          await sheetUpsertRow('pagos', toDbPagoPayload(p));
+        }
+      } catch (sheetErr) {
+        console.warn('[salesPersistenceService] Google Sheets sync warning:', sheetErr);
       }
-    } catch (sheetErr) {
-      console.warn('[salesPersistenceService] Google Sheets sync warning:', sheetErr);
-    }
+    })();
 
     // 2. Intentar Supabase RPC atómico solo si está disponible en la base de datos
-    if (rpcRecordSaleAvailable !== false) {
+    if (rpcRecordSaleAvailable) {
       try {
         const supabase = getActiveSupabaseClient();
         const { error } = await supabase.rpc('record_internal_sale', {
@@ -75,7 +77,6 @@ export const salesPersistenceService = {
           }
           throw error;
         }
-        rpcRecordSaleAvailable = true;
         return { synced: true, pendingSync: false };
       } catch (error: any) {
         if (

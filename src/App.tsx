@@ -1135,14 +1135,6 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
       window.dispatchEvent(new CustomEvent('el_patron_mesa_liberada', { detail: payload }));
     }
 
-    if (!isDemoSession) {
-      try {
-        await orderTransactionService.closeOrders(orderIds, permitirVentaSinStock);
-      } catch (error) {
-        console.warn('Supabase closeOrders omitido por permisos/red:', error);
-      }
-    }
-
     const targetMesa = mesas.find(m => 
       (m.id_mesa !== undefined && m.id_mesa !== null && target.id_mesa !== undefined && target.id_mesa !== null && String(m.id_mesa) === String(target.id_mesa)) ||
       (String(m.numero_mesa || '').toLowerCase().replace(/mesa\s+/gi, '').trim() === String(target.numero_mesa || '').toLowerCase().replace(/mesa\s+/gi, '').trim())
@@ -1158,27 +1150,38 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
       return matchId || matchNum || isPartChild || isPartUnited;
     }).map(m => ({ ...m, estado: 'libre' as const, comensales: undefined }));
 
-    try {
-      await dbUpsertMesas(affectedMesas);
-    } catch (err) {
-      console.warn('Error sincronizando mesa cobrada con Supabase:', err);
-    }
-
-    // Persistir comandas cerradas en Google Sheets
-    for (const order of ordersToBill) {
-      try {
-        await sheetUpsertRow('pedidos_cabecera', {
-          id_pedido: order.id_pedido,
-          id_mesa: order.id_mesa,
-          numero_mesa: order.numero_mesa,
-          mozo: order.mozo,
-          estado_comanda: 'entregado_cobrado',
-          items: JSON.stringify(order.items || [])
-        });
-      } catch (err) {
-        console.warn(`Error al actualizar comanda #${order.id_pedido} en Google Sheets:`, err);
+    // Persistencia remota asíncrona en segundo plano (0ms de latencia en la pantalla)
+    (async () => {
+      if (!isDemoSession) {
+        try {
+          await orderTransactionService.closeOrders(orderIds, permitirVentaSinStock);
+        } catch (error) {
+          console.warn('Supabase closeOrders omitido por permisos/red:', error);
+        }
       }
-    }
+
+      try {
+        await dbUpsertMesas(affectedMesas);
+      } catch (err) {
+        console.warn('Error sincronizando mesa cobrada con Supabase:', err);
+      }
+
+      // Persistir comandas cerradas en Google Sheets
+      for (const order of ordersToBill) {
+        try {
+          await sheetUpsertRow('pedidos_cabecera', {
+            id_pedido: order.id_pedido,
+            id_mesa: order.id_mesa,
+            numero_mesa: order.numero_mesa,
+            mozo: order.mozo,
+            estado_comanda: 'entregado_cobrado',
+            items: JSON.stringify(order.items || [])
+          });
+        } catch (err) {
+          console.warn(`Error al actualizar comanda #${order.id_pedido} en Google Sheets:`, err);
+        }
+      }
+    })();
 
     addLog('sistema', `CAJA: Facturación completa cobrada correctamente de la mesa ${target.numero_mesa} por Pedido(s) #${orderIds.join(', #')}`);
 

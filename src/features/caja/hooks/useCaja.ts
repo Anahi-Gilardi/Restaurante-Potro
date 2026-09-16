@@ -743,16 +743,16 @@ export function useCaja({
 
     addLog('sistema', `CAJA: Cobro finalizado para Mesa ${selectedPedido.numero_mesa}. Ticket interno ${compiledTicketNo} registrado sin solicitar CAE.`);
 
-    try {
-      const printRes = await printPromise;
+    // La impresión física o por navegador se despacha sin bloquear la interfaz ni el modal de éxito
+    printPromise.then(printRes => {
       if (printRes.success) {
         toast.success(printRes.message);
       } else {
         toast.warning(printRes.message);
       }
-    } catch (e: any) {
-      toast.warning(`Cobro registrado, pero hubo un error en la impresora: ${e.message}`);
-    }
+    }).catch(e => {
+      toast.warning(`Cobro registrado, pero hubo un error en la impresora: ${e?.message || e}`);
+    });
 
     setSelectedPedidoId(null);
     setMixedPayments([]);

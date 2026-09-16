@@ -44,9 +44,43 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         bodyText = req.body;
       } else if (req.body && typeof req.body === "object") {
         bodyText = JSON.stringify(req.body);
+      } else {
+        try {
+          const chunks: Buffer[] = [];
+          for await (const chunk of req) {
+            chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
+          }
+          if (chunks.length > 0) {
+            bodyText = Buffer.concat(chunks).toString("utf8");
+          }
+        } catch {}
       }
 
-      const gasRes = await fetch(GOOGLE_SHEETS_WEBAPP_URL, {
+      const url = new URL(GOOGLE_SHEETS_WEBAPP_URL);
+      if (req.query) {
+        for (const [key, val] of Object.entries(req.query)) {
+          if (val !== undefined) {
+            url.searchParams.set(key, Array.isArray(val) ? val[0] : String(val));
+          }
+        }
+      }
+
+      // Si el body contiene table o action, agregarlos también a la URL por seguridad
+      if (bodyText) {
+        try {
+          const parsed = JSON.parse(bodyText);
+          if (parsed && typeof parsed === "object") {
+            if (parsed.table && !url.searchParams.has("table")) {
+              url.searchParams.set("table", String(parsed.table));
+            }
+            if (parsed.action && !url.searchParams.has("action")) {
+              url.searchParams.set("action", String(parsed.action));
+            }
+          }
+        } catch {}
+      }
+
+      const gasRes = await fetch(url.toString(), {
         method: "POST",
         headers: { "Content-Type": "text/plain;charset=utf-8" },
         body: bodyText

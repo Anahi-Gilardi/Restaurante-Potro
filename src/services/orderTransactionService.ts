@@ -38,7 +38,7 @@ const throwRpcError = (operation: string, error: unknown): never => {
   throw new Error(`${operation}: ${detail}`);
 };
 
-let rpcAvailable: boolean | null = null;
+let rpcAvailable = false;
 
 export const orderTransactionService = {
   async saveOrder(
