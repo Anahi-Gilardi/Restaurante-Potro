@@ -28,6 +28,7 @@ import {
 import { Pedido, ProductoMenu, TicketData, TipoComprobante } from '../types';
 import { facturacionService, Factura } from '../services/facturacionService';
 import { pdfService } from '../services/pdfService';
+import { printerService } from '../services/printerService';
 import { ToastContainer, useToast } from './ToastContainer';
 import { sheetUpsertRow } from '../lib/googleSheetsClient';
 import {
@@ -410,6 +411,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
 
       await persistFactura(factura);
       await downloadFacturaPdf(factura);
+      imprimirFacturaTermica(factura);
       addLog('sistema', `FACTURACION: Emisión manual ${factura.nro_ticket} por ${money(total)}. Medio: ${medioLabel(manualMedio)}.`);
       
       // Resetear campos
@@ -585,6 +587,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
       };
 
       await pdfService.exportToPDF(ticketData);
+      imprimirFacturaTermica(factura, principalPedido);
       await persistFactura(factura);
       
       addLog('sistema', `FACTURACION: Pedidos [${prefixIdsStr}] unificados y facturados en ${factura.nro_ticket} por ${money(totalConsolidado)}.`);
@@ -669,6 +672,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
       }
 
       await downloadFacturaPdf(note);
+      imprimirFacturaTermica(note);
       addLog('sistema', `ARCA: Nota de Crédito C ${note.nro_ticket} autorizada con CAE ${result.CAE}, asociada a ${original.nro_ticket}.`);
       toast.success(`Nota de Crédito C ${note.nro_ticket} autorizada por ARCA.`);
     } catch (error) {
@@ -777,7 +781,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
     }
   };
 
-  const downloadFacturaPdf = async (factura: FacturaExtendida, pedido?: Pedido) => {
+  const buildFacturaTicketData = (factura: FacturaExtendida, pedido?: Pedido): TicketData => {
     const tipo = facturaTipo(factura);
     const { neto, iva } = calcIvaIncluido(factura.total, factura.iva_veintiuno > 0);
     
@@ -801,7 +805,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
       }];
     }
 
-    const ticketData: TicketData = {
+    return {
       idPedido: factura.id_pedido || pedido?.id_pedido || 0,
       nroComprobante: factura.nro_ticket,
       tipoComprobante: tipoToComprobante(tipo),
@@ -828,7 +832,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
       metodosPago: [{ metodo: medioLabel(factura.medio_pago), monto: factura.total }],
       vuelto: 0,
       mensajePie: factura.afip_cae
-        ? 'Gracias por su visita. Comprobante electrónico autorizado por ARCA.'
+        ? 'Gracias por su compra. Comprobante electrónico autorizado por ARCA.'
         : 'DOCUMENTO NO VALIDO COMO FACTURA.',
       clienteNombre: factura.cliente,
       clienteCuit: factura.cuit,
@@ -846,8 +850,27 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
       clienteDomicilio: factura.cliente_domicilio,
       comprobanteAsociado: factura.comprobante_asociado,
     };
+  };
 
+  const downloadFacturaPdf = async (factura: FacturaExtendida, pedido?: Pedido) => {
+    const ticketData = buildFacturaTicketData(factura, pedido);
     await pdfService.exportToPDF(ticketData);
+  };
+
+  const imprimirFacturaTermica = async (factura: FacturaExtendida, pedido?: Pedido) => {
+    try {
+      const ticketData = buildFacturaTicketData(factura, pedido);
+      const config = printerService.getDefaultConfig();
+      const res = await printerService.sendToPrinter(ticketData, config);
+      if (res.success) {
+        toast.success(res.message);
+      } else {
+        toast.error(res.message);
+      }
+    } catch (err) {
+      console.error('Error al imprimir ticket térmico:', err);
+      toast.error('No se pudo enviar la factura a la ticketera térmica.');
+    }
   };
 
   // Formateo Avanzado de jsPDF para Libro IVA Ventas
@@ -1911,7 +1934,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
                         <button onClick={() => downloadFacturaPdf(f)} className="p-1.5 rounded-lg bg-stone-50 dark:bg-stone-850 hover:bg-[#624A3E]/10 text-stone-500 dark:text-stone-300 hover:text-[#624A3E] transition-all cursor-pointer" title="Descargar PDF">
                           <Download className="w-3.5 h-3.5" />
                         </button>
-                        <button onClick={() => downloadFacturaPdf(f)} className="p-1.5 rounded-lg bg-stone-50 dark:bg-stone-850 hover:bg-[#624A3E]/10 text-stone-500 dark:text-stone-300 hover:text-[#624A3E] transition-all cursor-pointer" title="Reimprimir">
+                        <button onClick={() => imprimirFacturaTermica(f)} className="p-1.5 rounded-lg bg-stone-50 dark:bg-stone-850 hover:bg-[#624A3E]/10 text-stone-500 dark:text-stone-300 hover:text-[#624A3E] transition-all cursor-pointer" title="Imprimir Ticket Térmico">
                           <Printer className="w-3.5 h-3.5" />
                         </button>
                         {['autorizado', 'observado'].includes(f.estado) && f.tipo === 'C' && (
@@ -2093,10 +2116,11 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
               
               <div className="flex gap-2">
                 <button 
-                  onClick={() => downloadFacturaPdf(selectedFactura)}
+                  onClick={() => imprimirFacturaTermica(selectedFactura)}
                   className="px-3 py-2 bg-stone-200 hover:bg-stone-300 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 rounded-xl text-xs font-black uppercase tracking-wider cursor-pointer flex items-center gap-1"
+                  title="Imprimir ticket en ticketera térmica"
                 >
-                  <Printer className="w-3.5 h-3.5" /> Reimprimir
+                  <Printer className="w-3.5 h-3.5" /> Ticket Térmico
                 </button>
                 <button 
                   onClick={() => downloadFacturaPdf(selectedFactura)}

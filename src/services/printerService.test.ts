@@ -161,3 +161,74 @@ test('getFailedPrints descarta ítems con más de 24 horas y acota a un máximo 
   assert.equal(prints[4].id, 'r6');
 });
 
+test('generateSingleTicketEscPos formatea correctamente una Factura C ARCA para ticketera termica', () => {
+  const fiscalTicket: TicketData = {
+    nombreComercial: 'El Patron Restaurante',
+    razonSocial: 'BELLA ORIANA',
+    cuit: '27-42694613-6',
+    direccion: 'Fotheringham 33, CP 5800, Río Cuarto, Córdoba',
+    telefono: '+54 9 358 430-3541',
+    email: 'bellaoriana47@gmail.com',
+    nroComprobante: 'FC-0004-00000012',
+    idPedido: 501,
+    mesa: 'Mesa 7',
+    mozo: 'Lucas',
+    cajero: 'Caja 1',
+    fechaHora: '16/09/2026 14:30',
+    tipoComprobante: 'factura_c',
+    puntoVenta: 4,
+    numeroFiscal: 12,
+    cae: '74392819284729',
+    vto: '20260926',
+    clienteNombre: 'JUAN PEREZ',
+    clienteCuit: '20-30405060-7',
+    clienteDocumentoTipo: 'CUIT',
+    condicionIvaReceptor: 'Consumidor Final',
+    items: [
+      { cantidad: 2, descripcion: 'Empanadas de Carne', precio_unitario: 4500, subtotal: 9000 },
+      { cantidad: 1, descripcion: 'Ojo de bife al aligot', precio_unitario: 38600, subtotal: 38600 }
+    ],
+    subtotal: 47600,
+    descuento: 0,
+    propina: 0,
+    iva: 0,
+    total: 47600,
+    metodosPago: [{ metodo: 'efectivo', monto: 47600 }],
+    vuelto: 0,
+    mensajePie: 'Comprobante electrónico autorizado por ARCA.'
+  };
+
+  const config: PrinterConfig = {
+    printerName: 'POS58 Printer',
+    paperWidth: '58mm',
+    autoCut: true,
+    openDrawer: true,
+    copies: 1
+  };
+
+  const esc = printerService.generateSingleTicketEscPos(fiscalTicket, config, 'cliente', true);
+
+  // Nombre comercial "EL PATRON" destacado
+  assert.match(esc, /EL PATRON/);
+  // Datos del emisor
+  assert.match(esc, /BELLA ORIANA/);
+  assert.match(esc, /27-42694613-6/);
+  // Recuadro fiscal de Letra C
+  assert.match(esc, /\[ C \]  COD\. 011/);
+  // Comprobante y numeración
+  assert.match(esc, /FACTURA C/);
+  assert.match(esc, /PUNTO VTA: 0004  NRO: 00000012/);
+  // Datos receptor
+  assert.match(esc, /SEÑOR\/ES: JUAN PEREZ/);
+  assert.match(esc, /CUIT: 20-30405060-7/);
+  // Artículos y total
+  assert.match(esc, /Empanadas de Carne/);
+  assert.match(esc, /TOTAL:/);
+  // Datos fiscales ARCA
+  assert.match(esc, /ARCA - Comprobante Autorizado/);
+  assert.match(esc, /CAE Nº: 74392819284729/);
+  assert.match(esc, /Fecha Vto\. CAE: 26\/09\/2026/);
+  assert.match(esc, /www\.afip\.gob\.ar\/fe\/qr\//);
+});
+
+

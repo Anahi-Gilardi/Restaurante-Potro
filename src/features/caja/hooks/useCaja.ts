@@ -936,15 +936,15 @@ export function useCaja({
     await pdfService.exportToPDF(dataTicket);
   };
 
-  const downloadFacturaHistorialPdf = async (factura: Factura) => {
+  const buildFacturaHistorialTicketData = (factura: Factura): TicketData => {
     const isFacturaC = factura.tipo === 'C' || factura.tipo === 'NC';
     const neto = isFacturaC ? factura.total : Number((factura.total / 1.21).toFixed(2));
     const emitter = factura.arca_emisor;
-    await pdfService.exportToPDF({
+    return {
       idPedido: factura.id_pedido || 0,
       nroComprobante: factura.nro_ticket,
       tipoComprobante: factura.tipo === 'NC' ? 'nota_credito_c' : factura.tipo === 'C' ? 'factura_c' : 'ticket_consumo',
-      fechaHora: factura.fecha,
+      fechaHora: factura.fecha_completa || factura.fecha,
       mesa: 'Historial',
       mozo: 'Caja',
       cajero: cajaSession?.usuario_cajero || 'Caja',
@@ -960,7 +960,7 @@ export function useCaja({
       condicionIvaReceptor: CONDICIONES_IVA_RECEPTOR.find(condition => condition.id === factura.condicion_iva_receptor)?.label,
       items: [{
         cantidad: 1,
-        descripcion: 'Venta gastronomica segun ticket emitido',
+        descripcion: 'Venta gastronómica según ticket emitido',
         precio_unitario: neto,
         subtotal: neto
       }],
@@ -974,8 +974,37 @@ export function useCaja({
       mensajePie: factura.afip_cae ? 'Comprobante electrónico autorizado por ARCA.' : 'DOCUMENTO NO VALIDO COMO FACTURA.',
       cae: factura.afip_cae,
       vto: factura.afip_vto,
-      qrData: factura.afip_qr
-    });
+      qrData: factura.afip_qr,
+      clienteNombre: factura.cliente,
+      clienteCuit: factura.cuit,
+      puntoVenta: factura.afip_pto_vta,
+      numeroFiscal: factura.afip_cbte_nro,
+      fechaEmision: factura.fecha_completa,
+      clienteDocumentoTipo: factura.documento_tipo_receptor === 80 ? 'CUIT' : factura.documento_tipo_receptor === 96 ? 'DNI' : 'Consumidor Final',
+      clienteDomicilio: factura.cliente_domicilio,
+      comprobanteAsociado: factura.comprobante_asociado,
+    };
+  };
+
+  const downloadFacturaHistorialPdf = async (factura: Factura) => {
+    const ticketData = buildFacturaHistorialTicketData(factura);
+    await pdfService.exportToPDF(ticketData);
+  };
+
+  const printFacturaHistorialTermica = async (factura: Factura) => {
+    try {
+      const ticketData = buildFacturaHistorialTicketData(factura);
+      const config = printerService.getDefaultConfig();
+      const res = await printerService.sendToPrinter(ticketData, config);
+      if (res.success) {
+        toast.success(res.message);
+      } else {
+        toast.error(res.message);
+      }
+    } catch (err) {
+      console.error('Error al imprimir ticket térmico historial:', err);
+      toast.error('No se pudo enviar el comprobante a la ticketera térmica.');
+    }
   };
 
   const handleDownloadTicketsAuditPDF = async (
@@ -1132,6 +1161,7 @@ export function useCaja({
     triggerManualPrint,
     triggerPDFDownloadOnly,
     downloadFacturaHistorialPdf,
+    printFacturaHistorialTermica,
     loadCajaState,
     showTicketsAuditModal,
     setShowTicketsAuditModal,

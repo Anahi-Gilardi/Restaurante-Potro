@@ -163,6 +163,7 @@ export default function CajaModule({
     triggerManualPrint,
     triggerPDFDownloadOnly,
     downloadFacturaHistorialPdf,
+    printFacturaHistorialTermica,
     loadCajaState,
     showTicketsAuditModal,
     setShowTicketsAuditModal,
@@ -930,14 +931,24 @@ export default function CajaModule({
                         {factura.cliente || 'Consumidor Final'} • ${factura.total.toLocaleString('es-AR')}
                       </p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => downloadFacturaHistorialPdf(factura)}
-                      className="px-2.5 py-1 rounded-lg bg-[#624A3E] hover:bg-[#503C32] text-white text-[9px] font-black uppercase shrink-0 cursor-pointer border-none transition-all shadow-2xs"
-                      title="Descargar comprobante en PDF"
-                    >
-                      Descargar PDF
-                    </button>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => printFacturaHistorialTermica(factura)}
+                        className="px-2 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 text-[9px] font-black uppercase cursor-pointer border border-stone-200 dark:border-stone-700 transition-all shadow-2xs flex items-center gap-1"
+                        title="Imprimir comprobante en ticketera térmica"
+                      >
+                        <Printer className="w-3 h-3" /> Ticket
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => downloadFacturaHistorialPdf(factura)}
+                        className="px-2.5 py-1 rounded-lg bg-[#624A3E] hover:bg-[#503C32] text-white text-[9px] font-black uppercase shrink-0 cursor-pointer border-none transition-all shadow-2xs"
+                        title="Descargar comprobante en PDF"
+                      >
+                        PDF
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

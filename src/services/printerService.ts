@@ -1,5 +1,65 @@
+import QRCode from 'qrcode';
 import { TicketData, PrinterConfig } from '../types';
 import { formatTicketTableName } from '../lib/tableUnions';
+
+export const formatCuit = (cuit: string | number | undefined): string => {
+  if (!cuit) return '-';
+  const clean = String(cuit).replace(/\D/g, '');
+  if (clean.length === 11) {
+    return `${clean.slice(0, 2)}-${clean.slice(2, 10)}-${clean.slice(10)}`;
+  }
+  return clean || '-';
+};
+
+export const formatArcaDate = (value?: string): string => {
+  if (!value) return '-';
+  if (/^\d{8}$/.test(value)) {
+    return `${value.slice(6, 8)}/${value.slice(4, 6)}/${value.slice(0, 4)}`;
+  }
+  if (/^\d{4}-\d{2}-\d{2}/.test(value)) {
+    return `${value.slice(8, 10)}/${value.slice(5, 7)}/${value.slice(0, 4)}`;
+  }
+  return value;
+};
+
+export const getAfipVoucherInfo = (tipoComprobante?: string): { letter: string; code: string; label: string } => {
+  const t = (tipoComprobante || '').toLowerCase();
+  if (t.includes('nota_credito') || t.includes('credito') || t === 'nc') {
+    if (t.includes('a')) return { letter: 'A', code: '003', label: 'NOTA DE CRÉDITO A' };
+    if (t.includes('b')) return { letter: 'B', code: '008', label: 'NOTA DE CRÉDITO B' };
+    return { letter: 'C', code: '013', label: 'NOTA DE CRÉDITO C' };
+  }
+  if (t.includes('factura_a') || t === 'a') return { letter: 'A', code: '001', label: 'FACTURA A' };
+  if (t.includes('factura_b') || t === 'b') return { letter: 'B', code: '006', label: 'FACTURA B' };
+  return { letter: 'C', code: '011', label: 'FACTURA C' };
+};
+
+export const isFiscalTicket = (data: TicketData): boolean => {
+  const tipo = (data.tipoComprobante || '').toLowerCase();
+  return tipo.startsWith('factura') || tipo.startsWith('nota_credito') || Boolean(data.cae);
+};
+
+export const loadQrDataUrl = async (qrDataText: string | undefined): Promise<string | null> => {
+  if (!qrDataText) return null;
+  try {
+    let qrUrl = qrDataText;
+    if (qrDataText.startsWith('{')) {
+      try {
+        const base64 = typeof btoa !== 'undefined'
+          ? btoa(unescape(encodeURIComponent(qrDataText)))
+          : Buffer.from(qrDataText).toString('base64');
+        qrUrl = `https://www.afip.gob.ar/fe/qr/?p=${base64}`;
+      } catch (e) {
+        console.warn('Error convirtiendo QR JSON a Base64:', e);
+      }
+    }
+    return await QRCode.toDataURL(qrUrl, { errorCorrectionLevel: 'M', margin: 1, width: 256 });
+  } catch (err) {
+    console.warn('No se pudo generar QR ARCA:', err);
+    return null;
+  }
+};
+
 
 export interface BridgeStatus {
   online: boolean;
@@ -36,6 +96,257 @@ async function isBridgeOnlineFast(): Promise<boolean> {
     bridgeOnlineCache = false;
     lastBridgeCheckTime = now;
     return false;
+  }
+}
+
+async function generateFiscalThermalHtml(data: TicketData, config: PrinterConfig): Promise<{ success: boolean; message: string }> {
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    return { success: false, message: 'Entorno sin ventana disponible para impresión.' };
+  }
+
+  try {
+    const is58 = config.paperWidth === '58mm';
+    const printableWidth = is58 ? '48mm' : '72mm';
+    const pageWidth = is58 ? '58mm' : '80mm';
+
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    iframe.id = 'thermal-print-iframe-fiscal';
+
+    document.body.appendChild(iframe);
+
+    const iframeDoc = iframe.contentWindow?.document;
+    if (!iframeDoc) {
+      throw new Error('No se pudo acceder al documento de impresión.');
+    }
+
+    const itemsHtml = data.items.map(it => {
+      const unit = it.precio_unitario ?? it.precioUnitario ?? 0;
+      return `
+        <div style="margin-bottom: 3px;">
+          <div style="font-weight: bold; word-break: break-word;">${it.descripcion}</div>
+          <div style="display: flex; justify-content: space-between; font-size: 10px; color: #222;">
+            <span>&nbsp;&nbsp;${it.cantidad} x $${Math.round(unit).toLocaleString('es-AR')}</span>
+            <span style="font-weight: bold;">$${Math.round(it.subtotal).toLocaleString('es-AR')}</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    const pagosHtml = data.metodosPago.map(mp => `
+      <div style="display: flex; justify-content: space-between; font-size: 10px;">
+        <span>${mp.metodo.toUpperCase()}:</span>
+        <span>$${Math.round(mp.monto).toLocaleString('es-AR')}</span>
+      </div>
+    `).join('');
+
+    const copies = Math.max(1, config.copies ?? 2);
+
+    const voucherInfo = getAfipVoucherInfo(data.tipoComprobante);
+    const qrUrlCandidate = data.qrData || (data.cae ? JSON.stringify({
+      ver: 1,
+      fecha: data.fechaEmision || new Date().toISOString().split('T')[0],
+      cuit: Number(String(data.cuit || '27426946136').replace(/\D/g, '')),
+      ptoVta: data.puntoVenta || 4,
+      tipoCmp: voucherInfo.code === '001' ? 1 : voucherInfo.code === '006' ? 6 : voucherInfo.code === '013' ? 13 : 11,
+      nroCmp: data.numeroFiscal || 1,
+      importe: data.total,
+      moneda: 'PES',
+      ctz: 1,
+      tipoDocRec: data.clienteDocumentoTipo === 'CUIT' ? 80 : data.clienteDocumentoTipo === 'DNI' ? 96 : 99,
+      nroDocRec: Number(String(data.clienteCuit || data.clienteDniCuit || 0).replace(/\D/g, '')) || 0,
+      tipoCodAut: 'E',
+      codAut: Number(data.cae)
+    }) : undefined);
+    const qrDataUrl = await loadQrDataUrl(qrUrlCandidate);
+
+    const renderFiscalTicketBody = (copyType: 'cliente' | 'dueno' | 'standard') => {
+      let copyBadge = '';
+      if (copyType === 'cliente') {
+        copyBadge = '<div class="subtitle bold" style="font-size: 10px; margin: 3px 0; border: 1px dashed #000; padding: 2px 0;">*** ORIGINAL - CLIENTE ***</div>';
+      } else if (copyType === 'dueno') {
+        copyBadge = '<div class="subtitle bold" style="font-size: 10px; margin: 3px 0; border: 1px dashed #000; padding: 2px 0; background: #eee;">*** DUPLICADO - CONTROL DUEÑO ***</div>';
+      }
+
+      const ptoVta = data.puntoVenta ? String(data.puntoVenta).padStart(4, '0') : '';
+      const cbteNro = data.numeroFiscal ? String(data.numeroFiscal).padStart(8, '0') : '';
+      const compLabel = (ptoVta && cbteNro) ? `PUNTO VTA: ${ptoVta}  NRO: ${cbteNro}` : data.nroComprobante;
+
+      const docVal = data.clienteCuit || data.clienteDniCuit;
+      const docTipo = data.clienteDocumentoTipo || (data.clienteCuit ? 'CUIT' : 'DNI');
+
+      return `
+        <div class="ticket-instance" style="margin-bottom: 6mm;">
+          <div class="center">
+            <div class="title" style="font-size: 16px; font-weight: 900; letter-spacing: 0.5px;">EL PATRÓN</div>
+            <div style="font-size: 9px; font-weight: 900; text-transform: uppercase;">${data.razonSocial || 'BELLA ORIANA'}</div>
+            <div style="font-size: 9px;">CUIT: ${formatCuit(data.cuit || '27-42694613-6')}</div>
+            <div style="font-size: 8px;">${data.direccion || 'Fotheringham 33, CP 5800, Río Cuarto, Córdoba'}</div>
+            ${data.telefono ? `<div style="font-size: 8px;">TEL: ${data.telefono}</div>` : ''}
+            <div style="font-size: 8px; font-weight: 900; text-transform: uppercase;">${data.condicionIvaEmisor || 'IVA MONOTRIBUTO'}</div>
+            ${data.inicioActividades ? `<div style="font-size: 8px;">Inicio de Actividades: ${data.inicioActividades}</div>` : ''}
+            ${data.ingresosBrutos ? `<div style="font-size: 8px;">Ingresos Brutos: ${data.ingresosBrutos}</div>` : ''}
+          </div>
+
+          <div class="double-divider"></div>
+
+          <div class="center" style="margin: 4px 0;">
+            <div style="display: inline-block; border: 2px solid #000; padding: 2px 14px; text-align: center;">
+              <div style="font-size: 20px; font-weight: 900; line-height: 1;">${voucherInfo.letter}</div>
+              <div style="font-size: 8px; font-weight: 900; margin-top: 2px;">COD. ${voucherInfo.code}</div>
+            </div>
+          </div>
+
+          <div class="double-divider"></div>
+
+          <div class="center bold" style="font-size: 13px; margin-bottom: 2px;">${voucherInfo.label}</div>
+          <div class="row">
+            <span>COMPROBANTE:</span>
+            <span class="bold">${compLabel}</span>
+          </div>
+          <div class="row"><span>FECHA:</span><span>${data.fechaHora}</span></div>
+          ${copyBadge}
+
+          <div class="divider"></div>
+          <div class="row"><span class="bold">SEÑOR/ES:</span><span class="bold" style="text-align: right; max-width: 65%; word-break: break-word;">${(data.clienteNombre || 'A CONSUMIDOR FINAL').toUpperCase()}</span></div>
+          ${docVal ? `<div class="row"><span>${docTipo}:</span><span>${formatCuit(docVal)}</span></div>` : ''}
+          <div class="row"><span>COND. IVA:</span><span>${(data.condicionIvaReceptor || 'CONSUMIDOR FINAL').toUpperCase()}</span></div>
+          <div class="row"><span>COND. VENTA:</span><span>CONTADO</span></div>
+          ${data.clienteDomicilio ? `<div class="row"><span>DOMICILIO:</span><span>${data.clienteDomicilio}</span></div>` : ''}
+
+          <div class="divider"></div>
+          <div class="row bold"><span>CANT PRODUCTO</span><span>SUBTOTAL</span></div>
+          <div class="divider"></div>
+
+          ${itemsHtml}
+
+          <div class="divider"></div>
+          <div class="row"><span>Subtotal Neto:</span><span>$${Math.round(data.subtotal).toLocaleString('es-AR')}</span></div>
+          ${data.descuento > 0 ? `<div class="row"><span>Bonificación:</span><span>-$${Math.round(data.descuento).toLocaleString('es-AR')}</span></div>` : ''}
+
+          <div class="double-divider"></div>
+          <div class="total-row"><span>TOTAL:</span><span>$${Math.round(data.total).toLocaleString('es-AR')}</span></div>
+          <div class="double-divider"></div>
+
+          ${data.metodosPago && data.metodosPago.length > 0 ? `
+            <div class="center bold" style="font-size: 10px; margin-top: 3px;">MEDIOS DE PAGO</div>
+            ${pagosHtml}
+            <div class="divider"></div>
+          ` : ''}
+
+          ${qrDataUrl ? `
+            <div class="center" style="margin: 6px 0 2px 0;">
+              <img src="${qrDataUrl}" alt="ARCA QR" style="width: 130px; height: 130px; display: block; margin: 0 auto;" />
+            </div>
+          ` : ''}
+
+          ${data.cae ? `
+            <div class="center bold" style="font-size: 11px; margin-top: 2px;">ARCA - Comprobante Autorizado</div>
+            <div class="center bold" style="font-size: 10px; margin-top: 1px;">CAE Nº: ${data.cae}</div>
+            <div class="center bold" style="font-size: 10px; margin-top: 1px;">Fecha Vto. CAE: ${formatArcaDate(data.vto)}</div>
+            <div class="center" style="font-size: 8px; margin-top: 2px; color: #444;">
+              Comprobante autorizado por ARCA<br>
+              www.afip.gob.ar/fe/qr/
+            </div>
+            <div class="divider"></div>
+          ` : ''}
+
+          ${data.mensajePie ? `<div class="center" style="font-size: 9px; margin: 2px 0;">${data.mensajePie}</div>` : ''}
+
+          <div class="center" style="margin-top: 4px; font-size: 10px;">
+            ${copyType === 'dueno' ? '-- COPIA CONTROL CAJA / DUEÑO --<br><strong>El Patron Restaurante</strong>' : '¡Muchas gracias por su compra!<br><strong>El Patron Restaurante</strong>'}
+          </div>
+          <div class="double-divider"></div>
+        </div>
+      `;
+    };
+
+    let bodyTicketsHtml = '';
+    if (copies === 1) {
+      bodyTicketsHtml = renderFiscalTicketBody('standard');
+    } else {
+      const cutSeparator = `
+        <div style="text-align: center; margin: 5mm 0; border-top: 1px dashed #000; padding-top: 2mm; font-size: 8px; font-weight: bold; letter-spacing: 1px;">
+          ✂ - - - CORTE MANUAL DE TICKET - - - ✂
+        </div>
+      `;
+      bodyTicketsHtml = renderFiscalTicketBody('cliente') + cutSeparator + renderFiscalTicketBody('dueno');
+      for (let i = 3; i <= copies; i++) {
+        bodyTicketsHtml += cutSeparator + renderFiscalTicketBody('standard');
+      }
+    }
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Ticket Fiscal ${data.nroComprobante}</title>
+        <style>
+          @page {
+            size: ${pageWidth} auto;
+            margin: 0;
+          }
+          * {
+            box-sizing: border-box;
+            font-weight: 900 !important;
+            color: #000 !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          body {
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: 900;
+            width: ${printableWidth};
+            margin: 0 auto;
+            padding: 2mm 1mm;
+            color: #000;
+            background: #fff;
+            font-size: 11px;
+            line-height: 1.25;
+          }
+          .center { text-align: center; }
+          .right { text-align: right; }
+          .bold { font-weight: 900; }
+          .title { font-size: 14px; font-weight: 900; margin-bottom: 2px; }
+          .subtitle { font-size: 10px; font-weight: 900; }
+          .divider { border-bottom: 1px dashed #000; margin: 4px 0; }
+          .double-divider { border-bottom: 2px solid #000; margin: 4px 0; }
+          .row { display: flex; justify-content: space-between; font-size: 10px; font-weight: 900; }
+          .total-row { display: flex; justify-content: space-between; font-size: 13px; font-weight: 900; margin: 4px 0; }
+        </style>
+      </head>
+      <body>
+        ${bodyTicketsHtml}
+        <div style="height: 4mm;"></div>
+      </body>
+      </html>
+    `;
+
+    iframeDoc.open();
+    iframeDoc.write(htmlContent);
+    iframeDoc.close();
+
+    await new Promise(resolve => setTimeout(resolve, 60));
+    iframe.contentWindow?.focus();
+    iframe.contentWindow?.print();
+
+    setTimeout(() => {
+      try {
+        document.body.removeChild(iframe);
+      } catch {
+        // ignore
+      }
+    }, 3000);
+
+    return { success: true, message: `Ticket fiscal ${data.nroComprobante} enviado al motor de impresión del navegador.` };
+  } catch (err: any) {
+    return { success: false, message: `Error en impresión fiscal de navegador: ${err.message}` };
   }
 }
 
@@ -129,6 +440,127 @@ export const printerService = {
 
     const separator = '-'.repeat(charWidth);
     const doubleSeparator = '='.repeat(charWidth);
+
+    // Si es comprobante fiscal (Factura C / A / B / Nota de Crédito / ARCA con CAE)
+    if (isFiscalTicket(data)) {
+      const voucher = getAfipVoucherInfo(data.tipoComprobante);
+      let esc = '';
+      if (openDrawer) {
+        esc += '[ESC/POS: KICK OUT DRAWER_PORT1]\n';
+      }
+
+      esc += '[ESC/POS: ALIGN CENTER]\n';
+      esc += '[ESC/POS: TEXT FONT_DOUBLE_SIZE]\n';
+      esc += 'EL PATRON\n';
+      esc += '[ESC/POS: TEXT FONT_NORMAL]\n';
+      esc += `${(data.razonSocial || 'BELLA ORIANA').toUpperCase()}\n`;
+      esc += `CUIT: ${formatCuit(data.cuit || '27-42694613-6')}\n`;
+      esc += `${data.direccion || 'Fotheringham 33, CP 5800, Río Cuarto, Córdoba'}\n`;
+      if (data.telefono) esc += `TEL: ${data.telefono}\n`;
+      esc += `${(data.condicionIvaEmisor || 'IVA MONOTRIBUTO').toUpperCase()}\n`;
+      if (data.inicioActividades) esc += `INICIO ACTIVIDADES: ${data.inicioActividades}\n`;
+      if (data.ingresosBrutos) esc += `IIBB: ${data.ingresosBrutos}\n`;
+
+      esc += `${doubleSeparator}\n`;
+      esc += `[ ${voucher.letter} ]  COD. ${voucher.code}\n`;
+      esc += `${doubleSeparator}\n`;
+
+      esc += '[ESC/POS: TEXT FONT_DOUBLE_SIZE]\n';
+      esc += `${voucher.label}\n`;
+      esc += '[ESC/POS: TEXT FONT_NORMAL]\n';
+
+      const ptoVta = data.puntoVenta ? String(data.puntoVenta).padStart(4, '0') : '';
+      const cbteNro = data.numeroFiscal ? String(data.numeroFiscal).padStart(8, '0') : '';
+      const compLabel = (ptoVta && cbteNro) ? `PUNTO VTA: ${ptoVta}  NRO: ${cbteNro}` : `NRO: ${data.nroComprobante}`;
+      esc += `${compLabel}\n`;
+      esc += `FECHA: ${data.fechaHora}\n`;
+
+      if (copyType === 'cliente') {
+        esc += '*** ORIGINAL - CLIENTE ***\n';
+      } else if (copyType === 'dueno') {
+        esc += '*** DUPLICADO - CONTROL DUEÑO ***\n';
+      }
+
+      esc += `${separator}\n`;
+      esc += '[ESC/POS: ALIGN LEFT]\n';
+      const clienteName = (data.clienteNombre || 'A CONSUMIDOR FINAL').toUpperCase();
+      esc += `SEÑOR/ES: ${clienteName}\n`;
+      const docVal = data.clienteCuit || data.clienteDniCuit;
+      if (docVal) {
+        const docTipo = data.clienteDocumentoTipo || (data.clienteCuit ? 'CUIT' : 'DNI');
+        esc += `${docTipo}: ${formatCuit(docVal)}\n`;
+      }
+      esc += `COND. IVA: ${(data.condicionIvaReceptor || 'CONSUMIDOR FINAL').toUpperCase()}\n`;
+      esc += `COND. VENTA: CONTADO\n`;
+      if (data.clienteDomicilio) {
+        esc += `DOMICILIO: ${data.clienteDomicilio}\n`;
+      }
+
+      esc += `${separator}\n`;
+      esc += padLeftRight('CANT  PRODUCTO', 'SUBTOTAL') + '\n';
+      esc += `${separator}\n`;
+
+      data.items.forEach(it => {
+        const desc = it.descripcion;
+        esc += `${desc}\n`;
+        const unitPrice = it.precio_unitario ?? it.precioUnitario ?? 0;
+        const qtyStr = `  ${it.cantidad} x $${Math.round(unitPrice).toLocaleString('es-AR')}`;
+        const subtotalStr = `$${Math.round(it.subtotal).toLocaleString('es-AR')}`;
+        esc += padLeftRight(qtyStr, subtotalStr) + '\n';
+      });
+
+      esc += `${separator}\n`;
+      esc += padLeftRight('Subtotal Neto:', `$${Math.round(data.subtotal).toLocaleString('es-AR')}`) + '\n';
+      if (data.descuento > 0) {
+        esc += padLeftRight('Bonificación:', `-$${Math.round(data.descuento).toLocaleString('es-AR')}`) + '\n';
+      }
+      esc += `${doubleSeparator}\n`;
+      esc += '[ESC/POS: TEXT FONT_DOUBLE_SIZE]\n';
+      esc += padLeftRight('TOTAL:', `$${Math.round(data.total).toLocaleString('es-AR')}`) + '\n';
+      esc += '[ESC/POS: TEXT FONT_NORMAL]\n';
+      esc += `${doubleSeparator}\n`;
+
+      if (data.metodosPago && data.metodosPago.length > 0) {
+        esc += '[ESC/POS: ALIGN CENTER]\n';
+        esc += 'MEDIOS DE PAGO:\n';
+        data.metodosPago.forEach(mp => {
+          esc += padLeftRight(`   ${mp.metodo.toUpperCase()}:`, `$${Math.round(mp.monto).toLocaleString('es-AR')}`) + '\n';
+        });
+        esc += `${separator}\n`;
+      }
+
+      if (data.cae) {
+        esc += '[ESC/POS: ALIGN CENTER]\n';
+        esc += 'ARCA - Comprobante Autorizado\n';
+        esc += `CAE Nº: ${data.cae}\n`;
+        esc += `Fecha Vto. CAE: ${formatArcaDate(data.vto)}\n`;
+        esc += 'Comprobante autorizado por ARCA\n';
+        esc += 'www.afip.gob.ar/fe/qr/\n';
+        esc += `${separator}\n`;
+      }
+
+      if (data.mensajePie) {
+        esc += `[ESC/POS: ALIGN CENTER]\n${data.mensajePie}\n`;
+      }
+
+      esc += '[ESC/POS: ALIGN CENTER]\n';
+      if (copyType === 'dueno') {
+        esc += '-- COPIA CONTROL CAJA / DUEÑO --\n';
+      } else {
+        esc += '¡Muchas gracias por su compra!\n';
+      }
+      esc += 'El Patron Restaurante\n';
+      esc += `${doubleSeparator}\n`;
+
+      esc += '\n\n\n\n';
+      if (config.autoCut) {
+        esc += '[ESC/POS: PARTIAL_CUT_FEED_3LINES]\n';
+      }
+      esc += '\n';
+
+      return esc;
+    }
+
 
     let esc = '';
     
@@ -303,6 +735,10 @@ export const printerService = {
       `).join('');
 
       const copies = Math.max(1, config.copies ?? 2);
+
+      if (isFiscalTicket(data)) {
+        return await generateFiscalThermalHtml(data, config);
+      }
 
       const renderTicketBody = (copyType: 'cliente' | 'dueno' | 'standard') => {
         let copyBadge = '';
