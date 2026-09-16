@@ -271,6 +271,16 @@ export default function App() {
             if (id_mesa) {
               setMesas(prev => prev.map(m => String(m.id_mesa) === String(id_mesa) ? { ...m, estado: 'ocupada' as const } : m));
             }
+          } else if (event.data.type === 'caja_abierta' && event.data.payload) {
+            cajaService.safeStorage.setItem('el_patron_caja_activa', JSON.stringify(event.data.payload));
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('el_patron_caja_abierta', { detail: event.data.payload }));
+            }
+          } else if (event.data.type === 'caja_cerrada') {
+            cajaService.safeStorage.removeItem('el_patron_caja_activa');
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('el_patron_caja_cerrada', { detail: event.data.payload }));
+            }
           }
         };
       }
@@ -432,6 +442,20 @@ export default function App() {
             if (payload.id_mesa) {
               setMesas(prev => prev.map(m => String(m.id_mesa) === String(payload.id_mesa) ? { ...m, estado: 'ocupada' as const } : m));
             }
+          }
+        })
+        .on('broadcast', { event: 'caja_abierta' }, ({ payload }: any) => {
+          if (payload) {
+            cajaService.safeStorage.setItem('el_patron_caja_activa', JSON.stringify(payload));
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('el_patron_caja_abierta', { detail: payload }));
+            }
+          }
+        })
+        .on('broadcast', { event: 'caja_cerrada' }, ({ payload }: any) => {
+          cajaService.safeStorage.removeItem('el_patron_caja_activa');
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('el_patron_caja_cerrada', { detail: payload }));
           }
         })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos_cabecera' }, () => {

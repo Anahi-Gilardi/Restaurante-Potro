@@ -118,6 +118,44 @@ export function useCaja({
     return () => window.removeEventListener('el-patron-cash-shift-synced', handleCashShiftSynced);
   }, []);
 
+  // Sincronización en tiempo real y polling entre computadoras distintas
+  useEffect(() => {
+    const handleCajaAbierta = (event: Event) => {
+      const session = (event as CustomEvent<CierreCaja>).detail;
+      if (session) {
+        cajaService.safeStorage.setItem('el_patron_caja_activa', JSON.stringify(session));
+        setCajaSession(session);
+        loadCajaState();
+      }
+    };
+
+    const handleCajaCerrada = () => {
+      cajaService.safeStorage.removeItem('el_patron_caja_activa');
+      setCajaSession(null);
+      loadCajaState();
+    };
+
+    const handleSheetsSync = () => {
+      loadCajaState();
+    };
+
+    window.addEventListener('el_patron_caja_abierta', handleCajaAbierta);
+    window.addEventListener('el_patron_caja_cerrada', handleCajaCerrada);
+    window.addEventListener('el_patron_sheets_sync_completed', handleSheetsSync);
+
+    // Polling cada 10 segundos para garantizar consistencia entre computadoras
+    const pollTimer = setInterval(() => {
+      loadCajaState();
+    }, 10000);
+
+    return () => {
+      window.removeEventListener('el_patron_caja_abierta', handleCajaAbierta);
+      window.removeEventListener('el_patron_caja_cerrada', handleCajaCerrada);
+      window.removeEventListener('el_patron_sheets_sync_completed', handleSheetsSync);
+      clearInterval(pollTimer);
+    };
+  }, []);
+
   // Interactive cashier selection
   const [selectedPedidoId, setSelectedPedidoId] = useState<number | null>(null);
   
@@ -176,54 +214,54 @@ export function useCaja({
   const loadCajaState = async () => {
     let active = cajaService.getOpenSession();
     // Instantly set the local session to avoid UI flicker or requiring reopen on refresh
-    setCajaSession(active);
+    if (active) {
+      setCajaSession(active);
+    }
 
     try {
-      // Fetch history, invoices, and cash movements in parallel to minimize load times
-      const [history, facturas, movs] = await Promise.all([
+      // Fetch history, invoices, cash movements and active session in parallel
+      const [history, facturas, movs, remoteSession] = await Promise.all([
         cajaService.list(),
         facturacionService.list(),
-        active ? cajaService.listMovimientosCajaChica(active.id_cierre) : Promise.resolve([])
+        active ? cajaService.listMovimientosCajaChica(active.id_cierre) : Promise.resolve([]),
+        cajaService.findActiveSessionRemote()
       ]);
 
       setSessionInsumos(history);
       setLastFacturas(facturas.slice(0, 6));
       setMovimientosCajaChica(movs);
+
+      // Sincronización entre múltiples computadoras
+      if (!active && remoteSession) {
+        // La caja fue abierta desde otra computadora
+        cajaService.safeStorage.setItem('el_patron_caja_activa', JSON.stringify(remoteSession));
+        setCajaSession(remoteSession);
+        active = remoteSession;
+      } else if (active && !remoteSession) {
+        // Si teníamos sesión local pero en Google Sheets ya figura cerrada en el historial
+        const inHistory = history.find(h => h.id_cierre === active?.id_cierre);
+        if (inHistory && inHistory.fecha_cierre) {
+          cajaService.safeStorage.removeItem('el_patron_caja_activa');
+          setCajaSession(null);
+          toast.info('La sesión de caja fue cerrada desde otra computadora.');
+          active = null;
+        }
+      } else if (active && remoteSession && remoteSession.id_cierre === active.id_cierre) {
+        if (remoteSession.monto_ventas !== active.monto_ventas || remoteSession.monto_apertura !== active.monto_apertura) {
+          const updatedActive = {
+            ...active,
+            monto_ventas: remoteSession.monto_ventas,
+            monto_apertura: remoteSession.monto_apertura,
+            usuario_cajero: remoteSession.usuario_cajero,
+            observaciones: remoteSession.observaciones,
+            sync_status: 'synced' as const
+          };
+          cajaService.safeStorage.setItem('el_patron_caja_activa', JSON.stringify(updatedActive));
+          setCajaSession(updatedActive);
+        }
+      }
     } catch (err) {
       console.error('Error loading history in loadCajaState:', err);
-    }
-
-    // Update with remote state in the background
-    if (active) {
-      try {
-        const remote = await cajaService.getOpenSessionRemote(active.id_cierre);
-        if (remote) {
-          const isClosedRemotely = remote.fecha_cierre && 
-            remote.fecha_cierre !== remote.fecha_apertura && 
-            remote.observaciones !== 'Sesión Activa - En Turno';
-
-          if (isClosedRemotely) {
-            // The session has been closed remotely on another terminal
-            cajaService.safeStorage.removeItem('el_patron_caja_activa');
-            setCajaSession(null);
-            toast.info('La sesión de caja fue cerrada desde otro terminal.');
-          } else {
-            const updatedActive = {
-              ...active,
-              monto_ventas: remote.monto_ventas ?? active.monto_ventas,
-              monto_apertura: remote.monto_apertura ?? active.monto_apertura,
-              usuario_cajero: remote.usuario_cajero ?? active.usuario_cajero,
-              observaciones: remote.observaciones ?? active.observaciones,
-              movimientos_manuales: remote.movimientos_manuales ?? active.movimientos_manuales,
-              sync_status: 'synced' as const
-            };
-            cajaService.safeStorage.setItem('el_patron_caja_activa', JSON.stringify(updatedActive));
-            setCajaSession(updatedActive);
-          }
-        }
-      } catch (err) {
-        console.warn('Offline active session loading fallback');
-      }
     }
   };
 

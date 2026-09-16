@@ -58,6 +58,34 @@ const toDbCierre = (cierre: CierreCaja) => ({
 
 let cierresTableAvailableInSupabase = false;
 
+export const broadcastAppEvent = (event: string, payload: any) => {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(`el_patron_${event}`, { detail: payload }));
+  }
+
+  try {
+    if (typeof BroadcastChannel !== 'undefined') {
+      const bc = new BroadcastChannel('el_patron_table_sync');
+      bc.postMessage({ type: event, payload });
+      setTimeout(() => {
+        try { bc.close(); } catch {}
+      }, 500);
+    }
+  } catch {}
+
+  try {
+    const supabase = tryGetActiveSupabaseClient();
+    if (supabase) {
+      const ch = supabase.channel('realtime_pedidos_app');
+      ch.send({
+        type: 'broadcast',
+        event,
+        payload
+      }).catch?.(() => undefined);
+    }
+  } catch {}
+};
+
 const persistCierre = async (cierre: CierreCaja): Promise<void> => {
   try {
     await sheetUpsertRow('cierres_caja', toDbCierre(cierre));
@@ -272,7 +300,72 @@ export const cajaService = {
     return [];
   },
 
+  async findActiveSessionRemote(): Promise<CierreCaja | null> {
+    try {
+      const sheetData = await sheetFetchTable('cierres_caja');
+      if (sheetData && Array.isArray(sheetData) && sheetData.length > 0) {
+        const sorted = [...sheetData].sort((a, b) => {
+          const tA = Number(String(a.id_cierre || '').replace(/\D/g, '')) || new Date(a.fecha_apertura || 0).getTime();
+          const tB = Number(String(b.id_cierre || '').replace(/\D/g, '')) || new Date(b.fecha_apertura || 0).getTime();
+          return tB - tA;
+        });
+
+        const activeRow = sorted.find(r => {
+          const hasNoFechaCierre = !r.fecha_cierre || String(r.fecha_cierre).trim() === '' || String(r.fecha_cierre) === 'null';
+          const isActiva = String(r.observaciones || '').includes('Activa') || String(r.observaciones || '').includes('Turno') || hasNoFechaCierre;
+          return hasNoFechaCierre && isActiva;
+        });
+
+        if (activeRow) {
+          let regTotales = { efectivo: 0, debito: 0, credito: 0, transferencia: 0, mercadopago: 0 };
+          if (activeRow.registros_totales) {
+            try {
+              regTotales = typeof activeRow.registros_totales === 'string'
+                ? JSON.parse(activeRow.registros_totales)
+                : activeRow.registros_totales;
+            } catch {}
+          }
+          const session: CierreCaja = {
+            id_cierre: String(activeRow.id_cierre),
+            fecha_apertura: activeRow.fecha_apertura || inferFechaApertura(String(activeRow.id_cierre)),
+            fecha_cierre: null,
+            monto_apertura: parseFloat(activeRow.monto_apertura || 0),
+            monto_ventas: parseFloat(activeRow.monto_ventas || 0),
+            monto_real: null,
+            diferencia: null,
+            observaciones: activeRow.observaciones || 'Sesión Activa - En Turno',
+            usuario_cajero: activeRow.usuario_cajero || 'Cajero Pro',
+            sync_status: 'synced',
+            registros_totales: regTotales
+          };
+          return session;
+        }
+      }
+    } catch (err) {
+      console.warn('[cajaService.findActiveSessionRemote] Error:', err);
+    }
+    return null;
+  },
+
   async getOpenSessionRemote(idCierre: string): Promise<Partial<CierreCaja> | null> {
+    try {
+      const sheetData = await sheetFetchTable('cierres_caja');
+      if (sheetData && Array.isArray(sheetData)) {
+        const found = sheetData.find(cc => String(cc.id_cierre) === String(idCierre));
+        if (found) {
+          return {
+            id_cierre: String(found.id_cierre),
+            monto_ventas: parseFloat(found.monto_ventas || 0),
+            monto_apertura: parseFloat(found.monto_apertura || 0),
+            observaciones: found.observaciones,
+            usuario_cajero: found.usuario_cajero,
+            fecha_cierre: found.fecha_cierre || null,
+            fecha_apertura: found.fecha_apertura
+          };
+        }
+      }
+    } catch {}
+
     if (!cierresTableAvailableInSupabase) return null;
     try {
       const supabase = tryGetActiveSupabaseClient();
@@ -328,6 +421,9 @@ export const cajaService = {
 
     // Guardar inmediatamente en almacenamiento local (0ms de latencia)
     safeSetItem('el_patron_caja_activa', JSON.stringify(session));
+
+    // Notificar a otras pestañas y a otras computadoras en tiempo real
+    broadcastAppEvent('caja_abierta', session);
 
     // Persistir en Google Sheets en segundo plano sin congelar la interfaz
     persistCierre(session).catch(err => {
@@ -495,6 +591,9 @@ export const cajaService = {
     const updatedHistory = [closed, ...history.filter(h => h.id_cierre !== closed.id_cierre)];
     safeSetItem('el_patron_historial_cierres', JSON.stringify(updatedHistory));
     safeStorage.removeItem('el_patron_caja_activa');
+
+    // Notificar a otras pestañas y computadoras en tiempo real
+    broadcastAppEvent('caja_cerrada', { id_cierre: closed.id_cierre });
 
     // Persistir en Google Sheets en segundo plano sin congelar la interfaz
     persistCierre(closed).catch(err => {
