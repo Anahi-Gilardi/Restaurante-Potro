@@ -203,9 +203,12 @@ export const syncQueueService = {
             await pedidosService.update(item.payload.id, item.payload.fields);
             success = true;
           } else if (item.action === 'upsert_cierre') {
-            const supabase = getActiveSupabaseClient();
-            const { error } = await supabase.from('cierres_caja').upsert([item.payload]);
-            if (error) throw error;
+            try {
+              const { sheetUpsertRow } = await import('../lib/googleSheetsClient');
+              await sheetUpsertRow('cierres_caja', item.payload);
+            } catch (sheetErr) {
+              console.warn('[SyncQueue] sheetUpsertRow cierres_caja:', sheetErr);
+            }
             markCashShiftSynced(item.payload.id_cierre);
             success = true;
           }

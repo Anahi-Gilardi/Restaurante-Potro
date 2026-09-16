@@ -56,7 +56,7 @@ const toDbCierre = (cierre: CierreCaja) => ({
   usuario_cajero: cierre.usuario_cajero,
 });
 
-let cierresTableAvailableInSupabase: boolean | null = null;
+let cierresTableAvailableInSupabase = false;
 
 const persistCierre = async (cierre: CierreCaja): Promise<void> => {
   try {
@@ -64,7 +64,7 @@ const persistCierre = async (cierre: CierreCaja): Promise<void> => {
   } catch (sheetErr) {
     console.warn('[cajaService.persistCierre] Error en Google Sheets:', sheetErr);
   }
-  if (cierresTableAvailableInSupabase !== false) {
+  if (cierresTableAvailableInSupabase) {
     try {
       const supabase = tryGetActiveSupabaseClient();
       if (supabase) {
@@ -74,15 +74,12 @@ const persistCierre = async (cierre: CierreCaja): Promise<void> => {
             cierresTableAvailableInSupabase = false;
           }
           console.warn('[cajaService.persistCierre] Supabase warning:', error);
-        } else {
-          cierresTableAvailableInSupabase = true;
         }
       }
     } catch (e: any) {
       if (e?.message?.includes('schema cache') || e?.message?.includes('does not exist')) {
         cierresTableAvailableInSupabase = false;
       }
-      console.warn('[cajaService.persistCierre] Supabase omitido:', e);
     }
   }
 };
@@ -231,60 +228,66 @@ export const cajaService = {
       console.warn('[cajaService.listHistory] Google Sheets:', sheetErr);
     }
 
-    try {
-      const supabase = tryGetActiveSupabaseClient();
-      if (!supabase) throw new Error('Supabase no configurado');
-      const { data, error } = await supabase
-        .from('cierres_caja')
-        .select('*')
-        .order('id_cierre', { ascending: false });
-        
-      if (error) {
-        console.warn('Database fetching error, reading localStorage backup:', error);
-        throw error;
-      }
-      
-      return (data || []).map(cc => ({
-        id_cierre: cc.id_cierre,
-        fecha_apertura: cc.fecha_apertura || inferFechaApertura(cc.id_cierre),
-        fecha_cierre: cc.fecha_cierre,
-        monto_apertura: parseFloat(cc.monto_apertura),
-        monto_ventas: parseFloat(cc.monto_ventas),
-        monto_real: cc.monto_real ? parseFloat(cc.monto_real) : null,
-        diferencia: cc.diferencia ? parseFloat(cc.diferencia) : null,
-        observaciones: cc.observaciones || '',
-        usuario_cajero: cc.usuario_cajero || 'Cajero Pro',
-        sync_status: 'synced'
-      }));
-    } catch {
-      // Offline fallback lists historical records
-      const raw = safeStorage.getItem('el_patron_historial_cierres');
-      if (raw) {
-        try {
-          const parsed = JSON.parse(raw);
-          if (!Array.isArray(parsed)) return [];
-          const sanitized = removeLegacyDemoCierres(parsed);
-          if (sanitized.length !== parsed.length) {
-            safeStorage.setItem('el_patron_historial_cierres', JSON.stringify(sanitized));
+    if (cierresTableAvailableInSupabase) {
+      try {
+        const supabase = tryGetActiveSupabaseClient();
+        if (supabase) {
+          const { data, error } = await supabase
+            .from('cierres_caja')
+            .select('*')
+            .order('id_cierre', { ascending: false });
+            
+          if (!error && data && data.length > 0) {
+            return data.map(cc => ({
+              id_cierre: cc.id_cierre,
+              fecha_apertura: cc.fecha_apertura || inferFechaApertura(cc.id_cierre),
+              fecha_cierre: cc.fecha_cierre,
+              monto_apertura: parseFloat(cc.monto_apertura),
+              monto_ventas: parseFloat(cc.monto_ventas),
+              monto_real: cc.monto_real ? parseFloat(cc.monto_real) : null,
+              diferencia: cc.diferencia ? parseFloat(cc.diferencia) : null,
+              observaciones: cc.observaciones || '',
+              usuario_cajero: cc.usuario_cajero || 'Cajero Pro',
+              sync_status: 'synced'
+            }));
           }
-          return sanitized;
-        } catch {
-          return [];
         }
-      }
-      return [];
+      } catch {}
     }
+    // Offline fallback lists historical records
+    const raw = safeStorage.getItem('el_patron_historial_cierres');
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [];
+        const sanitized = removeLegacyDemoCierres(parsed);
+        if (sanitized.length !== parsed.length) {
+          safeStorage.setItem('el_patron_historial_cierres', JSON.stringify(sanitized));
+        }
+        return sanitized;
+      } catch {
+        return [];
+      }
+    }
+    return [];
   },
 
   async getOpenSessionRemote(idCierre: string): Promise<Partial<CierreCaja> | null> {
+    if (!cierresTableAvailableInSupabase) return null;
     try {
-      const supabase = getActiveSupabaseClient();
+      const supabase = tryGetActiveSupabaseClient();
+      if (!supabase) return null;
       const { data, error } = await supabase
         .from('cierres_caja')
         .select('*')
         .eq('id_cierre', idCierre)
         .single();
-      if (error) throw error;
+      if (error) {
+        if (error.message?.includes('schema cache') || error.message?.includes('does not exist')) {
+          cierresTableAvailableInSupabase = false;
+        }
+        return null;
+      }
       if (data) {
         return {
           monto_ventas: parseFloat(data.monto_ventas),
@@ -295,8 +298,8 @@ export const cajaService = {
           fecha_apertura: data.fecha_apertura
         };
       }
-    } catch (err) {
-      console.warn('Could not fetch active session from Supabase:', err);
+    } catch {
+      cierresTableAvailableInSupabase = false;
     }
     return null;
   },
@@ -313,7 +316,7 @@ export const cajaService = {
       diferencia: null,
       observaciones: 'Sesión Activa - En Turno',
       usuario_cajero: cajero,
-      sync_status: 'pending',
+      sync_status: 'synced',
       registros_totales: {
         efectivo: 0,
         debito: 0,
@@ -323,28 +326,13 @@ export const cajaService = {
       }
     };
 
-    session.sync_status = await persistOrQueueCierre(session);
+    // Guardar inmediatamente en almacenamiento local (0ms de latencia)
     safeSetItem('el_patron_caja_activa', JSON.stringify(session));
 
-    // Las predicciones no bloquean la apertura del turno.
-    (async () => {
-      try {
-        const { prediccionService } = await import('./prediccionService');
-        const { auditoriaService } = await import('./auditoriaService');
-        const alertas = await prediccionService.generarAlertasDemanda();
-        const logsToInsert = alertas.map(al => ({
-          id: al.id,
-          tipo: 'alerta_stock' as const,
-          mensaje: al.mensaje,
-          timestamp: new Date()
-        }));
-        if (logsToInsert.length > 0) {
-          await auditoriaService.upsert(logsToInsert);
-        }
-      } catch (err) {
-        console.error('Background prediction service / logger failed on shift open:', err);
-      }
-    })();
+    // Persistir en Google Sheets en segundo plano sin congelar la interfaz
+    persistCierre(session).catch(err => {
+      console.warn('Persistencia de apertura en segundo plano:', err);
+    });
 
     return session;
   },
@@ -481,10 +469,8 @@ export const cajaService = {
       diferencia: diferencia,
       observaciones: observaciones || 'Cierre de Caja Normal',
       movimientos_manuales: movsList,
-      sync_status: 'pending'
+      sync_status: 'synced'
     };
-
-    closed.sync_status = await persistOrQueueCierre(closed);
 
     const raw = safeStorage.getItem('el_patron_historial_cierres');
     let history: CierreCaja[] = [];
@@ -498,6 +484,11 @@ export const cajaService = {
     const updatedHistory = [closed, ...history.filter(h => h.id_cierre !== closed.id_cierre)];
     safeSetItem('el_patron_historial_cierres', JSON.stringify(updatedHistory));
     safeStorage.removeItem('el_patron_caja_activa');
+
+    // Persistir en Google Sheets en segundo plano sin congelar la interfaz
+    persistCierre(closed).catch(err => {
+      console.warn('Persistencia de cierre en segundo plano:', err);
+    });
 
     return closed;
   }
