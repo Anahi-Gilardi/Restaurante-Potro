@@ -10,7 +10,8 @@ export const DEFAULT_CATEGORIAS: Categoria[] = [
   { id: 'cat_criollas', nombre: 'Comidas Criollas', slug: 'comidas-criollas', orden: 5, activa: true, icono: 'Utensils' },
   { id: 'cat_bodega', nombre: 'Bodega y Vinos', slug: 'bodega-y-vinos', orden: 6, activa: true, icono: 'Wine' },
   { id: 'cat_postres', nombre: 'Postres Tradicionales', slug: 'postres-tradicionales', orden: 7, activa: true, icono: 'Coffee' },
-  { id: 'cat_bebidas_sin_alcohol', nombre: 'Bebidas sin alcohol', slug: 'bebidas-sin-alcohol', orden: 8, activa: true, icono: 'Wine' }
+  { id: 'cat_bebidas_con_alcohol', nombre: 'Bebidas con alcohol', slug: 'bebidas-con-alcohol', orden: 8, activa: true, icono: 'Wine' },
+  { id: 'cat_bebidas_sin_alcohol', nombre: 'Bebidas sin alcohol', slug: 'bebidas-sin-alcohol', orden: 9, activa: true, icono: 'Wine' }
 ];
 
 export const categoriasService = {
@@ -66,6 +67,19 @@ export const categoriasService = {
       try {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed) && parsed.length > 0) {
+          const hasAlcohol = parsed.some((c: Categoria) =>
+            c.slug === 'bebidas-con-alcohol' || (c.nombre && c.nombre.toLowerCase().includes('con alcohol'))
+          );
+          if (!hasAlcohol) {
+            const alcoholCat = DEFAULT_CATEGORIAS.find(c => c.slug === 'bebidas-con-alcohol');
+            if (alcoholCat) {
+              parsed.push(alcoholCat);
+              parsed.sort((a: Categoria, b: Categoria) => Number(a.orden || 99) - Number(b.orden || 99));
+              try {
+                localStorage.setItem('el_patron_cache_categorias', JSON.stringify(parsed));
+              } catch {}
+            }
+          }
           return parsed;
         }
       } catch (e) {

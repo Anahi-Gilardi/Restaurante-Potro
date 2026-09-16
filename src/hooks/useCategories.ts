@@ -7,7 +7,18 @@ function getInitialCategories(): Categoria[] {
     const cached = localStorage.getItem('el_patron_cache_categorias');
     if (cached) {
       const parsed = JSON.parse(cached);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const hasAlcohol = parsed.some((c: Categoria) =>
+          c.slug === 'bebidas-con-alcohol' || (c.nombre && c.nombre.toLowerCase().includes('con alcohol'))
+        );
+        if (!hasAlcohol) {
+          const alcoholCat = DEFAULT_CATEGORIAS.find(c => c.slug === 'bebidas-con-alcohol');
+          if (alcoholCat) {
+            return [...parsed, alcoholCat].sort((a, b) => Number(a.orden || 99) - Number(b.orden || 99));
+          }
+        }
+        return parsed;
+      }
     }
   } catch {}
   return DEFAULT_CATEGORIAS;

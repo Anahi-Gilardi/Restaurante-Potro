@@ -129,6 +129,7 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
     if (norm.includes('criolla') || norm.includes('locro') || norm.includes('humita') || norm.includes('guiso')) return 'comidas-criollas';
     if (norm.includes('postre') || norm.includes('dulce') || norm.includes('helado')) return 'postres-tradicionales';
     if (norm.includes('bodega') || norm.includes('vino')) return 'bodega-y-vinos';
+    if (norm.includes('con-alcohol') || (norm.includes('alcohol') && !norm.includes('sin')) || norm.includes('trago') || norm.includes('coctel') || norm.includes('cerveza')) return 'bebidas-con-alcohol';
     if (norm.includes('bebida') || norm.includes('gaseosa') || norm.includes('agua')) return 'bebidas-sin-alcohol';
 
     return norm;

@@ -19,6 +19,7 @@ const normalizeCategoryName = (rawCat: string): string => {
   if (norm.includes('criolla') || norm.includes('locro') || norm.includes('humita') || norm.includes('guiso')) return 'Comidas Criollas';
   if (norm.includes('postre') || norm.includes('dulce') || norm.includes('tiramisu') || norm.includes('flan') || norm.includes('panna cotta') || norm.includes('tarta') || norm.includes('chocolate') || norm.includes('helado')) return 'Postres Tradicionales';
   if (norm.includes('bodega') || norm.includes('vino')) return 'Bodega y Vinos';
+  if (norm.includes('con alcohol') || (norm.includes('alcohol') && !norm.includes('sin')) || norm.includes('trago') || norm.includes('coctel') || norm.includes('cerveza')) return 'Bebidas con Alcohol';
   if (norm.includes('bebida') || norm.includes('gaseosa') || norm.includes('agua')) return 'Bebidas sin alcohol';
   if (norm.includes('cocina')) return 'Cortes a la Parrilla';
 
