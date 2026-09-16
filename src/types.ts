@@ -93,6 +93,8 @@ export interface ProductoMenu {
   alergenos?: string[];
   /** Consejos o instrucciones de emplatado */
   consejo_emplatado?: string;
+  /** Unidad de medida comercial (Botella 750ml, Lata 475ml, Medida, etc.) */
+  unidad_medida?: string;
 }
 
 export interface RecetaEscandallo {

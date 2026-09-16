@@ -12,6 +12,13 @@ const normalizeCategoryName = (rawCat: string): string => {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '');
 
+  if (norm.includes('tinto')) return 'Vinos Tintos';
+  if (norm.includes('blanco') || norm.includes('rosado') || norm.includes('rose')) return 'Vinos Blancos y Rosados';
+  if (norm.includes('espumante') || norm.includes('champagne')) return 'Espumantes';
+  if (norm.includes('cerveza')) return 'Cervezas';
+  if (norm.includes('destilado')) return 'Destilados';
+  if (norm.includes('trago') || norm.includes('coctel') || norm.includes('cocteleria')) return 'Tragos y Coctelería';
+
   if (norm.includes('entrada')) return 'Entradas Criollas';
   if (norm.includes('carne') || norm.includes('parrilla') || norm.includes('corte') || norm.includes('bife') || norm.includes('lomo') || norm.includes('bondiola') || norm.includes('milanesa')) return 'Cortes a la Parrilla';
   if (norm.includes('pasta') || norm.includes('lasana') || norm.includes('fideo') || norm.includes('noqui') || norm.includes('cinta') || norm.includes('rotolo') || norm.includes('crep')) return 'Pastas Artesanales';
@@ -19,7 +26,7 @@ const normalizeCategoryName = (rawCat: string): string => {
   if (norm.includes('criolla') || norm.includes('locro') || norm.includes('humita') || norm.includes('guiso')) return 'Comidas Criollas';
   if (norm.includes('postre') || norm.includes('dulce') || norm.includes('tiramisu') || norm.includes('flan') || norm.includes('panna cotta') || norm.includes('tarta') || norm.includes('chocolate') || norm.includes('helado')) return 'Postres Tradicionales';
   if (norm.includes('bodega') || norm.includes('vino')) return 'Bodega y Vinos';
-  if (norm.includes('con alcohol') || (norm.includes('alcohol') && !norm.includes('sin')) || norm.includes('trago') || norm.includes('coctel') || norm.includes('cerveza')) return 'Bebidas con Alcohol';
+  if (norm.includes('con alcohol') || (norm.includes('alcohol') && !norm.includes('sin'))) return 'Bebidas con Alcohol';
   if (norm.includes('bebida') || norm.includes('gaseosa') || norm.includes('agua')) return 'Bebidas sin alcohol';
   if (norm.includes('cocina')) return 'Cortes a la Parrilla';
 
@@ -28,8 +35,8 @@ const normalizeCategoryName = (rawCat: string): string => {
 
 const inferTipo = (categoria: string): ProductoMenu['tipo'] => {
   const normalized = categoria.trim().toLowerCase();
-  if (normalized.includes('bodega') || normalized.includes('vino')) return 'vino';
-  if (normalized.includes('bebida')) return 'bebida';
+  if (normalized.includes('bodega') || normalized.includes('vino') || normalized.includes('espumante')) return 'vino';
+  if (normalized.includes('bebida') || normalized.includes('cerveza') || normalized.includes('destilado') || normalized.includes('trago') || normalized.includes('coctel')) return 'bebida';
   if (normalized.includes('postre')) return 'postre';
   return 'plato';
 };
@@ -104,7 +111,8 @@ const normalizeProductoMenu = (prod: DbProductoMenu): ProductoMenu => {
       ? prod.alergenos
       : (RECIPES_DETAILS[id_producto]?.alergenos || match?.alergenos || undefined),
     consejo_emplatado: readString(prod.consejo_emplatado)
-      || (RECIPES_DETAILS[id_producto]?.consejo_emplatado || match?.consejo_emplatado || undefined)
+      || (RECIPES_DETAILS[id_producto]?.consejo_emplatado || match?.consejo_emplatado || undefined),
+    unidad_medida: readString(prod.unidad_medida) || match?.unidad_medida || undefined
   };
 };
 

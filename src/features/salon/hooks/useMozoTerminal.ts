@@ -195,6 +195,13 @@ export function useMozoTerminal({
     });
     if (cat) return cat.slug.toLowerCase();
 
+    if (norm.includes('tinto')) return 'vinos-tintos';
+    if (norm.includes('blanco') || norm.includes('rosado') || norm.includes('rose')) return 'vinos-blancos-y-rosados';
+    if (norm.includes('espumante') || norm.includes('champagne')) return 'espumantes';
+    if (norm.includes('cerveza')) return 'cervezas';
+    if (norm.includes('destilado')) return 'destilados';
+    if (norm.includes('trago') || norm.includes('coctel') || norm.includes('cocteleria')) return 'tragos-y-cocteleria';
+
     if (norm.includes('entrada')) return 'entradas-criollas';
     if (norm.includes('carne') || norm.includes('parrilla') || norm.includes('corte') || norm.includes('bife') || norm.includes('lomo')) return 'cortes-a-la-parrilla';
     if (norm.includes('pasta') || norm.includes('lasana') || norm.includes('fideo') || norm.includes('noqui')) return 'pastas-artesanales';
@@ -202,7 +209,7 @@ export function useMozoTerminal({
     if (norm.includes('criolla') || norm.includes('locro') || norm.includes('humita') || norm.includes('guiso')) return 'comidas-criollas';
     if (norm.includes('postre') || norm.includes('dulce') || norm.includes('helado')) return 'postres-tradicionales';
     if (norm.includes('bodega') || norm.includes('vino')) return 'bodega-y-vinos';
-    if (norm.includes('con-alcohol') || (norm.includes('alcohol') && !norm.includes('sin')) || norm.includes('trago') || norm.includes('coctel') || norm.includes('cerveza')) return 'bebidas-con-alcohol';
+    if (norm.includes('con-alcohol') || (norm.includes('alcohol') && !norm.includes('sin'))) return 'bebidas-con-alcohol';
     if (norm.includes('bebida') || norm.includes('gaseosa') || norm.includes('agua')) return 'bebidas-sin-alcohol';
 
     return norm;

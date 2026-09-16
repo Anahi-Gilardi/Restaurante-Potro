@@ -9,6 +9,12 @@ export const DEFAULT_CATEGORIAS: Categoria[] = [
   { id: 'cat_pescados', nombre: 'Pescados y Mariscos', slug: 'pescados-y-mariscos', orden: 4, activa: true, icono: 'Fish' },
   { id: 'cat_criollas', nombre: 'Comidas Criollas', slug: 'comidas-criollas', orden: 5, activa: true, icono: 'Utensils' },
   { id: 'cat_bodega', nombre: 'Bodega y Vinos', slug: 'bodega-y-vinos', orden: 6, activa: true, icono: 'Wine' },
+  { id: 'cat_vinos_tintos', nombre: 'Vinos Tintos', slug: 'vinos-tintos', orden: 6.1, activa: true, icono: 'Wine' },
+  { id: 'cat_vinos_blancos_rosados', nombre: 'Vinos Blancos y Rosados', slug: 'vinos-blancos-y-rosados', orden: 6.2, activa: true, icono: 'Wine' },
+  { id: 'cat_espumantes', nombre: 'Espumantes', slug: 'espumantes', orden: 6.3, activa: true, icono: 'Wine' },
+  { id: 'cat_cervezas', nombre: 'Cervezas', slug: 'cervezas', orden: 6.4, activa: true, icono: 'Beer' },
+  { id: 'cat_destilados', nombre: 'Destilados', slug: 'destilados', orden: 6.5, activa: true, icono: 'Wine' },
+  { id: 'cat_tragos_cocteleria', nombre: 'Tragos y Coctelería', slug: 'tragos-y-cocteleria', orden: 6.6, activa: true, icono: 'Wine' },
   { id: 'cat_postres', nombre: 'Postres Tradicionales', slug: 'postres-tradicionales', orden: 7, activa: true, icono: 'Coffee' },
   { id: 'cat_bebidas_con_alcohol', nombre: 'Bebidas con alcohol', slug: 'bebidas-con-alcohol', orden: 8, activa: true, icono: 'Wine' },
   { id: 'cat_bebidas_sin_alcohol', nombre: 'Bebidas sin alcohol', slug: 'bebidas-sin-alcohol', orden: 9, activa: true, icono: 'Wine' }

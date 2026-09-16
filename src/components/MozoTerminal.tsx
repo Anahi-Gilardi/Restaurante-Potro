@@ -51,7 +51,7 @@ export const normalizeCategoryString = (str?: string | null): string => {
 
 export const isBodegaCategory = (catName?: string | null): boolean => {
   const norm = (catName || '').toLowerCase();
-  return norm.includes('bodega') || norm.includes('vino');
+  return norm.includes('bodega') || norm.includes('vino') || norm.includes('espumante') || norm.includes('destilado') || norm.includes('cerveza') || norm.includes('trago') || norm.includes('coctel');
 };
 
 export const getCategoryDisplayIcon = (icono?: string | null, nombre?: string): string => {
@@ -80,19 +80,22 @@ interface WineMapping {
 function getWineMapping(p: ProductoMenu): WineMapping {
   const name = p.nombre.toLowerCase();
   const desc = (p.descripcion || '').toLowerCase();
+  const sub = (p.subcategoria || '').toLowerCase();
+  const cat = (p.categoria || '').toLowerCase();
 
   let macro: WineMapping['macro'] = null;
   const varietales: string[] = [];
 
   // Categorize based on category, subcategory or name
   if (p.categoria === 'Bodega' || isBodegaCategory(p.categoria)) {
-    const sub = (p.subcategoria || '').toLowerCase();
-    if (sub.includes('espumantes') || sub.includes('champagne') || name.includes('champagne') || name.includes('chandon') || name.includes('baron b') || name.includes('aluda') || name.includes('rosé') || name.includes('brut')) {
+    if (cat.includes('destilado') || cat.includes('trago') || cat.includes('coctel') || sub.includes('whisky') || sub.includes('gin') || sub.includes('fernet') || sub.includes('aperitivo') || sub.includes('vermut') || name.includes('whisky') || name.includes('gin') || name.includes('fernet') || name.includes('aperol') || name.includes('vermut')) {
+      macro = 'destilados';
+    } else if (sub.includes('espumantes') || sub.includes('champagne') || cat.includes('espumante') || name.includes('champagne') || name.includes('chandon') || name.includes('baron b') || name.includes('aluda') || name.includes('alyda') || name.includes('rosé') || name.includes('brut')) {
       macro = 'champagne';
     } else if (name.includes('copa') || name.includes('copas')) {
       macro = 'copas';
     } else if (
-      sub.includes('blancos') || 
+      cat.includes('blanco') || cat.includes('rosado') || sub.includes('blancos') || 
       name.includes('sauvignon blanc') || name.includes('sauvignon-blanc') || name.includes('sb') ||
       name.includes('chardonnay') || 
       name.includes('viognier') || 
@@ -106,7 +109,6 @@ function getWineMapping(p: ProductoMenu): WineMapping {
       macro = 'tintas';
     }
   } else if (p.categoria === 'Bebidas' || p.categoria === 'Bebidas con Alcohol' || p.categoria === 'Bebidas sin Alcohol') {
-    const sub = (p.subcategoria || '').toLowerCase();
     if (sub.includes('whisky') || sub.includes('gin') || sub.includes('fernet') || sub.includes('aperitivos') || name.includes('macallan') || name.includes('gin') || name.includes('fernet') || name.includes('aperol') || name.includes('spritz')) {
       macro = 'destilados';
     }
@@ -218,14 +220,16 @@ function getWineMapping(p: ProductoMenu): WineMapping {
   }
 
   if (macro === 'destilados') {
-    if (name.includes('whisky') || name.includes('macallan')) {
+    if (name.includes('whisky') || name.includes('macallan') || name.includes('johnnie') || name.includes('daniel') || name.includes('jameson')) {
       varietales.push('Whisky');
-    } else if (name.includes('gin') || name.includes('heráclito') || name.includes('heraclito')) {
+    } else if (name.includes('gin') || name.includes('heráclito') || name.includes('heraclito') || name.includes('beefeater') || name.includes('bombay') || name.includes('spirito')) {
       varietales.push('Gin');
     } else if (name.includes('fernet') || name.includes('branca')) {
       varietales.push('Fernet');
-    } else if (name.includes('aperol') || name.includes('spritz') || name.includes('aperitivo')) {
+    } else if (name.includes('aperol') || name.includes('spritz') || name.includes('aperitivo') || name.includes('gancia') || name.includes('campari') || name.includes('carpano') || name.includes('martini') || name.includes('vermut')) {
       varietales.push('Aperitivos');
+    } else if (name.includes('vodka') || name.includes('sernova')) {
+      varietales.push('Vodka');
     }
   }
 
