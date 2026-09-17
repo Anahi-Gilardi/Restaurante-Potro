@@ -587,7 +587,20 @@ export function useCaja({
 
       const finalShift = await cajaService.close(money, closingObservationsInput, movimientosCajaChica);
       
+      // Cerrar modal y limpiar estados inmediatamente para respuesta visual instantánea (0ms)
+      setCajaSession(null);
+      setShowCloseModal(false);
+      setClosingPhysicalCashInput('');
+      setClosingObservationsInput('Cierre de turno');
+      loadCajaState();
+
       addLog('sistema', `CAJA: Turno fiscal cerrado por ${finalShift.usuario_cajero}. Arqueo Real: $${finalShift.monto_real?.toLocaleString('es-AR')}. Diferencia: ARS $${finalShift.diferencia?.toLocaleString('es-AR')}`);
+
+      if (finalShift.sync_status === 'pending') {
+        toast.warning('Jornada cerrada y respaldada localmente. Supabase se sincronizará al recuperar conexión.');
+      } else {
+        toast.success('Jornada finalizada. Arqueo sincronizado y balance exportado en CSV y PDF.');
+      }
 
       const csvRows = [
         ['EL PATRON GRILL - REPORTE DE BALANCE DIARIO'],
@@ -618,17 +631,6 @@ export function useCaja({
       } catch (err: any) {
         console.error('Error generating shift close PDF:', err);
         toast.warning('No se pudo descargar el comprobante en formato PDF: ' + err.message);
-      }
-
-      setCajaSession(null);
-      setShowCloseModal(false);
-      setClosingPhysicalCashInput('');
-      setClosingObservationsInput('Cierre de turno');
-      loadCajaState();
-      if (finalShift.sync_status === 'pending') {
-        toast.warning('Jornada cerrada y respaldada localmente. Supabase se sincronizará al recuperar conexión.');
-      } else {
-        toast.success('Jornada finalizada. Arqueo sincronizado y balance exportado en CSV y PDF.');
       }
     } catch (err: any) {
       console.error('Error closing shift:', err);

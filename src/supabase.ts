@@ -266,17 +266,15 @@ export async function dbFetchLogs() {
 }
 
 export async function dbInsertLog(log: any) {
-  try {
-    await sheetUpsertRow('pedido_operaciones', {
-      id_operacion: log.id || `log_${Date.now()}`,
-      tipo_operacion: log.tipo || 'sistema',
-      detalles: log.mensaje || '',
-      usuario: log.usuario || 'Sistema',
-      fecha_hora: new Date().toISOString()
-    });
-  } catch (sheetErr) {
+  sheetUpsertRow('pedido_operaciones', {
+    id_operacion: log.id || `log_${Date.now()}`,
+    tipo_operacion: log.tipo || 'sistema',
+    detalles: log.mensaje || '',
+    usuario: log.usuario || 'Sistema',
+    fecha_hora: new Date().toISOString()
+  }).catch(sheetErr => {
     console.warn('[GoogleSheets] dbInsertLog error:', sheetErr);
-  }
+  });
   try { await (await import('./services/auditoriaService')).auditoriaService.create(log); }
   catch (e) { console.warn('dbInsertLog:', e); }
 }

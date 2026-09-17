@@ -67,7 +67,7 @@ if (typeof window !== 'undefined') {
   try {
     for (const tbl of KNOWN_SHEET_TABLES) {
       const disk = getTableStorageCache(tbl);
-      if (disk && Array.isArray(disk) && disk.length > 0) {
+      if (disk && Array.isArray(disk)) {
         cachedTables[tbl] = disk;
       }
     }
@@ -76,9 +76,18 @@ if (typeof window !== 'undefined') {
   }
 }
 
+let proxyDisabled = false;
+
 function getSheetsEndpoint(): string {
-  if (typeof window !== 'undefined' && window.location && window.location.origin) {
-    return `${window.location.origin}/api/sheets`;
+  if (typeof window !== 'undefined' && window.location) {
+    const host = window.location.hostname;
+    // En entorno local (localhost / 127.0.0.1 / IP LAN) o si el proxy falló previamente, ir directo a Google Apps Script
+    if (host === 'localhost' || host === '127.0.0.1' || host.startsWith('192.168.') || proxyDisabled) {
+      return GOOGLE_SHEETS_WEBAPP_URL;
+    }
+    if (window.location.origin) {
+      return `${window.location.origin}/api/sheets`;
+    }
   }
   return GOOGLE_SHEETS_WEBAPP_URL;
 }
@@ -88,7 +97,13 @@ async function fetchFromSheets(urlOrAction: string, options?: RequestInit): Prom
   const endpoint = isDirect ? urlOrAction : `${getSheetsEndpoint()}${urlOrAction}`;
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 8000);
+  const timer = setTimeout(() => {
+    try {
+      controller.abort(new Error('Google Sheets timeout'));
+    } catch {
+      controller.abort();
+    }
+  }, 6000);
 
   try {
     const res = await fetch(endpoint, {
@@ -99,13 +114,26 @@ async function fetchFromSheets(urlOrAction: string, options?: RequestInit): Prom
     if (res.ok || isDirect || endpoint === GOOGLE_SHEETS_WEBAPP_URL) {
       return res;
     }
+    if (endpoint.includes('/api/sheets')) {
+      proxyDisabled = true;
+    }
     throw new Error(`Proxy status ${res.status}`);
   } catch (proxyErr) {
     clearTimeout(timer);
-    if (!isDirect && endpoint !== GOOGLE_SHEETS_WEBAPP_URL) {
+    if (endpoint.includes('/api/sheets')) {
+      proxyDisabled = true;
+    }
+
+    if (!isDirect && !endpoint.startsWith(GOOGLE_SHEETS_WEBAPP_URL)) {
       const fallbackUrl = `${GOOGLE_SHEETS_WEBAPP_URL}${urlOrAction}`;
       const fbController = new AbortController();
-      const fbTimer = setTimeout(() => fbController.abort(), 8000);
+      const fbTimer = setTimeout(() => {
+        try {
+          fbController.abort(new Error('Fallback Sheets timeout'));
+        } catch {
+          fbController.abort();
+        }
+      }, 6000);
       try {
         const fbRes = await fetch(fallbackUrl, {
           ...options,
@@ -234,11 +262,11 @@ async function executeFetchTable<T = any>(tableName: string): Promise<T[]> {
       console.warn(`[GoogleSheetsClient] Advertencia al leer '${tableName}':`, error);
     }
 
-    if (cachedTables[tableName] && cachedTables[tableName].length > 0) {
+    if (cachedTables[tableName] !== undefined && Array.isArray(cachedTables[tableName])) {
       return cachedTables[tableName] as T[];
     }
     const diskCache = getTableStorageCache(tableName);
-    if (diskCache && diskCache.length > 0) {
+    if (diskCache !== null && Array.isArray(diskCache)) {
       return diskCache as T[];
     }
     return [] as T[];
@@ -262,7 +290,7 @@ export async function sheetFetchTable<T = any>(tableName: string, forceFresh = f
 
   if (!forceFresh) {
     // 1. Memoria de acceso inmediato (0ms)
-    if (cachedTables[tableName] && cachedTables[tableName].length > 0) {
+    if (cachedTables[tableName] !== undefined && Array.isArray(cachedTables[tableName])) {
       if (isStale) {
         revalidateTableInBackground(tableName);
       }
@@ -271,9 +299,11 @@ export async function sheetFetchTable<T = any>(tableName: string, forceFresh = f
 
     // 2. Disco LocalStorage de acceso inmediato (0ms)
     const diskCache = getTableStorageCache(tableName);
-    if (diskCache && Array.isArray(diskCache) && diskCache.length > 0) {
+    if (diskCache !== null && Array.isArray(diskCache)) {
       cachedTables[tableName] = diskCache;
-      revalidateTableInBackground(tableName);
+      if (isStale) {
+        revalidateTableInBackground(tableName);
+      }
       return diskCache as T[];
     }
   }
@@ -358,7 +388,7 @@ export async function sheetUpsertRow<T extends Record<string, any>>(tableName: s
     }
     return json.result || { operation: 'saved' };
   } catch (err) {
-    console.warn(`[GoogleSheetsClient] Persistido localmente '${tableName}' (offline/red):`, err);
+    console.warn(`[GoogleSheetsClient] Persistido localmente '${tableName}' (offline/red):`, (err as any)?.message || err);
     return { operation: 'saved_locally' };
   }
 }

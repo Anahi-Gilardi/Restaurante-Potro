@@ -532,8 +532,10 @@ export const cajaService = {
     // Notificar a otras pestañas y computadoras en tiempo real
     broadcastAppEvent('caja_cerrada', { id_cierre: closed.id_cierre });
 
-    // Actualizar inmediatamente en Google Sheets y caché local
-    await persistCierre(closed);
+    // Persistir en Google Sheets en segundo plano sin congelar la pantalla ni demorar el arqueo
+    persistCierre(closed).catch(sheetErr => {
+      console.warn('[cajaService.close] Persistencia remota diferida:', sheetErr);
+    });
 
     return closed;
   }
