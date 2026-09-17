@@ -20,6 +20,28 @@ export const DEFAULT_CATEGORIAS: Categoria[] = [
   { id: 'cat_bebidas_sin_alcohol', nombre: 'Bebidas sin alcohol', slug: 'bebidas-sin-alcohol', orden: 9, activa: true, icono: 'Wine' }
 ];
 
+export function mergeWithDefaultCategories(existing: Categoria[]): Categoria[] {
+  if (!Array.isArray(existing) || existing.length === 0) {
+    return [...DEFAULT_CATEGORIAS];
+  }
+
+  const existingSlugs = new Set(
+    existing.map(c => (c.slug || '').toLowerCase().trim())
+  );
+  const existingNames = new Set(
+    existing.map(c => (c.nombre || '').toLowerCase().trim())
+  );
+
+  const missingDefaults = DEFAULT_CATEGORIAS.filter(def => {
+    const s = def.slug.toLowerCase().trim();
+    const n = def.nombre.toLowerCase().trim();
+    return !existingSlugs.has(s) && !existingNames.has(n);
+  });
+
+  const merged = [...existing, ...missingDefaults];
+  return merged.sort((a, b) => Number(a.orden || 99) - Number(b.orden || 99));
+}
+
 export const categoriasService = {
   async list(): Promise<Categoria[]> {
     try {
@@ -35,15 +57,15 @@ export const categoriasService = {
             orden: Number(c.orden || 1),
             activa: c.activa !== false && String(c.activa).toLowerCase() !== 'false',
             icono: c.icono || 'UtensilsCrossed'
-          }))
-          .sort((a: Categoria, b: Categoria) => Number(a.orden || 99) - Number(b.orden || 99));
+          }));
 
+        const merged = mergeWithDefaultCategories(mapped);
         try {
-          localStorage.setItem('el_patron_cache_categorias', JSON.stringify(mapped));
+          localStorage.setItem('el_patron_cache_categorias', JSON.stringify(merged));
         } catch (e) {
           console.warn('Failed to cache categories to localStorage:', e);
         }
-        return mapped;
+        return merged;
       }
     } catch (sheetErr) {
       console.warn('[categoriasService.list] Fallback a caché/Supabase:', sheetErr);
@@ -62,7 +84,8 @@ export const categoriasService = {
               .eq('activa', true)
               .order('orden', { ascending: true });
             if (!error && data) {
-              localStorage.setItem('el_patron_cache_categorias', JSON.stringify(data));
+              const merged = mergeWithDefaultCategories(data);
+              localStorage.setItem('el_patron_cache_categorias', JSON.stringify(merged));
             }
           } catch (e) {
             console.warn('Background categories cache refresh failed:', e);
@@ -73,20 +96,11 @@ export const categoriasService = {
       try {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const hasAlcohol = parsed.some((c: Categoria) =>
-            c.slug === 'bebidas-con-alcohol' || (c.nombre && c.nombre.toLowerCase().includes('con alcohol'))
-          );
-          if (!hasAlcohol) {
-            const alcoholCat = DEFAULT_CATEGORIAS.find(c => c.slug === 'bebidas-con-alcohol');
-            if (alcoholCat) {
-              parsed.push(alcoholCat);
-              parsed.sort((a: Categoria, b: Categoria) => Number(a.orden || 99) - Number(b.orden || 99));
-              try {
-                localStorage.setItem('el_patron_cache_categorias', JSON.stringify(parsed));
-              } catch {}
-            }
-          }
-          return parsed;
+          const merged = mergeWithDefaultCategories(parsed);
+          try {
+            localStorage.setItem('el_patron_cache_categorias', JSON.stringify(merged));
+          } catch {}
+          return merged;
         }
       } catch (e) {
         console.warn('Failed parsing categories cache:', e);
@@ -115,7 +129,7 @@ export const categoriasService = {
         throw error;
       }
 
-      const result = data && data.length > 0 ? data : DEFAULT_CATEGORIAS;
+      const result = mergeWithDefaultCategories(data && data.length > 0 ? data : DEFAULT_CATEGORIAS);
       localStorage.setItem('el_patron_cache_categorias', JSON.stringify(result));
       return result;
     } catch (err) {

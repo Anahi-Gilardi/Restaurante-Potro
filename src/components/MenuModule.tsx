@@ -4,9 +4,10 @@ import { UtensilsCrossed, Plus, Search, Edit2, Check, Copy, X, DollarSign, Image
 import BulkPriceEditor from './BulkPriceEditor';
 import MenuDiarioModule from './MenuDiarioModule';
 import { CardSkeleton } from './Skeleton';
-import { ProductoMenu, EventoLog, RecetaEscandallo, Insumo } from '../types';
+import { ProductoMenu, EventoLog, RecetaEscandallo, Insumo, Categoria } from '../types';
 import { menuService } from '../services/menuService';
 import { useCategories } from '../hooks/useCategories';
+import { DEFAULT_CATEGORIAS, mergeWithDefaultCategories } from '../services/categoriasService';
 import { menuItemSchema } from '../lib/validations';
 import { ToastContainer, useToast } from './ToastContainer';
 import { calculateRecipeCost, calculateMarginPct, getMarginLevel } from '../lib/recetas';
@@ -36,11 +37,79 @@ const ALLERGENS_LIST = [
 
 const normalizeText = (value: string) => value.trim().toLowerCase();
 
+export const normalizeSearchToken = (str: string): string => {
+  return (str || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\w\s]/gi, ' ')
+    .trim();
+};
+
+export const getSearchVariants = (token: string): string[] => {
+  const variants = [token];
+  if (token.endsWith('es') && token.length > 3) {
+    variants.push(token.slice(0, -2));
+  } else if (token.endsWith('s') && token.length > 3) {
+    variants.push(token.slice(0, -1));
+  }
+
+  if (token === 'vino' || token === 'vinos') {
+    variants.push('bodega', 'malbec', 'cabernet', 'tinto', 'blanco', 'espumante', 'syrah', 'merlot', 'bonarda', 'chardonnay', 'sauvignon', 'cava');
+  }
+  if (token === 'tinto' || token === 'tintos') {
+    variants.push('malbec', 'cabernet', 'merlot', 'bonarda', 'syrah', 'pinot');
+  }
+  if (token === 'blanco' || token === 'blancos') {
+    variants.push('chardonnay', 'sauvignon', 'torrontes', 'viognier', 'semillon');
+  }
+  if (token === 'espumante' || token === 'espumantes' || token === 'champagne') {
+    variants.push('baron', 'chandon', 'alyda', 'nature', 'brut');
+  }
+  if (token === 'cerveza' || token === 'cervezas') {
+    variants.push('stella', 'corona', 'quilmes', 'andes', 'patagonia', 'lata', 'porron');
+  }
+  if (token === 'trago' || token === 'tragos' || token === 'coctel' || token === 'cocteles') {
+    variants.push('cocteleria', 'fernet', 'gin', 'tonic', 'vermut', 'aperol', 'campari', 'gancia', 'martini');
+  }
+  if (token === 'destilado' || token === 'destilados') {
+    variants.push('whisky', 'whiskey', 'gin', 'vodka', 'ron', 'tequila', 'licor');
+  }
+  if (token === 'carne' || token === 'carnes' || token === 'asado') {
+    variants.push('bife', 'parrilla', 'ojo', 'lomo', 'bondiola', 'entraña', 'vacio', 'tira');
+  }
+  if (token === 'pasta' || token === 'pastas') {
+    variants.push('fideo', 'tallarin', 'ravioles', 'noquis', 'sorrentinos', 'lasagna');
+  }
+  if (token === 'postre' || token === 'postres') {
+    variants.push('flan', 'helado', 'tiramisu', 'dulce', 'panna cotta', 'tarta');
+  }
+  return variants;
+};
+
+export const matchesProductSearch = (item: ProductoMenu, rawQuery: string): boolean => {
+  if (!rawQuery || !rawQuery.trim()) return true;
+
+  const normalizedQuery = normalizeSearchToken(rawQuery);
+  if (!normalizedQuery) return true;
+
+  const tokens = normalizedQuery.split(/\s+/).filter(Boolean);
+
+  const corpus = normalizeSearchToken(
+    `${item.nombre} ${item.descripcion || ''} ${item.categoria || ''} ${item.subcategoria || ''} ${item.tipo || ''} ${item.unidad_medida || ''}`
+  );
+
+  return tokens.every(token => {
+    const variants = getSearchVariants(token);
+    return variants.some(v => corpus.includes(v));
+  });
+};
+
 const inferTipo = (categoria: string): ProductoMenu['tipo'] => {
   const normalized = normalizeText(categoria);
-  if (normalized === 'bebidas' || normalized.includes('bebida')) return 'bebida';
-  if (normalized === 'bodega') return 'vino';
-  if (normalized === 'postres') return 'postre';
+  if (normalized.includes('vino') || normalized.includes('bodega') || normalized.includes('espumante')) return 'vino';
+  if (normalized.includes('bebida') || normalized.includes('cerveza') || normalized.includes('destilado') || normalized.includes('trago') || normalized.includes('coctel')) return 'bebida';
+  if (normalized.includes('postre')) return 'postre';
   return 'plato';
 };
 
@@ -161,6 +230,108 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
 
     return direct ? direct.slug.toLowerCase() : normalizeCategorySlug(catName);
   };
+
+  const isCategoryMatch = (item: ProductoMenu, selectedCatSlug: string): boolean => {
+    if (!selectedCatSlug || selectedCatSlug === 'todos') return true;
+
+    const itemSlug = getCategorySlug(item.categoria).toLowerCase();
+    const itemType = (item.tipo || '').toLowerCase();
+    const itemCatNorm = (item.categoria || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+    // Direct slug match
+    if (itemSlug === selectedCatSlug.toLowerCase()) return true;
+
+    // Macro: Bodega y Vinos -> matches all wines, espumantes, champagnes
+    if (selectedCatSlug === 'bodega-y-vinos' || selectedCatSlug === 'bodega') {
+      return (
+        itemType === 'vino' ||
+        itemSlug === 'vinos-tintos' ||
+        itemSlug === 'vinos-blancos-y-rosados' ||
+        itemSlug === 'espumantes' ||
+        itemCatNorm.includes('vino') ||
+        itemCatNorm.includes('bodega') ||
+        itemCatNorm.includes('espumante') ||
+        itemCatNorm.includes('champagne')
+      );
+    }
+
+    // Macro: Bebidas con Alcohol -> matches wines, cervezas, destilados, tragos
+    if (selectedCatSlug === 'bebidas-con-alcohol') {
+      return (
+        itemType === 'vino' ||
+        itemSlug === 'cervezas' ||
+        itemSlug === 'destilados' ||
+        itemSlug === 'tragos-y-cocteleria' ||
+        itemSlug === 'vinos-tintos' ||
+        itemSlug === 'vinos-blancos-y-rosados' ||
+        itemSlug === 'espumantes' ||
+        itemSlug === 'bodega-y-vinos' ||
+        itemCatNorm.includes('con alcohol') ||
+        itemCatNorm.includes('cerveza') ||
+        itemCatNorm.includes('destilado') ||
+        itemCatNorm.includes('trago') ||
+        itemCatNorm.includes('whisky') ||
+        itemCatNorm.includes('gin') ||
+        itemCatNorm.includes('fernet')
+      );
+    }
+
+    // Macro: Bebidas sin Alcohol -> non-alcoholic only
+    if (selectedCatSlug === 'bebidas-sin-alcohol') {
+      const isAlcoholic = (
+        itemType === 'vino' ||
+        itemSlug === 'cervezas' ||
+        itemSlug === 'destilados' ||
+        itemSlug === 'tragos-y-cocteleria' ||
+        itemSlug === 'vinos-tintos' ||
+        itemSlug === 'vinos-blancos-y-rosados' ||
+        itemSlug === 'espumantes' ||
+        itemSlug === 'bodega-y-vinos' ||
+        itemCatNorm.includes('con alcohol') ||
+        itemCatNorm.includes('cerveza') ||
+        itemCatNorm.includes('destilado') ||
+        itemCatNorm.includes('trago') ||
+        itemCatNorm.includes('whisky') ||
+        itemCatNorm.includes('gin')
+      );
+      if (isAlcoholic) return false;
+      return (
+        itemSlug === 'bebidas-sin-alcohol' ||
+        itemCatNorm.includes('sin alcohol') ||
+        itemCatNorm.includes('gaseosa') ||
+        itemCatNorm.includes('agua') ||
+        itemCatNorm.includes('cafeteria') ||
+        itemCatNorm.includes('cafe')
+      );
+    }
+
+    return false;
+  };
+
+  // Ensure all categories (including new wines/destilados and any custom item categories) are displayed as buttons
+  const displayCategories = useMemo(() => {
+    const base = mergeWithDefaultCategories(categories);
+    const existingSlugs = new Set(base.map(c => c.slug.toLowerCase()));
+
+    items.forEach(p => {
+      if (!p.categoria) return;
+      const slug = getCategorySlug(p.categoria).toLowerCase();
+      if (!existingSlugs.has(slug)) {
+        existingSlugs.add(slug);
+        base.push({
+          id: `cat_${slug.replace(/-/g, '_')}`,
+          nombre: p.categoria,
+          slug: slug,
+          orden: 85,
+          activa: true,
+          icono: (p.tipo === 'vino' || slug.includes('vino')) ? 'Wine' : 'UtensilsCrossed'
+        });
+      }
+    });
+
+    return base.sort((a, b) => Number(a.orden || 99) - Number(b.orden || 99));
+  }, [categories, items]);
+
   const isBusy = pendingAction !== null;
 
   const syncItems = (next: ProductoMenu[]) => {
@@ -523,11 +694,36 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
     syncItems(next);
   };
 
-  const filtered = useMemo(() => items.filter(item => {
-    const matchesSearch = item.nombre.toLowerCase().includes(debouncedSearch.toLowerCase());
-    const matchesCat = selectedCategoria === 'todos' || getCategorySlug(item.categoria).toLowerCase() === selectedCategoria.toLowerCase();
-    return matchesSearch && matchesCat;
-  }), [items, debouncedSearch, selectedCategoria, categories]);
+  const { filtered, isCrossCategorySearch } = useMemo(() => {
+    const query = debouncedSearch.trim();
+
+    if (!query) {
+      const result = items.filter(item => isCategoryMatch(item, selectedCategoria));
+      return { filtered: result, isCrossCategorySearch: false };
+    }
+
+    // 1. If 'todos' is selected, search globally across all items
+    if (selectedCategoria === 'todos') {
+      const result = items.filter(item => matchesProductSearch(item, query));
+      return { filtered: result, isCrossCategorySearch: false };
+    }
+
+    // 2. If a specific category is selected, first check matches within that category
+    const catMatches = items.filter(
+      item => isCategoryMatch(item, selectedCategoria) && matchesProductSearch(item, query)
+    );
+
+    if (catMatches.length > 0) {
+      return { filtered: catMatches, isCrossCategorySearch: false };
+    }
+
+    // 3. Fallback: If 0 matches in current category, search across ALL products so user is not blocked
+    const globalMatches = items.filter(item => matchesProductSearch(item, query));
+    return {
+      filtered: globalMatches,
+      isCrossCategorySearch: globalMatches.length > 0
+    };
+  }, [items, debouncedSearch, selectedCategoria, displayCategories]);
   const pageCount = Math.max(1, Math.ceil(filtered.length / MENU_PAGE_SIZE));
   const paginatedItems = useMemo(
     () => filtered.slice((page - 1) * MENU_PAGE_SIZE, page * MENU_PAGE_SIZE),
@@ -779,7 +975,7 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
             <div className="flex flex-wrap gap-1">
               <button
                 onClick={() => setSelectedCategoria('todos')}
-                className={`px-2.5 py-1.5 text-[10px] font-black rounded-lg uppercase tracking-wide cursor-pointer transition-all border ${
+                className={`px-2.5 py-1.5 text-[10px] font-black rounded-lg uppercase tracking-wide cursor-pointer transition-all border whitespace-nowrap ${
                   selectedCategoria === 'todos'
                     ? 'bg-[#8C6239] dark:bg-[#C8956A] text-white dark:text-[#8C6239] border-[#8C6239] dark:border-[#C8956A] shadow-xs'
                     : 'bg-stone-50 dark:bg-stone-850/80 text-stone-650 dark:text-stone-250 border-stone-200 dark:border-stone-750/80 hover:bg-[#F5F1E9] dark:hover:bg-stone-750/50'
@@ -787,11 +983,11 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
               >
                 Todos
               </button>
-              {categories.map(cat => (
+              {displayCategories.map(cat => (
                 <button
                   key={cat.id}
                   onClick={() => setSelectedCategoria(cat.slug.toLowerCase())}
-                  className={`px-2.5 py-1.5 text-[10px] font-black rounded-lg uppercase tracking-wide cursor-pointer transition-all border ${
+                  className={`px-2.5 py-1.5 text-[10px] font-black rounded-lg uppercase tracking-wide cursor-pointer transition-all border whitespace-nowrap ${
                     selectedCategoria.toLowerCase() === cat.slug.toLowerCase()
                       ? 'bg-[#8C6239] dark:bg-[#C8956A] text-white dark:text-[#8C6239] border-[#8C6239] dark:border-[#C8956A] shadow-xs'
                       : 'bg-stone-50 dark:bg-stone-850/80 text-stone-650 dark:text-stone-250 border-stone-200 dark:border-stone-750/80 hover:bg-[#F5F1E9] dark:hover:bg-stone-750/50'
@@ -809,10 +1005,38 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Buscar platillo, vino o postre..."
-              className="w-full min-h-11 text-sm pl-9 pr-4 py-3 rounded-xl border border-stone-200 dark:border-white/10 bg-stone-50/50 dark:bg-white/5 text-stone-800 dark:text-[#FAF7F0] focus:outline-none focus:ring-2 focus:ring-[#C8956A]/30 dark:focus:ring-[#C8956A]/50 dark:placeholder-stone-400/60"
+              placeholder="Buscar por nombre, bodega, vino, varietal o categoría..."
+              className="w-full min-h-11 text-sm pl-9 pr-10 py-3 rounded-xl border border-stone-200 dark:border-white/10 bg-stone-50/50 dark:bg-white/5 text-stone-800 dark:text-[#FAF7F0] focus:outline-none focus:ring-2 focus:ring-[#C8956A]/30 dark:focus:ring-[#C8956A]/50 dark:placeholder-stone-400/60"
             />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 cursor-pointer rounded-full transition-colors"
+                title="Limpiar búsqueda"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
+
+          {isCrossCategorySearch && debouncedSearch.trim() && (
+            <div className="flex items-center justify-between p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 rounded-xl text-xs text-amber-900 dark:text-amber-200 shadow-sm">
+              <div className="flex items-center gap-2">
+                <span className="text-base">🍷</span>
+                <span>
+                  No hay coincidencias en <strong>{displayCategories.find(c => c.slug.toLowerCase() === selectedCategoria.toLowerCase())?.nombre || selectedCategoria}</strong>. Mostrando <strong>{filtered.length}</strong> resultados en todo el catálogo.
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedCategoria('todos')}
+                className="px-2.5 py-1 bg-amber-200 hover:bg-amber-300 dark:bg-amber-800 dark:hover:bg-amber-700 text-amber-950 dark:text-amber-100 rounded-lg text-[10px] font-bold uppercase transition-colors cursor-pointer"
+              >
+                Ver en Todos
+              </button>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
             {loading ? <div className="col-span-3"><CardSkeleton count={6} /></div> : paginatedItems.map(item => {

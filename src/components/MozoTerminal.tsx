@@ -39,6 +39,8 @@ import { formatTicketTableName, isUnitedTable, formatUnitedTableName } from '../
 import { getTableActiveInfo, isTableOccupied, TableActiveInfo } from '../lib/tableOrders';
 import { useToast, ToastContainer } from './ToastContainer';
 import { useCategories } from '../hooks/useCategories';
+import { mergeWithDefaultCategories } from '../services/categoriasService';
+import { matchesProductSearch } from './MenuModule';
 
 export const normalizeCategoryString = (str?: string | null): string => {
   return (str || '')
@@ -50,8 +52,14 @@ export const normalizeCategoryString = (str?: string | null): string => {
 };
 
 export const isBodegaCategory = (catName?: string | null): boolean => {
-  const norm = (catName || '').toLowerCase();
-  return norm.includes('bodega') || norm.includes('vino') || norm.includes('espumante') || norm.includes('destilado') || norm.includes('cerveza') || norm.includes('trago') || norm.includes('coctel');
+  const norm = normalizeCategoryString(catName);
+  return (
+    norm.includes('bodega') ||
+    norm.includes('vino') ||
+    norm.includes('espumante') ||
+    norm.includes('champagne') ||
+    norm.includes('cava')
+  );
 };
 
 export const getCategoryDisplayIcon = (icono?: string | null, nombre?: string): string => {
@@ -285,7 +293,7 @@ export default function MozoTerminal({
   const [promociones, setPromociones] = useState<Promocion[]>([]);
   const [promocionesLoading, setPromocionesLoading] = useState(true);
 
-  // Dynamic categories combined: system fixed items + dynamic categories from Sheet/DB
+  // Dynamic categories combined: system fixed items + dynamic categories from Sheet/DB + loaded products
   const displayCategories = useMemo(() => {
     const fixed = [
       { id: 'todo', label: 'Todos 🍽️' },
@@ -293,7 +301,27 @@ export default function MozoTerminal({
       { id: 'Promociones', label: `Promociones 🏷️ (${promociones.length})` }
     ];
 
-    const dynamic = (categories || [])
+    const base = mergeWithDefaultCategories(categories || []);
+    const existingNames = new Set(base.map(c => c.nombre.toLowerCase().trim()));
+
+    // Also include any category from loaded products if not present
+    productosMenu.forEach(p => {
+      if (!p.categoria) return;
+      const catTrim = p.categoria.trim();
+      if (!existingNames.has(catTrim.toLowerCase())) {
+        existingNames.add(catTrim.toLowerCase());
+        base.push({
+          id: `cat_${normalizeCategoryString(catTrim)}`,
+          nombre: catTrim,
+          slug: normalizeCategoryString(catTrim),
+          orden: 85,
+          activa: true,
+          icono: (p.tipo === 'vino' || catTrim.toLowerCase().includes('vino')) ? 'Wine' : 'UtensilsCrossed'
+        });
+      }
+    });
+
+    const dynamic = base
       .filter(c => c.activa !== false)
       .sort((a, b) => Number(a.orden || 99) - Number(b.orden || 99))
       .map(c => ({
@@ -302,7 +330,7 @@ export default function MozoTerminal({
       }));
 
     return [...fixed, ...dynamic];
-  }, [categories, promociones.length]);
+  }, [categories, promociones.length, productosMenu]);
 
   React.useEffect(() => {
     let isMounted = true;
@@ -489,55 +517,142 @@ export default function MozoTerminal({
   }, [selectedMesa, selectedMesaInfo]);
 
   // Filter products by category and search (with hierarchical wine/beverage browsing)
-  const filteredProducts = useMemo(() => {
-    return productosMenu.filter(p => {
-      // 1. General category match
-      let matchCat = false;
-      if (selectedCategoria === 'todo') {
-        matchCat = true;
-      } else if (isBodegaCategory(selectedCategoria)) {
-        const mapping = getWineMapping(p);
-        matchCat = isBodegaCategory(p.categoria) || mapping.macro === 'destilados';
-      } else {
-        if (p.categoria === selectedCategoria) {
-          matchCat = true;
-        } else {
-          const pNorm = normalizeCategoryString(p.categoria);
-          const sNorm = normalizeCategoryString(selectedCategoria);
-          if (pNorm && sNorm && (pNorm === sNorm || pNorm.includes(sNorm) || sNorm.includes(pNorm))) {
-            matchCat = true;
-          } else if (
-            (sNorm.includes('corte') || sNorm.includes('parrilla')) && (pNorm.includes('carne') || pNorm.includes('asado')) ||
-            (sNorm.includes('carne') || sNorm.includes('asado')) && (pNorm.includes('corte') || pNorm.includes('parrilla')) ||
-            (sNorm.includes('pescad') || sNorm.includes('marisco')) && (pNorm.includes('pescad') || pNorm.includes('marisco')) ||
-            (sNorm.includes('criolla') || sNorm.includes('empanada')) && (pNorm.includes('criolla') || pNorm.includes('empanada'))
-          ) {
-            matchCat = true;
-          }
-        }
-      }
+  const { filteredProducts, isCrossCategorySearch } = useMemo(() => {
+    const query = searchQuery.trim();
 
-      // 2. Text Search match
-      const matchSearch = p.nombre.toLowerCase().includes(searchQuery.toLowerCase());
-      if (!matchCat || !matchSearch) return false;
+    const matchesCategory = (p: ProductoMenu, cat: string): boolean => {
+      if (cat === 'todo') return true;
 
-      // 3. Hierarchical Wine/Bodega filter
-      if (isBodegaCategory(selectedCategoria)) {
-        const mapping = getWineMapping(p);
-        
-        // Macro category filter
+      const normCat = normalizeCategoryString(cat);
+      const pCatNorm = normalizeCategoryString(p.categoria);
+      const mapping = getWineMapping(p);
+
+      // Macro: Bodega / Bodega y Vinos
+      if (normCat === 'bodega' || normCat === 'bodegayvinos') {
+        const isWineOrSpirit = isBodegaCategory(p.categoria) || p.tipo === 'vino' || mapping.macro !== null;
+        if (!isWineOrSpirit) return false;
+
+        // Apply macro and varietal filters inside Bodega
         if (selectedWineMacro !== 'todo' && mapping.macro !== selectedWineMacro) {
           return false;
         }
-
-        // Varietal filter
         if (selectedWineVarietal !== 'todo' && !mapping.varietales.includes(selectedWineVarietal)) {
           return false;
         }
+        return true;
       }
 
-      return p.activo;
-    });
+      // Specific wine categories
+      if (normCat === 'vinostintos') {
+        const isTinto = pCatNorm === 'vinostintos' || mapping.macro === 'tintas';
+        if (!isTinto) return false;
+        if (selectedWineVarietal !== 'todo' && !mapping.varietales.includes(selectedWineVarietal)) {
+          return false;
+        }
+        return true;
+      }
+
+      if (normCat === 'vinosblancosyrosados' || normCat === 'vinosblancos') {
+        const isBlanco = pCatNorm === 'vinosblancosyrosados' || pCatNorm === 'vinosblancos' || mapping.macro === 'blancas';
+        if (!isBlanco) return false;
+        if (selectedWineVarietal !== 'todo' && !mapping.varietales.includes(selectedWineVarietal)) {
+          return false;
+        }
+        return true;
+      }
+
+      if (normCat === 'espumantes') {
+        return pCatNorm === 'espumantes' || mapping.macro === 'champagne';
+      }
+
+      if (normCat === 'destilados') {
+        return pCatNorm === 'destilados' || mapping.macro === 'destilados';
+      }
+
+      if (normCat === 'cervezas') {
+        return pCatNorm === 'cervezas' || pCatNorm.includes('cerveza');
+      }
+
+      if (normCat === 'tragosycocteleria' || normCat === 'tragos' || normCat === 'cocteleria') {
+        return pCatNorm === 'tragosycocteleria' || pCatNorm.includes('trago') || pCatNorm.includes('coctel');
+      }
+
+      // Macro: Bebidas con Alcohol
+      if (normCat === 'bebidasconalcohol') {
+        return (
+          p.tipo === 'vino' ||
+          pCatNorm.includes('vino') ||
+          pCatNorm.includes('espumante') ||
+          pCatNorm.includes('cerveza') ||
+          pCatNorm.includes('destilado') ||
+          pCatNorm.includes('trago') ||
+          pCatNorm.includes('coctel') ||
+          mapping.macro !== null
+        );
+      }
+
+      // Macro: Bebidas sin Alcohol
+      if (normCat === 'bebidassinalcohol') {
+        const isAlcoholic = (
+          p.tipo === 'vino' ||
+          pCatNorm.includes('vino') ||
+          pCatNorm.includes('espumante') ||
+          pCatNorm.includes('cerveza') ||
+          pCatNorm.includes('destilado') ||
+          pCatNorm.includes('trago') ||
+          pCatNorm.includes('coctel') ||
+          mapping.macro !== null
+        );
+        if (isAlcoholic) return false;
+        return pCatNorm.includes('bebida') || pCatNorm.includes('gaseosa') || pCatNorm.includes('agua') || pCatNorm.includes('cafe');
+      }
+
+      // Direct exact match
+      if (p.categoria === cat) return true;
+
+      // Normalized match
+      if (pCatNorm && normCat && (pCatNorm === normCat || pCatNorm.includes(normCat) || normCat.includes(pCatNorm))) {
+        return true;
+      }
+
+      // Synonymous food categories
+      if (
+        (normCat.includes('corte') || normCat.includes('parrilla')) && (pCatNorm.includes('carne') || pCatNorm.includes('asado')) ||
+        (normCat.includes('carne') || normCat.includes('asado')) && (pCatNorm.includes('corte') || pCatNorm.includes('parrilla')) ||
+        (normCat.includes('pescad') || normCat.includes('marisco')) && (pCatNorm.includes('pescad') || pCatNorm.includes('marisco')) ||
+        (normCat.includes('criolla') || normCat.includes('empanada')) && (pCatNorm.includes('criolla') || pCatNorm.includes('empanada'))
+      ) {
+        return true;
+      }
+
+      return false;
+    };
+
+    if (!query) {
+      const activeProducts = productosMenu.filter(p => p.activo && matchesCategory(p, selectedCategoria));
+      return { filteredProducts: activeProducts, isCrossCategorySearch: false };
+    }
+
+    // When searching:
+    if (selectedCategoria === 'todo') {
+      const allMatches = productosMenu.filter(p => p.activo && matchesProductSearch(p, query));
+      return { filteredProducts: allMatches, isCrossCategorySearch: false };
+    }
+
+    const catMatches = productosMenu.filter(
+      p => p.activo && matchesCategory(p, selectedCategoria) && matchesProductSearch(p, query)
+    );
+
+    if (catMatches.length > 0) {
+      return { filteredProducts: catMatches, isCrossCategorySearch: false };
+    }
+
+    // Fallback: search globally if 0 results in current category
+    const globalMatches = productosMenu.filter(p => p.activo && matchesProductSearch(p, query));
+    return {
+      filteredProducts: globalMatches,
+      isCrossCategorySearch: globalMatches.length > 0
+    };
   }, [productosMenu, selectedCategoria, searchQuery, selectedWineMacro, selectedWineVarietal]);
 
   // Helper: check how much of an insumo would be required by the current cart
@@ -1194,8 +1309,18 @@ export default function MozoTerminal({
                   placeholder="Buscar plato o bebida..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-3 py-1.5 bg-white/60 dark:bg-[#1E140E]/50 border border-[#8C6239]/25 dark:border-[#C8956A]/20 rounded-xl text-xs text-[#8C6239] dark:text-stone-200 placeholder-[#8C6239]/55 dark:placeholder-stone-450 focus:outline-none focus:ring-1 focus:ring-[#C8956A] focus:border-[#C8956A] transition-all"
+                  className="w-full pl-9 pr-8 py-1.5 bg-white/60 dark:bg-[#1E140E]/50 border border-[#8C6239]/25 dark:border-[#C8956A]/20 rounded-xl text-xs text-[#8C6239] dark:text-stone-200 placeholder-[#8C6239]/55 dark:placeholder-stone-450 focus:outline-none focus:ring-1 focus:ring-[#C8956A] focus:border-[#C8956A] transition-all"
                 />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 cursor-pointer"
+                    title="Limpiar búsqueda"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
               <button
                 type="button"
@@ -1221,7 +1346,20 @@ export default function MozoTerminal({
                   key={cat.id}
                   onClick={() => {
                     setSelectedCategoria(cat.id);
-                    if (!isBodegaCategory(cat.id)) {
+                    const norm = normalizeCategoryString(cat.id);
+                    if (norm === 'vinostintos') {
+                      setSelectedWineMacro('tintas');
+                      setSelectedWineVarietal('todo');
+                    } else if (norm === 'vinosblancosyrosados' || norm === 'vinosblancos') {
+                      setSelectedWineMacro('blancas');
+                      setSelectedWineVarietal('todo');
+                    } else if (norm === 'espumantes') {
+                      setSelectedWineMacro('champagne');
+                      setSelectedWineVarietal('todo');
+                    } else if (norm === 'destilados') {
+                      setSelectedWineMacro('destilados');
+                      setSelectedWineVarietal('todo');
+                    } else if (norm !== 'bodega' && norm !== 'bodegayvinos') {
                       setSelectedWineMacro('todo');
                       setSelectedWineVarietal('todo');
                     }
@@ -1245,35 +1383,50 @@ export default function MozoTerminal({
             })}
           </div>
 
+          {isCrossCategorySearch && (
+            <div className="flex items-center justify-between px-3 py-1.5 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs text-amber-800 dark:text-amber-300">
+              <span>Sin coincidencias en <strong>{selectedCategoria}</strong>. Mostrando {filteredProducts.length} resultado(s) en todo el menú.</span>
+              <button
+                type="button"
+                onClick={() => setSelectedCategoria('todo')}
+                className="underline font-bold ml-2 hover:opacity-80 cursor-pointer"
+              >
+                Ver en Todos
+              </button>
+            </div>
+          )}
+
           {/* HIERARCHICAL BODEGA/WINE BROWSER */}
-          {isBodegaCategory(selectedCategoria) && (
+          {(isBodegaCategory(selectedCategoria) || normalizeCategoryString(selectedCategoria) === 'destilados') && (
             <div className="space-y-2.5 pt-3 border-t border-stone-250/30 transition-all duration-300">
               {/* Macro categories */}
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-2.5">
-                {[
-                  { id: 'todo', label: 'Todo Bodega 🍷' },
-                  { id: 'tintas', label: 'Bodegas Tintas 🍷' },
-                  { id: 'blancas', label: 'Bodegas Blancas 🥂' },
-                  { id: 'copas', label: 'Copas de Vino 🍷' },
-                  { id: 'champagne', label: 'Champagne & Espumantes 🍾' },
-                  { id: 'destilados', label: 'Destilados & Aperitivos 🥃' }
-                ].map(macro => (
-                  <button
-                    key={macro.id}
-                    onClick={() => {
-                      setSelectedWineMacro(macro.id as any);
-                      setSelectedWineVarietal('todo');
-                    }}
-                    className={`py-1 px-2.5 text-[10px] md:text-[11px] font-black rounded-lg transition-all cursor-pointer ${
-                      selectedWineMacro === macro.id
-                        ? 'bg-[#8C6239] text-white shadow-sm'
-                        : 'bg-white/60 dark:bg-white/5 text-[#8C6239] dark:text-stone-200 hover:bg-[#8C6239]/10 hover:text-[#8C6239] dark:hover:bg-white/15 border border-[#8C6239]/25 dark:border-white/10'
-                    }`}
-                  >
-                    {macro.label}
-                  </button>
-                ))}
-              </div>
+              {(normalizeCategoryString(selectedCategoria) === 'bodega' || normalizeCategoryString(selectedCategoria) === 'bodegayvinos') && (
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-2.5">
+                  {[
+                    { id: 'todo', label: 'Todo Bodega 🍷' },
+                    { id: 'tintas', label: 'Bodegas Tintas 🍷' },
+                    { id: 'blancas', label: 'Bodegas Blancas 🥂' },
+                    { id: 'copas', label: 'Copas de Vino 🍷' },
+                    { id: 'champagne', label: 'Champagne & Espumantes 🍾' },
+                    { id: 'destilados', label: 'Destilados & Aperitivos 🥃' }
+                  ].map(macro => (
+                    <button
+                      key={macro.id}
+                      onClick={() => {
+                        setSelectedWineMacro(macro.id as any);
+                        setSelectedWineVarietal('todo');
+                      }}
+                      className={`py-1 px-2.5 text-[10px] md:text-[11px] font-black rounded-lg transition-all cursor-pointer ${
+                        selectedWineMacro === macro.id
+                          ? 'bg-[#8C6239] text-white shadow-sm'
+                          : 'bg-white/60 dark:bg-white/5 text-[#8C6239] dark:text-stone-200 hover:bg-[#8C6239]/10 hover:text-[#8C6239] dark:hover:bg-white/15 border border-[#8C6239]/25 dark:border-white/10'
+                      }`}
+                    >
+                      {macro.label}
+                    </button>
+                  ))}
+                </div>
+              )}
 
               {/* Varietals sub-menu for Tintas and Blancas */}
               {(selectedWineMacro === 'tintas' || selectedWineMacro === 'blancas') && (
@@ -1545,109 +1698,126 @@ export default function MozoTerminal({
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[550px] overflow-y-auto pr-1">
-            {filteredProducts.map(p => {
-              const stockRemaining = getSimulatedStockRemaining(p);
-              const isOutOfStock = !permitirVentaSinStock && stockRemaining <= 0;
-              const isLowStock = !permitirVentaSinStock && stockRemaining > 0 && stockRemaining <= 3;
-              const currentInCart = cart[p.id_producto] || 0;
+            {filteredProducts.length === 0 ? (
+              <div className="col-span-full py-12 flex flex-col items-center justify-center text-center text-stone-400">
+                <Search className="w-8 h-8 mb-2 opacity-40 text-[#8C6239]" />
+                <p className="text-xs font-bold text-stone-700 dark:text-stone-300">
+                  No se encontraron productos
+                </p>
+                <p className="text-[11px] text-stone-500 mt-0.5">
+                  {searchQuery ? `No hay resultados para "${searchQuery}".` : 'No hay productos activos en esta categoría.'}
+                </p>
+              </div>
+            ) : (
+              filteredProducts.map(p => {
+                const stockRemaining = getSimulatedStockRemaining(p);
+                const isOutOfStock = !permitirVentaSinStock && stockRemaining <= 0;
+                const isLowStock = !permitirVentaSinStock && stockRemaining > 0 && stockRemaining <= 3;
+                const currentInCart = cart[p.id_producto] || 0;
 
-              return (
-                <motion.div
-                  key={p.id_producto}
-                  whileHover={{ scale: 1.02, translateY: -2 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => !isOutOfStock && handleAddToCart(p.id_producto)}
-                  className={`group cursor-pointer rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 relative border ${
-                    isOutOfStock 
-                      ? 'opacity-60 border-rose-100 pointer-events-none bg-stone-50 dark:bg-stone-900/40' 
-                      : currentInCart > 0 
-                        ? 'border-[#8C6239] bg-[#8C6239]/5 dark:bg-white/5 ring-1 ring-[#C8956A]/20' 
-                        : 'glass-panel border-stone-200/80 dark:border-white/10'
-                  }`}
-                  style={{ contentVisibility: 'auto' }}
-                >
-                  {/* Product Image */}
-                  <div className="h-28 w-full bg-stone-50 dark:bg-stone-900/60 relative overflow-hidden">
-                    <img
-                      src={p.imagen}
-                      alt={p.nombre}
-                      loading="lazy"
-                      decoding="async"
-                      referrerPolicy="no-referrer"
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      onError={event => {
-                        const image = event.currentTarget;
-                        image.onerror = null;
-                        image.src = '/logo-el-patron.jpeg';
-                      }}
-                    />
-                    
-                    {/* Category icon badge */}
-                    <div className="absolute top-2 left-2 p-1.5 rounded-lg backdrop-blur-md bg-white/90 shadow-sm border border-stone-100">
-                      {p.categoria.toLowerCase().includes('bebida') ? (
-                        <Wine className="w-3.5 h-3.5 text-[#8C6239]" />
-                      ) : (
-                        <UtensilsCrossed className="w-3.5 h-3.5 text-[#8C6239]" />
-                      )}
-                    </div>
-
-                    {/* Stock Tag Alert */}
-                    {isOutOfStock ? (
-                      <div className="absolute inset-0 bg-red-950/60 flex items-center justify-center text-center p-2">
-                        <span className="bg-[#EF4444] text-white text-[10px] uppercase font-extrabold tracking-wider px-2 py-1 rounded-md shadow flex items-center gap-1">
-                          <AlertTriangle className="w-3 h-3 text-white" />
-                          Sin Stock
-                        </span>
-                      </div>
-                    ) : isLowStock ? (
-                      <div className="absolute top-2 right-2">
-                        <span className="bg-[#F97316] text-white text-[9px] font-extrabold px-2 py-0.5 rounded shadow">
-                          Bajo stock: {stockRemaining}u
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="absolute top-2 right-2">
-                        <span className="bg-[#22C55E] text-white text-[9px] font-extrabold px-2 py-0.5 rounded shadow flex items-center gap-1">
-                          <CheckCircle className="w-2.5 h-2.5" />
-                          {permitirVentaSinStock ? 'Disp: ∞' : `Disp: ${stockRemaining}u`}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Content */}
-                  <div className="p-3 flex justify-between items-center bg-[#8C6239]/80 dark:bg-[#8C6239]/40">
-                    <div className="min-w-0 flex-1">
-                      <h4 className="font-extrabold text-white dark:text-white text-xs font-sans break-words whitespace-normal leading-snug group-hover:text-[#E8B800] dark:group-hover:text-[#E8B800] transition-colors">
-                        {p.nombre}
-                      </h4>
-                      <div className="mt-1 flex items-center gap-1.5">
-                        <span className="text-white/90 dark:text-stone-100 font-mono text-xs font-black">
-                          ${p.precio_venta.toLocaleString('es-AR')}
-                        </span>
-                        {currentInCart > 0 && (
-                          <span className="bg-[#8C6239] text-white rounded-full px-1.5 py-0.1 text-[9px] font-black font-mono">
-                            {currentInCart} en bolsa
-                          </span>
+                return (
+                  <motion.div
+                    key={p.id_producto}
+                    whileHover={{ scale: 1.02, translateY: -2 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => !isOutOfStock && handleAddToCart(p.id_producto)}
+                    className={`group cursor-pointer rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 relative border ${
+                      isOutOfStock 
+                        ? 'opacity-60 border-rose-100 pointer-events-none bg-stone-50 dark:bg-stone-900/40' 
+                        : currentInCart > 0 
+                          ? 'border-[#8C6239] bg-[#8C6239]/5 dark:bg-white/5 ring-1 ring-[#C8956A]/20' 
+                          : 'glass-panel border-stone-200/80 dark:border-white/10'
+                    }`}
+                    style={{ contentVisibility: 'auto' }}
+                  >
+                    {/* Product Image */}
+                    <div className="h-28 w-full bg-stone-50 dark:bg-stone-900/60 relative overflow-hidden">
+                      <img
+                        src={p.imagen}
+                        alt={p.nombre}
+                        loading="lazy"
+                        decoding="async"
+                        referrerPolicy="no-referrer"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        onError={event => {
+                          const image = event.currentTarget;
+                          image.onerror = null;
+                          image.src = '/logo-el-patron.jpeg';
+                        }}
+                      />
+                      
+                      {/* Category icon badge */}
+                      <div className="absolute top-2 left-2 p-1.5 rounded-lg backdrop-blur-md bg-white/90 shadow-sm border border-stone-100">
+                        {p.categoria.toLowerCase().includes('bebida') ? (
+                          <Wine className="w-3.5 h-3.5 text-[#8C6239]" />
+                        ) : (
+                          <UtensilsCrossed className="w-3.5 h-3.5 text-[#8C6239]" />
                         )}
                       </div>
+
+                      {/* Stock Tag Alert */}
+                      {isOutOfStock ? (
+                        <div className="absolute inset-0 bg-red-950/60 flex items-center justify-center text-center p-2">
+                          <span className="bg-[#EF4444] text-white text-[10px] uppercase font-extrabold tracking-wider px-2 py-1 rounded-md shadow flex items-center gap-1">
+                            <AlertTriangle className="w-3 h-3 text-white" />
+                            Sin Stock
+                          </span>
+                        </div>
+                      ) : isLowStock ? (
+                        <div className="absolute top-2 right-2">
+                          <span className="bg-amber-500/90 backdrop-blur-md text-white text-[9px] uppercase font-extrabold tracking-wider px-1.5 py-0.5 rounded shadow flex items-center gap-0.5">
+                            <AlertTriangle className="w-2.5 h-2.5" />
+                            Últimas {stockRemaining}
+                          </span>
+                        </div>
+                      ) : null}
                     </div>
 
-                    {/* elastic sum button */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (!isOutOfStock) handleAddToCart(p.id_producto);
-                      }}
-                      className="w-8 h-8 rounded-full bg-[#8C6239] text-white hover:bg-[#C8956A] hover:text-[#8C6239] active:scale-90 transition-all duration-200 flex items-center justify-center font-bold shadow-md shadow-[#8C6239]/20 cursor-pointer border border-amber-950/10 shrink-0"
-                      title="Añadir a comanda"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </button>
-                  </div>
-                </motion.div>
-              );
-            })}
+                    {/* Product Details */}
+                    <div className="p-3 flex justify-between items-center gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1">
+                          <h4 className="font-bold text-xs text-[#8C6239] dark:text-[#FAF7F0] truncate font-sans">
+                            {p.nombre}
+                          </h4>
+                          {p.tipo === 'vino' && (
+                            <span className="text-[9px] px-1.5 py-0.2 bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 rounded font-bold">
+                              Cava
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-stone-500 dark:text-stone-350 line-clamp-1 mt-0.5">
+                          {p.descripcion || p.categoria}
+                        </p>
+                        
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="font-extrabold text-xs font-mono text-stone-850 dark:text-[#E8B800]">
+                            ${p.precio_venta.toLocaleString('es-AR')}
+                          </span>
+                          {currentInCart > 0 && (
+                            <span className="text-[10px] font-bold bg-[#8C6239] text-[#FAF7F0] px-1.5 py-0.2 rounded-full">
+                              {currentInCart} en bolsa
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* elastic sum button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (!isOutOfStock) handleAddToCart(p.id_producto);
+                        }}
+                        className="w-8 h-8 rounded-full bg-[#8C6239] text-white hover:bg-[#C8956A] hover:text-[#8C6239] active:scale-90 transition-all duration-200 flex items-center justify-center font-bold shadow-md shadow-[#8C6239]/20 cursor-pointer border border-amber-950/10 shrink-0"
+                        title="Añadir a comanda"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </motion.div>
+                );
+              })
+            )}
           </div>
         )}
       </div>

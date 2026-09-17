@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Categoria } from '../types';
-import { categoriasService, DEFAULT_CATEGORIAS } from '../services/categoriasService';
+import { categoriasService, DEFAULT_CATEGORIAS, mergeWithDefaultCategories } from '../services/categoriasService';
 
 function getInitialCategories(): Categoria[] {
   try {
@@ -8,20 +8,11 @@ function getInitialCategories(): Categoria[] {
     if (cached) {
       const parsed = JSON.parse(cached);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        const hasAlcohol = parsed.some((c: Categoria) =>
-          c.slug === 'bebidas-con-alcohol' || (c.nombre && c.nombre.toLowerCase().includes('con alcohol'))
-        );
-        if (!hasAlcohol) {
-          const alcoholCat = DEFAULT_CATEGORIAS.find(c => c.slug === 'bebidas-con-alcohol');
-          if (alcoholCat) {
-            return [...parsed, alcoholCat].sort((a, b) => Number(a.orden || 99) - Number(b.orden || 99));
-          }
-        }
-        return parsed;
+        return mergeWithDefaultCategories(parsed);
       }
     }
   } catch {}
-  return DEFAULT_CATEGORIAS;
+  return [...DEFAULT_CATEGORIAS];
 }
 
 // Global in-memory cache to prevent multiple mounts from firing multiple fetch requests simultaneously
