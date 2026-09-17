@@ -144,7 +144,7 @@ export function sugerirAlojamiento(mesaId: number, personas: number, mesas: Mesa
     candidatasGrandes.forEach(m => {
       sugerencias.push({
         tipo: 'mesa_grande',
-        descripcion: `Usar Mesa ${m.numero_mesa} (${m.capacidad} pax) · ${m.estado}`,
+        descripcion: `Usar Mesa ${m.numero_mesa} (${m.capacidad} personas) · ${m.estado}`,
         mesa_id: m.id_mesa,
       });
     });
@@ -153,12 +153,12 @@ export function sugerirAlojamiento(mesaId: number, personas: number, mesas: Mesa
     if (sugerencias.length === 0) {
       sugerencias.push({
         tipo: 'mesa_grande',
-        descripcion: 'Usar Mesa 7 central (hasta 5 pax)',
+        descripcion: 'Usar Mesa 7 central (hasta 5 personas)',
         mesa_id: 7,
       });
       sugerencias.push({
         tipo: 'mesa_grande',
-        descripcion: 'Usar Mesa 12 VIP (hasta 10 pax)',
+        descripcion: 'Usar Mesa 12 VIP (hasta 10 personas)',
         mesa_id: 12,
       });
     }
@@ -178,7 +178,7 @@ export function sugerirAlojamiento(mesaId: number, personas: number, mesas: Mesa
     comensales: personas,
     mensaje: `La Mesa ${mesaId} admite hasta ${capacidad} personas. Para ${personas} comensales te sugiero usar una mesa con mayor capacidad o dividir el grupo.`,
     sugerencias: [
-      { tipo: 'mesa_grande', descripcion: 'Usar Mesa 12 VIP (hasta 10 pax)', mesa_id: 12 },
+      { tipo: 'mesa_grande', descripcion: 'Usar Mesa 12 VIP (hasta 10 personas)', mesa_id: 12 },
     ],
   };
 }

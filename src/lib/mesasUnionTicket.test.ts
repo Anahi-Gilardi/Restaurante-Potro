@@ -231,3 +231,75 @@ test('hydrateTableUnions reconstruye uniones automáticamente a partir del nombr
   assert.equal(m3.parent_id, null);
 });
 
+test('uniteTablesInList une 3 o más mesas con nombre canónico, capacidad combinada y estado unida', () => {
+  const m1 = INITIAL_MESAS.find(m => m.id_mesa === 1)!;
+  const m2 = INITIAL_MESAS.find(m => m.id_mesa === 2)!;
+  const m3 = INITIAL_MESAS.find(m => m.id_mesa === 3)!;
+  assert.ok(m1 && m2 && m3);
+
+  // Unir 3 mesas juntas
+  const result = uniteTablesInList([m1, m2, m3], INITIAL_MESAS);
+  const updatedM1 = result.find(m => m.id_mesa === 1)!;
+  const updatedM2 = result.find(m => m.id_mesa === 2)!;
+  const updatedM3 = result.find(m => m.id_mesa === 3)!;
+
+  assert.equal(updatedM1.numero_mesa, 'Mesa 1, 2 y 3 (Unidas)');
+  assert.deepEqual(updatedM1.mesas_unidas, [1, 2, 3]);
+  assert.equal(updatedM1.capacidad, (m1.capacidad || 2) + (m2.capacidad || 2) + (m3.capacidad || 2));
+  assert.equal(updatedM1.parent_id, null);
+
+  assert.equal(updatedM2.estado, 'unida');
+  assert.equal(updatedM2.parent_id, 1);
+
+  assert.equal(updatedM3.estado, 'unida');
+  assert.equal(updatedM3.parent_id, 1);
+
+  // Separar las 3 mesas
+  const separatedList = separateTablesInList(updatedM1, result);
+  const sepM1 = separatedList.find(m => m.id_mesa === 1)!;
+  const sepM2 = separatedList.find(m => m.id_mesa === 2)!;
+  const sepM3 = separatedList.find(m => m.id_mesa === 3)!;
+
+  assert.equal(sepM1.numero_mesa, 'Mesa 1');
+  assert.equal(sepM1.estado, 'libre');
+  assert.deepEqual(sepM1.mesas_unidas, []);
+  assert.equal(sepM1.capacidad, m1.capacidad);
+
+  assert.equal(sepM2.numero_mesa, 'Mesa 2');
+  assert.equal(sepM2.estado, 'libre');
+  assert.deepEqual(sepM2.mesas_unidas, []);
+  assert.equal(sepM2.capacidad, m2.capacidad);
+
+  assert.equal(sepM3.numero_mesa, 'Mesa 3');
+  assert.equal(sepM3.estado, 'libre');
+  assert.deepEqual(sepM3.mesas_unidas, []);
+  assert.equal(sepM3.capacidad, m3.capacidad);
+});
+
+test('uniteTablesInList permite agregar mesas a una unión existente', () => {
+  const m1 = INITIAL_MESAS.find(m => m.id_mesa === 1)!;
+  const m2 = INITIAL_MESAS.find(m => m.id_mesa === 2)!;
+  const m4 = INITIAL_MESAS.find(m => m.id_mesa === 4)!;
+  assert.ok(m1 && m2 && m4);
+
+  // Primero unimos 1 y 2
+  const paso1 = uniteTablesInList(m1, m2, INITIAL_MESAS);
+  const u1 = paso1.find(m => m.id_mesa === 1)!;
+
+  // Ahora unimos la unión con la mesa 4
+  const paso2 = uniteTablesInList([u1, m4], paso1);
+  const finalM1 = paso2.find(m => m.id_mesa === 1)!;
+  const finalM2 = paso2.find(m => m.id_mesa === 2)!;
+  const finalM4 = paso2.find(m => m.id_mesa === 4)!;
+
+  assert.equal(finalM1.numero_mesa, 'Mesa 1, 2 y 4 (Unidas)');
+  assert.deepEqual(finalM1.mesas_unidas, [1, 2, 4]);
+  assert.equal(finalM1.capacidad, (m1.capacidad || 2) + (m2.capacidad || 2) + (m4.capacidad || 2));
+
+  assert.equal(finalM2.estado, 'unida');
+  assert.equal(finalM2.parent_id, 1);
+
+  assert.equal(finalM4.estado, 'unida');
+  assert.equal(finalM4.parent_id, 1);
+});
+

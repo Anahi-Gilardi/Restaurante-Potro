@@ -1134,7 +1134,7 @@ export default function CajaModule({
                             : 'text-stone-500 hover:text-stone-800 dark:hover:text-stone-200 bg-transparent'
                         }`}
                       >
-                        Partes Iguales (Pax)
+                        Partes Iguales (Personas)
                       </button>
                       <button
                         type="button"
@@ -1237,7 +1237,9 @@ export default function CajaModule({
                           >
                             -
                           </button>
-                          <span className="text-xs font-mono font-black text-stone-900 dark:text-stone-100">{splitPayerCount} pax</span>
+                          <span className="text-xs font-mono font-black text-stone-900 dark:text-stone-100">
+                            {splitPayerCount} {splitPayerCount === 1 ? 'persona' : 'personas'}
+                          </span>
                           <button
                             onClick={() => {
                               setSplitPayerCount(prev => prev + 1);

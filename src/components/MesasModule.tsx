@@ -640,23 +640,28 @@ export default function MesasModule({
   };
 
   const handleUnirMesas = async (mesasAUnir = selectedForUnion) => {
-    if (mesasAUnir.length !== 2) return;
-    const [m1, m2] = mesasAUnir;
-    const capacidadUnida = (m1.capacidad || 0) + (m2.capacidad || 0);
+    if (mesasAUnir.length < 2) return;
+    const sorted = [...mesasAUnir].sort((a, b) => a.id_mesa - b.id_mesa);
+    const m1 = sorted[0];
+    const secondaryTables = sorted.slice(1);
+    const capacidadUnida = sorted.reduce((sum, m) => sum + (m.capacidad || 0), 0);
     const mesaUnida: Partial<Mesa> = {
-      numero_mesa: formatUnitedTableName([m1.numero_mesa, m2.numero_mesa]),
+      numero_mesa: formatUnitedTableName(sorted.map(m => m.numero_mesa)),
       capacidad: capacidadUnida,
       zona: m1.zona,
       estado: 'ocupada',
-      mesas_unidas: [m1.id_mesa, m2.id_mesa],
+      mesas_unidas: sorted.map(m => m.id_mesa),
     };
 
     try {
       await persistMesaUpdate(m1.id_mesa, mesaUnida);
-      await persistMesaUpdate(m2.id_mesa, { parent_id: m1.id_mesa, estado: 'unida' });
+      for (const mSec of secondaryTables) {
+        await persistMesaUpdate(mSec.id_mesa, { parent_id: m1.id_mesa, estado: 'unida' });
+      }
+      const secondaryIds = new Set(secondaryTables.map(m => m.id_mesa));
       const updatedGlobal = mesas.map(m => {
         if (m.id_mesa === m1.id_mesa) return { ...m, ...mesaUnida } as Mesa;
-        if (m.id_mesa === m2.id_mesa) return { ...m, parent_id: m1.id_mesa, estado: 'unida' as const } as Mesa;
+        if (secondaryIds.has(m.id_mesa)) return { ...m, parent_id: m1.id_mesa, estado: 'unida' as const } as Mesa;
         return m;
       });
       onMesasChange(updatedGlobal);
@@ -665,18 +670,20 @@ export default function MesasModule({
       }
       setVisualMesas(prev => prev.map(m => {
         if (m.id_mesa === m1.id_mesa) return { ...m, ...mesaUnida, zona: m1.zona, estado: 'ocupada' } as MesaVisual;
-        if (m.id_mesa === m2.id_mesa) return { ...m, parent_id: m1.id_mesa, estado: 'unida' };
+        if (secondaryIds.has(m.id_mesa)) return { ...m, parent_id: m1.id_mesa, estado: 'unida' };
         return m;
       }));
       setSelectedForUnion([]);
       setUnionMode(false);
-      registrarSistema(`MESAS: ${m1.numero_mesa} unida con ${m2.numero_mesa}`);
-      registrarMovimiento(`${m1.numero_mesa} + ${m2.numero_mesa}`, 'Union de mesas', `Capacidad combinada: ${capacidadUnida} pax`, 'ocupada');
-      toast.success('Mesas unidas y marcadas como Ocupadas');
+      const joinedNames = sorted.map(m => m.numero_mesa).join(' + ');
+      registrarSistema(`MESAS: ${joinedNames} unidas`);
+      registrarMovimiento(joinedNames, 'Union de mesas', `Capacidad combinada: ${capacidadUnida} personas`, 'ocupada');
+      toast.success(`${sorted.length} mesas unidas y marcadas como Ocupadas`);
     } catch (err: any) {
       toast.error(err.message || 'Error al unir mesas');
     }
   };
+
 
   const handleAccionAsistente = async (accion: any) => {
     try {
@@ -808,7 +815,7 @@ export default function MesasModule({
           : m
         ));
         registrarSistema(`MESAS: Mesa renombrada a ${numeroRaw}`);
-        registrarMovimiento(numeroRaw, 'Edicion', `Capacidad ${capacidad} pax, zona ${nuevaZona}`, editingMesa.estado);
+        registrarMovimiento(numeroRaw, 'Edicion', `Capacidad ${capacidad} ${capacidad === 1 ? 'persona' : 'personas'}, zona ${nuevaZona}`, editingMesa.estado);
         toast.success('Mesa actualizada');
       } else {
         const posicion = generarPosicionNuevaMesa(nuevaZona, visualMesas);
@@ -830,7 +837,7 @@ export default function MesasModule({
           estado: saved.estado,
         }]);
         registrarSistema(`MESAS: Nueva mesa agregada: ${numeroRaw}`);
-        registrarMovimiento(numeroRaw, 'Alta de mesa', `Capacidad ${capacidad} pax, zona ${nuevaZona}`, 'libre');
+        registrarMovimiento(numeroRaw, 'Alta de mesa', `Capacidad ${capacidad} ${capacidad === 1 ? 'persona' : 'personas'}, zona ${nuevaZona}`, 'libre');
         toast.success('Mesa agregada');
       }
       resetMesaForm();
@@ -878,7 +885,7 @@ export default function MesasModule({
           setReservasHoy(prev => prev.map(r => r.id_reserva === reservaExistente.id_reserva ? { ...r, ...payload } as Reserva : r));
         }
         registrarSistema(`MESAS: Reserva actualizada en Mesa ${selectedMesa.numero_mesa}`);
-        registrarMovimiento(selectedMesa.numero_mesa, 'Reserva actualizada', `${payload.nombre_cliente} - ${payload.pax} pax a las ${payload.hora}`, 'reservada');
+        registrarMovimiento(selectedMesa.numero_mesa, 'Reserva actualizada', `${payload.nombre_cliente} - ${payload.pax} ${payload.pax === 1 ? 'persona' : 'personas'} a las ${payload.hora}`, 'reservada');
         toast.success('Reserva actualizada');
       } else {
         const newRes: Reserva = {
@@ -892,7 +899,7 @@ export default function MesasModule({
         }
         setVisualMesas(prev => prev.map(m => m.id_mesa === selectedMesa.id_mesa ? { ...m, estado: 'reservada', comensales: parseInt(pax) || m.comensales } : m));
         registrarSistema(`MESAS: Nueva reserva en Mesa ${selectedMesa.numero_mesa}`);
-        registrarMovimiento(selectedMesa.numero_mesa, 'Nueva reserva', `${payload.nombre_cliente} - ${payload.pax} pax a las ${payload.hora}`, 'reservada');
+        registrarMovimiento(selectedMesa.numero_mesa, 'Nueva reserva', `${payload.nombre_cliente} - ${payload.pax} ${payload.pax === 1 ? 'persona' : 'personas'} a las ${payload.hora}`, 'reservada');
         toast.success('Reserva creada');
       }
 
@@ -934,7 +941,7 @@ export default function MesasModule({
       } else if (reservaExistente) {
         setReservasHoy(prev => prev.map(r => r.id_reserva === reservaExistente.id_reserva ? { ...r, estado: 'sentada' } : r));
       }
-      registrarSistema(`MESAS: Mesa ${selectedMesa.numero_mesa} sentada con ${comensales} pax`);
+      registrarSistema(`MESAS: Mesa ${selectedMesa.numero_mesa} sentada con ${comensales} ${comensales === 1 ? 'persona' : 'personas'}`);
       registrarMovimiento(selectedMesa.numero_mesa, 'Sentada', `${comensales} comensales`, 'ocupada');
       toast.success('Mesa ocupada y lista para tomar pedido');
       closeModal();
@@ -1332,12 +1339,12 @@ export default function MesasModule({
           <div className="border border-stone-200 rounded-lg p-3 bg-stone-50">
             <p className="text-[10px] font-black uppercase text-stone-500">Mesas</p>
             <p className="text-2xl font-black text-stone-900">{resumenMesas.total}</p>
-            <p className="text-[11px] text-stone-500">{resumenMesas.capacidadTotal} pax total</p>
+            <p className="text-[11px] text-stone-500">{resumenMesas.capacidadTotal} personas total</p>
           </div>
           <div className="border border-emerald-200 rounded-lg p-3 bg-emerald-50/60">
             <p className="text-[10px] font-black uppercase text-emerald-700">Libres</p>
             <p className="text-2xl font-black text-emerald-800">{resumenMesas.porEstado.libre}</p>
-            <p className="text-[11px] text-emerald-700">{resumenMesas.capacidadDisponible} pax disponibles</p>
+            <p className="text-[11px] text-emerald-700">{resumenMesas.capacidadDisponible} personas disponibles</p>
           </div>
           <div className="border border-red-200 rounded-lg p-3 bg-red-50/60">
             <p className="text-[10px] font-black uppercase text-red-700">Ocupadas</p>
@@ -1371,23 +1378,24 @@ export default function MesasModule({
                 Plano del salon
               </h3>
               <p className="text-xs text-stone-500">
-                {editorMode ? 'Arrastre una mesa para reubicarla.' : unionMode ? 'Seleccione dos mesas en el plano para unirlas.' : 'Toque una mesa para gestionarla.'}
+                {editorMode ? 'Arrastre una mesa para reubicarla.' : unionMode ? 'Seleccione dos o más mesas en el plano para unirlas.' : 'Toque una mesa para gestionarla.'}
               </p>
             </div>
             {unionMode && (
               <div className="flex items-center gap-2">
                 <span className="text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-100 px-2 py-1 rounded-lg">
-                  {selectedForUnion.length}/2 seleccionadas
+                  {selectedForUnion.length} seleccionadas {selectedForUnion.length < 2 ? '(mínimo 2)' : ''}
                 </span>
                 <button
-                  disabled={selectedForUnion.length !== 2}
+                  disabled={selectedForUnion.length < 2}
                   onClick={() => handleUnirMesas()}
                   className="px-3 py-2 rounded-lg bg-blue-600 text-white text-xs font-black disabled:opacity-40 cursor-pointer"
                 >
-                  Confirmar union
+                  Confirmar union ({selectedForUnion.length} mesas)
                 </button>
               </div>
             )}
+
           </div>
           {renderSvg()}
         </div>
@@ -1489,8 +1497,8 @@ export default function MesasModule({
               <div className="col-span-1">
                 <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Sector / Zona</label>
                 <select value={nuevaZona} onChange={e => setNuevaZona(e.target.value as Zona)} className="w-full px-3 py-2.5 text-xs border border-stone-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#624A3E]">
-                  <option value="comedor">Zona Alta (Mesas 1-6 · 2 pax)</option>
-                  <option value="salon">Zona Central/Baja (Mesas 7-11 · 4-5 pax) + VIP</option>
+                  <option value="comedor">Zona Alta (Mesas 1-6 · 2 personas)</option>
+                  <option value="salon">Zona Central/Baja (Mesas 7-11 · 4-5 personas) + VIP</option>
                 </select>
               </div>
             </div>
@@ -1511,7 +1519,7 @@ export default function MesasModule({
                   <span className={`inline-flex mt-1 text-[9px] px-2 py-0.5 rounded-full border font-black uppercase ${ESTADO_BADGE_CLASS[m.estado]}`}>
                     {ESTADO_LABEL[m.estado]}
                   </span>
-                  <p className="text-[10px] text-stone-500">{capitalize(m.zona)} · {m.capacidad} pax · {m.estado}</p>
+                  <p className="text-[10px] text-stone-500">{capitalize(m.zona)} · {m.capacidad} personas · {m.estado}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -1546,7 +1554,7 @@ export default function MesasModule({
             <div className="flex justify-between items-center mb-4">
               <div>
                 <h3 className="text-lg font-black text-stone-800">{getMesaDisplayName(selectedMesa.numero_mesa)}</h3>
-                <p className="text-xs text-stone-500 font-medium">{capitalize(selectedMesa.zona)} · Capacidad {selectedMesa.capacidad} pax · Estado: <span className="font-bold capitalize">{selectedMesa.estado}</span></p>
+                <p className="text-xs text-stone-500 font-medium">{capitalize(selectedMesa.zona)} · Capacidad {selectedMesa.capacidad} personas · Estado: <span className="font-bold capitalize">{selectedMesa.estado}</span></p>
               </div>
               <button onClick={closeModal} aria-label="Cerrar gestión de mesa" className="p-2 hover:bg-stone-100 rounded-full cursor-pointer"><X className="w-5 h-5 text-stone-500" /></button>
             </div>
@@ -1567,7 +1575,7 @@ export default function MesasModule({
               </div>
             ) : selectedMesa.mesas_unidas && selectedMesa.mesas_unidas.length >= 2 ? (
               <div className="space-y-4">
-                <p className="text-sm text-stone-600">Mesa unida: {getMesaDisplayName(selectedMesa.numero_mesa)} · Capacidad {selectedMesa.capacidad} pax</p>
+                <p className="text-sm text-stone-600">Mesa unida: {getMesaDisplayName(selectedMesa.numero_mesa)} · Capacidad {selectedMesa.capacidad} personas</p>
                 <button onClick={handleSepararMesas} className="w-full py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold cursor-pointer">Separar mesas</button>
               </div>
             ) : (
@@ -1595,12 +1603,13 @@ export default function MesasModule({
                     <input type="text" value={telefono} onChange={e => setTelefono(e.target.value)} placeholder="+54 11..." className="w-full px-3 py-2.5 text-xs border border-stone-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#624A3E]" />
                   </div>
                   <div>
-                    <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Pax</label>
+                    <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Personas</label>
                     <select value={pax} onChange={e => setPax(e.target.value)} className="w-full px-3 py-2.5 text-xs border border-stone-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#624A3E]">
-                      {[1,2,3,4,5,6,7,8,9,10,12,14,16].map(n => <option key={n} value={n}>{n}</option>)}
+                      {[1,2,3,4,5,6,7,8,9,10,12,14,16].map(n => <option key={n} value={n}>{n} {n === 1 ? 'persona' : 'personas'}</option>)}
                     </select>
                   </div>
                 </div>
+
                 <div>
                   <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Observaciones</label>
                   <textarea value={observaciones} onChange={e => setObservaciones(e.target.value)} rows={2} placeholder="Alergias, ubicación preferida..." className="w-full px-3 py-2.5 text-xs border border-stone-200 rounded-xl resize-none focus:outline-none focus:ring-1 focus:ring-[#624A3E]" />

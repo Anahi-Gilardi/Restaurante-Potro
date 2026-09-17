@@ -1,4 +1,5 @@
 import type { Mesa } from '../types';
+import { INITIAL_MESAS } from '../data/initialData';
 
 /**
  * Extrae el número base de una mesa (ej: 'Mesa 1' -> '1', '1' -> '1', 1 -> '1').
@@ -85,27 +86,65 @@ export function formatTicketTableName(mesaRef: string | number | undefined | nul
 }
 
 /**
- * Une dos mesas (m1 y m2) en una lista de mesas.
- * La de menor ID se convierte en la mesa principal con capacidad combinada.
- * La otra pasa a estado 'unida' referenciando a la principal.
+ * Une dos o más mesas en una lista de mesas.
+ * La de menor ID se convierte en la mesa principal con la capacidad combinada de todas.
+ * Las demás pasan a estado 'unida' referenciando a la principal (parent_id).
  */
 export function uniteTablesInList(
-  m1: Mesa,
-  m2: Mesa,
-  allTables: Mesa[]
+  m1: Mesa | Mesa[],
+  m2OrAllTables: Mesa | Mesa[],
+  maybeAllTables?: Mesa[]
 ): Mesa[] {
-  const [primary, secondary] = m1.id_mesa <= m2.id_mesa ? [m1, m2] : [m2, m1];
-  const combinedName = formatUnitedTableName([primary.numero_mesa, secondary.numero_mesa]);
-  const combinedCap = (primary.capacidad || 2) + (secondary.capacidad || 2);
-  const combinedComensales = (primary.comensales || 0) + (secondary.comensales || 0);
+  let tablesToUnite: Mesa[] = [];
+  let allTables: Mesa[] = [];
 
-  const unitedIds = new Set<number>();
-  if (primary.mesas_unidas && primary.mesas_unidas.length > 0) {
-    primary.mesas_unidas.forEach(id => unitedIds.add(id));
+  if (Array.isArray(m1)) {
+    tablesToUnite = m1;
+    allTables = Array.isArray(m2OrAllTables) ? m2OrAllTables : [];
+  } else if (Array.isArray(m2OrAllTables) && !maybeAllTables) {
+    tablesToUnite = [m1];
+    allTables = m2OrAllTables;
+  } else {
+    tablesToUnite = [m1, m2OrAllTables as Mesa];
+    allTables = maybeAllTables || [];
   }
-  unitedIds.add(primary.id_mesa);
-  unitedIds.add(secondary.id_mesa);
-  const finalUnitedIds = Array.from(unitedIds).sort((a, b) => a - b);
+
+  if (tablesToUnite.length < 2) return allTables;
+
+  // Recolectar todos los IDs constituyentes
+  const allUnitedIdsSet = new Set<number>();
+  tablesToUnite.forEach(t => {
+    allUnitedIdsSet.add(t.id_mesa);
+    if (t.mesas_unidas && Array.isArray(t.mesas_unidas) && t.mesas_unidas.length > 0) {
+      t.mesas_unidas.forEach(id => allUnitedIdsSet.add(Number(id)));
+    }
+    if (t.parent_id !== undefined && t.parent_id !== null) {
+      allUnitedIdsSet.add(Number(t.parent_id));
+    }
+  });
+
+  const finalUnitedIds = Array.from(allUnitedIdsSet).sort((a, b) => a - b);
+  const primaryId = finalUnitedIds[0];
+  const primary = allTables.find(t => t.id_mesa === primaryId) || tablesToUnite.find(t => t.id_mesa === primaryId) || tablesToUnite[0];
+
+  // Calcular la capacidad combinada sumando la capacidad base de cada mesa constituyente
+  let combinedCap = 0;
+  finalUnitedIds.forEach(id => {
+    const tableObj = allTables.find(t => t.id_mesa === id);
+    const baseCap = (tableObj?.parent_id ? tableObj.capacidad : undefined) ||
+                    INITIAL_MESAS.find(im => im.id_mesa === id)?.capacidad ||
+                    tableObj?.capacidad ||
+                    2;
+    combinedCap += baseCap;
+  });
+
+  const combinedComensales = tablesToUnite.reduce((acc, t) => acc + (t.comensales || 0), 0);
+
+  const constituentNames = finalUnitedIds.map(id => {
+    const t = allTables.find(x => x.id_mesa === id);
+    return t ? t.numero_mesa : `Mesa ${id}`;
+  });
+  const combinedName = formatUnitedTableName(constituentNames);
 
   return allTables.map(m => {
     if (m.id_mesa === primary.id_mesa) {
@@ -118,7 +157,7 @@ export function uniteTablesInList(
         parent_id: null,
       };
     }
-    if (m.id_mesa === secondary.id_mesa) {
+    if (allUnitedIdsSet.has(m.id_mesa)) {
       return {
         ...m,
         estado: 'unida' as const,
@@ -159,10 +198,11 @@ export function separateTablesInList(
   return allTables.map(m => {
     if (unitedIds.has(m.id_mesa)) {
       const originalNumber = extractTableNumber(m.id_mesa) || String(m.id_mesa);
+      const initCap = INITIAL_MESAS.find(im => im.id_mesa === m.id_mesa)?.capacidad;
       return {
         ...m,
         numero_mesa: `Mesa ${originalNumber}`,
-        capacidad: m.capacidad ? Math.min(m.capacidad, 4) : 4,
+        capacidad: initCap || (m.capacidad ? Math.min(m.capacidad, 4) : 4),
         parent_id: null,
         mesas_unidas: [],
         estado: (m.estado === 'unida' ? 'libre' : m.estado) as Mesa['estado'],
@@ -171,6 +211,7 @@ export function separateTablesInList(
     return m;
   });
 }
+
 
 /**
  * Formatea el título legible de la mesa para la UI (evitando duplicar 'Mesa Mesa').

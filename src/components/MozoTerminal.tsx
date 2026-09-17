@@ -256,7 +256,7 @@ interface MozoTerminalProps {
   onFacturarMesa: (idPedido: number) => void;
   addLog: (tipo: 'pedido_creado' | 'descuento_stock' | 'alerta_stock' | 'comanda_estado' | 'sistema', mensaje: string) => void;
   permitirVentaSinStock?: boolean;
-  onUnirMesas?: (idMesa1: number, idMesa2: number) => Promise<void> | void;
+  onUnirMesas?: (idMesa1: number, idMesa2: number | number[]) => Promise<void> | void;
   onDesunirMesas?: (idMesa: number) => Promise<void> | void;
   onLiberarMesa?: (idMesa: number) => Promise<void> | void;
 }
@@ -283,7 +283,7 @@ export default function MozoTerminal({
   // Waiter selections
   const [selectedMesaId, setSelectedMesaId] = useState<number | null>(null);
   const [isUniting, setIsUniting] = useState(false);
-  const [targetUniteMesaId, setTargetUniteMesaId] = useState<number | null>(null);
+  const [targetUniteMesaIds, setTargetUniteMesaIds] = useState<number[]>([]);
   const [confirmLiberarMesaId, setConfirmLiberarMesaId] = useState<number | null>(null);
   const [comensales, setComensales] = useState<number>(2);
   const [searchQuery, setSearchQuery] = useState('');
@@ -979,7 +979,7 @@ export default function MozoTerminal({
                     const targetId = m.estado === 'unida' && m.parent_id ? m.parent_id : m.id_mesa;
                     setSelectedMesaId(targetId);
                     setIsUniting(false);
-                    setTargetUniteMesaId(null);
+                    setTargetUniteMesaIds([]);
                     // Prepopulate comensales if occupied
                     const targetInfo = mesasActiveInfoMap.get(targetId) || getTableActiveInfo(m, pedidos);
                     if (targetInfo.comensales) {
@@ -1048,99 +1048,210 @@ export default function MozoTerminal({
                     >
                       +
                     </button>
-                    <span className="text-[10px] text-stone-500 dark:text-stone-400 mr-1">pax</span>
+                    <span className="text-[10px] text-stone-500 dark:text-stone-400 mr-1">personas</span>
                   </div>
                 ) : (
                   <div className="flex items-center gap-1.5 bg-[#9B2226]/10 dark:bg-red-950/30 text-[#9B2226] dark:text-red-400 px-2.5 py-1 rounded-lg border border-[#9B2226]/20 text-xs font-bold font-mono">
                     <Users className="w-3.5 h-3.5" />
-                    <span>{selectedMesaInfo.comensales} pax</span>
+                    <span>{selectedMesaInfo.comensales} {selectedMesaInfo.comensales === 1 ? 'persona' : 'personas'}</span>
                   </div>
                 )}
               </div>
 
               {/* Botones de Unión / Desunión de Mesas */}
-              <div className="pt-2 border-t border-stone-200/40 dark:border-white/10">
+              <div className="pt-2 border-t border-stone-200/40 dark:border-white/10 space-y-2">
                 {isUnitedTable(selectedMesa) ? (
-                  <button
-                    onClick={async () => {
-                      if (onDesunirMesas) {
-                        await onDesunirMesas(selectedMesa.id_mesa);
-                        setIsUniting(false);
-                        setTargetUniteMesaId(null);
-                        toast.success(`Mesas desunidas. Vuelven a operar de forma individual.`);
-                      }
-                    }}
-                    className="w-full py-2 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/50 text-amber-800 dark:text-amber-300 text-xs font-bold flex items-center justify-center gap-2 border border-amber-300 dark:border-amber-700 transition-colors shadow-sm cursor-pointer"
-                  >
-                    <Scissors className="w-3.5 h-3.5 text-red-500" />
-                    ✂ Desunir Mesas
-                  </button>
+                  <div className="space-y-2">
+                    <button
+                      onClick={async () => {
+                        if (onDesunirMesas) {
+                          await onDesunirMesas(selectedMesa.id_mesa);
+                          setIsUniting(false);
+                          setTargetUniteMesaIds([]);
+                          toast.success(`Mesas desunidas. Vuelven a operar de forma individual.`);
+                        }
+                      }}
+                      className="w-full py-2 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/50 text-amber-800 dark:text-amber-300 text-xs font-bold flex items-center justify-center gap-2 border border-amber-300 dark:border-amber-700 transition-colors shadow-sm cursor-pointer"
+                    >
+                      <Scissors className="w-3.5 h-3.5 text-red-500" />
+                      ✂ Desunir Mesas
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setIsUniting(prev => !prev);
+                        setTargetUniteMesaIds([]);
+                      }}
+                      className="w-full py-2 px-3 rounded-xl bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-[#8C6239] dark:text-[#C8956A] text-xs font-bold flex items-center justify-center gap-2 border border-[#8C6239]/20 transition-colors cursor-pointer"
+                    >
+                      <Link2 className="w-3.5 h-3.5 text-[#8C6239] dark:text-[#C8956A]" />
+                      {isUniting ? 'Cancelar Unión' : '🔗 Unir con más mesas'}
+                    </button>
+                  </div>
                 ) : (
                   <div className="space-y-2">
                     <button
                       onClick={() => {
                         setIsUniting(prev => !prev);
-                        setTargetUniteMesaId(null);
+                        setTargetUniteMesaIds([]);
                       }}
                       className="w-full py-2 px-3 rounded-xl bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-[#8C6239] dark:text-[#C8956A] text-xs font-bold flex items-center justify-center gap-2 border border-[#8C6239]/20 transition-colors cursor-pointer"
                     >
                       <Link2 className="w-3.5 h-3.5 text-[#8C6239] dark:text-[#C8956A]" />
-                      {isUniting ? 'Cancelar Unión' : '🔗 Unir con otra mesa'}
+                      {isUniting ? 'Cancelar Unión' : '🔗 Unir mesas'}
                     </button>
+                  </div>
+                )}
 
-                    {isUniting && (
-                      <div className="p-3 bg-amber-50/80 dark:bg-[#251B12] rounded-xl border border-amber-200 dark:border-[#C8956A]/30 space-y-2.5">
-                        <label className="text-[11px] font-bold text-stone-700 dark:text-stone-300 block">
-                          Seleccionar mesa para unir a {selectedMesa.numero_mesa}:
-                        </label>
-                        <select
-                          value={targetUniteMesaId ?? ''}
-                          onChange={(e) => setTargetUniteMesaId(Number(e.target.value) || null)}
-                          className="w-full p-2 text-xs rounded-lg border border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 font-medium"
-                        >
-                          <option value="">-- Seleccionar mesa a unir --</option>
-                          {mesas
-                            .filter(m => m.id_mesa !== selectedMesa.id_mesa && m.estado !== 'unida')
-                            .map(m => {
-                              const candidateInfo = mesasActiveInfoMap.get(m.id_mesa) || getTableActiveInfo(m, pedidos);
-                              const estadoDisplay = candidateInfo.isOcupada ? 'ocupada' : candidateInfo.isInCuenta ? 'en cuenta' : candidateInfo.isReservada ? 'reservada' : 'libre';
-                              return (
-                                <option key={m.id_mesa} value={m.id_mesa}>
-                                  {m.numero_mesa} ({estadoDisplay}) - Cap: {m.capacidad || 2} pax
-                                </option>
-                              );
-                            })}
-                        </select>
-                        <div className="flex gap-2">
-                          <button
-                            disabled={!targetUniteMesaId}
-                            onClick={async () => {
-                              if (!targetUniteMesaId || !onUnirMesas) return;
-                              await onUnirMesas(selectedMesa.id_mesa, targetUniteMesaId);
-                              setIsUniting(false);
-                              setTargetUniteMesaId(null);
-                              toast.success('Mesas unidas con éxito.');
-                            }}
-                            className="flex-1 py-1.5 px-3 rounded-lg bg-[#3A5A40] hover:bg-[#3A5A40]/90 disabled:opacity-50 text-white text-xs font-bold flex items-center justify-center gap-1 cursor-pointer"
-                          >
-                            <Link2 className="w-3 h-3" />
-                            Confirmar Unión
-                          </button>
-                          <button
-                            onClick={() => {
-                              setIsUniting(false);
-                              setTargetUniteMesaId(null);
-                            }}
-                            className="py-1.5 px-3 rounded-lg bg-stone-200 dark:bg-stone-700 text-stone-700 dark:text-stone-300 text-xs font-bold cursor-pointer"
-                          >
-                            Cancelar
-                          </button>
+                {isUniting && (
+                  <div className="p-3 bg-amber-50/90 dark:bg-[#251B12] rounded-xl border border-amber-200 dark:border-[#C8956A]/30 space-y-2.5 animate-fadeIn">
+                    <div className="flex justify-between items-center">
+                      <label className="text-[11px] font-bold text-stone-700 dark:text-stone-300 block">
+                        Unir a {selectedMesa.numero_mesa}:
+                      </label>
+                      <span className="text-[10px] font-bold text-[#8C6239] dark:text-[#C8956A]">
+                        {targetUniteMesaIds.length === 0
+                          ? 'Elegí 1 o más mesas'
+                          : `${targetUniteMesaIds.length} ${targetUniteMesaIds.length === 1 ? 'mesa agregada' : 'mesas agregadas'}`}
+                      </span>
+                    </div>
+
+                    {/* Desplegable rápido */}
+                    <select
+                      value=""
+                      onChange={(e) => {
+                        const val = Number(e.target.value);
+                        if (val && !targetUniteMesaIds.includes(val)) {
+                          setTargetUniteMesaIds(prev => [...prev, val]);
+                        }
+                      }}
+                      className="w-full p-2 text-xs rounded-lg border border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 font-medium cursor-pointer"
+                    >
+                      <option value="">-- Seleccionar mesa a unir --</option>
+                      {mesas
+                        .filter(m => 
+                          m.id_mesa !== selectedMesa.id_mesa && 
+                          m.estado !== 'unida' &&
+                          !targetUniteMesaIds.includes(m.id_mesa) &&
+                          !selectedMesa.mesas_unidas?.includes(m.id_mesa)
+                        )
+                        .map(m => {
+                          const candidateInfo = mesasActiveInfoMap.get(m.id_mesa) || getTableActiveInfo(m, pedidos);
+                          const estadoDisplay = candidateInfo.isOcupada ? 'ocupada' : candidateInfo.isInCuenta ? 'en cuenta' : candidateInfo.isReservada ? 'reservada' : 'libre';
+                          const cap = m.capacidad || 2;
+                          return (
+                            <option key={m.id_mesa} value={m.id_mesa}>
+                              {m.numero_mesa} ({estadoDisplay}) - Cap: {cap} {cap === 1 ? 'persona' : 'personas'}
+                            </option>
+                          );
+                        })}
+                    </select>
+
+                    {/* Lista interactiva de mesas con checkboxes */}
+                    <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
+                      {mesas
+                        .filter(m => 
+                          m.id_mesa !== selectedMesa.id_mesa && 
+                          m.estado !== 'unida' &&
+                          !selectedMesa.mesas_unidas?.includes(m.id_mesa)
+                        )
+                        .map(m => {
+                          const isSelected = targetUniteMesaIds.includes(m.id_mesa);
+                          const candidateInfo = mesasActiveInfoMap.get(m.id_mesa) || getTableActiveInfo(m, pedidos);
+                          const estadoDisplay = candidateInfo.isOcupada ? 'ocupada' : candidateInfo.isInCuenta ? 'en cuenta' : candidateInfo.isReservada ? 'reservada' : 'libre';
+                          const cap = m.capacidad || 2;
+
+                          return (
+                            <button
+                              key={m.id_mesa}
+                              type="button"
+                              onClick={() => {
+                                setTargetUniteMesaIds(prev =>
+                                  prev.includes(m.id_mesa)
+                                    ? prev.filter(id => id !== m.id_mesa)
+                                    : [...prev, m.id_mesa]
+                                );
+                              }}
+                              className={`w-full p-2 rounded-lg text-left text-xs flex items-center justify-between border transition-all cursor-pointer ${
+                                isSelected
+                                  ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500 text-emerald-900 dark:text-emerald-200 font-bold shadow-xs'
+                                  : 'bg-white dark:bg-stone-900/80 border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <div className={`w-4 h-4 rounded flex items-center justify-center text-[10px] ${
+                                  isSelected 
+                                    ? 'bg-emerald-600 text-white font-black' 
+                                    : 'border border-stone-300 dark:border-stone-600'
+                                }`}>
+                                  {isSelected ? '✓' : ''}
+                                </div>
+                                <span>{m.numero_mesa}</span>
+                                <span className={`text-[9px] px-1.5 py-0.2 rounded uppercase font-bold ${
+                                  candidateInfo.isOcupada 
+                                    ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300' 
+                                    : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300'
+                                }`}>
+                                  {estadoDisplay}
+                                </span>
+                              </div>
+                              <span className="text-[10px] text-stone-500 dark:text-stone-400 font-mono">
+                                Cap: {cap} {cap === 1 ? 'persona' : 'personas'}
+                              </span>
+                            </button>
+                          );
+                        })}
+                    </div>
+
+                    {/* Resumen de la unión en tiempo real */}
+                    {targetUniteMesaIds.length > 0 && (() => {
+                      const selectedMesasObjs = mesas.filter(m => targetUniteMesaIds.includes(m.id_mesa));
+                      const totalCap = (selectedMesa.capacidad || 2) + selectedMesasObjs.reduce((s, m) => s + (m.capacidad || 2), 0);
+                      const unitedTitle = formatUnitedTableName([selectedMesa.numero_mesa, ...selectedMesasObjs.map(m => m.numero_mesa)]);
+                      return (
+                        <div className="p-2.5 bg-white dark:bg-stone-900 rounded-lg border border-amber-300/80 dark:border-amber-700/60 space-y-1 text-[11px]">
+                          <p className="font-bold text-stone-900 dark:text-stone-100 flex items-center gap-1">
+                            <Link2 className="w-3.5 h-3.5 text-emerald-600" />
+                            {unitedTitle}
+                          </p>
+                          <p className="text-[10px] text-stone-600 dark:text-stone-400">
+                            Capacidad resultante: <strong className="text-emerald-700 dark:text-emerald-400 font-mono">{totalCap} personas</strong> ({targetUniteMesaIds.length + 1} mesas en total)
+                          </p>
                         </div>
-                      </div>
-                    )}
+                      );
+                    })()}
+
+                    {/* Botones de acción */}
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        disabled={targetUniteMesaIds.length === 0}
+                        onClick={async () => {
+                          if (targetUniteMesaIds.length === 0 || !onUnirMesas) return;
+                          await onUnirMesas(selectedMesa.id_mesa, targetUniteMesaIds);
+                          setIsUniting(false);
+                          setTargetUniteMesaIds([]);
+                          toast.success(`${targetUniteMesaIds.length + 1} mesas unidas con éxito.`);
+                        }}
+                        className="flex-1 py-2 px-3 rounded-lg bg-[#3A5A40] hover:bg-[#3A5A40]/90 disabled:opacity-50 text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-sm transition-all"
+                      >
+                        <Link2 className="w-3.5 h-3.5" />
+                        Confirmar Unión {targetUniteMesaIds.length > 0 ? `(${targetUniteMesaIds.length + 1} mesas)` : ''}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsUniting(false);
+                          setTargetUniteMesaIds([]);
+                        }}
+                        className="py-2 px-3 rounded-lg bg-stone-200 dark:bg-stone-700 text-stone-700 dark:text-stone-300 text-xs font-bold cursor-pointer hover:bg-stone-300 dark:hover:bg-stone-600 transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
+
 
               {/* ACTIVE ORDER CONTROLS (IF TABLE OCCUPIED) */}
               {activePedidoDeMesa && selectedMesaInfo ? (

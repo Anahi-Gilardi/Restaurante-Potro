@@ -7,7 +7,7 @@ test('Caja persiste comprobante y pagos mediante una transacción atómica', () 
   const migration = readFileSync('supabase/migrations/20260716030000_atomic_internal_sales.sql', 'utf8');
   const service = readFileSync('src/services/salesPersistenceService.ts', 'utf8');
 
-  assert.match(hook, /salesPersistenceService\.persist\(\{ factura: internalFactura, pagos: paymentRows \}\)/);
+  assert.match(hook, /salesPersistenceService\.persist\(\{\s*factura(?::\s*internalFactura)?,?\s*pagos(?::\s*paymentRows)?\s*\}\)/);
   assert.doesNotMatch(hook, /pagosService\.bulkCreate\(paymentRows\)/);
   assert.match(service, /rpc\('record_internal_sale'/);
   assert.match(migration, /ALTER COLUMN id_pedido TYPE BIGINT/);

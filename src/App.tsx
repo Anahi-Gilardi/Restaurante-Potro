@@ -1279,26 +1279,50 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
   }, [pedidos, mesas, productosMenu, addLog, isDemoSession, permitirVentaSinStock, applyMesaLiberada]);
 
   // --- Handlers para Unión y Desunión de Mesas ---
-  const handleUnirMesas = useCallback(async (idMesa1: number, idMesa2: number) => {
-    const m1 = mesas.find(m => m.id_mesa === idMesa1);
-    const m2 = mesas.find(m => m.id_mesa === idMesa2);
-    if (!m1 || !m2) return;
-    const nextMesas = uniteTablesInList(m1, m2, mesas);
+  const handleUnirMesas = useCallback(async (idMesa1: number | number[], idMesa2?: number | number[]) => {
+    const rawIds: number[] = [];
+    if (Array.isArray(idMesa1)) {
+      rawIds.push(...idMesa1);
+    } else if (typeof idMesa1 === 'number') {
+      rawIds.push(idMesa1);
+    }
+    if (Array.isArray(idMesa2)) {
+      rawIds.push(...idMesa2);
+    } else if (typeof idMesa2 === 'number') {
+      rawIds.push(idMesa2);
+    }
+
+    const uniqueIds = Array.from(new Set(rawIds));
+    if (uniqueIds.length < 2) return;
+
+    const tablesToUnite = uniqueIds.map(id => mesas.find(m => m.id_mesa === id)).filter((m): m is Mesa => Boolean(m));
+    if (tablesToUnite.length < 2) return;
+
+    const nextMesas = uniteTablesInList(tablesToUnite, mesas);
     setMesas(nextMesas);
     if (typeof window !== 'undefined') {
       try {
         window.localStorage.setItem('el_patron_sheet_cache_mesas', JSON.stringify(nextMesas));
       } catch {}
     }
+
+    const affectedIds = new Set<number>();
+    tablesToUnite.forEach(t => {
+      affectedIds.add(t.id_mesa);
+      if (t.mesas_unidas) t.mesas_unidas.forEach(id => affectedIds.add(id));
+      if (t.parent_id) affectedIds.add(t.parent_id);
+    });
+
     try {
-      const affectedIds = new Set([idMesa1, idMesa2]);
       const changedMesas = nextMesas.filter(m => affectedIds.has(m.id_mesa));
       await dbUpsertMesas(changedMesas);
     } catch (err) {
       console.warn('Error sincronizando mesas unidas con Google Sheets:', err);
     }
-    const combinedName = formatUnitedTableName([m1.numero_mesa, m2.numero_mesa]);
-    addLog('sistema', `MESAS: ${m1.numero_mesa} unida con ${m2.numero_mesa}. Identificador: ${combinedName}`);
+
+    const names = tablesToUnite.map(m => m.numero_mesa);
+    const combinedName = formatUnitedTableName(names);
+    addLog('sistema', `MESAS: ${names.join(', ')} unidas. Identificador: ${combinedName}`);
   }, [mesas, addLog]);
 
   const handleDesunirMesas = useCallback(async (idMesa: number) => {
