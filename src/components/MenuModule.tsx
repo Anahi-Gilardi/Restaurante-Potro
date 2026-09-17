@@ -198,15 +198,15 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
     if (norm.includes('destilado')) return 'destilados';
     if (norm.includes('trago') || norm.includes('coctel') || norm.includes('cocteleria')) return 'tragos-y-cocteleria';
 
-    if (norm.includes('entrada')) return 'entradas-criollas';
-    if (norm.includes('carne') || norm.includes('parrilla') || norm.includes('corte') || norm.includes('bife') || norm.includes('lomo')) return 'cortes-a-la-parrilla';
+    if (norm.includes('entrada')) return 'entradas';
+    if (norm.includes('carne') || norm.includes('parrilla') || norm.includes('corte') || norm.includes('bife') || norm.includes('lomo')) return 'carnes';
     if (norm.includes('pasta') || norm.includes('lasana') || norm.includes('fideo') || norm.includes('noqui')) return 'pastas-artesanales';
-    if (norm.includes('pescad') || norm.includes('marisc')) return 'pescados-y-mariscos';
+    if (norm.includes('pescad') || norm.includes('marisc')) return 'pescados';
     if (norm.includes('criolla') || norm.includes('locro') || norm.includes('humita') || norm.includes('guiso')) return 'comidas-criollas';
     if (norm.includes('postre') || norm.includes('dulce') || norm.includes('helado')) return 'postres-tradicionales';
     if (norm.includes('bodega') || norm.includes('vino')) return 'bodega-y-vinos';
-    if (norm.includes('con-alcohol') || (norm.includes('alcohol') && !norm.includes('sin'))) return 'bebidas-con-alcohol';
-    if (norm.includes('bebida') || norm.includes('gaseosa') || norm.includes('agua')) return 'bebidas-sin-alcohol';
+    if (norm === 'bebida-con-alcohol' || norm === 'bebidas-con-alcohol' || (norm.includes('alcohol') && !norm.includes('sin'))) return 'bebidas-con-alcohol';
+    if (norm === 'bebida-sin-alcohol' || norm === 'bebidas-sin-alcohol' || norm.includes('gaseosa') || norm.includes('agua')) return 'bebidas-sin-alcohol';
 
     return norm;
   };
@@ -220,15 +220,24 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
       .replace(/(^-|-$)+/g, '');
 
     const direct = categories.find(c => {
-      const cNorm = c.nombre.toLowerCase().trim()
+      const cNorm = (c.nombre || '').toLowerCase().trim()
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/(^-|-$)+/g, '');
-      return cNorm === norm || c.slug.toLowerCase() === norm;
+      const cSlug = (c.slug || '').toLowerCase().trim();
+      return cNorm === norm || cSlug === norm;
     });
 
-    return direct ? direct.slug.toLowerCase() : normalizeCategorySlug(catName);
+    if (direct && direct.slug) {
+      const s = direct.slug.toLowerCase();
+      if (s === 'entradas-criollas') return 'entradas';
+      if (s === 'cortes-a-la-parrilla' || s === 'cortes') return 'carnes';
+      if (s === 'pescados-y-mariscos') return 'pescados';
+      return s;
+    }
+
+    return normalizeCategorySlug(catName);
   };
 
   const isCategoryMatch = (item: ProductoMenu, selectedCatSlug: string): boolean => {
@@ -245,6 +254,8 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
     if (selectedCatSlug === 'bodega-y-vinos' || selectedCatSlug === 'bodega') {
       return (
         itemType === 'vino' ||
+        itemSlug === 'bodega' ||
+        itemSlug === 'bodega-y-vinos' ||
         itemSlug === 'vinos-tintos' ||
         itemSlug === 'vinos-blancos-y-rosados' ||
         itemSlug === 'espumantes' ||
@@ -308,29 +319,64 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
     return false;
   };
 
-  // Ensure all categories (including new wines/destilados and any custom item categories) are displayed as buttons
+  // Obtain all categories loaded in productos_menu and organize them cleanly
   const displayCategories = useMemo(() => {
-    const base = mergeWithDefaultCategories(categories);
-    const existingSlugs = new Set(base.map(c => c.slug.toLowerCase()));
+    // 1. Get all distinct non-empty category names from items (the loaded productos_menu)
+    const rawCategories = Array.from(
+      new Set(items.map(p => (p.categoria || '').trim()).filter(Boolean))
+    );
 
-    items.forEach(p => {
-      if (!p.categoria) return;
-      const slug = getCategorySlug(p.categoria).toLowerCase();
-      if (!existingSlugs.has(slug)) {
-        existingSlugs.add(slug);
-        base.push({
+    const canonicalInfo: Record<string, { nombre: string; orden: number; icono: string }> = {
+      'entradas': { nombre: 'Entradas', orden: 1, icono: 'UtensilsCrossed' },
+      'carnes': { nombre: 'Carnes', orden: 2, icono: 'Beef' },
+      'pastas-artesanales': { nombre: 'Pastas Artesanales', orden: 3, icono: 'UtensilsCrossed' },
+      'pescados': { nombre: 'Pescados', orden: 4, icono: 'Fish' },
+      'comidas-criollas': { nombre: 'Comidas Criollas', orden: 5, icono: 'Utensils' },
+      'bodega-y-vinos': { nombre: 'Bodega y Vinos', orden: 6, icono: 'Wine' },
+      'vinos-tintos': { nombre: 'Vinos Tintos', orden: 6.1, icono: 'Wine' },
+      'vinos-blancos-y-rosados': { nombre: 'Vinos Blancos y Rosados', orden: 6.2, icono: 'Wine' },
+      'espumantes': { nombre: 'Espumantes', orden: 6.3, icono: 'Wine' },
+      'cervezas': { nombre: 'Cervezas', orden: 6.4, icono: 'Beer' },
+      'destilados': { nombre: 'Destilados', orden: 6.5, icono: 'GlassWater' },
+      'tragos-y-cocteleria': { nombre: 'Tragos y Coctelería', orden: 6.6, icono: 'Martini' },
+      'postres-tradicionales': { nombre: 'Postres Tradicionales', orden: 7, icono: 'Coffee' },
+      'bebidas-sin-alcohol': { nombre: 'Bebidas sin alcohol', orden: 8, icono: 'Wine' },
+      'bebidas-con-alcohol': { nombre: 'Bebidas con alcohol', orden: 9, icono: 'Wine' }
+    };
+
+    const usedSlugs = new Set<string>();
+    const result: Categoria[] = [];
+
+    // Process every category present in the loaded products
+    rawCategories.forEach(raw => {
+      const slug = getCategorySlug(raw);
+      if (!slug || usedSlugs.has(slug)) return;
+      usedSlugs.add(slug);
+
+      const canon = canonicalInfo[slug];
+      if (canon) {
+        result.push({
           id: `cat_${slug.replace(/-/g, '_')}`,
-          nombre: p.categoria,
+          nombre: canon.nombre,
           slug: slug,
-          orden: 85,
+          orden: canon.orden,
           activa: true,
-          icono: (p.tipo === 'vino' || slug.includes('vino')) ? 'Wine' : 'UtensilsCrossed'
+          icono: canon.icono
+        });
+      } else {
+        result.push({
+          id: `cat_${slug.replace(/-/g, '_')}`,
+          nombre: raw,
+          slug: slug,
+          orden: 50,
+          activa: true,
+          icono: (raw.toLowerCase().includes('vino') || raw.toLowerCase().includes('bodega')) ? 'Wine' : 'UtensilsCrossed'
         });
       }
     });
 
-    return base.sort((a, b) => Number(a.orden || 99) - Number(b.orden || 99));
-  }, [categories, items]);
+    return result.sort((a, b) => Number(a.orden || 99) - Number(b.orden || 99));
+  }, [items, categories]);
 
   const isBusy = pendingAction !== null;
 
@@ -694,36 +740,23 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
     syncItems(next);
   };
 
-  const { filtered, isCrossCategorySearch } = useMemo(() => {
+  const filtered = useMemo(() => {
     const query = debouncedSearch.trim();
 
     if (!query) {
-      const result = items.filter(item => isCategoryMatch(item, selectedCategoria));
-      return { filtered: result, isCrossCategorySearch: false };
+      return items.filter(item => isCategoryMatch(item, selectedCategoria));
     }
 
-    // 1. If 'todos' is selected, search globally across all items
+    // If 'todos' is selected, search globally across all items
     if (selectedCategoria === 'todos') {
-      const result = items.filter(item => matchesProductSearch(item, query));
-      return { filtered: result, isCrossCategorySearch: false };
+      return items.filter(item => matchesProductSearch(item, query));
     }
 
-    // 2. If a specific category is selected, first check matches within that category
-    const catMatches = items.filter(
+    // When a specific category is selected, strictly return items matching both category and search
+    return items.filter(
       item => isCategoryMatch(item, selectedCategoria) && matchesProductSearch(item, query)
     );
-
-    if (catMatches.length > 0) {
-      return { filtered: catMatches, isCrossCategorySearch: false };
-    }
-
-    // 3. Fallback: If 0 matches in current category, search across ALL products so user is not blocked
-    const globalMatches = items.filter(item => matchesProductSearch(item, query));
-    return {
-      filtered: globalMatches,
-      isCrossCategorySearch: globalMatches.length > 0
-    };
-  }, [items, debouncedSearch, selectedCategoria, displayCategories]);
+  }, [items, debouncedSearch, selectedCategoria]);
   const pageCount = Math.max(1, Math.ceil(filtered.length / MENU_PAGE_SIZE));
   const paginatedItems = useMemo(
     () => filtered.slice((page - 1) * MENU_PAGE_SIZE, page * MENU_PAGE_SIZE),
@@ -1020,26 +1053,48 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
             )}
           </div>
 
-          {isCrossCategorySearch && debouncedSearch.trim() && (
-            <div className="flex items-center justify-between p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 rounded-xl text-xs text-amber-900 dark:text-amber-200 shadow-sm">
-              <div className="flex items-center gap-2">
-                <span className="text-base">🍷</span>
-                <span>
-                  No hay coincidencias en <strong>{displayCategories.find(c => c.slug.toLowerCase() === selectedCategoria.toLowerCase())?.nombre || selectedCategoria}</strong>. Mostrando <strong>{filtered.length}</strong> resultados en todo el catálogo.
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedCategoria('todos')}
-                className="px-2.5 py-1 bg-amber-200 hover:bg-amber-300 dark:bg-amber-800 dark:hover:bg-amber-700 text-amber-950 dark:text-amber-100 rounded-lg text-[10px] font-bold uppercase transition-colors cursor-pointer"
-              >
-                Ver en Todos
-              </button>
-            </div>
-          )}
-
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
-            {loading ? <div className="col-span-3"><CardSkeleton count={6} /></div> : paginatedItems.map(item => {
+            {loading ? (
+              <div className="col-span-3"><CardSkeleton count={6} /></div>
+            ) : paginatedItems.length === 0 ? (
+              <div className="col-span-full flex flex-col items-center justify-center p-8 sm:p-12 text-center bg-[#F5F1E9]/40 dark:bg-white/5 border border-dashed border-stone-200 dark:border-white/10 rounded-2xl space-y-3">
+                <div className="w-12 h-12 rounded-full bg-stone-100 dark:bg-stone-800 flex items-center justify-center text-stone-400">
+                  <Search className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-stone-700 dark:text-stone-200">
+                    No se encontraron productos
+                  </h4>
+                  <p className="text-xs text-stone-500 dark:text-stone-400 mt-1 max-w-sm">
+                    {debouncedSearch.trim()
+                      ? selectedCategoria !== 'todos'
+                        ? `No hay coincidencias para "${debouncedSearch}" en la categoría ${displayCategories.find(c => c.slug.toLowerCase() === selectedCategoria.toLowerCase())?.nombre || selectedCategoria}.`
+                        : `No hay coincidencias para "${debouncedSearch}" en el catálogo.`
+                      : 'No hay productos disponibles en esta categoría.'}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                  {selectedCategoria !== 'todos' && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCategoria('todos')}
+                      className="px-3.5 py-1.5 bg-[#8C6239] hover:bg-[#724f2d] dark:bg-[#C8956A] dark:hover:bg-[#b07d53] text-white dark:text-stone-900 text-xs font-bold rounded-xl transition-colors cursor-pointer shadow-xs"
+                    >
+                      Buscar en Todo el Catálogo
+                    </button>
+                  )}
+                  {debouncedSearch.trim() && (
+                    <button
+                      type="button"
+                      onClick={() => setSearch('')}
+                      className="px-3.5 py-1.5 bg-stone-200 hover:bg-stone-300 dark:bg-white/10 dark:hover:bg-white/20 text-stone-700 dark:text-stone-200 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
+                    >
+                      Limpiar Búsqueda
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : paginatedItems.map(item => {
               const itemBusy = pendingAction === `toggle_${item.id_producto}`
                 || pendingAction === `edit_${item.id_producto}`
                 || pendingAction === `duplicate_${item.id_producto}`;
