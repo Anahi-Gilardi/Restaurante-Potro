@@ -11,6 +11,7 @@ import {
   Calendar, 
   TrendingUp, 
   AlertTriangle, 
+  AlertCircle, 
   Clock, 
   Users, 
   ShieldCheck, 
@@ -160,6 +161,12 @@ export default function CajaModule({
     handleOpenShift,
     handleCloseShift,
     handleConfirmCheckout,
+    showConfirmCerrarMesaModal,
+    setShowConfirmCerrarMesaModal,
+    pendingCloseMesaData,
+    isFinalizingClose,
+    handleConfirmCerrarMesa,
+    handleKeepMesaOpen,
     triggerManualPrint,
     triggerPDFDownloadOnly,
     downloadFacturaHistorialPdf,
@@ -2365,6 +2372,97 @@ export default function CajaModule({
             >
               Aceptar
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE CONFIRMACIÓN DE CIERRE DE MESA / COMANDA */}
+      {showConfirmCerrarMesaModal && pendingCloseMesaData && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-white dark:bg-[#1e1b18] rounded-2xl border border-stone-200 dark:border-stone-800 max-w-md w-full p-6 space-y-4 shadow-2xl font-sans">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800/60 flex items-center justify-center shrink-0 text-amber-600 dark:text-amber-400">
+                <AlertCircle className="w-5 h-5" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-sm font-black text-stone-900 dark:text-stone-100 uppercase tracking-tight">
+                  ¿Confirmar comanda cobrada y cerrar mesa?
+                </h3>
+                <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5">
+                  El ticket fue enviado a la tiquetera. Seleccione qué desea hacer con la mesa en el salón:
+                </p>
+              </div>
+            </div>
+
+            {/* Resumen de la comanda */}
+            <div className="bg-stone-50 dark:bg-stone-900/60 p-3.5 rounded-xl border border-stone-200/80 dark:border-stone-800 space-y-2 text-xs">
+              <div className="flex justify-between items-center">
+                <span className="text-stone-500 dark:text-stone-400 font-bold uppercase text-[10px]">Mesa:</span>
+                <span className="font-extrabold text-stone-900 dark:text-stone-100">
+                  {formatTableDisplayTitle(pendingCloseMesaData.numeroMesa)}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-stone-500 dark:text-stone-400 font-bold uppercase text-[10px]">Total a cobrar:</span>
+                <span className="font-mono text-base font-black text-emerald-600 dark:text-emerald-400">
+                  ${pendingCloseMesaData.finalTotal.toLocaleString('es-AR')}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-[11px]">
+                <span className="text-stone-500 dark:text-stone-400 font-bold uppercase text-[10px]">Medio de pago:</span>
+                <span className="font-bold text-stone-700 dark:text-stone-300 uppercase">
+                  {pendingCloseMesaData.mappedMedio}
+                </span>
+              </div>
+              {pendingCloseMesaData.calculatedChange > 0 && (
+                <div className="flex justify-between items-center text-[11px] text-emerald-600 font-bold pt-1 border-t border-stone-200 dark:border-stone-800">
+                  <span>Vuelto:</span>
+                  <span className="font-mono">${pendingCloseMesaData.calculatedChange.toLocaleString('es-AR')}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Explicación amigable */}
+            <div className="p-3 bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 rounded-xl text-[10px] text-stone-600 dark:text-stone-300 space-y-1.5 leading-relaxed">
+              <p>
+                <strong className="text-amber-800 dark:text-amber-300">✓ Confirmar y Cerrar Mesa:</strong> Asienta la venta en caja, retira la comanda del salón y libera la mesa para nuevos clientes.
+              </p>
+              <p>
+                <strong className="text-stone-700 dark:text-stone-200">✕ Mantener Mesa Abierta:</strong> La comanda permanece activa e intacta en el salón por si querés agregar más pedidos o corregir algo.
+              </p>
+            </div>
+
+            {/* Acciones */}
+            <div className="flex flex-col sm:flex-row gap-2.5 pt-1">
+              <button
+                type="button"
+                onClick={handleKeepMesaOpen}
+                disabled={isFinalizingClose}
+                className="w-full sm:w-1/2 py-2.5 px-3 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 text-xs font-black uppercase rounded-xl border border-stone-300/80 dark:border-stone-700 cursor-pointer transition-all text-center flex items-center justify-center gap-1.5 disabled:opacity-50"
+              >
+                <X className="w-3.5 h-3.5" />
+                Mantener Mesa Abierta
+              </button>
+
+              <button
+                type="button"
+                onClick={handleConfirmCerrarMesa}
+                disabled={isFinalizingClose}
+                className="w-full sm:w-1/2 py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-black uppercase rounded-xl shadow-md cursor-pointer transition-all border-none flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-wait"
+              >
+                {isFinalizingClose ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin text-white" />
+                    Cerrando Mesa...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-4 h-4 text-white" />
+                    Confirmar y Cerrar Mesa
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

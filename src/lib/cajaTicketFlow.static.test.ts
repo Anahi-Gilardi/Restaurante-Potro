@@ -78,3 +78,19 @@ test('pdfService cuenta con la funcion oficial exportTicketsAuditReportPDF con s
   assert.match(pdfService, /TOTAL AUDITADO/);
 });
 
+test('Caja no borra la comanda del salon al imprimir ticket hasta confirmar el cierre de mesa', () => {
+  assert.match(cajaHook, /showConfirmCerrarMesaModal/);
+  assert.match(cajaHook, /pendingCloseMesaData/);
+  assert.match(cajaHook, /handleConfirmCerrarMesa/);
+  assert.match(cajaHook, /handleKeepMesaOpen/);
+  assert.match(cajaModule, /¿Confirmar comanda cobrada y cerrar mesa\?/);
+  assert.match(cajaModule, /Confirmar y Cerrar Mesa/);
+  assert.match(cajaModule, /Mantener Mesa Abierta/);
+
+  // onFacturarMesa solo debe ser ejecutado dentro de handleConfirmCerrarMesa
+  const confirmCloseIdx = cajaHook.indexOf('const handleConfirmCerrarMesa =');
+  const onFacturarIdx = cajaHook.indexOf('onFacturarMesa(pedidoId);');
+  assert.ok(confirmCloseIdx !== -1, 'handleConfirmCerrarMesa debe existir');
+  assert.ok(onFacturarIdx > confirmCloseIdx, 'onFacturarMesa debe ejecutarse dentro de handleConfirmCerrarMesa');
+});
+

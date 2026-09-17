@@ -25,6 +25,26 @@ import { internalTicketPreview } from '../../../lib/fiscalVoucherPolicy';
 import { isSameTable, mergeTableOrders } from '../../../lib/tableOrders';
 import { formatTicketTableName } from '../../../lib/tableUnions';
 
+export interface PendingCloseMesaData {
+  pedidoId: number;
+  numeroMesa: string | number;
+  finalTotal: number;
+  compiledTicketNo: string;
+  mappedMedio: string;
+  calculatedChange: number;
+  factura: Factura;
+  pagos: PagoDb[];
+  paymentDesglosesCount: {
+    efectivo: number;
+    debito: number;
+    credito: number;
+    transferencia: number;
+    mercadopago: number;
+  };
+  selectedCliente: Cliente | null;
+  puntosRedimidos: number;
+}
+
 interface UseCajaProps {
   mesas?: Mesa[];
   pedidos: Pedido[];
@@ -101,6 +121,9 @@ export function useCaja({
   const [closingObservationsInput, setClosingObservationsInput] = useState<string>('Cierre de turno');
   const checkoutInFlightRef = useRef(false);
   const [isCheckoutProcessing, setIsCheckoutProcessing] = useState(false);
+  const [showConfirmCerrarMesaModal, setShowConfirmCerrarMesaModal] = useState(false);
+  const [pendingCloseMesaData, setPendingCloseMesaData] = useState<PendingCloseMesaData | null>(null);
+  const [isFinalizingClose, setIsFinalizingClose] = useState(false);
 
   useEffect(() => {
     const handleCashShiftSynced = (event: Event) => {
@@ -740,13 +763,17 @@ export function useCaja({
       fecha: saleDate.toISOString()
     }));
 
-    // Disparar la impresión del ticket de inmediato en el evento del usuario (0ms de demora)
+    // Disparar la impresión del ticket de inmediato (0ms de demora) hacia la tiquetera
     const printPromise = printerService.sendToPrinter(dataTicket, printerConfig);
-
-    const persistence = await salesPersistenceService.persist({ factura: internalFactura, pagos: paymentRows });
-    if (persistence.pendingSync) {
-      toast.warning('Cobro respaldado localmente. Se sincronizará con Supabase al recuperar conexión.');
-    }
+    printPromise.then(printRes => {
+      if (printRes.success) {
+        toast.success(printRes.message);
+      } else {
+        toast.warning(printRes.message);
+      }
+    }).catch(e => {
+      toast.warning(`Detalle en la impresora: ${e?.message || e}`);
+    });
 
     const paymentDesglosesCount = {
       efectivo: pays.filter(p => p.metodo === 'efectivo').reduce((s, c) => s + c.monto, 0),
@@ -756,70 +783,23 @@ export function useCaja({
       mercadopago: pays.filter(p => p.metodo === 'mp_qr' || p.metodo === 'mercadopago').reduce((s, c) => s + c.monto, 0)
     };
 
-    try {
-      await cajaService.updateSales(orderBreakdowns.finalTotal, paymentDesglosesCount);
-    } catch (e: any) {
-      toast.error(`Error al actualizar ventas: ${e.message}`);
-    }
-
-    if (selectedCliente) {
-      try {
-        const puntosGanados = Math.round(orderBreakdowns.finalTotal * 0.05);
-        const nextPuntos = Math.max(0, selectedCliente.puntos - puntosRedimidos) + puntosGanados;
-        await clientesService.updatePuntos(selectedCliente.id_cliente, nextPuntos);
-        addLog('sistema', `FIDELIDAD: Cliente ${selectedCliente.nombre} redimió ${puntosRedimidos} puntos y ganó ${puntosGanados} puntos. Balance actual: ${nextPuntos}.`);
-      } catch (err) {
-        console.error('Error updating customer points:', err);
-      }
-    }
-
-    onFacturarMesa(selectedPedido.id_pedido);
-
-    try {
-      await auditoriaService.create({
-        id: `aud_${Date.now()}`,
-        tipo: 'sistema',
-        mensaje: `Cobro exitoso Mesa ${selectedPedido.numero_mesa}. Ticket interno: ${compiledTicketNo}. Total: $${orderBreakdowns.finalTotal.toLocaleString('es-AR')}. Pago: ${mappedMedio}`,
-        timestamp: new Date()
-      });
-    } catch (e: any) {
-      console.error('Audit log error:', e);
-    }
-
-    addLog('sistema', `CAJA: Cobro finalizado para Mesa ${selectedPedido.numero_mesa}. Ticket interno ${compiledTicketNo} registrado sin solicitar CAE.`);
-
-    // La impresión física o por navegador se despacha sin bloquear la interfaz ni el modal de éxito
-    printPromise.then(printRes => {
-      if (printRes.success) {
-        toast.success(printRes.message);
-      } else {
-        toast.warning(printRes.message);
-      }
-    }).catch(e => {
-      toast.warning(`Cobro registrado, pero hubo un error en la impresora: ${e?.message || e}`);
+    // Almacenar transacción pendiente de confirmación de cierre de mesa
+    setPendingCloseMesaData({
+      pedidoId: selectedPedido.id_pedido,
+      numeroMesa: selectedPedido.numero_mesa,
+      finalTotal: orderBreakdowns.finalTotal,
+      compiledTicketNo,
+      mappedMedio,
+      calculatedChange,
+      factura: internalFactura,
+      pagos: paymentRows,
+      paymentDesglosesCount,
+      selectedCliente,
+      puntosRedimidos
     });
 
-    setSelectedPedidoId(null);
-    setMixedPayments([]);
-    setMontoEntregadoEfectivo('');
-    setDescuentoPorcentaje(0);
-    setPropinaPorcentaje(10);
-    setSplitByProducts(false);
-    setSelectedProductsForSplit([]);
-    setSelectedCliente(null);
-    setPuntosRedimidos(0);
-    setDniCuitBuscar('');
-    setNombreNuevoCliente('');
-    setEmailNuevoCliente('');
-    setTelNuevoCliente('');
-    loadCajaState();
-
-    setSuccessDetails({
-      nro: compiledTicketNo,
-      total: orderBreakdowns.finalTotal,
-      vuelto: calculatedChange
-    });
-    setShowSuccessModal(true);
+    // Abrir cartel de confirmación: ¿Confirmar comanda cobrada y cerrar mesa?
+    setShowConfirmCerrarMesaModal(true);
   };
 
   const handleConfirmCheckout = async () => {
@@ -837,6 +817,104 @@ export function useCaja({
       setIsCheckoutProcessing(false);
     }
   };
+
+  const handleConfirmCerrarMesa = async () => {
+    if (!pendingCloseMesaData || isFinalizingClose) return;
+    setIsFinalizingClose(true);
+
+    try {
+      const {
+        pedidoId,
+        numeroMesa,
+        finalTotal,
+        compiledTicketNo,
+        mappedMedio,
+        calculatedChange,
+        factura,
+        pagos,
+        paymentDesglosesCount,
+        selectedCliente: checkoutCliente,
+        puntosRedimidos: checkoutPuntos
+      } = pendingCloseMesaData;
+
+      const persistence = await salesPersistenceService.persist({ factura, pagos });
+      if (persistence.pendingSync) {
+        toast.warning('Cobro respaldado localmente. Se sincronizará con Supabase al recuperar conexión.');
+      }
+
+      try {
+        await cajaService.updateSales(finalTotal, paymentDesglosesCount);
+      } catch (e: any) {
+        toast.error(`Error al actualizar ventas: ${e.message}`);
+      }
+
+      if (checkoutCliente) {
+        try {
+          const puntosGanados = Math.round(finalTotal * 0.05);
+          const nextPuntos = Math.max(0, checkoutCliente.puntos - checkoutPuntos) + puntosGanados;
+          await clientesService.updatePuntos(checkoutCliente.id_cliente, nextPuntos);
+          addLog('sistema', `FIDELIDAD: Cliente ${checkoutCliente.nombre} redimió ${checkoutPuntos} puntos y ganó ${puntosGanados} puntos. Balance actual: ${nextPuntos}.`);
+        } catch (err) {
+          console.error('Error updating customer points:', err);
+        }
+      }
+
+      // 1. Liberar mesa y comanda en salón
+      onFacturarMesa(pedidoId);
+
+      try {
+        await auditoriaService.create({
+          id: `aud_${Date.now()}`,
+          tipo: 'sistema',
+          mensaje: `Cobro exitoso Mesa ${numeroMesa}. Ticket interno: ${compiledTicketNo}. Total: $${finalTotal.toLocaleString('es-AR')}. Pago: ${mappedMedio}`,
+          timestamp: new Date()
+        });
+      } catch (e: any) {
+        console.error('Audit log error:', e);
+      }
+
+      addLog('sistema', `CAJA: Cobro finalizado para Mesa ${numeroMesa}. Ticket interno ${compiledTicketNo} registrado sin solicitar CAE.`);
+
+      setSelectedPedidoId(null);
+      setMixedPayments([]);
+      setMontoEntregadoEfectivo('');
+      setDescuentoPorcentaje(0);
+      setPropinaPorcentaje(10);
+      setSplitByProducts(false);
+      setSelectedProductsForSplit([]);
+      setSelectedCliente(null);
+      setPuntosRedimidos(0);
+      setDniCuitBuscar('');
+      setNombreNuevoCliente('');
+      setEmailNuevoCliente('');
+      setTelNuevoCliente('');
+      loadCajaState();
+
+      setShowConfirmCerrarMesaModal(false);
+      setPendingCloseMesaData(null);
+
+      setSuccessDetails({
+        nro: compiledTicketNo,
+        total: finalTotal,
+        vuelto: calculatedChange
+      });
+      setShowSuccessModal(true);
+      toast.success(`Mesa ${numeroMesa} cobrada y cerrada.`);
+    } catch (err: any) {
+      console.error('Error al finalizar cobro y cerrar mesa:', err);
+      toast.error(`Error al cerrar mesa: ${err?.message || err}`);
+    } finally {
+      setIsFinalizingClose(false);
+    }
+  };
+
+  const handleKeepMesaOpen = () => {
+    const mesa = pendingCloseMesaData?.numeroMesa || (selectedPedido ? selectedPedido.numero_mesa : '');
+    setShowConfirmCerrarMesaModal(false);
+    setPendingCloseMesaData(null);
+    toast.info(`Mesa ${mesa} permanece abierta en el salón.`);
+  };
+
 
   const triggerManualPrint = async () => {
     if (!selectedPedido || !cajaSession) return;
@@ -1160,6 +1238,12 @@ export function useCaja({
     handleOpenShift,
     handleCloseShift,
     handleConfirmCheckout,
+    showConfirmCerrarMesaModal,
+    setShowConfirmCerrarMesaModal,
+    pendingCloseMesaData,
+    isFinalizingClose,
+    handleConfirmCerrarMesa,
+    handleKeepMesaOpen,
     triggerManualPrint,
     triggerPDFDownloadOnly,
     downloadFacturaHistorialPdf,
