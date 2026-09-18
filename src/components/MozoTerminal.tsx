@@ -30,7 +30,8 @@ import {
   Trash2,
   Edit3,
   Save,
-  Loader2
+  Loader2,
+  Printer
 } from 'lucide-react';
 import { Mesa, Insumo, ProductoMenu, RecetaEscandallo, Pedido, PedidoItem } from '../types';
 import { createMozoCartIdempotencyKey } from '../lib/mozoCartDraft';
@@ -445,7 +446,7 @@ export default function MozoTerminal({
     };
   }, [productosMenu, editCategoryFilter, editProductSearch]);
 
-  const handleSaveEditPedido = async () => {
+  const handleSaveEditPedido = async (andPrint = false) => {
     if (!editingPedido) return;
     if (editingItems.length === 0) {
       toast.warning('El pedido debe tener al menos un producto. Si desea cancelar toda la comanda, utilice la opción "Cancelar comanda y liberar mesa".');
@@ -454,9 +455,10 @@ export default function MozoTerminal({
 
     setIsSavingEdit(true);
     try {
+      const cleanObs = editingObservaciones.trim() || undefined;
       const updatedFields: Partial<Pedido> = {
         items: editingItems,
-        observaciones: editingObservaciones.trim() || undefined
+        observaciones: cleanObs
       };
 
       if (onActualizarPedido) {
@@ -465,7 +467,23 @@ export default function MozoTerminal({
         await pedidosService.update(editingPedido.id_pedido, updatedFields);
       }
 
-      toast.success(`Pedido #${editingPedido.id_pedido} actualizado correctamente.`);
+      if (andPrint) {
+        const tableOrderName = selectedMesa ? selectedMesa.numero_mesa : (editingPedido.numero_mesa || `Mesa ${editingPedido.id_mesa}`);
+        printComandaThermalTicket({
+          mesa: formatTicketTableName(tableOrderName),
+          mozo: editingPedido.mozo || activeMozo || 'Mozo',
+          items: editingItems.map(i => ({
+            nombre: i.nombre,
+            cantidad: i.cantidad,
+            observaciones: cleanObs,
+          })),
+          observaciones: cleanObs,
+        });
+        toast.success(`Pedido #${editingPedido.id_pedido} guardado y comanda emitida 🖨️`);
+      } else {
+        toast.success(`Pedido #${editingPedido.id_pedido} actualizado correctamente.`);
+      }
+
       setEditingPedido(null);
     } catch (err: any) {
       console.error('Error al guardar edición del pedido:', err);
@@ -701,6 +719,43 @@ export default function MozoTerminal({
     if (!selectedMesa) return null;
     return selectedMesaInfo?.activeOrder || null;
   }, [selectedMesa, selectedMesaInfo]);
+
+  // Emitir / Reimprimir comanda activa de cocina a la tiquetera
+  const handleEmitirComanda = (pedidoToPrint?: Pedido | null) => {
+    const p = pedidoToPrint || activePedidoDeMesa;
+    if (!p) {
+      toast.error('No hay comanda activa para emitir.');
+      return;
+    }
+
+    const tableOrderName = selectedMesa ? selectedMesa.numero_mesa : (p.numero_mesa || `Mesa ${p.id_mesa}`);
+
+    // Si la mesa tiene múltiples comandas, emitir todos los ítems vigentes de la mesa
+    const allItems = selectedMesaInfo && selectedMesaInfo.activeOrders.length > 1
+      ? selectedMesaInfo.activeOrders.flatMap(o => o.items)
+      : p.items;
+
+    const allObs = selectedMesaInfo && selectedMesaInfo.activeOrders.length > 1
+      ? selectedMesaInfo.activeOrders.map(o => o.observaciones).filter(Boolean).join(' | ')
+      : (p.observaciones || '');
+
+    if (!allItems || allItems.length === 0) {
+      toast.error('La comanda no contiene productos para emitir.');
+      return;
+    }
+
+    printComandaThermalTicket({
+      mesa: formatTicketTableName(tableOrderName),
+      mozo: p.mozo || activeMozo || 'Mozo',
+      items: allItems.map(i => ({
+        nombre: i.nombre,
+        cantidad: i.cantidad,
+      })),
+      observaciones: allObs ? allObs : undefined,
+    });
+
+    toast.success(`Comanda de ${tableOrderName} enviada a tiquetera 🖨️`);
+  };
 
   // Filter products by category and search (with hierarchical wine/beverage browsing)
   const { filteredProducts, isCrossCategorySearch } = useMemo(() => {
@@ -1549,6 +1604,16 @@ export default function MozoTerminal({
                           Dividir Cuenta
                         </button>
                       </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleEmitirComanda(activePedidoDeMesa)}
+                        className="w-full py-1.5 px-2.5 bg-[#FAF7F0] dark:bg-[#251B12] hover:bg-[#F5F1E9] dark:hover:bg-[#322317] border border-[#C8956A]/40 text-[#8C6239] dark:text-[#E8B800] rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-2xs cursor-pointer active:scale-98"
+                        title="Reimprimir o emitir ticket de comanda para cocina"
+                      >
+                        <Printer className="w-3.5 h-3.5 text-[#8C6239] dark:text-[#E8B800]" />
+                        Emitir Comanda
+                      </button>
 
                       <button
                         type="button"
@@ -2742,20 +2807,30 @@ export default function MozoTerminal({
                 </span>
               </div>
 
-              <div className="flex gap-2.5 w-full sm:w-auto">
+              <div className="flex gap-2.5 w-full sm:w-auto flex-wrap">
                 <button
                   type="button"
                   onClick={() => setEditingPedido(null)}
                   disabled={isSavingEdit}
-                  className="flex-1 sm:flex-initial py-2.5 sm:py-3 px-5 sm:px-6 rounded-xl bg-stone-200 hover:bg-stone-300 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-100 text-xs sm:text-sm font-black transition-colors cursor-pointer"
+                  className="flex-1 sm:flex-initial py-2.5 sm:py-3 px-4 sm:px-5 rounded-xl bg-stone-200 hover:bg-stone-300 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-100 text-xs sm:text-sm font-black transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="button"
-                  onClick={handleSaveEditPedido}
+                  onClick={() => handleSaveEditPedido(true)}
                   disabled={isSavingEdit || editingItems.length === 0}
-                  className="flex-1 sm:flex-initial py-2.5 sm:py-3 px-6 sm:px-8 rounded-xl bg-[#8C6239] hover:bg-[#6e4623] text-white text-xs sm:text-sm font-black flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer active:scale-98 disabled:opacity-50"
+                  className="flex-1 sm:flex-initial py-2.5 sm:py-3 px-4 sm:px-5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs sm:text-sm font-black flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer active:scale-98 disabled:opacity-50"
+                  title="Guardar los cambios y emitir la comanda actualizada a la tiquetera"
+                >
+                  <Printer className="w-4 h-4" />
+                  Guardar y Emitir Comanda
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSaveEditPedido(false)}
+                  disabled={isSavingEdit || editingItems.length === 0}
+                  className="flex-1 sm:flex-initial py-2.5 sm:py-3 px-5 sm:px-6 rounded-xl bg-[#8C6239] hover:bg-[#6e4623] text-white text-xs sm:text-sm font-black flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer active:scale-98 disabled:opacity-50"
                 >
                   {isSavingEdit ? (
                     <>
