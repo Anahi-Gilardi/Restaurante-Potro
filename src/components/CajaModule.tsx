@@ -2452,10 +2452,10 @@ export default function CajaModule({
             {/* Explicación amigable */}
             <div className="p-3 bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 rounded-xl text-[10px] text-stone-600 dark:text-stone-300 space-y-1.5 leading-relaxed">
               <p>
-                <strong className="text-amber-800 dark:text-amber-300">✓ Confirmar y Cerrar Mesa:</strong> Asienta la venta en caja, retira la comanda del salón y libera la mesa para nuevos clientes.
+                <strong className="text-emerald-700 dark:text-emerald-400">✓ Confirmar Cobro:</strong> Asienta la venta en caja, retira la comanda del salón y libera la mesa para nuevos clientes.
               </p>
               <p>
-                <strong className="text-stone-700 dark:text-stone-200">✕ Mantener Mesa Abierta:</strong> La comanda permanece activa e intacta en el salón por si querés agregar más pedidos o corregir algo.
+                <strong className="text-stone-700 dark:text-stone-200">✕ Cancelar Cobro:</strong> Cancela la operación. La comanda y la mesa permanecen abiertas e intactas en el salón por si hubo una confusión.
               </p>
             </div>
 
@@ -2468,7 +2468,7 @@ export default function CajaModule({
                 className="w-full sm:w-1/2 py-2.5 px-3 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 text-xs font-black uppercase rounded-xl border border-stone-300/80 dark:border-stone-700 cursor-pointer transition-all text-center flex items-center justify-center gap-1.5 disabled:opacity-50"
               >
                 <X className="w-3.5 h-3.5" />
-                Mantener Mesa Abierta
+                Cancelar Cobro (Mantener Mesa Abierta)
               </button>
 
               <button
@@ -2485,7 +2485,7 @@ export default function CajaModule({
                 ) : (
                   <>
                     <CheckCircle className="w-4 h-4 text-white" />
-                    Confirmar y Cerrar Mesa
+                    Confirmar Cobro y Cerrar Mesa
                   </>
                 )}
               </button>

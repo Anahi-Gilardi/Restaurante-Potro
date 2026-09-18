@@ -84,7 +84,7 @@ test('Caja no borra la comanda del salon al imprimir ticket hasta confirmar el c
   assert.match(cajaHook, /handleConfirmCerrarMesa/);
   assert.match(cajaHook, /handleKeepMesaOpen/);
   assert.match(cajaModule, /¿Confirmar comanda cobrada y cerrar mesa\?/);
-  assert.match(cajaModule, /Confirmar y Cerrar Mesa/);
+  assert.match(cajaModule, /Confirmar (Cobro y )?Cerrar Mesa/);
   assert.match(cajaModule, /Mantener Mesa Abierta/);
 
   // onFacturarMesa solo debe ser ejecutado dentro de handleConfirmCerrarMesa indicando alreadyUpdatedInCaja=true
