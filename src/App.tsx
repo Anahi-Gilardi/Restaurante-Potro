@@ -1103,9 +1103,30 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
         return;
       }
       if (nuevoEstado === 'cancelado') {
-        cancelledOrderIdsSetRef.current.add(idPedido);
+        persistFinalizedId(idPedido, 'cancelado');
       } else if (nuevoEstado === 'entregado_cobrado') {
-        cobradoOrderIdsSetRef.current.add(idPedido);
+        persistFinalizedId(idPedido, 'cobrado');
+      }
+      if (pObj) {
+        try {
+          const totalOrder = (pObj.items || []).reduce((acc, item) => {
+            const pm = productosMenu.find(pr => pr.id_producto === item.id_producto);
+            return acc + ((item.precio_unitario ?? pm?.precio_venta ?? 0) * item.cantidad);
+          }, 0);
+          await sheetUpsertRow('pedidos_cabecera', {
+            id_pedido: pObj.id_pedido,
+            id_mesa: pObj.id_mesa,
+            numero_mesa: pObj.numero_mesa,
+            mozo: pObj.mozo,
+            estado_comanda: nuevoEstado,
+            fecha_hora: getArgentinaDateTimeString(pObj.fecha_hora),
+            total: totalOrder,
+            observaciones: pObj.observaciones || '',
+            items: JSON.stringify(pObj.items || [])
+          });
+        } catch (sheetErr) {
+          console.warn(`[handleCambiarEstadoPedido] Error actualizando comanda #${idPedido} en Google Sheets:`, sheetErr);
+        }
       }
       try {
         await orderTransactionService.transitionOrder(idPedido, nuevoEstado, permitirVentaSinStock);
@@ -1352,7 +1373,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
             numero_mesa: order.numero_mesa,
             mozo: order.mozo,
             estado_comanda: 'entregado_cobrado',
-            fecha_hora: order.fecha_hora instanceof Date ? order.fecha_hora.toISOString() : (order.fecha_hora ? new Date(order.fecha_hora).toISOString() : new Date().toISOString()),
+            fecha_hora: getArgentinaDateTimeString(order.fecha_hora),
             total: totalOrder,
             observaciones: order.observaciones || '',
             items: JSON.stringify(order.items || [])
@@ -1602,12 +1623,21 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
       // A. Cancelar pedidos en Google Sheets
       for (const order of relatedOrders) {
         try {
+          const totalOrder = (order.items || []).reduce((acc, item) => {
+            const pm = productosMenu.find(pr => pr.id_producto === item.id_producto);
+            return acc + ((item.precio_unitario ?? pm?.precio_venta ?? 0) * item.cantidad);
+          }, 0);
+
           await sheetUpsertRow('pedidos_cabecera', {
             id_pedido: order.id_pedido,
             id_mesa: order.id_mesa,
             numero_mesa: order.numero_mesa,
             mozo: order.mozo,
-            estado_comanda: 'cancelado'
+            estado_comanda: 'cancelado',
+            fecha_hora: getArgentinaDateTimeString(order.fecha_hora),
+            total: totalOrder,
+            observaciones: order.observaciones || '',
+            items: JSON.stringify(order.items || [])
           });
         } catch (err) {
           console.warn(`Error al cancelar comanda #${order.id_pedido} en Google Sheets:`, err);

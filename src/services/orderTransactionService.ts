@@ -168,17 +168,6 @@ export const orderTransactionService = {
   },
 
   async closeOrders(orderIds: number[], allowNegativeStock: boolean): Promise<void> {
-    for (const orderId of orderIds) {
-      try {
-        await sheetUpsertRow('pedidos_cabecera', {
-          id_pedido: orderId,
-          estado_comanda: 'entregado_cobrado'
-        });
-      } catch (sheetErr) {
-        console.warn(`[orderTransactionService.closeOrders] Google Sheets order ${orderId} sync warning:`, sheetErr);
-      }
-    }
-
     if (rpcAvailable !== false) {
       try {
         const supabase = getActiveSupabaseClient();

@@ -43,7 +43,7 @@ export const KNOWN_SHEET_TABLES = [
   'arca_emisiones'
 ];
 
-const CACHE_VERSION = '2026_09_18_v4';
+const CACHE_VERSION = '2026_09_18_v5';
 
 // Limpieza automática de caché obsoleto en el navegador
 if (typeof window !== 'undefined') {
@@ -423,10 +423,12 @@ export async function sheetUpsertRow<T extends Record<string, any>>(tableName: s
     cachedTables[tableName] = disk && Array.isArray(disk) ? disk : [];
   }
 
+  let fullRow: any = { ...rowData };
   if (pkVal !== undefined) {
     const idx = cachedTables[tableName].findIndex(r => String(r[pk]) === String(pkVal));
     if (idx >= 0) {
-      cachedTables[tableName][idx] = { ...cachedTables[tableName][idx], ...rowData };
+      fullRow = { ...cachedTables[tableName][idx], ...rowData };
+      cachedTables[tableName][idx] = fullRow;
     } else {
       cachedTables[tableName].push({ ...rowData });
     }
@@ -437,7 +439,7 @@ export async function sheetUpsertRow<T extends Record<string, any>>(tableName: s
   const payload = {
     action: 'upsert',
     table: tableName,
-    data: rowData
+    data: fullRow
   };
 
   return enqueueSheetWrite(async () => {
