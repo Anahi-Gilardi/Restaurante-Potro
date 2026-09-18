@@ -669,7 +669,6 @@ export default function MozoTerminal({
   const [splittingPedidoId, setSplittingPedidoId] = useState<number | null>(null);
   const [splitCount, setSplitCount] = useState<number>(2);
   const [splitItemsChecked, setSplitItemsChecked] = useState<{ [itemIdx: number]: boolean }>({});
-  const [confirmCobrarId, setConfirmCobrarId] = useState<number | null>(null);
 
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -679,9 +678,6 @@ export default function MozoTerminal({
           setSplittingPedidoId(null);
           setSplitItemsChecked({});
         }
-        if (confirmCobrarId !== null) {
-          setConfirmCobrarId(null);
-        }
         if (confirmLiberarMesaId !== null) {
           setConfirmLiberarMesaId(null);
         }
@@ -689,7 +685,7 @@ export default function MozoTerminal({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [searchQuery, splittingPedidoId, confirmCobrarId, confirmLiberarMesaId]);
+  }, [searchQuery, splittingPedidoId, confirmLiberarMesaId]);
 
   // Map of derived active info for all tables (occupancy, active orders, pax, labels)
   const mesasActiveInfoMap = useMemo(() => {
@@ -1530,110 +1526,74 @@ export default function MozoTerminal({
                     </span>
                   </div>
 
-                  {confirmCobrarId === activePedidoDeMesa.id_pedido ? (
-                    <div className="p-2.5 bg-amber-50 dark:bg-amber-950/40 rounded-lg border border-amber-300 dark:border-amber-700 space-y-2">
-                      <p className="text-[11px] font-bold text-amber-900 dark:text-amber-200 text-center">
-                        ¿Confirmar cobro y liberar {selectedMesa.numero_mesa}?
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleStartEditPedido(activePedidoDeMesa)}
+                      className="py-1.5 px-2 bg-amber-500/10 dark:bg-amber-500/20 border border-amber-500/30 hover:bg-amber-500/20 text-amber-900 dark:text-amber-200 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                    >
+                      <Edit3 className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400" />
+                      Editar Pedido
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSplittingPedidoId(activePedidoDeMesa.id_pedido)}
+                      className="py-1.5 px-2 bg-[#FAF7F0] dark:bg-[#251B12]/60 border border-[#C8956A]/20 hover:bg-[#F5F1E9] dark:hover:bg-[#8C6239]/40 text-[#8C6239] dark:text-[#C8956A] rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                    >
+                      <Receipt className="w-3.5 h-3.5 text-[#8C6239] dark:text-[#C8956A]" />
+                      Dividir Cuenta
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleEmitirComanda(activePedidoDeMesa)}
+                    className="w-full py-1.5 px-2.5 bg-[#FAF7F0] dark:bg-[#251B12] hover:bg-[#F5F1E9] dark:hover:bg-[#322317] border border-[#C8956A]/40 text-[#8C6239] dark:text-[#E8B800] rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-2xs cursor-pointer active:scale-98"
+                    title="Reimprimir o emitir ticket de comanda para cocina"
+                  >
+                    <Printer className="w-3.5 h-3.5 text-[#8C6239] dark:text-[#E8B800]" />
+                    Emitir Comanda
+                  </button>
+
+                  {String(confirmLiberarMesaId) === String(selectedMesa.id_mesa) ? (
+                    <div className="p-2.5 bg-red-50 dark:bg-red-950/40 rounded-lg border border-red-300 dark:border-red-700 space-y-2">
+                      <p className="text-[11px] font-bold text-red-900 dark:text-red-200 text-center">
+                        ¿Cancelar comanda y liberar {selectedMesa.numero_mesa}?
                       </p>
                       <div className="flex gap-2">
                         <button
-                          onClick={() => {
-                            setConfirmCobrarId(null);
-                            onFacturarMesa(activePedidoDeMesa.id_pedido);
-                            toast.success(`Mesa ${selectedMesa.numero_mesa} cobrada y liberada.`);
+                          type="button"
+                          onClick={async () => {
+                            const mesaId = selectedMesa.id_mesa;
+                            const pedidoId = activePedidoDeMesa?.id_pedido;
+                            setConfirmLiberarMesaId(null);
+                            if (onLiberarMesa) {
+                              await onLiberarMesa(mesaId, pedidoId);
+                              toast.success(`${selectedMesa.numero_mesa} liberada y comanda cancelada.`);
+                            }
                           }}
-                          className="flex-1 py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-black cursor-pointer shadow-sm transition-colors text-center"
+                          className="flex-1 py-1.5 px-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-black cursor-pointer shadow-sm text-center transition-colors"
                         >
-                          ✓ Sí, Cobrar
+                          ✓ Sí, Liberar
                         </button>
                         <button
-                          onClick={() => setConfirmCobrarId(null)}
+                          type="button"
+                          onClick={() => setConfirmLiberarMesaId(null)}
                           className="py-1.5 px-3 bg-stone-200 dark:bg-stone-700 text-stone-700 dark:text-stone-300 rounded-lg text-xs font-bold cursor-pointer"
                         >
-                          Cancelar
+                          Volver
                         </button>
                       </div>
                     </div>
                   ) : (
-                    <>
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleStartEditPedido(activePedidoDeMesa)}
-                          className="py-1.5 px-2 bg-amber-500/10 dark:bg-amber-500/20 border border-amber-500/30 hover:bg-amber-500/20 text-amber-900 dark:text-amber-200 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
-                        >
-                          <Edit3 className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400" />
-                          Editar Pedido
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setSplittingPedidoId(activePedidoDeMesa.id_pedido)}
-                          className="py-1.5 px-2 bg-[#FAF7F0] dark:bg-[#251B12]/60 border border-[#C8956A]/20 hover:bg-[#F5F1E9] dark:hover:bg-[#8C6239]/40 text-[#8C6239] dark:text-[#C8956A] rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
-                        >
-                          <Receipt className="w-3.5 h-3.5 text-[#8C6239] dark:text-[#C8956A]" />
-                          Dividir Cuenta
-                        </button>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => handleEmitirComanda(activePedidoDeMesa)}
-                        className="w-full py-1.5 px-2.5 bg-[#FAF7F0] dark:bg-[#251B12] hover:bg-[#F5F1E9] dark:hover:bg-[#322317] border border-[#C8956A]/40 text-[#8C6239] dark:text-[#E8B800] rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-2xs cursor-pointer active:scale-98"
-                        title="Reimprimir o emitir ticket de comanda para cocina"
-                      >
-                        <Printer className="w-3.5 h-3.5 text-[#8C6239] dark:text-[#E8B800]" />
-                        Emitir Comanda
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setConfirmCobrarId(activePedidoDeMesa.id_pedido)}
-                        className="w-full py-2 px-2.5 bg-[#8C6239] dark:bg-[#C8956A] border border-transparent hover:bg-[#5d3a2e] dark:hover:bg-[#d8a478] text-[#FAF7F0] dark:text-[#8C6239] rounded-lg text-xs font-extrabold flex items-center justify-center gap-1 transition-colors shadow-sm cursor-pointer"
-                      >
-                        Cobrar Mesa
-                      </button>
-
-                      {String(confirmLiberarMesaId) === String(selectedMesa.id_mesa) ? (
-                        <div className="p-2.5 bg-red-50 dark:bg-red-950/40 rounded-lg border border-red-300 dark:border-red-700 space-y-2">
-                          <p className="text-[11px] font-bold text-red-900 dark:text-red-200 text-center">
-                            ¿Cancelar comanda y liberar {selectedMesa.numero_mesa}?
-                          </p>
-                          <div className="flex gap-2">
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                const mesaId = selectedMesa.id_mesa;
-                                const pedidoId = activePedidoDeMesa?.id_pedido;
-                                setConfirmLiberarMesaId(null);
-                                if (onLiberarMesa) {
-                                  await onLiberarMesa(mesaId, pedidoId);
-                                  toast.success(`${selectedMesa.numero_mesa} liberada y comanda cancelada.`);
-                                }
-                              }}
-                              className="flex-1 py-1.5 px-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-black cursor-pointer shadow-sm text-center transition-colors"
-                            >
-                              ✓ Sí, Liberar
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setConfirmLiberarMesaId(null)}
-                              className="py-1.5 px-3 bg-stone-200 dark:bg-stone-700 text-stone-700 dark:text-stone-300 rounded-lg text-xs font-bold cursor-pointer"
-                            >
-                              Volver
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => setConfirmLiberarMesaId(selectedMesa.id_mesa)}
-                          className="w-full py-1 text-[11px] text-stone-500 hover:text-red-600 dark:text-stone-400 dark:hover:text-red-400 font-medium flex items-center justify-center gap-1 transition-colors cursor-pointer"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                          Cancelar comanda y liberar mesa
-                        </button>
-                      )}
-                    </>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmLiberarMesaId(selectedMesa.id_mesa)}
+                      className="w-full py-1 text-[11px] text-stone-500 hover:text-red-600 dark:text-stone-400 dark:hover:text-red-400 font-medium flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      Cancelar comanda y liberar mesa
+                    </button>
                   )}
                 </div>
               ) : selectedMesaInfo.isOcupada ? (
