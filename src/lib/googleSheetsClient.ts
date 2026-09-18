@@ -94,43 +94,48 @@ async function fetchFromSheets(urlOrAction: string, options?: RequestInit): Prom
   const isDirect = urlOrAction.startsWith('http');
   const endpoint = isDirect ? urlOrAction : `${GOOGLE_SHEETS_WEBAPP_URL}${urlOrAction}`;
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => {
-    try {
-      controller.abort(new Error('Google Sheets timeout'));
-    } catch {
-      controller.abort();
-    }
-  }, SHEETS_TIMEOUT_MS);
+  const executeFetch = async (targetUrl: string, timeoutMs: number) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      try { controller.abort(new Error('Google Sheets timeout')); } catch { controller.abort(); }
+    }, timeoutMs);
 
+    try {
+      const res = await fetch(targetUrl, {
+        credentials: 'omit',
+        ...options,
+        signal: options?.signal || controller.signal
+      });
+      clearTimeout(timer);
+      return res;
+    } catch (err) {
+      clearTimeout(timer);
+      throw err;
+    }
+  };
+
+  // 1. Intento principal directo
   try {
-    const res = await fetch(endpoint, {
-      credentials: 'omit',
-      ...options,
-      signal: options?.signal || controller.signal
-    });
-    clearTimeout(timer);
+    const res = await executeFetch(endpoint, SHEETS_TIMEOUT_MS);
     if (res.ok || isDirect || res.status === 302 || res.status === 0) {
       return res;
     }
+    // Si dio 404 o 5xx en Apps Script (desincronización temporal de redirección echo de Google), reintentar una vez tras 800ms
+    if (res.status === 404 || res.status >= 500) {
+      await new Promise(resolve => setTimeout(resolve, 800));
+      const retryRes = await executeFetch(endpoint, SHEETS_TIMEOUT_MS);
+      if (retryRes.ok || retryRes.status === 302 || retryRes.status === 0) {
+        return retryRes;
+      }
+    }
     throw new Error(`Google Sheets status ${res.status}`);
   } catch (primaryErr) {
-    clearTimeout(timer);
-
-    // Si falló el acceso directo (por ejemplo si un adblocker o firewall corporativo bloquea script.google.com)
-    // y estamos en navegador en producción, intentar vía proxy /api/sheets
+    // 2. Si falló el acceso directo (por ejemplo si un adblocker bloquea script.google.com o Google echo 404)
+    // intentar vía proxy serverless /api/sheets de Vercel (servidor a servidor)
     if (!isDirect && typeof window !== 'undefined' && window.location?.origin && !window.location.hostname.includes('localhost')) {
       try {
         const proxyUrl = `${window.location.origin}/api/sheets${urlOrAction}`;
-        const pController = new AbortController();
-        const pTimer = setTimeout(() => {
-          try { pController.abort(); } catch {}
-        }, 15000);
-        const pRes = await fetch(proxyUrl, {
-          ...options,
-          signal: options?.signal || pController.signal
-        });
-        clearTimeout(pTimer);
+        const pRes = await executeFetch(proxyUrl, 15000);
         if (pRes.ok) {
           return pRes;
         }
@@ -194,10 +199,11 @@ export async function sheetFetchAllTables(forceFresh = false): Promise<Record<st
       }
       throw new Error(json.error || 'Respuesta inválida de Google Sheets');
     } catch (error) {
-      console.warn('[GoogleSheetsClient] Error al leer todas las tablas:', error);
       if (Object.keys(cachedTables).length > 0) {
+        console.info('[GoogleSheetsClient] Tablas operativas desde almacenamiento local mientras reconecta con Google Sheets.');
         return cachedTables;
       }
+      console.warn('[GoogleSheetsClient] Error al leer todas las tablas:', error);
       throw error;
     } finally {
       inFlightReadAllPromise = null;

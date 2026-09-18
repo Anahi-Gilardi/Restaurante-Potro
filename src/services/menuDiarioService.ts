@@ -107,20 +107,30 @@ const setLocalCache = (semana: Record<string, MenuDiarioDia>) => {
   }
 };
 
+let isSupabaseMenuDiarioAvailable = true;
+
 export const menuDiarioService = {
   async list(): Promise<Record<string, MenuDiarioDia>> {
+    const local = getLocalCache();
+    if (!isSupabaseMenuDiarioAvailable) {
+      return local;
+    }
     const client = tryGetActiveSupabaseClient();
     if (!client) {
-      return getLocalCache();
+      return local;
     }
 
     try {
       const { data, error } = await client.from('menu_diario').select('*');
-      if (error || !data || data.length === 0) {
-        return getLocalCache();
+      if (error) {
+        isSupabaseMenuDiarioAvailable = false;
+        return local;
+      }
+      if (!data || data.length === 0) {
+        return local;
       }
 
-      const semana = { ...getLocalCache() };
+      const semana = { ...local };
       data.forEach(row => {
         const diaKey = row.dia.toLowerCase();
         if (semana[diaKey]) {
@@ -140,7 +150,8 @@ export const menuDiarioService = {
       setLocalCache(semana);
       return semana;
     } catch {
-      return getLocalCache();
+      isSupabaseMenuDiarioAvailable = false;
+      return local;
     }
   },
 
@@ -149,6 +160,7 @@ export const menuDiarioService = {
     semana[diaItem.dia] = diaItem;
     setLocalCache(semana);
 
+    if (!isSupabaseMenuDiarioAvailable) return;
     const client = tryGetActiveSupabaseClient();
     if (!client) return;
 
@@ -164,15 +176,20 @@ export const menuDiarioService = {
       updated_at: new Date().toISOString()
     };
 
-    const { error } = await client.from('menu_diario').upsert([dbPayload]);
-    if (error) {
-      console.error('Error saving menu_diario day to Supabase:', error);
+    try {
+      const { error } = await client.from('menu_diario').upsert([dbPayload]);
+      if (error) {
+        isSupabaseMenuDiarioAvailable = false;
+      }
+    } catch {
+      isSupabaseMenuDiarioAvailable = false;
     }
   },
 
   async saveAll(semana: Record<string, MenuDiarioDia>): Promise<void> {
     setLocalCache(semana);
 
+    if (!isSupabaseMenuDiarioAvailable) return;
     const client = tryGetActiveSupabaseClient();
     if (!client) return;
 
