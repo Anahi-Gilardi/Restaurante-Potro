@@ -61,9 +61,8 @@ export const orderTransactionService = {
         items: JSON.stringify(pedido.items || [])
       });
 
-      for (let i = 0; i < (pedido.items || []).length; i++) {
-        const item = pedido.items[i];
-        await sheetUpsertRow('pedido_detalle', {
+      await Promise.allSettled((pedido.items || []).map((item, i) =>
+        sheetUpsertRow('pedido_detalle', {
           id_detalle: `${pedido.id_pedido}_${String(i).padStart(4, '0')}`,
           id_pedido: pedido.id_pedido,
           id_producto: item.id_producto,
@@ -72,8 +71,8 @@ export const orderTransactionService = {
           categoria: item.categoria,
           precio_unitario: item.precio_unitario ?? null,
           estado: item.estado ?? 'pendiente'
-        });
-      }
+        })
+      ));
     } catch (sheetErr) {
       console.warn('[orderTransactionService.saveOrder] Google Sheets sync warning:', sheetErr);
     }

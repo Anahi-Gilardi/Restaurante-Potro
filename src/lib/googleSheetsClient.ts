@@ -123,12 +123,13 @@ if (typeof window !== 'undefined') {
   }
 }
 
-const SHEETS_TIMEOUT_MS = 25_000; // 25s para dar tiempo suficiente a Google Apps Script sin abortar prematuramente
-let sheetWriteQueue: Promise<any> = Promise.resolve();
+const SHEETS_TIMEOUT_MS = 30_000;
+const tableWriteQueues: Record<string, Promise<any>> = {};
 
-function enqueueSheetWrite<T>(task: () => Promise<T>): Promise<T> {
-  const run = sheetWriteQueue.then(task, task);
-  sheetWriteQueue = run.catch(() => {});
+function enqueueSheetWrite<T>(tableName: string, task: () => Promise<T>): Promise<T> {
+  const currentQueue = tableWriteQueues[tableName] || Promise.resolve();
+  const run = currentQueue.then(task, task);
+  tableWriteQueues[tableName] = run.catch(() => {});
   return run;
 }
 
@@ -442,7 +443,7 @@ export async function sheetUpsertRow<T extends Record<string, any>>(tableName: s
     data: fullRow
   };
 
-  return enqueueSheetWrite(async () => {
+  return enqueueSheetWrite(tableName, async () => {
     try {
       const resp = await fetchFromSheets(`?action=upsert&table=${encodeURIComponent(tableName)}`, {
         method: 'POST',
@@ -479,7 +480,7 @@ export async function sheetBatchInsert<T extends Record<string, any>>(tableName:
     data: items
   };
 
-  return enqueueSheetWrite(async () => {
+  return enqueueSheetWrite(tableName, async () => {
     try {
       const resp = await fetchFromSheets(`?action=batchInsert&table=${encodeURIComponent(tableName)}`, {
         method: 'POST',
@@ -534,7 +535,7 @@ export async function sheetDeleteRow(tableName: string, id: string | number): Pr
     id: id
   };
 
-  return enqueueSheetWrite(async () => {
+  return enqueueSheetWrite(tableName, async () => {
     try {
       const resp = await fetchFromSheets(`?action=delete&table=${encodeURIComponent(tableName)}&id=${encodeURIComponent(String(id))}`, {
         method: 'POST',
