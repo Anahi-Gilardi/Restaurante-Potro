@@ -831,23 +831,69 @@ export function useCaja({
       mercadopago: pays.filter(p => p.metodo === 'mp_qr' || p.metodo === 'mercadopago').reduce((s, c) => s + c.monto, 0)
     };
 
-    // Almacenar transacción pendiente de confirmación de cierre de mesa
-    setPendingCloseMesaData({
-      pedidoId: selectedPedido.id_pedido,
-      numeroMesa: selectedPedido.numero_mesa,
-      finalTotal: orderBreakdowns.finalTotal,
-      compiledTicketNo,
-      mappedMedio,
-      calculatedChange,
-      factura: internalFactura,
-      pagos: paymentRows,
-      paymentDesglosesCount,
-      selectedCliente,
-      puntosRedimidos
-    });
+    const persistence = await salesPersistenceService.persist({ factura: internalFactura, pagos: paymentRows });
+    if (persistence.pendingSync) {
+      toast.warning('Cobro respaldado localmente. Se sincronizará con Supabase al recuperar conexión.');
+    }
 
-    // Abrir cartel de confirmación: ¿Confirmar comanda cobrada y cerrar mesa?
-    setShowConfirmCerrarMesaModal(true);
+    try {
+      await cajaService.updateSales(orderBreakdowns.finalTotal, paymentDesglosesCount);
+    } catch (e: any) {
+      toast.error(`Error al actualizar ventas: ${e.message}`);
+    }
+
+    if (selectedCliente) {
+      try {
+        const puntosGanados = Math.round(orderBreakdowns.finalTotal * 0.05);
+        const nextPuntos = Math.max(0, selectedCliente.puntos - puntosRedimidos) + puntosGanados;
+        await clientesService.updatePuntos(selectedCliente.id_cliente, nextPuntos);
+        addLog('sistema', `FIDELIDAD: Cliente ${selectedCliente.nombre} redimió ${puntosRedimidos} puntos y ganó ${puntosGanados} puntos. Balance actual: ${nextPuntos}.`);
+      } catch (err) {
+        console.error('Error updating customer points:', err);
+      }
+    }
+
+    // Liberar mesa y marcar comanda como entregado_cobrado en salón y Google Sheets de forma inmediata
+    onFacturarMesa(selectedPedido.id_pedido, true);
+
+    try {
+      await auditoriaService.create({
+        id: `aud_${Date.now()}`,
+        tipo: 'sistema',
+        mensaje: `Cobro exitoso Mesa ${selectedPedido.numero_mesa}. Ticket interno: ${compiledTicketNo}. Total: $${orderBreakdowns.finalTotal.toLocaleString('es-AR')}. Pago: ${mappedMedio}`,
+        timestamp: new Date()
+      });
+    } catch (e: any) {
+      console.error('Audit log error:', e);
+    }
+
+    addLog('sistema', `CAJA: Cobro finalizado para Mesa ${selectedPedido.numero_mesa}. Ticket interno ${compiledTicketNo} registrado sin solicitar CAE.`);
+
+    setSelectedPedidoId(null);
+    setMixedPayments([]);
+    setMontoEntregadoEfectivo('');
+    setDescuentoPorcentaje(0);
+    setPropinaPorcentaje(0);
+    setSplitByProducts(false);
+    setSelectedProductsForSplit([]);
+    setSelectedCliente(null);
+    setPuntosRedimidos(0);
+    setDniCuitBuscar('');
+    setNombreNuevoCliente('');
+    setEmailNuevoCliente('');
+    setTelNuevoCliente('');
+    loadCajaState();
+
+    setShowConfirmCerrarMesaModal(false);
+    setPendingCloseMesaData(null);
+
+    setSuccessDetails({
+      nro: compiledTicketNo,
+      total: orderBreakdowns.finalTotal,
+      vuelto: calculatedChange
+    });
+    setShowSuccessModal(true);
+    toast.success(`Mesa ${selectedPedido.numero_mesa} cobrada y cerrada.`);
   };
 
   const handleConfirmCheckout = async () => {

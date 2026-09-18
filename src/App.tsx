@@ -1360,7 +1360,12 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
       }
 
       // Persistir comandas cerradas en Google Sheets
-      for (const order of ordersToBill) {
+      const ordersToPersist = [...ordersToBill];
+      if (!ordersToPersist.some(o => o.id_pedido === target.id_pedido)) {
+        ordersToPersist.push(target);
+      }
+
+      for (const order of ordersToPersist) {
         try {
           const totalOrder = (order.items || []).reduce((acc, item) => {
             const pm = productosMenu.find(pr => pr.id_producto === item.id_producto);
@@ -1538,21 +1543,40 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     addLog('sistema', `MESAS: Mesas desunidas para ${target.numero_mesa}. Vuelven a operar de forma individual.`);
   }, [mesas, addLog]);
 
-  const handleLiberarMesa = useCallback(async (idMesa: number | string) => {
-    const target = mesas.find(m =>
+  const handleLiberarMesa = useCallback(async (idMesa: number | string, idPedido?: number) => {
+    let target = mesas.find(m =>
       (m.id_mesa !== undefined && m.id_mesa !== null && String(m.id_mesa) === String(idMesa)) ||
       (m.numero_mesa && String(m.numero_mesa).toLowerCase().replace(/mesa\s+/gi, '').trim() === String(idMesa).toLowerCase().replace(/mesa\s+/gi, '').trim())
     );
-    if (!target) return;
 
-    // 1. Cancelar cualquier comanda activa asociada a la mesa
-    const relatedOrders = pedidos.filter(p =>
-      doesOrderBelongToTable(p, target) &&
-      p.estado_comanda !== 'entregado_cobrado' &&
-      p.estado_comanda !== 'cancelado'
-    );
+    const targetOrder = idPedido ? pedidos.find(p => p.id_pedido === idPedido) : null;
+    if (!target && targetOrder) {
+      target = mesas.find(m =>
+        (m.id_mesa !== undefined && m.id_mesa !== null && String(m.id_mesa) === String(targetOrder.id_mesa)) ||
+        (m.numero_mesa && targetOrder.numero_mesa && String(m.numero_mesa).toLowerCase().replace(/mesa\s+/gi, '').trim() === String(targetOrder.numero_mesa).toLowerCase().replace(/mesa\s+/gi, '').trim())
+      );
+    }
+    if (!target && !targetOrder) return;
+
+    // 1. Cancelar cualquier comanda activa asociada a la mesa o al idPedido específico
+    const relatedOrders = pedidos.filter(p => {
+      const matchTable = target && doesOrderBelongToTable(p, target);
+      const matchOrder = idPedido && (p.id_pedido === idPedido || String(p.id_pedido) === String(idPedido));
+      return (matchTable || matchOrder) &&
+        p.estado_comanda !== 'entregado_cobrado' &&
+        p.estado_comanda !== 'cancelado';
+    });
+
+    if (targetOrder && !relatedOrders.some(o => o.id_pedido === targetOrder.id_pedido)) {
+      if (targetOrder.estado_comanda !== 'entregado_cobrado' && targetOrder.estado_comanda !== 'cancelado') {
+        relatedOrders.push(targetOrder);
+      }
+    }
 
     const orderIds = relatedOrders.map(o => o.id_pedido);
+    if (idPedido && !orderIds.includes(idPedido)) {
+      orderIds.push(idPedido);
+    }
     orderIds.forEach(id => persistFinalizedId(id, 'cancelado'));
 
     if (orderIds.length > 0) {
@@ -1560,16 +1584,19 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     }
 
     // 2. Desunir si formaba parte de una unión y marcar como libre
-    const affectedIds = new Set<string>([String(target.id_mesa)]);
-    if (target.parent_id) affectedIds.add(String(target.parent_id));
-    if (target.mesas_unidas) target.mesas_unidas.forEach(id => affectedIds.add(String(id)));
-    mesas.forEach(m => {
-      if (String(m.parent_id) === String(target.id_mesa) || (target.parent_id && String(m.parent_id) === String(target.parent_id))) {
-        affectedIds.add(String(m.id_mesa));
-      }
-    });
+    const affectedIds = new Set<string>();
+    if (target) {
+      affectedIds.add(String(target.id_mesa));
+      if (target.parent_id) affectedIds.add(String(target.parent_id));
+      if (target.mesas_unidas) target.mesas_unidas.forEach(id => affectedIds.add(String(id)));
+      mesas.forEach(m => {
+        if (String(m.parent_id) === String(target.id_mesa) || (target.parent_id && String(m.parent_id) === String(target.parent_id))) {
+          affectedIds.add(String(m.id_mesa));
+        }
+      });
+    }
 
-    const nextMesas = separateTablesInList(target, mesas).map(m => {
+    const nextMesas = target ? separateTablesInList(target, mesas).map(m => {
       if (affectedIds.has(String(m.id_mesa))) {
         return {
           ...m,
@@ -1581,7 +1608,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
         };
       }
       return m;
-    });
+    }) : mesas;
 
     setMesas(nextMesas);
 
@@ -1602,8 +1629,8 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
 
     // 4. Notificar a otras pestañas/terminales
     const broadcastPayload = {
-      id_mesa: target.id_mesa,
-      numero_mesa: target.numero_mesa,
+      id_mesa: target?.id_mesa ?? targetOrder?.id_mesa,
+      numero_mesa: target?.numero_mesa ?? targetOrder?.numero_mesa,
       orderIds,
       motivo: 'cancelado' as const
     };
@@ -1661,7 +1688,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
       }
     })();
 
-    addLog('sistema', `MESAS: ${target.numero_mesa} liberada manualmente. Comanda(s) ${orderIds.length > 0 ? `#${orderIds.join(', #')} cancelada(s)` : 'sin comanda activa'}.`);
+    addLog('sistema', `MESAS: ${target?.numero_mesa || 'Mesa'} liberada manualmente. Comanda(s) ${orderIds.length > 0 ? `#${orderIds.join(', #')} cancelada(s)` : 'sin comanda activa'}.`);
   }, [mesas, pedidos, addLog, isDemoSession, permitirVentaSinStock]);
 
   // --- Handlers for Inventory View ---

@@ -264,7 +264,7 @@ interface MozoTerminalProps {
   permitirVentaSinStock?: boolean;
   onUnirMesas?: (idMesa1: number, idMesa2: number | number[]) => Promise<void> | void;
   onDesunirMesas?: (idMesa: number) => Promise<void> | void;
-  onLiberarMesa?: (idMesa: number | string) => Promise<void> | void;
+  onLiberarMesa?: (idMesa: number | string, idPedido?: number) => Promise<void> | void;
 }
 
 export default function MozoTerminal({
@@ -1603,9 +1603,10 @@ export default function MozoTerminal({
                               type="button"
                               onClick={async () => {
                                 const mesaId = selectedMesa.id_mesa;
+                                const pedidoId = activePedidoDeMesa?.id_pedido;
                                 setConfirmLiberarMesaId(null);
                                 if (onLiberarMesa) {
-                                  await onLiberarMesa(mesaId);
+                                  await onLiberarMesa(mesaId, pedidoId);
                                   toast.success(`${selectedMesa.numero_mesa} liberada y comanda cancelada.`);
                                 }
                               }}
