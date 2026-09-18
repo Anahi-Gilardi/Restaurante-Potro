@@ -1,6 +1,85 @@
+/**
+ * Utilidades para manejo estricto de fecha y hora en huso horario de Argentina (Córdoba / Río Cuarto - UTC-3)
+ */
+
+export const ARGENTINA_TIMEZONE = 'America/Argentina/Cordoba';
+
+/**
+ * Devuelve la fecha y hora en Argentina con formato ISO completo con offset local (-03:00):
+ * Ej: "2026-09-18T11:34:10-03:00"
+ */
+export const getArgentinaIsoString = (date: Date | string | number = new Date()): string => {
+  const d = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
+  if (isNaN(d.getTime())) return new Date().toISOString();
+
+  const parts = new Intl.DateTimeFormat('es-AR', {
+    timeZone: ARGENTINA_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  }).formatToParts(d);
+
+  const get = (type: string) => parts.find(p => p.type === type)?.value || '';
+  const y = get('year');
+  const m = get('month');
+  const day = get('day');
+  const h = get('hour');
+  const min = get('minute');
+  const s = get('second');
+
+  return `${y}-${m}-${day}T${h}:${min}:${s}-03:00`;
+};
+
+/**
+ * Formato fecha y hora para la interfaz de usuario en Argentina:
+ * Ej: "18/09/2026 11:34 hs"
+ */
+export const formatArgentinaDateTime = (date?: Date | string | number | null): string => {
+  if (!date) return '';
+  const d = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
+  if (isNaN(d.getTime())) return String(date);
+
+  const parts = new Intl.DateTimeFormat('es-AR', {
+    timeZone: ARGENTINA_TIMEZONE,
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  }).formatToParts(d);
+
+  const get = (type: string) => parts.find(p => p.type === type)?.value || '';
+  return `${get('day')}/${get('month')}/${get('year')} ${get('hour')}:${get('minute')} hs`;
+};
+
+/**
+ * Formato solo hora para la interfaz de usuario:
+ * Ej: "11:34 hs"
+ */
+export const formatArgentinaTime = (date?: Date | string | number | null): string => {
+  if (!date) return '';
+  const d = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
+  if (isNaN(d.getTime())) return String(date);
+
+  const parts = new Intl.DateTimeFormat('es-AR', {
+    timeZone: ARGENTINA_TIMEZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  }).formatToParts(d);
+
+  const get = (type: string) => parts.find(p => p.type === type)?.value || '';
+  return `${get('hour')}:${get('minute')} hs`;
+};
+
 export const argentinaDateIso = (date: Date = new Date()): string => {
   const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Argentina/Buenos_Aires',
+    timeZone: ARGENTINA_TIMEZONE,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -8,3 +87,4 @@ export const argentinaDateIso = (date: Date = new Date()): string => {
   const value = (type: Intl.DateTimeFormatPartTypes) => parts.find(part => part.type === type)?.value ?? '';
   return `${value('year')}-${value('month')}-${value('day')}`;
 };
+

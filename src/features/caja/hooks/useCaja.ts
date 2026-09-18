@@ -24,6 +24,7 @@ import { resolvePedidoItemUnitPrice, roundCurrency } from '../../../lib/orderPri
 import { internalTicketPreview } from '../../../lib/fiscalVoucherPolicy';
 import { isSameTable, mergeTableOrders } from '../../../lib/tableOrders';
 import { formatTicketTableName } from '../../../lib/tableUnions';
+import { getArgentinaIsoString, formatArgentinaDateTime, formatArgentinaTime, argentinaDateIso } from '../../../lib/argentinaDate';
 
 export interface PendingCloseMesaData {
   pedidoId: number;
@@ -755,7 +756,7 @@ export function useCaja({
       mesa: formatTicketTableName(selectedPedido.numero_mesa),
       mozo: selectedPedido.mozo,
       cajero: cajaSession.usuario_cajero,
-      fechaHora: new Date().toLocaleDateString('es-AR') + ' ' + new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + 'hs',
+      fechaHora: formatArgentinaDateTime(saleDate),
       items: (splitByProducts && selectedProductsForSplit.length > 0
         ? selectedPedido.items.filter(it => selectedProductsForSplit.includes(it.id_producto))
         : selectedPedido.items
@@ -797,8 +798,8 @@ export function useCaja({
       total: orderBreakdowns.finalTotal,
       iva_veintiuno: 0,
       medio_pago: metodoPago,
-      fecha: saleDate.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + ' hs',
-      fecha_completa: saleDate.toISOString(),
+      fecha: formatArgentinaTime(saleDate),
+      fecha_completa: getArgentinaIsoString(saleDate),
       estado: 'borrador',
       tipo: 'ticket',
     };
@@ -807,7 +808,7 @@ export function useCaja({
       id_factura: idFactura,
       monto: p.monto,
       metodo: p.metodo,
-      fecha: saleDate.toISOString()
+      fecha: getArgentinaIsoString(saleDate)
     }));
 
     // Disparar la impresión del ticket de inmediato (0ms de demora) hacia la tiquetera
@@ -1159,7 +1160,7 @@ export function useCaja({
         }
       } else if (filtroScope === 'hoy') {
         scopeTitle = 'Cobros de Hoy';
-        const todayStr = new Date().toISOString().slice(0, 10);
+        const todayStr = argentinaDateIso();
         filtered = filtered.filter(f => {
           if (!f.fecha_completa) return true;
           return f.fecha_completa.startsWith(todayStr);

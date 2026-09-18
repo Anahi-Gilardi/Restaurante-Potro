@@ -42,6 +42,7 @@ import { menuDiarioService, MenuDiarioDia, INITIAL_MENU_DIARIO } from '../servic
 import { printComandaThermalTicket } from '../lib/comandaPrinter';
 import { formatTicketTableName, isUnitedTable, formatUnitedTableName } from '../lib/tableUnions';
 import { getTableActiveInfo, isTableOccupied, TableActiveInfo } from '../lib/tableOrders';
+import { formatArgentinaDateTime, formatArgentinaTime } from '../lib/argentinaDate';
 import { useToast, ToastContainer } from './ToastContainer';
 import { useCategories } from '../hooks/useCategories';
 import { mergeWithDefaultCategories } from '../services/categoriasService';
@@ -1504,6 +1505,12 @@ export default function MozoTerminal({
                           ? `Comandas (${selectedMesaInfo.activeOrders.length})`
                           : `Orden Activa #${activePedidoDeMesa.id_pedido}`}
                       </span>
+                      {activePedidoDeMesa.fecha_hora && (
+                        <span className="text-[10px] text-stone-500 dark:text-stone-400 flex items-center gap-0.5 font-mono">
+                          <Clock className="w-2.5 h-2.5 text-stone-400" />
+                          {formatArgentinaDateTime(activePedidoDeMesa.fecha_hora)}
+                        </span>
+                      )}
                       {selectedMesaInfo.activeOrders.length > 1 && (
                         <div className="flex items-center gap-1">
                           {selectedMesaInfo.activeOrders.map(o => (

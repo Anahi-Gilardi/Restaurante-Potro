@@ -48,6 +48,7 @@ import { Factura } from '../services/facturacionService';
 import { calculatePedidoTotal, resolvePedidoItemUnitPrice } from '../lib/orderPricing';
 import { cajaService } from '../services/cajaService';
 import { formatTableDisplayTitle, formatTicketTableName } from '../lib/tableUnions';
+import { formatArgentinaDateTime, formatArgentinaTime } from '../lib/argentinaDate';
 
 interface CajaModuleProps {
   mesas?: Mesa[];
@@ -890,8 +891,15 @@ export default function CajaModule({
                             </span>
                           )}
                         </div>
-                        <p className="text-[10px] text-stone-400 mt-1 font-medium font-sans">
-                          Mozo: {b.mozo} • {itemsCountSum} items
+                        <p className="text-[10px] text-stone-400 mt-1 font-medium font-sans flex items-center gap-1.5 flex-wrap">
+                          <span>Mozo: {b.mozo}</span>
+                          {b.fecha_hora && (
+                            <span className="flex items-center gap-0.5 text-stone-500 font-mono">
+                              <Clock className="w-2.5 h-2.5" />
+                              {formatArgentinaTime(b.fecha_hora)}
+                            </span>
+                          )}
+                          <span>• {itemsCountSum} items</span>
                         </p>
                       </div>
 
@@ -937,7 +945,7 @@ export default function CajaModule({
                     className="p-2.5 rounded-xl border border-stone-200/80 dark:border-stone-800 bg-stone-50/60 dark:bg-stone-900/40 flex items-center justify-between gap-2"
                   >
                     <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="text-[10px] font-mono font-black text-stone-800 dark:text-stone-200 truncate">
                           {factura.nro_ticket}
                         </span>
@@ -946,6 +954,10 @@ export default function CajaModule({
                             {factura.tipo === 'ticket' ? 'Ticket' : `Factura ${factura.tipo}`}
                           </span>
                         )}
+                        <span className="text-[9px] font-medium text-stone-500 dark:text-stone-400 flex items-center gap-0.5 font-mono">
+                          <Clock className="w-2.5 h-2.5 text-stone-400 shrink-0" />
+                          {formatArgentinaDateTime(factura.fecha_completa || factura.fecha)}
+                        </span>
                       </div>
                       <p className="text-[9px] text-stone-400 truncate">
                         {factura.cliente || 'Consumidor Final'} • ${factura.total.toLocaleString('es-AR')}

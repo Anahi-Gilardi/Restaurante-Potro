@@ -1,4 +1,5 @@
 import { sheetDeleteRow, sheetFetchTable, sheetUpsertRow } from '../lib/googleSheetsClient';
+import { getArgentinaIsoString, formatArgentinaDateTime, formatArgentinaTime } from '../lib/argentinaDate';
 
 export interface FacturaItem {
   descripcion: string;
@@ -118,7 +119,7 @@ export const toDbFacturaPayload = (factura: Factura) => ({
   tipo_comprobante: tipoToDb(factura),
   metodo_pago: mapMetodoPagoToDb(factura.medio_pago),
   cuit_cliente: factura.cuit,
-  fecha_emision: factura.fecha_completa || new Date().toISOString(),
+  fecha_emision: factura.fecha_completa ? getArgentinaIsoString(factura.fecha_completa) : getArgentinaIsoString(),
   afip_cae: factura.afip_cae,
   afip_vto: factura.afip_vto,
   afip_qr: factura.afip_qr,
@@ -198,7 +199,7 @@ export const facturacionService = {
             total,
             iva_veintiuno: Number(iva.toFixed(2)),
             medio_pago: mapMetodoPagoFromDb(f.metodo_pago),
-            fecha: new Date(f.fecha_emision || f.fecha || Date.now()).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + ' hs',
+            fecha: formatArgentinaTime(f.fecha_emision || f.fecha || Date.now()),
             estado,
             tipo,
             afip_cae: f.cae || f.afip_cae || undefined,
@@ -212,7 +213,7 @@ export const facturacionService = {
             afip_observaciones: observacionesList,
             arca_emisor: emisorObj,
             condicion_iva_receptor: Number(f.condicion_iva_receptor) || 5,
-            fecha_completa: f.fecha_emision || f.fecha || undefined,
+            fecha_completa: f.fecha_emision ? getArgentinaIsoString(f.fecha_emision) : (f.fecha || undefined),
             cliente_domicilio: f.cliente_domicilio || undefined,
             documento_tipo_receptor: Number(f.documento_tipo_receptor) || (f.cuit_cliente ? 80 : 99),
             items,
