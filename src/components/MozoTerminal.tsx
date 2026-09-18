@@ -16,7 +16,6 @@ import {
   Wine, 
   DollarSign, 
   Receipt,
-  UserCheck,
   Mic,
   MicOff,
   Volume2,
@@ -1117,46 +1116,10 @@ export default function MozoTerminal({
     }, 0);
   }, [cart, productosMenu, promociones, menuDiario]);
 
-  const mozosList = useMemo(() => {
-    const base = ['Enzo', 'Micaela', 'Sofía'];
-    if (activeMozo && !base.includes(activeMozo)) {
-      return [activeMozo, ...base];
-    }
-    return base;
-  }, [activeMozo]);
-
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6" id="mozo-terminal-container">
-      {/* LEFT COLUMN: Mesa Grid and active waiter selector */}
+      {/* LEFT COLUMN: Mesa Grid */}
       <div className="lg:col-span-4 space-y-6">
-        
-        {/* Active Waiter Picker */}
-        <div className="glass-panel rounded-3xl p-5 shadow-sm">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl flex items-center justify-center">
-              <UserCheck className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs text-stone-500 dark:text-stone-400 font-medium font-sans">Mozo en Turno Activo</p>
-              <h3 className="font-bold text-[#8C6239] dark:text-stone-105 font-sans tracking-tight">Terminal Registrada</h3>
-            </div>
-          </div>
-          <div className={`grid ${mozosList.length > 3 ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3'} gap-2`}>
-            {mozosList.map(mozoName => (
-              <button
-                key={mozoName}
-                onClick={() => onMozoChange(mozoName)}
-                className={`py-2 px-3 rounded-lg text-sm font-extrabold transition-all cursor-pointer ${
-                  activeMozo === mozoName 
-                    ? 'bg-[#8C6239] text-white shadow-md border border-[#C8956A]/30 glow-gold scale-[1.02]' 
-                    : 'bg-white/60 dark:bg-white/5 text-[#8C6239] dark:text-stone-200 border border-[#8C6239]/20 dark:border-white/10 hover:bg-[#8C6239]/10 hover:text-[#8C6239] dark:hover:bg-white/15 dark:hover:text-stone-50'
-                }`}
-              >
-                {mozoName}
-              </button>
-            ))}
-          </div>
-        </div>
 
         {/* Mesas Selector Grid */}
         <div className="glass-panel rounded-3xl p-5 shadow-sm">
