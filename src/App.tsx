@@ -281,6 +281,27 @@ export default function App() {
       }
       return updated;
     });
+
+    // 3. Sincronizar cache de pedidos_cabecera en localStorage de forma inmediata
+    if (typeof window !== 'undefined') {
+      try {
+        const cachedCabecera = window.localStorage.getItem('el_patron_sheet_cache_pedidos_cabecera');
+        if (cachedCabecera) {
+          const parsed = JSON.parse(cachedCabecera);
+          if (Array.isArray(parsed)) {
+            const updatedOrders = parsed.map((p: any) => {
+              const matchOrder = orderIds.includes(p.id_pedido) || orderIds.includes(Number(p.id_pedido));
+              const matchTable = isSameTable(p, { id_mesa, numero_mesa });
+              if (matchOrder || matchTable) {
+                return { ...p, estado_comanda: motivo === 'cancelado' ? 'cancelado' : 'entregado_cobrado' };
+              }
+              return p;
+            });
+            window.localStorage.setItem('el_patron_sheet_cache_pedidos_cabecera', JSON.stringify(updatedOrders));
+          }
+        }
+      } catch {}
+    }
   }, []);
 
   // Sincronización entre pestañas locales mediante BroadcastChannel y eventos
@@ -1275,9 +1296,9 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
 
   // --- Handlers for Cashier View (Caja & Cierre) ---
   const handleFacturarMesa = useCallback(async (idPedido: number, alreadyUpdatedInCaja: boolean = false) => {
-    let target = pedidos.find(p => p.id_pedido === idPedido);
+    let target = pedidos.find(p => String(p.id_pedido) === String(idPedido));
     if (!target) {
-      target = pedidos.find(p => p.id_mesa === idPedido && p.estado_comanda !== 'entregado_cobrado');
+      target = pedidos.find(p => String(p.id_mesa) === String(idPedido) && p.estado_comanda !== 'entregado_cobrado');
     }
     if (!target) return;
 
@@ -1333,6 +1354,8 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
       (String(m.numero_mesa || '').toLowerCase().replace(/mesa\s+/gi, '').trim() === String(target.numero_mesa || '').toLowerCase().replace(/mesa\s+/gi, '').trim())
     );
 
+    const mesaIdToFree = target.id_mesa ?? targetMesa?.id_mesa;
+
     const affectedMesas = mesas.filter(m => {
       const matchId = (m.id_mesa !== undefined && m.id_mesa !== null && target.id_mesa !== undefined && target.id_mesa !== null && String(m.id_mesa) === String(target.id_mesa));
       const norm1 = String(m.numero_mesa || '').toLowerCase().replace(/mesa\s+/gi, '').trim();
@@ -1341,7 +1364,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
       const isPartChild = m.parent_id !== undefined && m.parent_id !== null && String(m.parent_id) === String(target.id_mesa);
       const isPartUnited = Boolean(targetMesa?.mesas_unidas && targetMesa.mesas_unidas.includes(m.id_mesa));
       return matchId || matchNum || isPartChild || isPartUnited;
-    }).map(m => ({ ...m, estado: 'libre' as const, comensales: undefined }));
+    }).map(m => ({ ...m, estado: 'libre' as const, comensales: undefined, mesas_unidas: undefined, parent_id: undefined }));
 
     // Persistencia remota asíncrona en segundo plano (0ms de latencia en la pantalla)
     (async () => {
@@ -1353,19 +1376,36 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
         }
       }
 
+      // Actualizar directamente la tabla 'mesas' en Supabase para evitar estados inconsistentes
       try {
-        await dbUpsertMesas(affectedMesas);
-      } catch (err) {
-        console.warn('Error sincronizando mesa cobrada con Supabase:', err);
+        const supabase = tryGetActiveSupabaseClient();
+        if (supabase) {
+          const idsToUpdate = affectedMesas.map(m => Number(m.id_mesa)).filter(Boolean);
+          if (idsToUpdate.length === 0 && mesaIdToFree) {
+            idsToUpdate.push(Number(mesaIdToFree));
+          }
+          for (const mid of idsToUpdate) {
+            await supabase.from('mesas').update({
+              estado: 'libre',
+              comensales: null,
+              comensales_actuales: null,
+              parent_id: null,
+              mesas_unidas: [],
+              updated_at: new Date().toISOString()
+            }).eq('id_mesa', mid);
+          }
+        }
+      } catch (sbErr) {
+        console.warn('Error directo actualizando mesa cobrada en Supabase:', sbErr);
       }
 
-      // Persistir comandas cerradas en Google Sheets
+      // Persistir comandas cerradas en Google Sheets concurrentemente sin bloqueos en cascada
       const ordersToPersist = [...ordersToBill];
       if (!ordersToPersist.some(o => o.id_pedido === target.id_pedido)) {
         ordersToPersist.push(target);
       }
 
-      for (const order of ordersToPersist) {
+      await Promise.allSettled(ordersToPersist.map(async (order) => {
         try {
           const totalOrder = (order.items || []).reduce((acc, item) => {
             const pm = productosMenu.find(pr => pr.id_producto === item.id_producto);
@@ -1386,6 +1426,12 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
         } catch (err) {
           console.warn(`Error al actualizar comanda #${order.id_pedido} en Google Sheets:`, err);
         }
+      }));
+
+      try {
+        await dbUpsertMesas(affectedMesas);
+      } catch (err) {
+        console.warn('Error sincronizando mesa cobrada con Supabase:', err);
       }
     })();
 
@@ -1647,8 +1693,28 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
 
     // 5. Persistencia remota asíncrona en Google Sheets y Supabase
     (async () => {
-      // A. Cancelar pedidos en Google Sheets
-      for (const order of relatedOrders) {
+      // Actualizar directamente la tabla 'mesas' en Supabase
+      try {
+        const supabase = tryGetActiveSupabaseClient();
+        if (supabase) {
+          const idsToUpdate = Array.from(affectedIds).map(id => Number(id)).filter(Boolean);
+          for (const mid of idsToUpdate) {
+            await supabase.from('mesas').update({
+              estado: 'libre',
+              comensales: null,
+              comensales_actuales: null,
+              parent_id: null,
+              mesas_unidas: [],
+              updated_at: new Date().toISOString()
+            }).eq('id_mesa', mid);
+          }
+        }
+      } catch (sbErr) {
+        console.warn('Error directo actualizando mesa liberada en Supabase:', sbErr);
+      }
+
+      // A. Cancelar pedidos en Google Sheets de forma concurrente
+      await Promise.allSettled(relatedOrders.map(async (order) => {
         try {
           const totalOrder = (order.items || []).reduce((acc, item) => {
             const pm = productosMenu.find(pr => pr.id_producto === item.id_producto);
@@ -1677,7 +1743,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
             console.warn(`Error en transición de comanda #${order.id_pedido}:`, tErr);
           }
         }
-      }
+      }));
 
       // B. Guardar mesas liberadas
       try {

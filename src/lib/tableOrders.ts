@@ -146,7 +146,12 @@ export function getTableActiveInfo(mesa: Mesa, pedidos: readonly Pedido[]): Tabl
     activeOrders.some(p => (p as any).estado_comanda === 'esperando_cuenta')
   );
 
-  const isOcupada = !isUnidaHija && (
+  const tableOrders = isUnidaHija
+    ? []
+    : pedidos.filter(p => doesOrderBelongToTable(p, mesa));
+  const hasOnlyInactiveOrders = tableOrders.length > 0 && activeOrders.length === 0;
+
+  const isOcupada = !isUnidaHija && !hasOnlyInactiveOrders && (
     mesa.estado === 'ocupada' ||
     activeOrders.length > 0
   );

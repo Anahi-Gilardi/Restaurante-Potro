@@ -1596,33 +1596,25 @@ export default function MozoTerminal({
                     </button>
                   )}
                 </div>
-              ) : selectedMesaInfo.isOcupada ? (
-                <div className="bg-amber-50 dark:bg-amber-950/40 rounded-xl p-3 border border-amber-300 dark:border-amber-700 space-y-2.5">
-                  <div className="flex items-center gap-2 text-amber-900 dark:text-amber-200">
-                    <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
-                    <span className="text-xs font-bold">Mesa marcada como ocupada</span>
-                  </div>
-                  <p className="text-[11px] text-amber-700 dark:text-amber-300 leading-relaxed">
-                    Esta mesa figura ocupada pero no posee comandas activas asociadas. Podés liberarla para volver a dejarla disponible.
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-xs text-[#8C6239] dark:text-[#C8956A] font-serif-rustic italic bg-[#FAF7F0]/60 dark:bg-[#1E140E]/80 border border-[#C8956A]/25 p-3 text-center rounded-xl shadow-inner">
+                    🍳 Mesa lista para recibir comandas. Agrega ítems a la canasta de la derecha.
                   </p>
-                  {onLiberarMesa && (
+                  {selectedMesaInfo.isOcupada && onLiberarMesa && (
                     <button
                       type="button"
                       onClick={async () => {
                         await onLiberarMesa(selectedMesa.id_mesa);
                         toast.success(`${selectedMesa.numero_mesa} liberada correctamente.`);
                       }}
-                      className="w-full py-2 px-3 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+                      className="w-full py-1 text-[11px] text-stone-500 hover:text-stone-700 dark:text-stone-400 dark:hover:text-stone-200 flex items-center justify-center gap-1 transition-colors cursor-pointer"
                     >
-                      <RotateCcw className="w-3.5 h-3.5" />
-                      Liberar {selectedMesa.numero_mesa}
+                      <RotateCcw className="w-3 h-3" />
+                      Liberar mesa
                     </button>
                   )}
                 </div>
-              ) : (
-                <p className="text-xs text-[#8C6239] dark:text-[#C8956A] font-serif-rustic italic bg-[#FAF7F0]/60 dark:bg-[#1E140E]/80 border border-[#C8956A]/25 p-3 text-center rounded-xl shadow-inner">
-                  🍳 Mesa lista para recibir comandas. Agrega ítems a la canasta de la derecha.
-                </p>
               )}
             </div>
           )}

@@ -831,6 +831,9 @@ export function useCaja({
       mercadopago: pays.filter(p => p.metodo === 'mp_qr' || p.metodo === 'mercadopago').reduce((s, c) => s + c.monto, 0)
     };
 
+    // Liberar mesa y marcar comanda como entregado_cobrado en salón y Google Sheets de forma inmediata (0ms)
+    onFacturarMesa(selectedPedido.id_pedido, true);
+
     const persistence = await salesPersistenceService.persist({ factura: internalFactura, pagos: paymentRows });
     if (persistence.pendingSync) {
       toast.warning('Cobro respaldado localmente. Se sincronizará con Supabase al recuperar conexión.');
@@ -852,9 +855,6 @@ export function useCaja({
         console.error('Error updating customer points:', err);
       }
     }
-
-    // Liberar mesa y marcar comanda como entregado_cobrado en salón y Google Sheets de forma inmediata
-    onFacturarMesa(selectedPedido.id_pedido, true);
 
     try {
       await auditoriaService.create({
@@ -931,6 +931,9 @@ export function useCaja({
         puntosRedimidos: checkoutPuntos
       } = pendingCloseMesaData;
 
+      // 1. Liberar mesa y comanda en salón y Google Sheets de forma inmediata (0ms)
+      onFacturarMesa(pedidoId, true);
+
       const persistence = await salesPersistenceService.persist({ factura, pagos });
       if (persistence.pendingSync) {
         toast.warning('Cobro respaldado localmente. Se sincronizará con Supabase al recuperar conexión.');
@@ -952,9 +955,6 @@ export function useCaja({
           console.error('Error updating customer points:', err);
         }
       }
-
-      // 1. Liberar mesa y comanda en salón
-      onFacturarMesa(pedidoId, true);
 
       try {
         await auditoriaService.create({
