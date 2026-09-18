@@ -28,7 +28,9 @@ import {
   AlertCircle,
   RotateCcw,
   Trash2,
-  Edit3
+  Edit3,
+  Save,
+  Loader2
 } from 'lucide-react';
 import { Mesa, Insumo, ProductoMenu, RecetaEscandallo, Pedido, PedidoItem } from '../types';
 import { createMozoCartIdempotencyKey } from '../lib/mozoCartDraft';
@@ -2441,28 +2443,32 @@ export default function MozoTerminal({
 
       {/* MODAL EDITAR PEDIDO (COMANDAS ACTIVAS) */}
       {editingPedido !== null && (
-        <div className="fixed inset-0 bg-stone-950/70 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 z-50 animate-fadeIn">
-          <div className="glass-panel rounded-3xl p-5 sm:p-6 shadow-2xl max-w-xl w-full border border-[#C8956A]/25 max-h-[92vh] flex flex-col bg-white dark:bg-[#1E140E]">
+        <div className="fixed inset-0 bg-stone-950/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 z-50 animate-fadeIn">
+          <div className="rounded-3xl p-5 sm:p-7 shadow-2xl max-w-4xl lg:max-w-5xl w-full border-2 border-[#C8956A]/40 dark:border-[#C8956A]/30 max-h-[92vh] flex flex-col bg-[#FAF7F0] dark:bg-[#18110B] text-stone-900 dark:text-stone-100">
             {/* Header del Modal */}
-            <div className="flex justify-between items-start pb-3 border-b border-stone-200/40 dark:border-white/10">
-              <div className="space-y-0.5">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-extrabold text-base sm:text-lg text-stone-900 dark:text-stone-100 font-sans tracking-tight flex items-center gap-2">
-                    <Edit3 className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+            <div className="flex justify-between items-start pb-4 border-b-2 border-stone-200/70 dark:border-white/10">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <h3 className="font-black text-lg sm:text-2xl text-stone-900 dark:text-stone-50 font-sans tracking-tight flex items-center gap-2">
+                    <Edit3 className="w-5 h-5 sm:w-6 sm:h-6 text-amber-600 dark:text-amber-400 shrink-0" />
                     Editar Pedido #{editingPedido.id_pedido}
                   </h3>
-                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30 capitalize">
+                  <span className="text-xs font-black px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-950 dark:text-amber-200 border border-amber-500/40 capitalize">
                     {editingPedido.estado_comanda === 'en_cocina' ? 'En Fuego 🔥' : editingPedido.estado_comanda}
                   </span>
                 </div>
-                <p className="text-xs text-stone-600 dark:text-stone-400 font-sans">
-                  {editingPedido.numero_mesa} • Mozo: <strong className="text-stone-800 dark:text-stone-200">{editingPedido.mozo || activeMozo}</strong>
+                <p className="text-xs sm:text-sm text-stone-700 dark:text-stone-200 font-sans flex items-center gap-2 flex-wrap">
+                  <span className="font-black text-[#8C6239] dark:text-[#E8B800] bg-[#8C6239]/15 dark:bg-[#C8956A]/20 px-2.5 py-0.5 rounded-lg border border-[#8C6239]/25 dark:border-[#C8956A]/30">
+                    {editingPedido.numero_mesa || selectedMesa?.numero_mesa || 'Mesa'}
+                  </span>
+                  <span className="text-stone-400">•</span>
+                  <span>Mozo: <strong className="text-stone-900 dark:text-white font-black">{editingPedido.mozo || activeMozo}</strong></span>
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setEditingPedido(null)}
-                className="text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 p-1 cursor-pointer transition-colors"
+                className="w-9 h-9 rounded-full flex items-center justify-center text-stone-500 hover:text-stone-900 dark:text-stone-400 dark:hover:text-white hover:bg-stone-200 dark:hover:bg-white/10 transition-colors cursor-pointer shrink-0"
                 title="Cerrar sin guardar"
               >
                 <X className="w-5 h-5" />
@@ -2471,269 +2477,277 @@ export default function MozoTerminal({
 
             {/* Selector de comandas si la mesa tiene más de una activa */}
             {selectedMesaInfo && selectedMesaInfo.activeOrders.length > 1 && (
-              <div className="pt-2 pb-1 flex items-center gap-1.5 overflow-x-auto border-b border-stone-200/20 pb-2">
-                <span className="text-[10px] font-bold text-stone-500 uppercase shrink-0">Comanda:</span>
+              <div className="pt-3 pb-2 flex items-center gap-2 overflow-x-auto border-b-2 border-stone-200/50 dark:border-white/10 scrollbar-none">
+                <span className="text-xs font-black text-stone-700 dark:text-stone-200 uppercase tracking-wider shrink-0">
+                  Comandas de la Mesa:
+                </span>
                 {selectedMesaInfo.activeOrders.map(ord => (
                   <button
                     key={ord.id_pedido}
                     type="button"
                     onClick={() => handleStartEditPedido(ord)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    className={`px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer shrink-0 ${
                       ord.id_pedido === editingPedido.id_pedido
-                        ? 'bg-[#8C6239] text-white shadow-xs'
-                        : 'bg-stone-100 dark:bg-white/5 text-stone-600 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-white/10'
+                        ? 'bg-[#8C6239] text-white shadow-sm ring-2 ring-[#8C6239]/30'
+                        : 'bg-white dark:bg-[#251B12] text-stone-700 dark:text-stone-200 border border-stone-300 dark:border-white/10 hover:bg-stone-100 dark:hover:bg-white/10'
                     }`}
                   >
-                    #{ord.id_pedido} ({ord.items.length} ítems)
+                    #{ord.id_pedido} ({ord.items.length} {ord.items.length === 1 ? 'ítem' : 'ítems'})
                   </button>
                 ))}
               </div>
             )}
 
-            {/* Cuerpo con Scroll */}
-            <div className="flex-1 overflow-y-auto py-3 space-y-4 pr-1">
-              {/* Sección 1: Platos cargados actualmente */}
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <label className="text-xs font-extrabold text-[#8C6239] dark:text-[#C8956A] uppercase tracking-wider flex items-center gap-1.5">
-                    <UtensilsCrossed className="w-3.5 h-3.5" />
-                    Platos y Bebidas en la Comanda ({editingItems.reduce((acc, it) => acc + it.cantidad, 0)} {editingItems.reduce((acc, it) => acc + it.cantidad, 0) === 1 ? 'ítem' : 'ítems'})
-                  </label>
-                  {editingItems.length > 0 && (
-                    <span className="text-[10px] text-stone-500 font-mono font-medium">
-                      Subtotal: ${editingTotal.toLocaleString('es-AR')}
-                    </span>
-                  )}
+            {/* Cuerpo en 2 Columnas (md+) o Apilado (mobile) */}
+            <div className="flex-1 overflow-y-auto py-4 pr-1">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-start">
+                
+                {/* COLUMNA IZQUIERDA (md:col-span-6): Platos actuales en la comanda + Observaciones */}
+                <div className="md:col-span-6 space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center bg-white/80 dark:bg-[#22160E] p-2.5 rounded-xl border border-stone-200 dark:border-[#C8956A]/20 shadow-2xs">
+                      <label className="text-xs sm:text-sm font-black text-[#8C6239] dark:text-[#E8B800] uppercase tracking-wider flex items-center gap-2">
+                        <UtensilsCrossed className="w-4 h-4 text-[#8C6239] dark:text-[#E8B800]" />
+                        Platos en Comanda ({editingItems.reduce((acc, it) => acc + it.cantidad, 0)} {editingItems.reduce((acc, it) => acc + it.cantidad, 0) === 1 ? 'ítem' : 'ítems'})
+                      </label>
+                      {editingItems.length > 0 && (
+                        <span className="text-xs sm:text-sm text-stone-900 dark:text-stone-100 font-mono font-black bg-stone-100 dark:bg-white/10 px-2.5 py-0.5 rounded-md border border-stone-200 dark:border-white/10">
+                          ${editingTotal.toLocaleString('es-AR')}
+                        </span>
+                      )}
+                    </div>
+
+                    {editingItems.length === 0 ? (
+                      <div className="p-6 bg-amber-50 dark:bg-[#251B12] border-2 border-amber-300/80 dark:border-amber-600/40 rounded-2xl text-center space-y-2 shadow-sm">
+                        <p className="text-sm font-black text-amber-950 dark:text-amber-200">
+                          No hay platos en la comanda.
+                        </p>
+                        <p className="text-xs text-amber-900/80 dark:text-amber-300/80 leading-relaxed">
+                          Agregue productos desde el catálogo del menú a la derecha para completar el pedido.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2 max-h-[350px] sm:max-h-[390px] overflow-y-auto pr-1">
+                        {editingItems.map((item, idx) => {
+                          const unitPrice = resolvePedidoItemUnitPrice(item, productosMenu);
+                          const lineTotal = unitPrice * item.cantidad;
+                          return (
+                            <div
+                              key={`${item.id_producto}_${idx}`}
+                              className="flex items-center justify-between p-3 rounded-2xl border-2 border-stone-200/90 dark:border-[#C8956A]/25 bg-white dark:bg-[#22160E] hover:border-amber-400/80 dark:hover:border-[#E8B800]/50 transition-all shadow-xs"
+                            >
+                              <div className="min-w-0 flex-1 pr-2">
+                                <p className="font-extrabold text-sm sm:text-base text-stone-900 dark:text-white truncate">
+                                  {item.nombre}
+                                </p>
+                                <p className="text-xs font-semibold text-stone-600 dark:text-stone-300 font-mono mt-0.5">
+                                  ${unitPrice.toLocaleString('es-AR')} c/u • <span className="text-stone-500 dark:text-stone-400">{item.categoria || 'Carta'}</span>
+                                </p>
+                              </div>
+
+                              <div className="flex items-center gap-2.5 shrink-0">
+                                <div className="flex items-center bg-stone-100 dark:bg-[#18110B] border border-stone-300 dark:border-[#C8956A]/30 rounded-xl p-0.5 shadow-inner">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleEditItemQuantity(idx, -1)}
+                                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-stone-800 dark:text-stone-100 hover:bg-stone-200 dark:hover:bg-[#322317] font-black cursor-pointer transition-colors"
+                                    title={item.cantidad === 1 ? 'Quitar ítem' : 'Reducir cantidad'}
+                                  >
+                                    <Minus className="w-3.5 h-3.5" />
+                                  </button>
+                                  <span className="w-7 sm:w-8 text-center font-mono font-black text-stone-900 dark:text-white text-sm sm:text-base">
+                                    {item.cantidad}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleEditItemQuantity(idx, 1)}
+                                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-stone-800 dark:text-stone-100 hover:bg-stone-200 dark:hover:bg-[#322317] font-black cursor-pointer transition-colors"
+                                    title="Aumentar cantidad"
+                                  >
+                                    <Plus className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+
+                                <span className="w-20 sm:w-24 text-right font-mono font-black text-stone-900 dark:text-[#E8B800] text-sm sm:text-base">
+                                  ${lineTotal.toLocaleString('es-AR')}
+                                </span>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleEditRemoveItem(idx)}
+                                  className="p-2 text-stone-400 hover:text-red-600 dark:text-stone-400 dark:hover:text-red-400 rounded-xl hover:bg-red-50 dark:hover:bg-red-950/40 cursor-pointer transition-colors"
+                                  title="Eliminar de la comanda"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Observaciones e Indicaciones de Cocina */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-black text-stone-700 dark:text-stone-200 uppercase tracking-wider flex items-center gap-1.5">
+                      <Bookmark className="w-3.5 h-3.5 text-[#8C6239] dark:text-[#C8956A]" />
+                      Observaciones e Indicaciones de Cocina
+                    </label>
+                    <textarea
+                      placeholder="Ej: Bife bien cocido, papas sin sal, salsa mixta en cazuela aparte..."
+                      value={editingObservaciones}
+                      onChange={e => setEditingObservaciones(e.target.value)}
+                      className="w-full text-xs sm:text-sm p-3 rounded-2xl border-2 border-stone-300 dark:border-[#C8956A]/30 bg-white dark:bg-[#22160E] text-stone-900 dark:text-white placeholder-stone-400 dark:placeholder-stone-400 focus:outline-none focus:border-[#C8956A] focus:ring-2 focus:ring-[#C8956A]/20 resize-none h-20 leading-relaxed font-medium"
+                    />
+                  </div>
                 </div>
 
-                {editingItems.length === 0 ? (
-                  <div className="p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-300 dark:border-amber-800/60 rounded-xl text-center space-y-1">
-                    <p className="text-xs font-bold text-amber-900 dark:text-amber-200">
-                      No hay platos en la comanda.
-                    </p>
-                    <p className="text-[10px] text-amber-700 dark:text-amber-400">
-                      Agregue productos desde el catálogo inferior. Si la mesa se desocupó, puede usar la opción "Cancelar comanda y liberar mesa".
-                    </p>
+                {/* COLUMNA DERECHA (md:col-span-6): Catálogo para agregar platos */}
+                <div className="md:col-span-6 space-y-3.5 bg-white/70 dark:bg-[#22160E]/70 p-4 sm:p-4.5 rounded-3xl border-2 border-stone-200/80 dark:border-[#C8956A]/25 shadow-xs">
+                  <div className="flex justify-between items-center">
+                    <label className="text-xs sm:text-sm font-black text-[#8C6239] dark:text-[#E8B800] uppercase tracking-wider flex items-center gap-2">
+                      <Plus className="w-4 h-4 text-[#8C6239] dark:text-[#E8B800]" />
+                      Agregar Plato o Bebida
+                    </label>
+                    <span className="text-xs text-stone-600 dark:text-stone-300 font-bold">
+                      Catálogo del Menú
+                    </span>
                   </div>
-                ) : (
-                  <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
-                    {editingItems.map((item, idx) => {
-                      const unitPrice = resolvePedidoItemUnitPrice(item, productosMenu);
-                      const lineTotal = unitPrice * item.cantidad;
+
+                  {/* Buscador */}
+                  <div className="relative">
+                    <Search className="w-4 h-4 text-[#8C6239] dark:text-[#C8956A] absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      placeholder="Buscar plato, vino, postre o bebida..."
+                      value={editProductSearch}
+                      onChange={e => setEditProductSearch(e.target.value)}
+                      className="w-full pl-9 pr-9 py-2 bg-white dark:bg-[#18110B] border-2 border-stone-300 dark:border-[#C8956A]/35 rounded-xl text-xs sm:text-sm text-stone-900 dark:text-white placeholder-stone-500 dark:placeholder-stone-400 focus:outline-none focus:border-[#C8956A] focus:ring-2 focus:ring-[#C8956A]/20 transition-all font-medium"
+                    />
+                    {editProductSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setEditProductSearch('')}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 dark:hover:text-white p-1 cursor-pointer"
+                        title="Limpiar búsqueda"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Filtros de categorías dinámicas */}
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                    {editCategoriesList.map(cat => {
+                      const isSelected = (cat === 'Todos' && (editCategoryFilter.toLowerCase() === 'todos' || editCategoryFilter.toLowerCase() === 'todo')) ||
+                        normalizeCategoryString(editCategoryFilter) === normalizeCategoryString(cat);
+
                       return (
-                        <div
-                          key={`${item.id_producto}_${idx}`}
-                          className="flex items-center justify-between p-2 sm:p-2.5 rounded-xl border border-stone-200 dark:border-white/10 bg-stone-50/80 dark:bg-stone-900/60 hover:border-amber-300/60 transition-all text-xs"
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => {
+                            setEditCategoryFilter(cat);
+                          }}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-black shrink-0 transition-all cursor-pointer ${
+                            isSelected
+                              ? 'bg-[#8C6239] text-white shadow-sm ring-2 ring-[#8C6239]/40'
+                              : 'bg-white dark:bg-[#18110B] text-stone-700 dark:text-stone-200 border border-stone-300/80 dark:border-[#C8956A]/20 hover:bg-stone-100 dark:hover:bg-[#2e1d13]'
+                          }`}
                         >
-                          <div className="min-w-0 flex-1 pr-2">
-                            <p className="font-bold text-stone-900 dark:text-stone-100 truncate">
-                              {item.nombre}
-                            </p>
-                            <p className="text-[10px] text-stone-500 dark:text-stone-400 font-mono">
-                              ${unitPrice.toLocaleString('es-AR')} c/u • {item.categoria || 'Carta'}
-                            </p>
-                          </div>
-
-                          <div className="flex items-center gap-2 shrink-0">
-                            <div className="flex items-center bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg p-0.5">
-                              <button
-                                type="button"
-                                onClick={() => handleEditItemQuantity(idx, -1)}
-                                className="w-6 h-6 rounded flex items-center justify-center text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-700 font-black cursor-pointer transition-colors"
-                                title={item.cantidad === 1 ? 'Quitar ítem' : 'Reducir cantidad'}
-                              >
-                                <Minus className="w-3 h-3" />
-                              </button>
-                              <span className="w-6 text-center font-mono font-extrabold text-stone-900 dark:text-stone-100 text-xs">
-                                {item.cantidad}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => handleEditItemQuantity(idx, 1)}
-                                className="w-6 h-6 rounded flex items-center justify-center text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-700 font-black cursor-pointer transition-colors"
-                                title="Aumentar cantidad"
-                              >
-                                <Plus className="w-3 h-3" />
-                              </button>
-                            </div>
-
-                            <span className="w-16 sm:w-20 text-right font-mono font-bold text-stone-900 dark:text-stone-100 text-xs">
-                              ${lineTotal.toLocaleString('es-AR')}
-                            </span>
-
-                            <button
-                              type="button"
-                              onClick={() => handleEditRemoveItem(idx)}
-                              className="p-1.5 text-stone-400 hover:text-red-600 dark:hover:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 cursor-pointer transition-colors"
-                              title="Eliminar de la comanda"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
+                          {cat}
+                        </button>
                       );
                     })}
                   </div>
-                )}
-              </div>
 
-              {/* Sección 2: Agregar platos o bebidas de la carta */}
-              <div className="p-3 bg-[#FAF7F0]/80 dark:bg-[#251B12]/60 border border-[#C8956A]/25 rounded-2xl space-y-2.5">
-                <div className="flex justify-between items-center">
-                  <label className="text-xs font-extrabold text-[#8C6239] dark:text-[#C8956A] uppercase tracking-wider flex items-center gap-1.5">
-                    <Plus className="w-3.5 h-3.5" />
-                    Agregar Plato o Bebida
-                  </label>
-                  <span className="text-[10px] text-stone-500 dark:text-stone-400">
-                    Catálogo del Menú
-                  </span>
-                </div>
-
-                <div className="relative">
-                  <Search className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    placeholder="Buscar plato, vino, postre o bebida..."
-                    value={editProductSearch}
-                    onChange={e => setEditProductSearch(e.target.value)}
-                    className="w-full pl-8 pr-8 py-1.5 bg-white dark:bg-stone-900 border border-stone-200 dark:border-white/10 rounded-xl text-xs text-stone-800 dark:text-stone-200 placeholder-stone-400 focus:outline-none focus:ring-1 focus:ring-[#C8956A]"
-                  />
-                  {editProductSearch && (
-                    <button
-                      type="button"
-                      onClick={() => setEditProductSearch('')}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 p-0.5 cursor-pointer"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  )}
-                </div>
-
-                {/* Filtros de categorías dinámicas de la carta */}
-                <div className="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-none">
-                  {editCategoriesList.map(cat => {
-                    const isSelected = (cat === 'Todos' && (editCategoryFilter.toLowerCase() === 'todos' || editCategoryFilter.toLowerCase() === 'todo')) ||
-                      normalizeCategoryString(editCategoryFilter) === normalizeCategoryString(cat);
-
-                    return (
+                  {/* Aviso de búsqueda global */}
+                  {isCrossCategoryEditSearch && (
+                    <div className="flex items-center justify-between px-3 py-2 bg-amber-100/90 dark:bg-amber-950/60 border border-amber-400 dark:border-amber-700 text-amber-950 dark:text-amber-200 text-xs rounded-xl">
+                      <span>
+                        Sin resultados en <strong>{editCategoryFilter}</strong>. Mostrando {filteredProductsForEdit.length} plato(s) en todo el menú.
+                      </span>
                       <button
-                        key={cat}
                         type="button"
-                        onClick={() => {
-                          setEditCategoryFilter(cat);
-                        }}
-                        className={`px-2.5 py-1 rounded-full text-[10px] font-bold shrink-0 transition-all cursor-pointer ${
-                          isSelected
-                            ? 'bg-[#8C6239] text-white shadow-xs'
-                            : 'bg-white dark:bg-stone-900 text-stone-600 dark:text-stone-400 border border-stone-200/70 dark:border-white/10 hover:bg-stone-100 dark:hover:bg-stone-800'
-                        }`}
+                        onClick={() => setEditCategoryFilter('Todos')}
+                        className="underline font-black ml-2 hover:opacity-80 cursor-pointer shrink-0"
                       >
-                        {cat}
+                        Ver en Todos
                       </button>
-                    );
-                  })}
-                </div>
-
-                {/* Aviso cuando la búsqueda es global por no haber coincidencias en la categoría activa */}
-                {isCrossCategoryEditSearch && (
-                  <div className="flex items-center justify-between px-2.5 py-1.5 bg-amber-500/10 border border-amber-500/30 rounded-xl text-[10px] text-amber-850 dark:text-amber-300">
-                    <span>
-                      Sin resultados en <strong>{editCategoryFilter}</strong>. Mostrando {filteredProductsForEdit.length} plato(s) en todo el menú.
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditCategoryFilter('Todos');
-                      }}
-                      className="underline font-black ml-2 hover:opacity-80 cursor-pointer"
-                    >
-                      Ver en Todos
-                    </button>
-                  </div>
-                )}
-
-                {/* Lista de productos para agregar */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-48 sm:max-h-56 overflow-y-auto pr-1">
-                  {filteredProductsForEdit.length === 0 ? (
-                    <div className="col-span-full text-center py-4 space-y-1">
-                      <p className="text-xs font-bold text-stone-500 dark:text-stone-400">
-                        No se encontraron productos coincidentes.
-                      </p>
-                      {editCategoryFilter !== 'Todos' && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditCategoryFilter('Todos');
-                            setEditProductSearch('');
-                          }}
-                          className="text-[10px] text-[#8C6239] dark:text-[#C8956A] underline font-bold cursor-pointer"
-                        >
-                          Restablecer a Todos los platos
-                        </button>
-                      )}
                     </div>
-                  ) : (
-                    filteredProductsForEdit.map(prod => (
-                      <button
-                        key={prod.id_producto}
-                        type="button"
-                        onClick={() => handleEditAddProduct(prod)}
-                        className="flex items-center justify-between p-2 rounded-xl bg-white dark:bg-stone-900/90 border border-stone-200/80 dark:border-white/5 hover:border-emerald-500 hover:bg-emerald-50/40 dark:hover:bg-emerald-950/20 text-left transition-all cursor-pointer group shadow-2xs"
-                      >
-                        <div className="min-w-0 flex-1 pr-1.5">
-                          <p className="text-xs font-bold text-stone-850 dark:text-stone-100 truncate group-hover:text-emerald-800 dark:group-hover:text-emerald-300">
-                            {prod.nombre}
-                          </p>
-                          <span className="text-[9px] text-stone-400 font-mono">
-                            {prod.categoria}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <span className="font-mono text-xs font-black text-emerald-700 dark:text-emerald-400">
-                            ${prod.precio_venta.toLocaleString('es-AR')}
-                          </span>
-                          <span className="w-5 h-5 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-200 flex items-center justify-center text-xs font-black group-hover:scale-110 transition-transform">
-                            +
-                          </span>
-                        </div>
-                      </button>
-                    ))
                   )}
-                </div>
-              </div>
 
-              {/* Sección 3: Observaciones de la comanda */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider flex items-center gap-1.5">
-                  <Bookmark className="w-3.5 h-3.5 text-[#C8956A]" />
-                  Observaciones e Indicaciones de Cocina
-                </label>
-                <textarea
-                  placeholder="Ej: Bife bien cocido, papas sin sal, salsa mixta en cazuela aparte..."
-                  value={editingObservaciones}
-                  onChange={e => setEditingObservaciones(e.target.value)}
-                  className="w-full text-xs p-2.5 rounded-xl border border-stone-200 dark:border-white/10 bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-200 focus:outline-none focus:ring-1 focus:ring-[#C8956A] resize-none h-16"
-                />
+                  {/* Lista de productos para agregar */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[380px] sm:max-h-[420px] overflow-y-auto pr-1">
+                    {filteredProductsForEdit.length === 0 ? (
+                      <div className="col-span-full text-center py-8 space-y-2 bg-white/60 dark:bg-[#18110B]/60 rounded-2xl border border-stone-200 dark:border-white/5">
+                        <p className="text-sm font-bold text-stone-600 dark:text-stone-300">
+                          No se encontraron productos coincidentes.
+                        </p>
+                        {editCategoryFilter !== 'Todos' && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditCategoryFilter('Todos');
+                              setEditProductSearch('');
+                            }}
+                            className="text-xs text-[#8C6239] dark:text-[#E8B800] underline font-black cursor-pointer"
+                          >
+                            Restablecer a Todos los platos
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      filteredProductsForEdit.map(prod => (
+                        <button
+                          key={prod.id_producto}
+                          type="button"
+                          onClick={() => handleEditAddProduct(prod)}
+                          className="flex items-center justify-between p-2.5 rounded-2xl bg-white dark:bg-[#18110B] border-2 border-stone-200/80 dark:border-[#C8956A]/20 hover:border-emerald-600 dark:hover:border-emerald-500/80 hover:bg-emerald-50/60 dark:hover:bg-emerald-950/30 text-left transition-all cursor-pointer group shadow-2xs active:scale-98"
+                        >
+                          <div className="min-w-0 flex-1 pr-2">
+                            <p className="text-xs sm:text-sm font-extrabold text-stone-900 dark:text-white truncate group-hover:text-emerald-800 dark:group-hover:text-emerald-300">
+                              {prod.nombre}
+                            </p>
+                            <span className="text-[11px] text-stone-500 dark:text-stone-400 font-medium">
+                              {prod.categoria}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="font-mono text-xs sm:text-sm font-black text-emerald-700 dark:text-emerald-400">
+                              ${prod.precio_venta.toLocaleString('es-AR')}
+                            </span>
+                            <span className="w-6 h-6 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center text-xs font-black shadow-xs group-hover:scale-110 transition-transform">
+                              +
+                            </span>
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+
               </div>
             </div>
 
             {/* Pie de acción del modal */}
-            <div className="pt-3 border-t border-stone-200/40 dark:border-white/10 flex flex-col sm:flex-row justify-between items-center gap-3">
-              <div>
-                <span className="text-[10px] font-bold text-stone-500 dark:text-stone-400 block uppercase">
-                  Nuevo Total Consumo
+            <div className="pt-4 border-t-2 border-stone-200/70 dark:border-white/10 flex flex-col sm:flex-row justify-between items-center gap-4 bg-white/70 dark:bg-[#140D08]/90 -mx-5 sm:-mx-7 -mb-5 sm:-mb-7 p-4 sm:p-6 rounded-b-3xl mt-auto">
+              <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
+                <span className="text-xs sm:text-sm font-black text-stone-600 dark:text-stone-300 uppercase tracking-wider">
+                  Nuevo Total:
                 </span>
-                <span className="font-mono font-black text-lg text-[#8C6239] dark:text-[#E8B800]">
+                <span className="font-mono font-black text-2xl sm:text-3xl text-[#8C6239] dark:text-[#E8B800]">
                   ${editingTotal.toLocaleString('es-AR')}
                 </span>
               </div>
 
-              <div className="flex gap-2 w-full sm:w-auto">
+              <div className="flex gap-2.5 w-full sm:w-auto">
                 <button
                   type="button"
                   onClick={() => setEditingPedido(null)}
                   disabled={isSavingEdit}
-                  className="flex-1 sm:flex-initial py-2 px-4 rounded-xl bg-stone-200 dark:bg-stone-700 hover:bg-stone-300 dark:hover:bg-stone-600 text-stone-700 dark:text-stone-200 text-xs font-bold cursor-pointer transition-colors"
+                  className="flex-1 sm:flex-initial py-2.5 sm:py-3 px-5 sm:px-6 rounded-xl bg-stone-200 hover:bg-stone-300 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-100 text-xs sm:text-sm font-black transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>
@@ -2741,10 +2755,19 @@ export default function MozoTerminal({
                   type="button"
                   onClick={handleSaveEditPedido}
                   disabled={isSavingEdit || editingItems.length === 0}
-                  className="flex-1 sm:flex-initial py-2 px-5 rounded-xl bg-[#8C6239] hover:bg-[#5d3a2e] text-[#FAF7F0] text-xs font-black flex items-center justify-center gap-1.5 shadow-md transition-all cursor-pointer disabled:opacity-50"
+                  className="flex-1 sm:flex-initial py-2.5 sm:py-3 px-6 sm:px-8 rounded-xl bg-[#8C6239] hover:bg-[#6e4623] text-white text-xs sm:text-sm font-black flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer active:scale-98 disabled:opacity-50"
                 >
-                  <CheckCircle className="w-4 h-4 text-emerald-300" />
-                  {isSavingEdit ? 'Guardando...' : 'Guardar Cambios'}
+                  {isSavingEdit ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Guardando...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4" />
+                      Guardar Cambios
+                    </>
+                  )}
                 </button>
               </div>
             </div>
