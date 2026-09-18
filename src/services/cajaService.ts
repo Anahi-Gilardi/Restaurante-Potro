@@ -3,13 +3,14 @@ import { sheetFetchTable, sheetUpsertRow, sheetDeleteRow } from '../lib/googleSh
 import { CierreCaja, MovimientoCajaChica } from '../types';
 import { aperturaCajaSchema } from '../lib/validations';
 import { syncQueueService } from './syncQueueService';
+import { getArgentinaDateTimeString } from '../lib/argentinaDate';
 
 const inferFechaApertura = (idCierre: string) => {
   const timestamp = Number(idCierre.replace('cie_', ''));
   if (Number.isFinite(timestamp)) {
-    return new Date(timestamp).toISOString().replace('T', ' ').slice(0, 19);
+    return getArgentinaDateTimeString(new Date(timestamp));
   }
-  return new Date().toISOString().replace('T', ' ').slice(0, 19);
+  return getArgentinaDateTimeString();
 };
 
 const memoryStorage: Record<string, string> = {};
@@ -364,7 +365,7 @@ export const cajaService = {
     aperturaCajaSchema.parse({ monto_apertura: montoApertura, cajero });
     const session: CierreCaja = {
       id_cierre: `cie_${Date.now()}`,
-      fecha_apertura: new Date().toISOString().replace('T', ' ').slice(0, 19),
+      fecha_apertura: getArgentinaDateTimeString(),
       fecha_cierre: null,
       monto_apertura: montoApertura,
       monto_ventas: 0,
@@ -505,7 +506,7 @@ export const cajaService = {
     
     const closed: CierreCaja = {
       ...active,
-      fecha_cierre: new Date().toISOString().replace('T', ' ').slice(0, 19),
+      fecha_cierre: getArgentinaDateTimeString(),
       monto_real: montoReal,
       diferencia: diferencia,
       observaciones: observaciones || 'Cierre de Caja Normal',

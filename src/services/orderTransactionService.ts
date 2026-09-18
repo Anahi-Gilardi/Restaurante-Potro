@@ -1,6 +1,7 @@
 import { getActiveSupabaseClient } from '../lib/supabaseClient';
 import { sheetUpsertRow } from '../lib/googleSheetsClient';
 import { Pedido } from '../types';
+import { getArgentinaDateTimeString } from '../lib/argentinaDate';
 
 const toRpcOrder = (pedido: Pedido) => ({
   ...pedido,
@@ -55,7 +56,7 @@ export const orderTransactionService = {
         mozo: pedido.mozo,
         estado_comanda: pedido.estado_comanda || 'pendiente',
         observaciones: pedido.observaciones || '',
-        fecha_hora: pedido.fecha_hora instanceof Date ? pedido.fecha_hora.toISOString() : (pedido.fecha_hora ? new Date(pedido.fecha_hora).toISOString() : new Date().toISOString()),
+        fecha_hora: getArgentinaDateTimeString(pedido.fecha_hora),
         total,
         items: JSON.stringify(pedido.items || [])
       });

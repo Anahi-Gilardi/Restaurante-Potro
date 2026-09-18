@@ -1,6 +1,6 @@
 import { tryGetActiveSupabaseClient } from '../lib/supabaseClient';
 import { sheetFetchTable, sheetUpsertRow, sheetBatchInsert, sheetDeleteRow } from '../lib/googleSheetsClient';
-import { getArgentinaIsoString } from '../lib/argentinaDate';
+import { getArgentinaIsoString, getArgentinaDateTimeString } from '../lib/argentinaDate';
 import { Pedido, PedidoItem } from '../types';
 import { stockEngine } from './stock/stockEngine';
 
@@ -80,7 +80,7 @@ export const serializePedidoHeader = (pedido: Pedido) => {
     mozo: pedido.mozo,
     estado_comanda: pedido.estado_comanda,
     observaciones: pedido.observaciones || null,
-    fecha_hora: pedido.fecha_hora ? getArgentinaIsoString(pedido.fecha_hora) : getArgentinaIsoString(),
+    fecha_hora: pedido.fecha_hora ? getArgentinaDateTimeString(pedido.fecha_hora) : getArgentinaDateTimeString(),
     total,
     minutos_transcurridos: pedido.minutos_transcurridos,
     origen: pedido.origen,

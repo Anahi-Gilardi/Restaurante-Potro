@@ -24,7 +24,7 @@ import { resolvePedidoItemUnitPrice, roundCurrency } from '../../../lib/orderPri
 import { internalTicketPreview } from '../../../lib/fiscalVoucherPolicy';
 import { isSameTable, mergeTableOrders } from '../../../lib/tableOrders';
 import { formatTicketTableName } from '../../../lib/tableUnions';
-import { getArgentinaIsoString, formatArgentinaDateTime, formatArgentinaTime, argentinaDateIso } from '../../../lib/argentinaDate';
+import { getArgentinaIsoString, getArgentinaDateTimeString, formatArgentinaDateTime, formatArgentinaTime, argentinaDateIso } from '../../../lib/argentinaDate';
 
 export interface PendingCloseMesaData {
   pedidoId: number;
@@ -741,6 +741,7 @@ export function useCaja({
     }
 
     const saleTimestamp = Date.now();
+    const saleDate = new Date(saleTimestamp);
     const idFactura = `fac_${saleTimestamp}`;
     const compiledTicketNo = internalTicketPreview(lastFacturas.map(factura => factura.nro_ticket));
 
@@ -788,7 +789,6 @@ export function useCaja({
 
     const mappedMedio = pays.map(p => p.metodo.toUpperCase()).join(' + ');
 
-    const saleDate = new Date(saleTimestamp);
     const internalFactura: Factura = {
       id_factura: idFactura,
       id_pedido: selectedPedido.id_pedido,
@@ -799,7 +799,7 @@ export function useCaja({
       iva_veintiuno: 0,
       medio_pago: metodoPago,
       fecha: formatArgentinaTime(saleDate),
-      fecha_completa: getArgentinaIsoString(saleDate),
+      fecha_completa: getArgentinaDateTimeString(saleDate),
       estado: 'borrador',
       tipo: 'ticket',
     };
@@ -808,7 +808,7 @@ export function useCaja({
       id_factura: idFactura,
       monto: p.monto,
       metodo: p.metodo,
-      fecha: getArgentinaIsoString(saleDate)
+      fecha: getArgentinaDateTimeString(saleDate)
     }));
 
     // Disparar la impresión del ticket de inmediato (0ms de demora) hacia la tiquetera

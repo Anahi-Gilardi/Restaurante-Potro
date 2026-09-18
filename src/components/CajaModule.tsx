@@ -954,9 +954,9 @@ export default function CajaModule({
                             {factura.tipo === 'ticket' ? 'Ticket' : `Factura ${factura.tipo}`}
                           </span>
                         )}
-                        <span className="text-[9px] font-medium text-stone-500 dark:text-stone-400 flex items-center gap-0.5 font-mono">
-                          <Clock className="w-2.5 h-2.5 text-stone-400 shrink-0" />
-                          {formatArgentinaDateTime(factura.fecha_completa || factura.fecha)}
+                        <span className="text-[9px] font-bold text-stone-700 dark:text-stone-300 bg-amber-500/10 dark:bg-amber-400/10 border border-amber-600/20 dark:border-amber-400/20 px-1.5 py-0.5 rounded flex items-center gap-1 font-mono">
+                          <Clock className="w-2.5 h-2.5 text-amber-700 dark:text-amber-400 shrink-0" />
+                          {formatArgentinaDateTime(factura.fecha_completa || factura.fecha || Date.now())}
                         </span>
                       </div>
                       <p className="text-[9px] text-stone-400 truncate">
@@ -2186,7 +2186,7 @@ export default function CajaModule({
                       )}
                     </p>
                     <p className="text-[10px] text-stone-500 font-medium">
-                      Apertura: {cs.fecha_apertura} • Cierre: {cs.fecha_cierre || 'En curso'}
+                      Apertura: {formatArgentinaDateTime(cs.fecha_apertura)} • Cierre: {cs.fecha_cierre ? formatArgentinaDateTime(cs.fecha_cierre) : 'En curso'}
                     </p>
                     <p className="text-[10px] font-medium text-stone-600 dark:text-stone-400 italic">
                       Observaciones: "{cs.observaciones}"

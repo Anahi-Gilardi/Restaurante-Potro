@@ -77,7 +77,7 @@ import {
 } from './supabase';
 import { AppView, canAccessView, getAllowedViews, COCINA_MODULE_ENABLED } from './lib/permissions';
 import { createClientPedidoId } from './lib/pedidoIds';
-import { argentinaDateIso } from './lib/argentinaDate';
+import { argentinaDateIso, getArgentinaDateTimeString } from './lib/argentinaDate';
 import { canMergePedidoItems, resolvePedidoItemUnitPrice } from './lib/orderPricing';
 import { cajaService } from './services/cajaService';
 import { reservasService } from './services/reservasService';
@@ -1358,7 +1358,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
         metodo_pago: 'Efectivo',
         cuit_cliente: '',
         cliente_nombre: 'Consumidor Final',
-        fecha_emision: new Date().toISOString(),
+        fecha_emision: getArgentinaDateTimeString(),
         fiscal_status: 'authorized'
       }).catch(err => console.warn('Error registrando factura en Google Sheets:', err));
 
@@ -1367,7 +1367,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
         id_factura: facturaId,
         monto: totalPedido,
         metodo: 'efectivo',
-        fecha: new Date().toISOString()
+        fecha: getArgentinaDateTimeString()
       }).catch(err => console.warn('Error registrando pago en Google Sheets:', err));
 
       sheetUpsertRow('caja_ledger', {
@@ -1375,7 +1375,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
         concepto: `Cobro Mesa ${target.numero_mesa}`,
         monto: totalPedido,
         tipo: 'ingreso_venta',
-        fecha: new Date().toISOString()
+        fecha: getArgentinaDateTimeString()
       }).catch(err => console.warn('Error registrando ledger en Google Sheets:', err));
     }
   }, [pedidos, mesas, productosMenu, addLog, isDemoSession, permitirVentaSinStock, applyMesaLiberada]);

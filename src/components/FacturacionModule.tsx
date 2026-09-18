@@ -45,7 +45,7 @@ import { fiscalVoucherPreview } from '../lib/fiscalVoucherPolicy';
 import { DEFAULT_RESTAURANT_PROFILE } from '../lib/restaurantProfile';
 import { resolvePedidoItemUnitPrice, roundCurrency } from '../lib/orderPricing';
 import { parseFiscalCustomerDocument } from '../lib/fiscalCustomerDocument';
-import { argentinaDateIso } from '../lib/argentinaDate';
+import { argentinaDateIso, getArgentinaDateTimeString, formatArgentinaDateTime, formatArgentinaTime } from '../lib/argentinaDate';
 import { getInvoiceablePaidTickets } from '../lib/ticketBillingPolicy';
 
 interface FacturacionModuleProps {
@@ -380,12 +380,12 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
         total,
         iva_veintiuno: iva,
         medio_pago: manualMedio,
-        fecha: `${new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })} hs`,
+        fecha: formatArgentinaTime(),
         estado: 'borrador',
         tipo: manualTipo,
         id_pedido: null,
         observaciones: manualObs || 'Venta de salón / Varios manual',
-        fecha_completa: new Date().toISOString(),
+        fecha_completa: getArgentinaDateTimeString(),
         condicion_iva_receptor: receptorCondicionIva,
         documento_tipo_receptor: parsedDoc.documentType,
         items: manualItems,
@@ -498,12 +498,12 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
         total: totalConsolidado,
         iva_veintiuno: iva,
         medio_pago: pagoMedio,
-        fecha: `${new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })} hs`,
+        fecha: formatArgentinaTime(),
         estado: 'borrador',
         tipo: pagoTipo,
         id_pedido: principalPedido.id_pedido,
         observaciones: `Tickets de origen: ${ticketReferences} - Pedidos: ${prefixIdsStr} - Mesas: ${Array.from(new Set(selectedItems.map(p => p.pedido.numero_mesa))).join(', ')}`,
-        fecha_completa: new Date().toISOString(),
+        fecha_completa: getArgentinaDateTimeString(),
         condicion_iva_receptor: receptorCondicionIva,
         documento_tipo_receptor: parsedDoc.documentType,
         items: fiscalItems,
@@ -623,8 +623,8 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
         nro_ticket: `NC-${String(result.puntoVenta).padStart(4, '0')}-${String(result.nroCmp).padStart(8, '0')}`,
         tipo: 'NC',
         estado: 'nota_credito',
-        fecha: `${new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })} hs`,
-        fecha_completa: new Date().toISOString(),
+        fecha: formatArgentinaTime(),
+        fecha_completa: getArgentinaDateTimeString(),
         afip_cae: result.CAE,
         afip_vto: result.CAEFchVto,
         afip_qr: result.qrData,
@@ -1006,7 +1006,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
       const { neto } = calcIvaIncluido(f.total, f.iva_veintiuno > 0);
       return [
         f.nro_ticket,
-        f.fecha_completa ? new Date(f.fecha_completa).toLocaleString('es-AR') : f.fecha,
+        f.fecha_completa ? formatArgentinaDateTime(f.fecha_completa) : f.fecha,
         f.cliente,
         f.cuit,
         facturaTipo(f),
@@ -1896,7 +1896,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
                   const isNC = f.estado === 'nota_credito';
                   const { neto } = calcIvaIncluido(f.total, f.iva_veintiuno > 0);
                   const displayDate = f.fecha_completa 
-                    ? new Date(f.fecha_completa).toLocaleDateString('es-AR') + ' ' + f.fecha.slice(0, 5)
+                    ? formatArgentinaDateTime(f.fecha_completa)
                     : f.fecha;
 
                   return (
@@ -2024,7 +2024,7 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
                 <div className="text-left">
                   <span className="text-[9px] text-stone-400 uppercase font-black block text-left">Fecha / Hora de Registro</span>
                   <span className="text-stone-600 dark:text-stone-300 block mt-0.5 text-left">
-                    {selectedFactura.fecha_completa ? new Date(selectedFactura.fecha_completa).toLocaleString('es-AR') : selectedFactura.fecha}
+                    {selectedFactura.fecha_completa ? formatArgentinaDateTime(selectedFactura.fecha_completa) : selectedFactura.fecha}
                   </span>
                 </div>
                 <div className="text-left">

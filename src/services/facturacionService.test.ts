@@ -62,3 +62,12 @@ test('mergeFacturas ordena de forma descendente por fecha_completa', () => {
   assert.deepEqual(merged.map(m => m.id_factura), ['fac_2', 'fac_1']);
 });
 
+test('toDbFacturaPayload formatea fecha_emision en formato estándar de Argentina sin desfase UTC', () => {
+  const f = {
+    ...factura('fac_test', 1500),
+    fecha_completa: '2026-09-18 11:45:00'
+  };
+  const payload = toDbFacturaPayload(f);
+  assert.equal(payload.fecha_emision, '2026-09-18 11:45:00');
+});
+
