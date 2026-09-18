@@ -105,6 +105,7 @@ async function fetchFromSheets(urlOrAction: string, options?: RequestInit): Prom
 
   try {
     const res = await fetch(endpoint, {
+      credentials: 'omit',
       ...options,
       signal: options?.signal || controller.signal
     });
