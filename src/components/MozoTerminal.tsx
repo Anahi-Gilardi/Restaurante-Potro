@@ -264,7 +264,7 @@ interface MozoTerminalProps {
   permitirVentaSinStock?: boolean;
   onUnirMesas?: (idMesa1: number, idMesa2: number | number[]) => Promise<void> | void;
   onDesunirMesas?: (idMesa: number) => Promise<void> | void;
-  onLiberarMesa?: (idMesa: number) => Promise<void> | void;
+  onLiberarMesa?: (idMesa: number | string) => Promise<void> | void;
 }
 
 export default function MozoTerminal({
@@ -291,7 +291,7 @@ export default function MozoTerminal({
   const [selectedMesaId, setSelectedMesaId] = useState<number | null>(null);
   const [isUniting, setIsUniting] = useState(false);
   const [targetUniteMesaIds, setTargetUniteMesaIds] = useState<number[]>([]);
-  const [confirmLiberarMesaId, setConfirmLiberarMesaId] = useState<number | null>(null);
+  const [confirmLiberarMesaId, setConfirmLiberarMesaId] = useState<number | string | null>(null);
   const [comensales, setComensales] = useState<number>(2);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategoria, setSelectedCategoria] = useState<string>('todo');
@@ -1593,7 +1593,7 @@ export default function MozoTerminal({
                         Cobrar Mesa
                       </button>
 
-                      {confirmLiberarMesaId === selectedMesa.id_mesa ? (
+                      {String(confirmLiberarMesaId) === String(selectedMesa.id_mesa) ? (
                         <div className="p-2.5 bg-red-50 dark:bg-red-950/40 rounded-lg border border-red-300 dark:border-red-700 space-y-2">
                           <p className="text-[11px] font-bold text-red-900 dark:text-red-200 text-center">
                             ¿Cancelar comanda y liberar {selectedMesa.numero_mesa}?
@@ -1602,10 +1602,11 @@ export default function MozoTerminal({
                             <button
                               type="button"
                               onClick={async () => {
+                                const mesaId = selectedMesa.id_mesa;
                                 setConfirmLiberarMesaId(null);
                                 if (onLiberarMesa) {
-                                  await onLiberarMesa(selectedMesa.id_mesa);
-                                  toast.success(`${selectedMesa.numero_mesa} liberada.`);
+                                  await onLiberarMesa(mesaId);
+                                  toast.success(`${selectedMesa.numero_mesa} liberada y comanda cancelada.`);
                                 }
                               }}
                               className="flex-1 py-1.5 px-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-black cursor-pointer shadow-sm text-center transition-colors"

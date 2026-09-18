@@ -200,25 +200,60 @@ export default function App() {
     loadConfig();
   }, []);
 
+  const getInitialIdsSet = (key: string): Set<number> => {
+    if (typeof window === 'undefined') return new Set();
+    try {
+      const raw = window.localStorage.getItem(key);
+      if (!raw) return new Set();
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? new Set(parsed.map(Number)) : new Set();
+    } catch {
+      return new Set();
+    }
+  };
+
   // Refs para sincronización de mesas y comandas en tiempo real
   const activeChannelRef = useRef<any>(null);
   const broadcastChannelRef = useRef<BroadcastChannel | null>(null);
-  const cobradoOrderIdsSetRef = useRef<Set<number>>(new Set());
+  const cobradoOrderIdsSetRef = useRef<Set<number>>(getInitialIdsSet('el_patron_cobrado_order_ids'));
+  const cancelledOrderIdsSetRef = useRef<Set<number>>(getInitialIdsSet('el_patron_cancelled_order_ids'));
+
+  const persistFinalizedId = (id: number, type: 'cancelado' | 'cobrado') => {
+    if (type === 'cancelado') {
+      cancelledOrderIdsSetRef.current.add(id);
+      if (typeof window !== 'undefined') {
+        try {
+          window.localStorage.setItem('el_patron_cancelled_order_ids', JSON.stringify(Array.from(cancelledOrderIdsSetRef.current)));
+        } catch {}
+      }
+    } else {
+      cobradoOrderIdsSetRef.current.add(id);
+      if (typeof window !== 'undefined') {
+        try {
+          window.localStorage.setItem('el_patron_cobrado_order_ids', JSON.stringify(Array.from(cobradoOrderIdsSetRef.current)));
+        } catch {}
+      }
+    }
+  };
 
   // Liberación simultánea de mesa y comanda en memoria (0ms)
-  const applyMesaLiberada = useCallback((payload: { id_mesa?: any; numero_mesa?: string; orderIds?: number[] }) => {
+  const applyMesaLiberada = useCallback((payload: { id_mesa?: any; numero_mesa?: string; orderIds?: number[]; motivo?: 'cobrado' | 'cancelado' }) => {
     if (!payload) return;
-    const { id_mesa, numero_mesa, orderIds = [] } = payload;
+    const { id_mesa, numero_mesa, orderIds = [], motivo = 'cobrado' } = payload;
     
-    orderIds.forEach(id => cobradoOrderIdsSetRef.current.add(id));
+    orderIds.forEach(id => persistFinalizedId(id, motivo));
 
-    // 1. Inmediatamente marcar comandas de esta mesa como entregado_cobrado
+    // 1. Inmediatamente marcar comandas de esta mesa según motivo
     setPedidos(prev => prev.map(p => {
       const matchOrder = orderIds.includes(p.id_pedido);
       const matchTable = isSameTable(p, { id_mesa, numero_mesa });
       if (matchOrder || matchTable) {
-        cobradoOrderIdsSetRef.current.add(p.id_pedido);
-        return { ...p, estado_comanda: 'entregado_cobrado' as const };
+        persistFinalizedId(p.id_pedido, motivo);
+        if (motivo === 'cancelado') {
+          return { ...p, estado_comanda: 'cancelado' as const };
+        } else {
+          return { ...p, estado_comanda: 'entregado_cobrado' as const };
+        }
       }
       return p;
     }));
@@ -386,6 +421,33 @@ export default function App() {
 
     loadData();
 
+    const reconcileOrder = (order: Pedido): Pedido => {
+      if (cancelledOrderIdsSetRef.current.has(order.id_pedido)) {
+        return { ...order, estado_comanda: 'cancelado' as const };
+      }
+      if (cobradoOrderIdsSetRef.current.has(order.id_pedido)) {
+        return { ...order, estado_comanda: 'entregado_cobrado' as const };
+      }
+      return order;
+    };
+
+    const mergeFreshPedidosWithInFlight = (refreshed: Pedido[], current: Pedido[]): Pedido[] => {
+      const reconciled = refreshed.map(reconcileOrder);
+      const refreshedIds = new Set(reconciled.map(p => p.id_pedido));
+
+      // Preservar pedidos activos locales en vuelo que aún no impactaron en Google Sheets
+      const inFlight = current.filter(p =>
+        !refreshedIds.has(p.id_pedido) &&
+        p.estado_comanda !== 'cancelado' &&
+        p.estado_comanda !== 'entregado_cobrado' &&
+        !cancelledOrderIdsSetRef.current.has(p.id_pedido) &&
+        !cobradoOrderIdsSetRef.current.has(p.id_pedido)
+      );
+
+      if (inFlight.length === 0) return reconciled;
+      return [...inFlight, ...reconciled];
+    };
+
     if (client) {
       const activeChannel = client.channel('realtime_pedidos_app');
       channel = activeChannel;
@@ -404,8 +466,7 @@ export default function App() {
         try {
           const refreshed = await dbFetchPedidos(true);
           if (refreshed !== null && active) {
-            const cobradoIds = cobradoOrderIdsSetRef.current;
-            setPedidos(refreshed.map(p => cobradoIds.has(p.id_pedido) ? { ...p, estado_comanda: 'entregado_cobrado' as const } : p));
+            setPedidos(prev => mergeFreshPedidosWithInFlight(refreshed, prev));
           }
         } catch (err) {
           console.warn('Realtime fetch for pedidos failed:', err);
@@ -467,7 +528,6 @@ export default function App() {
         })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'mesas' }, async () => {
           debouncedFetchMesas();
-          debouncedFetchPedidos();
         })
         .subscribe((status) => {
           if (status === 'SUBSCRIBED') {
@@ -494,8 +554,7 @@ export default function App() {
       }).catch(() => undefined);
       dbFetchPedidos(true).then(refreshedPedidos => {
         if (refreshedPedidos !== null && active) {
-          const cobradoIds = cobradoOrderIdsSetRef.current;
-          setPedidos(refreshedPedidos.map(p => cobradoIds.has(p.id_pedido) ? { ...p, estado_comanda: 'entregado_cobrado' as const } : p));
+          setPedidos(prev => mergeFreshPedidosWithInFlight(refreshedPedidos, prev));
         }
       }).catch(() => undefined);
     };
@@ -508,9 +567,8 @@ export default function App() {
       if (document.visibilityState === 'visible' && active) {
         dbFetchMesas(true).then(m => m && setMesas(m)).catch(() => {});
         dbFetchPedidos(true).then(p => {
-          if (p) {
-            const cobradoIds = cobradoOrderIdsSetRef.current;
-            setPedidos(p.map(order => cobradoIds.has(order.id_pedido) ? { ...order, estado_comanda: 'entregado_cobrado' as const } : order));
+          if (p && active) {
+            setPedidos(prev => mergeFreshPedidosWithInFlight(p, prev));
           }
         }).catch(() => {});
       }
@@ -522,9 +580,8 @@ export default function App() {
       if (!active || (typeof document !== 'undefined' && document.visibilityState === 'hidden')) return;
       dbFetchMesas(true).then(m => m && setMesas(m)).catch(() => {});
       dbFetchPedidos(true).then(p => {
-        if (p) {
-          const cobradoIds = cobradoOrderIdsSetRef.current;
-          setPedidos(p.map(order => cobradoIds.has(order.id_pedido) ? { ...order, estado_comanda: 'entregado_cobrado' as const } : order));
+        if (p && active) {
+          setPedidos(prev => mergeFreshPedidosWithInFlight(p, prev));
         }
       }).catch(() => {});
     }, 6000);
@@ -1045,6 +1102,11 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
         toast.error('No se puede enviar a cocina un pedido vacío.');
         return;
       }
+      if (nuevoEstado === 'cancelado') {
+        cancelledOrderIdsSetRef.current.add(idPedido);
+      } else if (nuevoEstado === 'entregado_cobrado') {
+        cobradoOrderIdsSetRef.current.add(idPedido);
+      }
       try {
         await orderTransactionService.transitionOrder(idPedido, nuevoEstado, permitirVentaSinStock);
         const [remotePedidos, remoteMesas, remoteInsumos] = await Promise.all([
@@ -1455,8 +1517,11 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     addLog('sistema', `MESAS: Mesas desunidas para ${target.numero_mesa}. Vuelven a operar de forma individual.`);
   }, [mesas, addLog]);
 
-  const handleLiberarMesa = useCallback(async (idMesa: number) => {
-    const target = mesas.find(m => m.id_mesa === idMesa);
+  const handleLiberarMesa = useCallback(async (idMesa: number | string) => {
+    const target = mesas.find(m =>
+      (m.id_mesa !== undefined && m.id_mesa !== null && String(m.id_mesa) === String(idMesa)) ||
+      (m.numero_mesa && String(m.numero_mesa).toLowerCase().replace(/mesa\s+/gi, '').trim() === String(idMesa).toLowerCase().replace(/mesa\s+/gi, '').trim())
+    );
     if (!target) return;
 
     // 1. Cancelar cualquier comanda activa asociada a la mesa
@@ -1466,23 +1531,25 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
       p.estado_comanda !== 'cancelado'
     );
 
-    if (relatedOrders.length > 0) {
-      const orderIds = relatedOrders.map(o => o.id_pedido);
-      setPedidos(prev => prev.map(p => orderIds.includes(p.id_pedido) ? { ...p, estado_comanda: 'cancelado' } : p));
+    const orderIds = relatedOrders.map(o => o.id_pedido);
+    orderIds.forEach(id => persistFinalizedId(id, 'cancelado'));
+
+    if (orderIds.length > 0) {
+      setPedidos(prev => prev.map(p => orderIds.includes(p.id_pedido) ? { ...p, estado_comanda: 'cancelado' as const } : p));
     }
 
     // 2. Desunir si formaba parte de una unión y marcar como libre
-    const affectedIds = new Set<number>([idMesa]);
-    if (target.parent_id) affectedIds.add(target.parent_id);
-    if (target.mesas_unidas) target.mesas_unidas.forEach(id => affectedIds.add(id));
+    const affectedIds = new Set<string>([String(target.id_mesa)]);
+    if (target.parent_id) affectedIds.add(String(target.parent_id));
+    if (target.mesas_unidas) target.mesas_unidas.forEach(id => affectedIds.add(String(id)));
     mesas.forEach(m => {
-      if (m.parent_id === target.id_mesa || (target.parent_id && m.parent_id === target.parent_id)) {
-        affectedIds.add(m.id_mesa);
+      if (String(m.parent_id) === String(target.id_mesa) || (target.parent_id && String(m.parent_id) === String(target.parent_id))) {
+        affectedIds.add(String(m.id_mesa));
       }
     });
 
     const nextMesas = separateTablesInList(target, mesas).map(m => {
-      if (m.id_mesa === idMesa || m.parent_id === idMesa || (target.mesas_unidas && target.mesas_unidas.includes(m.id_mesa))) {
+      if (affectedIds.has(String(m.id_mesa))) {
         return {
           ...m,
           estado: 'libre' as const,
@@ -1496,21 +1563,76 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     });
 
     setMesas(nextMesas);
+
+    // 3. Persistir en cachés locales de inmediato
     if (typeof window !== 'undefined') {
       try {
         window.localStorage.setItem('el_patron_sheet_cache_mesas', JSON.stringify(nextMesas));
+        const cachedCabecera = window.localStorage.getItem('el_patron_sheet_cache_pedidos_cabecera');
+        if (cachedCabecera) {
+          const parsed = JSON.parse(cachedCabecera);
+          if (Array.isArray(parsed)) {
+            const updated = parsed.map((p: any) => orderIds.includes(p.id_pedido) ? { ...p, estado_comanda: 'cancelado' } : p);
+            window.localStorage.setItem('el_patron_sheet_cache_pedidos_cabecera', JSON.stringify(updated));
+          }
+        }
       } catch {}
     }
 
-    try {
-      const changedMesas = nextMesas.filter(m => affectedIds.has(m.id_mesa));
-      await dbUpsertMesas(changedMesas);
-    } catch (err) {
-      console.warn('Error sincronizando mesa liberada con Google Sheets:', err);
+    // 4. Notificar a otras pestañas/terminales
+    const broadcastPayload = {
+      id_mesa: target.id_mesa,
+      numero_mesa: target.numero_mesa,
+      orderIds,
+      motivo: 'cancelado' as const
+    };
+    if (broadcastChannelRef.current) {
+      try {
+        broadcastChannelRef.current.postMessage({ type: 'mesa_liberada', payload: broadcastPayload });
+      } catch (bcErr) {
+        console.warn('BroadcastChannel sync error:', bcErr);
+      }
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('el_patron_mesa_liberada', { detail: broadcastPayload }));
     }
 
-    addLog('sistema', `MESAS: ${target.numero_mesa} liberada manualmente. Estado cambiado a libre.`);
-  }, [mesas, pedidos, addLog]);
+    // 5. Persistencia remota asíncrona en Google Sheets y Supabase
+    (async () => {
+      // A. Cancelar pedidos en Google Sheets
+      for (const order of relatedOrders) {
+        try {
+          await sheetUpsertRow('pedidos_cabecera', {
+            id_pedido: order.id_pedido,
+            id_mesa: order.id_mesa,
+            numero_mesa: order.numero_mesa,
+            mozo: order.mozo,
+            estado_comanda: 'cancelado'
+          });
+        } catch (err) {
+          console.warn(`Error al cancelar comanda #${order.id_pedido} en Google Sheets:`, err);
+        }
+
+        if (!isDemoSession) {
+          try {
+            await orderTransactionService.transitionOrder(order.id_pedido, 'cancelado', permitirVentaSinStock);
+          } catch (tErr) {
+            console.warn(`Error en transición de comanda #${order.id_pedido}:`, tErr);
+          }
+        }
+      }
+
+      // B. Guardar mesas liberadas
+      try {
+        const changedMesas = nextMesas.filter(m => affectedIds.has(String(m.id_mesa)));
+        await dbUpsertMesas(changedMesas);
+      } catch (err) {
+        console.warn('Error sincronizando mesa liberada con Google Sheets:', err);
+      }
+    })();
+
+    addLog('sistema', `MESAS: ${target.numero_mesa} liberada manualmente. Comanda(s) ${orderIds.length > 0 ? `#${orderIds.join(', #')} cancelada(s)` : 'sin comanda activa'}.`);
+  }, [mesas, pedidos, addLog, isDemoSession, permitirVentaSinStock]);
 
   // --- Handlers for Inventory View ---
   const handleRegistrarMerma = (idInsumo: string, cantidad: number, motivo: Merma['motivo']) => {

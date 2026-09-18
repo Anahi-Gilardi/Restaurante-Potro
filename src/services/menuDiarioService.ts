@@ -107,7 +107,7 @@ const setLocalCache = (semana: Record<string, MenuDiarioDia>) => {
   }
 };
 
-let isSupabaseMenuDiarioAvailable = true;
+let isSupabaseMenuDiarioAvailable = false;
 
 export const menuDiarioService = {
   async list(): Promise<Record<string, MenuDiarioDia>> {

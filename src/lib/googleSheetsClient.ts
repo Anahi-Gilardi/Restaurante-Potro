@@ -43,11 +43,44 @@ export const KNOWN_SHEET_TABLES = [
   'arca_emisiones'
 ];
 
+const CACHE_VERSION = '2026_09_18_v4';
+
+// Limpieza automática de caché obsoleto en el navegador
+if (typeof window !== 'undefined') {
+  try {
+    const currentVersion = window.localStorage.getItem('el_patron_cache_version');
+    if (currentVersion !== CACHE_VERSION) {
+      window.localStorage.removeItem('el_patron_sheet_cache_pedidos_cabecera');
+      window.localStorage.removeItem('el_patron_sheet_cache_pedido_detalle');
+      window.localStorage.removeItem('el_patron_sheet_cache_mesas');
+      window.localStorage.setItem('el_patron_cache_version', CACHE_VERSION);
+    }
+  } catch {}
+}
+
 function getTableStorageCache(tableName: string): any[] | null {
   if (typeof window === 'undefined') return null;
   try {
     const raw = window.localStorage.getItem(`el_patron_sheet_cache_${tableName}`);
-    return raw ? JSON.parse(raw) : null;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return null;
+
+    if (tableName === 'pedidos_cabecera') {
+      const rawCancelled = window.localStorage.getItem('el_patron_cancelled_order_ids');
+      const rawCobrado = window.localStorage.getItem('el_patron_cobrado_order_ids');
+      const cancelledSet = new Set(rawCancelled ? JSON.parse(rawCancelled).map(Number) : []);
+      const cobradoSet = new Set(rawCobrado ? JSON.parse(rawCobrado).map(Number) : []);
+
+      return parsed.map((p: any) => {
+        const idNum = Number(p.id_pedido);
+        if (cancelledSet.has(idNum)) return { ...p, estado_comanda: 'cancelado' };
+        if (cobradoSet.has(idNum)) return { ...p, estado_comanda: 'entregado_cobrado' };
+        return p;
+      });
+    }
+
+    return parsed;
   } catch {
     return null;
   }
@@ -56,7 +89,21 @@ function getTableStorageCache(tableName: string): any[] | null {
 function setTableStorageCache(tableName: string, data: any[]) {
   if (typeof window === 'undefined') return;
   try {
-    window.localStorage.setItem(`el_patron_sheet_cache_${tableName}`, JSON.stringify(data));
+    let toSave = data;
+    if (tableName === 'pedidos_cabecera' && Array.isArray(data)) {
+      const rawCancelled = window.localStorage.getItem('el_patron_cancelled_order_ids');
+      const rawCobrado = window.localStorage.getItem('el_patron_cobrado_order_ids');
+      const cancelledSet = new Set(rawCancelled ? JSON.parse(rawCancelled).map(Number) : []);
+      const cobradoSet = new Set(rawCobrado ? JSON.parse(rawCobrado).map(Number) : []);
+
+      toSave = data.map((p: any) => {
+        const idNum = Number(p.id_pedido);
+        if (cancelledSet.has(idNum)) return { ...p, estado_comanda: 'cancelado' };
+        if (cobradoSet.has(idNum)) return { ...p, estado_comanda: 'entregado_cobrado' };
+        return p;
+      });
+    }
+    window.localStorage.setItem(`el_patron_sheet_cache_${tableName}`, JSON.stringify(toSave));
   } catch (err) {
     console.warn(`[GoogleSheetsClient] LocalStorage full for ${tableName}:`, err);
   }
@@ -252,15 +299,28 @@ async function executeFetchTable<T = any>(tableName: string): Promise<T[]> {
       if (resp.ok) {
         const json = await safeParseResponse<T[]>(resp);
         if (json.success && Array.isArray(json.data)) {
-          cachedTables[tableName] = json.data;
+          let mergedData = json.data;
+          // Preservar pedidos activos locales en vuelo hacia Google Sheets
+          if (tableName === 'pedidos_cabecera' && Array.isArray(cachedTables[tableName]) && cachedTables[tableName].length > 0) {
+            const remoteIds = new Set(json.data.map((r: any) => String(r.id_pedido)));
+            const inFlight = cachedTables[tableName].filter((r: any) =>
+              !remoteIds.has(String(r.id_pedido)) &&
+              r.estado_comanda !== 'cancelado' &&
+              r.estado_comanda !== 'entregado_cobrado'
+            );
+            if (inFlight.length > 0) {
+              mergedData = [...inFlight, ...json.data];
+            }
+          }
+          cachedTables[tableName] = mergedData;
           lastFetchTimestamps[tableName] = now;
-          setTableStorageCache(tableName, json.data);
+          setTableStorageCache(tableName, mergedData);
           if (typeof window !== 'undefined') {
             window.dispatchEvent(new CustomEvent('el_patron_sheet_data_updated', {
-              detail: { table: tableName, count: json.data.length }
+              detail: { table: tableName, count: mergedData.length }
             }));
           }
-          return json.data;
+          return mergedData;
         }
       }
     } catch (error: any) {
