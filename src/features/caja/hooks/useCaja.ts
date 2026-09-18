@@ -96,6 +96,21 @@ export function useCaja({
   });
   const [sessionInsumos, setSessionInsumos] = useState<CierreCaja[]>([]);
   const [lastFacturas, setLastFacturas] = useState<Factura[]>([]);
+  const [isRefreshingFacturas, setIsRefreshingFacturas] = useState(false);
+
+  const refreshFacturas = async () => {
+    setIsRefreshingFacturas(true);
+    try {
+      const fresh = await facturacionService.list(true);
+      setLastFacturas(fresh);
+      toast.success(`Comprobantes sincronizados: ${fresh.length} en Google Sheets`);
+    } catch (err) {
+      console.warn('[useCaja] Error al refrescar facturas:', err);
+      toast.error('No se pudo sincronizar con Google Sheets');
+    } finally {
+      setIsRefreshingFacturas(false);
+    }
+  };
   const [showTicketsAuditModal, setShowTicketsAuditModal] = useState(false);
   const [isExportingTicketsPdf, setIsExportingTicketsPdf] = useState(false);
   const [auditFilterScope, setAuditFilterScope] = useState<'todos' | 'turno_actual' | 'hoy'>('todos');
@@ -104,11 +119,20 @@ export function useCaja({
   // Load facturas on mount and when cajaSession updates
   useEffect(() => {
     let isMounted = true;
+    // 1. Carga inmediata desde almacenamiento local (0ms)
     facturacionService.list().then(list => {
       if (isMounted && Array.isArray(list)) {
         setLastFacturas(list);
       }
     }).catch(err => console.warn('[useCaja] Error cargando facturas:', err));
+
+    // 2. Consulta fresca a Google Sheets para sincronizar inmediatamente borrados o cambios remotos
+    facturacionService.list(true).then(list => {
+      if (isMounted && Array.isArray(list)) {
+        setLastFacturas(list);
+      }
+    }).catch(() => {});
+
     return () => { isMounted = false; };
   }, [cajaSession]);
 
@@ -162,9 +186,19 @@ export function useCaja({
       loadCajaState();
     };
 
+    const handleSheetDataUpdated = (event: Event) => {
+      const detail = (event as CustomEvent<{ table?: string }>).detail;
+      if (!detail?.table || detail.table === 'facturas') {
+        facturacionService.list().then(list => {
+          if (Array.isArray(list)) setLastFacturas(list);
+        }).catch(() => {});
+      }
+    };
+
     window.addEventListener('el_patron_caja_abierta', handleCajaAbierta);
     window.addEventListener('el_patron_caja_cerrada', handleCajaCerrada);
     window.addEventListener('el_patron_sheets_sync_completed', handleSheetsSync);
+    window.addEventListener('el_patron_sheet_data_updated', handleSheetDataUpdated);
 
     // Polling cada 10 segundos para garantizar consistencia entre computadoras
     const pollTimer = setInterval(() => {
@@ -175,6 +209,7 @@ export function useCaja({
       window.removeEventListener('el_patron_caja_abierta', handleCajaAbierta);
       window.removeEventListener('el_patron_caja_cerrada', handleCajaCerrada);
       window.removeEventListener('el_patron_sheets_sync_completed', handleSheetsSync);
+      window.removeEventListener('el_patron_sheet_data_updated', handleSheetDataUpdated);
       clearInterval(pollTimer);
     };
   }, []);
@@ -259,13 +294,13 @@ export function useCaja({
       // Fetch history, invoices, cash movements and active session in parallel
       const [history, facturas, movs, remoteSession] = await Promise.all([
         cajaService.list(),
-        facturacionService.list(),
+        facturacionService.list(true),
         active ? cajaService.listMovimientosCajaChica(active.id_cierre) : Promise.resolve([]),
         cajaService.findActiveSessionRemote()
       ]);
 
       setSessionInsumos(history);
-      setLastFacturas(facturas.slice(0, 6));
+      setLastFacturas(facturas);
       setMovimientosCajaChica(movs);
 
       // Sincronización entre múltiples computadoras
@@ -1268,7 +1303,9 @@ export function useCaja({
     setAuditFilterScope,
     auditArcaFilter,
     setAuditArcaFilter,
-    handleDownloadTicketsAuditPDF
+    handleDownloadTicketsAuditPDF,
+    refreshFacturas,
+    isRefreshingFacturas
   };
 }
 

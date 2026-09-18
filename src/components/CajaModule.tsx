@@ -80,6 +80,8 @@ export default function CajaModule({
     cajaSession,
     sessionInsumos,
     lastFacturas,
+    refreshFacturas,
+    isRefreshingFacturas,
     showOpenModal,
     setShowOpenModal,
     showCloseModal,
@@ -911,9 +913,20 @@ export default function CajaModule({
                 <Receipt className="w-4 h-4 text-[#624A3E] dark:text-stone-300" />
                 Últimos Comprobantes Emitidos
               </h4>
-              <span className="text-[9px] font-bold bg-[#F5F1E9] dark:bg-[#FAF7F0]/10 text-[#624A3E] dark:text-stone-300 border border-stone-200 dark:border-stone-800 rounded-full px-2 py-0.5 font-mono">
-                {lastFacturas.length} {lastFacturas.length === 1 ? 'ticket' : 'tickets'}
-              </span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => refreshFacturas()}
+                  disabled={isRefreshingFacturas}
+                  className="p-1 rounded-md text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-white/5 transition-all cursor-pointer disabled:opacity-50"
+                  title="Sincronizar comprobantes con Google Sheets"
+                >
+                  <RefreshCw className={`w-3 h-3 ${isRefreshingFacturas ? 'animate-spin text-amber-600' : ''}`} />
+                </button>
+                <span className="text-[9px] font-bold bg-[#F5F1E9] dark:bg-[#FAF7F0]/10 text-[#624A3E] dark:text-stone-300 border border-stone-200 dark:border-stone-800 rounded-full px-2 py-0.5 font-mono">
+                  {lastFacturas.length} {lastFacturas.length === 1 ? 'ticket' : 'tickets'}
+                </span>
+              </div>
             </div>
 
             {lastFacturas.length > 0 ? (

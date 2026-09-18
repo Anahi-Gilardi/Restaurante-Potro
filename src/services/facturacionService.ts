@@ -98,7 +98,12 @@ export const mergeFacturas = (remote: Factura[], local: Factura[]): Factura[] =>
   const merged = new Map<string, Factura>();
   local.forEach(factura => merged.set(factura.id_factura, factura));
   remote.forEach(factura => merged.set(factura.id_factura, factura));
-  return Array.from(merged.values()).sort((a, b) => b.id_factura.localeCompare(a.id_factura));
+  return Array.from(merged.values()).sort((a, b) => {
+    const timeA = a.fecha_completa ? new Date(a.fecha_completa).getTime() : 0;
+    const timeB = b.fecha_completa ? new Date(b.fecha_completa).getTime() : 0;
+    if (timeA && timeB && timeA !== timeB) return timeB - timeA;
+    return b.id_factura.localeCompare(a.id_factura);
+  });
 };
 
 export const cacheFacturaLocally = (factura: Factura) => {
@@ -139,11 +144,11 @@ export const toDbFacturaPayload = (factura: Factura) => ({
 });
 
 export const facturacionService = {
-  async list(): Promise<Factura[]> {
+  async list(forceFresh = false): Promise<Factura[]> {
     const local = readLocalFacturas();
     try {
-      const sheetData = await sheetFetchTable('facturas');
-      if (sheetData && sheetData.length > 0) {
+      const sheetData = await sheetFetchTable('facturas', forceFresh);
+      if (Array.isArray(sheetData)) {
         const remote = sheetData.map((f: any) => {
           const tipoComprobante = String(f.tipo_comprobante || '');
           const tipo = tipoFromDb(tipoComprobante);
@@ -217,7 +222,31 @@ export const facturacionService = {
             credited_by_factura_id: f.credited_by_factura_id || undefined,
           };
         });
-        return mergeFacturas(remote, local);
+
+        // Google Sheets es la única fuente de verdad autoritativa para comprobantes persistidos.
+        // Si el usuario eliminó comprobantes en Google Sheets, deben desaparecer también de la app.
+        // Solo conservamos comprobantes de 'local' que hayan sido creados en los últimos 2 minutos
+        // y que aún no estén en 'remote' (en tránsito o pendientes inmediatos de subida).
+        const remoteIds = new Set(remote.map(r => String(r.id_factura)));
+        const recentThreshold = Date.now() - 2 * 60 * 1000;
+
+        const inFlightLocal = local.filter(loc => {
+          if (remoteIds.has(String(loc.id_factura))) return false;
+          let timestamp = 0;
+          if (loc.fecha_completa) {
+            const t = new Date(loc.fecha_completa).getTime();
+            if (!isNaN(t)) timestamp = t;
+          }
+          if (!timestamp && loc.id_factura && loc.id_factura.startsWith('fac_')) {
+            const parsedTs = parseInt(loc.id_factura.replace('fac_', ''), 10);
+            if (!isNaN(parsedTs)) timestamp = parsedTs;
+          }
+          return timestamp > recentThreshold;
+        });
+
+        const synchronized = mergeFacturas(remote, inFlightLocal);
+        writeLocalFacturas(synchronized);
+        return synchronized;
       }
     } catch (sheetErr) {
       console.warn('[facturacionService.list] Fallback a cache local:', sheetErr);

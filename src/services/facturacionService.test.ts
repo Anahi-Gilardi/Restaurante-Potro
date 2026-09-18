@@ -54,3 +54,11 @@ test('un comprobante con CAE no puede eliminarse', () => {
   assert.equal(canDeleteFactura({ estado: 'autorizado', afip_cae: '74123456789012' }), false);
   assert.equal(canDeleteFactura({ estado: 'nota_credito', afip_cae: '74123456789013' }), false);
 });
+
+test('mergeFacturas ordena de forma descendente por fecha_completa', () => {
+  const fOld = { ...factura('fac_1', 100), fecha_completa: '2026-09-18T10:00:00.000Z' };
+  const fNew = { ...factura('fac_2', 200), fecha_completa: '2026-09-18T12:00:00.000Z' };
+  const merged = mergeFacturas([fOld], [fNew]);
+  assert.deepEqual(merged.map(m => m.id_factura), ['fac_2', 'fac_1']);
+});
+
