@@ -1475,14 +1475,25 @@ export default function MozoTerminal({
                   </div>
                   
                   <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
-                    {selectedMesaInfo.activeOrders.flatMap(o => o.items).map((it, idx) => (
-                      <div key={idx} className="flex justify-between text-xs text-stone-750 dark:text-stone-300 font-medium">
-                        <span>{it.cantidad}x {it.nombre}</span>
-                        <span className="font-mono text-stone-500 dark:text-stone-450">
-                          ${resolvePedidoItemUnitPrice(it, productosMenu).toLocaleString('es-AR')}
-                        </span>
-                      </div>
-                    ))}
+                    {selectedMesaInfo.activeOrders.flatMap(o => o.items).map((it, idx) => {
+                      const unitPrice = resolvePedidoItemUnitPrice(it, productosMenu);
+                      const lineTotal = unitPrice * it.cantidad;
+                      return (
+                        <div key={idx} className="flex justify-between items-center text-xs text-stone-750 dark:text-stone-300 font-medium">
+                          <div className="min-w-0 pr-2 truncate">
+                            <span>{it.cantidad}x {it.nombre}</span>
+                            {it.cantidad > 1 && (
+                              <span className="text-[10px] text-stone-400 dark:text-stone-500 font-mono ml-1.5">
+                                (${unitPrice.toLocaleString('es-AR')} c/u)
+                              </span>
+                            )}
+                          </div>
+                          <span className="font-mono text-stone-700 dark:text-stone-200 font-semibold shrink-0">
+                            ${lineTotal.toLocaleString('es-AR')}
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
 
                   <div className="pt-2 border-t border-stone-200/40 dark:border-white/10 flex justify-between items-center text-xs">
