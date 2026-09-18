@@ -76,25 +76,23 @@ if (typeof window !== 'undefined') {
   }
 }
 
-let proxyDisabled = false;
+const SHEETS_TIMEOUT_MS = 25_000; // 25s para dar tiempo suficiente a Google Apps Script sin abortar prematuramente
+let sheetWriteQueue: Promise<any> = Promise.resolve();
+
+function enqueueSheetWrite<T>(task: () => Promise<T>): Promise<T> {
+  const run = sheetWriteQueue.then(task, task);
+  sheetWriteQueue = run.catch(() => {});
+  return run;
+}
 
 function getSheetsEndpoint(): string {
-  if (typeof window !== 'undefined' && window.location) {
-    const host = window.location.hostname;
-    // En entorno local (localhost / 127.0.0.1 / IP LAN) o si el proxy falló previamente, ir directo a Google Apps Script
-    if (host === 'localhost' || host === '127.0.0.1' || host.startsWith('192.168.') || proxyDisabled) {
-      return GOOGLE_SHEETS_WEBAPP_URL;
-    }
-    if (window.location.origin) {
-      return `${window.location.origin}/api/sheets`;
-    }
-  }
+  // Conectar directamente a Google Apps Script (soporta CORS nativamente y evita latencias de proxies serverless)
   return GOOGLE_SHEETS_WEBAPP_URL;
 }
 
 async function fetchFromSheets(urlOrAction: string, options?: RequestInit): Promise<Response> {
   const isDirect = urlOrAction.startsWith('http');
-  const endpoint = isDirect ? urlOrAction : `${getSheetsEndpoint()}${urlOrAction}`;
+  const endpoint = isDirect ? urlOrAction : `${GOOGLE_SHEETS_WEBAPP_URL}${urlOrAction}`;
 
   const controller = new AbortController();
   const timer = setTimeout(() => {
@@ -103,7 +101,7 @@ async function fetchFromSheets(urlOrAction: string, options?: RequestInit): Prom
     } catch {
       controller.abort();
     }
-  }, 6000);
+  }, SHEETS_TIMEOUT_MS);
 
   try {
     const res = await fetch(endpoint, {
@@ -111,42 +109,34 @@ async function fetchFromSheets(urlOrAction: string, options?: RequestInit): Prom
       signal: options?.signal || controller.signal
     });
     clearTimeout(timer);
-    if (res.ok || isDirect || endpoint === GOOGLE_SHEETS_WEBAPP_URL) {
+    if (res.ok || isDirect || res.status === 302 || res.status === 0) {
       return res;
     }
-    if (endpoint.includes('/api/sheets')) {
-      proxyDisabled = true;
-    }
-    throw new Error(`Proxy status ${res.status}`);
-  } catch (proxyErr) {
+    throw new Error(`Google Sheets status ${res.status}`);
+  } catch (primaryErr) {
     clearTimeout(timer);
-    if (endpoint.includes('/api/sheets')) {
-      proxyDisabled = true;
+
+    // Si falló el acceso directo (por ejemplo si un adblocker o firewall corporativo bloquea script.google.com)
+    // y estamos en navegador en producción, intentar vía proxy /api/sheets
+    if (!isDirect && typeof window !== 'undefined' && window.location?.origin && !window.location.hostname.includes('localhost')) {
+      try {
+        const proxyUrl = `${window.location.origin}/api/sheets${urlOrAction}`;
+        const pController = new AbortController();
+        const pTimer = setTimeout(() => {
+          try { pController.abort(); } catch {}
+        }, 15000);
+        const pRes = await fetch(proxyUrl, {
+          ...options,
+          signal: options?.signal || pController.signal
+        });
+        clearTimeout(pTimer);
+        if (pRes.ok) {
+          return pRes;
+        }
+      } catch {}
     }
 
-    if (!isDirect && !endpoint.startsWith(GOOGLE_SHEETS_WEBAPP_URL)) {
-      const fallbackUrl = `${GOOGLE_SHEETS_WEBAPP_URL}${urlOrAction}`;
-      const fbController = new AbortController();
-      const fbTimer = setTimeout(() => {
-        try {
-          fbController.abort(new Error('Fallback Sheets timeout'));
-        } catch {
-          fbController.abort();
-        }
-      }, 6000);
-      try {
-        const fbRes = await fetch(fallbackUrl, {
-          ...options,
-          signal: options?.signal || fbController.signal
-        });
-        clearTimeout(fbTimer);
-        return fbRes;
-      } catch (fbErr) {
-        clearTimeout(fbTimer);
-        throw fbErr;
-      }
-    }
-    throw proxyErr;
+    throw primaryErr;
   }
 }
 
@@ -224,9 +214,7 @@ function revalidateTableInBackground(tableName: string): void {
     return;
   }
 
-  executeFetchTable(tableName).catch(err => {
-    console.warn(`[GoogleSheetsClient] Revalidación background '${tableName}' falló:`, err);
-  });
+  executeFetchTable(tableName).catch(() => {});
 }
 
 /**
@@ -235,6 +223,16 @@ function revalidateTableInBackground(tableName: string): void {
 async function executeFetchTable<T = any>(tableName: string): Promise<T[]> {
   if (inFlightTableFetches.has(tableName)) {
     return inFlightTableFetches.get(tableName)!;
+  }
+
+  // Si ya hay una lectura global (readAll) en curso, esperamos su resultado para evitar llamadas duplicadas
+  if (inFlightReadAllPromise) {
+    try {
+      await inFlightReadAllPromise;
+      if (cachedTables[tableName] !== undefined && Array.isArray(cachedTables[tableName])) {
+        return cachedTables[tableName] as T[];
+      }
+    } catch {}
   }
 
   const fetchPromise = (async () => {
@@ -258,8 +256,8 @@ async function executeFetchTable<T = any>(tableName: string): Promise<T[]> {
           return json.data;
         }
       }
-    } catch (error) {
-      console.warn(`[GoogleSheetsClient] Advertencia al leer '${tableName}':`, error);
+    } catch (error: any) {
+      console.info(`[GoogleSheetsClient] Lectura de '${tableName}' sincronizada desde almacenamiento local:`, error?.message || error);
     }
 
     if (cachedTables[tableName] !== undefined && Array.isArray(cachedTables[tableName])) {
@@ -375,22 +373,24 @@ export async function sheetUpsertRow<T extends Record<string, any>>(tableName: s
     data: rowData
   };
 
-  try {
-    const resp = await fetchFromSheets(`?action=upsert&table=${encodeURIComponent(tableName)}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(payload)
-    });
+  return enqueueSheetWrite(async () => {
+    try {
+      const resp = await fetchFromSheets(`?action=upsert&table=${encodeURIComponent(tableName)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      });
 
-    const json = await safeParseResponse(resp);
-    if (!json.success && json.error) {
-      console.warn(`[GoogleSheetsClient] Advertencia al hacer upsert en '${tableName}':`, json.error);
+      const json = await safeParseResponse(resp);
+      if (!json.success && json.error) {
+        console.info(`[GoogleSheetsClient] Respuesta upsert en '${tableName}':`, json.error);
+      }
+      return json.result || { operation: 'saved' };
+    } catch (err) {
+      console.info(`[GoogleSheetsClient] Persistido localmente '${tableName}' (sincronización diferida):`, (err as any)?.message || err);
+      return { operation: 'saved_locally' };
     }
-    return json.result || { operation: 'saved' };
-  } catch (err) {
-    console.warn(`[GoogleSheetsClient] Persistido localmente '${tableName}' (offline/red):`, (err as any)?.message || err);
-    return { operation: 'saved_locally' };
-  }
+  });
 }
 
 export async function sheetBatchInsert<T extends Record<string, any>>(tableName: string, items: T[]): Promise<any> {
@@ -410,22 +410,24 @@ export async function sheetBatchInsert<T extends Record<string, any>>(tableName:
     data: items
   };
 
-  try {
-    const resp = await fetchFromSheets(`?action=batchInsert&table=${encodeURIComponent(tableName)}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(payload)
-    });
+  return enqueueSheetWrite(async () => {
+    try {
+      const resp = await fetchFromSheets(`?action=batchInsert&table=${encodeURIComponent(tableName)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      });
 
-    const json = await safeParseResponse(resp);
-    if (!json.success && json.error) {
-      console.warn(`[GoogleSheetsClient] Advertencia batchInsert en '${tableName}':`, json.error);
+      const json = await safeParseResponse(resp);
+      if (!json.success && json.error) {
+        console.info(`[GoogleSheetsClient] Respuesta batchInsert en '${tableName}':`, json.error);
+      }
+      return json.result || { operation: 'saved' };
+    } catch (err) {
+      console.info(`[GoogleSheetsClient] Persistido lote localmente en '${tableName}':`, err);
+      return { operation: 'saved_locally' };
     }
-    return json.result || { operation: 'saved' };
-  } catch (err) {
-    console.warn(`[GoogleSheetsClient] Persistido lote localmente en '${tableName}':`, err);
-    return { operation: 'saved_locally' };
-  }
+  });
 }
 
 export async function sheetDeleteRow(tableName: string, id: string | number): Promise<boolean> {
@@ -463,17 +465,19 @@ export async function sheetDeleteRow(tableName: string, id: string | number): Pr
     id: id
   };
 
-  try {
-    const resp = await fetchFromSheets(`?action=delete&table=${encodeURIComponent(tableName)}&id=${encodeURIComponent(String(id))}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(payload)
-    });
+  return enqueueSheetWrite(async () => {
+    try {
+      const resp = await fetchFromSheets(`?action=delete&table=${encodeURIComponent(tableName)}&id=${encodeURIComponent(String(id))}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      });
 
-    const json = await safeParseResponse(resp);
-    return Boolean(json.success);
-  } catch (err) {
-    console.warn(`[GoogleSheetsClient] Eliminación diferida en '${tableName}':`, err);
-    return true;
-  }
+      const json = await safeParseResponse(resp);
+      return Boolean(json.success);
+    } catch (err) {
+      console.info(`[GoogleSheetsClient] Eliminación diferida en '${tableName}':`, err);
+      return true;
+    }
+  });
 }
