@@ -27,12 +27,14 @@ import {
   Scissors,
   AlertCircle,
   RotateCcw,
-  Trash2
+  Trash2,
+  Edit3
 } from 'lucide-react';
 import { Mesa, Insumo, ProductoMenu, RecetaEscandallo, Pedido, PedidoItem } from '../types';
 import { createMozoCartIdempotencyKey } from '../lib/mozoCartDraft';
 import { calculatePedidoTotal, resolvePedidoItemUnitPrice } from '../lib/orderPricing';
 import { promocionesService, Promocion } from '../services/promocionesService';
+import { pedidosService } from '../services/pedidosService';
 import { menuDiarioService, MenuDiarioDia, INITIAL_MENU_DIARIO } from '../services/menuDiarioService';
 import { printComandaThermalTicket } from '../lib/comandaPrinter';
 import { formatTicketTableName, isUnitedTable, formatUnitedTableName } from '../lib/tableUnions';
@@ -252,6 +254,7 @@ interface MozoTerminalProps {
   activeMozo: string;
   onMozoChange: (mozo: string) => void;
   onCrearPedido: (pedido: Omit<Pedido, 'id_pedido' | 'fecha_hora' | 'minutos_transcurridos' | 'origen'> & { origen?: 'Mozo'; comensales?: number; idempotency_key?: string }) => void | boolean | Promise<void | boolean>;
+  onActualizarPedido?: (idPedido: number, updatedFields: Partial<Pedido>) => Promise<boolean | void> | boolean | void;
   pedidos: Pedido[];
   onFacturarMesa: (idPedido: number) => void;
   addLog: (tipo: 'pedido_creado' | 'descuento_stock' | 'alerta_stock' | 'comanda_estado' | 'sistema', mensaje: string) => void;
@@ -269,6 +272,7 @@ export default function MozoTerminal({
   activeMozo,
   onMozoChange,
   onCrearPedido,
+  onActualizarPedido,
   pedidos,
   onFacturarMesa,
   addLog,
@@ -288,6 +292,117 @@ export default function MozoTerminal({
   const [comensales, setComensales] = useState<number>(2);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategoria, setSelectedCategoria] = useState<string>('todo');
+
+  // Estados para Edición de Pedidos en Mesa
+  const [editingPedido, setEditingPedido] = useState<Pedido | null>(null);
+  const [editingItems, setEditingItems] = useState<PedidoItem[]>([]);
+  const [editingObservaciones, setEditingObservaciones] = useState<string>('');
+  const [editProductSearch, setEditProductSearch] = useState<string>('');
+  const [editCategoryFilter, setEditCategoryFilter] = useState<string>('todos');
+  const [isSavingEdit, setIsSavingEdit] = useState<boolean>(false);
+
+  const handleStartEditPedido = (pedidoToEdit: Pedido) => {
+    setEditingPedido(pedidoToEdit);
+    setEditingItems(pedidoToEdit.items.map(it => ({ ...it })));
+    setEditingObservaciones(pedidoToEdit.observaciones || '');
+    setEditProductSearch('');
+    setEditCategoryFilter('todos');
+  };
+
+  const handleEditItemQuantity = (index: number, delta: number) => {
+    setEditingItems(prev => {
+      const next = [...prev];
+      const target = next[index];
+      if (!target) return prev;
+      const nextQty = target.cantidad + delta;
+      if (nextQty <= 0) {
+        return next.filter((_, i) => i !== index);
+      }
+      next[index] = { ...target, cantidad: nextQty };
+      return next;
+    });
+  };
+
+  const handleEditRemoveItem = (index: number) => {
+    setEditingItems(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleEditAddProduct = (prod: ProductoMenu) => {
+    setEditingItems(prev => {
+      const existingIdx = prev.findIndex(it => it.id_producto === prod.id_producto);
+      if (existingIdx > -1) {
+        const next = [...prev];
+        next[existingIdx] = {
+          ...next[existingIdx],
+          cantidad: next[existingIdx].cantidad + 1
+        };
+        return next;
+      }
+      const newItem: PedidoItem = {
+        id_producto: prod.id_producto,
+        nombre: prod.nombre,
+        cantidad: 1,
+        categoria: prod.categoria,
+        precio_unitario: prod.precio_venta,
+        estado: 'pendiente'
+      };
+      return [...prev, newItem];
+    });
+    toast.success(`'${prod.nombre}' agregado a la edición.`);
+  };
+
+  const editingTotal = useMemo(() => {
+    if (!editingItems || editingItems.length === 0) return 0;
+    return editingItems.reduce((acc, it) => {
+      const price = resolvePedidoItemUnitPrice(it, productosMenu);
+      return acc + (price * it.cantidad);
+    }, 0);
+  }, [editingItems, productosMenu]);
+
+  const filteredProductsForEdit = useMemo(() => {
+    return productosMenu
+      .filter(p => p.activo !== false)
+      .filter(p => {
+        if (editCategoryFilter !== 'todos' && normalizeCategoryString(p.categoria) !== normalizeCategoryString(editCategoryFilter)) {
+          return false;
+        }
+        if (editProductSearch.trim()) {
+          return matchesProductSearch(p, editProductSearch);
+        }
+        return true;
+      })
+      .slice(0, 40);
+  }, [productosMenu, editCategoryFilter, editProductSearch]);
+
+  const handleSaveEditPedido = async () => {
+    if (!editingPedido) return;
+    if (editingItems.length === 0) {
+      toast.warning('El pedido debe tener al menos un producto. Si desea cancelar toda la comanda, utilice la opción "Cancelar comanda y liberar mesa".');
+      return;
+    }
+
+    setIsSavingEdit(true);
+    try {
+      const updatedFields: Partial<Pedido> = {
+        items: editingItems,
+        observaciones: editingObservaciones.trim() || undefined
+      };
+
+      if (onActualizarPedido) {
+        await onActualizarPedido(editingPedido.id_pedido, updatedFields);
+      } else {
+        await pedidosService.update(editingPedido.id_pedido, updatedFields);
+      }
+
+      toast.success(`Pedido #${editingPedido.id_pedido} actualizado correctamente.`);
+      setEditingPedido(null);
+    } catch (err: any) {
+      console.error('Error al guardar edición del pedido:', err);
+      toast.error(`Error al actualizar pedido: ${err?.message || err}`);
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
   
   // Dynamic Promociones State
   const [promociones, setPromociones] = useState<Promocion[]>([]);
@@ -1257,11 +1372,28 @@ export default function MozoTerminal({
               {activePedidoDeMesa && selectedMesaInfo ? (
                 <div className="bg-stone-50 dark:bg-[#1E140E]/80 rounded-xl p-3 border border-stone-200 dark:border-white/5 space-y-2.5">
                   <div className="flex justify-between items-center">
-                    <span className="text-[11px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
-                      {selectedMesaInfo.activeOrders.length > 1
-                        ? `Comandas #${selectedMesaInfo.activeOrders.map(o => o.id_pedido).join(', #')}`
-                        : `Orden Activa #${activePedidoDeMesa.id_pedido}`}
-                    </span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[11px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
+                        {selectedMesaInfo.activeOrders.length > 1
+                          ? `Comandas (${selectedMesaInfo.activeOrders.length})`
+                          : `Orden Activa #${activePedidoDeMesa.id_pedido}`}
+                      </span>
+                      {selectedMesaInfo.activeOrders.length > 1 && (
+                        <div className="flex items-center gap-1">
+                          {selectedMesaInfo.activeOrders.map(o => (
+                            <button
+                              key={o.id_pedido}
+                              type="button"
+                              onClick={() => handleStartEditPedido(o)}
+                              className="text-[9px] px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-950/50 text-amber-850 dark:text-amber-300 font-bold hover:bg-amber-200 cursor-pointer border border-amber-300/40"
+                              title={`Editar comanda #${o.id_pedido}`}
+                            >
+                              ✏️ #{o.id_pedido}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full capitalize ${
                       activePedidoDeMesa.estado_comanda === 'listo' 
                         ? 'bg-[#3A5A40]/10 text-[#3A5A40] dark:text-[#22C55E] animate-pulse'
@@ -1317,21 +1449,32 @@ export default function MozoTerminal({
                     </div>
                   ) : (
                     <>
-                      <div className="flex gap-2">
+                      <div className="grid grid-cols-2 gap-2">
                         <button
+                          type="button"
+                          onClick={() => handleStartEditPedido(activePedidoDeMesa)}
+                          className="py-1.5 px-2 bg-amber-500/10 dark:bg-amber-500/20 border border-amber-500/30 hover:bg-amber-500/20 text-amber-900 dark:text-amber-200 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                        >
+                          <Edit3 className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400" />
+                          Editar Pedido
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => setSplittingPedidoId(activePedidoDeMesa.id_pedido)}
-                          className="flex-1 py-1 px-2.5 bg-[#FAF7F0] dark:bg-[#251B12]/60 border border-[#C8956A]/20 hover:bg-[#F5F1E9] dark:hover:bg-[#8C6239]/40 text-[#8C6239] dark:text-[#C8956A] rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                          className="py-1.5 px-2 bg-[#FAF7F0] dark:bg-[#251B12]/60 border border-[#C8956A]/20 hover:bg-[#F5F1E9] dark:hover:bg-[#8C6239]/40 text-[#8C6239] dark:text-[#C8956A] rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
                         >
                           <Receipt className="w-3.5 h-3.5 text-[#8C6239] dark:text-[#C8956A]" />
                           Dividir Cuenta
                         </button>
-                        <button
-                          onClick={() => setConfirmCobrarId(activePedidoDeMesa.id_pedido)}
-                          className="flex-1 py-1 px-2.5 bg-[#8C6239] dark:bg-[#C8956A] border border-transparent hover:bg-[#5d3a2e] dark:hover:bg-[#d8a478] text-[#FAF7F0] dark:text-[#8C6239] rounded-lg text-xs font-extrabold flex items-center justify-center gap-1 transition-colors shadow-sm cursor-pointer"
-                        >
-                          Cobrar Mesa
-                        </button>
                       </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setConfirmCobrarId(activePedidoDeMesa.id_pedido)}
+                        className="w-full py-2 px-2.5 bg-[#8C6239] dark:bg-[#C8956A] border border-transparent hover:bg-[#5d3a2e] dark:hover:bg-[#d8a478] text-[#FAF7F0] dark:text-[#8C6239] rounded-lg text-xs font-extrabold flex items-center justify-center gap-1 transition-colors shadow-sm cursor-pointer"
+                      >
+                        Cobrar Mesa
+                      </button>
 
                       {confirmLiberarMesaId === selectedMesa.id_mesa ? (
                         <div className="p-2.5 bg-red-50 dark:bg-red-950/40 rounded-lg border border-red-300 dark:border-red-700 space-y-2">
@@ -2212,6 +2355,280 @@ export default function MozoTerminal({
                 </div>
               );
             })()}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL EDITAR PEDIDO (COMANDAS ACTIVAS) */}
+      {editingPedido !== null && (
+        <div className="fixed inset-0 bg-stone-950/70 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 z-50 animate-fadeIn">
+          <div className="glass-panel rounded-3xl p-5 sm:p-6 shadow-2xl max-w-xl w-full border border-[#C8956A]/25 max-h-[92vh] flex flex-col bg-white dark:bg-[#1E140E]">
+            {/* Header del Modal */}
+            <div className="flex justify-between items-start pb-3 border-b border-stone-200/40 dark:border-white/10">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-extrabold text-base sm:text-lg text-stone-900 dark:text-stone-100 font-sans tracking-tight flex items-center gap-2">
+                    <Edit3 className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                    Editar Pedido #{editingPedido.id_pedido}
+                  </h3>
+                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30 capitalize">
+                    {editingPedido.estado_comanda === 'en_cocina' ? 'En Fuego 🔥' : editingPedido.estado_comanda}
+                  </span>
+                </div>
+                <p className="text-xs text-stone-600 dark:text-stone-400 font-sans">
+                  {editingPedido.numero_mesa} • Mozo: <strong className="text-stone-800 dark:text-stone-200">{editingPedido.mozo || activeMozo}</strong>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingPedido(null)}
+                className="text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 p-1 cursor-pointer transition-colors"
+                title="Cerrar sin guardar"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Selector de comandas si la mesa tiene más de una activa */}
+            {selectedMesaInfo && selectedMesaInfo.activeOrders.length > 1 && (
+              <div className="pt-2 pb-1 flex items-center gap-1.5 overflow-x-auto border-b border-stone-200/20 pb-2">
+                <span className="text-[10px] font-bold text-stone-500 uppercase shrink-0">Comanda:</span>
+                {selectedMesaInfo.activeOrders.map(ord => (
+                  <button
+                    key={ord.id_pedido}
+                    type="button"
+                    onClick={() => handleStartEditPedido(ord)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      ord.id_pedido === editingPedido.id_pedido
+                        ? 'bg-[#8C6239] text-white shadow-xs'
+                        : 'bg-stone-100 dark:bg-white/5 text-stone-600 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-white/10'
+                    }`}
+                  >
+                    #{ord.id_pedido} ({ord.items.length} ítems)
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Cuerpo con Scroll */}
+            <div className="flex-1 overflow-y-auto py-3 space-y-4 pr-1">
+              {/* Sección 1: Platos cargados actualmente */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <label className="text-xs font-extrabold text-[#8C6239] dark:text-[#C8956A] uppercase tracking-wider flex items-center gap-1.5">
+                    <UtensilsCrossed className="w-3.5 h-3.5" />
+                    Platos y Bebidas en la Comanda ({editingItems.reduce((acc, it) => acc + it.cantidad, 0)} {editingItems.reduce((acc, it) => acc + it.cantidad, 0) === 1 ? 'ítem' : 'ítems'})
+                  </label>
+                  {editingItems.length > 0 && (
+                    <span className="text-[10px] text-stone-500 font-mono font-medium">
+                      Subtotal: ${editingTotal.toLocaleString('es-AR')}
+                    </span>
+                  )}
+                </div>
+
+                {editingItems.length === 0 ? (
+                  <div className="p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-300 dark:border-amber-800/60 rounded-xl text-center space-y-1">
+                    <p className="text-xs font-bold text-amber-900 dark:text-amber-200">
+                      No hay platos en la comanda.
+                    </p>
+                    <p className="text-[10px] text-amber-700 dark:text-amber-400">
+                      Agregue productos desde el catálogo inferior. Si la mesa se desocupó, puede usar la opción "Cancelar comanda y liberar mesa".
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
+                    {editingItems.map((item, idx) => {
+                      const unitPrice = resolvePedidoItemUnitPrice(item, productosMenu);
+                      const lineTotal = unitPrice * item.cantidad;
+                      return (
+                        <div
+                          key={`${item.id_producto}_${idx}`}
+                          className="flex items-center justify-between p-2 sm:p-2.5 rounded-xl border border-stone-200 dark:border-white/10 bg-stone-50/80 dark:bg-stone-900/60 hover:border-amber-300/60 transition-all text-xs"
+                        >
+                          <div className="min-w-0 flex-1 pr-2">
+                            <p className="font-bold text-stone-900 dark:text-stone-100 truncate">
+                              {item.nombre}
+                            </p>
+                            <p className="text-[10px] text-stone-500 dark:text-stone-400 font-mono">
+                              ${unitPrice.toLocaleString('es-AR')} c/u • {item.categoria || 'Carta'}
+                            </p>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            <div className="flex items-center bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg p-0.5">
+                              <button
+                                type="button"
+                                onClick={() => handleEditItemQuantity(idx, -1)}
+                                className="w-6 h-6 rounded flex items-center justify-center text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-700 font-black cursor-pointer transition-colors"
+                                title={item.cantidad === 1 ? 'Quitar ítem' : 'Reducir cantidad'}
+                              >
+                                <Minus className="w-3 h-3" />
+                              </button>
+                              <span className="w-6 text-center font-mono font-extrabold text-stone-900 dark:text-stone-100 text-xs">
+                                {item.cantidad}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleEditItemQuantity(idx, 1)}
+                                className="w-6 h-6 rounded flex items-center justify-center text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-700 font-black cursor-pointer transition-colors"
+                                title="Aumentar cantidad"
+                              >
+                                <Plus className="w-3 h-3" />
+                              </button>
+                            </div>
+
+                            <span className="w-16 sm:w-20 text-right font-mono font-bold text-stone-900 dark:text-stone-100 text-xs">
+                              ${lineTotal.toLocaleString('es-AR')}
+                            </span>
+
+                            <button
+                              type="button"
+                              onClick={() => handleEditRemoveItem(idx)}
+                              className="p-1.5 text-stone-400 hover:text-red-600 dark:hover:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 cursor-pointer transition-colors"
+                              title="Eliminar de la comanda"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Sección 2: Agregar platos o bebidas de la carta */}
+              <div className="p-3 bg-[#FAF7F0]/80 dark:bg-[#251B12]/60 border border-[#C8956A]/25 rounded-2xl space-y-2.5">
+                <div className="flex justify-between items-center">
+                  <label className="text-xs font-extrabold text-[#8C6239] dark:text-[#C8956A] uppercase tracking-wider flex items-center gap-1.5">
+                    <Plus className="w-3.5 h-3.5" />
+                    Agregar Plato o Bebida
+                  </label>
+                  <span className="text-[10px] text-stone-500 dark:text-stone-400">
+                    Catálogo del Menú
+                  </span>
+                </div>
+
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Buscar plato, vino, postre o bebida..."
+                    value={editProductSearch}
+                    onChange={e => setEditProductSearch(e.target.value)}
+                    className="w-full pl-8 pr-8 py-1.5 bg-white dark:bg-stone-900 border border-stone-200 dark:border-white/10 rounded-xl text-xs text-stone-800 dark:text-stone-200 placeholder-stone-400 focus:outline-none focus:ring-1 focus:ring-[#C8956A]"
+                  />
+                  {editProductSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setEditProductSearch('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 p-0.5 cursor-pointer"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Filtros rápidos por categoría */}
+                <div className="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-none">
+                  {['todos', 'Parrilla', 'Cocina', 'Pastas', 'Bebidas', 'Bodega', 'Postres'].map(cat => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setEditCategoryFilter(cat)}
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 transition-all cursor-pointer ${
+                        editCategoryFilter.toLowerCase() === cat.toLowerCase()
+                          ? 'bg-[#8C6239] text-white'
+                          : 'bg-white/80 dark:bg-stone-900 text-stone-600 dark:text-stone-400 border border-stone-200/60 dark:border-white/5 hover:bg-stone-100'
+                      }`}
+                    >
+                      {cat === 'todos' ? 'Todos' : cat}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Lista de productos para agregar */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-36 overflow-y-auto pr-1">
+                  {filteredProductsForEdit.length === 0 ? (
+                    <p className="col-span-full text-center text-[10px] text-stone-400 py-3 italic">
+                      No se encontraron productos coincidentes.
+                    </p>
+                  ) : (
+                    filteredProductsForEdit.map(prod => (
+                      <button
+                        key={prod.id_producto}
+                        type="button"
+                        onClick={() => handleEditAddProduct(prod)}
+                        className="flex items-center justify-between p-1.5 rounded-lg bg-white dark:bg-stone-900/90 border border-stone-200/80 dark:border-white/5 hover:border-emerald-500 hover:bg-emerald-50/40 dark:hover:bg-emerald-950/20 text-left transition-all cursor-pointer group"
+                      >
+                        <div className="min-w-0 flex-1 pr-1">
+                          <p className="text-xs font-semibold text-stone-800 dark:text-stone-200 truncate group-hover:text-emerald-800 dark:group-hover:text-emerald-300">
+                            {prod.nombre}
+                          </p>
+                          <span className="text-[9px] text-stone-400 font-mono">
+                            {prod.categoria}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <span className="font-mono text-xs font-black text-emerald-700 dark:text-emerald-400">
+                            ${prod.precio_venta.toLocaleString('es-AR')}
+                          </span>
+                          <span className="w-5 h-5 rounded bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-200 flex items-center justify-center text-[10px] font-black group-hover:scale-110 transition-transform">
+                            +
+                          </span>
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Sección 3: Observaciones de la comanda */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <Bookmark className="w-3.5 h-3.5 text-[#C8956A]" />
+                  Observaciones e Indicaciones de Cocina
+                </label>
+                <textarea
+                  placeholder="Ej: Bife bien cocido, papas sin sal, salsa mixta en cazuela aparte..."
+                  value={editingObservaciones}
+                  onChange={e => setEditingObservaciones(e.target.value)}
+                  className="w-full text-xs p-2.5 rounded-xl border border-stone-200 dark:border-white/10 bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-200 focus:outline-none focus:ring-1 focus:ring-[#C8956A] resize-none h-16"
+                />
+              </div>
+            </div>
+
+            {/* Pie de acción del modal */}
+            <div className="pt-3 border-t border-stone-200/40 dark:border-white/10 flex flex-col sm:flex-row justify-between items-center gap-3">
+              <div>
+                <span className="text-[10px] font-bold text-stone-500 dark:text-stone-400 block uppercase">
+                  Nuevo Total Consumo
+                </span>
+                <span className="font-mono font-black text-lg text-[#8C6239] dark:text-[#E8B800]">
+                  ${editingTotal.toLocaleString('es-AR')}
+                </span>
+              </div>
+
+              <div className="flex gap-2 w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => setEditingPedido(null)}
+                  disabled={isSavingEdit}
+                  className="flex-1 sm:flex-initial py-2 px-4 rounded-xl bg-stone-200 dark:bg-stone-700 hover:bg-stone-300 dark:hover:bg-stone-600 text-stone-700 dark:text-stone-200 text-xs font-bold cursor-pointer transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveEditPedido}
+                  disabled={isSavingEdit || editingItems.length === 0}
+                  className="flex-1 sm:flex-initial py-2 px-5 rounded-xl bg-[#8C6239] hover:bg-[#5d3a2e] text-[#FAF7F0] text-xs font-black flex items-center justify-center gap-1.5 shadow-md transition-all cursor-pointer disabled:opacity-50"
+                >
+                  <CheckCircle className="w-4 h-4 text-emerald-300" />
+                  {isSavingEdit ? 'Guardando...' : 'Guardar Cambios'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

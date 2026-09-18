@@ -82,6 +82,7 @@ import { canMergePedidoItems, resolvePedidoItemUnitPrice } from './lib/orderPric
 import { cajaService } from './services/cajaService';
 import { reservasService } from './services/reservasService';
 import { stockEngine } from './services/stock/stockEngine';
+import { pedidosService } from './services/pedidosService';
 import { orderTransactionService } from './services/orderTransactionService';
 import { resolveSessionOperator } from './lib/sessionOperator';
 import { isSameTable, doesOrderBelongToTable } from './lib/tableOrders';
@@ -863,6 +864,91 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     }
     return true;
   }, [pedidos, insumos, recetas, productosMenu, addLog, mesas, permitirVentaSinStock, setMesas, setInsumos, setPedidos, activeMozo, isDemoSession, toast]);
+
+  const handleActualizarPedido = useCallback(async (
+    idPedido: number,
+    updatedFields: Partial<Pedido>
+  ): Promise<boolean> => {
+    const existingPedido = pedidos.find(p => p.id_pedido === idPedido);
+    if (!existingPedido) {
+      toast.error('Pedido no encontrado');
+      return false;
+    }
+
+    // Si el pedido ya tenía stock descontado y los ítems cambiaron, reajustar con stockEngine
+    if (existingPedido.stock_descontado && updatedFields.items) {
+      try {
+        const reverseResult = stockEngine.reverseStockForPedido(
+          existingPedido,
+          insumos,
+          recetas
+        );
+        const dummyNewPedido: Pedido = {
+          ...existingPedido,
+          ...updatedFields,
+          items: updatedFields.items
+        };
+        const deductResult = stockEngine.deductStockForPedido(
+          dummyNewPedido,
+          reverseResult.updatedInsumos,
+          recetas,
+          permitirVentaSinStock
+        );
+        setInsumos(deductResult.updatedInsumos);
+        deductResult.alarmasBajoStock.forEach(nom => {
+          addLog('alerta_stock', `CONTROL REPOSICIÓN: El insumo '${nom}' ha caído por debajo del stock de seguridad.`);
+        });
+      } catch (err: any) {
+        console.warn('Advertencia ajustando inventario al editar comanda:', err);
+      }
+    }
+
+    const finalPedido: Pedido = {
+      ...existingPedido,
+      ...updatedFields,
+      id_pedido: idPedido
+    };
+
+    // 1. Actualizar estado local en memoria
+    setPedidos(prev => prev.map(p => p.id_pedido === idPedido ? finalPedido : p));
+
+    // 2. Transmisión simultánea a cocina y caja por BroadcastChannel y Supabase Realtime
+    const broadcastPayload = {
+      pedido: finalPedido,
+      id_mesa: finalPedido.id_mesa,
+      numero_mesa: finalPedido.numero_mesa
+    };
+
+    if (broadcastChannelRef.current) {
+      try {
+        broadcastChannelRef.current.postMessage({ type: 'pedido_creado', payload: broadcastPayload });
+      } catch {}
+    }
+
+    if (activeChannelRef.current) {
+      try {
+        activeChannelRef.current.send({
+          type: 'broadcast',
+          event: 'pedido_creado',
+          payload: broadcastPayload
+        }).catch?.(() => undefined);
+      } catch {}
+    }
+
+    addLog('sistema', `PEDIDO EDITADO: Pedido #${idPedido} de ${finalPedido.numero_mesa} modificado por ${activeMozo}. Ítems: ${finalPedido.items.map(i => `${i.nombre} (x${i.cantidad})`).join(', ')}`);
+
+    // 3. Persistir cambios en base de datos remota
+    if (!isDemoSession) {
+      try {
+        await pedidosService.update(idPedido, updatedFields);
+      } catch (error) {
+        console.error('Error persistiendo comanda editada:', error);
+        toast.warning('El pedido se actualizó localmente pero hubo un retraso al sincronizar en la nube.');
+      }
+    }
+
+    return true;
+  }, [pedidos, insumos, recetas, permitirVentaSinStock, activeMozo, isDemoSession, addLog, toast]);
 
   const handleMozoChange = (mozo: string) => {
     const nextUser = usuarios.find(usuario => usuario.nombre === mozo && usuario.activo !== false);
@@ -1836,6 +1922,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
                 pedidos={pedidos}
                 onMozoChange={setActiveMozo}
                 onCrearPedido={handleCrearPedido}
+                onActualizarPedido={handleActualizarPedido}
                 onFacturarMesa={handleFacturarMesa}
                 onUnirMesas={handleUnirMesas}
                 onDesunirMesas={handleDesunirMesas}
