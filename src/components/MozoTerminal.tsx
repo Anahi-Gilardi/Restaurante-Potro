@@ -359,19 +359,88 @@ export default function MozoTerminal({
     }, 0);
   }, [editingItems, productosMenu]);
 
-  const filteredProductsForEdit = useMemo(() => {
-    return productosMenu
-      .filter(p => p.activo !== false)
-      .filter(p => {
-        if (editCategoryFilter !== 'todos' && normalizeCategoryString(p.categoria) !== normalizeCategoryString(editCategoryFilter)) {
-          return false;
-        }
-        if (editProductSearch.trim()) {
-          return matchesProductSearch(p, editProductSearch);
-        }
-        return true;
-      })
-      .slice(0, 40);
+  const editCategoriesList = useMemo(() => {
+    const set = new Set<string>();
+    productosMenu.forEach(p => {
+      if (p.categoria?.trim() && p.activo !== false) {
+        set.add(p.categoria.trim());
+      }
+    });
+
+    const preferredOrder = [
+      'Entradas',
+      'Parrilla',
+      'Carnes',
+      'Pastas',
+      'Cocina',
+      'Comidas Criollas',
+      'Pescados',
+      'Postres',
+      'Bebidas sin Alcohol',
+      'Bebidas con Alcohol',
+      'Cervezas',
+      'Bodega',
+      'Vinos Tintos',
+      'Vinos Blancos y Rosados',
+      'Espumantes',
+      'Destilados',
+      'Tragos y Coctelería'
+    ];
+
+    const ordered: string[] = [];
+    preferredOrder.forEach(cat => {
+      const match = Array.from(set).find(c => normalizeCategoryString(c) === normalizeCategoryString(cat));
+      if (match) {
+        ordered.push(match);
+        set.delete(match);
+      }
+    });
+
+    const remaining = Array.from(set).sort((a, b) => a.localeCompare(b, 'es'));
+    return ['Todos', ...ordered, ...remaining];
+  }, [productosMenu]);
+
+  const { filteredProductsForEdit, isCrossCategoryEditSearch } = useMemo(() => {
+    const query = editProductSearch.trim();
+    const isAll = !editCategoryFilter || editCategoryFilter.toLowerCase() === 'todos' || editCategoryFilter.toLowerCase() === 'todo';
+
+    const matchesCat = (p: ProductoMenu, cat: string): boolean => {
+      if (!cat || cat.toLowerCase() === 'todos' || cat.toLowerCase() === 'todo') return true;
+      const normCat = normalizeCategoryString(cat);
+      const pCatNorm = normalizeCategoryString(p.categoria);
+      if (p.categoria === cat) return true;
+      if (pCatNorm === normCat) return true;
+      if (pCatNorm.includes(normCat) || normCat.includes(pCatNorm)) return true;
+      if (normCat === 'parrilla' && (pCatNorm.includes('carne') || pCatNorm.includes('asado') || pCatNorm.includes('corte'))) return true;
+      if (normCat === 'carnes' && (pCatNorm.includes('parrilla') || pCatNorm.includes('corte') || pCatNorm.includes('asado'))) return true;
+      if (normCat === 'bodega' && (p.tipo === 'vino' || isBodegaCategory(p.categoria))) return true;
+      if (normCat === 'bebidas' && (pCatNorm.includes('bebida') || p.tipo === 'bebida')) return true;
+      return false;
+    };
+
+    const activeProducts = productosMenu.filter(p => p.activo !== false);
+
+    if (!query) {
+      const list = isAll ? activeProducts : activeProducts.filter(p => matchesCat(p, editCategoryFilter));
+      return { filteredProductsForEdit: list, isCrossCategoryEditSearch: false };
+    }
+
+    if (isAll) {
+      const allMatches = activeProducts.filter(p => matchesProductSearch(p, query));
+      return { filteredProductsForEdit: allMatches, isCrossCategoryEditSearch: false };
+    }
+
+    const catMatches = activeProducts.filter(p => matchesCat(p, editCategoryFilter) && matchesProductSearch(p, query));
+    if (catMatches.length > 0) {
+      return { filteredProductsForEdit: catMatches, isCrossCategoryEditSearch: false };
+    }
+
+    // Fallback global inteligente si no hay en la categoría actual pero sí en otra parte del menú
+    const globalMatches = activeProducts.filter(p => matchesProductSearch(p, query));
+    return {
+      filteredProductsForEdit: globalMatches,
+      isCrossCategoryEditSearch: globalMatches.length > 0
+    };
   }, [productosMenu, editCategoryFilter, editProductSearch]);
 
   const handleSaveEditPedido = async () => {
@@ -2529,51 +2598,90 @@ export default function MozoTerminal({
                   )}
                 </div>
 
-                {/* Filtros rápidos por categoría */}
+                {/* Filtros de categorías dinámicas de la carta */}
                 <div className="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-none">
-                  {['todos', 'Parrilla', 'Cocina', 'Pastas', 'Bebidas', 'Bodega', 'Postres'].map(cat => (
-                    <button
-                      key={cat}
-                      type="button"
-                      onClick={() => setEditCategoryFilter(cat)}
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 transition-all cursor-pointer ${
-                        editCategoryFilter.toLowerCase() === cat.toLowerCase()
-                          ? 'bg-[#8C6239] text-white'
-                          : 'bg-white/80 dark:bg-stone-900 text-stone-600 dark:text-stone-400 border border-stone-200/60 dark:border-white/5 hover:bg-stone-100'
-                      }`}
-                    >
-                      {cat === 'todos' ? 'Todos' : cat}
-                    </button>
-                  ))}
+                  {editCategoriesList.map(cat => {
+                    const isSelected = (cat === 'Todos' && (editCategoryFilter.toLowerCase() === 'todos' || editCategoryFilter.toLowerCase() === 'todo')) ||
+                      normalizeCategoryString(editCategoryFilter) === normalizeCategoryString(cat);
+
+                    return (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => {
+                          setEditCategoryFilter(cat);
+                        }}
+                        className={`px-2.5 py-1 rounded-full text-[10px] font-bold shrink-0 transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-[#8C6239] text-white shadow-xs'
+                            : 'bg-white dark:bg-stone-900 text-stone-600 dark:text-stone-400 border border-stone-200/70 dark:border-white/10 hover:bg-stone-100 dark:hover:bg-stone-800'
+                        }`}
+                      >
+                        {cat}
+                      </button>
+                    );
+                  })}
                 </div>
 
+                {/* Aviso cuando la búsqueda es global por no haber coincidencias en la categoría activa */}
+                {isCrossCategoryEditSearch && (
+                  <div className="flex items-center justify-between px-2.5 py-1.5 bg-amber-500/10 border border-amber-500/30 rounded-xl text-[10px] text-amber-850 dark:text-amber-300">
+                    <span>
+                      Sin resultados en <strong>{editCategoryFilter}</strong>. Mostrando {filteredProductsForEdit.length} plato(s) en todo el menú.
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditCategoryFilter('Todos');
+                      }}
+                      className="underline font-black ml-2 hover:opacity-80 cursor-pointer"
+                    >
+                      Ver en Todos
+                    </button>
+                  </div>
+                )}
+
                 {/* Lista de productos para agregar */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-36 overflow-y-auto pr-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-48 sm:max-h-56 overflow-y-auto pr-1">
                   {filteredProductsForEdit.length === 0 ? (
-                    <p className="col-span-full text-center text-[10px] text-stone-400 py-3 italic">
-                      No se encontraron productos coincidentes.
-                    </p>
+                    <div className="col-span-full text-center py-4 space-y-1">
+                      <p className="text-xs font-bold text-stone-500 dark:text-stone-400">
+                        No se encontraron productos coincidentes.
+                      </p>
+                      {editCategoryFilter !== 'Todos' && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditCategoryFilter('Todos');
+                            setEditProductSearch('');
+                          }}
+                          className="text-[10px] text-[#8C6239] dark:text-[#C8956A] underline font-bold cursor-pointer"
+                        >
+                          Restablecer a Todos los platos
+                        </button>
+                      )}
+                    </div>
                   ) : (
                     filteredProductsForEdit.map(prod => (
                       <button
                         key={prod.id_producto}
                         type="button"
                         onClick={() => handleEditAddProduct(prod)}
-                        className="flex items-center justify-between p-1.5 rounded-lg bg-white dark:bg-stone-900/90 border border-stone-200/80 dark:border-white/5 hover:border-emerald-500 hover:bg-emerald-50/40 dark:hover:bg-emerald-950/20 text-left transition-all cursor-pointer group"
+                        className="flex items-center justify-between p-2 rounded-xl bg-white dark:bg-stone-900/90 border border-stone-200/80 dark:border-white/5 hover:border-emerald-500 hover:bg-emerald-50/40 dark:hover:bg-emerald-950/20 text-left transition-all cursor-pointer group shadow-2xs"
                       >
-                        <div className="min-w-0 flex-1 pr-1">
-                          <p className="text-xs font-semibold text-stone-800 dark:text-stone-200 truncate group-hover:text-emerald-800 dark:group-hover:text-emerald-300">
+                        <div className="min-w-0 flex-1 pr-1.5">
+                          <p className="text-xs font-bold text-stone-850 dark:text-stone-100 truncate group-hover:text-emerald-800 dark:group-hover:text-emerald-300">
                             {prod.nombre}
                           </p>
                           <span className="text-[9px] text-stone-400 font-mono">
                             {prod.categoria}
                           </span>
                         </div>
-                        <div className="flex items-center gap-1 shrink-0">
+                        <div className="flex items-center gap-1.5 shrink-0">
                           <span className="font-mono text-xs font-black text-emerald-700 dark:text-emerald-400">
                             ${prod.precio_venta.toLocaleString('es-AR')}
                           </span>
-                          <span className="w-5 h-5 rounded bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-200 flex items-center justify-center text-[10px] font-black group-hover:scale-110 transition-transform">
+                          <span className="w-5 h-5 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-200 flex items-center justify-center text-xs font-black group-hover:scale-110 transition-transform">
                             +
                           </span>
                         </div>

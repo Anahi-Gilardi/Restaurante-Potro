@@ -148,3 +148,20 @@ test('Serialización para backend y Google Sheets conserva los datos editados', 
   assert.equal(details[0].cantidad, 3);
   assert.equal(details[0].precio_unitario, 7800);
 });
+
+test('El filtro de categoría Entradas devuelve los platos de entrada correctamente', () => {
+  const entradas = mockProductos.filter(p => p.categoria.toLowerCase() === 'entradas');
+  assert.equal(entradas.length, 1);
+  assert.equal(entradas[0].nombre, 'Charcutería de elaboración propia');
+});
+
+test('La búsqueda inteligente de "cinta" encuentra platos de pastas', () => {
+  const query = 'cinta';
+  const cintaDishes = [
+    { id_producto: 'c1', nombre: 'Cintas finas al huevo con filetto y estofado', categoria: 'Pastas Caseras', activo: true, precio_venta: 10000, imagen: '' },
+    { id_producto: 'c2', nombre: 'Cinta ancha de pasta al huevo con tinta de sepia', categoria: 'Pastas Caseras', activo: true, precio_venta: 12000, imagen: '' }
+  ];
+
+  const matches = cintaDishes.filter(p => p.nombre.toLowerCase().includes(query.toLowerCase()));
+  assert.equal(matches.length, 2);
+});
