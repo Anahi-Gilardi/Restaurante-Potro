@@ -69,33 +69,37 @@ export const hydratePedido = (
   };
 };
 
-export const serializePedidoHeader = (pedido: Pedido) => ({
-  id_pedido: pedido.id_pedido,
-  idempotency_key: pedido.idempotency_key ?? null,
-  id_mesa: pedido.id_mesa || null,
-  numero_mesa: pedido.numero_mesa,
-  mozo: pedido.mozo,
-  estado_comanda: pedido.estado_comanda,
-  observaciones: pedido.observaciones || null,
-  fecha_hora: pedido.fecha_hora instanceof Date
-    ? pedido.fecha_hora.toISOString()
-    : new Date(pedido.fecha_hora).toISOString(),
-  minutos_transcurridos: pedido.minutos_transcurridos,
-  origen: pedido.origen,
-  tiempo_despacho_minutos: pedido.tiempo_despacho_minutos ?? null,
-  segundos_en_listo: pedido.segundos_en_listo ?? null,
-  stock_descontado: Boolean(pedido.stock_descontado),
-  fecha_descuento_stock: pedido.fecha_descuento_stock
-    ? new Date(pedido.fecha_descuento_stock).toISOString()
-    : null,
-  fecha_inicio_cocina: pedido.fecha_inicio_cocina
-    ? new Date(pedido.fecha_inicio_cocina).toISOString()
-    : null,
-  fecha_listo: pedido.fecha_listo
-    ? new Date(pedido.fecha_listo).toISOString()
-    : null,
-  items: JSON.stringify(pedido.items)
-});
+export const serializePedidoHeader = (pedido: Pedido) => {
+  const total = (pedido.items || []).reduce((sum, item) => sum + ((item.precio_unitario || 0) * (item.cantidad || 0)), 0);
+  return {
+    id_pedido: pedido.id_pedido,
+    idempotency_key: pedido.idempotency_key ?? null,
+    id_mesa: pedido.id_mesa || null,
+    numero_mesa: pedido.numero_mesa,
+    mozo: pedido.mozo,
+    estado_comanda: pedido.estado_comanda,
+    observaciones: pedido.observaciones || null,
+    fecha_hora: pedido.fecha_hora instanceof Date
+      ? pedido.fecha_hora.toISOString()
+      : (pedido.fecha_hora ? new Date(pedido.fecha_hora).toISOString() : new Date().toISOString()),
+    total,
+    minutos_transcurridos: pedido.minutos_transcurridos,
+    origen: pedido.origen,
+    tiempo_despacho_minutos: pedido.tiempo_despacho_minutos ?? null,
+    segundos_en_listo: pedido.segundos_en_listo ?? null,
+    stock_descontado: Boolean(pedido.stock_descontado),
+    fecha_descuento_stock: pedido.fecha_descuento_stock
+      ? new Date(pedido.fecha_descuento_stock).toISOString()
+      : null,
+    fecha_inicio_cocina: pedido.fecha_inicio_cocina
+      ? new Date(pedido.fecha_inicio_cocina).toISOString()
+      : null,
+    fecha_listo: pedido.fecha_listo
+      ? new Date(pedido.fecha_listo).toISOString()
+      : null,
+    items: JSON.stringify(pedido.items)
+  };
+};
 
 export const serializePedidoDetails = (pedido: Pedido) => pedido.items.map((item, index) => ({
   id_detalle: `${pedido.id_pedido}_${String(index).padStart(4, '0')}`,
@@ -191,6 +195,21 @@ export const pedidosService = {
         id_pedido: id,
         ...headerFields,
       });
+      if (fields.items !== undefined && Array.isArray(fields.items)) {
+        for (let i = 0; i < fields.items.length; i++) {
+          const item = fields.items[i];
+          await sheetUpsertRow('pedido_detalle', {
+            id_detalle: `${id}_${String(i).padStart(4, '0')}`,
+            id_pedido: id,
+            id_producto: item.id_producto,
+            nombre: item.nombre,
+            cantidad: item.cantidad,
+            categoria: item.categoria,
+            precio_unitario: item.precio_unitario ?? null,
+            estado: item.estado ?? 'pendiente'
+          });
+        }
+      }
     } catch (sheetErr) {
       console.warn('[pedidosService.update] Error en Google Sheets:', sheetErr);
     }
@@ -287,7 +306,9 @@ export const pedidosService = {
         await sheetUpsertRow('pedidos_cabecera', header);
         const details = serializePedidoDetails(ped);
         if (details.length > 0) {
-          await sheetBatchInsert('pedido_detalle', details);
+          for (const det of details) {
+            await sheetUpsertRow('pedido_detalle', det);
+          }
         }
       } catch (sheetErr) {
         console.warn('[pedidosService.upsert] Error en Google Sheets:', sheetErr);

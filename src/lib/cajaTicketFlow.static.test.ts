@@ -87,10 +87,23 @@ test('Caja no borra la comanda del salon al imprimir ticket hasta confirmar el c
   assert.match(cajaModule, /Confirmar y Cerrar Mesa/);
   assert.match(cajaModule, /Mantener Mesa Abierta/);
 
-  // onFacturarMesa solo debe ser ejecutado dentro de handleConfirmCerrarMesa
+  // onFacturarMesa solo debe ser ejecutado dentro de handleConfirmCerrarMesa indicando alreadyUpdatedInCaja=true
   const confirmCloseIdx = cajaHook.indexOf('const handleConfirmCerrarMesa =');
-  const onFacturarIdx = cajaHook.indexOf('onFacturarMesa(pedidoId);');
+  const onFacturarIdx = cajaHook.indexOf('onFacturarMesa(pedidoId, true);');
   assert.ok(confirmCloseIdx !== -1, 'handleConfirmCerrarMesa debe existir');
-  assert.ok(onFacturarIdx > confirmCloseIdx, 'onFacturarMesa debe ejecutarse dentro de handleConfirmCerrarMesa');
+  assert.ok(onFacturarIdx > confirmCloseIdx, 'onFacturarMesa(pedidoId, true) debe ejecutarse dentro de handleConfirmCerrarMesa');
 });
+
+test('Caja inicia con propina al 0% por defecto y la restablece a 0% tras cerrar la mesa', () => {
+  assert.match(cajaHook, /useState<number>\(0\); \/\/ Default 0% \(manual\)/);
+  assert.match(cajaHook, /setPropinaPorcentaje\(0\);/);
+  assert.doesNotMatch(cajaModule, /10% \(Rec\.\)/, 'No debe sugerir forzosamente 10%');
+});
+
+test('pedidosService y App evitan duplicados en Google Sheets al cobrar y editar', () => {
+  const pedidosServiceContent = readFileSync(resolve('src/services/pedidosService.ts'), 'utf8');
+  assert.doesNotMatch(pedidosServiceContent, /sheetBatchInsert\('pedido_detalle'/, 'No debe usar batchInsert ciego que duplica filas');
+  assert.match(pedidosServiceContent, /sheetUpsertRow\('pedido_detalle', det\)/);
+});
+
 

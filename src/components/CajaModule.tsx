@@ -54,7 +54,7 @@ interface CajaModuleProps {
   pedidos: Pedido[];
   productosMenu: ProductoMenu[];
   activeUser: Usuario;
-  onFacturarMesa: (idPedido: number) => void;
+  onFacturarMesa: (idPedido: number, alreadyUpdatedInCaja?: boolean) => void;
   onCambiarEstadoPedido: (idPedido: number, nuevoEstado: Pedido['estado_comanda']) => void;
   onOpenFacturacion?: () => void;
   addLog: (tipo: 'pedido_creado' | 'descuento_stock' | 'alerta_stock' | 'comanda_estado' | 'merma_registrada' | 'sistema', mensaje: string) => void;
@@ -1295,7 +1295,7 @@ export default function CajaModule({
                             >
                               <option value="0">0%</option>
                               <option value="5">5%</option>
-                              <option value="10">10% (Rec.)</option>
+                              <option value="10">10%</option>
                               <option value="15">15%</option>
                             </select>
                           </div>
@@ -1333,7 +1333,7 @@ export default function CajaModule({
                           >
                             <option value="0">0%</option>
                             <option value="5">5%</option>
-                            <option value="10">10% (Rec.)</option>
+                            <option value="10">10%</option>
                             <option value="15">15%</option>
                           </select>
                         </div>

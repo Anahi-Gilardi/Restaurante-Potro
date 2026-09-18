@@ -1279,12 +1279,20 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
       // Persistir comandas cerradas en Google Sheets
       for (const order of ordersToBill) {
         try {
+          const totalOrder = (order.items || []).reduce((acc, item) => {
+            const pm = productosMenu.find(pr => pr.id_producto === item.id_producto);
+            return acc + ((item.precio_unitario ?? pm?.precio_venta ?? 0) * item.cantidad);
+          }, 0);
+
           await sheetUpsertRow('pedidos_cabecera', {
             id_pedido: order.id_pedido,
             id_mesa: order.id_mesa,
             numero_mesa: order.numero_mesa,
             mozo: order.mozo,
             estado_comanda: 'entregado_cobrado',
+            fecha_hora: order.fecha_hora instanceof Date ? order.fecha_hora.toISOString() : (order.fecha_hora ? new Date(order.fecha_hora).toISOString() : new Date().toISOString()),
+            total: totalOrder,
+            observaciones: order.observaciones || '',
             items: JSON.stringify(order.items || [])
           });
         } catch (err) {
@@ -1317,6 +1325,14 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     });
 
     if (!alreadyUpdatedInCaja) {
+      // Protección contra duplicación: si ya existe una factura para este pedido, no recrearla
+      try {
+        const existingLocal = typeof localStorage !== 'undefined' ? JSON.parse(localStorage.getItem('el_patron_facturas_pendientes') || '[]') : [];
+        if (Array.isArray(existingLocal) && existingLocal.some((f: any) => String(f.id_pedido) === String(target.id_pedido))) {
+          return;
+        }
+      } catch {}
+
       const totalPedido = ordersToBill.reduce((sum, order) => {
         const orderSum = (order.items || []).reduce((itemSum, item) => {
           const pm = productosMenu.find(pr => pr.id_producto === item.id_producto);

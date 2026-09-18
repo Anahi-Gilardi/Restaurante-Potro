@@ -50,7 +50,7 @@ interface UseCajaProps {
   pedidos: Pedido[];
   productosMenu: ProductoMenu[];
   operatorName: string;
-  onFacturarMesa: (idPedido: number) => void;
+  onFacturarMesa: (idPedido: number, alreadyUpdatedInCaja?: boolean) => void;
   onCambiarEstadoPedido: (idPedido: number, nuevoEstado: Pedido['estado_comanda']) => void;
   addLog: (tipo: 'pedido_creado' | 'descuento_stock' | 'alerta_stock' | 'comanda_estado' | 'merma_registrada' | 'sistema', mensaje: string) => void;
   toast: {
@@ -197,7 +197,19 @@ export function useCaja({
 
   // Custom discounts & standard tips percentage selectors
   const [descuentoPorcentaje, setDescuentoPorcentaje] = useState<number>(0);
-  const [propinaPorcentaje, setPropinaPorcentaje] = useState<number>(10); // Standard 10%
+  const [propinaPorcentaje, setPropinaPorcentaje] = useState<number>(0); // Default 0% (manual)
+
+  // Auto-reset discounts and tip when selecting or clearing an order
+  useEffect(() => {
+    setDescuentoPorcentaje(0);
+    setPropinaPorcentaje(0);
+    setMixedPayments([]);
+    setMontoEntregadoEfectivo('');
+    setSplitByProducts(false);
+    setSelectedProductsForSplit([]);
+    setSelectedCliente(null);
+    setPuntosRedimidos(0);
+  }, [selectedPedidoId]);
 
   // Splits for payment
   const [splitPayerCount, setSplitPayerCount] = useState<number>(1);
@@ -860,7 +872,7 @@ export function useCaja({
       }
 
       // 1. Liberar mesa y comanda en salón
-      onFacturarMesa(pedidoId);
+      onFacturarMesa(pedidoId, true);
 
       try {
         await auditoriaService.create({
@@ -879,7 +891,7 @@ export function useCaja({
       setMixedPayments([]);
       setMontoEntregadoEfectivo('');
       setDescuentoPorcentaje(0);
-      setPropinaPorcentaje(10);
+      setPropinaPorcentaje(0);
       setSplitByProducts(false);
       setSelectedProductsForSplit([]);
       setSelectedCliente(null);
