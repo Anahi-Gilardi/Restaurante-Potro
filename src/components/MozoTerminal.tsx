@@ -1503,7 +1503,7 @@ export default function MozoTerminal({
                       const lineTotal = unitPrice * it.cantidad;
                       return (
                         <div key={idx} className="flex justify-between items-center text-xs text-stone-750 dark:text-stone-300 font-medium">
-                          <div className="min-w-0 pr-2 truncate">
+                          <div className="min-w-0 pr-2 break-words">
                             <span>{it.cantidad}x {it.nombre}</span>
                             {it.cantidad > 1 && (
                               <span className="text-[10px] text-stone-400 dark:text-stone-500 font-mono ml-1.5">
@@ -1876,8 +1876,8 @@ export default function MozoTerminal({
                                 ${diaData?.precio ? diaData.precio.toLocaleString('es-AR') : '8.500'}
                               </span>
                             </div>
-                            <h5 className="font-bold text-xs text-stone-850 dark:text-stone-100 line-clamp-1">{diaData?.nombre}</h5>
-                            <p className="text-[10px] text-stone-500 dark:text-stone-400 line-clamp-2 mt-0.5">{diaData?.descripcion}</p>
+                            <h5 className="font-bold text-xs text-stone-850 dark:text-stone-100 break-words leading-snug">{diaData?.nombre}</h5>
+                            <p className="text-[10px] text-stone-500 dark:text-stone-400 mt-0.5 break-words whitespace-normal">{diaData?.descripcion}</p>
                           </div>
 
                           <div className="mt-3 pt-2 border-t border-stone-100 dark:border-white/5 flex justify-between items-center">
@@ -2046,7 +2046,7 @@ export default function MozoTerminal({
                     whileHover={{ scale: 1.02, translateY: -2 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => !isOutOfStock && handleAddToCart(p.id_producto)}
-                    className={`group cursor-pointer rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 relative border ${
+                    className={`group cursor-pointer rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 relative border flex flex-col justify-between h-full ${
                       isOutOfStock 
                         ? 'opacity-60 border-rose-100 pointer-events-none bg-stone-50 dark:bg-stone-900/40' 
                         : currentInCart > 0 
@@ -2056,7 +2056,7 @@ export default function MozoTerminal({
                     style={{ contentVisibility: 'auto' }}
                   >
                     {/* Product Image */}
-                    <div className="h-28 w-full bg-stone-50 dark:bg-stone-900/60 relative overflow-hidden">
+                    <div className="h-28 w-full bg-stone-50 dark:bg-stone-900/60 relative overflow-hidden shrink-0">
                       <img
                         src={p.imagen}
                         alt={p.nombre}
@@ -2099,23 +2099,25 @@ export default function MozoTerminal({
                     </div>
 
                     {/* Product Details */}
-                    <div className="p-3 flex justify-between items-center gap-2">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1">
-                          <h4 className="font-bold text-xs text-[#8C6239] dark:text-[#FAF7F0] truncate font-sans">
+                    <div className="p-3 flex-1 flex flex-col justify-between gap-2.5">
+                      <div className="space-y-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <h4 className="font-bold text-xs text-[#8C6239] dark:text-[#FAF7F0] font-sans leading-snug break-words">
                             {p.nombre}
                           </h4>
                           {p.tipo === 'vino' && (
-                            <span className="text-[9px] px-1.5 py-0.2 bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 rounded font-bold">
+                            <span className="text-[9px] px-1.5 py-0.2 bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 rounded font-bold shrink-0">
                               Cava
                             </span>
                           )}
                         </div>
-                        <p className="text-[10px] text-stone-500 dark:text-stone-350 line-clamp-1 mt-0.5">
+                        <p className="text-[10px] text-stone-500 dark:text-stone-350 leading-normal break-words whitespace-normal">
                           {p.descripcion || p.categoria}
                         </p>
-                        
-                        <div className="flex items-center gap-2 mt-1">
+                      </div>
+                      
+                      <div className="flex items-center justify-between gap-2 pt-1 mt-auto">
+                        <div className="flex items-center gap-2">
                           <span className="font-extrabold text-xs font-mono text-stone-850 dark:text-[#E8B800]">
                             ${p.precio_venta.toLocaleString('es-AR')}
                           </span>
@@ -2125,19 +2127,19 @@ export default function MozoTerminal({
                             </span>
                           )}
                         </div>
-                      </div>
 
-                      {/* elastic sum button */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (!isOutOfStock) handleAddToCart(p.id_producto);
-                        }}
-                        className="w-8 h-8 rounded-full bg-[#8C6239] text-white hover:bg-[#C8956A] hover:text-[#8C6239] active:scale-90 transition-all duration-200 flex items-center justify-center font-bold shadow-md shadow-[#8C6239]/20 cursor-pointer border border-amber-950/10 shrink-0"
-                        title="Añadir a comanda"
-                      >
-                        <Plus className="w-4 h-4" />
-                      </button>
+                        {/* elastic sum button */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!isOutOfStock) handleAddToCart(p.id_producto);
+                          }}
+                          className="w-8 h-8 rounded-full bg-[#8C6239] text-white hover:bg-[#C8956A] hover:text-[#8C6239] active:scale-90 transition-all duration-200 flex items-center justify-center font-bold shadow-md shadow-[#8C6239]/20 cursor-pointer border border-amber-950/10 shrink-0"
+                          title="Añadir a comanda"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   </motion.div>
                 );
@@ -2526,7 +2528,7 @@ export default function MozoTerminal({
                               className="flex items-center justify-between p-3 rounded-2xl border-2 border-stone-200/90 dark:border-[#C8956A]/25 bg-white dark:bg-[#22160E] hover:border-amber-400/80 dark:hover:border-[#E8B800]/50 transition-all shadow-xs"
                             >
                               <div className="min-w-0 flex-1 pr-2">
-                                <p className="font-extrabold text-sm sm:text-base text-stone-900 dark:text-white truncate">
+                                <p className="font-extrabold text-sm sm:text-base text-stone-900 dark:text-white break-words">
                                   {item.nombre}
                                 </p>
                                 <p className="text-xs font-semibold text-stone-600 dark:text-stone-300 font-mono mt-0.5">
@@ -2696,7 +2698,7 @@ export default function MozoTerminal({
                           className="flex items-center justify-between p-2.5 rounded-2xl bg-white dark:bg-[#18110B] border-2 border-stone-200/80 dark:border-[#C8956A]/20 hover:border-emerald-600 dark:hover:border-emerald-500/80 hover:bg-emerald-50/60 dark:hover:bg-emerald-950/30 text-left transition-all cursor-pointer group shadow-2xs active:scale-98"
                         >
                           <div className="min-w-0 flex-1 pr-2">
-                            <p className="text-xs sm:text-sm font-extrabold text-stone-900 dark:text-white truncate group-hover:text-emerald-800 dark:group-hover:text-emerald-300">
+                            <p className="text-xs sm:text-sm font-extrabold text-stone-900 dark:text-white break-words group-hover:text-emerald-800 dark:group-hover:text-emerald-300">
                               {prod.nombre}
                             </p>
                             <span className="text-[11px] text-stone-500 dark:text-stone-400 font-medium">
