@@ -410,6 +410,27 @@ export default function App() {
         setOperationalDataStatus('ready');
         addLog('sistema', 'SISTEMA: Datos operativos listos.');
 
+        // Sincronización del estado de caja en tiempo real al ingresar al sistema
+        cajaService.findActiveSessionRemote(true).then(remoteCaja => {
+          if (!active) return;
+          if (remoteCaja) {
+            cajaService.safeStorage.setItem('el_patron_caja_activa', JSON.stringify(remoteCaja));
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('el_patron_caja_abierta', { detail: remoteCaja }));
+            }
+          } else {
+            const localSession = cajaService.getOpenSession();
+            if (localSession) {
+              cajaService.safeStorage.removeItem('el_patron_caja_activa');
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('el_patron_caja_cerrada', { detail: { id_cierre: localSession.id_cierre } }));
+              }
+            }
+          }
+        }).catch(err => {
+          console.warn('[App.loadData] Sincronización remota de caja:', err);
+        });
+
         // Sincronización silenciosa en segundo plano con Google Sheets (sin bloquear la interfaz)
         sheetFetchAllTables(true).then(async () => {
           if (!active) return;
@@ -549,6 +570,40 @@ export default function App() {
         })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'mesas' }, async () => {
           debouncedFetchMesas();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'cierres_caja' }, async ({ new: newRow }: any) => {
+          if (!active) return;
+          if (newRow) {
+            const hasCierre = Boolean(
+              newRow.fecha_cierre &&
+              String(newRow.fecha_cierre).trim() !== '' &&
+              String(newRow.fecha_cierre) !== 'null'
+            );
+            if (hasCierre) {
+              cajaService.safeStorage.removeItem('el_patron_caja_activa');
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('el_patron_caja_cerrada', { detail: newRow }));
+              }
+            } else {
+              const session = {
+                id_cierre: String(newRow.id_cierre),
+                fecha_apertura: newRow.fecha_apertura,
+                fecha_cierre: null,
+                monto_apertura: parseFloat(newRow.monto_apertura || 0),
+                monto_ventas: parseFloat(newRow.monto_ventas || 0),
+                monto_real: null,
+                diferencia: null,
+                observaciones: newRow.observaciones || 'Sesión Activa - En Turno',
+                usuario_cajero: newRow.usuario_cajero || 'Cajero',
+                sync_status: 'synced' as const,
+                registros_totales: { efectivo: 0, debito: 0, credito: 0, transferencia: 0, mercadopago: 0 }
+              };
+              cajaService.safeStorage.setItem('el_patron_caja_activa', JSON.stringify(session));
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('el_patron_caja_abierta', { detail: session }));
+              }
+            }
+          }
         })
         .subscribe((status) => {
           if (status === 'SUBSCRIBED') {

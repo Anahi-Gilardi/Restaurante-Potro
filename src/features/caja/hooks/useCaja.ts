@@ -166,54 +166,6 @@ export function useCaja({
     return () => window.removeEventListener('el-patron-cash-shift-synced', handleCashShiftSynced);
   }, []);
 
-  // Sincronización en tiempo real y polling entre computadoras distintas
-  useEffect(() => {
-    const handleCajaAbierta = (event: Event) => {
-      const session = (event as CustomEvent<CierreCaja>).detail;
-      if (session) {
-        cajaService.safeStorage.setItem('el_patron_caja_activa', JSON.stringify(session));
-        setCajaSession(session);
-        loadCajaState();
-      }
-    };
-
-    const handleCajaCerrada = () => {
-      cajaService.safeStorage.removeItem('el_patron_caja_activa');
-      setCajaSession(null);
-      loadCajaState();
-    };
-
-    const handleSheetsSync = () => {
-      loadCajaState();
-    };
-
-    const handleSheetDataUpdated = (event: Event) => {
-      const detail = (event as CustomEvent<{ table?: string }>).detail;
-      if (!detail?.table || detail.table === 'facturas') {
-        facturacionService.list().then(list => {
-          if (Array.isArray(list)) setLastFacturas(list);
-        }).catch(() => {});
-      }
-    };
-
-    window.addEventListener('el_patron_caja_abierta', handleCajaAbierta);
-    window.addEventListener('el_patron_caja_cerrada', handleCajaCerrada);
-    window.addEventListener('el_patron_sheets_sync_completed', handleSheetsSync);
-    window.addEventListener('el_patron_sheet_data_updated', handleSheetDataUpdated);
-
-    // Polling cada 10 segundos para garantizar consistencia entre computadoras
-    const pollTimer = setInterval(() => {
-      loadCajaState();
-    }, 10000);
-
-    return () => {
-      window.removeEventListener('el_patron_caja_abierta', handleCajaAbierta);
-      window.removeEventListener('el_patron_caja_cerrada', handleCajaCerrada);
-      window.removeEventListener('el_patron_sheets_sync_completed', handleSheetsSync);
-      window.removeEventListener('el_patron_sheet_data_updated', handleSheetDataUpdated);
-      clearInterval(pollTimer);
-    };
-  }, []);
 
   // Interactive cashier selection
   const [selectedPedidoId, setSelectedPedidoId] = useState<number | null>(null);
@@ -282,7 +234,7 @@ export function useCaja({
   const [movimientoConcepto, setMovimientoConcepto] = useState('');
 
   // Sync historical shifts and current state
-  const loadCajaState = async () => {
+  const loadCajaState = useCallback(async () => {
     let active = cajaService.getOpenSession();
     // Instantly set the local session to avoid UI flicker or requiring reopen on refresh
     if (active) {
@@ -294,10 +246,10 @@ export function useCaja({
     try {
       // Fetch history, invoices, cash movements and active session in parallel
       const [history, facturas, movs, remoteSession] = await Promise.all([
-        cajaService.list(),
+        cajaService.list(true),
         facturacionService.list(true),
         active ? cajaService.listMovimientosCajaChica(active.id_cierre) : Promise.resolve([]),
-        cajaService.findActiveSessionRemote()
+        cajaService.findActiveSessionRemote(true)
       ]);
 
       setSessionInsumos(history);
@@ -313,10 +265,10 @@ export function useCaja({
           setCajaSession(remoteSession);
           active = remoteSession;
         }
-      } else if (active && !remoteSession) {
-        // Si teníamos sesión local pero en Google Sheets ya figura cerrada en el historial
+      } else if (active && !remoteSession && (typeof navigator === 'undefined' || navigator.onLine)) {
+        // Si teníamos sesión local pero en Google Sheets/Supabase ya no hay sesión activa
         const inHistory = history.find(h => h.id_cierre === active?.id_cierre);
-        if (inHistory && inHistory.fecha_cierre) {
+        if (!inHistory || (inHistory && inHistory.fecha_cierre)) {
           cajaService.safeStorage.removeItem('el_patron_caja_activa');
           setCajaSession(null);
           toast.info('La sesión de caja fue cerrada desde otra computadora.');
@@ -339,7 +291,65 @@ export function useCaja({
     } catch (err) {
       console.error('Error loading history in loadCajaState:', err);
     }
-  };
+  }, []);
+
+  // Sincronización en tiempo real y polling entre computadoras distintas
+  useEffect(() => {
+    // 1. Carga inmediata del estado real de caja al montar el módulo
+    loadCajaState();
+
+    const handleCajaAbierta = (event: Event) => {
+      const session = (event as CustomEvent<CierreCaja>).detail;
+      if (session) {
+        cajaService.safeStorage.setItem('el_patron_caja_activa', JSON.stringify(session));
+        setCajaSession(session);
+        loadCajaState();
+      }
+    };
+
+    const handleCajaCerrada = () => {
+      cajaService.safeStorage.removeItem('el_patron_caja_activa');
+      setCajaSession(null);
+      loadCajaState();
+    };
+
+    const handleCajaSyncNeeded = () => {
+      loadCajaState();
+    };
+
+    const handleSheetsSync = () => {
+      loadCajaState();
+    };
+
+    const handleSheetDataUpdated = (event: Event) => {
+      const detail = (event as CustomEvent<{ table?: string }>).detail;
+      if (!detail?.table || detail.table === 'facturas') {
+        facturacionService.list().then(list => {
+          if (Array.isArray(list)) setLastFacturas(list);
+        }).catch(() => {});
+      }
+    };
+
+    window.addEventListener('el_patron_caja_abierta', handleCajaAbierta);
+    window.addEventListener('el_patron_caja_cerrada', handleCajaCerrada);
+    window.addEventListener('el_patron_caja_sync_needed', handleCajaSyncNeeded);
+    window.addEventListener('el_patron_sheets_sync_completed', handleSheetsSync);
+    window.addEventListener('el_patron_sheet_data_updated', handleSheetDataUpdated);
+
+    // Polling cada 8 segundos para garantizar consistencia entre computadoras
+    const pollTimer = setInterval(() => {
+      loadCajaState();
+    }, 8000);
+
+    return () => {
+      window.removeEventListener('el_patron_caja_abierta', handleCajaAbierta);
+      window.removeEventListener('el_patron_caja_cerrada', handleCajaCerrada);
+      window.removeEventListener('el_patron_caja_sync_needed', handleCajaSyncNeeded);
+      window.removeEventListener('el_patron_sheets_sync_completed', handleSheetsSync);
+      window.removeEventListener('el_patron_sheet_data_updated', handleSheetDataUpdated);
+      clearInterval(pollTimer);
+    };
+  }, [loadCajaState]);
 
   const sumIngresosManuales = useMemo(() => {
     return movimientosCajaChica.filter(m => m.tipo === 'ingreso').reduce((s, m) => s + m.monto, 0);

@@ -86,6 +86,28 @@ export const broadcastAppEvent = (event: string, payload: any) => {
 };
 
 const persistCierre = async (cierre: CierreCaja): Promise<void> => {
+  // 1. Sincronización en Supabase para notificación en tiempo real a todas las terminales
+  try {
+    const supabase = tryGetActiveSupabaseClient();
+    if (supabase) {
+      const sbPayload: any = {
+        id_cierre: cierre.id_cierre,
+        fecha_apertura: cierre.fecha_apertura ? new Date(cierre.fecha_apertura).toISOString() : new Date().toISOString(),
+        fecha_cierre: cierre.fecha_cierre ? new Date(cierre.fecha_cierre).toISOString() : null,
+        monto_apertura: cierre.monto_apertura,
+        monto_ventas: cierre.monto_ventas,
+        monto_real: cierre.monto_real !== null && cierre.monto_real !== undefined ? Number(cierre.monto_real) : null,
+        diferencia: cierre.diferencia !== null && cierre.diferencia !== undefined ? Number(cierre.diferencia) : null,
+        observaciones: cierre.observaciones,
+        usuario_cajero: cierre.usuario_cajero || 'Cajero',
+      };
+      await supabase.from('cierres_caja').upsert(sbPayload);
+    }
+  } catch (sbErr) {
+    console.warn('[cajaService.persistCierre] Error en Supabase:', sbErr);
+  }
+
+  // 2. Persistencia en Google Sheets hoja 'cierres_caja'
   try {
     await sheetUpsertRow('cierres_caja', toDbCierre(cierre));
   } catch (sheetErr) {
@@ -216,9 +238,9 @@ export const cajaService = {
     return null;
   },
 
-  async list(): Promise<CierreCaja[]> {
+  async list(forceFresh = false): Promise<CierreCaja[]> {
     try {
-      const sheetData = await sheetFetchTable('cierres_caja');
+      const sheetData = await sheetFetchTable('cierres_caja', forceFresh);
       if (sheetData && sheetData.length > 0) {
         return sheetData.map(cc => ({
           id_cierre: String(cc.id_cierre),
@@ -255,7 +277,7 @@ export const cajaService = {
     return [];
   },
 
-  async findActiveSessionRemote(): Promise<CierreCaja | null> {
+  async findActiveSessionRemote(forceFresh = true): Promise<CierreCaja | null> {
     try {
       const lastClosedId = safeStorage.getItem('el_patron_ultimo_cierre_cerrado_id');
       const rawHistory = safeStorage.getItem('el_patron_historial_cierres');
@@ -272,7 +294,56 @@ export const cajaService = {
         } catch {}
       }
 
-      const sheetData = await sheetFetchTable('cierres_caja');
+      // 1. Prioridad: Consulta en tiempo real a Supabase si está disponible
+      const supabase = tryGetActiveSupabaseClient();
+      if (supabase) {
+        try {
+          const { data: sbCierres, error } = await supabase
+            .from('cierres_caja')
+            .select('*')
+            .order('fecha_apertura', { ascending: false })
+            .limit(5);
+
+          if (!error && sbCierres && sbCierres.length > 0) {
+            const latestSb = sbCierres[0];
+            const hasCierre = Boolean(
+              latestSb.fecha_cierre && 
+              String(latestSb.fecha_cierre).trim() !== '' && 
+              String(latestSb.fecha_cierre) !== 'null'
+            );
+
+            if (hasCierre || closedIds.has(String(latestSb.id_cierre))) {
+              return null;
+            }
+
+            if (latestSb.fecha_apertura) {
+              const openedAt = new Date(latestSb.fecha_apertura).getTime();
+              if (!isNaN(openedAt) && (Date.now() - openedAt > 24 * 3600 * 1000)) {
+                return null;
+              }
+            }
+
+            return {
+              id_cierre: String(latestSb.id_cierre),
+              fecha_apertura: latestSb.fecha_apertura || inferFechaApertura(String(latestSb.id_cierre)),
+              fecha_cierre: null,
+              monto_apertura: parseFloat(latestSb.monto_apertura || 0),
+              monto_ventas: parseFloat(latestSb.monto_ventas || 0),
+              monto_real: null,
+              diferencia: null,
+              observaciones: latestSb.observaciones || 'Sesión Activa - En Turno',
+              usuario_cajero: latestSb.usuario_cajero || 'Cajero Pro',
+              sync_status: 'synced',
+              registros_totales: { efectivo: 0, debito: 0, credito: 0, transferencia: 0, mercadopago: 0 }
+            };
+          }
+        } catch (sbErr) {
+          console.warn('[cajaService.findActiveSessionRemote] Supabase check error:', sbErr);
+        }
+      }
+
+      // 2. Consulta a Google Sheets (hoja cierres_caja con forceFresh)
+      const sheetData = await sheetFetchTable('cierres_caja', forceFresh);
       if (sheetData && Array.isArray(sheetData) && sheetData.length > 0) {
         // Ordenar del más reciente al más antiguo
         const sorted = [...sheetData].sort((a, b) => {

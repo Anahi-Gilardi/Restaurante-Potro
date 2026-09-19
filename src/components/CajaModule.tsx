@@ -1290,39 +1290,108 @@ export default function CajaModule({
                       </div>
 
                       {/* Manual discounts & tip adjustments */}
-                      <div className="p-3 bg-stone-50 dark:bg-[#FAF7F0]/5 border border-stone-200 dark:border-stone-800 rounded-xl space-y-2">
+                      <div className="p-3 bg-stone-50 dark:bg-[#FAF7F0]/5 border border-stone-200 dark:border-stone-800 rounded-xl space-y-2.5">
                         <h5 className="text-[10px] font-black text-stone-600 dark:text-stone-300 flex items-center gap-1 uppercase tracking-wider">
                           <Percent className="w-3.5 h-3.5 text-[#624A3E] dark:text-stone-300" /> Bonificación & Propinas
                         </h5>
                         
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <label className="text-[8px] font-bold text-stone-500 block mb-0.5">Manual Desc %</label>
-                            <select
-                              value={descuentoPorcentaje}
-                              onChange={e => setDescuentoPorcentaje(parseInt(e.target.value) || 0)}
-                              className="w-full text-xs p-1.5 border border-stone-200 dark:border-stone-800 rounded bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 font-bold font-sans"
-                            >
-                              <option value="0">0%</option>
-                              <option value="5">5%</option>
-                              <option value="10">10%</option>
-                              <option value="15">15%</option>
-                              <option value="20">20%</option>
-                            </select>
+                        <div className="grid grid-cols-2 gap-2.5">
+                          {/* Descuento Manual */}
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <label className="text-[8px] font-bold text-stone-500 uppercase">Manual Desc %</label>
+                              {orderBreakdowns.manualDeduction > 0 && (
+                                <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400">
+                                  -${orderBreakdowns.manualDeduction.toLocaleString('es-AR')}
+                                </span>
+                              )}
+                            </div>
+                            <div className="relative">
+                              <input
+                                type="number"
+                                min="0"
+                                max="100"
+                                step="any"
+                                value={descuentoPorcentaje === 0 ? '' : descuentoPorcentaje}
+                                placeholder="0"
+                                onChange={e => {
+                                  const raw = e.target.value;
+                                  if (raw === '') {
+                                    setDescuentoPorcentaje(0);
+                                    return;
+                                  }
+                                  const val = parseFloat(raw);
+                                  setDescuentoPorcentaje(isNaN(val) ? 0 : Math.min(100, Math.max(0, val)));
+                                }}
+                                className="w-full text-xs p-1.5 pr-6 border border-stone-200 dark:border-stone-800 rounded bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 font-bold font-sans focus:outline-none focus:ring-1 focus:ring-[#624A3E]"
+                              />
+                              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-bold text-stone-400 pointer-events-none">%</span>
+                            </div>
+                            <div className="flex gap-1">
+                              {[0, 5, 10, 15, 20].map(pct => (
+                                <button
+                                  key={pct}
+                                  type="button"
+                                  onClick={() => setDescuentoPorcentaje(pct)}
+                                  className={`flex-1 py-0.5 text-[8px] font-bold rounded transition-colors ${
+                                    descuentoPorcentaje === pct
+                                      ? 'bg-[#624A3E] text-white shadow-xs'
+                                      : 'bg-stone-200/70 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-stone-300 dark:hover:bg-stone-700'
+                                  }`}
+                                >
+                                  {pct}%
+                                </button>
+                              ))}
+                            </div>
                           </div>
 
-                          <div>
-                            <label className="text-[8px] font-bold text-stone-500 block mb-0.5">Propina %</label>
-                            <select
-                              value={propinaPorcentaje}
-                              onChange={e => setPropinaPorcentaje(parseInt(e.target.value) || 0)}
-                              className="w-full text-xs p-1.5 border border-stone-200 dark:border-stone-800 rounded bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 font-bold font-sans"
-                            >
-                              <option value="0">0%</option>
-                              <option value="5">5%</option>
-                              <option value="10">10%</option>
-                              <option value="15">15%</option>
-                            </select>
+                          {/* Propina Manual */}
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <label className="text-[8px] font-bold text-stone-500 uppercase">Propina %</label>
+                              {orderBreakdowns.propinaValue > 0 && (
+                                <span className="text-[9px] font-black text-amber-600 dark:text-amber-400">
+                                  +${orderBreakdowns.propinaValue.toLocaleString('es-AR')}
+                                </span>
+                              )}
+                            </div>
+                            <div className="relative">
+                              <input
+                                type="number"
+                                min="0"
+                                max="100"
+                                step="any"
+                                value={propinaPorcentaje === 0 ? '' : propinaPorcentaje}
+                                placeholder="0"
+                                onChange={e => {
+                                  const raw = e.target.value;
+                                  if (raw === '') {
+                                    setPropinaPorcentaje(0);
+                                    return;
+                                  }
+                                  const val = parseFloat(raw);
+                                  setPropinaPorcentaje(isNaN(val) ? 0 : Math.min(100, Math.max(0, val)));
+                                }}
+                                className="w-full text-xs p-1.5 pr-6 border border-stone-200 dark:border-stone-800 rounded bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 font-bold font-sans focus:outline-none focus:ring-1 focus:ring-[#624A3E]"
+                              />
+                              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-bold text-stone-400 pointer-events-none">%</span>
+                            </div>
+                            <div className="flex gap-1">
+                              {[0, 5, 10, 15, 20].map(pct => (
+                                <button
+                                  key={pct}
+                                  type="button"
+                                  onClick={() => setPropinaPorcentaje(pct)}
+                                  className={`flex-1 py-0.5 text-[8px] font-bold rounded transition-colors ${
+                                    propinaPorcentaje === pct
+                                      ? 'bg-[#624A3E] text-white shadow-xs'
+                                      : 'bg-stone-200/70 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-stone-300 dark:hover:bg-stone-700'
+                                  }`}
+                                >
+                                  {pct}%
+                                </button>
+                              ))}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -1330,37 +1399,107 @@ export default function CajaModule({
                   )}
 
                   {splitByProducts && (
-                    <div className="p-3 bg-stone-50 dark:bg-[#FAF7F0]/5 border border-stone-200 dark:border-stone-800 rounded-xl space-y-2">
+                    <div className="p-3 bg-stone-50 dark:bg-[#FAF7F0]/5 border border-stone-200 dark:border-stone-800 rounded-xl space-y-2.5">
                       <h5 className="text-[10px] font-black text-stone-600 dark:text-stone-300 flex items-center gap-1 uppercase tracking-wider">
                         <Percent className="w-3.5 h-3.5 text-[#624A3E] dark:text-stone-300" /> Bonificación & Propinas
                       </h5>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <label className="text-[8px] font-bold text-stone-500 block mb-0.5">Manual Desc %</label>
-                          <select
-                            value={descuentoPorcentaje}
-                            onChange={e => setDescuentoPorcentaje(parseInt(e.target.value) || 0)}
-                            className="w-full text-xs p-1.5 border border-stone-200 dark:border-stone-800 rounded bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 font-bold font-sans"
-                          >
-                            <option value="0">0%</option>
-                            <option value="5">5%</option>
-                            <option value="10">10%</option>
-                            <option value="15">15%</option>
-                            <option value="20">20%</option>
-                          </select>
+                      <div className="grid grid-cols-2 gap-2.5">
+                        {/* Descuento Manual */}
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between">
+                            <label className="text-[8px] font-bold text-stone-500 uppercase">Manual Desc %</label>
+                            {orderBreakdowns.manualDeduction > 0 && (
+                              <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400">
+                                -${orderBreakdowns.manualDeduction.toLocaleString('es-AR')}
+                              </span>
+                            )}
+                          </div>
+                          <div className="relative">
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="any"
+                              value={descuentoPorcentaje === 0 ? '' : descuentoPorcentaje}
+                              placeholder="0"
+                              onChange={e => {
+                                const raw = e.target.value;
+                                if (raw === '') {
+                                  setDescuentoPorcentaje(0);
+                                  return;
+                                }
+                                const val = parseFloat(raw);
+                                setDescuentoPorcentaje(isNaN(val) ? 0 : Math.min(100, Math.max(0, val)));
+                              }}
+                              className="w-full text-xs p-1.5 pr-6 border border-stone-200 dark:border-stone-800 rounded bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 font-bold font-sans focus:outline-none focus:ring-1 focus:ring-[#624A3E]"
+                            />
+                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-bold text-stone-400 pointer-events-none">%</span>
+                          </div>
+                          <div className="flex gap-1">
+                            {[0, 5, 10, 15, 20].map(pct => (
+                              <button
+                                key={pct}
+                                type="button"
+                                onClick={() => setDescuentoPorcentaje(pct)}
+                                className={`flex-1 py-0.5 text-[8px] font-bold rounded transition-colors ${
+                                  descuentoPorcentaje === pct
+                                    ? 'bg-[#624A3E] text-white shadow-xs'
+                                    : 'bg-stone-200/70 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-stone-300 dark:hover:bg-stone-700'
+                                }`}
+                              >
+                                {pct}%
+                              </button>
+                            ))}
+                          </div>
                         </div>
-                        <div>
-                          <label className="text-[8px] font-bold text-stone-500 block mb-0.5">Propina %</label>
-                          <select
-                            value={propinaPorcentaje}
-                            onChange={e => setPropinaPorcentaje(parseInt(e.target.value) || 0)}
-                            className="w-full text-xs p-1.5 border border-stone-200 dark:border-stone-800 rounded bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 font-bold font-sans"
-                          >
-                            <option value="0">0%</option>
-                            <option value="5">5%</option>
-                            <option value="10">10%</option>
-                            <option value="15">15%</option>
-                          </select>
+
+                        {/* Propina Manual */}
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between">
+                            <label className="text-[8px] font-bold text-stone-500 uppercase">Propina %</label>
+                            {orderBreakdowns.propinaValue > 0 && (
+                              <span className="text-[9px] font-black text-amber-600 dark:text-amber-400">
+                                +${orderBreakdowns.propinaValue.toLocaleString('es-AR')}
+                              </span>
+                            )}
+                          </div>
+                          <div className="relative">
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="any"
+                              value={propinaPorcentaje === 0 ? '' : propinaPorcentaje}
+                              placeholder="0"
+                              onChange={e => {
+                                const raw = e.target.value;
+                                if (raw === '') {
+                                  setPropinaPorcentaje(0);
+                                  return;
+                                }
+                                const val = parseFloat(raw);
+                                setPropinaPorcentaje(isNaN(val) ? 0 : Math.min(100, Math.max(0, val)));
+                              }}
+                              className="w-full text-xs p-1.5 pr-6 border border-stone-200 dark:border-stone-800 rounded bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 font-bold font-sans focus:outline-none focus:ring-1 focus:ring-[#624A3E]"
+                            />
+                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-bold text-stone-400 pointer-events-none">%</span>
+                          </div>
+                          <div className="flex gap-1">
+                            {[0, 5, 10, 15, 20].map(pct => (
+                              <button
+                                key={pct}
+                                type="button"
+                                onClick={() => setPropinaPorcentaje(pct)}
+                                className={`flex-1 py-0.5 text-[8px] font-bold rounded transition-colors ${
+                                  propinaPorcentaje === pct
+                                    ? 'bg-[#624A3E] text-white shadow-xs'
+                                    : 'bg-stone-200/70 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-stone-300 dark:hover:bg-stone-700'
+                                }`}
+                              >
+                                {pct}%
+                              </button>
+                            ))}
+                          </div>
                         </div>
                       </div>
                     </div>
