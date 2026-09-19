@@ -45,17 +45,20 @@ const safeStorage = {
   }
 };
 
-const toDbCierre = (cierre: CierreCaja) => ({
-  id_cierre: cierre.id_cierre,
-  fecha_apertura: cierre.fecha_apertura,
-  fecha_cierre: cierre.fecha_cierre,
-  monto_apertura: cierre.monto_apertura,
-  monto_ventas: cierre.monto_ventas,
-  monto_real: cierre.monto_real,
-  diferencia: cierre.diferencia,
-  observaciones: cierre.observaciones,
-  usuario_cajero: cierre.usuario_cajero,
-});
+const toDbCierre = (cierre: CierreCaja) => {
+  if (!cierre) return {} as any;
+  return {
+    id_cierre: cierre.id_cierre,
+    fecha_apertura: cierre.fecha_apertura,
+    fecha_cierre: cierre.fecha_cierre,
+    monto_apertura: cierre.monto_apertura,
+    monto_ventas: cierre.monto_ventas,
+    monto_real: cierre.monto_real,
+    diferencia: cierre.diferencia,
+    observaciones: cierre.observaciones,
+    usuario_cajero: cierre.usuario_cajero || 'Cajero',
+  };
+};
 
 export const broadcastAppEvent = (event: string, payload: any) => {
   if (typeof window !== 'undefined') {
@@ -86,6 +89,7 @@ export const broadcastAppEvent = (event: string, payload: any) => {
 };
 
 const persistCierre = async (cierre: CierreCaja): Promise<void> => {
+  if (!cierre) return;
   // 1. Sincronización en Supabase para notificación en tiempo real a todas las terminales
   try {
     const supabase = tryGetActiveSupabaseClient();
@@ -420,7 +424,7 @@ export const cajaService = {
             monto_ventas: parseFloat(found.monto_ventas || 0),
             monto_apertura: parseFloat(found.monto_apertura || 0),
             observaciones: found.observaciones,
-            usuario_cajero: found.usuario_cajero,
+            usuario_cajero: found.usuario_cajero || 'Cajero',
             fecha_cierre: found.fecha_cierre || null,
             fecha_apertura: found.fecha_apertura
           };

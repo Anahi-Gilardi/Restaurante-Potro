@@ -280,7 +280,7 @@ export function useCaja({
             ...active,
             monto_ventas: remoteSession.monto_ventas,
             monto_apertura: remoteSession.monto_apertura,
-            usuario_cajero: remoteSession.usuario_cajero,
+            usuario_cajero: remoteSession?.usuario_cajero || active?.usuario_cajero || 'Cajero',
             observaciones: remoteSession.observaciones,
             sync_status: 'synced' as const
           };
@@ -675,7 +675,7 @@ export function useCaja({
       setClosingObservationsInput('Cierre de turno');
       loadCajaState();
 
-      addLog('sistema', `CAJA: Turno fiscal cerrado por ${finalShift.usuario_cajero}. Arqueo Real: $${finalShift.monto_real?.toLocaleString('es-AR')}. Diferencia: ARS $${finalShift.diferencia?.toLocaleString('es-AR')}`);
+      addLog('sistema', `CAJA: Turno fiscal cerrado por ${finalShift?.usuario_cajero || 'Cajero'}. Arqueo Real: $${finalShift?.monto_real?.toLocaleString('es-AR')}. Diferencia: ARS $${finalShift?.diferencia?.toLocaleString('es-AR')}`);
 
       if (finalShift.sync_status === 'pending') {
         toast.warning('Jornada cerrada y respaldada localmente. Supabase se sincronizará al recuperar conexión.');
@@ -685,7 +685,7 @@ export function useCaja({
 
       const csvRows = [
         ['EL PATRON GRILL - REPORTE DE BALANCE DIARIO'],
-        ['Cajero Responsable', finalShift.usuario_cajero],
+        ['Cajero Responsable', finalShift?.usuario_cajero || 'Cajero'],
         ['Apertura', finalShift.fecha_apertura],
         ['Cierre de Turno', finalShift.fecha_cierre || 'N/A'],
         ['Monto Inicial de Caja ($)', finalShift.monto_apertura.toFixed(2)],
@@ -766,7 +766,7 @@ export function useCaja({
       idPedido: selectedPedido.id_pedido,
       mesa: formatTicketTableName(selectedPedido.numero_mesa),
       mozo: selectedPedido.mozo,
-      cajero: cajaSession.usuario_cajero,
+      cajero: cajaSession?.usuario_cajero || cashierNameInput || 'Caja',
       fechaHora: formatArgentinaDateTime(saleDate),
       items: (splitByProducts && selectedProductsForSplit.length > 0
         ? selectedPedido.items.filter(it => selectedProductsForSplit.includes(it.id_producto))
@@ -988,7 +988,7 @@ export function useCaja({
       idPedido: selectedPedido.id_pedido,
       mesa: formatTicketTableName(selectedPedido.numero_mesa),
       mozo: selectedPedido.mozo,
-      cajero: cajaSession.usuario_cajero,
+      cajero: cajaSession?.usuario_cajero || cashierNameInput || 'Caja',
       fechaHora: new Date().toLocaleDateString('es-AR') + ' ' + new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }),
       items: (splitByProducts && selectedProductsForSplit.length > 0
         ? selectedPedido.items.filter(it => selectedProductsForSplit.includes(it.id_producto))
@@ -1044,7 +1044,7 @@ export function useCaja({
       idPedido: selectedPedido.id_pedido,
       mesa: formatTicketTableName(selectedPedido.numero_mesa),
       mozo: selectedPedido.mozo,
-      cajero: cajaSession.usuario_cajero,
+      cajero: cajaSession?.usuario_cajero || cashierNameInput || 'Caja',
       fechaHora: new Date().toLocaleDateString('es-AR') + ' ' + new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }),
       items: (splitByProducts && selectedProductsForSplit.length > 0
         ? selectedPedido.items.filter(it => selectedProductsForSplit.includes(it.id_producto))

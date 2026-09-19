@@ -597,7 +597,7 @@ export default function CajaModule({
                 <div className="p-3 bg-[#F5F1E9] dark:bg-stone-950/60 rounded-xl border border-stone-200/60 dark:border-stone-800 font-sans space-y-2">
                   <div className="flex justify-between text-xs font-semibold text-stone-600 dark:text-stone-400">
                     <span>Responsable:</span>
-                    <span className="text-stone-900 dark:text-stone-200">{cajaSession.usuario_cajero}</span>
+                    <span className="text-stone-900 dark:text-stone-200">{cajaSession?.usuario_cajero || cashierNameInput || 'Cajero'}</span>
                   </div>
                   
                   <div className="flex justify-between text-xs font-semibold text-stone-600 dark:text-stone-400">
@@ -1845,7 +1845,7 @@ export default function CajaModule({
                       <p>CLIENTE: {(selectedCliente?.nombre || 'CONSUMIDOR FINAL').toUpperCase()}</p>
                       <p>FECHA: {new Date().toLocaleDateString('es-AR')} {new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}hs</p>
                       <p>MESA: {formatTicketTableName(selectedPedido.numero_mesa)} • MOZO: {selectedPedido.mozo}</p>
-                      <p>CAJERO: {cajaSession.usuario_cajero.toUpperCase()}</p>
+                      <p>CAJERO: {(cajaSession?.usuario_cajero || cashierNameInput || 'CAJA').toUpperCase()}</p>
                     </div>
 
                     {/* List of items */}
@@ -2317,7 +2317,7 @@ export default function CajaModule({
                 <div key={idx} className="p-3 bg-stone-50 dark:bg-stone-950 border border-stone-200/60 dark:border-stone-800 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
                   <div className="space-y-1">
                     <p className="font-extrabold text-[#624A3E] dark:text-amber-500 flex items-center gap-1">
-                      Cierre de Caja {cs.usuario_cajero}
+                      Cierre de Caja {cs?.usuario_cajero || 'Cajero'}
                       {cs.sync_status === 'pending' && (
                         <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[8px] font-black uppercase text-amber-700">
                           Pendiente de sincronizar
@@ -2389,7 +2389,7 @@ export default function CajaModule({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
               <div className="space-y-1.5 bg-stone-50 dark:bg-stone-950 p-3.5 rounded-xl border border-stone-100 dark:border-stone-800">
                 <span className="text-[9px] font-black text-stone-400 uppercase block">Información General</span>
-                <p className="font-bold">Cajero: <span className="font-normal text-stone-700 dark:text-stone-300">{selectedShiftForDetail.usuario_cajero}</span></p>
+                <p className="font-bold">Cajero: <span className="font-normal text-stone-700 dark:text-stone-300">{selectedShiftForDetail?.usuario_cajero || 'Cajero'}</span></p>
                 <p className="font-bold">Apertura: <span className="font-mono font-normal text-stone-700 dark:text-stone-300">{new Date(selectedShiftForDetail.fecha_apertura).toLocaleString('es-AR')}</span></p>
                 <p className="font-bold">Cierre: <span className="font-mono font-normal text-stone-700 dark:text-stone-300">{selectedShiftForDetail.fecha_cierre ? new Date(selectedShiftForDetail.fecha_cierre).toLocaleString('es-AR') : 'SESIÓN ABIERTA'}</span></p>
               </div>

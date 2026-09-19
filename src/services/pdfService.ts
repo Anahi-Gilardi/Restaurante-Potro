@@ -833,7 +833,7 @@ export const pdfService = {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8.5);
     doc.setTextColor(...BRAND.muted);
-    doc.text(`Responsable Cajero: ${data.usuario_cajero}`, margin, y);
+    doc.text(`Responsable Cajero: ${data?.usuario_cajero || 'Cajero'}`, margin, y);
     doc.text(`ID Sesión: ${data.id_cierre}`, margin + 95, y);
     y += 4.5;
     doc.text(`Apertura Turno: ${data.fecha_apertura}`, margin, y);
@@ -1288,7 +1288,7 @@ export const pdfService = {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
     doc.text(`Establecimiento: ${configRestaurante.nombreComercial || 'El Patrón'}`, margin, y);
-    doc.text(`Cajero: ${cierre.usuario_cajero}`, margin + 100, y);
+    doc.text(`Cajero: ${cierre?.usuario_cajero || 'Cajero'}`, margin + 100, y);
     y += 5;
 
     doc.text(`Fecha Apertura: ${new Date(cierre.fecha_apertura).toLocaleString('es-AR')}`, margin, y);
