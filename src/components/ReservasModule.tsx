@@ -10,6 +10,7 @@ import { reservasService } from '../services/reservasService';
 import { reservaSchema } from '../lib/validations';
 import { ToastContainer, useToast } from './ToastContainer';
 import { argentinaDateIso } from '../lib/argentinaDate';
+import { getIndividualPhysicalTables, extractTableNumber } from '../lib/tableUnions';
 
 interface ReservasModuleProps {
   mesas: Mesa[];
@@ -96,6 +97,10 @@ function sortReservas(a: Reserva, b: Reserva): number {
 
 export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {} }: ReservasModuleProps) {
   const { toast, toasts, removeToast } = useToast();
+
+  // Siempre trabajamos con las mesas físicas individuales por su número (Mesa 1, Mesa 2, etc.),
+  // desacopladas de las uniones temporales que puedan existir hoy en el salón.
+  const physicalMesas = useMemo(() => getIndividualPhysicalTables(mesas), [mesas]);
 
   const [selectedDate, setSelectedDate] = useState(formatDate(new Date()));
   const [reservas, setReservas] = useState<Reserva[]>(() => {
@@ -184,7 +189,7 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
   const liveConflict = useMemo(() => {
     if (!formularioDate || !hora || !nombreMesa || forceEspera) return null;
     const targetMin = parseTimeToMin(hora);
-    const selectedMesa = mesas.find(m => m.numero_mesa === nombreMesa);
+    const selectedMesa = physicalMesas.find(m => m.numero_mesa === nombreMesa || String(m.id_mesa) === extractTableNumber(nombreMesa));
     if (!selectedMesa) return null;
 
     const overlapping = reservas.filter(r => 
@@ -206,7 +211,7 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
       }
     }
     return null;
-  }, [formularioDate, hora, nombreMesa, forceEspera, reservas, mesas, editingId]);
+  }, [formularioDate, hora, nombreMesa, forceEspera, reservas, physicalMesas, editingId]);
 
   // Helpers de disponibilidad
   const reservasEnFecha = useCallback((fecha: string, excluirId?: string) => {
@@ -224,16 +229,16 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
       }
     });
 
-    return mesas.filter(m => {
-      if (m.estado === 'ocupada') return false;
+    return physicalMesas.filter(m => {
       if (ocupadosIds.has(m.id_mesa)) return false;
-      if (m.comensales && m.comensales < paxReq) {
-        const capOk = (m.comensales ?? 0) >= paxReq || paxReq <= (m.comensales ?? 0) + 2;
+      const cap = m.capacidad || 2;
+      if (cap < paxReq) {
+        const capOk = cap >= paxReq || paxReq <= cap + 2;
         if (!capOk) return false;
       }
       return true;
     });
-  }, [mesas, reservasEnFecha]);
+  }, [physicalMesas, reservasEnFecha]);
 
   const mesasDisponiblesFormulario = useMemo(
     () => mesasDisponiblesEnFechaHora(
@@ -267,9 +272,9 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
     }
 
     const capPax = parseInt(pax, 10) || 2;
-    const selectedMesa = mesas.find(m => m.numero_mesa === nombreMesa);
+    const selectedMesa = physicalMesas.find(m => m.numero_mesa === nombreMesa || String(m.id_mesa) === extractTableNumber(nombreMesa));
     let idMesaAsignada = selectedMesa?.id_mesa;
-    let nombreMesaAsignada = nombreMesa;
+    let nombreMesaAsignada = selectedMesa ? selectedMesa.numero_mesa : nombreMesa;
     let enviarEspera = forceEspera;
 
     if (!forceEspera && selectedMesa) {
@@ -435,7 +440,7 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
 
   const handleAsignarMesa = async (reservaId: string, mesaId: number) => {
     if (pendingActionRef.current) return;
-    const mesa = mesas.find(m => m.id_mesa === mesaId);
+    const mesa = physicalMesas.find(m => m.id_mesa === mesaId);
     const target = reservas.find(r => r.id_reserva === reservaId);
     if (!mesa || !target) return;
 
@@ -498,8 +503,8 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
         .filter(r => r.fecha === selectedDate && r.estado !== 'cancelada' && !r.lista_espera && r.id_mesa)
         .map(r => r.id_mesa!)
     );
-    return mesas.filter(m => !ocupados.has(m.id_mesa) && m.estado !== 'ocupada');
-  }, [mesas, reservas, selectedDate]);
+    return physicalMesas.filter(m => !ocupados.has(m.id_mesa));
+  }, [physicalMesas, reservas, selectedDate]);
 
   const todayStr = formatDate(new Date());
   const formBusy = pendingAction === 'create' || (editingId ? pendingAction === `edit_${editingId}` : false);
@@ -704,11 +709,11 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
             
             <div className="flex items-center justify-between text-xs font-semibold">
               <span className="text-stone-500">Mesas Libres:</span>
-              <span className="font-bold text-emerald-600">{disponiblesHoy.length} / {mesas.length}</span>
+              <span className="font-bold text-emerald-600">{disponiblesHoy.length} / {physicalMesas.length}</span>
             </div>
             
             <div className="pt-2.5 border-t border-stone-100 dark:border-stone-800 flex flex-wrap gap-1">
-              {mesas.map(m => {
+              {physicalMesas.map(m => {
                 const estaLibre = disponiblesHoy.some(d => d.id_mesa === m.id_mesa);
                 const estaReservada = reservas.some(
                   r => r.fecha === selectedDate && r.id_mesa === m.id_mesa && r.estado !== 'cancelada' && !r.lista_espera
@@ -867,7 +872,7 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
                           </span>
                         )}
                         
-                        {ocupadas === mesas.length && isCurrent && (
+                        {ocupadas === physicalMesas.length && isCurrent && (
                           <span className="absolute bottom-1 right-1 text-[7px] font-bold text-rose-600 uppercase" title="Casa llena (sin mesas)">
                             Lleno
                           </span>
@@ -999,7 +1004,7 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
                     <p className={`text-[10px] font-semibold ${isSelected ? 'text-white/80' : count > 0 ? 'text-red-800 dark:text-red-300' : 'text-stone-500'}`}>
                       {disponiblesHoy.length} mesas libres
                     </p>
-                    {ocupadas === mesas.length && (
+                    {ocupadas === physicalMesas.length && (
                       <p className={`text-[10px] font-bold ${isSelected ? 'text-amber-200 animate-pulse' : 'text-rose-500 animate-pulse'}`}>
                         Completamente reservado
                       </p>

@@ -212,6 +212,34 @@ export function separateTablesInList(
   });
 }
 
+/**
+ * Retorna la lista canónica de mesas físicas individuales, desvinculando cualquier unión
+ * activa temporal del salón. Garantiza que cada mesa aparezca con su número individual
+ * ('Mesa 1', 'Mesa 2', etc.) y su capacidad física individual original.
+ */
+export function getIndividualPhysicalTables(mesas: Mesa[]): Mesa[] {
+  if (!Array.isArray(mesas) || mesas.length === 0) {
+    return INITIAL_MESAS.map(m => ({ ...m }));
+  }
+
+  return mesas.map(m => {
+    const rawNumber = m.id_mesa;
+    const originalNumber = extractTableNumber(rawNumber) || String(rawNumber);
+    const initialMatch = INITIAL_MESAS.find(im => im.id_mesa === m.id_mesa);
+    const cleanNumero = `Mesa ${originalNumber}`;
+    const baseCapacidad = initialMatch?.capacidad || (m.parent_id ? m.capacidad : (m.capacidad ? Math.min(m.capacidad, 6) : 4));
+
+    return {
+      ...m,
+      numero_mesa: cleanNumero,
+      capacidad: baseCapacidad || 4,
+      estado: (m.estado === 'unida' ? 'libre' : m.estado) as Mesa['estado'],
+      mesas_unidas: [],
+      parent_id: null,
+    };
+  }).sort((a, b) => Number(a.id_mesa) - Number(b.id_mesa));
+}
+
 
 /**
  * Formatea el título legible de la mesa para la UI (evitando duplicar 'Mesa Mesa').

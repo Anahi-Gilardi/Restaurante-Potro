@@ -1875,6 +1875,15 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
   const handleReservaEstadoChange = useCallback((reserva: Reserva, estado: Reserva['estado']) => {
     if (!reserva.id_mesa) return;
 
+    const todayStr = argentinaDateIso(new Date());
+    const isToday = reserva.fecha === todayStr;
+
+    // Si la reserva es para otra fecha futura o turno posterior, no debe alterar el estado en vivo del salón hoy a menos que se siente al comensal
+    if (!isToday && estado !== 'sentada') {
+      addLog('sistema', `RESERVA: Reserva de '${reserva.nombre_cliente}' para fecha ${reserva.fecha} (${estado}). No altera el salón hoy.`);
+      return;
+    }
+
     const hasActiveOrder = pedidos.some(pedido => (
       pedido.id_mesa === reserva.id_mesa
       && pedido.estado_comanda !== 'entregado_cobrado'
@@ -1884,6 +1893,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     const updatedMesas = mesas.map(mesa => {
       if (mesa.id_mesa !== reserva.id_mesa) return mesa;
       if (estado === 'confirmada') {
+        if (hasActiveOrder) return mesa; // Si hay comensales comiendo ahora, no pisar con reservada
         return { ...mesa, estado: 'reservada' as const, comensales: reserva.pax };
       }
       if (estado === 'sentada') {
