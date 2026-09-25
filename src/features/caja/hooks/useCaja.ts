@@ -1117,8 +1117,8 @@ export function useCaja({
       metodosPago: [{ metodo: factura.medio_pago || 'efectivo', monto: factura.total }],
       vuelto: 0,
       mensajePie: factura.afip_cae ? 'Comprobante electrónico autorizado por ARCA.' : 'DOCUMENTO NO VALIDO COMO FACTURA.',
-      cae: factura.afip_cae,
-      vto: factura.afip_vto,
+      cae: factura.afip_cae ? String(factura.afip_cae).replace(/\D/g, '') : undefined,
+      vto: factura.afip_vto ? String(factura.afip_vto).replace(/\D/g, '') : undefined,
       qrData: factura.afip_qr,
       clienteNombre: factura.cliente,
       clienteCuit: factura.cuit,
@@ -1132,8 +1132,14 @@ export function useCaja({
   };
 
   const downloadFacturaHistorialPdf = async (factura: Factura) => {
-    const ticketData = buildFacturaHistorialTicketData(factura);
-    await pdfService.exportToPDF(ticketData);
+    try {
+      const ticketData = buildFacturaHistorialTicketData(factura);
+      await pdfService.exportToPDF(ticketData);
+      toast.success('PDF descargado correctamente.');
+    } catch (err: any) {
+      console.error('Error al exportar PDF de factura:', err);
+      toast.error(err?.message || 'Error al generar el PDF del comprobante.');
+    }
   };
 
   const printFacturaHistorialTermica = async (factura: Factura) => {

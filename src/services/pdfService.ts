@@ -133,8 +133,10 @@ const formatArcaDate = (value?: string) => {
 
 export const validateFiscalTicketData = (data: TicketData) => {
   const { pointOfSale, voucherNumber } = fiscalNumberParts(data);
-  if (!/^\d{14}$/.test(data.cae || '')) throw new Error('La factura fiscal no tiene un CAE valido de ARCA.');
-  if (!/^\d{8}$/.test(data.vto || '')) throw new Error('La factura fiscal no tiene vencimiento de CAE valido.');
+  const cleanCae = (data.cae || '').replace(/\D/g, '');
+  if (!/^\d{14}$/.test(cleanCae)) throw new Error('La factura fiscal no tiene un CAE valido de ARCA.');
+  const cleanVto = (data.vto || '').replace(/\D/g, '');
+  if (!/^\d{8}$/.test(cleanVto)) throw new Error('La factura fiscal no tiene vencimiento de CAE valido.');
   if (!data.qrData) throw new Error('La factura fiscal no tiene el QR obligatorio de ARCA.');
   if (!pointOfSale || !voucherNumber) throw new Error('La factura fiscal no tiene punto de venta y numero ARCA validos.');
   if (!data.items.length) throw new Error('La factura fiscal debe conservar al menos un item.');
@@ -169,12 +171,17 @@ export const pdfService = {
     const logo = await loadLogoDataUrl();
     const isFiscal = data.tipoComprobante.startsWith('factura') || data.tipoComprobante.startsWith('nota_credito');
 
+    const cleanCae = data.cae ? String(data.cae).replace(/\D/g, '') : '';
+    const hasCae = cleanCae.length === 14;
+
     // Un QR fiscal solo puede generarse para una factura autorizada con CAE/CAEA real.
-    const qrImage = isFiscal && data.cae ? await loadQrDataUrl(data.qrData) : null;
+    const qrImage = isFiscal && hasCae ? await loadQrDataUrl(data.qrData) : null;
 
     if (isFiscal) {
-      validateFiscalTicketData(data);
-      if (!qrImage) throw new Error('No se pudo generar el QR fiscal obligatorio.');
+      if (hasCae) {
+        validateFiscalTicketData(data);
+        if (!qrImage) throw new Error('No se pudo generar el QR fiscal obligatorio.');
+      }
       return this.generateA4Invoice(data, logo, qrImage);
     }
 
