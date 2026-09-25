@@ -228,14 +228,28 @@ const positiveInteger = (value: unknown, fallback: number): number => {
 };
 
 function getEnvironmentCredentials(): ServerCredentials | null {
-  const cuitText = envValue("ARCA_CUIT", "AFIP_CUIT").replace(/\D/g, "");
-  const key = decodePem(["ARCA_KEY"], ["ARCA_KEY_BASE64", "AFIP_KEY_BASE64"]);
-  const cert = decodePem(["ARCA_CERT"], ["ARCA_CERT_BASE64", "AFIP_CERT_BASE64"]);
-  const puntoVenta = positiveInteger(envValue("ARCA_PUNTO_VENTA"), 0);
+  const cuitText = envValue("ARCA_CUIT", "AFIP_CUIT").replace(/\D/g, "") || "27426946136";
+  let key = decodePem(["ARCA_KEY"], ["ARCA_KEY_BASE64", "AFIP_KEY_BASE64"]);
+  let cert = decodePem(["ARCA_CERT"], ["ARCA_CERT_BASE64", "AFIP_CERT_BASE64"]);
+  const puntoVenta = positiveInteger(envValue("ARCA_PUNTO_VENTA"), 2);
+
+  if (!key || !cert) {
+    try {
+      const fs = require("node:fs");
+      const path = require("node:path");
+      const localCertPath = path.resolve(process.cwd(), "certificados_afip/elpatron.crt");
+      const localKeyPath = path.resolve(process.cwd(), "certificados_afip/privada.key");
+      if (fs.existsSync(localCertPath) && fs.existsSync(localKeyPath)) {
+        cert = fs.readFileSync(localCertPath, "utf8");
+        key = fs.readFileSync(localKeyPath, "utf8");
+      }
+    } catch {}
+  }
+
   if (!/^\d{11}$/.test(cuitText) || !key || !cert || !puntoVenta) return null;
 
   const environmentText = envValue("ARCA_ENV", "AFIP_ENV").toLowerCase();
-  const production = envValue("ARCA_PRODUCTION").toLowerCase() === "true"
+  const production = envValue("ARCA_PRODUCTION").toLowerCase() !== "false"
     || environmentText === "produccion"
     || environmentText === "production";
 
@@ -247,11 +261,11 @@ function getEnvironmentCredentials(): ServerCredentials | null {
     puntoVenta,
     taxProfile: "monotributo",
     source: "environment",
-    legalName: envValue("ARCA_LEGAL_NAME"),
-    tradeName: envValue("ARCA_TRADE_NAME"),
-    commercialAddress: envValue("ARCA_COMMERCIAL_ADDRESS"),
-    grossIncomeNumber: envValue("ARCA_GROSS_INCOME_NUMBER"),
-    activityStartDate: envValue("ARCA_ACTIVITY_START_DATE"),
+    legalName: envValue("ARCA_LEGAL_NAME") || "BELLA ORIANA",
+    tradeName: envValue("ARCA_TRADE_NAME") || "El Patron",
+    commercialAddress: envValue("ARCA_COMMERCIAL_ADDRESS") || "FOTHERINGHAM 33, CP 5800, RIO CUARTO, CORDOBA",
+    grossIncomeNumber: envValue("ARCA_GROSS_INCOME_NUMBER") || "289734805",
+    activityStartDate: envValue("ARCA_ACTIVITY_START_DATE") || "2026-06-01",
   };
 }
 
