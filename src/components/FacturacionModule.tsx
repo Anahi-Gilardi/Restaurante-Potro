@@ -47,6 +47,7 @@ import { resolvePedidoItemUnitPrice, roundCurrency } from '../lib/orderPricing';
 import { parseFiscalCustomerDocument } from '../lib/fiscalCustomerDocument';
 import { argentinaDateIso, getArgentinaDateTimeString, formatArgentinaDateTime, formatArgentinaTime } from '../lib/argentinaDate';
 import { getInvoiceablePaidTickets } from '../lib/ticketBillingPolicy';
+import { formatTableDisplayTitle } from '../lib/tableUnions';
 
 interface FacturacionModuleProps {
   pedidos: Pedido[];
@@ -240,27 +241,30 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
   // Filtrado de pendientes
   const filteredPendientes = useMemo(() => {
     const term = pagoSearch.trim().toLowerCase();
-    return pagosPendientes.filter(p => 
-      !term || 
-      p.pedido.numero_mesa.toLowerCase().includes(term) ||
-      p.pedido.mozo.toLowerCase().includes(term) ||
-      p.pedido.id_pedido.toString().includes(term) ||
-      p.pedido.items.some(i => i.nombre.toLowerCase().includes(term))
-    );
+    return pagosPendientes.filter(p => {
+      const mesaStr = String(p.pedido?.numero_mesa ?? '').toLowerCase();
+      const mozoStr = String(p.pedido?.mozo ?? '').toLowerCase();
+      const idStr = String(p.pedido?.id_pedido ?? '');
+      const itemsMatch = p.pedido?.items?.some(i => String(i.nombre ?? '').toLowerCase().includes(term));
+      return !term || mesaStr.includes(term) || mozoStr.includes(term) || idStr.includes(term) || Boolean(itemsMatch);
+    });
   }, [pagosPendientes, pagoSearch]);
 
   // Agrupamiento por Mesa de pendientes
   const pendientesAgrupadosPorMesa = useMemo(() => {
     const groups: Record<string, { mesa: string; pedidos: typeof pagosPendientes; total: number }> = {};
     pagosPendientes.forEach(p => {
-      const mesa = p.pedido.numero_mesa;
+      const rawMesa = p.pedido?.numero_mesa;
+      const mesa = rawMesa !== undefined && rawMesa !== null && String(rawMesa).trim() !== ''
+        ? formatTableDisplayTitle(rawMesa)
+        : 'Sin Mesa';
       if (!groups[mesa]) {
         groups[mesa] = { mesa, pedidos: [], total: 0 };
       }
       groups[mesa].pedidos.push(p);
       groups[mesa].total += p.total;
     });
-    return Object.values(groups).sort((a, b) => a.mesa.localeCompare(b.mesa));
+    return Object.values(groups).sort((a, b) => String(a.mesa || '').localeCompare(String(b.mesa || ''), undefined, { numeric: true }));
   }, [pagosPendientes]);
 
   // Filtrar facturas en el Archivo Fiscal

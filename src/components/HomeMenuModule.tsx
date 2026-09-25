@@ -99,7 +99,7 @@ export default function HomeMenuModule({
 
   // Ordenar mesas numéricamente para el mapa
   const sortedMesas = useMemo(() => {
-    return [...mesas].sort((a, b) => a.numero_mesa.localeCompare(b.numero_mesa, undefined, { numeric: true }));
+    return [...mesas].sort((a, b) => String(a.numero_mesa || '').localeCompare(String(b.numero_mesa || ''), undefined, { numeric: true }));
   }, [mesas]);
 
   // Mapear qué mozo está asignado a cada mesa activa
