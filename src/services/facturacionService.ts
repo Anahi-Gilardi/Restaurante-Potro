@@ -120,17 +120,22 @@ export const toDbFacturaPayload = (factura: Factura) => ({
   metodo_pago: mapMetodoPagoToDb(factura.medio_pago),
   cuit_cliente: factura.cuit,
   fecha_emision: factura.fecha_completa ? getArgentinaDateTimeString(factura.fecha_completa) : getArgentinaDateTimeString(),
-  afip_cae: factura.afip_cae,
-  afip_vto: factura.afip_vto,
-  afip_qr: factura.afip_qr,
-  afip_resultado: factura.afip_resultado,
+  cae: factura.afip_cae || null,
+  afip_cae: factura.afip_cae || null,
+  vencimiento_cae: factura.afip_vto || null,
+  afip_vto: factura.afip_vto || null,
+  afip_qr: factura.afip_qr || null,
+  estado_afip: factura.afip_resultado || (factura.estado === 'autorizado' ? 'A' : null),
+  afip_resultado: factura.afip_resultado || (factura.estado === 'autorizado' ? 'A' : null),
+  punto_venta: factura.afip_pto_vta || 2,
+  afip_pto_vta: factura.afip_pto_vta || 2,
+  tipo_cbte: factura.afip_cbte_tipo || (factura.tipo === 'C' ? 11 : factura.tipo === 'NC' ? 13 : 11),
+  afip_cbte_tipo: factura.afip_cbte_tipo || (factura.tipo === 'C' ? 11 : factura.tipo === 'NC' ? 13 : 11),
+  afip_cbte_nro: factura.afip_cbte_nro || null,
   fiscal_status: factura.tipo === 'NC'
     ? (factura.afip_resultado === 'O' ? 'observed' : 'authorized')
     : factura.estado === 'autorizado' ? 'authorized' : factura.estado === 'observado' ? 'observed' : factura.estado === 'incierto' ? 'uncertain' : factura.estado === 'rechazado' ? 'rejected' : factura.estado === 'nota_credito' ? 'credited' : 'draft',
   arca_emission_id: factura.arca_emission_id,
-  afip_cbte_tipo: factura.afip_cbte_tipo,
-  afip_pto_vta: factura.afip_pto_vta,
-  afip_cbte_nro: factura.afip_cbte_nro,
   afip_observaciones: factura.afip_observaciones || [],
   arca_emisor: factura.arca_emisor,
   condicion_iva_receptor: factura.condicion_iva_receptor,
@@ -148,7 +153,18 @@ export const facturacionService = {
   async list(forceFresh = false): Promise<Factura[]> {
     const local = readLocalFacturas();
     try {
-      const sheetData = await sheetFetchTable('facturas', forceFresh);
+      const [sheetData, arcaEmisiones] = await Promise.all([
+        sheetFetchTable('facturas', forceFresh),
+        sheetFetchTable('arca_emisiones', forceFresh).catch(() => [])
+      ]);
+
+      const arcaMap = new Map<string, any>();
+      if (Array.isArray(arcaEmisiones)) {
+        arcaEmisiones.forEach((e: any) => {
+          if (e.id_factura) arcaMap.set(String(e.id_factura), e);
+        });
+      }
+
       if (Array.isArray(sheetData)) {
         const remote = sheetData.map((f: any) => {
           const tipoComprobante = String(f.tipo_comprobante || '');
@@ -177,6 +193,12 @@ export const facturacionService = {
             try { emisorObj = JSON.parse(f.arca_emisor); } catch { emisorObj = undefined; }
           }
 
+          const emision = arcaMap.get(String(f.id_factura));
+          const rawCae = f.cae || f.afip_cae || emision?.cae;
+          const rawVto = f.vencimiento_cae || f.afip_vto || emision?.vto_cae;
+          const rawPtoVta = f.punto_venta || f.afip_pto_vta || 2;
+          const rawCbteNro = f.afip_cbte_nro || emision?.cbte_nro || (String(f.numero_factura || '').match(/-(\d+)$/)?.[1]);
+
           const rawFiscalStatus = String(f.fiscal_status || '').toLowerCase();
           const estado: Factura['estado'] = tipoComprobante.toLowerCase().includes('nota') || rawFiscalStatus === 'credited'
             ? 'nota_credito'
@@ -188,7 +210,7 @@ export const facturacionService = {
               ? 'incierto'
             : rawFiscalStatus === 'rejected'
               ? 'rechazado'
-            : (f.estado as Factura['estado']) || (f.afip_cae || f.cae ? 'autorizado' : 'borrador');
+            : (f.estado as Factura['estado']) || (rawCae ? 'autorizado' : 'borrador');
 
           return {
             id_factura: String(f.id_factura),
@@ -202,14 +224,14 @@ export const facturacionService = {
             fecha: formatArgentinaTime(f.fecha_emision || f.fecha || Date.now()),
             estado,
             tipo,
-            afip_cae: f.cae || f.afip_cae || undefined,
-            afip_vto: f.vencimiento_cae || f.afip_vto || undefined,
+            afip_cae: rawCae ? String(rawCae).replace(/\D/g, '') : undefined,
+            afip_vto: rawVto ? String(rawVto).replace(/\D/g, '') : undefined,
             afip_qr: f.afip_qr || undefined,
-            afip_resultado: f.afip_resultado || undefined,
-            arca_emission_id: f.arca_emission_id || undefined,
-            afip_cbte_tipo: f.afip_cbte_tipo ? Number(f.afip_cbte_tipo) : undefined,
-            afip_pto_vta: f.afip_pto_vta ? Number(f.afip_pto_vta) : undefined,
-            afip_cbte_nro: f.afip_cbte_nro ? Number(f.afip_cbte_nro) : undefined,
+            afip_resultado: f.afip_resultado || (rawCae ? 'A' : undefined),
+            arca_emission_id: f.arca_emission_id || emision?.id || undefined,
+            afip_cbte_tipo: f.afip_cbte_tipo ? Number(f.afip_cbte_tipo) : (tipo === 'C' ? 11 : tipo === 'NC' ? 13 : undefined),
+            afip_pto_vta: Number(rawPtoVta) || 2,
+            afip_cbte_nro: Number(rawCbteNro) || undefined,
             afip_observaciones: observacionesList,
             arca_emisor: emisorObj,
             condicion_iva_receptor: Number(f.condicion_iva_receptor) || 5,

@@ -158,6 +158,44 @@ export const fiscalReceiverView = (data: Pick<TicketData, 'clienteNombre' | 'cli
   };
 };
 
+const buildQrDataFallback = (data: TicketData): string => {
+  const cleanCuit = data.cuit.replace(/\D/g, '');
+  const { pointOfSale, voucherNumber } = fiscalNumberParts(data);
+  const compType = data.tipoComprobante as string;
+  const isCreditNote = compType.includes('nota_credito');
+  const tipoCmp = compType === 'factura_a' ? 1 : isCreditNote ? 13 : (compType === 'factura_c' ? 11 : 6);
+  const ptoVta = pointOfSale ?? data.puntoVenta ?? 2;
+  const nroCmp = voucherNumber ?? data.numeroFiscal ?? 1;
+  const rawDate = data.fechaEmision || data.fechaHora || '';
+  let fecha = rawDate.slice(0, 10);
+  if (/^\d{2}\/\d{2}\/\d{4}/.test(rawDate)) {
+    const parts = rawDate.split('/');
+    fecha = `${parts[2]}-${parts[1]}-${parts[0]}`;
+  }
+
+  const receiverDocType = data.clienteDocumentoTipo === 'CUIT' ? 80 : data.clienteDocumentoTipo === 'DNI' ? 96 : 99;
+  const receiverDocNum = data.clienteCuit ? Number(data.clienteCuit.replace(/\D/g, '')) : undefined;
+
+  const qrObj: Record<string, any> = {
+    ver: 1,
+    fecha: fecha || new Date().toISOString().slice(0, 10),
+    cuit: Number(cleanCuit) || 27426946136,
+    ptoVta: Number(ptoVta),
+    tipoCmp: Number(tipoCmp),
+    nroCmp: Number(nroCmp),
+    importe: Number(data.total),
+    moneda: 'PES',
+    ctz: 1,
+    tipoCodAut: 'E',
+    codAut: Number(data.cae?.replace(/\D/g, '')) || 0
+  };
+  if (receiverDocNum) {
+    qrObj.tipoDocRec = receiverDocType;
+    qrObj.nroDocRec = receiverDocNum;
+  }
+  return JSON.stringify(qrObj);
+};
+
 export const pdfService = {
   async exportToPDF(data: TicketData): Promise<void> {
     const doc = await this.generateTicketPDF(data);
@@ -173,6 +211,10 @@ export const pdfService = {
 
     const cleanCae = data.cae ? String(data.cae).replace(/\D/g, '') : '';
     const hasCae = cleanCae.length === 14;
+
+    if (hasCae && !data.qrData) {
+      data.qrData = buildQrDataFallback(data);
+    }
 
     // Un QR fiscal solo puede generarse para una factura autorizada con CAE/CAEA real.
     const qrImage = isFiscal && hasCae ? await loadQrDataUrl(data.qrData) : null;
