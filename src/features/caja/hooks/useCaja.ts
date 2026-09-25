@@ -1096,12 +1096,19 @@ export function useCaja({
       inicioActividades: emitter?.activityStartDate,
       condicionIvaEmisor: isFacturaC ? 'Monotributo' : undefined,
       condicionIvaReceptor: CONDICIONES_IVA_RECEPTOR.find(condition => condition.id === factura.condicion_iva_receptor)?.label,
-      items: [{
-        cantidad: 1,
-        descripcion: 'Venta gastronómica según ticket emitido',
-        precio_unitario: neto,
-        subtotal: neto
-      }],
+      items: (factura.items && factura.items.length > 0)
+        ? factura.items.map(it => ({
+            descripcion: it.descripcion,
+            cantidad: it.cantidad,
+            precio_unitario: it.precio_unitario,
+            subtotal: it.subtotal
+          }))
+        : [{
+            cantidad: 1,
+            descripcion: 'Venta gastronómica según ticket emitido',
+            precio_unitario: neto,
+            subtotal: neto
+          }],
       subtotal: neto,
       descuento: 0,
       propina: 0,

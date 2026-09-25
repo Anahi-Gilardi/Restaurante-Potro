@@ -210,7 +210,7 @@ export const pdfService = {
     y += 4;
 
     const headerBoxY = y;
-    const headerHeight = 40;
+    const headerHeight = 42;
 
     // Outer border of header box
     doc.setDrawColor(...black);
@@ -235,51 +235,52 @@ export const pdfService = {
     // Vertical line dividing left and right below the letter box
     doc.line(105, headerBoxY + letterBoxHeight, 105, headerBoxY + headerHeight);
 
-    // --- LEFT SIDE: EMISOR ---
-    const leftX = margin + 4;
-    let leftY = headerBoxY + 6;
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(13);
-    doc.text(data.razonSocial || data.nombreComercial, leftX, leftY);
-    leftY += 5;
-
-    if (data.nombreComercial && data.nombreComercial !== data.razonSocial) {
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9);
-      doc.setTextColor(...darkGray);
-      doc.text(data.nombreComercial, leftX, leftY);
-      leftY += 4.5;
-    }
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.setTextColor(...black);
-    doc.text(`Razón Social: ${data.razonSocial}`, leftX, leftY);
-    leftY += 4.5;
-    doc.text(`Domicilio Comercial: ${data.direccion}`, leftX, leftY, { maxWidth: 78 });
-    leftY += 8;
-    doc.setFont('helvetica', 'bold');
-    doc.text(`Condición frente al IVA: ${data.condicionIvaEmisor || (letter === 'C' ? 'Monotributo' : 'Responsable Inscripto')}`, leftX, leftY);
-
+    // Helper to write field with label bold and value normal
     const writeField = (label: string, value: string, startX: number, curY: number, maxWidth?: number) => {
       doc.setFont('helvetica', 'bold');
       doc.text(label, startX, curY);
       const labelW = doc.getTextWidth(label);
       doc.setFont('helvetica', 'normal');
       if (maxWidth) {
-        doc.text(value, startX + labelW + 1.5, curY, { maxWidth });
+        doc.text(value, startX + labelW + 1.2, curY, { maxWidth });
       } else {
-        doc.text(value, startX + labelW + 1.5, curY);
+        doc.text(value, startX + labelW + 1.2, curY);
       }
     };
 
+    // --- LEFT SIDE: EMISOR ---
+    const leftX = margin + 4;
+    let leftY = headerBoxY + 6;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.text(data.razonSocial || data.nombreComercial, leftX, leftY, { maxWidth: 84 });
+    leftY += 5;
+
+    if (data.nombreComercial && data.nombreComercial !== data.razonSocial) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(...darkGray);
+      doc.text(data.nombreComercial, leftX, leftY, { maxWidth: 84 });
+      leftY += 4.5;
+    }
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(...black);
+    doc.text(`Razón Social: ${data.razonSocial}`, leftX, leftY, { maxWidth: 84 });
+    leftY += 4.5;
+    doc.text(`Domicilio Comercial: ${data.direccion}`, leftX, leftY, { maxWidth: 84 });
+    leftY += 7.5;
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Condición frente al IVA: ${data.condicionIvaEmisor || (letter === 'C' ? 'Monotributo' : 'Responsable Inscripto')}`, leftX, leftY);
+
     // --- RIGHT SIDE: COMPROBANTE ---
-    const rightX = 118;
+    const rightX = 112;
     let rightY = headerBoxY + 7;
 
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(16);
+    doc.setFontSize(15);
     doc.setTextColor(...black);
     doc.text(isCreditNote ? 'NOTA DE CRÉDITO' : 'FACTURA', rightX, rightY);
     rightY += 6;
@@ -288,7 +289,7 @@ export const pdfService = {
     doc.text(`Punto de Venta: ${ptoVta}   Comp. Nro: ${compNro}`, rightX, rightY);
     rightY += 5;
 
-    doc.setFontSize(8.5);
+    doc.setFontSize(8);
     const emissionFormatted = formatArcaDate(data.fechaEmision || data.fechaHora);
     writeField('Fecha de Emisión: ', emissionFormatted, rightX, rightY);
     rightY += 4.5;
@@ -332,7 +333,7 @@ export const pdfService = {
     y += periodBoxHeight + 2;
 
     // 3. DATOS DEL RECEPTOR BOX
-    const receiverBoxHeight = 17;
+    const receiverBoxHeight = 18;
     doc.rect(margin, y, contentWidth, receiverBoxHeight);
 
     const isCuit = receiver.documentLabel === 'CUIT' || (data.clienteCuit && data.clienteCuit.replace(/\D/g, '').length === 11);
@@ -345,28 +346,38 @@ export const pdfService = {
     doc.setFontSize(8);
     writeField(`${docLabel}: `, docValue, margin + 3, recY);
 
+    const rightRecX = margin + 78;
     const nombreLabel = 'Apellido y Nombre / Razón Social: ';
     doc.setFont('helvetica', 'bold');
-    doc.text(nombreLabel, 95, recY);
+    doc.text(nombreLabel, rightRecX, recY);
     const nombreLabelW = doc.getTextWidth(nombreLabel);
     doc.setFont('helvetica', 'normal');
-    doc.text(clienteNombre, 95 + nombreLabelW + 1.5, recY, { maxWidth: 52 });
+    doc.text(clienteNombre, rightRecX + nombreLabelW + 1.5, recY, { maxWidth: contentWidth - 78 - nombreLabelW - 5 });
 
-    recY += 5;
+    recY += 4.8;
     writeField('Condición frente al IVA: ', ivaReceptor, margin + 3, recY);
 
     const domLabel = 'Domicilio Comercial: ';
     doc.setFont('helvetica', 'bold');
-    doc.text(domLabel, 95, recY);
+    doc.text(domLabel, rightRecX, recY);
     const domLabelW = doc.getTextWidth(domLabel);
     doc.setFont('helvetica', 'normal');
-    doc.text(data.clienteDomicilio || '-', 95 + domLabelW + 1.5, recY, { maxWidth: 68 });
+    doc.text(data.clienteDomicilio || '-', rightRecX + domLabelW + 1.5, recY, { maxWidth: contentWidth - 78 - domLabelW - 5 });
 
-    recY += 5;
+    recY += 4.8;
     const medioText = data.metodosPago?.[0]?.metodo || 'Efectivo';
     writeField('Condición de venta: ', medioText.toUpperCase(), margin + 3, recY);
 
-    y += receiverBoxHeight + 3;
+    if (data.comprobanteAsociado) {
+      const compAsocLabel = 'Comp. Asociado: ';
+      doc.setFont('helvetica', 'bold');
+      doc.text(compAsocLabel, rightRecX, recY);
+      const compAsocW = doc.getTextWidth(compAsocLabel);
+      doc.setFont('helvetica', 'normal');
+      doc.text(data.comprobanteAsociado, rightRecX + compAsocW + 1.5, recY);
+    }
+
+    y += receiverBoxHeight + 2.5;
 
     // 4. ITEMS TABLE
     const tableHeaderHeight = 6.5;
@@ -377,90 +388,111 @@ export const pdfService = {
     doc.setFontSize(7.5);
     doc.setTextColor(...black);
 
-    const colX = {
-      cod: margin + 2,
-      cant: margin + 20,
-      desc: margin + 38,
-      unit: margin + 144,
-      subtotal: margin + 182,
-    };
+    // Columns:
+    // Col 1: Código (margin to margin + 16, width 16) -> center margin + 8
+    // Col 2: Cantidad (margin + 16 to margin + 34, width 18) -> center margin + 25
+    // Col 3: Descripción (margin + 34 to margin + 126, width 92) -> left margin + 36, max 88
+    // Col 4: Precio Unit. (margin + 126 to margin + 156, width 30) -> right margin + 153
+    // Col 5: Subtotal (margin + 156 to margin + 186, width 30) -> right margin + 183
 
-    doc.text('Código', colX.cod, y + 4.5);
-    doc.text('Cantidad', colX.cant, y + 4.5);
-    doc.text('Producto / Servicio', colX.desc, y + 4.5);
-    doc.text('Precio Unit.', colX.unit, y + 4.5, { align: 'right' });
-    doc.text('Subtotal', colX.subtotal, y + 4.5, { align: 'right' });
+    const c1 = margin + 16;
+    const c2 = margin + 34;
+    const c3 = margin + 126;
+    const c4 = margin + 156;
 
-    // Column separators
-    doc.line(margin + 18, y, margin + 18, y + tableHeaderHeight);
-    doc.line(margin + 36, y, margin + 36, y + tableHeaderHeight);
-    doc.line(margin + 120, y, margin + 120, y + tableHeaderHeight);
-    doc.line(margin + 152, y, margin + 152, y + tableHeaderHeight);
+    doc.text('Código', margin + 8, y + 4.5, { align: 'center' });
+    doc.text('Cantidad', margin + 25, y + 4.5, { align: 'center' });
+    doc.text('Descripción / Concepto', margin + 36, y + 4.5);
+    doc.text('Precio Unit.', margin + 153, y + 4.5, { align: 'right' });
+    doc.text('Subtotal', margin + 183, y + 4.5, { align: 'right' });
+
+    // Column separators in header
+    doc.line(c1, y, c1, y + tableHeaderHeight);
+    doc.line(c2, y, c2, y + tableHeaderHeight);
+    doc.line(c3, y, c3, y + tableHeaderHeight);
+    doc.line(c4, y, c4, y + tableHeaderHeight);
 
     y += tableHeaderHeight;
 
-    // Rows
-    const tableStartY = y;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
+    // Table rows
+    let pageTableStartY = y - tableHeaderHeight;
+    const maxDescWidth = 88;
 
     data.items.forEach((item, index) => {
-      const rowHeight = 7.5;
       const itemCode = String(index + 1).padStart(3, '0');
-      const desc = String(item.descripcion || '-');
+      const rawDesc = String(item.descripcion || '-').trim();
       const unitPrice = itemUnit(item) || (item.cantidad ? (item.subtotal / item.cantidad) : item.subtotal);
 
+      const descLines: string[] = doc.splitTextToSize(rawDesc, maxDescWidth);
+      const numLines = Math.max(1, descLines.length);
+      const lineHeight = 3.8;
+      const rowPadding = 3.2;
+      const rowHeight = Math.max(6.5, numLines * lineHeight + rowPadding);
+
       if (y + rowHeight > 235) {
-        doc.rect(margin, tableStartY, contentWidth, y - tableStartY);
-        doc.line(margin + 18, tableStartY, margin + 18, y);
-        doc.line(margin + 36, tableStartY, margin + 36, y);
-        doc.line(margin + 120, tableStartY, margin + 120, y);
-        doc.line(margin + 152, tableStartY, margin + 152, y);
+        // Close table on current page
+        doc.rect(margin, pageTableStartY, contentWidth, y - pageTableStartY);
+        doc.line(c1, pageTableStartY, c1, y);
+        doc.line(c2, pageTableStartY, c2, y);
+        doc.line(c3, pageTableStartY, c3, y);
+        doc.line(c4, pageTableStartY, c4, y);
 
         doc.addPage();
         y = 14;
 
+        // Repeat header
         doc.setFillColor(...lightGray);
         doc.rect(margin, y, contentWidth, tableHeaderHeight, 'FD');
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(7.5);
         doc.setTextColor(...black);
 
-        doc.text('Código', colX.cod, y + 4.5);
-        doc.text('Cantidad', colX.cant, y + 4.5);
-        doc.text('Producto / Servicio', colX.desc, y + 4.5);
-        doc.text('Precio Unit.', colX.unit, y + 4.5, { align: 'right' });
-        doc.text('Subtotal', colX.subtotal, y + 4.5, { align: 'right' });
+        doc.text('Código', margin + 8, y + 4.5, { align: 'center' });
+        doc.text('Cantidad', margin + 25, y + 4.5, { align: 'center' });
+        doc.text('Descripción / Concepto', margin + 36, y + 4.5);
+        doc.text('Precio Unit.', margin + 153, y + 4.5, { align: 'right' });
+        doc.text('Subtotal', margin + 183, y + 4.5, { align: 'right' });
 
-        doc.line(margin + 18, y, margin + 18, y + tableHeaderHeight);
-        doc.line(margin + 36, y, margin + 36, y + tableHeaderHeight);
-        doc.line(margin + 120, y, margin + 120, y + tableHeaderHeight);
-        doc.line(margin + 152, y, margin + 152, y + tableHeaderHeight);
+        doc.line(c1, y, c1, y + tableHeaderHeight);
+        doc.line(c2, y, c2, y + tableHeaderHeight);
+        doc.line(c3, y, c3, y + tableHeaderHeight);
+        doc.line(c4, y, c4, y + tableHeaderHeight);
 
         y += tableHeaderHeight;
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8);
+        pageTableStartY = y - tableHeaderHeight;
       }
 
-      doc.text(itemCode, colX.cod + 2, y + 5);
-      doc.text(String(item.cantidad), colX.cant + 6, y + 5, { align: 'center' });
-      doc.text(desc, colX.desc, y + 5, { maxWidth: 80 });
-      doc.text(money(unitPrice), colX.unit, y + 5, { align: 'right' });
-      doc.text(money(item.subtotal), colX.subtotal, y + 5, { align: 'right' });
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(...black);
+
+      const textY = y + 4.3;
+      doc.text(itemCode, margin + 8, textY, { align: 'center' });
+      doc.text(String(item.cantidad), margin + 25, textY, { align: 'center' });
+      doc.text(descLines, margin + 36, textY);
+      doc.text(money(unitPrice), margin + 153, textY, { align: 'right' });
+      doc.text(money(item.subtotal), margin + 183, textY, { align: 'right' });
+
+      // Light horizontal divider between rows
+      doc.setDrawColor(225, 225, 225);
+      doc.setLineWidth(0.2);
+      doc.line(margin, y + rowHeight, margin + contentWidth, y + rowHeight);
+      doc.setDrawColor(...black);
+      doc.setLineWidth(0.3);
 
       y += rowHeight;
     });
 
-    // Close table borders
-    doc.rect(margin, tableStartY, contentWidth, y - tableStartY);
-    doc.line(margin + 18, tableStartY, margin + 18, y);
-    doc.line(margin + 36, tableStartY, margin + 36, y);
-    doc.line(margin + 120, tableStartY, margin + 120, y);
-    doc.line(margin + 152, tableStartY, margin + 152, y);
+    // Close final table borders and vertical dividers
+    doc.rect(margin, pageTableStartY, contentWidth, y - pageTableStartY);
+    doc.line(c1, pageTableStartY, c1, y);
+    doc.line(c2, pageTableStartY, c2, y);
+    doc.line(c3, pageTableStartY, c3, y);
+    doc.line(c4, pageTableStartY, c4, y);
 
-    y += 2;
+    y += 2.5;
 
-    const totalsBoxHeight = 18;
+    const totalsBoxHeight = 19;
     const fiscalBoxHeight = data.cae ? 28 : 18;
     if (y + totalsBoxHeight + 3 + fiscalBoxHeight > 285) {
       doc.addPage();
@@ -470,21 +502,21 @@ export const pdfService = {
     // 5. TOTALS SECTION
     doc.rect(margin, y, contentWidth, totalsBoxHeight);
 
-    const totRightLabelX = margin + 140;
-    const totRightValX = margin + 182;
+    const totRightLabelX = margin + 144;
+    const totRightValX = margin + 183;
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8.5);
-    doc.text(letter === 'C' ? 'Subtotal:' : 'Subtotal Neto:', totRightLabelX, y + 5, { align: 'right' });
-    doc.text(money(data.subtotal), totRightValX, y + 5, { align: 'right' });
+    doc.text(letter === 'C' ? 'Subtotal:' : 'Subtotal Neto:', totRightLabelX, y + 5.2, { align: 'right' });
+    doc.text(money(data.subtotal), totRightValX, y + 5.2, { align: 'right' });
 
-    doc.text('Importe Otros Tributos:', totRightLabelX, y + 9.5, { align: 'right' });
-    doc.text(money(0), totRightValX, y + 9.5, { align: 'right' });
+    doc.text('Importe Otros Tributos:', totRightLabelX, y + 10, { align: 'right' });
+    doc.text(money(0), totRightValX, y + 10, { align: 'right' });
 
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
-    doc.text('Importe Total:', totRightLabelX, y + 15, { align: 'right' });
-    doc.text(money(data.total), totRightValX, y + 15, { align: 'right' });
+    doc.setFontSize(10.5);
+    doc.text('Importe Total:', totRightLabelX, y + 15.8, { align: 'right' });
+    doc.text(money(data.total), totRightValX, y + 15.8, { align: 'right' });
 
     y += totalsBoxHeight + 3;
 
@@ -522,7 +554,7 @@ export const pdfService = {
       doc.text('Esta Administración Federal no se responsabiliza por los datos ingresados en el comprobante.', arcaBrandX, y + 22.5);
 
       // Right side: CAE and Vto CAE in official format
-      const caeLabelX = margin + 114;
+      const caeLabelX = margin + 110;
       const caeVtoY = y + 9;
 
       doc.setFontSize(10);
