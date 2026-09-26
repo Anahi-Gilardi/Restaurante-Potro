@@ -1,5 +1,5 @@
 import { getActiveSupabaseClient } from '../lib/supabaseClient';
-import { sheetUpsertRow } from '../lib/googleSheetsClient';
+import { sheetUpsertRow, sheetBatchInsert } from '../lib/googleSheetsClient';
 import { Pedido } from '../types';
 import { getArgentinaDateTimeString } from '../lib/argentinaDate';
 
@@ -61,8 +61,8 @@ export const orderTransactionService = {
         items: JSON.stringify(pedido.items || [])
       });
 
-      await Promise.allSettled((pedido.items || []).map((item, i) =>
-        sheetUpsertRow('pedido_detalle', {
+      if (Array.isArray(pedido.items) && pedido.items.length > 0) {
+        const detalles = pedido.items.map((item, i) => ({
           id_detalle: `${pedido.id_pedido}_${String(i).padStart(4, '0')}`,
           id_pedido: pedido.id_pedido,
           id_producto: item.id_producto,
@@ -71,8 +71,9 @@ export const orderTransactionService = {
           categoria: item.categoria,
           precio_unitario: item.precio_unitario ?? null,
           estado: item.estado ?? 'pendiente'
-        })
-      ));
+        }));
+        await sheetBatchInsert('pedido_detalle', detalles);
+      }
     } catch (sheetErr) {
       console.warn('[orderTransactionService.saveOrder] Google Sheets sync warning:', sheetErr);
     }

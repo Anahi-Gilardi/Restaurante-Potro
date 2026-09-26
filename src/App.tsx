@@ -475,19 +475,48 @@ export default function App() {
 
     const mergeFreshPedidosWithInFlight = (refreshed: Pedido[], current: Pedido[]): Pedido[] => {
       const reconciled = refreshed.map(reconcileOrder);
-      const refreshedIds = new Set(reconciled.map(p => p.id_pedido));
+      const processedIds = new Set<number>();
+      const merged: Pedido[] = [];
 
-      // Preservar pedidos activos locales en vuelo que aún no impactaron en Google Sheets
-      const inFlight = current.filter(p =>
-        !refreshedIds.has(p.id_pedido) &&
-        p.estado_comanda !== 'cancelado' &&
-        p.estado_comanda !== 'entregado_cobrado' &&
-        !cancelledOrderIdsSetRef.current.has(p.id_pedido) &&
-        !cobradoOrderIdsSetRef.current.has(p.id_pedido)
-      );
+      // 1. Procesar pedidos remotos, pero si el pedido local activo tiene más ítems o cambios en vuelo, preservar la versión local más rica
+      reconciled.forEach(remoteOrder => {
+        processedIds.add(remoteOrder.id_pedido);
+        const currentOrder = current.find(c => c.id_pedido === remoteOrder.id_pedido);
+        if (
+          currentOrder &&
+          currentOrder.estado_comanda !== 'cancelado' &&
+          currentOrder.estado_comanda !== 'entregado_cobrado' &&
+          !cancelledOrderIdsSetRef.current.has(currentOrder.id_pedido) &&
+          !cobradoOrderIdsSetRef.current.has(currentOrder.id_pedido)
+        ) {
+          const localItemCount = currentOrder.items?.length ?? 0;
+          const remoteItemCount = remoteOrder.items?.length ?? 0;
+          if (localItemCount > remoteItemCount) {
+            merged.push({
+              ...remoteOrder,
+              items: currentOrder.items,
+              observaciones: currentOrder.observaciones || remoteOrder.observaciones,
+            });
+            return;
+          }
+        }
+        merged.push(remoteOrder);
+      });
 
-      if (inFlight.length === 0) return reconciled;
-      return [...inFlight, ...reconciled];
+      // 2. Preservar pedidos activos locales en vuelo que aún no impactaron en Google Sheets
+      current.forEach(localOrder => {
+        if (
+          !processedIds.has(localOrder.id_pedido) &&
+          localOrder.estado_comanda !== 'cancelado' &&
+          localOrder.estado_comanda !== 'entregado_cobrado' &&
+          !cancelledOrderIdsSetRef.current.has(localOrder.id_pedido) &&
+          !cobradoOrderIdsSetRef.current.has(localOrder.id_pedido)
+        ) {
+          merged.unshift(localOrder);
+        }
+      });
+
+      return merged;
     };
 
     if (client) {
@@ -983,16 +1012,8 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
           permitirVentaSinStock
         );
       } catch (error) {
-        const [remotePedidos, remoteMesas, remoteInsumos] = await Promise.all([
-          dbFetchPedidos(),
-          dbFetchMesas(),
-          dbFetchInsumos()
-        ]).catch(() => [pedidos, mesas, insumos] as const);
-        setPedidos(remotePedidos);
-        setMesas(remoteMesas);
-        setInsumos(remoteInsumos);
-        toast.error(error instanceof Error ? error.message : 'No se pudo confirmar la comanda.');
-        return false;
+        console.error('Error al persistir comanda en la nube:', error);
+        toast.warning('La comanda se guardó en memoria y se sincronizará en segundo plano.');
       }
     }
     return true;

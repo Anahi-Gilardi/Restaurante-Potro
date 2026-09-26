@@ -1,5 +1,5 @@
 import { tryGetActiveSupabaseClient } from '../lib/supabaseClient';
-import { sheetFetchTable, sheetUpsertRow, sheetBatchInsert, sheetDeleteRow } from '../lib/googleSheetsClient';
+import { sheetFetchTable, sheetUpsertRow, sheetDeleteRow } from '../lib/googleSheetsClient';
 import { getArgentinaIsoString, getArgentinaDateTimeString } from '../lib/argentinaDate';
 import { Pedido, PedidoItem } from '../types';
 import { stockEngine } from './stock/stockEngine';
@@ -194,20 +194,22 @@ export const pedidosService = {
         id_pedido: id,
         ...headerFields,
       });
-      if (fields.items !== undefined && Array.isArray(fields.items)) {
-        for (let i = 0; i < fields.items.length; i++) {
-          const item = fields.items[i];
-          await sheetUpsertRow('pedido_detalle', {
-            id_detalle: `${id}_${String(i).padStart(4, '0')}`,
-            id_pedido: id,
-            id_producto: item.id_producto,
-            nombre: item.nombre,
-            cantidad: item.cantidad,
-            categoria: item.categoria,
-            precio_unitario: item.precio_unitario ?? null,
-            estado: item.estado ?? 'pendiente'
-          });
-        }
+      if (fields.items !== undefined && Array.isArray(fields.items) && fields.items.length > 0) {
+        await Promise.allSettled(
+          fields.items.map((item, i) => {
+            const det = {
+              id_detalle: `${id}_${String(i).padStart(4, '0')}`,
+              id_pedido: id,
+              id_producto: item.id_producto,
+              nombre: item.nombre,
+              cantidad: item.cantidad,
+              categoria: item.categoria,
+              precio_unitario: item.precio_unitario ?? null,
+              estado: item.estado ?? 'pendiente'
+            };
+            return sheetUpsertRow('pedido_detalle', det);
+          })
+        );
       }
     } catch (sheetErr) {
       console.warn('[pedidosService.update] Error en Google Sheets:', sheetErr);

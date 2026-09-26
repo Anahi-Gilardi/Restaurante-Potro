@@ -301,17 +301,49 @@ async function executeFetchTable<T = any>(tableName: string): Promise<T[]> {
         const json = await safeParseResponse<T[]>(resp);
         if (json.success && Array.isArray(json.data)) {
           let mergedData = json.data;
-          // Preservar pedidos activos locales en vuelo hacia Google Sheets
+          // Preservar pedidos activos locales en vuelo hacia Google Sheets (evitar sobrescritura con datos viejos)
           if (tableName === 'pedidos_cabecera' && Array.isArray(cachedTables[tableName]) && cachedTables[tableName].length > 0) {
-            const remoteIds = new Set(json.data.map((r: any) => String(r.id_pedido)));
-            const inFlight = cachedTables[tableName].filter((r: any) =>
-              !remoteIds.has(String(r.id_pedido)) &&
-              r.estado_comanda !== 'cancelado' &&
-              r.estado_comanda !== 'entregado_cobrado'
-            );
-            if (inFlight.length > 0) {
-              mergedData = [...inFlight, ...json.data];
-            }
+            const mergedList: any[] = [];
+            const processedIds = new Set<string>();
+
+            // 1. Procesar filas remotas
+            json.data.forEach((remoteRow: any) => {
+              const idStr = String(remoteRow.id_pedido);
+              processedIds.add(idStr);
+              const localRow = cachedTables[tableName].find((l: any) => String(l.id_pedido) === idStr);
+              if (localRow && localRow.estado_comanda !== 'cancelado' && localRow.estado_comanda !== 'entregado_cobrado') {
+                const parseItems = (raw: any): any[] => {
+                  if (Array.isArray(raw)) return raw;
+                  if (typeof raw === 'string') {
+                    try { return JSON.parse(raw); } catch { return []; }
+                  }
+                  return [];
+                };
+                const localItems = parseItems(localRow.items);
+                const remoteItems = parseItems(remoteRow.items);
+                // Si la versión local tiene más ítems recién agregados, preservar la versión local enriquecida
+                if (localItems.length > remoteItems.length) {
+                  mergedList.push({
+                    ...remoteRow,
+                    items: localRow.items,
+                    total: localRow.total || remoteRow.total,
+                    observaciones: localRow.observaciones || remoteRow.observaciones
+                  });
+                  return;
+                }
+              }
+              mergedList.push(remoteRow);
+            });
+
+            // 2. Preservar órdenes locales que todavía no llegaron a Google Sheets
+            cachedTables[tableName].forEach((localRow: any) => {
+              const idStr = String(localRow.id_pedido);
+              if (!processedIds.has(idStr) && localRow.estado_comanda !== 'cancelado' && localRow.estado_comanda !== 'entregado_cobrado') {
+                mergedList.unshift(localRow);
+              }
+            });
+
+            mergedData = mergedList;
           }
           cachedTables[tableName] = mergedData;
           lastFetchTimestamps[tableName] = now;
