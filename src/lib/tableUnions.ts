@@ -249,7 +249,10 @@ export function getIndividualPhysicalTables(mesas: Mesa[]): Mesa[] {
 export function formatTableDisplayTitle(tableRef: string | number | undefined | null): string {
   if (tableRef === undefined || tableRef === null || String(tableRef).trim() === '') return 'Mesa';
   const str = String(tableRef).trim();
-  if (/^(mesa|delivery|mostrador|take away|para llevar)/i.test(str)) {
+  if (/^mesa\b/i.test(str)) {
+    return str.replace(/^mesa\s*/i, 'Mesa ');
+  }
+  if (/^(delivery|mostrador|take away|para llevar)/i.test(str)) {
     return str;
   }
   return `Mesa ${str}`;
@@ -291,6 +294,7 @@ export function hydrateTableUnions(mesas: Mesa[]): Mesa[] {
     return {
       ...m,
       id_mesa: Number(m.id_mesa),
+      numero_mesa: formatTableDisplayTitle(m.numero_mesa || m.id_mesa),
       capacidad: Number(m.capacidad || 2),
       comensales: m.comensales ? Number(m.comensales) : undefined,
       mesas_unidas: mesas_unidas.length > 0 ? mesas_unidas : undefined,

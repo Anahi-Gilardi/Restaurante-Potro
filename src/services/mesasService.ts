@@ -1,7 +1,7 @@
 import { tryGetActiveSupabaseClient } from '../lib/supabaseClient';
 import { sheetFetchTable, sheetUpsertRow, sheetDeleteRow } from '../lib/googleSheetsClient';
 import { Mesa } from '../types';
-import { hydrateTableUnions } from '../lib/tableUnions';
+import { hydrateTableUnions, formatTableDisplayTitle } from '../lib/tableUnions';
 
 export const mesasService = {
   async list(forceFresh = false): Promise<Mesa[]> {
@@ -57,9 +57,10 @@ export const mesasService = {
 
   async create(mesa: Mesa): Promise<Mesa> {
     const supabase = tryGetActiveSupabaseClient();
+    const normalizedNumero = formatTableDisplayTitle(mesa.numero_mesa || mesa.id_mesa);
     const dbMesa = {
       id_mesa: mesa.id_mesa,
-      numero_mesa: mesa.numero_mesa,
+      numero_mesa: normalizedNumero,
       estado: mesa.estado,
       comensales_actuales: mesa.comensales || null,
       capacidad: mesa.capacidad || 4,
@@ -90,7 +91,7 @@ export const mesasService = {
       }
     }
 
-    return mesa;
+    return { ...mesa, numero_mesa: normalizedNumero };
   },
 
   async update(id: number, mesa: Partial<Mesa>): Promise<Mesa> {
@@ -100,7 +101,7 @@ export const mesasService = {
       existing = currentList.find(m => m.id_mesa === id);
     } catch {}
 
-    const resolvedNumero = mesa.numero_mesa || existing?.numero_mesa || `Mesa ${id}`;
+    const resolvedNumero = formatTableDisplayTitle(mesa.numero_mesa || existing?.numero_mesa || id);
     const resolvedCapacidad = mesa.capacidad !== undefined && mesa.capacidad !== null && !isNaN(Number(mesa.capacidad))
       ? Number(mesa.capacidad)
       : (existing?.capacidad || 2);
@@ -121,7 +122,7 @@ export const mesasService = {
         const updatePayload: any = {
           updated_at: new Date().toISOString()
         };
-        if (mesa.numero_mesa !== undefined) updatePayload.numero_mesa = mesa.numero_mesa;
+        if (mesa.numero_mesa !== undefined) updatePayload.numero_mesa = formatTableDisplayTitle(mesa.numero_mesa);
         if (mesa.estado !== undefined) updatePayload.estado = mesa.estado;
         if (mesa.capacidad !== undefined && mesa.capacidad !== null) updatePayload.capacidad = Number(mesa.capacidad);
         if (mesa.zona !== undefined) updatePayload.zona = mesa.zona;
@@ -190,7 +191,7 @@ export const mesasService = {
       try {
         const mapped = mesas.map(m => ({
           id_mesa: m.id_mesa,
-          numero_mesa: m.numero_mesa,
+          numero_mesa: formatTableDisplayTitle(m.numero_mesa || m.id_mesa),
           estado: m.estado,
           comensales_actuales: m.comensales !== undefined && m.comensales !== null ? Number(m.comensales) : null,
           capacidad: m.capacidad || 4,
@@ -213,7 +214,7 @@ export const mesasService = {
         try {
           await sheetUpsertRow('mesas', {
             id_mesa: m.id_mesa,
-            numero_mesa: m.numero_mesa,
+            numero_mesa: formatTableDisplayTitle(m.numero_mesa || m.id_mesa),
             estado: m.estado,
             comensales: m.comensales || '',
             capacidad: m.capacidad || 4,
@@ -227,7 +228,10 @@ export const mesasService = {
       }
     }
 
-    return mesas;
+    return mesas.map(m => ({
+      ...m,
+      numero_mesa: formatTableDisplayTitle(m.numero_mesa || m.id_mesa)
+    }));
   },
 
   async remove(id: number): Promise<boolean> {

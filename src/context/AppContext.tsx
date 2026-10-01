@@ -43,6 +43,7 @@ import {
     INITIAL_PEDIDOS,
 } from '../data/initialData';
 import { createClientPedidoId } from '../lib/pedidoIds';
+import { formatTableDisplayTitle } from '../lib/tableUnions';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -324,7 +325,7 @@ export function PedidosProvider({ children }: { children: ReactNode }) {
                           })
                       );
                       handleDescontarStockPorEscandallo(data.items, recetas);
-                      addLog('pedido_creado', `Pedido #${activePedido.id_pedido} actualizado para mesa ${activePedido.numero_mesa} con nuevos ítems`);
+                      addLog('pedido_creado', `Pedido #${activePedido.id_pedido} actualizado para ${formatTableDisplayTitle(activePedido.numero_mesa)} con nuevos ítems`);
                       return;
                   }
 
@@ -390,7 +391,7 @@ export function PedidosProvider({ children }: { children: ReactNode }) {
                                         m.id_mesa === pedido.id_mesa ? { ...m, estado: 'libre', comensales: undefined } : m
                                       )
                           );
-                  addLog('sistema', `Mesa ${pedido.numero_mesa} facturada y liberada (pedido #${idPedido} y comandas asociadas)`);
+                  addLog('sistema', `${formatTableDisplayTitle(pedido.numero_mesa)} facturada y liberada (pedido #${idPedido} y comandas asociadas)`);
           },
           [pedidos, addLog, setMesas]
         );

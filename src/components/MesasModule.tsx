@@ -694,7 +694,7 @@ export default function MesasModule({
           const mesa = visualMesas.find(m => m.id_mesa === id);
           if (!mesa) continue;
           if (nuevoEstado === 'ocupada' && mesa.estado !== 'libre' && mesa.estado !== 'reservada') {
-            toast.error(`La Mesa ${mesa.numero_mesa} no está disponible (estado: ${mesa.estado})`);
+            toast.error(`La ${getMesaDisplayName(mesa.numero_mesa)} no está disponible (estado: ${mesa.estado})`);
             continue;
           }
           await persistMesaUpdate(id, { estado: nuevoEstado, comensales: accion.comensales || mesa.comensales });
@@ -848,12 +848,12 @@ export default function MesasModule({
 
   const handleDeleteMesa = async (mesa: MesaVisual, e?: React.MouseEvent) => {
     e?.stopPropagation();
-    if (!window.confirm(`¿Eliminar Mesa ${mesa.numero_mesa}?`)) return;
+    if (!window.confirm(`¿Eliminar ${getMesaDisplayName(mesa.numero_mesa)}?`)) return;
     try {
       await persistMesaRemove(mesa.id_mesa);
       setVisualMesas(prev => prev.filter(m => m.id_mesa !== mesa.id_mesa));
-      registrarSistema(`MESAS: Mesa eliminada: ${mesa.numero_mesa}`);
-      registrarMovimiento(mesa.numero_mesa, 'Baja de mesa', 'Mesa eliminada del plano', mesa.estado);
+      registrarSistema(`MESAS: Mesa eliminada: ${getMesaDisplayName(mesa.numero_mesa)}`);
+      registrarMovimiento(getMesaDisplayName(mesa.numero_mesa), 'Baja de mesa', 'Mesa eliminada del plano', mesa.estado);
       toast.success('Mesa eliminada');
     } catch (err: any) {
       toast.error(err.message || 'Error eliminando mesa');
@@ -874,7 +874,7 @@ export default function MesasModule({
         hora: `${hora} hs`,
         fecha,
         id_mesa: selectedMesa.id_mesa,
-        nombre_mesa: selectedMesa.numero_mesa,
+        nombre_mesa: getMesaDisplayName(selectedMesa.numero_mesa),
         observaciones: observaciones.trim() || undefined,
         estado: 'confirmada',
       };
@@ -884,8 +884,8 @@ export default function MesasModule({
         if (!hasRemoteDb()) {
           setReservasHoy(prev => prev.map(r => r.id_reserva === reservaExistente.id_reserva ? { ...r, ...payload } as Reserva : r));
         }
-        registrarSistema(`MESAS: Reserva actualizada en Mesa ${selectedMesa.numero_mesa}`);
-        registrarMovimiento(selectedMesa.numero_mesa, 'Reserva actualizada', `${payload.nombre_cliente} - ${payload.pax} ${payload.pax === 1 ? 'persona' : 'personas'} a las ${payload.hora}`, 'reservada');
+        registrarSistema(`MESAS: Reserva actualizada en ${getMesaDisplayName(selectedMesa.numero_mesa)}`);
+        registrarMovimiento(getMesaDisplayName(selectedMesa.numero_mesa), 'Reserva actualizada', `${payload.nombre_cliente} - ${payload.pax} ${payload.pax === 1 ? 'persona' : 'personas'} a las ${payload.hora}`, 'reservada');
         toast.success('Reserva actualizada');
       } else {
         const newRes: Reserva = {
@@ -898,8 +898,8 @@ export default function MesasModule({
           setReservasHoy(prev => [...prev, newRes]);
         }
         setVisualMesas(prev => prev.map(m => m.id_mesa === selectedMesa.id_mesa ? { ...m, estado: 'reservada', comensales: parseInt(pax) || m.comensales } : m));
-        registrarSistema(`MESAS: Nueva reserva en Mesa ${selectedMesa.numero_mesa}`);
-        registrarMovimiento(selectedMesa.numero_mesa, 'Nueva reserva', `${payload.nombre_cliente} - ${payload.pax} ${payload.pax === 1 ? 'persona' : 'personas'} a las ${payload.hora}`, 'reservada');
+        registrarSistema(`MESAS: Nueva reserva en ${getMesaDisplayName(selectedMesa.numero_mesa)}`);
+        registrarMovimiento(getMesaDisplayName(selectedMesa.numero_mesa), 'Nueva reserva', `${payload.nombre_cliente} - ${payload.pax} ${payload.pax === 1 ? 'persona' : 'personas'} a las ${payload.hora}`, 'reservada');
         toast.success('Reserva creada');
       }
 
@@ -941,8 +941,8 @@ export default function MesasModule({
       } else if (reservaExistente) {
         setReservasHoy(prev => prev.map(r => r.id_reserva === reservaExistente.id_reserva ? { ...r, estado: 'sentada' } : r));
       }
-      registrarSistema(`MESAS: Mesa ${selectedMesa.numero_mesa} sentada con ${comensales} ${comensales === 1 ? 'persona' : 'personas'}`);
-      registrarMovimiento(selectedMesa.numero_mesa, 'Sentada', `${comensales} comensales`, 'ocupada');
+      registrarSistema(`MESAS: ${getMesaDisplayName(selectedMesa.numero_mesa)} sentada con ${comensales} ${comensales === 1 ? 'persona' : 'personas'}`);
+      registrarMovimiento(getMesaDisplayName(selectedMesa.numero_mesa), 'Sentada', `${comensales} comensales`, 'ocupada');
       toast.success('Mesa ocupada y lista para tomar pedido');
       closeModal();
     } catch (err: any) {
@@ -960,8 +960,8 @@ export default function MesasModule({
       await persistMesaUpdate(selectedMesa.id_mesa, { estado: 'libre', comensales: 0, reserva_cliente: undefined, reserva_hora: undefined });
       setVisualMesas(prev => prev.map(m => m.id_mesa === selectedMesa.id_mesa ? { ...m, estado: 'libre', comensales: 0 } : m));
       setReservasHoy(prev => prev.filter(r => r.id_reserva !== reservaExistente.id_reserva));
-      registrarSistema(`MESAS: Reserva cancelada en Mesa ${selectedMesa.numero_mesa}`);
-      registrarMovimiento(selectedMesa.numero_mesa, 'Reserva cancelada', reservaExistente.nombre_cliente, 'libre');
+      registrarSistema(`MESAS: Reserva cancelada en ${getMesaDisplayName(selectedMesa.numero_mesa)}`);
+      registrarMovimiento(getMesaDisplayName(selectedMesa.numero_mesa), 'Reserva cancelada', reservaExistente.nombre_cliente, 'libre');
       toast.success('Reserva cancelada y mesa liberada');
       closeModal();
     } catch (err: any) {

@@ -39,7 +39,7 @@ import { promocionesService, Promocion } from '../services/promocionesService';
 import { pedidosService } from '../services/pedidosService';
 import { menuDiarioService, MenuDiarioDia, INITIAL_MENU_DIARIO } from '../services/menuDiarioService';
 import { printComandaThermalTicket } from '../lib/comandaPrinter';
-import { formatTicketTableName, isUnitedTable, formatUnitedTableName } from '../lib/tableUnions';
+import { formatTicketTableName, isUnitedTable, formatUnitedTableName, formatTableDisplayTitle } from '../lib/tableUnions';
 import { getTableActiveInfo, isTableOccupied, TableActiveInfo } from '../lib/tableOrders';
 import { formatArgentinaDateTime, formatArgentinaTime } from '../lib/argentinaDate';
 import { useToast, ToastContainer } from './ToastContainer';
@@ -468,7 +468,7 @@ export default function MozoTerminal({
       }
 
       if (andPrint) {
-        const tableOrderName = selectedMesa ? selectedMesa.numero_mesa : (editingPedido.numero_mesa || `Mesa ${editingPedido.id_mesa}`);
+        const tableOrderName = selectedMesa ? formatTableDisplayTitle(selectedMesa.numero_mesa) : (editingPedido.numero_mesa ? formatTableDisplayTitle(editingPedido.numero_mesa) : 'Mesa');
         printComandaThermalTicket({
           mesa: formatTicketTableName(tableOrderName),
           mozo: editingPedido.mozo || activeMozo || 'Mozo',
@@ -643,7 +643,7 @@ export default function MozoTerminal({
       if (voiceResult.mesa === 'delivery') {
         setSelectedMesaId(999);
       } else {
-        const targetMesa = mesas.find(m => parseInt(m.numero_mesa, 10) === voiceResult.mesa);
+        const targetMesa = mesas.find(m => parseInt(String(m.numero_mesa).replace(/\D+/g, ''), 10) === voiceResult.mesa || m.id_mesa === voiceResult.mesa);
         if (targetMesa) {
           setSelectedMesaId(targetMesa.id_mesa);
         } else {
@@ -724,7 +724,7 @@ export default function MozoTerminal({
       return;
     }
 
-    const tableOrderName = selectedMesa ? selectedMesa.numero_mesa : (p.numero_mesa || `Mesa ${p.id_mesa}`);
+    const tableOrderName = selectedMesa ? formatTableDisplayTitle(selectedMesa.numero_mesa) : (p.numero_mesa ? formatTableDisplayTitle(p.numero_mesa) : `Mesa ${p.id_mesa}`);
 
     // Si la mesa tiene múltiples comandas, emitir todos los ítems vigentes de la mesa
     const allItems = selectedMesaInfo && selectedMesaInfo.activeOrders.length > 1
@@ -1054,7 +1054,7 @@ export default function MozoTerminal({
         };
       });
 
-      const tableOrderName = selectedMesa ? selectedMesa.numero_mesa : `Mesa ${selectedMesaId}`;
+      const tableOrderName = selectedMesa ? formatTableDisplayTitle(selectedMesa.numero_mesa) : `Mesa ${selectedMesaId}`;
       const cleanObs = observaciones.trim() || undefined;
 
       // Disparar la impresión INMEDIATAMENTE dentro del evento del click del usuario (0ms de latencia y sin bloqueo de popups)
@@ -1189,7 +1189,7 @@ export default function MozoTerminal({
                   }}
                   className={`p-2.5 rounded-xl flex flex-col justify-between items-center transition-all aspect-square border cursor-pointer ${stateClasses}`}
                 >
-                  <span className={`text-xs font-black font-sans ${isSelected ? 'text-white' : 'text-[#8C6239] dark:text-stone-105'}`}>{m.numero_mesa}</span>
+                  <span className={`text-xs font-black font-sans ${isSelected ? 'text-white' : 'text-[#8C6239] dark:text-stone-105'}`}>{formatTableDisplayTitle(m.numero_mesa)}</span>
                   {isOcupada ? (
                     <div className="flex items-center gap-0.5 mt-2">
                       <Users className={`w-3 h-3 ${isSelected ? 'text-white font-black' : 'text-[#9B2226] dark:text-red-400'}`} />
@@ -1209,7 +1209,7 @@ export default function MozoTerminal({
             <div className="mt-4 pt-4 border-t border-stone-200/30 dark:border-white/10 space-y-3">
               <div className="flex justify-between items-center">
                 <div>
-                  <h4 className="font-bold text-sm text-[#8C6239] dark:text-[#C8956A]">{selectedMesa.numero_mesa}</h4>
+                  <h4 className="font-bold text-sm text-[#8C6239] dark:text-[#C8956A]">{formatTableDisplayTitle(selectedMesa.numero_mesa)}</h4>
                   <p className="text-xs text-stone-500 dark:text-stone-400">
                     Estado: <span className={
                       selectedMesaInfo.isOcupada 
@@ -1308,7 +1308,7 @@ export default function MozoTerminal({
                   <div className="p-3 bg-amber-50/90 dark:bg-[#251B12] rounded-xl border border-amber-200 dark:border-[#C8956A]/30 space-y-2.5 animate-fadeIn">
                     <div className="flex justify-between items-center">
                       <label className="text-[11px] font-bold text-stone-700 dark:text-stone-300 block">
-                        Unir a {selectedMesa.numero_mesa}:
+                        Unir a {formatTableDisplayTitle(selectedMesa.numero_mesa)}:
                       </label>
                       <span className="text-[10px] font-bold text-[#8C6239] dark:text-[#C8956A]">
                         {targetUniteMesaIds.length === 0
@@ -1342,7 +1342,7 @@ export default function MozoTerminal({
                           const cap = m.capacidad || 2;
                           return (
                             <option key={m.id_mesa} value={m.id_mesa}>
-                              {m.numero_mesa} ({estadoDisplay}) - Cap: {cap} {cap === 1 ? 'persona' : 'personas'}
+                              {formatTableDisplayTitle(m.numero_mesa)} ({estadoDisplay}) - Cap: {cap} {cap === 1 ? 'persona' : 'personas'}
                             </option>
                           );
                         })}
@@ -1387,7 +1387,7 @@ export default function MozoTerminal({
                                 }`}>
                                   {isSelected ? '✓' : ''}
                                 </div>
-                                <span>{m.numero_mesa}</span>
+                                <span>{formatTableDisplayTitle(m.numero_mesa)}</span>
                                 <span className={`text-[9px] px-1.5 py-0.2 rounded uppercase font-bold ${
                                   candidateInfo.isOcupada 
                                     ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300' 
@@ -1558,7 +1558,7 @@ export default function MozoTerminal({
                   {String(confirmLiberarMesaId) === String(selectedMesa.id_mesa) ? (
                     <div className="p-2.5 bg-red-50 dark:bg-red-950/40 rounded-lg border border-red-300 dark:border-red-700 space-y-2">
                       <p className="text-[11px] font-bold text-red-900 dark:text-red-200 text-center">
-                        ¿Cancelar comanda y liberar {selectedMesa.numero_mesa}?
+                        ¿Cancelar comanda y liberar {formatTableDisplayTitle(selectedMesa.numero_mesa)}?
                       </p>
                       <div className="flex gap-2">
                         <button
@@ -1569,7 +1569,7 @@ export default function MozoTerminal({
                             setConfirmLiberarMesaId(null);
                             if (onLiberarMesa) {
                               await onLiberarMesa(mesaId, pedidoId);
-                              toast.success(`${selectedMesa.numero_mesa} liberada y comanda cancelada.`);
+                              toast.success(`${formatTableDisplayTitle(selectedMesa.numero_mesa)} liberada y comanda cancelada.`);
                             }
                           }}
                           className="flex-1 py-1.5 px-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-black cursor-pointer shadow-sm text-center transition-colors"
@@ -1606,7 +1606,7 @@ export default function MozoTerminal({
                       type="button"
                       onClick={async () => {
                         await onLiberarMesa(selectedMesa.id_mesa);
-                        toast.success(`${selectedMesa.numero_mesa} liberada correctamente.`);
+                        toast.success(`${formatTableDisplayTitle(selectedMesa.numero_mesa)} liberada correctamente.`);
                       }}
                       className="w-full py-1 text-[11px] text-stone-500 hover:text-stone-700 dark:text-stone-400 dark:hover:text-stone-200 flex items-center justify-center gap-1 transition-colors cursor-pointer"
                     >
@@ -2159,7 +2159,7 @@ export default function MozoTerminal({
             </h3>
             {selectedMesa && (
               <span className="bg-[#8C6239] text-[#FAF7F0] border border-[#C8956A]/30 font-sans text-[10px] font-extrabold px-2 py-0.5 rounded-lg shadow-sm">
-                {selectedMesa.numero_mesa}
+                {formatTableDisplayTitle(selectedMesa.numero_mesa)}
               </span>
             )}
           </div>
@@ -2272,7 +2272,7 @@ export default function MozoTerminal({
                   Divisor de Cuentas Gastronómico
                 </h3>
                 <p className="text-xs text-stone-500 dark:text-stone-400 font-sans mt-0.5">
-                  Mesa {pedidos.find(p => p.id_pedido === splittingPedidoId)?.numero_mesa} • Orden #{splittingPedidoId}
+                  {formatTableDisplayTitle(pedidos.find(p => p.id_pedido === splittingPedidoId)?.numero_mesa)} • Orden #{splittingPedidoId}
                 </p>
               </div>
               <button
@@ -2407,14 +2407,14 @@ export default function MozoTerminal({
                     <button
                       onClick={() => {
                         const amntToPay = itemizedTotal > 0 ? itemizedTotal : orderTotal;
-                        toast.success(`Se procesó el cobro de $${amntToPay.toLocaleString('es-AR')} para ${p.numero_mesa}.`);
+                        toast.success(`Se procesó el cobro de $${amntToPay.toLocaleString('es-AR')} para ${formatTableDisplayTitle(p.numero_mesa)}.`);
                         
                         // If fully paid or equal split, complete it
                         if (itemizedTotal === 0 || itemizedTotal === orderTotal) {
                           onFacturarMesa(p.id_pedido);
                         } else {
                           // partial pay, we log it
-                          addLog('sistema', `Mesa ${p.numero_mesa}: Cobro parcial de $${itemizedTotal.toLocaleString('es-AR')} recibido.`);
+                          addLog('sistema', `${formatTableDisplayTitle(p.numero_mesa)}: Cobro parcial de $${itemizedTotal.toLocaleString('es-AR')} recibido.`);
                         }
                         setSplittingPedidoId(null);
                         setSplitItemsChecked({});
@@ -2450,7 +2450,7 @@ export default function MozoTerminal({
                 </div>
                 <p className="text-xs sm:text-sm text-stone-700 dark:text-stone-200 font-sans flex items-center gap-2 flex-wrap">
                   <span className="font-black text-[#8C6239] dark:text-[#E8B800] bg-[#8C6239]/15 dark:bg-[#C8956A]/20 px-2.5 py-0.5 rounded-lg border border-[#8C6239]/25 dark:border-[#C8956A]/30">
-                    {editingPedido.numero_mesa || selectedMesa?.numero_mesa || 'Mesa'}
+                    {formatTableDisplayTitle(editingPedido.numero_mesa || selectedMesa?.numero_mesa || 'Mesa')}
                   </span>
                   <span className="text-stone-400">•</span>
                   <span>Mozo: <strong className="text-stone-900 dark:text-white font-black">{editingPedido.mozo || activeMozo}</strong></span>
@@ -2808,9 +2808,9 @@ export default function MozoTerminal({
                 <span className="text-xs font-bold text-stone-500">Mesa Detectada:</span>
                 <span className="bg-stone-100 border border-stone-200 text-stone-700 font-extrabold text-xs px-3 py-1 rounded-xl">
                   {voiceResult.mesa !== null 
-                    ? (voiceResult.mesa === 'delivery' ? 'Pedido Delivery' : `Mesa ${voiceResult.mesa}`) 
+                    ? (voiceResult.mesa === 'delivery' ? 'Pedido Delivery' : formatTableDisplayTitle(voiceResult.mesa)) 
                     : selectedMesaId !== null 
-                      ? (selectedMesaId === 999 ? 'Mesa Actual (DELIVERY)' : `Mesa Actual (${mesas.find(m => String(m.id_mesa) === String(selectedMesaId))?.numero_mesa})`) 
+                      ? (selectedMesaId === 999 ? 'Mesa Actual (DELIVERY)' : `Mesa Actual (${formatTableDisplayTitle(mesas.find(m => String(m.id_mesa) === String(selectedMesaId))?.numero_mesa)})`) 
                       : 'Ninguna (Se aplicará a mesa seleccionada)'}
                 </span>
               </div>

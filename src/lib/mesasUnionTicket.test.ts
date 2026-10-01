@@ -303,3 +303,46 @@ test('uniteTablesInList permite agregar mesas a una unión existente', () => {
   assert.equal(finalM4.parent_id, 1);
 });
 
+test('formatTableDisplayTitle estandariza nombres de mesas (ej: 3, 5, 12 -> Mesa 3, Mesa 5, Mesa 12)', () => {
+  // Números puros o strings sin prefijo
+  assert.equal(formatTableDisplayTitle('3'), 'Mesa 3');
+  assert.equal(formatTableDisplayTitle(3), 'Mesa 3');
+  assert.equal(formatTableDisplayTitle('5'), 'Mesa 5');
+  assert.equal(formatTableDisplayTitle(5), 'Mesa 5');
+  assert.equal(formatTableDisplayTitle('12'), 'Mesa 12');
+  assert.equal(formatTableDisplayTitle(12), 'Mesa 12');
+
+  // Con minúsculas o mayúsculas
+  assert.equal(formatTableDisplayTitle('mesa 3'), 'Mesa 3');
+  assert.equal(formatTableDisplayTitle('Mesa 5'), 'Mesa 5');
+  assert.equal(formatTableDisplayTitle('MESA 12'), 'Mesa 12');
+
+  // Mesas unidas o nombres compuestos
+  assert.equal(formatTableDisplayTitle('Mesa 3 y 5 (Unidas)'), 'Mesa 3 y 5 (Unidas)');
+
+  // Ubicaciones especiales conservadas
+  assert.equal(formatTableDisplayTitle('Delivery'), 'Delivery');
+  assert.equal(formatTableDisplayTitle('Mostrador'), 'Mostrador');
+  assert.equal(formatTableDisplayTitle('Para llevar'), 'Para llevar');
+
+  // Fallbacks
+  assert.equal(formatTableDisplayTitle(''), 'Mesa');
+  assert.equal(formatTableDisplayTitle(null), 'Mesa');
+  assert.equal(formatTableDisplayTitle(undefined), 'Mesa');
+});
+
+test('hydrateTableUnions normaliza numero_mesa para mesas con números planos (3, 5, 12)', () => {
+  const rawMesas: Mesa[] = [
+    { id_mesa: 3, numero_mesa: '3', estado: 'libre', capacidad: 4, zona: 'salon' },
+    { id_mesa: 5, numero_mesa: '5', estado: 'libre', capacidad: 4, zona: 'salon' },
+    { id_mesa: 12, numero_mesa: '12', estado: 'libre', capacidad: 2, zona: 'salon' },
+    { id_mesa: 1, numero_mesa: 'Mesa 1', estado: 'libre', capacidad: 2, zona: 'salon' },
+  ];
+
+  const hydrated = hydrateTableUnions(rawMesas);
+  assert.equal(hydrated.find(m => m.id_mesa === 3)?.numero_mesa, 'Mesa 3');
+  assert.equal(hydrated.find(m => m.id_mesa === 5)?.numero_mesa, 'Mesa 5');
+  assert.equal(hydrated.find(m => m.id_mesa === 12)?.numero_mesa, 'Mesa 12');
+  assert.equal(hydrated.find(m => m.id_mesa === 1)?.numero_mesa, 'Mesa 1');
+});
+
