@@ -278,18 +278,38 @@ export function useCaja({
           active = null;
         }
       } else if (active && remoteSession && remoteSession.id_cierre === active.id_cierre) {
-        if (remoteSession.monto_ventas !== active.monto_ventas || remoteSession.monto_apertura !== active.monto_apertura) {
-          const updatedActive = {
-            ...active,
-            monto_ventas: remoteSession.monto_ventas,
-            monto_apertura: remoteSession.monto_apertura,
-            usuario_cajero: remoteSession?.usuario_cajero || active?.usuario_cajero || 'Cajero',
-            observaciones: remoteSession.observaciones,
-            sync_status: 'synced' as const
-          };
-          cajaService.safeStorage.setItem('el_patron_caja_activa', JSON.stringify(updatedActive));
-          setCajaSession(updatedActive);
-        }
+        const mergedEfectivo = Math.max(active.efectivo || 0, remoteSession.efectivo || 0);
+        const mergedTransferencia = Math.max(active.transferencia || 0, remoteSession.transferencia || 0);
+        const mergedPropina = Math.max(active.propina || 0, remoteSession.propina || 0);
+        const mergedDebito = Math.max(active.registros_totales?.debito || 0, remoteSession.registros_totales?.debito || 0);
+        const mergedCredito = Math.max(active.registros_totales?.credito || 0, remoteSession.registros_totales?.credito || 0);
+        const mergedMP = Math.max(active.registros_totales?.mercadopago || 0, remoteSession.registros_totales?.mercadopago || 0);
+        const maxVentas = Math.max(active.monto_ventas, remoteSession.monto_ventas);
+
+        const updatedActive: CierreCaja = {
+          ...active,
+          monto_ventas: maxVentas,
+          monto_apertura: remoteSession.monto_apertura || active.monto_apertura,
+          efectivo: mergedEfectivo,
+          transferencia: mergedTransferencia,
+          propina: mergedPropina,
+          debito: mergedDebito,
+          credito: mergedCredito,
+          mercadopago: mergedMP,
+          usuario_cajero: remoteSession?.usuario_cajero || active?.usuario_cajero || 'Cajero',
+          observaciones: remoteSession.observaciones || active.observaciones,
+          registros_totales: {
+            efectivo: mergedEfectivo,
+            transferencia: mergedTransferencia,
+            propina: mergedPropina,
+            debito: mergedDebito,
+            credito: mergedCredito,
+            mercadopago: mergedMP
+          },
+          sync_status: 'synced' as const
+        };
+        cajaService.safeStorage.setItem('el_patron_caja_activa', JSON.stringify(updatedActive));
+        setCajaSession(updatedActive);
       }
     } catch (err) {
       console.error('Error loading history in loadCajaState:', err);

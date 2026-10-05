@@ -228,17 +228,23 @@ export const cajaService = {
       try {
         const parsed = JSON.parse(raw);
         if (parsed) {
-          const efectivo = Number(parsed.efectivo !== undefined ? parsed.efectivo : (parsed.registros_totales?.efectivo || 0));
-          const propina = Number(parsed.propina !== undefined ? parsed.propina : (parsed.registros_totales?.propina || 0));
-          const transferencia = Number(parsed.transferencia !== undefined ? parsed.transferencia : (parsed.registros_totales?.transferencia || 0));
           const debito = Number(parsed.debito !== undefined ? parsed.debito : (parsed.registros_totales?.debito || 0));
           const credito = Number(parsed.credito !== undefined ? parsed.credito : (parsed.registros_totales?.credito || 0));
+          const transferencia = Number(parsed.transferencia !== undefined ? parsed.transferencia : (parsed.registros_totales?.transferencia || 0));
           const mercadopago = Number(parsed.mercadopago !== undefined ? parsed.mercadopago : (parsed.registros_totales?.mercadopago || 0));
+          const propina = Number(parsed.propina !== undefined ? parsed.propina : (parsed.registros_totales?.propina || 0));
+
+          const totalVentas = Number(parsed.monto_ventas) || 0;
+          const totalDigital = debito + credito + transferencia + mercadopago;
+          let efectivo = Number(parsed.efectivo !== undefined ? parsed.efectivo : (parsed.registros_totales?.efectivo ?? 0));
+          if (efectivo === 0 && totalVentas > totalDigital) {
+            efectivo = totalVentas - totalDigital;
+          }
 
           return {
             ...parsed,
             monto_apertura: Number(parsed.monto_apertura) || 0,
-            monto_ventas: Number(parsed.monto_ventas) || 0,
+            monto_ventas: totalVentas,
             efectivo,
             propina,
             transferencia,
@@ -281,19 +287,31 @@ export const cajaService = {
                 : cc.registros_totales;
             } catch {}
           }
-          const efectivo = parseFloat(cc.efectivo !== undefined && cc.efectivo !== '' ? cc.efectivo : (regTotales.efectivo || 0));
+          const debito = parseFloat(cc.debito !== undefined && cc.debito !== '' ? cc.debito : (regTotales.debito || 0));
+          const credito = parseFloat(cc.credito !== undefined && cc.credito !== '' ? cc.credito : (regTotales.credito || 0));
+          const transferencia = parseFloat(cc.transferencia !== undefined && cc.transferencia !== '' ? cc.transferencia : (cc.transfer !== undefined && cc.transfer !== '' ? cc.transfer : (regTotales.transferencia || 0)));
+          const mercadopago = parseFloat(cc.mercadopago !== undefined && cc.mercadopago !== '' ? cc.mercadopago : (regTotales.mercadopago || 0));
           const propina = parseFloat(cc.propina !== undefined && cc.propina !== '' ? cc.propina : (regTotales.propina || 0));
-          const transferencia = parseFloat(cc.transferencia !== undefined && cc.transferencia !== '' ? cc.transferencia : (regTotales.transferencia || 0));
+
+          const montoVentas = parseFloat(cc.monto_ventas || 0);
+          const totalDigital = debito + credito + transferencia + mercadopago;
+          let efectivo = parseFloat(cc.efectivo !== undefined && cc.efectivo !== '' ? cc.efectivo : (regTotales.efectivo || 0));
+          if (efectivo === 0 && montoVentas > totalDigital) {
+            efectivo = montoVentas - totalDigital;
+          }
 
           return {
             id_cierre: String(cc.id_cierre),
             fecha_apertura: cc.fecha_apertura || inferFechaApertura(String(cc.id_cierre)),
             fecha_cierre: cc.fecha_cierre || null,
             monto_apertura: parseFloat(cc.monto_apertura || 0),
-            monto_ventas: parseFloat(cc.monto_ventas || 0),
+            monto_ventas: montoVentas,
             efectivo,
             propina,
             transferencia,
+            debito,
+            credito,
+            mercadopago,
             monto_real: cc.monto_real ? parseFloat(cc.monto_real) : null,
             diferencia: cc.diferencia ? parseFloat(cc.diferencia) : null,
             observaciones: cc.observaciones || '',
@@ -303,7 +321,10 @@ export const cajaService = {
               ...regTotales,
               efectivo,
               propina,
-              transferencia
+              transferencia,
+              debito,
+              credito,
+              mercadopago
             }
           };
         });
@@ -447,19 +468,31 @@ export const cajaService = {
           } catch {}
         }
 
-        const efectivo = parseFloat(latest.efectivo !== undefined && latest.efectivo !== '' ? latest.efectivo : (regTotales.efectivo || 0));
+        const debito = parseFloat(latest.debito !== undefined && latest.debito !== '' ? latest.debito : (regTotales.debito || 0));
+        const credito = parseFloat(latest.credito !== undefined && latest.credito !== '' ? latest.credito : (regTotales.credito || 0));
+        const transferencia = parseFloat(latest.transferencia !== undefined && latest.transferencia !== '' ? latest.transferencia : (latest.transfer !== undefined && latest.transfer !== '' ? latest.transfer : (regTotales.transferencia || 0)));
+        const mercadopago = parseFloat(latest.mercadopago !== undefined && latest.mercadopago !== '' ? latest.mercadopago : (regTotales.mercadopago || 0));
         const propina = parseFloat(latest.propina !== undefined && latest.propina !== '' ? latest.propina : (regTotales.propina || 0));
-        const transferencia = parseFloat(latest.transferencia !== undefined && latest.transferencia !== '' ? latest.transferencia : (regTotales.transferencia || 0));
+
+        const montoVentas = parseFloat(latest.monto_ventas || 0);
+        const totalDigital = debito + credito + transferencia + mercadopago;
+        let efectivo = parseFloat(latest.efectivo !== undefined && latest.efectivo !== '' ? latest.efectivo : (regTotales.efectivo || 0));
+        if (efectivo === 0 && montoVentas > totalDigital) {
+          efectivo = montoVentas - totalDigital;
+        }
 
         const session: CierreCaja = {
           id_cierre: String(latest.id_cierre),
           fecha_apertura: latest.fecha_apertura || inferFechaApertura(String(latest.id_cierre)),
           fecha_cierre: null,
           monto_apertura: parseFloat(latest.monto_apertura || 0),
-          monto_ventas: parseFloat(latest.monto_ventas || 0),
+          monto_ventas: montoVentas,
           efectivo,
           propina,
           transferencia,
+          debito,
+          credito,
+          mercadopago,
           monto_real: null,
           diferencia: null,
           observaciones: latest.observaciones || 'Sesión Activa - En Turno',
@@ -469,7 +502,10 @@ export const cajaService = {
             ...regTotales,
             efectivo,
             propina,
-            transferencia
+            transferencia,
+            debito,
+            credito,
+            mercadopago
           }
         };
         return session;
