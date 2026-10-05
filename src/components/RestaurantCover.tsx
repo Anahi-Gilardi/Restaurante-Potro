@@ -265,16 +265,6 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full z-10 flex flex-col items-center text-center">
           <div className="max-w-3xl space-y-6 flex flex-col items-center">
-            <motion.div 
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-              className="inline-flex items-center gap-1.5 px-4.5 py-1.5 bg-black/45 border border-white/10 rounded-full text-amber-200 text-xs font-bold uppercase tracking-wider font-display-serif shadow-inner"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-[#C8956A] animate-pulse" />
-              Gran Inauguración · 17 de Septiembre de 2026
-            </motion.div>
-
             <motion.h1 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -558,7 +548,7 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
         <div className="text-center space-y-3">
           <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-[11px] uppercase font-black tracking-widest bg-[#8C6239]/10 text-[#8C6239] dark:text-[#C8956A] border border-[#8C6239]/25 font-display-serif">
             <Sparkles className="w-3.5 h-3.5 text-[#8C6239] animate-pulse" />
-            Apertura Oficial · Jueves 17 de Septiembre de 2026
+            Nuestra Propuesta · Cocina Tradicional y de Autor
           </span>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-wide font-serif-rustic text-[#8C6239] dark:text-[#FAF7F0]">
             El Patrón Restaurante
@@ -721,7 +711,7 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
             Solicitud de Reserva Online
           </h2>
           <p className="text-sm sm:text-base font-bold text-stone-850 dark:text-stone-200 max-w-lg mx-auto font-serif-rustic italic">
-            Completá tu solicitud para la fecha inaugural del <strong>17 de Septiembre</strong> o próximas visitas. Nos contactaremos para confirmar tu mesa a la brevedad.
+            Completá tu solicitud para coordinar tu mesa. Nos contactaremos para confirmar tu reserva a la brevedad.
           </p>
           <div className="w-16 h-1 bg-[#8C6239] dark:bg-[#8C6239] mx-auto rounded-full" />
         </div>
