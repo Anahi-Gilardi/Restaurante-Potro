@@ -752,12 +752,12 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
                   onChange={(e) => setBookingForm(prev => ({ ...prev, personas: e.target.value }))}
                   className="w-full px-4 py-3 rounded-xl border border-stone-250 dark:border-stone-800 bg-[#FAF7F0] dark:bg-[#1E140E] text-stone-850 dark:text-white text-xs font-bold focus:outline-none focus:border-[#8C6239] dark:focus:border-[#8C6239] cursor-pointer"
                 >
-                  <option value="1">1 Persona</option>
-                  <option value="2">2 Personas</option>
-                  <option value="3">3 Personas</option>
-                  <option value="4">4 Personas</option>
-                  <option value="5">5 Personas</option>
-                  <option value="6">6+ Personas</option>
+                  {Array.from({ length: 15 }, (_, i) => i + 1).map((n) => (
+                    <option key={n} value={String(n)}>
+                      {n} {n === 1 ? 'Persona' : 'Personas'}
+                    </option>
+                  ))}
+                  <option value="16+">Más de 15 Personas</option>
                 </select>
               </div>
 

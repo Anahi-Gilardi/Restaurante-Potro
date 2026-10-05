@@ -577,7 +577,7 @@ export default function ReservasModule({ mesas, onEstadoChange, addLog = () => {
                     onChange={e => setPax(e.target.value)}
                     className="w-full text-xs p-2.5 rounded-xl border border-stone-200 dark:border-stone-750 bg-stone-50/50 dark:bg-stone-955 text-stone-700 dark:text-stone-200 focus:outline-none cursor-pointer font-bold"
                   >
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 10, 12].map(n => (
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].map(n => (
                       <option key={n} value={n} className="bg-white dark:bg-stone-900">
                         {n} {n === 1 ? 'Persona' : 'Personas'}
                       </option>
