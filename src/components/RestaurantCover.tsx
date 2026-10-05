@@ -140,7 +140,7 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
     {
       id: 'spec_1',
       title: 'Rotolo di Tata',
-      description: 'Rollo de pasta fresca al huevo relleno de espinaca y ricota artesanal, o también con cabrito, bañado con salsa pomodoro suave, crema y gotas de pesto.',
+      description: 'Rollo de pasta fresca al huevo relleno de espinaca y cabrito serrano, bañado con salsa pomodoro suave, crema y gotas de pesto.',
       tag: 'El Favorito de la Casa',
       image: '/images/rotolo_tata.jpg'
     },
