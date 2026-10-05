@@ -849,15 +849,19 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
             <h4 className="text-xs uppercase font-bold tracking-widest text-stone-950 font-display-serif">Nuestros Horarios</h4>
             <ul className="space-y-2 text-xs font-medium">
               <li className="flex justify-between border-b border-black/10 pb-1">
-                <span>Miércoles a Lunes:</span>
+                <span>Miércoles a Domingo:</span>
                 <span className="text-stone-950 font-display-serif">12:00 a 16:00 hs</span>
               </li>
               <li className="flex justify-between border-b border-black/10 pb-1">
-                <span>Miércoles a Lunes:</span>
+                <span>Miércoles a Domingo:</span>
                 <span className="text-stone-950 font-display-serif">20:00 a 00:00 hs</span>
               </li>
+              <li className="flex justify-between border-b border-black/10 pb-1">
+                <span>Martes (Mediodía):</span>
+                <span className="text-stone-950 font-display-serif">12:00 a 15:00 hs</span>
+              </li>
               <li className="flex justify-between">
-                <span>Martes:</span>
+                <span>Lunes:</span>
                 <span className="text-stone-700 font-display-serif">Cerrado</span>
               </li>
             </ul>
@@ -885,7 +889,7 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
 
         {/* Copy bar */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-12 pt-8 border-t border-black/10 text-center text-xs text-stone-700">
-          <p>© {new Date().getFullYear()} El Patrón Restaurante. Todos los derechos reservados. Diseñado por Antigravity.</p>
+          <p>© {new Date().getFullYear()} El Patrón Restaurante. Todos los derechos reservados.</p>
         </div>
       </footer>
 
