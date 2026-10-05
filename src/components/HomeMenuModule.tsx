@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { 
   TrendingUp, 
   Smartphone, 
@@ -10,24 +10,26 @@ import {
   Calendar, 
   Receipt, 
   Sliders, 
-  Database,
-  Clock,
-  RefreshCw,
-  User,
-  ChevronRight,
-  Bell,
-  AlertTriangle,
-  Truck,
-  Percent,
-  Flame,
-  Activity,
-  Award,
-  Lightbulb
+  Database, 
+  Clock, 
+  RefreshCw, 
+  User, 
+  ChevronRight, 
+  Bell, 
+  AlertTriangle, 
+  Truck, 
+  Percent, 
+  Flame, 
+  Activity, 
+  Award, 
+  Lightbulb, 
+  Trophy 
 } from 'lucide-react';
 import { Mesa, Pedido, Insumo, ProductoMenu, Usuario } from '../types';
 import { AppView } from '../lib/permissions';
 import { tryGetActiveSupabaseClient } from '../lib/supabaseClient';
 import { getTableActiveInfo, isTableOccupied } from '../lib/tableOrders';
+import { ventasPlatosService, RankingItem } from '../services/ventasPlatosService';
 import ElPatronLogo from './ElPatronLogo';
 
 interface HomeMenuModuleProps {
@@ -96,6 +98,60 @@ export default function HomeMenuModule({
   // Ticket Promedio
   const ticketCount = pedidos.filter(p => p.estado_comanda === 'entregado_cobrado').length;
   const averageTicket = ticketCount > 0 ? Math.round(totalSales / ticketCount) : 0;
+
+  // Ranking de Platos Más Vendidos (con integración de ventas_platos y fallback en vivo)
+  const [rankingPeriodo, setRankingPeriodo] = useState<'semana' | 'mes' | 'hoy'>('mes');
+  const [ventasPlatosRows, setVentasPlatosRows] = useState(() => ventasPlatosService.getLocalCache());
+
+  useEffect(() => {
+    let mounted = true;
+    ventasPlatosService.list(false).then(rows => {
+      if (mounted && rows && rows.length > 0) {
+        setVentasPlatosRows(rows);
+      }
+    }).catch(() => {});
+    return () => { mounted = false; };
+  }, []);
+
+  const rankingTop5 = useMemo<RankingItem[]>(() => {
+    const res = ventasPlatosService.calculateRanking(ventasPlatosRows, rankingPeriodo);
+    if (res.top5.length > 0) {
+      return res.top5;
+    }
+
+    // Fallback con comandas activas/entregadas en memoria si aún no hay cierres registrados
+    const counts: Record<string, { id_producto: string; nombre: string; categoria: string; cantidad: number; totalVendido: number }> = {};
+    pedidos.forEach(p => {
+      if (p.estado_comanda !== 'cancelado') {
+        p.items.forEach(item => {
+          const prod = productosMenu.find(pr => pr.id_producto === item.id_producto);
+          const name = item.nombre || prod?.nombre || item.id_producto;
+          const cat = prod?.categoria || 'General';
+          const price = item.precio_unitario ?? prod?.precio_venta ?? 0;
+          if (!counts[name]) {
+            counts[name] = { id_producto: item.id_producto, nombre: name, categoria: cat, cantidad: 0, totalVendido: 0 };
+          }
+          counts[name].cantidad += Number(item.cantidad) || 0;
+          counts[name].totalVendido += (Number(item.cantidad) || 0) * price;
+        });
+      }
+    });
+
+    const totalCant = Object.values(counts).reduce((s, c) => s + c.cantidad, 0);
+    return Object.values(counts)
+      .sort((a, b) => b.cantidad - a.cantidad)
+      .slice(0, 5)
+      .map(c => ({
+        ...c,
+        porcentaje: totalCant > 0 ? Math.round((c.cantidad / totalCant) * 100) : 0,
+        precioPromedio: c.cantidad > 0 ? Math.round(c.totalVendido / c.cantidad) : 0
+      }));
+  }, [ventasPlatosRows, rankingPeriodo, pedidos, productosMenu]);
+
+  const maxDishQty = useMemo(() => {
+    if (rankingTop5.length === 0) return 1;
+    return Math.max(...rankingTop5.map(i => i.cantidad), 1);
+  }, [rankingTop5]);
 
   // Ordenar mesas numéricamente para el mapa
   const sortedMesas = useMemo(() => {
@@ -593,58 +649,163 @@ export default function HomeMenuModule({
         </div>
       </div>
 
-      {/* DOS COLUMNAS: LEADERBOARD DE MOZOS + ALERTAS GENERALES */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-6 max-w-7xl mx-auto">
+      {/* SECCIÓN DE RANKING DE PLATOS MÁS VENDIDOS & LEADERBOARD DE SALÓN */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 max-w-7xl mx-auto">
         
-        {/* LEADERBOARD (Span 6) */}
-        <div className="md:col-span-6 bg-white dark:bg-stone-900 p-5 rounded-3xl border border-stone-200 dark:border-stone-850 shadow-xs space-y-4">
-          <h4 className="text-xs font-black text-[#624A3E] dark:text-[#C8956A] uppercase tracking-wider flex items-center gap-1.5">
-            <Award className="w-4 h-4" />
-            Desempeño de Mozos (Servicio Activo)
-          </h4>
-          
-          <div className="space-y-3 pt-2">
-            {mozoStats.length === 0 ? (
-              <p className="text-xs text-stone-400 italic">No hay comandas activas asignadas a ningún mozo actualmente.</p>
-            ) : (
-              mozoStats.map(mozo => (
-                <div key={mozo.name} className="flex items-center justify-between text-xs border-b border-stone-105 dark:border-stone-800 pb-2.5 last:border-0 last:pb-0">
-                  <div className="flex items-center gap-2">
-                    <span className="w-6 h-6 rounded-full bg-stone-100 dark:bg-stone-850 text-[#624A3E] dark:text-[#C8956A] font-black flex items-center justify-center text-[10px]">
-                      {mozo.name[0]}
-                    </span>
-                    <span className="font-extrabold text-stone-805 dark:text-stone-100">{mozo.name}</span>
-                  </div>
+        {/* WIDGET TOP 5 PLATOS MÁS VENDIDOS (Span 7) */}
+        <div className="lg:col-span-7 bg-white dark:bg-stone-900 p-5 md:p-6 rounded-3xl border border-stone-200 dark:border-stone-850 shadow-xs space-y-4 flex flex-col justify-between">
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-stone-105 dark:border-stone-800 pb-3">
+              <div>
+                <h4 className="text-sm font-black text-stone-900 dark:text-stone-100 uppercase flex items-center gap-2">
+                  <Trophy className="w-4.5 h-4.5 text-amber-500" />
+                  Platos Estrella & Más Vendidos
+                </h4>
+                <p className="text-[11px] text-stone-500 dark:text-stone-400 font-medium">
+                  Ranking contabilizado sincronizado con <code className="text-amber-700 dark:text-amber-300 font-bold bg-amber-50 dark:bg-amber-950/30 px-1 rounded">ventas_platos</code>.
+                </p>
+              </div>
 
-                  <div className="flex items-center gap-3 font-semibold text-stone-600 dark:text-stone-300">
-                    <span className="text-[10px] bg-stone-50 dark:bg-stone-950 px-2 py-0.5 rounded border border-stone-150 dark:border-stone-805">
-                      {mozo.activeTables} mesas activas
-                    </span>
-                    <span className="text-[10px] bg-[#624A3E]/5 text-[#624A3E] dark:text-[#C8956A] px-2 py-0.5 rounded">
-                      {mozo.ordersServed} comandas
-                    </span>
-                  </div>
-                </div>
-              ))
+              {/* Selector de período rápido */}
+              <div className="flex items-center gap-1.5 bg-stone-100 dark:bg-stone-800 p-1 rounded-xl text-[10px] font-extrabold">
+                {[
+                  { key: 'hoy', label: 'Hoy' },
+                  { key: 'semana', label: 'Semana' },
+                  { key: 'mes', label: 'Mes' }
+                ].map(tab => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setRankingPeriodo(tab.key as any)}
+                    className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer border-none ${
+                      rankingPeriodo === tab.key
+                        ? 'bg-[#624A3E] text-white font-black shadow-xs'
+                        : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 bg-transparent'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Listado de Platos */}
+            {rankingTop5.length > 0 ? (
+              <div className="space-y-2.5 pt-1">
+                {rankingTop5.map((dish, idx) => {
+                  const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`;
+                  const barColor = idx === 0 ? 'bg-amber-500' : idx === 1 ? 'bg-slate-400' : idx === 2 ? 'bg-amber-700' : 'bg-[#624A3E]';
+
+                  return (
+                    <div key={idx} className="p-3 bg-stone-50/70 dark:bg-stone-950/40 rounded-2xl border border-stone-150 dark:border-stone-800/80 space-y-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span className="text-sm font-black w-5 text-center shrink-0">{medal}</span>
+                          <div className="min-w-0">
+                            <p className="text-xs font-extrabold text-stone-900 dark:text-stone-100 truncate">
+                              {dish.nombre}
+                            </p>
+                            <span className="text-[9px] text-stone-400 uppercase font-bold block">
+                              {dish.categoria}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          <span className="font-mono text-xs font-black text-stone-900 dark:text-stone-100">
+                            {dish.cantidad} {dish.cantidad === 1 ? 'porción' : 'porciones'}
+                          </span>
+                          <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 block font-bold">
+                            ${dish.totalVendido.toLocaleString('es-AR')}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Progress Bar */}
+                      <div className="w-full bg-stone-200 dark:bg-stone-800 h-1.5 rounded-full overflow-hidden flex items-center">
+                        <div
+                          className={`h-full ${barColor} transition-all duration-500`}
+                          style={{ width: `${Math.min(100, Math.round((dish.cantidad / maxDishQty) * 100))}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="p-6 text-center text-stone-400 space-y-1.5">
+                <UtensilsCrossed className="w-8 h-8 mx-auto opacity-30" />
+                <p className="text-xs italic">Aún no hay ventas de platos registradas en este período.</p>
+              </div>
             )}
+          </div>
+
+          {/* Footer link to full ranking */}
+          <div className="pt-3 border-t border-stone-105 dark:border-stone-800 flex justify-between items-center">
+            <span className="text-[10px] text-stone-400 font-medium">Top 5 más vendidos del período</span>
+            <button
+              type="button"
+              onClick={() => onNavigate('menu')}
+              className="text-xs font-extrabold text-[#624A3E] dark:text-[#C8956A] hover:underline flex items-center gap-1 cursor-pointer"
+            >
+              <span>Ver Ranking Completo y Estadísticas</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
 
-        {/* WIDGET RAPIDOS Y SUGERENCIAS (Span 6) */}
-        <div className="md:col-span-6 bg-white dark:bg-stone-900 p-5 rounded-3xl border border-stone-200 dark:border-stone-850 shadow-xs space-y-4">
-          <h4 className="text-xs font-black text-stone-800 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
-            <Lightbulb className="w-4 h-4 text-amber-500" />
-            Recomendaciones Operativas
-          </h4>
-          
-          <div className="space-y-3 text-xs font-semibold leading-relaxed">
-            <div className="p-3 bg-stone-50 dark:bg-stone-955 rounded-2xl border border-stone-150 dark:border-stone-805">
-              <span className="text-[9.5px] font-black text-[#624A3E] dark:text-[#C8956A] uppercase block mb-1">💡 Control de Inventario Semanal</span>
-              <p className="text-stone-600 dark:text-stone-400 font-medium">Revisa las alertas de stock mínimo antes del cierre de turno para coordinar los pedidos de materias primas con proveedores.</p>
+        {/* COLUMNA DERECHA: LEADERBOARD DE MOZOS + RECOMENDACIONES (Span 5) */}
+        <div className="lg:col-span-5 space-y-6">
+          {/* LEADERBOARD */}
+          <div className="bg-white dark:bg-stone-900 p-5 rounded-3xl border border-stone-200 dark:border-stone-850 shadow-xs space-y-3.5">
+            <h4 className="text-xs font-black text-[#624A3E] dark:text-[#C8956A] uppercase tracking-wider flex items-center gap-1.5">
+              <Award className="w-4 h-4" />
+              Desempeño de Mozos (Servicio Activo)
+            </h4>
+            
+            <div className="space-y-2.5 pt-1">
+              {mozoStats.length === 0 ? (
+                <p className="text-xs text-stone-400 italic">No hay comandas activas asignadas actualmente.</p>
+              ) : (
+                mozoStats.map(mozo => (
+                  <div key={mozo.name} className="flex items-center justify-between text-xs border-b border-stone-105 dark:border-stone-800 pb-2 last:border-0 last:pb-0">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="w-6 h-6 rounded-full bg-stone-100 dark:bg-stone-850 text-[#624A3E] dark:text-[#C8956A] font-black flex items-center justify-center text-[10px] shrink-0">
+                        {mozo.name[0]}
+                      </span>
+                      <span className="font-extrabold text-stone-805 dark:text-stone-100 truncate">{mozo.name}</span>
+                    </div>
+
+                    <div className="flex items-center gap-2 font-semibold text-stone-600 dark:text-stone-300 shrink-0">
+                      <span className="text-[9.5px] bg-stone-50 dark:bg-stone-950 px-2 py-0.5 rounded border border-stone-150 dark:border-stone-805">
+                        {mozo.activeTables} mesas
+                      </span>
+                      <span className="text-[9.5px] bg-[#624A3E]/5 text-[#624A3E] dark:text-[#C8956A] px-2 py-0.5 rounded font-bold">
+                        {mozo.ordersServed} com.
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
-            <div className="p-3 bg-stone-50 dark:bg-stone-955 rounded-2xl border border-stone-150 dark:border-stone-855">
-              <span className="text-[9.5px] font-black text-emerald-600 uppercase block mb-1">💡 Facturación Simplificada</span>
-              <p className="text-stone-600 dark:text-stone-400 font-medium">Las mesas que soliciten su cuenta en el salón aparecerán automáticamente palpitando en el mapa de control superior.</p>
+          </div>
+
+          {/* RECOMENDACIONES OPERATIVAS */}
+          <div className="bg-white dark:bg-stone-900 p-5 rounded-3xl border border-stone-200 dark:border-stone-850 shadow-xs space-y-3">
+            <h4 className="text-xs font-black text-stone-800 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+              <Lightbulb className="w-4 h-4 text-amber-500" />
+              Recomendaciones Operativas
+            </h4>
+            
+            <div className="space-y-2.5 text-xs font-semibold leading-relaxed">
+              <div className="p-2.5 bg-stone-50 dark:bg-stone-955 rounded-2xl border border-stone-150 dark:border-stone-805">
+                <span className="text-[9px] font-black text-[#624A3E] dark:text-[#C8956A] uppercase block mb-0.5">💡 Control de Inventario Semanal</span>
+                <p className="text-[11px] text-stone-600 dark:text-stone-400 font-medium">Revisa las alertas de stock mínimo antes del cierre de turno para coordinar materias primas.</p>
+              </div>
+              <div className="p-2.5 bg-stone-50 dark:bg-stone-955 rounded-2xl border border-stone-150 dark:border-stone-855">
+                <span className="text-[9px] font-black text-emerald-600 uppercase block mb-0.5">💡 Facturación Simplificada</span>
+                <p className="text-[11px] text-stone-600 dark:text-stone-400 font-medium">Las mesas que soliciten su cuenta aparecerán automáticamente palpitando en el mapa superior.</p>
+              </div>
             </div>
           </div>
         </div>
