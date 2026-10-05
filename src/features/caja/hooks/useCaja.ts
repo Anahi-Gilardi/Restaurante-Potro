@@ -23,8 +23,8 @@ import { DEFAULT_RESTAURANT_PROFILE, normalizeRestaurantProfile } from '../../..
 import { resolvePedidoItemUnitPrice, roundCurrency } from '../../../lib/orderPricing';
 import { internalTicketPreview } from '../../../lib/fiscalVoucherPolicy';
 import { isSameTable, mergeTableOrders } from '../../../lib/tableOrders';
-import { formatTicketTableName } from '../../../lib/tableUnions';
 import { getArgentinaIsoString, getArgentinaDateTimeString, formatArgentinaDateTime, formatArgentinaTime, argentinaDateIso } from '../../../lib/argentinaDate';
+import { sheetUpsertRow } from '../../../lib/googleSheetsClient';
 
 export interface PendingCloseMesaData {
   pedidoId: number;
@@ -915,6 +915,31 @@ export function useCaja({
         await cajaService.updateSales(finalTotal, paymentDesglosesCount, checkoutPropina || paymentDesglosesCount.propina || 0);
       } catch (e: any) {
         toast.error(`Error al actualizar ventas: ${e.message}`);
+      }
+
+      // 2. Persistir desglose individual en Google Sheets hoja 'tipos_pago'
+      try {
+        const activeCierre = cajaService.getOpenSession();
+        const tipoPagoPayload = {
+          id_pago: pagos && pagos.length > 0 ? pagos[0].id_pago : `pag_${Date.now()}`,
+          id_cierre: activeCierre?.id_cierre || 'cie_general',
+          fecha_hora: getArgentinaDateTimeString(),
+          numero_mesa: numeroMesa,
+          mozo_cajero: operatorName || 'Cajero',
+          monto_total: finalTotal,
+          efectivo: paymentDesglosesCount.efectivo || 0,
+          transferencia: paymentDesglosesCount.transferencia || 0,
+          mercadopago: paymentDesglosesCount.mercadopago || 0,
+          debito: paymentDesglosesCount.debito || 0,
+          credito: paymentDesglosesCount.credito || 0,
+          propina: checkoutPropina || paymentDesglosesCount.propina || 0,
+          metodo: mappedMedio || 'Efectivo'
+        };
+        sheetUpsertRow('tipos_pago', tipoPagoPayload).catch(err => {
+          console.warn('[useCaja] Error al persistir en tipos_pago:', err);
+        });
+      } catch (err) {
+        console.warn('[useCaja] Error preparando payload tipos_pago:', err);
       }
 
       if (checkoutCliente) {

@@ -97,27 +97,36 @@ export const broadcastAppEvent = (event: string, payload: any) => {
   } catch {}
 };
 
+let sbCierresCajaAvailable = true;
+
 const persistCierre = async (cierre: CierreCaja): Promise<void> => {
   if (!cierre) return;
   // 1. Sincronización en Supabase para notificación en tiempo real a todas las terminales
-  try {
-    const supabase = tryGetActiveSupabaseClient();
-    if (supabase) {
-      const sbPayload: any = {
-        id_cierre: cierre.id_cierre,
-        fecha_apertura: cierre.fecha_apertura ? new Date(cierre.fecha_apertura).toISOString() : new Date().toISOString(),
-        fecha_cierre: cierre.fecha_cierre ? new Date(cierre.fecha_cierre).toISOString() : null,
-        monto_apertura: cierre.monto_apertura,
-        monto_ventas: cierre.monto_ventas,
-        monto_real: cierre.monto_real !== null && cierre.monto_real !== undefined ? Number(cierre.monto_real) : null,
-        diferencia: cierre.diferencia !== null && cierre.diferencia !== undefined ? Number(cierre.diferencia) : null,
-        observaciones: cierre.observaciones,
-        usuario_cajero: cierre.usuario_cajero || 'Cajero',
-      };
-      await supabase.from('cierres_caja').upsert(sbPayload);
+  if (sbCierresCajaAvailable) {
+    try {
+      const supabase = tryGetActiveSupabaseClient();
+      if (supabase) {
+        const sbPayload: any = {
+          id_cierre: cierre.id_cierre,
+          fecha_apertura: cierre.fecha_apertura ? new Date(cierre.fecha_apertura).toISOString() : new Date().toISOString(),
+          fecha_cierre: cierre.fecha_cierre ? new Date(cierre.fecha_cierre).toISOString() : null,
+          monto_apertura: cierre.monto_apertura,
+          monto_ventas: cierre.monto_ventas,
+          monto_real: cierre.monto_real !== null && cierre.monto_real !== undefined ? Number(cierre.monto_real) : null,
+          diferencia: cierre.diferencia !== null && cierre.diferencia !== undefined ? Number(cierre.diferencia) : null,
+          observaciones: cierre.observaciones,
+          usuario_cajero: cierre.usuario_cajero || 'Cajero',
+        };
+        const { error } = await supabase.from('cierres_caja').upsert(sbPayload);
+        if (error) {
+          if (error.code === 'PGRST204' || error.code === 'PGRST116' || error.message?.includes('404') || error.message?.includes('relation') || error.message?.includes('does not exist')) {
+            sbCierresCajaAvailable = false;
+          }
+        }
+      }
+    } catch {
+      sbCierresCajaAvailable = false;
     }
-  } catch (sbErr) {
-    console.warn('[cajaService.persistCierre] Error en Supabase:', sbErr);
   }
 
   // 2. Persistencia en Google Sheets hoja 'cierres_caja'
@@ -339,50 +348,56 @@ export const cajaService = {
       }
 
       // 1. Prioridad: Consulta en tiempo real a Supabase si está disponible
-      const supabase = tryGetActiveSupabaseClient();
-      if (supabase) {
-        try {
-          const { data: sbCierres, error } = await supabase
-            .from('cierres_caja')
-            .select('*')
-            .order('fecha_apertura', { ascending: false })
-            .limit(5);
+      if (sbCierresCajaAvailable) {
+        const supabase = tryGetActiveSupabaseClient();
+        if (supabase) {
+          try {
+            const { data: sbCierres, error } = await supabase
+              .from('cierres_caja')
+              .select('*')
+              .order('fecha_apertura', { ascending: false })
+              .limit(5);
 
-          if (!error && sbCierres && sbCierres.length > 0) {
-            const latestSb = sbCierres[0];
-            const hasCierre = Boolean(
-              latestSb.fecha_cierre && 
-              String(latestSb.fecha_cierre).trim() !== '' && 
-              String(latestSb.fecha_cierre) !== 'null'
-            );
+            if (error) {
+              if (error.code === 'PGRST204' || error.code === 'PGRST116' || error.message?.includes('404') || error.message?.includes('relation') || error.message?.includes('does not exist')) {
+                sbCierresCajaAvailable = false;
+              }
+            } else if (sbCierres && sbCierres.length > 0) {
+              const latestSb = sbCierres[0];
+              const hasCierre = Boolean(
+                latestSb.fecha_cierre && 
+                String(latestSb.fecha_cierre).trim() !== '' && 
+                String(latestSb.fecha_cierre) !== 'null'
+              );
 
-            if (hasCierre || closedIds.has(String(latestSb.id_cierre))) {
-              return null;
-            }
-
-            if (latestSb.fecha_apertura) {
-              const openedAt = new Date(latestSb.fecha_apertura).getTime();
-              if (!isNaN(openedAt) && (Date.now() - openedAt > 24 * 3600 * 1000)) {
+              if (hasCierre || closedIds.has(String(latestSb.id_cierre))) {
                 return null;
               }
-            }
 
-            return {
-              id_cierre: String(latestSb.id_cierre),
-              fecha_apertura: latestSb.fecha_apertura || inferFechaApertura(String(latestSb.id_cierre)),
-              fecha_cierre: null,
-              monto_apertura: parseFloat(latestSb.monto_apertura || 0),
-              monto_ventas: parseFloat(latestSb.monto_ventas || 0),
-              monto_real: null,
-              diferencia: null,
-              observaciones: latestSb.observaciones || 'Sesión Activa - En Turno',
-              usuario_cajero: latestSb.usuario_cajero || 'Cajero Pro',
-              sync_status: 'synced',
-              registros_totales: { efectivo: 0, debito: 0, credito: 0, transferencia: 0, mercadopago: 0 }
-            };
+              if (latestSb.fecha_apertura) {
+                const openedAt = new Date(latestSb.fecha_apertura).getTime();
+                if (!isNaN(openedAt) && (Date.now() - openedAt > 24 * 3600 * 1000)) {
+                  return null;
+                }
+              }
+
+              return {
+                id_cierre: String(latestSb.id_cierre),
+                fecha_apertura: latestSb.fecha_apertura || inferFechaApertura(String(latestSb.id_cierre)),
+                fecha_cierre: null,
+                monto_apertura: parseFloat(latestSb.monto_apertura || 0),
+                monto_ventas: parseFloat(latestSb.monto_ventas || 0),
+                monto_real: null,
+                diferencia: null,
+                observaciones: latestSb.observaciones || 'Sesión Activa - En Turno',
+                usuario_cajero: latestSb.usuario_cajero || 'Cajero Pro',
+                sync_status: 'synced',
+                registros_totales: { efectivo: 0, debito: 0, credito: 0, transferencia: 0, mercadopago: 0 }
+              };
+            }
+          } catch {
+            sbCierresCajaAvailable = false;
           }
-        } catch (sbErr) {
-          console.warn('[cajaService.findActiveSessionRemote] Supabase check error:', sbErr);
         }
       }
 
