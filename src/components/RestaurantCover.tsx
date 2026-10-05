@@ -856,15 +856,15 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
             <h4 className="text-xs uppercase font-bold tracking-widest text-stone-950 font-display-serif">Nuestros Horarios</h4>
             <ul className="space-y-2 text-xs font-medium">
               <li className="flex justify-between border-b border-black/10 pb-1">
-                <span>Martes a Domingo:</span>
+                <span>Miércoles a Domingo:</span>
                 <span className="text-stone-950 font-display-serif">12:00 a 16:00 hs</span>
               </li>
               <li className="flex justify-between border-b border-black/10 pb-1">
-                <span>Martes a Domingo:</span>
+                <span>Miércoles a Domingo:</span>
                 <span className="text-stone-950 font-display-serif">20:00 a 00:00 hs</span>
               </li>
               <li className="flex justify-between">
-                <span>Lunes:</span>
+                <span>Lunes y Martes:</span>
                 <span className="text-stone-700 font-display-serif">Cerrado</span>
               </li>
             </ul>
