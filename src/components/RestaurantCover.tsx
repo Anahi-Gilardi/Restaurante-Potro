@@ -145,13 +145,6 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
       image: '/images/rotolo_tata.jpg'
     },
     {
-      id: 'spec_2',
-      title: 'Provoleta al Hierro',
-      description: 'Queso provolone fundido al crocante con orégano silvestre, oliva extra virgen y mermelada de tomate con pesto.',
-      tag: 'Entrada Caliente',
-      image: '/images/provoleta.jpg'
-    },
-    {
       id: 'spec_3',
       title: 'Cinta ancha en tinta de sepia',
       description: 'Pasta fresca con tinta de sepia, salteada con crema de mariscos.',
@@ -399,7 +392,7 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
           />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className={`grid grid-cols-1 ${specialties.length === 2 ? 'md:grid-cols-2 max-w-4xl mx-auto' : 'md:grid-cols-3'} gap-8`}>
           {specialties.map((spec) => (
             <motion.div
               key={spec.id}
