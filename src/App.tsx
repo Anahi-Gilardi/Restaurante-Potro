@@ -754,7 +754,7 @@ export default function App() {
       const saved = window.localStorage.getItem('el_patron_active_mozo');
       if (saved) return saved;
     }
-    return 'Sofía';
+    return 'Facundo';
   });
   const [activeView, setActiveView] = useState<AppView>(() => {
     if (typeof window !== 'undefined') {
@@ -939,6 +939,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
       finalPedido = {
         ...existingActivePedido,
         items: updatedItems,
+        mozo: newPedidoData.mozo || activeMozo || existingActivePedido.mozo,
         observaciones: mergedObs || undefined,
         estado_comanda: 'pendiente',
         idempotency_key: newPedidoData.idempotency_key || existingActivePedido.idempotency_key,
@@ -1105,17 +1106,14 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
   }, [pedidos, insumos, recetas, permitirVentaSinStock, activeMozo, isDemoSession, addLog, toast]);
 
   const handleMozoChange = (mozo: string) => {
-    const nextUser = usuarios.find(usuario => usuario.nombre === mozo && usuario.activo !== false);
-    if (!nextUser) {
-      toast.error('El usuario seleccionado no está disponible.');
-      return;
-    }
-    setActiveMozo(mozo);
+    const nextUser = usuarios.find(usuario => usuario.nombre.toLowerCase() === mozo.toLowerCase() && usuario.activo !== false)
+      || { id_usuario: 100, nombre: mozo, apellido: '', username: mozo.toLowerCase(), password: '', rol: 'mozo' as const, activo: true };
+    setActiveMozo(nextUser.nombre);
     if (typeof window !== 'undefined') {
-      window.localStorage.setItem('el_patron_active_mozo', mozo);
+      window.localStorage.setItem('el_patron_active_mozo', nextUser.nombre);
       window.localStorage.setItem('el_patron_active_user', JSON.stringify(nextUser));
     }
-    addLog('sistema', `SESIÓN: Usuario operativo actualizado a ${mozo} (${nextUser.rol}).`);
+    addLog('sistema', `SESIÓN: Usuario operativo actualizado a ${nextUser.nombre} (${nextUser.rol}).`);
   };
 
   // NUEVO: Validación estricta en el método de navegación
@@ -2267,7 +2265,8 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
                 productosMenu={productosMenu}
                 recetas={recetas}
                 pedidos={pedidos}
-                onMozoChange={setActiveMozo}
+                onMozoChange={handleMozoChange}
+                usuarios={usuarios}
                 onCrearPedido={handleCrearPedido}
                 onActualizarPedido={handleActualizarPedido}
                 onFacturarMesa={handleFacturarMesa}

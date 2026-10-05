@@ -30,9 +30,10 @@ import {
   Edit3,
   Save,
   Loader2,
-  Printer
+  Printer,
+  UserCheck
 } from 'lucide-react';
-import { Mesa, Insumo, ProductoMenu, RecetaEscandallo, Pedido, PedidoItem } from '../types';
+import { Mesa, Insumo, ProductoMenu, RecetaEscandallo, Pedido, PedidoItem, Usuario } from '../types';
 import { createMozoCartIdempotencyKey } from '../lib/mozoCartDraft';
 import { calculatePedidoTotal, resolvePedidoItemUnitPrice } from '../lib/orderPricing';
 import { promocionesService, Promocion } from '../services/promocionesService';
@@ -265,6 +266,7 @@ interface MozoTerminalProps {
   onUnirMesas?: (idMesa1: number, idMesa2: number | number[]) => Promise<void> | void;
   onDesunirMesas?: (idMesa: number) => Promise<void> | void;
   onLiberarMesa?: (idMesa: number | string, idPedido?: number) => Promise<void> | void;
+  usuarios?: Usuario[];
 }
 
 export default function MozoTerminal({
@@ -282,11 +284,28 @@ export default function MozoTerminal({
   permitirVentaSinStock = true,
   onUnirMesas,
   onDesunirMesas,
-  onLiberarMesa
+  onLiberarMesa,
+  usuarios
 }: MozoTerminalProps) {
   const { toast, toasts, removeToast } = useToast();
   const { categories } = useCategories();
   const checkoutInFlightRef = useRef(false);
+
+  // Lista de mozos de salón (prioridad Facundo, Adriana y Rocío)
+  const mozosList = useMemo(() => {
+    const primaryMozos = ['Facundo', 'Adriana', 'Rocío'];
+    const fromUsers = (usuarios || [])
+      .filter(u => u.activo !== false && (u.rol === 'mozo' || u.rol === 'administrador'))
+      .map(u => u.nombre);
+
+    const list: string[] = [...primaryMozos];
+    fromUsers.forEach(nom => {
+      if (!list.some(m => m.toLowerCase() === nom.toLowerCase())) {
+        list.push(nom);
+      }
+    });
+    return list;
+  }, [usuarios]);
   // Waiter selections
   const [selectedMesaId, setSelectedMesaId] = useState<number | null>(null);
   const [isUniting, setIsUniting] = useState(false);
@@ -1233,6 +1252,9 @@ export default function MozoTerminal({
                         : 'Libre para comandar'}
                     </span>
                   </p>
+                  <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5">
+                    Mozo: <strong className="text-[#8C6239] dark:text-[#C8956A] font-bold">{activePedidoDeMesa?.mozo || activeMozo || 'Facundo'}</strong>
+                  </p>
                 </div>
                 {!selectedMesaInfo.isOcupada && !selectedMesaInfo.isInCuenta ? (
                   <div className="flex items-center bg-stone-100 dark:bg-stone-900/60 border border-stone-200 dark:border-white/10 rounded-lg p-1 gap-2">
@@ -1618,6 +1640,82 @@ export default function MozoTerminal({
               )}
             </div>
           )}
+        </div>
+
+        {/* PANEL DE SELECCIÓN DE MOZOS */}
+        <div className="glass-panel rounded-3xl p-5 shadow-sm space-y-3.5 border border-stone-200/60 dark:border-stone-850">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-[#8C6239]/10 dark:bg-[#C8956A]/20 flex items-center justify-center">
+                <Users className="w-4 h-4 text-[#8C6239] dark:text-[#C8956A]" />
+              </div>
+              <div>
+                <h3 className="font-bold text-sm text-[#8C6239] dark:text-stone-105 font-sans tracking-tight">
+                  Mozos de Salón
+                </h3>
+                <p className="text-[10px] text-stone-500 dark:text-stone-400">
+                  Seleccioná el mozo para comandas y tickets
+                </p>
+              </div>
+            </div>
+            <span className="text-[10px] font-sans bg-[#8C6239] text-white px-2.5 py-1 rounded-lg font-black uppercase tracking-wider shadow-sm flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              {activeMozo || 'Facundo'}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2.5">
+            {mozosList.map((mozoName) => {
+              const isSelected = (activeMozo || '').toLowerCase() === mozoName.toLowerCase();
+              return (
+                <button
+                  key={mozoName}
+                  type="button"
+                  id={`mozo-btn-${mozoName.toLowerCase()}`}
+                  onClick={() => {
+                    onMozoChange(mozoName);
+                    toast.success(`Mozo activo: ${mozoName}. Ahora seleccioná la mesa.`);
+                  }}
+                  className={`group relative p-3 rounded-2xl flex flex-col items-center justify-center gap-1.5 transition-all duration-200 cursor-pointer text-center ${
+                    isSelected
+                      ? 'bg-gradient-to-b from-[#8C6239] to-[#6d4c2b] text-white shadow-md shadow-[#8C6239]/30 ring-2 ring-[#C8956A] scale-[1.02]'
+                      : 'bg-white/80 dark:bg-[#251B12]/80 hover:bg-[#FAF7F0] dark:hover:bg-[#322317] border border-stone-200/80 dark:border-stone-850 text-stone-800 dark:text-stone-200 hover:border-[#8C6239]/40 hover:scale-[1.01]'
+                  }`}
+                >
+                  {isSelected && (
+                    <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-emerald-500 text-white rounded-full flex items-center justify-center text-[10px] font-black shadow-sm ring-2 ring-white dark:ring-stone-900">
+                      ✓
+                    </span>
+                  )}
+                  <div
+                    className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs transition-colors ${
+                      isSelected
+                        ? 'bg-white/20 text-white'
+                        : 'bg-stone-100 dark:bg-stone-850 text-[#8C6239] dark:text-[#C8956A] group-hover:bg-[#8C6239]/10'
+                    }`}
+                  >
+                    <UserCheck className="w-4 h-4" />
+                  </div>
+                  <span className={`text-xs font-bold tracking-tight truncate w-full ${isSelected ? 'text-white' : 'text-stone-850 dark:text-stone-200'}`}>
+                    {mozoName}
+                  </span>
+                  <span
+                    className={`text-[9px] uppercase tracking-wider font-semibold ${
+                      isSelected ? 'text-amber-200 font-extrabold' : 'text-stone-400 dark:text-stone-500'
+                    }`}
+                  >
+                    {isSelected ? 'Activo' : 'Mozo'}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="bg-[#FAF7F0]/80 dark:bg-[#1E140E]/80 border border-[#C8956A]/25 rounded-xl p-2.5 text-center">
+            <p className="text-[11px] text-[#8C6239] dark:text-[#C8956A] font-serif-rustic italic leading-tight">
+              📋 Los pedidos y tickets se emitirán a nombre de <strong>{activeMozo || 'Facundo'}</strong>.
+            </p>
+          </div>
         </div>
       </div>
 
@@ -2157,11 +2255,16 @@ export default function MozoTerminal({
               <ShoppingBag className="w-4 h-4 text-[#C8956A]" />
               Nueva Comanda
             </h3>
-            {selectedMesa && (
-              <span className="bg-[#8C6239] text-[#FAF7F0] border border-[#C8956A]/30 font-sans text-[10px] font-extrabold px-2 py-0.5 rounded-lg shadow-sm">
-                {formatTableDisplayTitle(selectedMesa.numero_mesa)}
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] text-stone-500 dark:text-stone-400 font-sans">
+                Mozo: <strong className="text-[#8C6239] dark:text-[#C8956A] font-bold">{activeMozo || 'Facundo'}</strong>
               </span>
-            )}
+              {selectedMesa && (
+                <span className="bg-[#8C6239] text-[#FAF7F0] border border-[#C8956A]/30 font-sans text-[10px] font-extrabold px-2 py-0.5 rounded-lg shadow-sm">
+                  {formatTableDisplayTitle(selectedMesa.numero_mesa)}
+                </span>
+              )}
+            </div>
           </div>
 
           {!selectedMesaId ? (
@@ -2250,10 +2353,10 @@ export default function MozoTerminal({
 
                 <button
                   onClick={checkoutCart}
-                  className="w-full py-2.5 px-4 btn-premium-primary text-xs font-black flex items-center justify-center gap-2 shadow-md"
+                  className="w-full py-2.5 px-4 btn-premium-primary text-xs font-black flex items-center justify-center gap-2 shadow-md cursor-pointer"
                 >
                   <Sparkles className="w-3.5 h-3.5 text-amber-350" />
-                  Enviar comanda 🖨️
+                  Enviar comanda 🖨️ ({activeMozo || 'Facundo'})
                 </button>
               </div>
             </>

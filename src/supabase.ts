@@ -17,7 +17,15 @@ export const resetSupabaseInstance = () => resetSupabaseClientCache();
 export async function dbFetchUsuarios() {
   try {
     const list = await (await import('./services/usuariosService')).usuariosService.list();
-    if (list && list.length > 0) return list;
+    if (list && list.length > 0) {
+      const { INITIAL_USUARIOS } = await import('./data/initialData');
+      const required = INITIAL_USUARIOS.filter(u => ['facundo', 'adriana', 'rocío', 'rocio'].includes(u.nombre.toLowerCase()));
+      const missing = required.filter(req => !list.some(u => u.nombre.toLowerCase() === req.nombre.toLowerCase()));
+      if (missing.length > 0) {
+        return [...list, ...missing];
+      }
+      return list;
+    }
   } catch (e) {
     console.warn('dbFetchUsuarios:', e);
   }

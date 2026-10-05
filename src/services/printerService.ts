@@ -210,6 +210,8 @@ async function generateFiscalThermalHtml(data: TicketData, config: PrinterConfig
             <span class="bold">${compLabel}</span>
           </div>
           <div class="row"><span>FECHA:</span><span>${data.fechaHora}</span></div>
+          ${data.mesa ? `<div class="row"><span>MESA:</span><span class="bold">${formatTicketTableName(data.mesa).toUpperCase()}</span></div>` : ''}
+          ${data.mozo ? `<div class="row"><span>MOZO:</span><span>${data.mozo}</span></div>` : ''}
           ${copyBadge}
 
           <div class="divider"></div>
@@ -474,6 +476,8 @@ export const printerService = {
       const compLabel = (ptoVta && cbteNro) ? `PUNTO VTA: ${ptoVta}  NRO: ${cbteNro}` : `NRO: ${data.nroComprobante}`;
       esc += `${compLabel}\n`;
       esc += `FECHA: ${data.fechaHora}\n`;
+      if (data.mesa) esc += `MESA: ${formatTicketTableName(data.mesa).toUpperCase()}\n`;
+      if (data.mozo) esc += `MOZO: ${data.mozo}\n`;
 
       if (copyType === 'cliente') {
         esc += '*** ORIGINAL - CLIENTE ***\n';
