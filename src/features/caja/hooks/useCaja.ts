@@ -945,16 +945,28 @@ export function useCaja({
           id_pago: pagos && pagos.length > 0 ? pagos[0].id_pago : `pag_${Date.now()}`,
           id_cierre: activeCierre?.id_cierre || 'cie_general',
           fecha_hora: getArgentinaDateTimeString(),
+          fecha: getArgentinaDateTimeString(),
           numero_mesa: numeroMesa,
+          mesa: numeroMesa,
           mozo_cajero: operatorName || 'Cajero',
+          cajero: operatorName || 'Cajero',
           monto_total: finalTotal,
+          total: finalTotal,
           efectivo: paymentDesglosesCount.efectivo || 0,
           transferencia: paymentDesglosesCount.transferencia || 0,
+          transfer: paymentDesglosesCount.transferencia || 0,
           mercadopago: paymentDesglosesCount.mercadopago || 0,
+          mp_qr: paymentDesglosesCount.mercadopago || 0,
+          qr: paymentDesglosesCount.mercadopago || 0,
           debito: paymentDesglosesCount.debito || 0,
+          tarjeta_debito: paymentDesglosesCount.debito || 0,
           credito: paymentDesglosesCount.credito || 0,
+          tarjeta: paymentDesglosesCount.credito || 0,
+          tarjeta_credito: paymentDesglosesCount.credito || 0,
           propina: checkoutPropina || paymentDesglosesCount.propina || 0,
-          metodo: mappedMedio || 'Efectivo'
+          metodo: mappedMedio || 'Efectivo',
+          medio_pago: mappedMedio || 'Efectivo',
+          forma_pago: mappedMedio || 'Efectivo'
         };
         sheetUpsertRow('tipos_pago', tipoPagoPayload).catch(err => {
           console.warn('[useCaja] Error al persistir en tipos_pago:', err);

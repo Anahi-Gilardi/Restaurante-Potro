@@ -9,7 +9,12 @@ export const toDbPagoPayload = (pago: PagoDb) => ({
   id_factura: pago.id_factura,
   monto: pago.monto,
   metodo: pago.metodo,
+  medio: pago.metodo,
+  medio_pago: pago.metodo,
+  forma_pago: pago.metodo,
+  tipo_pago: pago.metodo,
   fecha: pago.fecha,
+  fecha_hora: pago.fecha,
 });
 
 export const cachePaymentsLocally = (payments: PagoDb[]): void => {

@@ -118,6 +118,8 @@ export const toDbFacturaPayload = (factura: Factura) => ({
   total: factura.total,
   tipo_comprobante: tipoToDb(factura),
   metodo_pago: mapMetodoPagoToDb(factura.medio_pago),
+  medio_pago: mapMetodoPagoToDb(factura.medio_pago),
+  forma_pago: mapMetodoPagoToDb(factura.medio_pago),
   cuit_cliente: factura.cuit,
   fecha_emision: factura.fecha_completa ? getArgentinaDateTimeString(factura.fecha_completa) : getArgentinaDateTimeString(),
   cae: factura.afip_cae || null,
