@@ -176,7 +176,7 @@ export function useCaja({
   // Checkout options
   const [cuitCliente, setCuitCliente] = useState<string>('');
   const [nombreCliente, setNombreCliente] = useState<string>('Consumidor Final');
-  const [metodoPago, setMetodoPago] = useState<'efectivo' | 'tarjeta' | 'transferencia' | 'mp_qr' | 'mixto'>('efectivo');
+  const [metodoPago, setMetodoPago] = useState<'efectivo' | 'debito' | 'tarjeta' | 'transferencia' | 'mp_qr' | 'mixto'>('efectivo');
 
   // Mixed payments queue
   const [mixedPayments, setMixedPayments] = useState<{ metodo: string; monto: number }[]>([]);
