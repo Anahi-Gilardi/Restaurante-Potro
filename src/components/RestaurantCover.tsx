@@ -139,24 +139,24 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
   const specialtiesParrilla = [
     {
       id: 'spec_1',
-      title: 'Ojo de Bife Seleccionado',
-      description: 'Corte de 400g de carne de vacuno seleccionado, servido con cremoso aligot y salsa criolla.',
-      tag: 'El Favorito de la Casa',
-      image: '/images/ojo_de_bife_grill.png'
+      title: 'Rotolo di Tata',
+      description: 'Rollo de pasta fresca al huevo relleno de espinaca y ricota artesanal, bañado con salsa pomodoro suave, crema y gotas de pesto.',
+      tag: 'Pasta de Autor',
+      image: '/images/rotolo_tata.jpg'
     },
     {
       id: 'spec_2',
       title: 'Provoleta al Hierro',
-      description: 'Queso provolone fundido con mermelada de tomate y pesto de albahaca.',
+      description: 'Queso provolone fundido al crocante con orégano silvestre, oliva extra virgen y mermelada de tomate con pesto.',
       tag: 'Entrada Caliente',
-      image: '/images/provoleta_hierro.png'
+      image: '/images/provoleta.jpg'
     },
     {
       id: 'spec_3',
-      title: 'Cinta ancha en tinta de sepia',
-      description: 'Pasta fresca con tinta de sepia, salteada con crema de mariscos.',
-      tag: 'Pasta de Autor',
-      image: '/images/cintas_sepia_pasta.png'
+      title: 'Mollejas al Verdeo',
+      description: 'Mollejas de corazón crocantes por fuera y tiernas por dentro, reducidas al vino blanco con verdeo fresco.',
+      tag: 'Especialidad de la Casa',
+      image: '/images/mollejas_verdeo.jpg'
     }
   ];
 
@@ -412,7 +412,7 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
                   alt={spec.title}
                   className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                   onError={(e) => {
-                    (e.target as HTMLImageElement).src = '/images/ojo_de_bife_grill.png';
+                    (e.target as HTMLImageElement).src = '/images/rotolo_tata.jpg';
                   }}
                 />
                 <span 
@@ -456,7 +456,7 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
                 alt="Menús Ejecutivos de El Patrón"
                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                 onError={(e) => {
-                  (e.target as HTMLImageElement).src = '/images/ojo_de_bife_grill.png';
+                  (e.target as HTMLImageElement).src = '/images/rotolo_tata.jpg';
                 }}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
