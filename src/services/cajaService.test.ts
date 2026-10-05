@@ -80,6 +80,12 @@ test('updateSales acumula efectivo, propina y transferencia correctamente', asyn
     localStorage: mockStorage,
     dispatchEvent: () => true
   } as any;
+  global.fetch = async () => ({
+    ok: true,
+    status: 200,
+    text: async () => JSON.stringify({ success: true, result: { operation: 'saved' } }),
+    json: async () => ({ success: true, result: { operation: 'saved' } })
+  }) as any;
 
   // 1. Cobro en efectivo con propina
   await cajaService.updateSales(

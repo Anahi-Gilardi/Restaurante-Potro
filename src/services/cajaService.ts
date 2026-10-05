@@ -59,6 +59,7 @@ const toDbCierre = (cierre: CierreCaja) => {
     efectivo,
     propina,
     transferencia,
+    transfer: transferencia,
     monto_real: cierre.monto_real,
     diferencia: cierre.diferencia,
     observaciones: cierre.observaciones,
