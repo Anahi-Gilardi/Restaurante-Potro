@@ -41,7 +41,9 @@ export interface PendingCloseMesaData {
     credito: number;
     transferencia: number;
     mercadopago: number;
+    propina?: number;
   };
+  propinaValue?: number;
   selectedCliente: Cliente | null;
   puntosRedimidos: number;
 }
@@ -690,6 +692,9 @@ export function useCaja({
         ['Cierre de Turno', finalShift.fecha_cierre || 'N/A'],
         ['Monto Inicial de Caja ($)', finalShift.monto_apertura.toFixed(2)],
         ['Total de Ventas Turno ($)', finalShift.monto_ventas.toFixed(2)],
+        ['Efectivo ($)', Number(finalShift.efectivo ?? finalShift.registros_totales?.efectivo ?? 0).toFixed(2)],
+        ['Propina ($)', Number(finalShift.propina ?? finalShift.registros_totales?.propina ?? 0).toFixed(2)],
+        ['Transferencia ($)', Number(finalShift.transferencia ?? finalShift.registros_totales?.transferencia ?? 0).toFixed(2)],
         ['Arqueo Físico Caja ($)', finalShift.monto_real ? finalShift.monto_real.toFixed(2) : '0.00'],
         ['Diferencia Conciliación ($)', finalShift.diferencia ? finalShift.diferencia.toFixed(2) : '0.00'],
         ['Observaciones Turno', finalShift.observaciones],
@@ -838,7 +843,8 @@ export function useCaja({
       debito: pays.filter(p => p.metodo === 'debito').reduce((s, c) => s + c.monto, 0),
       credito: pays.filter(p => p.metodo === 'tarjeta' || p.metodo === 'credito').reduce((s, c) => s + c.monto, 0),
       transferencia: pays.filter(p => p.metodo === 'transferencia').reduce((s, c) => s + c.monto, 0),
-      mercadopago: pays.filter(p => p.metodo === 'mp_qr' || p.metodo === 'mercadopago').reduce((s, c) => s + c.monto, 0)
+      mercadopago: pays.filter(p => p.metodo === 'mp_qr' || p.metodo === 'mercadopago').reduce((s, c) => s + c.monto, 0),
+      propina: orderBreakdowns.propinaValue || 0
     };
 
     // Almacenar transacción pendiente de confirmación de cierre de mesa
@@ -852,6 +858,7 @@ export function useCaja({
       factura: internalFactura,
       pagos: paymentRows,
       paymentDesglosesCount,
+      propinaValue: orderBreakdowns.propinaValue || 0,
       selectedCliente,
       puntosRedimidos
     });
@@ -891,6 +898,7 @@ export function useCaja({
         factura,
         pagos,
         paymentDesglosesCount,
+        propinaValue: checkoutPropina,
         selectedCliente: checkoutCliente,
         puntosRedimidos: checkoutPuntos
       } = pendingCloseMesaData;
@@ -904,7 +912,7 @@ export function useCaja({
       }
 
       try {
-        await cajaService.updateSales(finalTotal, paymentDesglosesCount);
+        await cajaService.updateSales(finalTotal, paymentDesglosesCount, checkoutPropina || paymentDesglosesCount.propina || 0);
       } catch (e: any) {
         toast.error(`Error al actualizar ventas: ${e.message}`);
       }

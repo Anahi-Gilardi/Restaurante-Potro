@@ -47,12 +47,18 @@ const safeStorage = {
 
 const toDbCierre = (cierre: CierreCaja) => {
   if (!cierre) return {} as any;
+  const efectivo = Number(cierre.efectivo ?? cierre.registros_totales?.efectivo ?? 0);
+  const propina = Number(cierre.propina ?? cierre.registros_totales?.propina ?? 0);
+  const transferencia = Number(cierre.transferencia ?? cierre.registros_totales?.transferencia ?? 0);
   return {
     id_cierre: cierre.id_cierre,
     fecha_apertura: cierre.fecha_apertura,
     fecha_cierre: cierre.fecha_cierre,
     monto_apertura: cierre.monto_apertura,
     monto_ventas: cierre.monto_ventas,
+    efectivo,
+    propina,
+    transferencia,
     monto_real: cierre.monto_real,
     diferencia: cierre.diferencia,
     observaciones: cierre.observaciones,
@@ -61,8 +67,10 @@ const toDbCierre = (cierre: CierreCaja) => {
 };
 
 export const broadcastAppEvent = (event: string, payload: any) => {
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent(`el_patron_${event}`, { detail: payload }));
+  if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+    try {
+      window.dispatchEvent(new CustomEvent(`el_patron_${event}`, { detail: payload }));
+    } catch {}
   }
 
   try {
@@ -210,28 +218,36 @@ export const cajaService = {
       try {
         const parsed = JSON.parse(raw);
         if (parsed) {
+          const efectivo = Number(parsed.efectivo !== undefined ? parsed.efectivo : (parsed.registros_totales?.efectivo || 0));
+          const propina = Number(parsed.propina !== undefined ? parsed.propina : (parsed.registros_totales?.propina || 0));
+          const transferencia = Number(parsed.transferencia !== undefined ? parsed.transferencia : (parsed.registros_totales?.transferencia || 0));
+          const debito = Number(parsed.debito !== undefined ? parsed.debito : (parsed.registros_totales?.debito || 0));
+          const credito = Number(parsed.credito !== undefined ? parsed.credito : (parsed.registros_totales?.credito || 0));
+          const mercadopago = Number(parsed.mercadopago !== undefined ? parsed.mercadopago : (parsed.registros_totales?.mercadopago || 0));
+
           return {
             ...parsed,
             monto_apertura: Number(parsed.monto_apertura) || 0,
             monto_ventas: Number(parsed.monto_ventas) || 0,
+            efectivo,
+            propina,
+            transferencia,
+            debito,
+            credito,
+            mercadopago,
             monto_real: parsed.monto_real !== null && parsed.monto_real !== undefined ? Number(parsed.monto_real) : null,
             diferencia: parsed.diferencia !== null && parsed.diferencia !== undefined ? Number(parsed.diferencia) : null,
             usuario_cajero: parsed.usuario_cajero || 'Cajero',
             fecha_apertura: parsed.fecha_apertura || new Date().toISOString().replace('T', ' ').slice(0, 19),
             observaciones: parsed.observaciones || 'Sesión Activa - En Turno',
             sync_status: parsed.sync_status === 'synced' ? 'synced' : 'pending',
-            registros_totales: parsed.registros_totales ? {
-              efectivo: Number(parsed.registros_totales.efectivo) || 0,
-              debito: Number(parsed.registros_totales.debito) || 0,
-              credito: Number(parsed.registros_totales.credito) || 0,
-              transferencia: Number(parsed.registros_totales.transferencia) || 0,
-              mercadopago: Number(parsed.registros_totales.mercadopago) || 0
-            } : {
-              efectivo: 0,
-              debito: 0,
-              credito: 0,
-              transferencia: 0,
-              mercadopago: 0
+            registros_totales: {
+              efectivo,
+              debito,
+              credito,
+              transferencia,
+              mercadopago,
+              propina
             }
           };
         }
@@ -246,18 +262,41 @@ export const cajaService = {
     try {
       const sheetData = await sheetFetchTable('cierres_caja', forceFresh);
       if (sheetData && sheetData.length > 0) {
-        return sheetData.map(cc => ({
-          id_cierre: String(cc.id_cierre),
-          fecha_apertura: cc.fecha_apertura || inferFechaApertura(String(cc.id_cierre)),
-          fecha_cierre: cc.fecha_cierre || null,
-          monto_apertura: parseFloat(cc.monto_apertura || 0),
-          monto_ventas: parseFloat(cc.monto_ventas || 0),
-          monto_real: cc.monto_real ? parseFloat(cc.monto_real) : null,
-          diferencia: cc.diferencia ? parseFloat(cc.diferencia) : null,
-          observaciones: cc.observaciones || '',
-          usuario_cajero: cc.usuario_cajero || 'Cajero Pro',
-          sync_status: 'synced'
-        }));
+        return sheetData.map(cc => {
+          let regTotales = { efectivo: 0, debito: 0, credito: 0, transferencia: 0, mercadopago: 0, propina: 0 };
+          if (cc.registros_totales) {
+            try {
+              regTotales = typeof cc.registros_totales === 'string'
+                ? JSON.parse(cc.registros_totales)
+                : cc.registros_totales;
+            } catch {}
+          }
+          const efectivo = parseFloat(cc.efectivo !== undefined && cc.efectivo !== '' ? cc.efectivo : (regTotales.efectivo || 0));
+          const propina = parseFloat(cc.propina !== undefined && cc.propina !== '' ? cc.propina : (regTotales.propina || 0));
+          const transferencia = parseFloat(cc.transferencia !== undefined && cc.transferencia !== '' ? cc.transferencia : (regTotales.transferencia || 0));
+
+          return {
+            id_cierre: String(cc.id_cierre),
+            fecha_apertura: cc.fecha_apertura || inferFechaApertura(String(cc.id_cierre)),
+            fecha_cierre: cc.fecha_cierre || null,
+            monto_apertura: parseFloat(cc.monto_apertura || 0),
+            monto_ventas: parseFloat(cc.monto_ventas || 0),
+            efectivo,
+            propina,
+            transferencia,
+            monto_real: cc.monto_real ? parseFloat(cc.monto_real) : null,
+            diferencia: cc.diferencia ? parseFloat(cc.diferencia) : null,
+            observaciones: cc.observaciones || '',
+            usuario_cajero: cc.usuario_cajero || 'Cajero Pro',
+            sync_status: 'synced',
+            registros_totales: {
+              ...regTotales,
+              efectivo,
+              propina,
+              transferencia
+            }
+          };
+        });
       }
     } catch (sheetErr) {
       console.warn('[cajaService.listHistory] Google Sheets:', sheetErr);
@@ -383,7 +422,7 @@ export const cajaService = {
           }
         }
 
-        let regTotales = { efectivo: 0, debito: 0, credito: 0, transferencia: 0, mercadopago: 0 };
+        let regTotales = { efectivo: 0, debito: 0, credito: 0, transferencia: 0, mercadopago: 0, propina: 0 };
         if (latest.registros_totales) {
           try {
             regTotales = typeof latest.registros_totales === 'string'
@@ -392,18 +431,30 @@ export const cajaService = {
           } catch {}
         }
 
+        const efectivo = parseFloat(latest.efectivo !== undefined && latest.efectivo !== '' ? latest.efectivo : (regTotales.efectivo || 0));
+        const propina = parseFloat(latest.propina !== undefined && latest.propina !== '' ? latest.propina : (regTotales.propina || 0));
+        const transferencia = parseFloat(latest.transferencia !== undefined && latest.transferencia !== '' ? latest.transferencia : (regTotales.transferencia || 0));
+
         const session: CierreCaja = {
           id_cierre: String(latest.id_cierre),
           fecha_apertura: latest.fecha_apertura || inferFechaApertura(String(latest.id_cierre)),
           fecha_cierre: null,
           monto_apertura: parseFloat(latest.monto_apertura || 0),
           monto_ventas: parseFloat(latest.monto_ventas || 0),
+          efectivo,
+          propina,
+          transferencia,
           monto_real: null,
           diferencia: null,
           observaciones: latest.observaciones || 'Sesión Activa - En Turno',
           usuario_cajero: latest.usuario_cajero || 'Cajero Pro',
           sync_status: 'synced',
-          registros_totales: regTotales
+          registros_totales: {
+            ...regTotales,
+            efectivo,
+            propina,
+            transferencia
+          }
         };
         return session;
       }
@@ -423,6 +474,9 @@ export const cajaService = {
             id_cierre: String(found.id_cierre),
             monto_ventas: parseFloat(found.monto_ventas || 0),
             monto_apertura: parseFloat(found.monto_apertura || 0),
+            efectivo: parseFloat(found.efectivo || 0),
+            propina: parseFloat(found.propina || 0),
+            transferencia: parseFloat(found.transferencia || 0),
             observaciones: found.observaciones,
             usuario_cajero: found.usuario_cajero || 'Cajero',
             fecha_cierre: found.fecha_cierre || null,
@@ -444,6 +498,9 @@ export const cajaService = {
       fecha_cierre: null,
       monto_apertura: montoApertura,
       monto_ventas: 0,
+      efectivo: 0,
+      propina: 0,
+      transferencia: 0,
       monto_real: null,
       diferencia: null,
       observaciones: 'Sesión Activa - En Turno',
@@ -454,7 +511,8 @@ export const cajaService = {
         debito: 0,
         credito: 0,
         transferencia: 0,
-        mercadopago: 0
+        mercadopago: 0,
+        propina: 0
       }
     };
 
@@ -475,24 +533,41 @@ export const cajaService = {
     return session;
   },
 
-  async updateSales(salesIncrement: number, paymentMethodSales: { [method: string]: number }): Promise<void> {
+  async updateSales(
+    salesIncrement: number, 
+    paymentMethodSales: { [method: string]: number },
+    propinaIncrement: number = 0
+  ): Promise<void> {
     const active = this.getOpenSession();
     if (!active) return;
 
     active.monto_ventas += salesIncrement;
+    const efInc = paymentMethodSales.efectivo || 0;
+    const debInc = paymentMethodSales.debito || 0;
+    const credInc = paymentMethodSales.credito || 0;
+    const transInc = paymentMethodSales.transferencia || 0;
+    const mpInc = paymentMethodSales.mercadopago || 0;
+    const propInc = propinaIncrement || paymentMethodSales.propina || 0;
+
+    active.efectivo = (active.efectivo || 0) + efInc;
+    active.propina = (active.propina || 0) + propInc;
+    active.transferencia = (active.transferencia || 0) + transInc;
+
     if (active.registros_totales) {
-      active.registros_totales.efectivo += paymentMethodSales.efectivo || 0;
-      active.registros_totales.debito += paymentMethodSales.debito || 0;
-      active.registros_totales.credito += paymentMethodSales.credito || 0;
-      active.registros_totales.transferencia += paymentMethodSales.transferencia || 0;
-      active.registros_totales.mercadopago += paymentMethodSales.mercadopago || 0;
+      active.registros_totales.efectivo = (active.registros_totales.efectivo || 0) + efInc;
+      active.registros_totales.debito = (active.registros_totales.debito || 0) + debInc;
+      active.registros_totales.credito = (active.registros_totales.credito || 0) + credInc;
+      active.registros_totales.transferencia = (active.registros_totales.transferencia || 0) + transInc;
+      active.registros_totales.mercadopago = (active.registros_totales.mercadopago || 0) + mpInc;
+      active.registros_totales.propina = (active.registros_totales.propina || 0) + propInc;
     } else {
       active.registros_totales = {
-        efectivo: paymentMethodSales.efectivo || 0,
-        debito: paymentMethodSales.debito || 0,
-        credito: paymentMethodSales.credito || 0,
-        transferencia: paymentMethodSales.transferencia || 0,
-        mercadopago: paymentMethodSales.mercadopago || 0
+        efectivo: active.efectivo,
+        debito: debInc,
+        credito: credInc,
+        transferencia: active.transferencia,
+        mercadopago: mpInc,
+        propina: active.propina
       };
     }
 

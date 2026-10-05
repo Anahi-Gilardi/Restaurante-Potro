@@ -195,6 +195,12 @@ export interface CierreCaja {
     fecha_cierre: string | null;
     monto_apertura: number;
     monto_ventas: number;
+    efectivo?: number;
+    propina?: number;
+    transferencia?: number;
+    debito?: number;
+    credito?: number;
+    mercadopago?: number;
     monto_real: number | null;
     diferencia: number | null;
     observaciones: string;
@@ -207,6 +213,7 @@ export interface CierreCaja {
       credito: number;
       transferencia: number;
       mercadopago: number;
+      propina?: number;
     };
     movimientos_manuales?: MovimientoCajaChica[];
 }

@@ -640,25 +640,33 @@ export default function CajaModule({
                 {/* Turn revenue detailed tags */}
                 {cajaSession.registros_totales && (
                   <div className="p-3 bg-stone-50 dark:bg-stone-900/50 border border-stone-200 dark:border-stone-800 rounded-xl space-y-2.5">
-                    <span className="text-[8px] font-black uppercase text-stone-400 dark:text-stone-300 block tracking-wider">Distribución de Cobros</span>
+                    <span className="text-[8px] font-black uppercase text-stone-400 dark:text-stone-300 block tracking-wider">Distribución de Cobros & Propinas</span>
                     <div className="space-y-2 text-[10px]">
                       {(() => {
                         const totals = cajaSession.registros_totales;
-                        const sum = (totals.efectivo || 0) + (totals.debito || 0) + (totals.credito || 0) + (totals.transferencia || 0) + (totals.mercadopago || 0);
+                        const efVal = Number(cajaSession.efectivo ?? totals.efectivo ?? 0);
+                        const propVal = Number(cajaSession.propina ?? totals.propina ?? 0);
+                        const transVal = Number(cajaSession.transferencia ?? totals.transferencia ?? 0);
+                        const debVal = Number(totals.debito || 0);
+                        const credVal = Number(totals.credito || 0);
+                        const mpVal = Number(totals.mercadopago || 0);
+                        const sum = efVal + debVal + credVal + transVal + mpVal;
                         const getPct = (val: number) => sum > 0 ? (val / sum) * 100 : 0;
                         
                         const items = [
-                          { label: 'Efectivo', val: totals.efectivo, color: 'bg-[#E8B800]', text: 'text-[#E8B800]' },
-                          { label: 'Transf./Deb.', val: totals.debito + totals.transferencia, color: 'bg-purple-500', text: 'text-purple-600' },
-                          { label: 'Crédito', val: totals.credito, color: 'bg-blue-500', text: 'text-blue-600' },
-                          { label: 'QR / MP', val: totals.mercadopago, color: 'bg-teal-500', text: 'text-teal-600' }
+                          { label: 'Efectivo', val: efVal, color: 'bg-[#E8B800]', text: 'text-[#E8B800]' },
+                          { label: 'Transferencia', val: transVal, color: 'bg-purple-500', text: 'text-purple-600' },
+                          { label: 'Propinas', val: propVal, color: 'bg-amber-500', text: 'text-amber-600' },
+                          { label: 'Débito', val: debVal, color: 'bg-indigo-500', text: 'text-indigo-600' },
+                          { label: 'Crédito', val: credVal, color: 'bg-blue-500', text: 'text-blue-600' },
+                          { label: 'QR / MP', val: mpVal, color: 'bg-teal-500', text: 'text-teal-600' }
                         ];
                         
                         return (
                           <>
                             {/* Horizontal visual progress row */}
                             <div className="w-full h-2 bg-stone-200 dark:bg-stone-800 rounded-full flex overflow-hidden border border-stone-250/20">
-                              {items.map((it, i) => {
+                              {items.filter(it => it.label !== 'Propinas').map((it, i) => {
                                 const pct = getPct(it.val);
                                 if (pct <= 0) return null;
                                 return (
@@ -2093,33 +2101,61 @@ export default function CajaModule({
             </p>
 
             {cajaSession && (() => {
-              const efVentas = cajaSession.registros_totales?.efectivo ?? 0;
+              const efVentas = Number(cajaSession.efectivo ?? cajaSession.registros_totales?.efectivo ?? 0);
+              const propVentas = Number(cajaSession.propina ?? cajaSession.registros_totales?.propina ?? 0);
+              const transVentas = Number(cajaSession.transferencia ?? cajaSession.registros_totales?.transferencia ?? 0);
               const efCajonEsperado = cajaSession.monto_apertura + efVentas + sumIngresosManuales - sumEgresosManuales;
               return (
-                <div className="bg-stone-50 dark:bg-stone-950 p-3 rounded-xl border border-stone-150 dark:border-stone-850 text-[10px] font-mono space-y-1.5 text-stone-600 dark:text-stone-400">
-                  <div className="flex justify-between">
-                    <span>Monto inicial (fondo de cambio):</span>
-                    <span>${cajaSession.monto_apertura.toLocaleString('es-AR')}</span>
+                <div className="space-y-2.5">
+                  {/* Destacado de Efectivo, Propina y Transferencia */}
+                  <div className="grid grid-cols-3 gap-2 text-center font-mono">
+                    <div className="bg-amber-500/10 dark:bg-amber-500/20 border border-amber-500/30 p-2.5 rounded-xl">
+                      <span className="text-[9px] font-sans font-black uppercase text-amber-800 dark:text-amber-300 block">💵 Efectivo</span>
+                      <span className="text-xs font-black text-amber-900 dark:text-amber-200">${efVentas.toLocaleString('es-AR')}</span>
+                    </div>
+                    <div className="bg-emerald-500/10 dark:bg-emerald-500/20 border border-emerald-500/30 p-2.5 rounded-xl">
+                      <span className="text-[9px] font-sans font-black uppercase text-emerald-800 dark:text-emerald-300 block">💸 Propina</span>
+                      <span className="text-xs font-black text-emerald-900 dark:text-emerald-200">${propVentas.toLocaleString('es-AR')}</span>
+                    </div>
+                    <div className="bg-purple-500/10 dark:bg-purple-500/20 border border-purple-500/30 p-2.5 rounded-xl">
+                      <span className="text-[9px] font-sans font-black uppercase text-purple-800 dark:text-purple-300 block">🏦 Transf.</span>
+                      <span className="text-xs font-black text-purple-900 dark:text-purple-200">${transVentas.toLocaleString('es-AR')}</span>
+                    </div>
                   </div>
-                  <div className="flex justify-between">
-                    <span>Ventas en efectivo (cajón):</span>
-                    <span className="text-emerald-700 font-bold">${efVentas.toLocaleString('es-AR')}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Caja Chica (Ingresos):</span>
-                    <span className="text-emerald-700">+${sumIngresosManuales.toLocaleString('es-AR')}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Caja Chica (Gastos/Egresos):</span>
-                    <span className="text-rose-750">-${sumEgresosManuales.toLocaleString('es-AR')}</span>
-                  </div>
-                  <div className="flex justify-between font-bold text-amber-900 dark:text-amber-300 pt-1 border-t border-stone-200 dark:border-stone-800 border-dotted text-xs font-sans">
-                    <span>Efectivo Físico Esperado en Cajón:</span>
-                    <span>${efCajonEsperado.toLocaleString('es-AR')}</span>
-                  </div>
-                  <div className="flex justify-between text-stone-500 dark:text-stone-400 text-[9px] pt-0.5 border-t border-stone-200/50 dark:border-stone-800/50">
-                    <span>Total Facturado Turno (Todas las formas):</span>
-                    <span>${cajaEsperadaTotal.toLocaleString('es-AR')}</span>
+
+                  <div className="bg-stone-50 dark:bg-stone-950 p-3 rounded-xl border border-stone-150 dark:border-stone-850 text-[10px] font-mono space-y-1.5 text-stone-600 dark:text-stone-400">
+                    <div className="flex justify-between">
+                      <span>Monto inicial (fondo de cambio):</span>
+                      <span>${cajaSession.monto_apertura.toLocaleString('es-AR')}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Ventas en efectivo (cajón):</span>
+                      <span className="text-emerald-700 font-bold">${efVentas.toLocaleString('es-AR')}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Propinas acumuladas turno:</span>
+                      <span className="text-amber-700 font-bold">${propVentas.toLocaleString('es-AR')}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Transferencias bancarias:</span>
+                      <span className="text-purple-700 font-bold">${transVentas.toLocaleString('es-AR')}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Caja Chica (Ingresos):</span>
+                      <span className="text-emerald-700">+${sumIngresosManuales.toLocaleString('es-AR')}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Caja Chica (Gastos/Egresos):</span>
+                      <span className="text-rose-750">-${sumEgresosManuales.toLocaleString('es-AR')}</span>
+                    </div>
+                    <div className="flex justify-between font-bold text-amber-900 dark:text-amber-300 pt-1 border-t border-stone-200 dark:border-stone-800 border-dotted text-xs font-sans">
+                      <span>Efectivo Físico Esperado en Cajón:</span>
+                      <span>${efCajonEsperado.toLocaleString('es-AR')}</span>
+                    </div>
+                    <div className="flex justify-between text-stone-500 dark:text-stone-400 text-[9px] pt-0.5 border-t border-stone-200/50 dark:border-stone-800/50">
+                      <span>Total Facturado Turno (Todas las formas):</span>
+                      <span>${cajaEsperadaTotal.toLocaleString('es-AR')}</span>
+                    </div>
                   </div>
                 </div>
               );
@@ -2327,6 +2363,17 @@ export default function CajaModule({
                     <p className="text-[10px] text-stone-500 font-medium">
                       Apertura: {formatArgentinaDateTime(cs.fecha_apertura)} • Cierre: {cs.fecha_cierre ? formatArgentinaDateTime(cs.fecha_cierre) : 'En curso'}
                     </p>
+                    <div className="flex flex-wrap gap-1.5 text-[9px] font-mono font-bold pt-0.5">
+                      <span className="text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-900/40">
+                        Efectivo: ${(cs.efectivo ?? cs.registros_totales?.efectivo ?? 0).toLocaleString('es-AR')}
+                      </span>
+                      <span className="text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 px-1.5 py-0.5 rounded border border-emerald-200 dark:border-emerald-900/40">
+                        Propina: ${(cs.propina ?? cs.registros_totales?.propina ?? 0).toLocaleString('es-AR')}
+                      </span>
+                      <span className="text-purple-800 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/30 px-1.5 py-0.5 rounded border border-purple-200 dark:border-purple-900/40">
+                        Transf: ${(cs.transferencia ?? cs.registros_totales?.transferencia ?? 0).toLocaleString('es-AR')}
+                      </span>
+                    </div>
                     <p className="text-[10px] font-medium text-stone-600 dark:text-stone-400 italic">
                       Observaciones: "{cs.observaciones}"
                     </p>
@@ -2407,33 +2454,43 @@ export default function CajaModule({
               </div>
             </div>
 
-            {selectedShiftForDetail.registros_totales && (
-              <div className="mt-4 bg-stone-50 dark:bg-stone-950 p-3.5 rounded-xl text-xs space-y-2 border border-stone-100 dark:border-stone-800">
-                <span className="text-[9px] font-black text-stone-400 uppercase block">Desglose de Medios de Pago</span>
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 font-mono">
-                  <div className="bg-white dark:bg-stone-900 p-2 rounded text-center border border-stone-200/50 dark:border-stone-800">
-                    <span className="text-[8px] text-stone-400 block uppercase font-sans font-bold">Efectivo</span>
-                    <span>${selectedShiftForDetail.registros_totales.efectivo.toLocaleString('es-AR')}</span>
-                  </div>
-                  <div className="bg-white dark:bg-stone-900 p-2 rounded text-center border border-stone-200/50 dark:border-stone-800">
-                    <span className="text-[8px] text-stone-400 block uppercase font-sans font-bold">Débito</span>
-                    <span>${selectedShiftForDetail.registros_totales.debito.toLocaleString('es-AR')}</span>
-                  </div>
-                  <div className="bg-white dark:bg-stone-900 p-2 rounded text-center border border-stone-200/50 dark:border-stone-800">
-                    <span className="text-[8px] text-stone-400 block uppercase font-sans font-bold">Crédito</span>
-                    <span>${selectedShiftForDetail.registros_totales.credito.toLocaleString('es-AR')}</span>
-                  </div>
-                  <div className="bg-white dark:bg-stone-900 p-2 rounded text-center border border-stone-200/50 dark:border-stone-800">
-                    <span className="text-[8px] text-stone-400 block uppercase font-sans font-bold">Transf.</span>
-                    <span>${selectedShiftForDetail.registros_totales.transferencia.toLocaleString('es-AR')}</span>
-                  </div>
-                  <div className="bg-white dark:bg-stone-900 p-2 rounded text-center border border-stone-200/50 dark:border-stone-800 col-span-2 sm:col-span-1">
-                    <span className="text-[8px] text-stone-400 block uppercase font-sans font-bold">QR / MP</span>
-                    <span>${selectedShiftForDetail.registros_totales.mercadopago.toLocaleString('es-AR')}</span>
+            {selectedShiftForDetail.registros_totales && (() => {
+              const reg = selectedShiftForDetail.registros_totales;
+              const ef = Number(selectedShiftForDetail.efectivo ?? reg.efectivo ?? 0);
+              const prop = Number(selectedShiftForDetail.propina ?? reg.propina ?? 0);
+              const trans = Number(selectedShiftForDetail.transferencia ?? reg.transferencia ?? 0);
+              return (
+                <div className="mt-4 bg-stone-50 dark:bg-stone-950 p-3.5 rounded-xl text-xs space-y-2 border border-stone-100 dark:border-stone-800">
+                  <span className="text-[9px] font-black text-stone-400 uppercase block">Desglose de Medios de Pago & Propinas</span>
+                  <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 font-mono">
+                    <div className="bg-white dark:bg-stone-900 p-2 rounded text-center border border-stone-200/50 dark:border-stone-800">
+                      <span className="text-[8px] text-amber-700 dark:text-amber-400 block uppercase font-sans font-bold">Efectivo</span>
+                      <span>${ef.toLocaleString('es-AR')}</span>
+                    </div>
+                    <div className="bg-white dark:bg-stone-900 p-2 rounded text-center border border-stone-200/50 dark:border-stone-800">
+                      <span className="text-[8px] text-emerald-700 dark:text-emerald-400 block uppercase font-sans font-bold">Propina</span>
+                      <span>${prop.toLocaleString('es-AR')}</span>
+                    </div>
+                    <div className="bg-white dark:bg-stone-900 p-2 rounded text-center border border-stone-200/50 dark:border-stone-800">
+                      <span className="text-[8px] text-purple-700 dark:text-purple-400 block uppercase font-sans font-bold">Transf.</span>
+                      <span>${trans.toLocaleString('es-AR')}</span>
+                    </div>
+                    <div className="bg-white dark:bg-stone-900 p-2 rounded text-center border border-stone-200/50 dark:border-stone-800">
+                      <span className="text-[8px] text-stone-400 block uppercase font-sans font-bold">Débito</span>
+                      <span>${(reg.debito || 0).toLocaleString('es-AR')}</span>
+                    </div>
+                    <div className="bg-white dark:bg-stone-900 p-2 rounded text-center border border-stone-200/50 dark:border-stone-800">
+                      <span className="text-[8px] text-stone-400 block uppercase font-sans font-bold">Crédito</span>
+                      <span>${(reg.credito || 0).toLocaleString('es-AR')}</span>
+                    </div>
+                    <div className="bg-white dark:bg-stone-900 p-2 rounded text-center border border-stone-200/50 dark:border-stone-800">
+                      <span className="text-[8px] text-stone-400 block uppercase font-sans font-bold">QR / MP</span>
+                      <span>${(reg.mercadopago || 0).toLocaleString('es-AR')}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* Manual movements table */}
             <div className="mt-4 text-xs space-y-2">
