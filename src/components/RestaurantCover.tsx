@@ -718,35 +718,6 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
           </motion.div>
 
         </div>
-
-        {/* INVITATION & RESERVATION BANNER */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.98 }}
-          whileInView={{ opacity: 1, scale: 1 }}
-          viewport={{ once: true }}
-          className="rounded-3xl p-6 sm:p-8 bg-gradient-to-r from-[#8C6239] via-[#6f4e2c] to-[#8C6239] text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-6"
-        >
-          <div className="space-y-2 text-center md:text-left max-w-xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 text-xs font-bold font-sans uppercase tracking-widest text-amber-200">
-              <Calendar className="w-3.5 h-3.5" /> Noche de Apertura
-            </div>
-            <h3 className="text-2xl sm:text-3xl font-bold font-serif-rustic tracking-wide">
-              Asegurá tu lugar en la velada inaugural
-            </h3>
-            <p className="text-xs sm:text-sm text-amber-100/90 font-serif-rustic italic leading-relaxed">
-              Te invitamos a vivir el estreno de nuestra cocina y compartir un momento especial. Solicitá tu lugar online para garantizar tu mesa en el salón.
-            </p>
-          </div>
-
-          <div className="flex flex-col sm:flex-row items-center gap-3 shrink-0 w-full md:w-auto">
-            <a
-              href="#reserva"
-              className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-[#FAF7F0] hover:bg-white text-[#8C6239] font-black text-xs uppercase tracking-wider font-sans transition-all shadow-md text-center hover:scale-105 active:scale-95 cursor-pointer no-underline"
-            >
-              Reservar Mesa Online
-            </a>
-          </div>
-        </motion.div>
       </section>
 
       {/* 6. BOOKING WIDGET */}
