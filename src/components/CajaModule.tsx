@@ -1660,115 +1660,216 @@ export default function CajaModule({
 
                   {/* Mixed Payment Rows interface */}
                   {metodoPago === 'mixto' && (
-                    <div className="space-y-3.5 bg-slate-50 dark:bg-stone-950 p-3.5 rounded-xl border border-stone-200 dark:border-stone-800">
-                      <div className="flex justify-between items-center text-[10px] font-black uppercase text-stone-500 dark:text-stone-400 border-b border-stone-200 dark:border-stone-850 pb-1">
-                        <span>Pagos Cargados parcialmente</span>
-                        <span className="font-mono text-emerald-800 dark:text-emerald-400">
-                          Totaling Queue: ${mixedSum.toLocaleString('es-AR')} / ${orderBreakdowns.finalTotal.toLocaleString('es-AR')}
-                        </span>
+                    <div className="space-y-4 bg-stone-50/90 dark:bg-stone-950/80 p-4 rounded-xl border border-stone-200 dark:border-stone-800 shadow-xs">
+                      {/* Header with progress and remaining count */}
+                      <div className="space-y-2 border-b border-stone-200 dark:border-stone-800 pb-3">
+                        <div className="flex flex-wrap justify-between items-center gap-1.5 text-xs">
+                          <span className="font-extrabold uppercase text-[#624A3E] dark:text-[#C8956A] flex items-center gap-1.5">
+                            <TrendingUp className="w-4 h-4 text-emerald-600" /> Desglose de Pago Mixto
+                          </span>
+                          <div className="flex items-center gap-2 font-mono">
+                            <span className="text-stone-500 text-[11px]">
+                              Total Cuenta: <strong className="text-stone-900 dark:text-stone-100">${orderBreakdowns.finalTotal.toLocaleString('es-AR')}</strong>
+                            </span>
+                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black ${
+                              rawRemainingMixedBalance === 0 
+                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' 
+                                : 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300'
+                            }`}>
+                              {rawRemainingMixedBalance === 0 ? '✓ Total Cubierto' : `Faltan $${rawRemainingMixedBalance.toLocaleString('es-AR')}`}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        {/* Visual Progress Bar */}
+                        <div className="w-full bg-stone-200 dark:bg-stone-800 h-2 rounded-full overflow-hidden">
+                          <div 
+                            className={`h-full transition-all duration-300 ${
+                              rawRemainingMixedBalance === 0 ? 'bg-emerald-500' : 'bg-[#624A3E]'
+                            }`}
+                            style={{ width: `${Math.min(100, Math.round((mixedSum / (orderBreakdowns.finalTotal || 1)) * 100))}%` }}
+                          />
+                        </div>
                       </div>
 
+                      {/* List of currently added payments */}
                       {mixedPayments.length > 0 ? (
-                        <div className="space-y-1">
+                        <div className="space-y-2">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-stone-500 dark:text-stone-400 block">
+                            Medios Asignados ({mixedPayments.length}):
+                          </span>
                           {mixedPayments.map((p, idx) => (
-                            <div key={idx} className="flex justify-between items-center bg-white dark:bg-stone-900 border border-stone-150 dark:border-stone-800 p-2 rounded-lg text-xs font-bold text-stone-700 dark:text-stone-300">
-                              <span className="uppercase flex items-center gap-1">
-                                <ChevronRight className="w-3.5 h-3.5 text-[#624A3E]" /> {
-                                  p.metodo === 'efectivo' ? 'Efectivo' :
-                                  p.metodo === 'debito' ? 'Tarjeta Débito' :
-                                  p.metodo === 'tarjeta' || p.metodo === 'credito' ? 'Tarjeta Crédito' :
-                                  p.metodo === 'transferencia' ? 'Transferencia' :
-                                  p.metodo === 'mp_qr' ? 'MercadoPago QR' : p.metodo
-                                }
+                            <div key={idx} className="flex justify-between items-center bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 px-3 py-2.5 rounded-xl text-xs font-bold text-stone-800 dark:text-stone-200 shadow-2xs">
+                              <span className="flex items-center gap-2">
+                                {p.metodo === 'efectivo' && <Coins className="w-4 h-4 text-emerald-600" />}
+                                {p.metodo === 'debito' && <CreditCard className="w-4 h-4 text-blue-600" />}
+                                {(p.metodo === 'tarjeta' || p.metodo === 'credito') && <CreditCard className="w-4 h-4 text-indigo-600" />}
+                                {p.metodo === 'transferencia' && <Landmark className="w-4 h-4 text-purple-600" />}
+                                {p.metodo === 'mp_qr' && <Smartphone className="w-4 h-4 text-teal-600" />}
+                                <span>
+                                  {p.metodo === 'efectivo' ? 'Efectivo' :
+                                   p.metodo === 'debito' ? 'Tarjeta Débito' :
+                                   p.metodo === 'tarjeta' || p.metodo === 'credito' ? 'Tarjeta Crédito' :
+                                   p.metodo === 'transferencia' ? 'Transferencia' :
+                                   p.metodo === 'mp_qr' ? 'MercadoPago QR' : p.metodo}
+                                </span>
                               </span>
-                              <div className="flex items-center gap-2">
-                                <span className="font-mono text-stone-900 dark:text-stone-100">${p.monto.toLocaleString('es-AR')}</span>
+                              <div className="flex items-center gap-3">
+                                <span className="font-mono text-sm font-extrabold text-stone-900 dark:text-stone-100">
+                                  ${p.monto.toLocaleString('es-AR')}
+                                </span>
                                 <button
                                   type="button"
                                   onClick={() => handleRemoveMixedPayment(idx)}
-                                  className="text-stone-400 hover:text-rose-600 transition-colors cursor-pointer border-none bg-transparent"
-                                  title="Borrar pago parcial"
+                                  className="p-1 rounded-lg text-stone-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer border-none bg-transparent"
+                                  title="Quitar este pago"
                                 >
-                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <Trash2 className="w-4 h-4" />
                                 </button>
                               </div>
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <p className="text-[10px] text-stone-400 text-center italic">No hay pagos parciales ingresados. Introduzca por lo menos dos a continuación.</p>
+                        <div className="p-3 text-center bg-white/60 dark:bg-stone-900/60 rounded-xl border border-dashed border-stone-200 dark:border-stone-800">
+                          <p className="text-xs text-stone-500 dark:text-stone-400 font-medium">
+                            Aún no ingresaste pagos parciales. Selecciona el medio y el monto a continuación:
+                          </p>
+                        </div>
                       )}
 
                       {/* Add partial form */}
                       {rawRemainingMixedBalance > 0 ? (
-                        <form onSubmit={handleAddMixedPayment} className="flex flex-col sm:flex-row gap-2">
-                          <select
-                            value={mixedMetodoInput}
-                            onChange={e => setMixedMetodoInput(e.target.value)}
-                            className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 text-xs p-2 rounded-lg text-stone-800 dark:text-stone-200 font-bold"
-                          >
-                            <option value="efectivo">💵 Efectivo</option>
-                            <option value="debito">💳 Tarjeta Débito</option>
-                            <option value="tarjeta">💳 Tarjeta Crédito</option>
-                            <option value="transferencia">🏦 Transferencia</option>
-                            <option value="mp_qr">📱 MercadoPago QR</option>
-                          </select>
+                        <form onSubmit={handleAddMixedPayment} className="space-y-3 bg-white dark:bg-stone-900 p-3.5 rounded-xl border border-stone-200 dark:border-stone-800 shadow-2xs">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {/* Selector de Medio */}
+                            <div>
+                              <label className="text-[10px] font-black uppercase text-stone-500 dark:text-stone-400 block mb-1">
+                                Medio de Pago
+                              </label>
+                              <select
+                                value={mixedMetodoInput}
+                                onChange={e => setMixedMetodoInput(e.target.value)}
+                                className="w-full bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 text-xs p-2.5 rounded-lg text-stone-800 dark:text-stone-200 font-bold focus:outline-none focus:ring-1 focus:ring-[#624A3E]"
+                              >
+                                <option value="efectivo">💵 Efectivo</option>
+                                <option value="debito">💳 Tarjeta Débito</option>
+                                <option value="tarjeta">💳 Tarjeta Crédito</option>
+                                <option value="transferencia">🏦 Transferencia</option>
+                                <option value="mp_qr">📱 MercadoPago QR</option>
+                              </select>
+                            </div>
 
-                          <div className="flex-1 flex gap-1.5 items-center">
-                            <input
-                              type="number"
-                              placeholder="Monto"
-                              value={mixedMontoInput}
-                              onChange={e => {
-                                setMixedMontoInput(e.target.value);
-                                if (mixedMetodoInput === 'efectivo') {
-                                  setMontoEntregadoEfectivo(e.target.value);
-                                }
-                              }}
-                              className="w-full bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 p-2 text-xs rounded-lg font-mono font-bold text-stone-850 dark:text-stone-200 focus:outline-none"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setMixedMontoInput(String(rawRemainingMixedBalance));
-                                if (mixedMetodoInput === 'efectivo') {
-                                  setMontoEntregadoEfectivo(String(rawRemainingMixedBalance));
-                                }
-                              }}
-                              className="px-2 py-1.5 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 border border-stone-200 dark:border-stone-700 rounded-lg text-[10px] font-black shrink-0 cursor-pointer"
-                              title="Cargar saldo pendiente"
-                            >
-                              Restante (${rawRemainingMixedBalance.toLocaleString('es-AR')})
-                            </button>
+                            {/* Input de Monto */}
+                            <div>
+                              <div className="flex justify-between items-center mb-1">
+                                <label className="text-[10px] font-black uppercase text-stone-500 dark:text-stone-400 block">
+                                  Monto a Asignar
+                                </label>
+                                <span className="text-[10px] text-stone-400 font-mono">
+                                  Máx: ${rawRemainingMixedBalance.toLocaleString('es-AR')}
+                                </span>
+                              </div>
+                              <div className="relative">
+                                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-400 font-bold text-xs">$</span>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max={rawRemainingMixedBalance}
+                                  step="any"
+                                  placeholder="0"
+                                  value={mixedMontoInput}
+                                  onChange={e => {
+                                    setMixedMontoInput(e.target.value);
+                                    if (mixedMetodoInput === 'efectivo') {
+                                      setMontoEntregadoEfectivo(e.target.value);
+                                    }
+                                  }}
+                                  className="w-full bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 pl-6 pr-3 py-2 text-xs rounded-lg font-mono font-extrabold text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-[#624A3E]"
+                                />
+                              </div>
+                            </div>
                           </div>
 
-                          <button
-                            type="submit"
-                            className="py-2 px-3 bg-[#624A3E] text-white text-xs font-black rounded-lg cursor-pointer flex items-center gap-1 shrink-0 border-none"
-                          >
-                            <Plus className="w-3.5 h-3.5" /> Agregar Pago
-                          </button>
+                          {/* Quick fill shortcuts and Add button */}
+                          <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-stone-100 dark:border-stone-800">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-[9px] font-bold text-stone-400 uppercase">Cargar:</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setMixedMontoInput(String(rawRemainingMixedBalance));
+                                  if (mixedMetodoInput === 'efectivo') {
+                                    setMontoEntregadoEfectivo(String(rawRemainingMixedBalance));
+                                  }
+                                }}
+                                className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/60 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-800/80 rounded-lg text-[10px] font-black cursor-pointer transition-all active:scale-95"
+                              >
+                                Restante (${rawRemainingMixedBalance.toLocaleString('es-AR')})
+                              </button>
+                              {rawRemainingMixedBalance > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const half = Math.round(rawRemainingMixedBalance / 2);
+                                    setMixedMontoInput(String(half));
+                                    if (mixedMetodoInput === 'efectivo') {
+                                      setMontoEntregadoEfectivo(String(half));
+                                    }
+                                  }}
+                                  className="px-2 py-1 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 border border-stone-200 dark:border-stone-700 rounded-lg text-[10px] font-bold cursor-pointer"
+                                >
+                                  50% (${Math.round(rawRemainingMixedBalance / 2).toLocaleString('es-AR')})
+                                </button>
+                              )}
+                            </div>
+
+                            <button
+                              type="submit"
+                              className="px-4 py-2 bg-[#624A3E] hover:bg-[#503C32] text-white text-xs font-black uppercase rounded-lg cursor-pointer flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all border-none ml-auto"
+                            >
+                              <Plus className="w-4 h-4" /> Agregar Pago
+                            </button>
+                          </div>
                         </form>
                       ) : (
-                        <div className="bg-emerald-50 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-300 text-[10px] p-2 text-center rounded border border-emerald-100 dark:border-emerald-900/30 font-bold">
-                          ✓ Saldo completado. Puede finalizar la transacción de cobro.
+                        <div className="bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 p-3 rounded-xl border border-emerald-200 dark:border-emerald-800 flex items-center justify-between gap-2 text-xs font-bold">
+                          <span className="flex items-center gap-1.5">
+                            <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                            Total asignado por completo (${mixedSum.toLocaleString('es-AR')})
+                          </span>
+                          <span className="text-[10px] uppercase font-black px-2 py-0.5 bg-emerald-600 text-white rounded-md">
+                            Listo para cobrar
+                          </span>
                         </div>
                       )}
 
                       {/* Cash change for mixed cash payments */}
                       {mixedPayments.some(p => p.metodo === 'efectivo') && (
-                        <div className="bg-white dark:bg-stone-900 p-2.5 rounded-lg border border-stone-200 dark:border-stone-800 flex justify-between items-center text-xs">
-                          <span className="text-stone-500 dark:text-stone-400 font-bold block uppercase text-[10px]">Arqueo Cambio Extra (Efectivo Mixto)</span>
+                        <div className="bg-white dark:bg-stone-900 p-3 rounded-xl border border-stone-200 dark:border-stone-800 space-y-2">
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="text-stone-600 dark:text-stone-300 font-bold uppercase text-[10px] flex items-center gap-1">
+                              <Coins className="w-3.5 h-3.5 text-emerald-600" /> Vuelto para parte en Efectivo (
+                              ${(mixedPayments.find(p => p.metodo === 'efectivo')?.monto || 0).toLocaleString('es-AR')}
+                              )
+                            </span>
+                          </div>
                           <div className="flex items-center gap-2">
-                            <input 
-                              type="number" 
-                              value={montoEntregadoEfectivo}
-                              onChange={e => setMontoEntregadoEfectivo(e.target.value)}
-                              placeholder="Monto entregado"
-                              className="p-1.5 border border-stone-200 dark:border-stone-850 rounded text-xs text-stone-800 dark:text-stone-200 font-mono w-24 bg-white dark:bg-stone-950"
-                            />
+                            <div className="relative flex-1">
+                              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-400 font-bold text-xs">$</span>
+                              <input 
+                                type="number" 
+                                value={montoEntregadoEfectivo}
+                                onChange={e => setMontoEntregadoEfectivo(e.target.value)}
+                                placeholder="Efectivo entregado por cliente"
+                                className="w-full pl-6 pr-3 py-1.5 border border-stone-200 dark:border-stone-800 rounded-lg text-xs text-stone-900 dark:text-stone-100 font-mono font-bold bg-stone-50 dark:bg-stone-950 focus:outline-none"
+                              />
+                            </div>
                             {calculatedChange > 0 && (
-                              <span className="text-[#22C55E] font-black">${calculatedChange.toLocaleString('es-AR')}</span>
+                              <div className="px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-mono font-black text-xs shrink-0 flex items-center gap-1 border border-emerald-200 dark:border-emerald-800">
+                                <span>Vuelto:</span>
+                                <span>${calculatedChange.toLocaleString('es-AR')}</span>
+                              </div>
                             )}
                           </div>
                         </div>
@@ -1932,6 +2033,42 @@ export default function CajaModule({
                       <div className="flex justify-between font-bold text-stone-900 border-t border-dashed mt-1 pt-1">
                         <span>TOTAL CUENTA:</span>
                         <span className="font-mono font-black">${orderBreakdowns.finalTotal.toLocaleString('es-AR')}</span>
+                      </div>
+
+                      {/* Payment method breakdown in thermal ticket preview */}
+                      <div className="py-1 border-t border-dotted border-stone-300 space-y-0.5 text-[8px]">
+                        <div className="flex justify-between font-bold">
+                          <span>FORMA DE PAGO:</span>
+                          <span className="uppercase">
+                            {metodoPago === 'efectivo' ? 'EFECTIVO' :
+                             metodoPago === 'debito' ? 'TARJETA DÉBITO' :
+                             metodoPago === 'tarjeta' ? 'TARJETA CRÉDITO' :
+                             metodoPago === 'transferencia' ? 'TRANSFERENCIA' :
+                             metodoPago === 'mp_qr' ? 'MERCADOPAGO QR' : 'PAGO MIXTO'}
+                          </span>
+                        </div>
+                        {metodoPago === 'mixto' && mixedPayments.length > 0 && (
+                          <div className="pl-1 space-y-0.5 text-[7.5px] text-stone-600">
+                            {mixedPayments.map((p, idx) => (
+                              <div key={idx} className="flex justify-between">
+                                <span>• {
+                                  p.metodo === 'efectivo' ? 'EFECTIVO' :
+                                  p.metodo === 'debito' ? 'T. DÉBITO' :
+                                  p.metodo === 'tarjeta' || p.metodo === 'credito' ? 'T. CRÉDITO' :
+                                  p.metodo === 'transferencia' ? 'TRANSFERENCIA' :
+                                  p.metodo === 'mp_qr' ? 'MERCADOPAGO QR' : p.metodo.toUpperCase()
+                                }:</span>
+                                <span className="font-mono font-bold">${p.monto.toLocaleString('es-AR')}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {calculatedChange > 0 && (
+                          <div className="flex justify-between text-emerald-700 font-bold">
+                            <span>VUELTO:</span>
+                            <span className="font-mono">${calculatedChange.toLocaleString('es-AR')}</span>
+                          </div>
+                        )}
                       </div>
 
                       <div className="text-[7.5px] italic text-stone-400 mt-1">
@@ -2661,6 +2798,22 @@ export default function CajaModule({
                   {pendingCloseMesaData.mappedMedio}
                 </span>
               </div>
+              {pendingCloseMesaData.pagos && pendingCloseMesaData.pagos.length > 1 && (
+                <div className="pl-2 border-l-2 border-amber-400 space-y-0.5 text-[10px] text-stone-600 dark:text-stone-300 font-mono pt-1">
+                  {pendingCloseMesaData.pagos.map((p, pIdx) => (
+                    <div key={pIdx} className="flex justify-between">
+                      <span>• {
+                        p.metodo === 'efectivo' ? 'Efectivo' :
+                        p.metodo === 'debito' ? 'Tarjeta Débito' :
+                        p.metodo === 'tarjeta' || p.metodo === 'credito' ? 'Tarjeta Crédito' :
+                        p.metodo === 'transferencia' ? 'Transferencia' :
+                        p.metodo === 'mp_qr' ? 'MercadoPago QR' : p.metodo
+                      }:</span>
+                      <span className="font-bold text-stone-900 dark:text-stone-100">${p.monto.toLocaleString('es-AR')}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
               {pendingCloseMesaData.calculatedChange > 0 && (
                 <div className="flex justify-between items-center text-[11px] text-emerald-600 font-bold pt-1 border-t border-stone-200 dark:border-stone-800">
                   <span>Vuelto:</span>

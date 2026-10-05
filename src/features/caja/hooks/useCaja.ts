@@ -760,7 +760,7 @@ export function useCaja({
     let pays: { metodo: string; monto: number }[] = [];
     if (metodoPago === 'mixto') {
       if (Math.abs(mixedSum - orderBreakdowns.finalTotal) > 0.5) {
-        toast.error(`Monto incompleto en forma mixta. Saldo faltante: ${rawRemainingMixedBalance.toLocaleString('es-AR')}`);
+        toast.error(`Monto incompleto en forma mixta. Saldo faltante: $${rawRemainingMixedBalance.toLocaleString('es-AR')}`);
         return;
       }
       pays = [...mixedPayments];
