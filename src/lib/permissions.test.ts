@@ -19,15 +19,22 @@ test('administrador no puede acceder a sistema pero si a backups', () => {
   assert.equal(canAccessView('administrador', 'sistema'), false);
 });
 
-test('mozo tiene acceso operativo limitado al salón', () => {
+test('mozo puede gestionar y manejar todo el programa sin limitaciones', () => {
+  const expectedViews = COCINA_MODULE_ENABLED ? ALL_APP_VIEWS : ALL_APP_VIEWS.filter(v => v !== 'cocina');
+  assert.deepEqual(getAllowedViews('mozo'), expectedViews);
+  assert.equal(canAccessView('mozo', 'home'), true);
   assert.equal(canAccessView('mozo', 'mozo'), true);
+  assert.equal(canAccessView('mozo', 'mesas'), true);
   assert.equal(canAccessView('mozo', 'reservas'), true);
-  assert.equal(canAccessView('mozo', 'caja'), false);
-  assert.equal(canAccessView('mozo', 'menu'), false);
-  assert.equal(canAccessView('mozo', 'inventario'), false);
-  assert.equal(canAccessView('mozo', 'usuarios'), false);
-  assert.equal(canAccessView('mozo', 'sistema'), false);
-  assert.equal(canAccessView('mozo', 'backups'), false);
+  assert.equal(canAccessView('mozo', 'caja'), true);
+  assert.equal(canAccessView('mozo', 'menu'), true);
+  assert.equal(canAccessView('mozo', 'inventario'), true);
+  assert.equal(canAccessView('mozo', 'proveedores'), true);
+  assert.equal(canAccessView('mozo', 'promociones'), true);
+  assert.equal(canAccessView('mozo', 'facturacion'), true);
+  assert.equal(canAccessView('mozo', 'usuarios'), true);
+  assert.equal(canAccessView('mozo', 'sistema'), true);
+  assert.equal(canAccessView('mozo', 'backups'), true);
 });
 
 test('cajero puede cobrar y facturar sin administrar inventario', () => {

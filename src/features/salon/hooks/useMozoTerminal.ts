@@ -85,7 +85,7 @@ export function useMozoTerminal({
   const [splitItemsChecked, setSplitItemsChecked] = useState<{ [itemIdx: number]: boolean }>({});
 
   const activeUser = useMemo(() => usuarios.find(u => u.nombre === activeMozo), [usuarios, activeMozo]);
-  const isAdmin = activeUser?.rol === 'superadmin' || activeUser?.rol === 'administrador';
+  const isAdmin = activeUser?.rol === 'superadmin' || activeUser?.rol === 'administrador' || activeUser?.rol === 'mozo';
 
   const dynamicMesas = useMemo(() => {
     return mesas.map(m => {

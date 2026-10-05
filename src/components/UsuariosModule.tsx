@@ -72,7 +72,7 @@ export default function UsuariosModule({
 
   const filtered = useMemo(() => {
     let result = usuarios;
-    if (activeUser?.rol === 'administrador') {
+    if (activeUser?.rol !== 'superadmin') {
       result = result.filter(u => u.rol !== 'superadmin');
     }
     return result.filter(u =>

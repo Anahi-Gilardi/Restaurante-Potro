@@ -59,7 +59,7 @@ export default function MobileNav({
   const drawerRef = useRef<HTMLDivElement>(null);
 
   const isConnected = tryGetActiveSupabaseClient() !== null;
-  const isAdmin = activeUser.rol === 'administrador' || activeUser.rol === 'superadmin';
+  const isAdmin = activeUser.rol === 'administrador' || activeUser.rol === 'superadmin' || activeUser.rol === 'mozo';
   const visibleItems = NAV_ITEMS.filter(item => allowedViews.includes(item.id));
 
 
