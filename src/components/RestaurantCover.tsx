@@ -141,7 +141,7 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
       id: 'spec_1',
       title: 'Rotolo di Tata',
       description: 'Rollo de pasta fresca al huevo relleno de espinaca y ricota artesanal, bañado con salsa pomodoro suave, crema y gotas de pesto.',
-      tag: 'Pasta de Autor',
+      tag: 'El Favorito de la Casa',
       image: '/images/rotolo_tata.jpg'
     },
     {
@@ -153,10 +153,10 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
     },
     {
       id: 'spec_3',
-      title: 'Mollejas al Verdeo',
-      description: 'Mollejas de corazón crocantes por fuera y tiernas por dentro, reducidas al vino blanco con verdeo fresco.',
-      tag: 'Especialidad de la Casa',
-      image: '/images/mollejas_verdeo.jpg'
+      title: 'Cinta ancha en tinta de sepia',
+      description: 'Pasta fresca con tinta de sepia, salteada con crema de mariscos.',
+      tag: 'Pasta de Autor',
+      image: '/images/cintas_sepia.jpg'
     }
   ];
 
