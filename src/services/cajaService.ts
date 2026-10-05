@@ -47,7 +47,7 @@ const safeStorage = {
 
 const toDbCierre = (cierre: CierreCaja) => {
   if (!cierre) return {} as any;
-  const regTotales = cierre.registros_totales || {};
+  const regTotales = (cierre.registros_totales || {}) as Record<string, any>;
   const debito = Number(cierre.debito !== undefined ? cierre.debito : (regTotales.debito || 0));
   const credito = Number(cierre.credito !== undefined ? cierre.credito : (regTotales.credito || 0));
   const transferencia = Number(cierre.transferencia !== undefined ? cierre.transferencia : (regTotales.transferencia || 0));

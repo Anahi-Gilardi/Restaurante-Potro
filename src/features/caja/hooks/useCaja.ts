@@ -26,6 +26,7 @@ import { isSameTable, mergeTableOrders } from '../../../lib/tableOrders';
 import { formatTicketTableName } from '../../../lib/tableUnions';
 import { getArgentinaIsoString, getArgentinaDateTimeString, formatArgentinaDateTime, formatArgentinaTime, argentinaDateIso } from '../../../lib/argentinaDate';
 import { sheetUpsertRow } from '../../../lib/googleSheetsClient';
+import { ventasPlatosService } from '../../../services/ventasPlatosService';
 
 export interface PendingCloseMesaData {
   pedidoId: number;
@@ -47,6 +48,14 @@ export interface PendingCloseMesaData {
   propinaValue?: number;
   selectedCliente: Cliente | null;
   puntosRedimidos: number;
+  items?: Array<{
+    nombre: string;
+    cantidad: number;
+    precio_unitario: number;
+    subtotal: number;
+    categoria?: string;
+    id_producto?: string;
+  }>;
 }
 
 interface UseCajaProps {
@@ -881,7 +890,14 @@ export function useCaja({
       paymentDesglosesCount,
       propinaValue: orderBreakdowns.propinaValue || 0,
       selectedCliente,
-      puntosRedimidos
+      puntosRedimidos,
+      items: dataTicket.items.map(it => ({
+        nombre: it.descripcion,
+        cantidad: it.cantidad,
+        precio_unitario: it.precio_unitario ?? it.precioUnitario ?? 0,
+        subtotal: it.subtotal,
+        categoria: productosMenu.find(p => p.nombre === it.descripcion)?.categoria || (it as any).categoria || 'General'
+      }))
     });
 
     // Abrir cartel de confirmación: ¿Confirmar comanda cobrada y cerrar mesa?
@@ -973,6 +989,16 @@ export function useCaja({
         });
       } catch (err) {
         console.warn('[useCaja] Error preparando payload tipos_pago:', err);
+      }
+
+      // 3. Persistir cada plato vendido en Google Sheets hoja 'ventas_platos' para estadísticas y rankings
+      if (pendingCloseMesaData.items && pendingCloseMesaData.items.length > 0) {
+        ventasPlatosService.recordSaleItems(pendingCloseMesaData.items, {
+          numeroMesa,
+          cajero: operatorName || 'Cajero'
+        }).catch(err => {
+          console.warn('[useCaja] Error al registrar platos en ventas_platos:', err);
+        });
       }
 
       if (checkoutCliente) {
