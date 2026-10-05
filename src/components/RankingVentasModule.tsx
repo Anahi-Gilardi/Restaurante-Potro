@@ -74,7 +74,7 @@ export default function RankingVentasModule() {
             <Trophy className="w-5 h-5 text-amber-500" /> Ranking de Platos Más Vendidos
           </h2>
           <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
-            Contabilización por día, semana y mes sincronizada con la hoja <code className="text-amber-700 dark:text-amber-300 font-bold bg-amber-50 dark:bg-amber-950/40 px-1 rounded">ventas_platos</code>.
+            Contabilización por día, semana y mes de los platos y bebidas despachados.
           </p>
         </div>
 

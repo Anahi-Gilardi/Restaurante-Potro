@@ -662,7 +662,7 @@ export default function HomeMenuModule({
                   Platos Estrella & Más Vendidos
                 </h4>
                 <p className="text-[11px] text-stone-500 dark:text-stone-400 font-medium">
-                  Ranking contabilizado sincronizado con <code className="text-amber-700 dark:text-amber-300 font-bold bg-amber-50 dark:bg-amber-950/30 px-1 rounded">ventas_platos</code>.
+                  Rendimiento y contabilización de ventas en tiempo real.
                 </p>
               </div>
 
