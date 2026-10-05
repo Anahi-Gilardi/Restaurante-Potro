@@ -499,7 +499,7 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
   {
     id_producto: 'prod_pas_rotolo',
     nombre: 'Rotolo di tata relleno de espinaca y ricota',
-    descripcion: 'Rollo de pasta al huevo relleno de espinaca fresca, ricota artesanal y nuez moscada, gratinado al horno.',
+    descripcion: 'Rollo de pasta al huevo relleno de espinaca fresca, ricota artesanal (o también con tierno cabrito), bañado con salsa pomodoro suave y crema.',
     precio_venta: 27000.00,
     categoria: 'Pastas',
     activo: true,
