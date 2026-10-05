@@ -23,6 +23,7 @@ import { DEFAULT_RESTAURANT_PROFILE, normalizeRestaurantProfile } from '../../..
 import { resolvePedidoItemUnitPrice, roundCurrency } from '../../../lib/orderPricing';
 import { internalTicketPreview } from '../../../lib/fiscalVoucherPolicy';
 import { isSameTable, mergeTableOrders } from '../../../lib/tableOrders';
+import { formatTicketTableName } from '../../../lib/tableUnions';
 import { getArgentinaIsoString, getArgentinaDateTimeString, formatArgentinaDateTime, formatArgentinaTime, argentinaDateIso } from '../../../lib/argentinaDate';
 import { sheetUpsertRow } from '../../../lib/googleSheetsClient';
 
