@@ -474,7 +474,7 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
               </div>
 
               <p className="text-sm sm:text-base text-stone-700 dark:text-stone-300 font-serif-rustic italic leading-relaxed">
-                Estamos diseñando una carta ejecutiva especial para acompañar tus jornadas: opciones gourmet y caseras elaboradas en el día, con entrada, plato principal, postre y bebida incluida, pensadas para ofrecerte la máxima calidad gastronómica y un servicio ágil.
+                Ofrecemos una carta ejecutiva especial para acompañar tus jornadas: opciones gourmet y caseras elaboradas en el día, con entrada, plato principal y postre, pensadas para ofrecerte la máxima calidad gastronómica y un servicio ágil.
               </p>
 
               {/* Píldora informativa */}
@@ -502,7 +502,7 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
                 </span>
 
                 <a
-                  href="https://wa.me/5493584303541?text=Hola%20El%20Patr%C3%B3n!%20Quisiera%20consultar%20sobre%20los%20pr%C3%B3ximos%20men%C3%BAs%20ejecutivos."
+                  href="https://wa.me/5493584303541?text=Hola%20El%20Patr%C3%B3n!%20Quisiera%20consultar%20sobre%20los%20men%C3%BAs%20ejecutivos."
                   target="_blank"
                   rel="noopener noreferrer"
                   className="px-5 py-2.5 rounded-xl bg-[#8C6239] hover:bg-[#A0754B] text-white text-xs font-bold uppercase tracking-wider transition-all duration-200 flex items-center gap-2 shadow-md hover:scale-[1.02] cursor-pointer"
