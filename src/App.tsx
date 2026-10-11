@@ -27,6 +27,7 @@ import {
 // Static imports (small, used on every render or at login)
 import ErrorBoundary from './components/ErrorBoundary';
 import { useToast, ToastContainer } from './components/ToastContainer';
+import PaymentOverdueBanner from './components/PaymentOverdueBanner';
 import PythonStreamlitLogin from './components/PythonStreamlitLogin';
 import ElPatronLogo from './components/ElPatronLogo';
 import BottomNavigation from './components/BottomNavigation';
@@ -2240,6 +2241,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
         isSidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64'
       }`}>
         <ToastContainer toasts={toasts} removeToast={removeToast} />
+        <PaymentOverdueBanner />
 
         <RetryErrorWrapper>
           <Suspense fallback={<Skeleton count={6} />}>
