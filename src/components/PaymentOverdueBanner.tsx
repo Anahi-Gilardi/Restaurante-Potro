@@ -6,7 +6,7 @@ import { AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
  * Por defecto está en 'false'. Cuando el usuario indique activarlo,
  * basta con cambiar este valor a 'true' o usar window.localStorage.setItem('el_patron_banner_pago', 'true').
  */
-export const PAYMENT_BANNER_ACTIVE = false;
+export const PAYMENT_BANNER_ACTIVE = true;
 
 interface PaymentOverdueBannerProps {
   titulo?: string;
