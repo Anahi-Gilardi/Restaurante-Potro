@@ -1,24 +1,16 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { 
   TrendingUp, 
-  Smartphone, 
-  ChefHat, 
   DollarSign, 
   UtensilsCrossed, 
-  Scale, 
   Users, 
   Calendar, 
-  Receipt, 
-  Sliders, 
-  Database, 
   Clock, 
   RefreshCw, 
   User, 
   ChevronRight, 
   Bell, 
   AlertTriangle, 
-  Truck, 
-  Percent, 
   Flame, 
   Activity, 
   Award, 
@@ -91,7 +83,6 @@ export default function HomeMenuModule({
   }, [pedidos, precioMap]);
 
   const occupiedTables = mesas.filter(m => isTableOccupied(m, pedidos)).length;
-  const pendingCooking = pedidos.filter(p => p.estado_comanda === 'pendiente' || p.estado_comanda === 'en_cocina').length;
   const lowStockCount = insumos.filter(i => i.stock_actual <= i.stock_minimo).length;
 
   // Supabase connection client state check
@@ -306,154 +297,7 @@ export default function HomeMenuModule({
     return alerts;
   }, [insumos, mesas, pedidos]);
 
-  const menuItems = [
-    {
-      id: 'mozo',
-      title: 'Mozo / Salón',
-      description: 'Tomar pedidos en mesas, enviar comandas a cocina y gestionar consumos parciales.',
-      icon: Smartphone,
-      color: 'from-amber-600/10 to-amber-750/5 hover:border-amber-500 border-l-4 border-l-amber-600 dark:border-l-amber-550',
-      iconColor: 'text-[#8C6239] dark:text-amber-400',
-      badge: {
-        text: 'Terminal Táctil',
-        type: 'neutral'
-      }
-    },
-    {
-      id: 'cocina',
-      title: 'Cocina',
-      description: 'Monitor de preparación de platos en tiempo real y descuento automático de insumos.',
-      icon: ChefHat,
-      color: 'from-orange-500/10 to-orange-600/5 hover:border-orange-400 border-l-4 border-l-orange-500 dark:border-l-orange-450',
-      iconColor: 'text-orange-700 dark:text-orange-400',
-      badge: {
-        text: pendingCooking > 0 ? `${pendingCooking} en preparación` : 'Sin pedidos',
-        type: pendingCooking > 0 ? 'amber' : 'neutral'
-      }
-    },
-    {
-      id: 'caja',
-      title: 'Caja',
-      description: 'Control de cobros de mesas, división de cuentas de comensales y cierres de turno.',
-      icon: DollarSign,
-      color: 'from-emerald-500/10 to-emerald-600/5 hover:border-emerald-400 border-l-4 border-l-emerald-600 dark:border-l-emerald-500',
-      iconColor: 'text-emerald-700 dark:text-emerald-400',
-      badge: {
-        text: 'Tickets y Cobros',
-        type: 'emerald'
-      }
-    },
-    {
-      id: 'menu',
-      title: 'Menú',
-      description: 'Crear y modificar la oferta culinaria, configurar precios públicos y categorías.',
-      icon: UtensilsCrossed,
-      color: 'from-stone-550/10 to-stone-600/5 hover:border-stone-400 border-l-4 border-l-stone-500 dark:border-l-stone-450',
-      iconColor: 'text-stone-700 dark:text-stone-300',
-      badge: {
-        text: `${productosMenu.filter(p => p.activo).length} activos`,
-        type: 'neutral'
-      }
-    },
-    {
-      id: 'usuarios',
-      title: 'Usuarios',
-      description: 'Administración de perfiles operativos: mozos, cocina y administradores.',
-      icon: Users,
-      color: 'from-teal-500/10 to-teal-650/5 hover:border-teal-400 border-l-4 border-l-teal-500 dark:border-l-teal-450',
-      iconColor: 'text-teal-700 dark:text-teal-400',
-      badge: {
-        text: 'Personal',
-        type: 'neutral'
-      }
-    },
 
-
-    {
-      id: 'mesas',
-      title: 'Salón Comedor',
-      description: 'Distribución física del salón comedor, ocupación de mesas y control de capacidad.',
-      icon: Users,
-      color: 'from-[#624A3E]/10 to-[#8C6239]/5 hover:border-[#624A3E] border-l-4 border-l-[#624A3E] dark:border-l-[#C8956A]',
-      iconColor: 'text-[#624A3E] dark:text-[#C8956A]',
-      badge: {
-        text: `${occupiedTables} ocupadas`,
-        type: occupiedTables > 0 ? 'amber' : 'neutral'
-      }
-    },
-    {
-      id: 'proveedores',
-      title: 'Proveedores',
-      description: 'Gestión de distribuidores, órdenes de compra y plazos de entrega.',
-      icon: Truck,
-      color: 'from-lime-500/10 to-lime-650/5 hover:border-lime-400 border-l-4 border-l-lime-500 dark:border-l-lime-450',
-      iconColor: 'text-lime-700 dark:text-lime-400',
-      badge: {
-        text: 'Suministros',
-        type: 'neutral'
-      }
-    },
-    {
-      id: 'promociones',
-      title: 'Promociones',
-      description: 'Configuración de ofertas: descuentos porcentuales, montos fijos y 2x1.',
-      icon: Percent,
-      color: 'from-pink-500/10 to-pink-650/5 hover:border-pink-400 border-l-4 border-l-pink-500 dark:border-l-pink-450',
-      iconColor: 'text-pink-700 dark:text-pink-400',
-      badge: {
-        text: 'Campañas HH',
-        type: 'neutral'
-      }
-    },
-    {
-      id: 'reservas',
-      title: 'Reservas',
-      description: 'Calendario de visitas planificadas, bloqueos preventivos de mesas y eventos.',
-      icon: Calendar,
-      color: 'from-amber-600/10 to-amber-700/5 hover:border-amber-500 border-l-4 border-l-amber-600 dark:border-l-amber-550',
-      iconColor: 'text-amber-850 dark:text-amber-400',
-      badge: {
-        text: 'Agenda',
-        type: 'amber'
-      }
-    },
-    {
-      id: 'facturacion',
-      title: 'Facturación',
-      description: 'Emisión de Factura C con CAE y archivo fiscal, separado de los tickets internos de Caja.',
-      icon: Receipt,
-      color: 'from-stone-500/10 to-stone-650/5 hover:border-stone-400 border-l-4 border-l-stone-500 dark:border-l-stone-450',
-      iconColor: 'text-stone-750 dark:text-stone-300',
-      badge: {
-        text: 'F-ARCA',
-        type: 'neutral'
-      }
-    },
-    {
-      id: 'sistema',
-      title: 'Sistema / Configuración',
-      description: 'Estado de Supabase, caché local, diagnóstico real, firma ARCA y registros operativos.',
-      icon: Sliders,
-      color: 'from-indigo-500/10 to-indigo-650/5 hover:border-indigo-400 border-l-4 border-l-indigo-500 dark:border-l-indigo-450',
-      iconColor: 'text-indigo-700 dark:text-indigo-400',
-      badge: {
-        text: 'Servicios OK',
-        type: 'emerald'
-      }
-    },
-    {
-      id: 'backups',
-      title: 'Backups',
-      description: 'Generación de copias de seguridad (.JSON), restauración de checkpoints y borrados.',
-      icon: Database,
-      color: 'from-violet-500/10 to-violet-650/5 hover:border-violet-400 border-l-4 border-l-violet-500 dark:border-l-violet-450',
-      iconColor: 'text-violet-700 dark:text-violet-400',
-      badge: {
-        text: 'Checkpoints',
-        type: 'neutral'
-      }
-    }
-  ];
 
   return (
     <div className="space-y-8 animate-fadeIn text-left" id="home-operational-menu">
@@ -854,54 +698,7 @@ export default function HomeMenuModule({
 
       </div>
 
-      {/* 3. Elegantly designed modules dashboard grid (operational focus) */}
-      <div className="max-w-7xl mx-auto px-0 md:px-0 space-y-6">
-        <h3 className="text-xs font-black text-stone-400 dark:text-stone-555 uppercase tracking-widest mb-4">
-          Módulos y Terminales de Operación
-        </h3>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {menuItems.filter(item => allowedViews.includes(item.id as AppView)).map(item => {
-            const Icon = item.icon;
-            
-            // Determine badge theme colors
-            let badgeStyle = 'bg-stone-100 dark:bg-white/5 text-stone-650 dark:text-stone-400 border border-stone-250 dark:border-white/10';
-            if (item.badge.type === 'emerald') badgeStyle = 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-800 dark:text-emerald-450 border border-emerald-200 dark:border-emerald-500/25';
-            if (item.badge.type === 'amber') badgeStyle = 'bg-amber-50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-450 border border-amber-200 dark:border-amber-500/25 animate-pulse';
-            if (item.badge.type === 'rose') badgeStyle = 'bg-rose-50 dark:bg-rose-500/10 text-rose-800 dark:text-rose-450 border border-rose-200 dark:border-rose-500/25 animate-bounce';
-
-            return (
-              <button
-                key={item.id}
-                onClick={() => onNavigate(item.id)}
-                className={`group bg-white dark:bg-stone-900 p-6 rounded-3xl border border-stone-200 dark:border-stone-850 transition-all text-left flex flex-col justify-between min-h-[170px] cursor-pointer hover:shadow-lg dark:hover:shadow-[#C8956A]/5 bg-gradient-to-br ${item.color} hover:scale-[1.01]`}
-              >
-                {/* Module Top Row */}
-                <div className="w-full flex items-center justify-between gap-4">
-                  <div className={`p-2.5 rounded-xl bg-white dark:bg-[#8C6239]/50 shadow-md border border-stone-200/50 dark:border-white/10 ${item.iconColor}`}>
-                    <Icon className="w-6 h-6 shrink-0" />
-                  </div>
-                  
-                  <span className={`text-[9px] font-black px-2.5 py-0.5 rounded-full font-mono uppercase tracking-wide ${badgeStyle}`}>
-                    {item.badge.text}
-                  </span>
-                </div>
-
-                {/* Module description content */}
-                <div className="space-y-1.5 pt-4">
-                  <h4 className="font-extrabold text-lg text-stone-900 dark:text-stone-105 group-hover:text-[#624A3E] dark:group-hover:text-[#C8956A] transition-colors tracking-tight flex items-center gap-1">
-                    <span>{item.title}</span>
-                    <ChevronRight className="w-4 h-4 text-stone-400 group-hover:translate-x-0.5 transition-transform" />
-                  </h4>
-                  <p className="text-xs text-stone-500 dark:text-stone-400 group-hover:text-stone-700 dark:group-hover:text-stone-300 transition-colors line-clamp-2 leading-relaxed font-sans">
-                    {item.description}
-                  </p>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </div>
 
       {/* MODAL RANKING COMPLETO DE PLATOS VENDIDOS */}
       {showModalRanking && (
