@@ -47,7 +47,7 @@ export const buildReservationWhatsAppUrl = (
   const people = Number.parseInt(request.personas, 10);
   const peopleLabel = people === 1 ? '1 persona' : `${request.personas} personas`;
 
-  const text = `*SOLICITUD DE RESERVA - RESTAURANTE EL PATRÓN* 🍷🥩\n\n`
+  const text = `*SOLICITUD DE RESERVA - RESTAURANTE EL PATRÓN RIO CUARTO FOTHERINGHAM 33* 🍷🥩\n\n`
     + `¡Hola! Quiero solicitar una reserva de mesa:\n\n`
     + `👤 *DATOS DEL CLIENTE:*\n`
     + `• *Nombre y Apellido:* ${request.nombre.trim()}\n`

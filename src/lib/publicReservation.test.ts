@@ -51,7 +51,7 @@ test('buildReservationWhatsAppUrl utiliza el número oficial 3584303541 y contie
   assert.match(url, /^https:\/\/wa\.me\/5493584303541\?text=/);
 
   const decoded = decodeURIComponent(url.split('text=')[1]);
-  assert.match(decoded, /SOLICITUD DE RESERVA - RESTAURANTE EL PATRÓN/);
+  assert.match(decoded, /SOLICITUD DE RESERVA - RESTAURANTE EL PATRÓN RIO CUARTO FOTHERINGHAM 33/);
   assert.match(decoded, /Carlos Gómez/);
   assert.match(decoded, /3584112233/);
   assert.match(decoded, /4 personas/);
