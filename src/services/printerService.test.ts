@@ -168,7 +168,7 @@ test('generateSingleTicketEscPos formatea correctamente una Factura C ARCA para 
     cuit: '27-42694613-6',
     direccion: 'Fotheringham 33, CP 5800, Río Cuarto, Córdoba',
     telefono: '+54 9 358 430-3541',
-    email: 'bellaoriana47@gmail.com',
+    email: 'elpatronrc01@gmail.com',
     nroComprobante: 'FC-0004-00000012',
     idPedido: 501,
     mesa: 'Mesa 7',

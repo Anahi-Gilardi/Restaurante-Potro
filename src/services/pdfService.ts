@@ -842,7 +842,7 @@ export const pdfService = {
     let nombreFantasia = 'El Patrón';
     let direccion = 'Fotheringham 33, Rio Cuarto, Córdoba';
     let telefono = '+54 9 3584 37-3711';
-    let email = 'bellaoriana47@gmail.com';
+    let email = 'elpatronrc01@gmail.com';
     try {
       const saved = localStorage.getItem('el_patron_restaurante_info');
       if (saved) {

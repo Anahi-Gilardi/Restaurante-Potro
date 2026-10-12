@@ -844,15 +844,18 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
             <ul className="space-y-2 text-xs font-medium">
               <li className="flex justify-between border-b border-black/10 pb-1">
                 <span>Miércoles a Domingo:</span>
-                <span className="text-stone-950 font-display-serif">12:00 a 16:00 hs</span>
+                <span className="text-stone-950 font-display-serif">12:15 a 14:30 hs</span>
               </li>
               <li className="flex justify-between border-b border-black/10 pb-1">
                 <span>Miércoles a Domingo:</span>
-                <span className="text-stone-950 font-display-serif">20:00 a 00:00 hs</span>
+                <span className="text-stone-950 font-display-serif">20:30 a 23:30 hs</span>
               </li>
               <li className="flex justify-between border-b border-black/10 pb-1">
-                <span>Martes (Mediodía):</span>
-                <span className="text-stone-950 font-display-serif">12:00 a 15:00 hs</span>
+                <div>
+                  <span>Martes:</span>
+                  <span className="block text-[10px] text-stone-600 italic leading-tight">(mediodía cerrado)</span>
+                </div>
+                <span className="text-stone-950 font-display-serif">20:30 a 23:30 hs</span>
               </li>
               <li className="flex justify-between">
                 <span>Lunes:</span>
@@ -871,7 +874,7 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
               </li>
               <li className="flex items-start gap-2">
                 <Mail className="w-4 h-4 text-stone-950 shrink-0 mt-0.5" />
-                <span>bellaoriana47@gmail.com</span>
+                <span>elpatronrc01@gmail.com</span>
               </li>
               <li className="flex items-start gap-2">
                 <MapPin className="w-4 h-4 text-stone-950 shrink-0 mt-0.5" />
