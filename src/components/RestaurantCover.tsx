@@ -853,13 +853,13 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
               <li className="flex justify-between border-b border-black/10 pb-1">
                 <div>
                   <span>Martes:</span>
-                  <span className="block text-[10px] text-stone-600 italic leading-tight">(mediodía cerrado)</span>
+                  <span className="block text-[11px] font-bold text-stone-950 leading-tight">(mediodía cerrado)</span>
                 </div>
                 <span className="text-stone-950 font-display-serif">20:30 a 23:30 hs</span>
               </li>
               <li className="flex justify-between">
                 <span>Lunes:</span>
-                <span className="text-stone-700 font-display-serif">Cerrado</span>
+                <span className="text-stone-950 font-bold font-display-serif">Cerrado</span>
               </li>
             </ul>
           </div>
