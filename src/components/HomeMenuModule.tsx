@@ -1017,11 +1017,6 @@ export default function HomeMenuModule({
                               <span className="text-[9px] text-stone-400 uppercase font-bold">
                                 {dish.categoria}
                               </span>
-                              {dish.porcentaje > 0 && (
-                                <span className="text-[9px] font-bold text-stone-500 dark:text-stone-400 bg-stone-200/60 dark:bg-stone-800 px-1.5 py-0.5 rounded">
-                                  {dish.porcentaje}% de ventas
-                                </span>
-                              )}
                             </div>
                           </div>
                         </div>

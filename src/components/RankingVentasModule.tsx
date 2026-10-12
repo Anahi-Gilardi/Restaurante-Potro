@@ -325,8 +325,6 @@ export default function RankingVentasModule() {
                     <th className="py-2.5 px-3">Plato</th>
                     <th className="py-2.5 px-3">Categoría</th>
                     <th className="py-2.5 px-3 text-right">Porciones</th>
-                    <th className="py-2.5 px-3 text-right">Total Facturado</th>
-                    <th className="py-2.5 px-3 text-right">% Ventas</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-stone-100 dark:divide-stone-850 font-sans">
@@ -338,17 +336,11 @@ export default function RankingVentasModule() {
                       <td className="py-2 px-3 text-right font-mono font-extrabold text-stone-900 dark:text-stone-100">
                         {it.cantidad}
                       </td>
-                      <td className="py-2 px-3 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                        ${it.totalVendido.toLocaleString('es-AR')}
-                      </td>
-                      <td className="py-2 px-3 text-right font-mono font-bold text-stone-500">
-                        {it.porcentaje}%
-                      </td>
                     </tr>
                   ))}
                   {filteredItems.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="py-6 text-center text-stone-400 italic">
+                      <td colSpan={4} className="py-6 text-center text-stone-400 italic">
                         No se encontraron platos con los filtros seleccionados.
                       </td>
                     </tr>
