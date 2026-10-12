@@ -23,7 +23,9 @@ import {
   Activity, 
   Award, 
   Lightbulb, 
-  Trophy 
+  Trophy,
+  Search,
+  X
 } from 'lucide-react';
 import { Mesa, Pedido, Insumo, ProductoMenu, Usuario } from '../types';
 import { AppView } from '../lib/permissions';
@@ -102,6 +104,8 @@ export default function HomeMenuModule({
   // Ranking de Platos Más Vendidos (con integración de ventas_platos y fallback en vivo)
   const [rankingPeriodo, setRankingPeriodo] = useState<'semana' | 'mes' | 'hoy'>('mes');
   const [ventasPlatosRows, setVentasPlatosRows] = useState(() => ventasPlatosService.getLocalCache());
+  const [showModalRanking, setShowModalRanking] = useState(false);
+  const [searchPlatoRanking, setSearchPlatoRanking] = useState('');
 
   useEffect(() => {
     let mounted = true;
@@ -113,10 +117,10 @@ export default function HomeMenuModule({
     return () => { mounted = false; };
   }, []);
 
-  const rankingTop5 = useMemo<RankingItem[]>(() => {
+  const fullRankingResult = useMemo(() => {
     const res = ventasPlatosService.calculateRanking(ventasPlatosRows, rankingPeriodo);
-    if (res.top5.length > 0) {
-      return res.top5;
+    if (res.todos.length > 0) {
+      return res;
     }
 
     // Fallback con comandas activas/entregadas en memoria si aún no hay cierres registrados
@@ -138,20 +142,56 @@ export default function HomeMenuModule({
     });
 
     const totalCant = Object.values(counts).reduce((s, c) => s + c.cantidad, 0);
-    return Object.values(counts)
-      .sort((a, b) => b.cantidad - a.cantidad)
-      .slice(0, 5)
+    const totalFact = Object.values(counts).reduce((s, c) => s + c.totalVendido, 0);
+    const sorted: RankingItem[] = Object.values(counts)
+      .sort((a, b) => b.cantidad - a.cantidad || b.totalVendido - a.totalVendido)
       .map(c => ({
         ...c,
         porcentaje: totalCant > 0 ? Math.round((c.cantidad / totalCant) * 100) : 0,
         precioPromedio: c.cantidad > 0 ? Math.round(c.totalVendido / c.cantidad) : 0
       }));
+
+    return {
+      periodo: rankingPeriodo,
+      fechaInicio: '',
+      fechaFin: '',
+      totalPorciones: totalCant,
+      totalFacturado: totalFact,
+      top5: sorted.slice(0, 5),
+      todos: sorted,
+      porDiaSemana: {} as Record<string, Record<string, number>>,
+      porCategoria: {} as Record<string, { cantidad: number; total: number }>
+    };
   }, [ventasPlatosRows, rankingPeriodo, pedidos, productosMenu]);
 
+  const rankingTop5 = fullRankingResult.top5;
+  const rankingTodos = fullRankingResult.todos;
+
   const maxDishQty = useMemo(() => {
-    if (rankingTop5.length === 0) return 1;
-    return Math.max(...rankingTop5.map(i => i.cantidad), 1);
-  }, [rankingTop5]);
+    if (rankingTodos.length === 0) return 1;
+    return Math.max(...rankingTodos.map(i => i.cantidad), 1);
+  }, [rankingTodos]);
+
+  const filteredModalRanking = useMemo(() => {
+    if (!searchPlatoRanking.trim()) return rankingTodos;
+    const q = searchPlatoRanking.toLowerCase().trim();
+    return rankingTodos.filter(d => 
+      d.nombre.toLowerCase().includes(q) || 
+      d.categoria.toLowerCase().includes(q)
+    );
+  }, [rankingTodos, searchPlatoRanking]);
+
+  useEffect(() => {
+    if (!showModalRanking) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowModalRanking(false);
+        setSearchPlatoRanking('');
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showModalRanking]);
 
   // Ordenar mesas numéricamente para el mapa
   const sortedMesas = useMemo(() => {
@@ -741,14 +781,16 @@ export default function HomeMenuModule({
           </div>
 
           {/* Footer link to full ranking */}
-          <div className="pt-3 border-t border-stone-105 dark:border-stone-800 flex justify-between items-center">
-            <span className="text-[10px] text-stone-400 font-medium">Top 5 más vendidos del período</span>
+          <div className="pt-3 border-t border-stone-105 dark:border-stone-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+            <span className="text-[10px] text-stone-400 font-medium">
+              Top 5 más vendidos {rankingTodos.length > 5 ? `(de ${rankingTodos.length} platos)` : ''}
+            </span>
             <button
               type="button"
-              onClick={() => onNavigate('menu')}
-              className="text-xs font-extrabold text-[#624A3E] dark:text-[#C8956A] hover:underline flex items-center gap-1 cursor-pointer"
+              onClick={() => setShowModalRanking(true)}
+              className="text-xs font-extrabold text-[#624A3E] dark:text-[#C8956A] hover:underline flex items-center gap-1 cursor-pointer bg-transparent border-none p-0"
             >
-              <span>Ver Ranking Completo y Estadísticas</span>
+              <span>Ver Ranking Completo y Estadísticas {rankingTodos.length > 0 ? `(${rankingTodos.length})` : ''}</span>
               <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -860,6 +902,194 @@ export default function HomeMenuModule({
           })}
         </div>
       </div>
+
+      {/* MODAL RANKING COMPLETO DE PLATOS VENDIDOS */}
+      {showModalRanking && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 animate-fadeIn"
+          onClick={() => {
+            setShowModalRanking(false);
+            setSearchPlatoRanking('');
+          }}
+        >
+          <div 
+            className="bg-white dark:bg-stone-900 w-full max-w-2xl rounded-3xl border border-stone-200 dark:border-stone-800 shadow-2xl flex flex-col max-h-[90vh] overflow-hidden"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="p-5 sm:p-6 border-b border-stone-150 dark:border-stone-800 flex items-start justify-between gap-4 bg-stone-50/50 dark:bg-stone-950/30">
+              <div className="flex items-center gap-3">
+                <span className="p-2.5 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 shrink-0">
+                  <Trophy className="w-5 h-5 sm:w-6 sm:h-6" />
+                </span>
+                <div>
+                  <h3 className="font-serif font-black text-base sm:text-lg text-stone-900 dark:text-stone-100 flex items-center gap-2">
+                    Ranking Completo de Ventas
+                  </h3>
+                  <p className="text-xs text-stone-500 dark:text-stone-400 font-medium mt-0.5">
+                    Todos los platos y bebidas vendidos en el período seleccionado.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowModalRanking(false);
+                  setSearchPlatoRanking('');
+                }}
+                className="p-2 rounded-xl text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 transition-all cursor-pointer border-none bg-transparent"
+                aria-label="Cerrar modal de ranking"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Sub-header con Selector de Período, Métricas y Buscador */}
+            <div className="p-4 sm:p-5 border-b border-stone-150 dark:border-stone-800/80 space-y-3 bg-white dark:bg-stone-900">
+              <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2.5">
+                {/* Selector Período */}
+                <div className="flex bg-stone-100 dark:bg-stone-800 p-1 rounded-xl text-xs font-extrabold">
+                  {[
+                    { key: 'hoy', label: 'Hoy' },
+                    { key: 'semana', label: 'Esta Semana' },
+                    { key: 'mes', label: 'Este Mes' }
+                  ].map(tab => (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      onClick={() => setRankingPeriodo(tab.key as any)}
+                      className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-lg transition-all cursor-pointer border-none ${
+                        rankingPeriodo === tab.key
+                          ? 'bg-[#624A3E] text-white shadow-xs font-black'
+                          : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 bg-transparent'
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Métricas resumidas */}
+                <div className="flex items-center gap-2 sm:gap-3 text-xs flex-wrap">
+                  <span className="font-extrabold text-stone-900 dark:text-stone-100 bg-stone-100 dark:bg-stone-800/60 px-2.5 py-1 rounded-lg">
+                    🍽️ {fullRankingResult.totalPorciones} porciones
+                  </span>
+                  <span className="font-black text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-lg">
+                    💰 ${fullRankingResult.totalFacturado.toLocaleString('es-AR')}
+                  </span>
+                </div>
+              </div>
+
+              {/* Input Buscador */}
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
+                <input
+                  type="text"
+                  value={searchPlatoRanking}
+                  onChange={e => setSearchPlatoRanking(e.target.value)}
+                  placeholder="Buscar plato o categoría en el ranking..."
+                  className="w-full pl-9.5 pr-4 py-2.5 bg-stone-50 dark:bg-stone-950/40 border border-stone-200 dark:border-stone-800 rounded-xl text-xs font-medium text-stone-900 dark:text-stone-100 placeholder-stone-400 focus:outline-hidden focus:ring-2 focus:ring-[#624A3E]"
+                />
+              </div>
+            </div>
+
+            {/* Lista Scrollable */}
+            <div className="p-4 sm:p-5 overflow-y-auto flex-1 space-y-2.5">
+              {filteredModalRanking.length > 0 ? (
+                filteredModalRanking.map((dish, idx) => {
+                  const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`;
+                  const barColor = idx === 0 ? 'bg-amber-500' : idx === 1 ? 'bg-slate-400' : idx === 2 ? 'bg-amber-700' : 'bg-[#624A3E]';
+
+                  return (
+                    <div
+                      key={idx}
+                      className="p-3 bg-stone-50/80 dark:bg-stone-950/40 rounded-2xl border border-stone-150 dark:border-stone-800/80 space-y-1.5 hover:border-stone-300 dark:hover:border-stone-700 transition-all"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span className="text-sm font-black w-6 text-center shrink-0">{medal}</span>
+                          <div className="min-w-0">
+                            <p className="text-xs font-extrabold text-stone-900 dark:text-stone-100 truncate">
+                              {dish.nombre}
+                            </p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="text-[9px] text-stone-400 uppercase font-bold">
+                                {dish.categoria}
+                              </span>
+                              {dish.porcentaje > 0 && (
+                                <span className="text-[9px] font-bold text-stone-500 dark:text-stone-400 bg-stone-200/60 dark:bg-stone-800 px-1.5 py-0.5 rounded">
+                                  {dish.porcentaje}% de ventas
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          <span className="font-mono text-xs font-black text-stone-900 dark:text-stone-100">
+                            {dish.cantidad} {dish.cantidad === 1 ? 'porción' : 'porciones'}
+                          </span>
+                          <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 block font-bold">
+                            ${dish.totalVendido.toLocaleString('es-AR')}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Progress Bar */}
+                      <div className="w-full bg-stone-200 dark:bg-stone-800 h-1.5 rounded-full overflow-hidden flex items-center">
+                        <div
+                          className={`h-full ${barColor} transition-all duration-500`}
+                          style={{ width: `${Math.min(100, Math.round((dish.cantidad / maxDishQty) * 100))}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="p-8 text-center text-stone-400 space-y-1.5">
+                  <UtensilsCrossed className="w-8 h-8 mx-auto opacity-30" />
+                  <p className="text-xs italic">
+                    {searchPlatoRanking ? 'No se encontraron platos que coincidan con la búsqueda.' : 'No hay ventas de platos registradas en este período.'}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-stone-150 dark:border-stone-800 flex flex-col sm:flex-row justify-between items-center gap-2.5 bg-stone-50/50 dark:bg-stone-950/30">
+              <span className="text-xs text-stone-500 dark:text-stone-400 font-medium">
+                Mostrando {filteredModalRanking.length} de {rankingTodos.length} platos vendidos
+              </span>
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowModalRanking(false);
+                    try {
+                      sessionStorage.setItem('menu_active_tab', 'ranking');
+                    } catch {}
+                    onNavigate('menu');
+                  }}
+                  className="flex-1 sm:flex-initial px-3.5 py-2 text-xs font-bold text-[#624A3E] dark:text-[#C8956A] hover:bg-stone-100 dark:hover:bg-stone-800 rounded-xl transition-all cursor-pointer border-none bg-transparent text-center"
+                >
+                  Estadísticas avanzadas en Menú →
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowModalRanking(false);
+                    setSearchPlatoRanking('');
+                  }}
+                  className="flex-1 sm:flex-initial px-4 py-2 bg-stone-900 hover:bg-stone-800 dark:bg-stone-100 dark:hover:bg-white text-white dark:text-stone-900 text-xs font-black rounded-xl transition-all cursor-pointer border-none shadow-xs"
+                >
+                  Cerrar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

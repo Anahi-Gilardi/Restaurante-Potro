@@ -155,7 +155,16 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 300);
   const [selectedCategoria, setSelectedCategoria] = useState<string>('todos');
-  const [activeTab, setActiveTab] = useState<'catalogo' | 'masivos' | 'diario' | 'ranking'>('catalogo');
+  const [activeTab, setActiveTab] = useState<'catalogo' | 'masivos' | 'diario' | 'ranking'>(() => {
+    try {
+      const saved = typeof window !== 'undefined' ? sessionStorage.getItem('menu_active_tab') : null;
+      if (saved && ['catalogo', 'masivos', 'diario', 'ranking'].includes(saved)) {
+        sessionStorage.removeItem('menu_active_tab');
+        return saved as 'catalogo' | 'masivos' | 'diario' | 'ranking';
+      }
+    } catch {}
+    return 'catalogo';
+  });
   const [loading, setLoading] = useState(true);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
 
