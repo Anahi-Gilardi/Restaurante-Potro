@@ -790,15 +790,19 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
                   onChange={(e) => setBookingForm(prev => ({ ...prev, hora: e.target.value }))}
                   className="w-full px-4 py-3 rounded-xl border border-stone-250 dark:border-stone-800 bg-[#FAF7F0] dark:bg-[#1E140E] text-stone-850 dark:text-white text-xs font-bold focus:outline-none focus:border-[#8C6239] dark:focus:border-[#8C6239] cursor-pointer"
                 >
-                  <option value="12:00">12:00 hs (Almuerzo)</option>
+                  <option value="12:30">12:30 hs (Almuerzo)</option>
                   <option value="13:00">13:00 hs (Almuerzo)</option>
                   <option value="13:30">13:30 hs (Almuerzo)</option>
+                  <option value="14:00">14:00 hs (Almuerzo)</option>
+                  <option value="14:30">14:30 hs (Almuerzo)</option>
                   <option value="20:00">20:00 hs (Cena)</option>
+                  <option value="20:30">20:30 hs (Cena)</option>
                   <option value="21:00">21:00 hs (Cena)</option>
                   <option value="21:30">21:30 hs (Cena)</option>
                   <option value="22:00">22:00 hs (Cena)</option>
                   <option value="22:30">22:30 hs (Cena)</option>
                   <option value="23:00">23:00 hs (Cena)</option>
+                  <option value="23:30">23:30 hs (Cena)</option>
                 </select>
               </div>
             </div>
