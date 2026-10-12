@@ -940,7 +940,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
       finalPedido = {
         ...existingActivePedido,
         items: updatedItems,
-        mozo: newPedidoData.mozo || activeMozo || existingActivePedido.mozo,
+        mozo: existingActivePedido.mozo || newPedidoData.mozo || activeMozo,
         observaciones: mergedObs || undefined,
         estado_comanda: 'pendiente',
         idempotency_key: newPedidoData.idempotency_key || existingActivePedido.idempotency_key,
@@ -949,7 +949,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
       };
 
       setPedidos(prev => prev.map(p => p.id_pedido === existingActivePedido.id_pedido ? finalPedido : p));
-      addLog('pedido_creado', `Mesa ${newPedidoData.numero_mesa} agregó a su pedido #${existingActivePedido.id_pedido} por ${newPedidoData.mozo || activeMozo}. Nuevos items: ${newPedidoData.items.map(i => `${i.nombre} (x${i.cantidad})`).join(', ')}`);
+      addLog('pedido_creado', `Mesa ${newPedidoData.numero_mesa} agregó a su pedido #${existingActivePedido.id_pedido} por ${finalPedido.mozo}. Nuevos items: ${newPedidoData.items.map(i => `${i.nombre} (x${i.cantidad})`).join(', ')}`);
     } else {
       const newId = createClientPedidoId(pedidos.map(p => p.id_pedido));
       finalPedido = {

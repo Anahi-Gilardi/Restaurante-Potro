@@ -31,7 +31,10 @@ import {
   Save,
   Loader2,
   Printer,
-  UserCheck
+  UserCheck,
+  Pencil,
+  Lock,
+  Check
 } from 'lucide-react';
 import { Mesa, Insumo, ProductoMenu, RecetaEscandallo, Pedido, PedidoItem, Usuario } from '../types';
 import { createMozoCartIdempotencyKey } from '../lib/mozoCartDraft';
@@ -291,21 +294,71 @@ export default function MozoTerminal({
   const { categories } = useCategories();
   const checkoutInFlightRef = useRef(false);
 
-  // Lista de mozos de salón (prioridad Facundo, Adriana y Rocío)
+  // Mozos de Salón configurables con persistencia en localStorage
+  const [customMozos, setCustomMozos] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('el_patron_mozos_salon');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const valid = parsed.map(n => String(n).trim()).filter(Boolean);
+          if (valid.length > 0) return valid;
+        }
+      }
+    } catch {}
+    return ['Facundo', 'Adriana', 'Rocío', 'Sofía'];
+  });
+
+  const [isEditingMozosModalOpen, setIsEditingMozosModalOpen] = useState(false);
+  const [editingMozosList, setEditingMozosList] = useState<string[]>([]);
+
+  const handleOpenEditMozos = () => {
+    setEditingMozosList([...customMozos]);
+    setIsEditingMozosModalOpen(true);
+  };
+
+  const handleSaveMozos = () => {
+    const cleaned = editingMozosList.map(n => n.trim()).filter(Boolean);
+    if (cleaned.length === 0) {
+      toast.error('Debe ingresar al menos un nombre de mozo.');
+      return;
+    }
+    const uniqueMozos: string[] = [];
+    cleaned.forEach(nom => {
+      if (!uniqueMozos.some(m => m.toLowerCase() === nom.toLowerCase())) {
+        uniqueMozos.push(nom);
+      }
+    });
+
+    setCustomMozos(uniqueMozos);
+    try {
+      localStorage.setItem('el_patron_mozos_salon', JSON.stringify(uniqueMozos));
+    } catch (err) {
+      console.error('Error guardando mozos en localStorage', err);
+    }
+
+    if (!uniqueMozos.some(m => m.toLowerCase() === (activeMozo || '').toLowerCase())) {
+      onMozoChange(uniqueMozos[0]);
+    }
+
+    toast.success('Lista de mozos de salón actualizada correctamente.');
+    setIsEditingMozosModalOpen(false);
+  };
+
+  // Lista de mozos de salón (prioridad customMozos + usuarios mozo/administrador)
   const mozosList = useMemo(() => {
-    const primaryMozos = ['Facundo', 'Adriana', 'Rocío'];
     const fromUsers = (usuarios || [])
       .filter(u => u.activo !== false && (u.rol === 'mozo' || u.rol === 'administrador'))
       .map(u => u.nombre);
 
-    const list: string[] = [...primaryMozos];
+    const list: string[] = [...customMozos];
     fromUsers.forEach(nom => {
       if (!list.some(m => m.toLowerCase() === nom.toLowerCase())) {
         list.push(nom);
       }
     });
     return list;
-  }, [usuarios]);
+  }, [customMozos, usuarios]);
   // Waiter selections
   const [selectedMesaId, setSelectedMesaId] = useState<number | null>(null);
   const [isUniting, setIsUniting] = useState(false);
@@ -735,6 +788,22 @@ export default function MozoTerminal({
     return selectedMesaInfo?.activeOrder || null;
   }, [selectedMesa, selectedMesaInfo]);
 
+  // Mozo asignado a la mesa seleccionada (si está abierta/ocupada, queda fijado hasta su cierre)
+  const assignedTableMozo = useMemo(() => {
+    if (!selectedMesa || !selectedMesaInfo?.isOcupada) return null;
+    const mozoFromOrders = selectedMesaInfo.activeOrders?.find(o => o.mozo)?.mozo || selectedMesaInfo.activeOrder?.mozo;
+    return mozoFromOrders || null;
+  }, [selectedMesa, selectedMesaInfo]);
+
+  const isTableLockedToMozo = Boolean(assignedTableMozo);
+
+  // Mantener al mozo que abrió la mesa activo mientras esa mesa esté seleccionada
+  React.useEffect(() => {
+    if (assignedTableMozo && activeMozo !== assignedTableMozo) {
+      onMozoChange(assignedTableMozo);
+    }
+  }, [assignedTableMozo, activeMozo, onMozoChange]);
+
   // Emitir / Reimprimir comanda activa de cocina a la tiquetera
   const handleEmitirComanda = (pedidoToPrint?: Pedido | null) => {
     const p = pedidoToPrint || activePedidoDeMesa;
@@ -1076,10 +1145,13 @@ export default function MozoTerminal({
       const tableOrderName = selectedMesa ? formatTableDisplayTitle(selectedMesa.numero_mesa) : `Mesa ${selectedMesaId}`;
       const cleanObs = observaciones.trim() || undefined;
 
+      // Determinamos el mozo responsable: si la mesa ya fue abierta por un mozo, se mantiene ese mozo hasta cerrarla/liberarla.
+      const assignedMozo = assignedTableMozo || activePedidoDeMesa?.mozo || activeMozo || 'Mozo';
+
       // Disparar la impresión INMEDIATAMENTE dentro del evento del click del usuario (0ms de latencia y sin bloqueo de popups)
       printComandaThermalTicket({
         mesa: formatTicketTableName(tableOrderName),
-        mozo: activeMozo || 'Mozo',
+        mozo: assignedMozo,
         items: items.map(i => ({
           nombre: i.nombre,
           cantidad: i.cantidad,
@@ -1095,7 +1167,7 @@ export default function MozoTerminal({
       const accepted = await onCrearPedido({
         id_mesa: selectedMesaId,
         numero_mesa: tableOrderName,
-        mozo: activeMozo,
+        mozo: assignedMozo,
         estado_comanda: 'pendiente',
         items,
         observaciones: cleanObs,
@@ -1105,7 +1177,7 @@ export default function MozoTerminal({
 
       if (accepted === false) return;
 
-      addLog('pedido_creado', `Mozo ${activeMozo} envió e imprimió comanda para ${tableOrderName} con ${items.length} platos.`);
+      addLog('pedido_creado', `Mozo ${assignedMozo} envió e imprimió comanda para ${tableOrderName} con ${items.length} platos.`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'No se pudo enviar la comanda. El carrito permanece disponible.');
     } finally {
@@ -1133,8 +1205,115 @@ export default function MozoTerminal({
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6" id="mozo-terminal-container">
-      {/* LEFT COLUMN: Mesa Grid */}
-      <div className="lg:col-span-4 space-y-6">
+      {/* LEFT COLUMN: Mozos de Salón (Compacto & Editable) + Distribución de Mesas */}
+      <div className="lg:col-span-4 space-y-4">
+
+        {/* PANEL DE SELECCIÓN DE MOZOS (ARRIBA DE DISTRIBUCIÓN DE MESAS - COMPACTO Y EDITABLE) */}
+        <div className="glass-panel rounded-2xl p-3 sm:p-3.5 shadow-sm border border-stone-200/70 dark:border-stone-800/80 space-y-2.5">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-[#8C6239]/10 dark:bg-[#C8956A]/20 flex items-center justify-center text-[#8C6239] dark:text-[#C8956A]">
+                <Users className="w-3.5 h-3.5" />
+              </div>
+              <div>
+                <h3 className="font-bold text-xs sm:text-sm text-[#8C6239] dark:text-stone-105 font-sans tracking-tight leading-tight">
+                  Mozos de Salón
+                </h3>
+                <p className="text-[10px] text-stone-500 dark:text-stone-400 leading-none mt-0.5">
+                  Comandas y tickets a nombre de:
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                id="btn-editar-mozos"
+                onClick={handleOpenEditMozos}
+                className="flex items-center gap-1 text-[10px] font-bold text-[#8C6239] dark:text-[#C8956A] hover:bg-[#8C6239]/10 dark:hover:bg-[#C8956A]/10 px-2 py-1 rounded-lg border border-[#8C6239]/30 transition-all cursor-pointer shadow-2xs"
+                title="Editar nombres de mozos"
+              >
+                <Pencil className="w-2.5 h-2.5" />
+                <span>Editar</span>
+              </button>
+
+              <span className="text-[10px] font-sans bg-[#8C6239] text-white px-2 py-1 rounded-lg font-black uppercase tracking-wider shadow-sm flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span className="truncate max-w-[80px]">{activeMozo || 'Facundo'}</span>
+              </span>
+            </div>
+          </div>
+
+          {/* AVISO DE MESA FIJADA AL MOZO QUE LA ABRIÓ */}
+          {isTableLockedToMozo && assignedTableMozo && (
+            <div className="flex items-center justify-between gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/25 text-amber-900 dark:text-amber-300 text-[10px] font-medium animate-fadeIn">
+              <div className="flex items-center gap-1.5 truncate">
+                <Lock className="w-3 h-3 shrink-0 text-amber-600 dark:text-amber-400" />
+                <span className="truncate">
+                  {selectedMesa ? formatTableDisplayTitle(selectedMesa.numero_mesa) : 'Mesa'} asignada a <strong>{assignedTableMozo}</strong> hasta su cierre
+                </span>
+              </div>
+              <span className="text-[9px] uppercase font-bold text-amber-700 dark:text-amber-400 shrink-0">Fijo</span>
+            </div>
+          )}
+
+          {/* BOTONES DE MOZOS COMPACTOS */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+            {mozosList.map((mozoName) => {
+              const isSelected = (activeMozo || '').toLowerCase() === mozoName.toLowerCase();
+              const isAssignedToThisTable = isTableLockedToMozo && assignedTableMozo?.toLowerCase() === mozoName.toLowerCase();
+              const isLockedOut = isTableLockedToMozo && !isAssignedToThisTable;
+
+              return (
+                <button
+                  key={mozoName}
+                  type="button"
+                  id={`mozo-btn-${mozoName.toLowerCase()}`}
+                  onClick={() => {
+                    if (isLockedOut) {
+                      toast.warning(`La Mesa ${selectedMesa ? formatTableDisplayTitle(selectedMesa.numero_mesa) : ''} fue abierta por ${assignedTableMozo} y se mantendrá a su nombre hasta cerrarse.`);
+                      return;
+                    }
+                    onMozoChange(mozoName);
+                    toast.success(`Mozo activo: ${mozoName}`);
+                  }}
+                  className={`group relative p-1.5 rounded-xl flex items-center gap-1.5 transition-all duration-150 cursor-pointer text-left border ${
+                    isSelected
+                      ? 'bg-gradient-to-r from-[#8C6239] to-[#734e2c] text-white border-[#C8956A] shadow-xs ring-1 ring-[#C8956A]/50 scale-[1.01]'
+                      : isLockedOut
+                      ? 'bg-stone-100/60 dark:bg-stone-900/40 border-stone-200/40 dark:border-stone-800 text-stone-400 dark:text-stone-600 opacity-60'
+                      : 'bg-white/80 dark:bg-[#251B12]/80 hover:bg-[#FAF7F0] dark:hover:bg-[#322317] border-stone-200/80 dark:border-stone-800 text-stone-800 dark:text-stone-200 hover:border-[#8C6239]/40 hover:scale-[1.01]'
+                  }`}
+                  title={isLockedOut ? `Mesa bloqueada a ${assignedTableMozo}` : mozoName}
+                >
+                  <div
+                    className={`w-6 h-6 rounded-lg flex items-center justify-center font-bold text-[10px] shrink-0 transition-colors ${
+                      isSelected
+                        ? 'bg-white/20 text-white'
+                        : 'bg-[#8C6239]/10 dark:bg-[#C8956A]/10 text-[#8C6239] dark:text-[#C8956A]'
+                    }`}
+                  >
+                    {isAssignedToThisTable ? (
+                      <Lock className="w-3 h-3 text-amber-300" />
+                    ) : isSelected ? (
+                      <Check className="w-3 h-3 text-emerald-300" />
+                    ) : (
+                      <UserCheck className="w-3 h-3" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-xs font-bold truncate leading-tight ${isSelected ? 'text-white' : 'text-stone-800 dark:text-stone-200'}`}>
+                      {mozoName}
+                    </p>
+                    <p className={`text-[8px] uppercase tracking-wider font-semibold leading-none mt-0.5 ${isSelected ? 'text-amber-200 font-extrabold' : 'text-stone-400 dark:text-stone-500'}`}>
+                      {isSelected ? 'Activo' : 'Mozo'}
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
         {/* Mesas Selector Grid */}
         <div className="glass-panel rounded-3xl p-5 shadow-sm">
@@ -1197,6 +1376,11 @@ export default function MozoTerminal({
                   id={`mesa-btn-${m.id_mesa}`}
                   onClick={() => {
                     const targetId = m.estado === 'unida' && m.parent_id ? m.parent_id : m.id_mesa;
+                    if (selectedMesaId === targetId) {
+                      setSelectedMesaId(null);
+                      setCart({});
+                      return;
+                    }
                     setSelectedMesaId(targetId);
                     setIsUniting(false);
                     setTargetUniteMesaIds([]);
@@ -1204,6 +1388,10 @@ export default function MozoTerminal({
                     const targetInfo = mesasActiveInfoMap.get(targetId) || getTableActiveInfo(m, pedidos);
                     if (targetInfo.comensales) {
                       setComensales(targetInfo.comensales);
+                    }
+                    const tableMozo = targetInfo.activeOrders?.find(o => o.mozo)?.mozo || targetInfo.activeOrder?.mozo;
+                    if (tableMozo) {
+                      onMozoChange(tableMozo);
                     }
                   }}
                   className={`p-2.5 rounded-xl flex flex-col justify-between items-center transition-all aspect-square border cursor-pointer ${stateClasses}`}
@@ -1228,7 +1416,20 @@ export default function MozoTerminal({
             <div className="mt-4 pt-4 border-t border-stone-200/30 dark:border-white/10 space-y-3">
               <div className="flex justify-between items-center">
                 <div>
-                  <h4 className="font-bold text-sm text-[#8C6239] dark:text-[#C8956A]">{formatTableDisplayTitle(selectedMesa.numero_mesa)}</h4>
+                  <div className="flex items-center gap-1.5">
+                    <h4 className="font-bold text-sm text-[#8C6239] dark:text-[#C8956A]">{formatTableDisplayTitle(selectedMesa.numero_mesa)}</h4>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedMesaId(null);
+                        setCart({});
+                      }}
+                      className="text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 p-0.5 rounded transition-colors cursor-pointer"
+                      title="Deseleccionar mesa"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                   <p className="text-xs text-stone-500 dark:text-stone-400">
                     Estado: <span className={
                       selectedMesaInfo.isOcupada 
@@ -1252,8 +1453,13 @@ export default function MozoTerminal({
                         : 'Libre para comandar'}
                     </span>
                   </p>
-                  <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5">
-                    Mozo: <strong className="text-[#8C6239] dark:text-[#C8956A] font-bold">{activePedidoDeMesa?.mozo || activeMozo || 'Facundo'}</strong>
+                  <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5 flex items-center gap-1">
+                    Mozo: <strong className="text-[#8C6239] dark:text-[#C8956A] font-bold">{assignedTableMozo || activePedidoDeMesa?.mozo || activeMozo || 'Facundo'}</strong>
+                    {selectedMesaInfo.isOcupada && (
+                      <span className="text-[10px] text-amber-700 dark:text-amber-400 font-semibold flex items-center gap-0.5">
+                        <Lock className="w-2.5 h-2.5" /> (Fijo en mesa)
+                      </span>
+                    )}
                   </p>
                 </div>
                 {!selectedMesaInfo.isOcupada && !selectedMesaInfo.isInCuenta ? (
@@ -1640,82 +1846,6 @@ export default function MozoTerminal({
               )}
             </div>
           )}
-        </div>
-
-        {/* PANEL DE SELECCIÓN DE MOZOS */}
-        <div className="glass-panel rounded-3xl p-5 shadow-sm space-y-3.5 border border-stone-200/60 dark:border-stone-850">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-[#8C6239]/10 dark:bg-[#C8956A]/20 flex items-center justify-center">
-                <Users className="w-4 h-4 text-[#8C6239] dark:text-[#C8956A]" />
-              </div>
-              <div>
-                <h3 className="font-bold text-sm text-[#8C6239] dark:text-stone-105 font-sans tracking-tight">
-                  Mozos de Salón
-                </h3>
-                <p className="text-[10px] text-stone-500 dark:text-stone-400">
-                  Seleccioná el mozo para comandas y tickets
-                </p>
-              </div>
-            </div>
-            <span className="text-[10px] font-sans bg-[#8C6239] text-white px-2.5 py-1 rounded-lg font-black uppercase tracking-wider shadow-sm flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              {activeMozo || 'Facundo'}
-            </span>
-          </div>
-
-          <div className="grid grid-cols-3 gap-2.5">
-            {mozosList.map((mozoName) => {
-              const isSelected = (activeMozo || '').toLowerCase() === mozoName.toLowerCase();
-              return (
-                <button
-                  key={mozoName}
-                  type="button"
-                  id={`mozo-btn-${mozoName.toLowerCase()}`}
-                  onClick={() => {
-                    onMozoChange(mozoName);
-                    toast.success(`Mozo activo: ${mozoName}. Ahora seleccioná la mesa.`);
-                  }}
-                  className={`group relative p-3 rounded-2xl flex flex-col items-center justify-center gap-1.5 transition-all duration-200 cursor-pointer text-center ${
-                    isSelected
-                      ? 'bg-gradient-to-b from-[#8C6239] to-[#6d4c2b] text-white shadow-md shadow-[#8C6239]/30 ring-2 ring-[#C8956A] scale-[1.02]'
-                      : 'bg-white/80 dark:bg-[#251B12]/80 hover:bg-[#FAF7F0] dark:hover:bg-[#322317] border border-stone-200/80 dark:border-stone-850 text-stone-800 dark:text-stone-200 hover:border-[#8C6239]/40 hover:scale-[1.01]'
-                  }`}
-                >
-                  {isSelected && (
-                    <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-emerald-500 text-white rounded-full flex items-center justify-center text-[10px] font-black shadow-sm ring-2 ring-white dark:ring-stone-900">
-                      ✓
-                    </span>
-                  )}
-                  <div
-                    className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs transition-colors ${
-                      isSelected
-                        ? 'bg-white/20 text-white'
-                        : 'bg-stone-100 dark:bg-stone-850 text-[#8C6239] dark:text-[#C8956A] group-hover:bg-[#8C6239]/10'
-                    }`}
-                  >
-                    <UserCheck className="w-4 h-4" />
-                  </div>
-                  <span className={`text-xs font-bold tracking-tight truncate w-full ${isSelected ? 'text-white' : 'text-stone-850 dark:text-stone-200'}`}>
-                    {mozoName}
-                  </span>
-                  <span
-                    className={`text-[9px] uppercase tracking-wider font-semibold ${
-                      isSelected ? 'text-amber-200 font-extrabold' : 'text-stone-400 dark:text-stone-500'
-                    }`}
-                  >
-                    {isSelected ? 'Activo' : 'Mozo'}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="bg-[#FAF7F0]/80 dark:bg-[#1E140E]/80 border border-[#C8956A]/25 rounded-xl p-2.5 text-center">
-            <p className="text-[11px] text-[#8C6239] dark:text-[#C8956A] font-serif-rustic italic leading-tight">
-              📋 Los pedidos y tickets se emitirán a nombre de <strong>{activeMozo || 'Facundo'}</strong>.
-            </p>
-          </div>
         </div>
       </div>
 
@@ -2257,7 +2387,7 @@ export default function MozoTerminal({
             </h3>
             <div className="flex items-center gap-1.5">
               <span className="text-[10px] text-stone-500 dark:text-stone-400 font-sans">
-                Mozo: <strong className="text-[#8C6239] dark:text-[#C8956A] font-bold">{activeMozo || 'Facundo'}</strong>
+                Mozo: <strong className="text-[#8C6239] dark:text-[#C8956A] font-bold">{assignedTableMozo || activeMozo || 'Facundo'}</strong>
               </span>
               {selectedMesa && (
                 <span className="bg-[#8C6239] text-[#FAF7F0] border border-[#C8956A]/30 font-sans text-[10px] font-extrabold px-2 py-0.5 rounded-lg shadow-sm">
@@ -2356,7 +2486,7 @@ export default function MozoTerminal({
                   className="w-full py-2.5 px-4 btn-premium-primary text-xs font-black flex items-center justify-center gap-2 shadow-md cursor-pointer"
                 >
                   <Sparkles className="w-3.5 h-3.5 text-amber-350" />
-                  Enviar comanda 🖨️ ({activeMozo || 'Facundo'})
+                  Enviar comanda 🖨️ ({assignedTableMozo || activeMozo || 'Facundo'})
                 </button>
               </div>
             </>
@@ -2998,6 +3128,103 @@ export default function MozoTerminal({
                 <CheckCircle className="w-3.5 h-3.5" />
                 Confirmar y Cargar
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE EDICIÓN DE MOZOS DE SALÓN */}
+      {isEditingMozosModalOpen && (
+        <div className="fixed inset-0 bg-stone-950/65 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="glass-panel bg-white dark:bg-[#1C120C] rounded-2xl p-5 sm:p-6 shadow-2xl max-w-md w-full border border-stone-200 dark:border-[#C8956A]/25 space-y-4 max-h-[90vh] flex flex-col">
+            <div className="flex justify-between items-center pb-3 border-b border-stone-200/50 dark:border-stone-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-[#8C6239]/10 text-[#8C6239] dark:text-[#C8956A] flex items-center justify-center font-bold">
+                  <Users className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-stone-900 dark:text-stone-100">Editar Mozos de Salón</h3>
+                  <p className="text-xs text-stone-500 dark:text-stone-400">Personalizá los nombres del personal de atención</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEditingMozosModalOpen(false)}
+                className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 py-1">
+              <p className="text-xs text-stone-600 dark:text-stone-300">
+                Podés renombrar cada mozo, agregar nuevos o eliminar los que no correspondan:
+              </p>
+              {editingMozosList.map((name, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <span className="w-6 text-center text-xs font-bold text-stone-400 dark:text-stone-500">
+                    {idx + 1}.
+                  </span>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => {
+                      const updated = [...editingMozosList];
+                      updated[idx] = e.target.value;
+                      setEditingMozosList(updated);
+                    }}
+                    placeholder={`Nombre del mozo ${idx + 1}`}
+                    className="flex-1 px-3 py-2 text-xs font-bold rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-900 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-[#8C6239]"
+                  />
+                  {editingMozosList.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingMozosList(editingMozosList.filter((_, i) => i !== idx));
+                      }}
+                      className="p-2 text-stone-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors cursor-pointer"
+                      title="Eliminar mozo"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
+
+              <button
+                type="button"
+                onClick={() => setEditingMozosList(prev => [...prev, ''])}
+                className="w-full mt-2 py-2 border-2 border-dashed border-stone-300 dark:border-stone-700 hover:border-[#8C6239] text-[#8C6239] dark:text-[#C8956A] rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Agregar otro mozo</span>
+              </button>
+            </div>
+
+            <div className="pt-3 border-t border-stone-200/50 dark:border-stone-800 flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => setEditingMozosList(['Facundo', 'Adriana', 'Rocío', 'Sofía'])}
+                className="text-xs text-stone-500 dark:text-stone-400 hover:text-[#8C6239] hover:underline px-2 py-1 cursor-pointer"
+              >
+                Restablecer
+              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsEditingMozosModalOpen(false)}
+                  className="px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-300 text-xs font-semibold hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveMozos}
+                  className="px-4 py-2 rounded-xl bg-[#8C6239] hover:bg-[#724e2c] text-white text-xs font-bold shadow-md transition-colors cursor-pointer"
+                >
+                  Guardar cambios
+                </button>
+              </div>
             </div>
           </div>
         </div>
