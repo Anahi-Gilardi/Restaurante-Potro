@@ -818,7 +818,7 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
         </div>
       </section>
 
-      <footer id="contacto" className="bg-[#8C6239] text-stone-900 py-16 border-t border-black/10">
+      <footer id="contacto" className="bg-[#8C6239] text-stone-950 py-16 border-t border-black/20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-3 gap-12">
           
           {/* Logo & Brand description */}
@@ -830,62 +830,62 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
               aria-label="Ingresar al sistema El Patrón"
               title="El Patrón"
             >
-              <img src="/logo-el-patron.jpeg" alt="Logo El Patrón" className="w-16 h-16 object-cover rounded-full border border-black/10" />
+              <img src="/logo-el-patron.jpeg" alt="Logo El Patrón" className="w-16 h-16 object-cover rounded-full border border-black/20" />
               <span className="font-extrabold text-xl tracking-widest text-stone-950 font-display-serif">EL PATRÓN</span>
             </button>
-            <p className="text-xs text-stone-850 leading-relaxed">
+            <p className="text-xs font-bold text-stone-950 leading-relaxed">
               Gastronomía familiar, cocina de hogar, carnes seleccionadas, pastas caseras con recetas originales de la abuela y amplia selección de bodega.
             </p>
           </div>
 
           {/* Horarios */}
           <div className="space-y-4">
-            <h4 className="text-xs uppercase font-bold tracking-widest text-stone-950 font-display-serif">Nuestros Horarios</h4>
-            <ul className="space-y-2 text-xs font-medium">
-              <li className="flex justify-between border-b border-black/10 pb-1">
+            <h4 className="text-xs uppercase font-extrabold tracking-widest text-stone-950 font-display-serif">Nuestros Horarios</h4>
+            <ul className="space-y-2 text-xs font-bold text-stone-950">
+              <li className="flex justify-between border-b border-black/20 pb-1">
                 <span>Miércoles a Domingo:</span>
-                <span className="text-stone-950 font-display-serif">12:15 a 14:30 hs</span>
+                <span className="font-bold text-stone-950 font-display-serif">12:15 a 14:30 hs</span>
               </li>
-              <li className="flex justify-between border-b border-black/10 pb-1">
+              <li className="flex justify-between border-b border-black/20 pb-1">
                 <span>Miércoles a Domingo:</span>
-                <span className="text-stone-950 font-display-serif">20:30 a 23:30 hs</span>
+                <span className="font-bold text-stone-950 font-display-serif">20:30 a 23:30 hs</span>
               </li>
-              <li className="flex justify-between border-b border-black/10 pb-1">
+              <li className="flex justify-between border-b border-black/20 pb-1">
                 <div>
                   <span>Martes:</span>
                   <span className="block text-[11px] font-bold text-stone-950 leading-tight">(mediodía cerrado)</span>
                 </div>
-                <span className="text-stone-950 font-display-serif">20:30 a 23:30 hs</span>
+                <span className="font-bold text-stone-950 font-display-serif">20:30 a 23:30 hs</span>
               </li>
               <li className="flex justify-between">
                 <span>Lunes:</span>
-                <span className="text-stone-950 font-bold font-display-serif">Cerrado</span>
+                <span className="font-bold text-stone-950 font-display-serif">Cerrado</span>
               </li>
             </ul>
           </div>
 
           {/* Contacto Info */}
           <div className="space-y-4">
-            <h4 className="text-xs uppercase font-bold tracking-widest text-stone-950 font-display-serif">Contacto & Reservas</h4>
-            <ul className="space-y-3 text-xs">
+            <h4 className="text-xs uppercase font-extrabold tracking-widest text-stone-950 font-display-serif">Contacto & Reservas</h4>
+            <ul className="space-y-3 text-xs font-bold text-stone-950">
               <li className="flex items-start gap-2">
-                <Phone className="w-4 h-4 text-stone-950 shrink-0 mt-0.5" />
-                <span className="font-display-serif">+54 9 358 430-3541</span>
+                <Phone className="w-4 h-4 text-stone-950 shrink-0 mt-0.5 stroke-[2.5]" />
+                <span className="font-bold text-stone-950 font-display-serif">+54 9 358 430-3541</span>
               </li>
               <li className="flex items-start gap-2">
-                <Mail className="w-4 h-4 text-stone-950 shrink-0 mt-0.5" />
-                <span>elpatronrc01@gmail.com</span>
+                <Mail className="w-4 h-4 text-stone-950 shrink-0 mt-0.5 stroke-[2.5]" />
+                <span className="font-bold text-stone-950">elpatronrc01@gmail.com</span>
               </li>
               <li className="flex items-start gap-2">
-                <MapPin className="w-4 h-4 text-stone-950 shrink-0 mt-0.5" />
-                <span>Fotheringham 33, Rio Cuarto, Córdoba</span>
+                <MapPin className="w-4 h-4 text-stone-950 shrink-0 mt-0.5 stroke-[2.5]" />
+                <span className="font-bold text-stone-950">Fotheringham 33, Rio Cuarto, Córdoba</span>
               </li>
             </ul>
           </div>
         </div>
 
         {/* Copy bar */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-12 pt-8 border-t border-black/10 text-center text-xs text-stone-700">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-12 pt-8 border-t border-black/20 text-center text-xs font-bold text-stone-950">
           <p>© {new Date().getFullYear()} El Patrón Restaurante. Todos los derechos reservados.</p>
         </div>
       </footer>
