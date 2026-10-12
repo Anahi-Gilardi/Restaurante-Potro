@@ -1209,17 +1209,17 @@ export default function MozoTerminal({
       <div className="lg:col-span-4 space-y-4">
 
         {/* PANEL DE SELECCIÓN DE MOZOS (ARRIBA DE DISTRIBUCIÓN DE MESAS - COMPACTO Y EDITABLE) */}
-        <div className="glass-panel rounded-2xl p-3 sm:p-3.5 shadow-sm border border-stone-200/70 dark:border-stone-800/80 space-y-2.5">
+        <div className="rounded-2xl p-3 sm:p-3.5 shadow-sm border-2 border-[#C8956A]/40 bg-[#FAF7F0] dark:bg-[#1E140E] space-y-2.5">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-[#8C6239]/10 dark:bg-[#C8956A]/20 flex items-center justify-center text-[#8C6239] dark:text-[#C8956A]">
-                <Users className="w-3.5 h-3.5" />
+              <div className="w-7 h-7 rounded-lg bg-[#8C6239] text-white flex items-center justify-center shadow-xs">
+                <Users className="w-3.5 h-3.5 stroke-[2.5]" />
               </div>
               <div>
-                <h3 className="font-bold text-xs sm:text-sm text-[#8C6239] dark:text-stone-105 font-sans tracking-tight leading-tight">
+                <h3 className="font-black text-xs sm:text-sm text-[#8C6239] dark:text-[#E8C288] font-sans tracking-tight leading-tight">
                   Mozos de Salón
                 </h3>
-                <p className="text-[10px] text-stone-500 dark:text-stone-400 leading-none mt-0.5">
+                <p className="text-[10px] text-stone-600 dark:text-stone-300 font-bold leading-none mt-0.5">
                   Comandas y tickets a nombre de:
                 </p>
               </div>
@@ -1230,14 +1230,14 @@ export default function MozoTerminal({
                 type="button"
                 id="btn-editar-mozos"
                 onClick={handleOpenEditMozos}
-                className="flex items-center gap-1 text-[10px] font-bold text-[#8C6239] dark:text-[#C8956A] hover:bg-[#8C6239]/10 dark:hover:bg-[#C8956A]/10 px-2 py-1 rounded-lg border border-[#8C6239]/30 transition-all cursor-pointer shadow-2xs"
+                className="flex items-center gap-1 text-[10px] font-black text-[#8C6239] dark:text-[#E8C288] bg-[#8C6239]/15 dark:bg-[#C8956A]/20 hover:bg-[#8C6239]/25 px-2.5 py-1 rounded-lg border border-[#8C6239]/40 transition-all cursor-pointer shadow-2xs"
                 title="Editar nombres de mozos"
               >
-                <Pencil className="w-2.5 h-2.5" />
+                <Pencil className="w-2.5 h-2.5 stroke-[2.5]" />
                 <span>Editar</span>
               </button>
 
-              <span className="text-[10px] font-sans bg-[#8C6239] text-white px-2 py-1 rounded-lg font-black uppercase tracking-wider shadow-sm flex items-center gap-1">
+              <span className="text-[10px] font-sans bg-[#8C6239] text-white px-2.5 py-1 rounded-lg font-black uppercase tracking-wider shadow-sm flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                 <span className="truncate max-w-[80px]">{activeMozo || 'Facundo'}</span>
               </span>
@@ -1246,14 +1246,14 @@ export default function MozoTerminal({
 
           {/* AVISO DE MESA FIJADA AL MOZO QUE LA ABRIÓ */}
           {isTableLockedToMozo && assignedTableMozo && (
-            <div className="flex items-center justify-between gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/25 text-amber-900 dark:text-amber-300 text-[10px] font-medium animate-fadeIn">
+            <div className="flex items-center justify-between gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/15 border-2 border-amber-500/30 text-amber-950 dark:text-amber-200 text-[10px] font-black animate-fadeIn">
               <div className="flex items-center gap-1.5 truncate">
-                <Lock className="w-3 h-3 shrink-0 text-amber-600 dark:text-amber-400" />
+                <Lock className="w-3.5 h-3.5 shrink-0 text-amber-600 dark:text-amber-400 stroke-[2.5]" />
                 <span className="truncate">
                   {selectedMesa ? formatTableDisplayTitle(selectedMesa.numero_mesa) : 'Mesa'} asignada a <strong>{assignedTableMozo}</strong> hasta su cierre
                 </span>
               </div>
-              <span className="text-[9px] uppercase font-bold text-amber-700 dark:text-amber-400 shrink-0">Fijo</span>
+              <span className="text-[9px] uppercase font-black text-amber-800 dark:text-amber-300 shrink-0">Fijo</span>
             </div>
           )}
 
@@ -1277,35 +1277,35 @@ export default function MozoTerminal({
                     onMozoChange(mozoName);
                     toast.success(`Mozo activo: ${mozoName}`);
                   }}
-                  className={`group relative p-1.5 rounded-xl flex items-center gap-1.5 transition-all duration-150 cursor-pointer text-left border ${
+                  className={`group relative p-1.5 rounded-xl flex items-center gap-1.5 transition-all duration-150 cursor-pointer text-left border-2 ${
                     isSelected
-                      ? 'bg-gradient-to-r from-[#8C6239] to-[#734e2c] text-white border-[#C8956A] shadow-xs ring-1 ring-[#C8956A]/50 scale-[1.01]'
+                      ? 'bg-gradient-to-r from-[#8C6239] to-[#734e2c] text-white border-[#C8956A] shadow-md ring-1 ring-[#C8956A]/50 scale-[1.01]'
                       : isLockedOut
                       ? 'bg-stone-100/60 dark:bg-stone-900/40 border-stone-200/40 dark:border-stone-800 text-stone-400 dark:text-stone-600 opacity-60'
-                      : 'bg-white/80 dark:bg-[#251B12]/80 hover:bg-[#FAF7F0] dark:hover:bg-[#322317] border-stone-200/80 dark:border-stone-800 text-stone-800 dark:text-stone-200 hover:border-[#8C6239]/40 hover:scale-[1.01]'
+                      : 'bg-white dark:bg-[#2B1D14] hover:bg-[#FAF7F0] dark:hover:bg-[#38261A] border-stone-300 dark:border-[#C8956A]/30 text-stone-900 dark:text-stone-100 hover:border-[#8C6239] hover:scale-[1.01]'
                   }`}
                   title={isLockedOut ? `Mesa bloqueada a ${assignedTableMozo}` : mozoName}
                 >
                   <div
-                    className={`w-6 h-6 rounded-lg flex items-center justify-center font-bold text-[10px] shrink-0 transition-colors ${
+                    className={`w-6 h-6 rounded-lg flex items-center justify-center font-black text-[10px] shrink-0 transition-colors ${
                       isSelected
                         ? 'bg-white/20 text-white'
-                        : 'bg-[#8C6239]/10 dark:bg-[#C8956A]/10 text-[#8C6239] dark:text-[#C8956A]'
+                        : 'bg-[#8C6239]/15 dark:bg-[#C8956A]/20 text-[#8C6239] dark:text-[#C8956A]'
                     }`}
                   >
                     {isAssignedToThisTable ? (
-                      <Lock className="w-3 h-3 text-amber-300" />
+                      <Lock className="w-3 h-3 text-amber-300 stroke-[2.5]" />
                     ) : isSelected ? (
-                      <Check className="w-3 h-3 text-emerald-300" />
+                      <Check className="w-3 h-3 text-emerald-300 stroke-[3]" />
                     ) : (
-                      <UserCheck className="w-3 h-3" />
+                      <UserCheck className="w-3 h-3 stroke-[2.5]" />
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className={`text-xs font-bold truncate leading-tight ${isSelected ? 'text-white' : 'text-stone-800 dark:text-stone-200'}`}>
+                    <p className={`text-xs font-black truncate leading-tight ${isSelected ? 'text-white' : 'text-stone-900 dark:text-stone-100'}`}>
                       {mozoName}
                     </p>
-                    <p className={`text-[8px] uppercase tracking-wider font-semibold leading-none mt-0.5 ${isSelected ? 'text-amber-200 font-extrabold' : 'text-stone-400 dark:text-stone-500'}`}>
+                    <p className={`text-[8px] uppercase tracking-wider font-black leading-none mt-0.5 ${isSelected ? 'text-amber-200' : 'text-stone-500 dark:text-stone-400'}`}>
                       {isSelected ? 'Activo' : 'Mozo'}
                     </p>
                   </div>
@@ -3133,36 +3133,41 @@ export default function MozoTerminal({
         </div>
       )}
 
-      {/* MODAL DE EDICIÓN DE MOZOS DE SALÓN */}
+      {/* MODAL DE EDICIÓN DE MOZOS DE SALÓN (FONDO MARRÓN EL PATRÓN & TEXTO EN NEGRITA) */}
       {isEditingMozosModalOpen && (
-        <div className="fixed inset-0 bg-stone-950/65 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn">
-          <div className="glass-panel bg-white dark:bg-[#1C120C] rounded-2xl p-5 sm:p-6 shadow-2xl max-w-md w-full border border-stone-200 dark:border-[#C8956A]/25 space-y-4 max-h-[90vh] flex flex-col">
-            <div className="flex justify-between items-center pb-3 border-b border-stone-200/50 dark:border-stone-800">
+        <div className="fixed inset-0 bg-stone-950/75 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-gradient-to-b from-[#2E1F16] via-[#241810] to-[#1A100A] text-white rounded-3xl p-6 shadow-2xl max-w-md w-full border-2 border-[#C8956A]/70 space-y-4 max-h-[90vh] flex flex-col ring-2 ring-[#C8956A]/20">
+            <div className="flex justify-between items-center pb-3 border-b-2 border-[#C8956A]/40">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-[#8C6239]/10 text-[#8C6239] dark:text-[#C8956A] flex items-center justify-center font-bold">
-                  <Users className="w-4 h-4" />
+                <div className="w-9 h-9 rounded-xl bg-[#8C6239] border border-[#C8956A]/60 text-white flex items-center justify-center font-black shadow-md">
+                  <Users className="w-5 h-5 stroke-[2.5]" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-base text-stone-900 dark:text-stone-100">Editar Mozos de Salón</h3>
-                  <p className="text-xs text-stone-500 dark:text-stone-400">Personalizá los nombres del personal de atención</p>
+                  <h3 className="font-black text-base sm:text-lg text-white font-sans tracking-tight">
+                    Editar Mozos de Salón
+                  </h3>
+                  <p className="text-xs text-[#E8C288] font-bold">
+                    Personalizá los nombres del personal de atención
+                  </p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setIsEditingMozosModalOpen(false)}
-                className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors cursor-pointer"
+                className="p-1.5 rounded-lg text-[#E8C288] hover:text-white hover:bg-white/10 transition-colors cursor-pointer font-black"
+                title="Cerrar ventana"
               >
-                <X className="w-5 h-5" />
+                <X className="w-5 h-5 stroke-[2.5]" />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 py-1">
-              <p className="text-xs text-stone-600 dark:text-stone-300">
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1 py-1">
+              <p className="text-xs font-black text-[#F4EBE1] leading-relaxed">
                 Podés renombrar cada mozo, agregar nuevos o eliminar los que no correspondan:
               </p>
               {editingMozosList.map((name, idx) => (
-                <div key={idx} className="flex items-center gap-2">
-                  <span className="w-6 text-center text-xs font-bold text-stone-400 dark:text-stone-500">
+                <div key={idx} className="flex items-center gap-2.5">
+                  <span className="w-6 text-center text-sm font-black text-[#E8C288]">
                     {idx + 1}.
                   </span>
                   <input
@@ -3174,7 +3179,7 @@ export default function MozoTerminal({
                       setEditingMozosList(updated);
                     }}
                     placeholder={`Nombre del mozo ${idx + 1}`}
-                    className="flex-1 px-3 py-2 text-xs font-bold rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-900 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-[#8C6239]"
+                    className="flex-1 px-3.5 py-2.5 text-sm font-black rounded-xl border-2 border-[#C8956A]/60 bg-[#FAF7F0] text-stone-950 placeholder-stone-500 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#E8C288] focus:border-[#E8C288] tracking-tight"
                   />
                   {editingMozosList.length > 1 && (
                     <button
@@ -3182,10 +3187,10 @@ export default function MozoTerminal({
                       onClick={() => {
                         setEditingMozosList(editingMozosList.filter((_, i) => i !== idx));
                       }}
-                      className="p-2 text-stone-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors cursor-pointer"
+                      className="p-2.5 text-rose-300 hover:text-white hover:bg-rose-600/30 rounded-xl border border-rose-500/40 transition-colors cursor-pointer font-black"
                       title="Eliminar mozo"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-4 h-4 stroke-[2.5]" />
                     </button>
                   )}
                 </div>
@@ -3194,35 +3199,36 @@ export default function MozoTerminal({
               <button
                 type="button"
                 onClick={() => setEditingMozosList(prev => [...prev, ''])}
-                className="w-full mt-2 py-2 border-2 border-dashed border-stone-300 dark:border-stone-700 hover:border-[#8C6239] text-[#8C6239] dark:text-[#C8956A] rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                className="w-full mt-2 py-2.5 border-2 border-dashed border-[#C8956A]/80 hover:border-[#E8C288] bg-[#8C6239]/25 hover:bg-[#8C6239]/40 text-[#F5DEB3] hover:text-white rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm"
               >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Agregar otro mozo</span>
+                <Plus className="w-4 h-4 stroke-[3]" />
+                <span className="font-black tracking-wide">+ Agregar otro mozo</span>
               </button>
             </div>
 
-            <div className="pt-3 border-t border-stone-200/50 dark:border-stone-800 flex items-center justify-between gap-2">
+            <div className="pt-3 border-t-2 border-[#C8956A]/40 flex items-center justify-between gap-2">
               <button
                 type="button"
                 onClick={() => setEditingMozosList(['Facundo', 'Adriana', 'Rocío', 'Sofía'])}
-                className="text-xs text-stone-500 dark:text-stone-400 hover:text-[#8C6239] hover:underline px-2 py-1 cursor-pointer"
+                className="text-xs text-[#E8C288] hover:text-white hover:underline font-black px-2 py-1 cursor-pointer"
               >
-                Restablecer
+                Restablecer originales
               </button>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 <button
                   type="button"
                   onClick={() => setIsEditingMozosModalOpen(false)}
-                  className="px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-300 text-xs font-semibold hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors cursor-pointer"
+                  className="px-4 py-2 rounded-xl border-2 border-[#C8956A]/50 hover:border-[#C8956A] text-stone-200 hover:text-white bg-black/30 hover:bg-black/50 text-xs font-black transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="button"
                   onClick={handleSaveMozos}
-                  className="px-4 py-2 rounded-xl bg-[#8C6239] hover:bg-[#724e2c] text-white text-xs font-bold shadow-md transition-colors cursor-pointer"
+                  className="px-5 py-2 rounded-xl bg-gradient-to-r from-[#8C6239] to-[#6E4726] hover:from-[#A07042] hover:to-[#8C6239] border border-[#C8956A]/70 text-white text-xs font-black shadow-lg shadow-black/40 transition-all cursor-pointer flex items-center gap-1.5"
                 >
-                  Guardar cambios
+                  <Save className="w-3.5 h-3.5 stroke-[2.5]" />
+                  <span>Guardar cambios</span>
                 </button>
               </div>
             </div>
