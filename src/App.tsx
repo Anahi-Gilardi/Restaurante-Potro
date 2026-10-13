@@ -49,13 +49,9 @@ const KitchenMonitor = lazy(() => import('./components/KitchenMonitor'));
 const InventoryModule = lazy(() => import('./components/InventoryModule'));
 const CajaModule = lazy(() => import('./components/CajaModule'));
 const SistemaModule = lazy(() => import('./components/SistemaModule'));
-const UsuariosModule = lazy(() => import('./components/UsuariosModule'));
 const MenuModule = lazy(() => import('./components/MenuModule'));
 const RecetasModule = lazy(() => import('./components/RecetasModule'));
 const MesasModule = lazy(() => import('./components/MesasModule'));
-const ProveedoresModule = lazy(() => import('./components/ProveedoresModule'));
-const PromocionesModule = lazy(() => import('./components/PromocionesModule'));
-const ReservasModule = lazy(() => import('./components/ReservasModule'));
 const FacturacionModule = lazy(() => import('./components/FacturacionModule'));
 const BackupsModule = lazy(() => import('./components/BackupsModule'));
 const ClientesModule = lazy(() => import('./components/ClientesModule'));
@@ -760,7 +756,9 @@ export default function App() {
   const [activeView, setActiveView] = useState<AppView>(() => {
     if (typeof window !== 'undefined') {
       const saved = window.localStorage.getItem('el_patron_active_view') as AppView;
-      if (saved) return saved;
+      if (saved && !['proveedores', 'promociones', 'reservas', 'usuarios'].includes(saved)) {
+        return saved;
+      }
     }
     return 'home';
   });
@@ -1119,6 +1117,11 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
 
   // NUEVO: Validación estricta en el método de navegación
   const handleNavigate = (view: AppView) => {
+    if (['proveedores', 'promociones', 'reservas', 'usuarios'].includes(view)) {
+      setActiveView('home');
+      if (typeof window !== 'undefined') window.localStorage.setItem('el_patron_active_view', 'home');
+      return;
+    }
     if (!canAccessView(activeUser.rol, view)) {
       toast.warning(`El rol ${activeUser.rol} no tiene permiso para abrir este módulo.`);
       setActiveView('home');
@@ -2178,11 +2181,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
             { id: 'caja', label: 'Caja', icon: '💵' },
             { id: 'menu', label: 'Menú', icon: '📖' },
             { id: 'mesas', label: 'Mesas', icon: '🪑' },
-            { id: 'proveedores', label: 'Proveedores', icon: '🚚' },
-            { id: 'promociones', label: 'Promociones', icon: '🏷️' },
-            { id: 'reservas', label: 'Reservas', icon: '📅' },
             { id: 'facturacion', label: 'Facturación', icon: '🧾' },
-            { id: 'usuarios', label: 'Usuarios', icon: '👥' },
             { id: 'sistema', label: 'Sistema', icon: '💻' },
             { id: 'backups', label: 'Backups', icon: '🗄️' },
           ].filter(item => (allowedViews || []).includes(item.id as AppView)).map((item) => {
@@ -2302,9 +2301,6 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
                 addLog={addLog}
               />
             )}
-            {activeView === 'usuarios' && (
-              <UsuariosModule usuarios={usuarios} onUsuariosChange={setUsuarios} addLog={addLog} activeUser={activeUser} onActiveUserChange={setActiveMozo} />
-            )}
             {activeView === 'menu' && (
               <MenuModule productosMenu={productosMenu} onProductosChange={setProductosMenu} recetas={recetas} insumos={insumos} addLog={addLog} />
             )}
@@ -2315,11 +2311,6 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
                 addLog={addLog}
                 persistenceEnabled={!isDemoSession}
               />
-            )}
-            {activeView === 'proveedores' && <ProveedoresModule addLog={addLog} />}
-            {activeView === 'promociones' && <PromocionesModule addLog={addLog} />}
-            {activeView === 'reservas' && (
-              <ReservasModule mesas={mesas} onEstadoChange={handleReservaEstadoChange} addLog={addLog} />
             )}
             {activeView === 'facturacion' && (
               <FacturacionModule pedidos={pedidos} productosMenu={productosMenu} addLog={addLog} />
