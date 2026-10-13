@@ -54,6 +54,7 @@ const findInitialMatch = (nombre: string): ProductoMenu | undefined => {
   if (!nombre) return undefined;
   const clean = nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
   return INITIAL_PRODUCTOS_MENU.find(init => {
+    if (!init || typeof init.nombre !== 'string') return false;
     const initClean = init.nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
     return clean.includes(initClean) || initClean.includes(clean) || (clean.slice(0, 10) === initClean.slice(0, 10) && clean.length > 5);
   });
@@ -121,18 +122,30 @@ const normalizeProductoMenu = (prod: DbProductoMenu): ProductoMenu => {
   };
 };
 
+const OBSOLETE_BEVERAGES = new Set([
+  'prod_agua',
+  'prod_gaseosa',
+  'prod_agua_saborizada',
+  'aguaconsingas',
+  'gaseosaslineacocacola'
+]);
+
 export const deduplicateMenuProducts = (items: ProductoMenu[]): ProductoMenu[] => {
   const byKey = new Map<string, ProductoMenu>();
   const idToKey = new Map<string, string>();
 
   for (const item of items) {
+    const lowerId = (item.id_producto || '').toLowerCase();
     const normName = (item.nombre || '')
       .toLowerCase()
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
       .replace(/[^a-z0-9]/g, '');
 
-    const lowerId = (item.id_producto || '').toLowerCase();
+    // Descartar bebidas genéricas obsoletas reemplazadas por el stock oficial
+    if (OBSOLETE_BEVERAGES.has(lowerId) || OBSOLETE_BEVERAGES.has(normName)) {
+      continue;
+    }
     const existingKey = (normName && byKey.has(normName) ? normName : null) || idToKey.get(lowerId);
 
     if (!existingKey) {

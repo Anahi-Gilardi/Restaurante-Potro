@@ -1,6 +1,6 @@
--- ========================================================
--- SCRIPT DE ACTUALIZACIÓN DE STOCK DE BEBIDAS - EL PATRÓN
--- ========================================================
+-- =============================================================================
+-- REEMPLAZO DEFINITIVO DE BEBIDAS Y STOCK - RESTAURANTE EL PATRÓN
+-- =============================================================================
 
 -- 1. Asegurar columnas de stock en productos_menu
 ALTER TABLE public.productos_menu 
@@ -8,2418 +8,2310 @@ ALTER TABLE public.productos_menu
   ADD COLUMN IF NOT EXISTS stock_minimo integer NOT NULL DEFAULT 5,
   ADD COLUMN IF NOT EXISTS controla_stock boolean NOT NULL DEFAULT true;
 
--- 2. Actualización de existencias de bebidas
+-- 2. Eliminar todas las bebidas obsoletas o duplicadas (Agua genérica, gaseosas antiguas, etc.)
+--    Conservamos intactos todos los platos de cocina (Entradas, Pastas, Carnes, Pescados, Postres).
+DELETE FROM public.productos_menu 
+WHERE tipo IN ('vino', 'bebida')
+   OR categoria IN ('Bodega', 'Bebidas con Alcohol', 'Bebidas sin Alcohol', 'Vinos', 'Vinos Tintos', 'Vinos Blancos y Rosados');
 
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+-- 3. Insertar las 115 bebidas oficiales del stock del local con sus cantidades exactas
+
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_cham_baron_b_brut_nature',
   'Baron B Brut Nature',
-  'Bodega',
-  'Brut Nature',
-  'bebida',
+  'Baron B - Brut Nature. Control de stock físico.',
   32000,
+  'Bodega',
+  'Espumantes / Champagne',
+  'vino',
   3,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1558001373-7b93ee48ffa0?w=400&q=80',
+  'https://images.unsplash.com/photo-1558001373-7b93ee48ffa0?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_cham_baron_b_extra_brut',
   'Baron B Extra Brut',
-  'Bodega',
-  'Extra Brut',
-  'bebida',
+  'Baron B - Extra Brut. Control de stock físico.',
   32000,
+  'Bodega',
+  'Espumantes / Champagne',
+  'vino',
   2,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1558001373-7b93ee48ffa0?w=400&q=80',
+  'https://images.unsplash.com/photo-1558001373-7b93ee48ffa0?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_cham_alyda_extra_brut',
   'Alyda Extra Brut',
-  'Bodega',
-  'Extra Brut',
-  'bebida',
+  'Alyda - Extra Brut. Control de stock físico.',
   19000,
+  'Bodega',
+  'Espumantes / Champagne',
+  'vino',
   5,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1558001373-7b93ee48ffa0?w=400&q=80',
+  'https://images.unsplash.com/photo-1558001373-7b93ee48ffa0?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_cham_las_perdices_extra_brut',
   'Las Perdices Extra Brut',
-  'Bodega',
-  'Extra Brut',
-  'bebida',
+  'Las Perdices - Extra Brut. Control de stock físico.',
   16500,
+  'Bodega',
+  'Espumantes / Champagne',
+  'vino',
   2,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1558001373-7b93ee48ffa0?w=400&q=80',
+  'https://images.unsplash.com/photo-1558001373-7b93ee48ffa0?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_cham_salentein_extra_brut',
   'Salentein Extra Brut',
-  'Bodega',
-  'Extra Brut',
-  'bebida',
+  'Salentein - Extra Brut. Control de stock físico.',
   17500,
+  'Bodega',
+  'Espumantes / Champagne',
+  'vino',
   4,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1558001373-7b93ee48ffa0?w=400&q=80',
+  'https://images.unsplash.com/photo-1558001373-7b93ee48ffa0?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_cham_d_v_nature',
-  'D.V Nature',
-  'Bodega',
-  'Nature',
-  'bebida',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_cham_d_v_catena_nature',
+  'D.V Catena Nature',
+  'Catena Zapata - Nature. Control de stock físico.',
   28000,
+  'Bodega',
+  'Espumantes / Champagne',
+  'vino',
   3,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1558001373-7b93ee48ffa0?w=400&q=80',
+  'https://images.unsplash.com/photo-1558001373-7b93ee48ffa0?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_cham_chandon_extra_brut',
   'Chandon Extra Brut',
-  'Bodega',
-  'Extra Brut',
-  'bebida',
+  'Chandon - Extra Brut. Control de stock físico.',
   18000,
+  'Bodega',
+  'Espumantes / Champagne',
+  'vino',
   2,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1558001373-7b93ee48ffa0?w=400&q=80',
+  'https://images.unsplash.com/photo-1558001373-7b93ee48ffa0?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_trag_fernet_branca',
   'Fernet Branca',
-  'Bebidas con Alcohol',
-  'Branca',
-  'bebida',
+  'Fratelli Branca - Aperitivo / Trago. Control de stock físico.',
   5500,
+  'Bebidas con Alcohol',
+  'Tragos / Destilados',
+  'bebida',
   13,
   3,
   true,
-  'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  'Botella / Medida',
+  true,
+  'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=400&q=80',
+  'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_trag_gancia_americano',
   'Gancia Americano',
-  'Bebidas con Alcohol',
-  'Americano',
-  'bebida',
+  'Gancia - Aperitivo. Control de stock físico.',
   4500,
+  'Bebidas con Alcohol',
+  'Tragos / Destilados',
+  'bebida',
   2,
   2,
   true,
-  'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  'Botella / Medida',
+  true,
+  'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=400&q=80',
+  'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_trag_campari_bitter',
   'Campari Bitter',
-  'Bebidas con Alcohol',
-  'Bitter',
-  'bebida',
+  'Campari - Aperitivo. Control de stock físico.',
   4800,
+  'Bebidas con Alcohol',
+  'Tragos / Destilados',
+  'bebida',
   1,
   2,
   true,
-  'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  'Botella / Medida',
+  true,
+  'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=400&q=80',
+  'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_trag_carpano_rosso_vermut',
-  'Carpano Rosso Vermut',
-  'Bebidas con Alcohol',
-  'Vermut',
-  'bebida',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_trag_carpano_rosso',
+  'Carpano Rosso',
+  'Carpano - Vermut. Control de stock físico.',
   4500,
+  'Bebidas con Alcohol',
+  'Tragos / Destilados',
+  'bebida',
   28,
   5,
   true,
-  'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  'Botella / Medida',
+  true,
+  'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=400&q=80',
+  'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_trag_carpano_bianco_vermut',
-  'Carpano Bianco Vermut',
-  'Bebidas con Alcohol',
-  'Vermut',
-  'bebida',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_trag_carpano_bianco',
+  'Carpano Bianco',
+  'Carpano - Vermut. Control de stock físico.',
   4500,
+  'Bebidas con Alcohol',
+  'Tragos / Destilados',
+  'bebida',
   6,
   2,
   true,
-  'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  'Botella / Medida',
+  true,
+  'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=400&q=80',
+  'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_trag_aperol_spritz',
   'Aperol Spritz',
-  'Bebidas con Alcohol',
-  'Spritz',
-  'bebida',
+  'Aperol - Aperitivo. Control de stock físico.',
   4900,
+  'Bebidas con Alcohol',
+  'Tragos / Destilados',
+  'bebida',
   3,
   2,
   true,
-  'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  'Botella / Medida',
+  true,
+  'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=400&q=80',
+  'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_trag_blu_spirito_aperitivo',
-  'Blu Spirito Aperitivo',
-  'Bebidas con Alcohol',
-  'Aperitivo',
-  'bebida',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_trag_blu_spirito',
+  'Blu Spirito',
+  'Blu Spirito - Aperitivo. Control de stock físico.',
   4500,
+  'Bebidas con Alcohol',
+  'Tragos / Destilados',
+  'bebida',
   6,
   2,
   true,
-  'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  'Botella / Medida',
+  true,
+  'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=400&q=80',
+  'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_trag_bombay_gin_sapphire',
-  'Bombay Gin Sapphire',
-  'Bebidas con Alcohol',
-  'Gin Sapphire',
-  'bebida',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_trag_gin_bombay_sapphire',
+  'Gin Bombay Sapphire',
+  'Bombay - Gin. Control de stock físico.',
   6500,
+  'Bebidas con Alcohol',
+  'Tragos / Destilados',
+  'bebida',
   1,
   1,
   true,
-  'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  'Botella / Medida',
+  true,
+  'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=400&q=80',
+  'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_trag_beefeater_gin_london_dry',
-  'Beefeater Gin London Dry',
-  'Bebidas con Alcohol',
-  'Gin London Dry',
-  'bebida',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_trag_gin_beefeater_london_dry',
+  'Gin Beefeater London Dry',
+  'Beefeater - Gin. Control de stock físico.',
   5800,
+  'Bebidas con Alcohol',
+  'Tragos / Destilados',
+  'bebida',
   1,
   1,
   true,
-  'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  'Botella / Medida',
+  true,
+  'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=400&q=80',
+  'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_trag_antica_formula_vermut_carpano',
-  'Antica Formula Vermut Carpano',
-  'Bebidas con Alcohol',
-  'Vermut Carpano',
-  'bebida',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_trag_vermut_antica_formula',
+  'Vermut Antica Formula',
+  'Carpano - Vermut Premium. Control de stock físico.',
   7500,
+  'Bebidas con Alcohol',
+  'Tragos / Destilados',
+  'bebida',
   1,
   1,
   true,
-  'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  'Botella / Medida',
+  true,
+  'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=400&q=80',
+  'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_trag_black_label_whisky_johnnie_walker',
-  'Black Label Whisky Johnnie Walker',
-  'Bebidas con Alcohol',
-  'Whisky Johnnie Walker',
-  'bebida',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_trag_whisky_johnnie_walker_black_label',
+  'Whisky Johnnie Walker Black Label',
+  'Johnnie Walker - Whisky. Control de stock físico.',
   8500,
+  'Bebidas con Alcohol',
+  'Tragos / Destilados',
+  'bebida',
   1,
   1,
   true,
-  'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  'Botella / Medida',
+  true,
+  'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=400&q=80',
+  'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_trag_jack_daniels_tennessee_whiskey_old_no_7',
-  'Jack Daniels Tennessee Whiskey Old No. 7',
-  'Bebidas con Alcohol',
-  'Tennessee Whiskey Old No. 7',
-  'bebida',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_trag_whiskey_jack_daniels_old_no_7',
+  'Whiskey Jack Daniels Old No. 7',
+  'Jack Daniels - Whiskey. Control de stock físico.',
   8500,
+  'Bebidas con Alcohol',
+  'Tragos / Destilados',
+  'bebida',
   1,
   1,
   true,
-  'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  'Botella / Medida',
+  true,
+  'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=400&q=80',
+  'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_trag_jameson_irish_whiskey',
-  'Jameson Irish Whiskey',
-  'Bebidas con Alcohol',
-  'Irish Whiskey',
-  'bebida',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_trag_whiskey_jameson_irish',
+  'Whiskey Jameson Irish',
+  'Jameson - Whiskey. Control de stock físico.',
   7000,
+  'Bebidas con Alcohol',
+  'Tragos / Destilados',
+  'bebida',
   1,
   1,
   true,
-  'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  'Botella / Medida',
+  true,
+  'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=400&q=80',
+  'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_sin__coca_cola_original_350cc',
-  'Coca Cola Original 350cc',
-  'Bebidas sin Alcohol',
-  'Original 350cc',
-  'bebida',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_sin__coca_cola_350cc',
+  'Coca Cola 350cc',
+  'Coca Cola - Original. Control de stock físico.',
   4000,
+  'Bebidas sin Alcohol',
+  'Gaseosas',
+  'bebida',
   0,
   12,
   true,
   'Lata 350cc',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&q=80',
+  'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_sin__coca_cero_sin_azucar_350cc',
-  'Coca Cero Sin Azúcar 350cc',
-  'Bebidas sin Alcohol',
-  'Sin Azúcar 350cc',
-  'bebida',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_sin__coca_cero_350cc',
+  'Coca Cero 350cc',
+  'Coca Cola - Sin Azúcar. Control de stock físico.',
   4000,
+  'Bebidas sin Alcohol',
+  'Gaseosas',
+  'bebida',
   48,
   12,
   true,
   'Lata 350cc',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&q=80',
+  'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_sin__fanta_naranja_350cc',
   'Fanta Naranja 350cc',
-  'Bebidas sin Alcohol',
-  'Naranja 350cc',
-  'bebida',
+  'Coca Cola - Naranja. Control de stock físico.',
   4000,
+  'Bebidas sin Alcohol',
+  'Gaseosas',
+  'bebida',
   0,
   12,
   true,
   'Lata 350cc',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&q=80',
+  'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_sin__sprite_limon_350cc',
   'Sprite Limón 350cc',
-  'Bebidas sin Alcohol',
-  'Limón 350cc',
-  'bebida',
+  'Coca Cola - Limón. Control de stock físico.',
   4000,
+  'Bebidas sin Alcohol',
+  'Gaseosas',
+  'bebida',
   0,
   12,
   true,
   'Lata 350cc',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&q=80',
+  'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_sin__tonica_lata_310cc',
-  'Tónica Lata 310cc',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_sin__agua_tonica_310cc',
+  'Agua Tónica 310cc',
+  'Schweppes - Tónica. Control de stock físico.',
+  4000,
   'Bebidas sin Alcohol',
+  'Gaseosas',
+  'bebida',
+  0,
+  12,
+  true,
   'Lata 310cc',
-  'bebida',
-  4000,
-  0,
-  12,
   true,
-  'Lata 310cc',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  'https://images.unsplash.com/photo-1616118132534-381148898bb4?w=400&q=80',
+  'https://images.unsplash.com/photo-1616118132534-381148898bb4?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_sin__pomelo_lata_350cc',
-  'Pomelo Lata 350cc',
-  'Bebidas sin Alcohol',
-  'Lata 350cc',
-  'bebida',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_sin__gaseosa_pomelo_350cc',
+  'Gaseosa Pomelo 350cc',
+  'Schweppes - Pomelo. Control de stock físico.',
   4000,
+  'Bebidas sin Alcohol',
+  'Gaseosas',
+  'bebida',
   0,
   12,
   true,
   'Lata 350cc',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&q=80',
+  'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_sin__s_naranja_saborizada_500cc',
-  'S. Naranja Saborizada 500cc',
-  'Bebidas sin Alcohol',
-  'Saborizada 500cc',
-  'bebida',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_sin__saborizada_naranja_500cc',
+  'Saborizada Naranja 500cc',
+  'Aquarius - Naranja. Control de stock físico.',
   3800,
+  'Bebidas sin Alcohol',
+  'Aguas Saborizadas',
+  'bebida',
   0,
   6,
   true,
   'Botella 500cc',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&q=80',
+  'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_sin__s_pomelo_saborizada_500cc',
-  'S. Pomelo Saborizada 500cc',
-  'Bebidas sin Alcohol',
-  'Saborizada 500cc',
-  'bebida',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_sin__saborizada_pomelo_500cc',
+  'Saborizada Pomelo 500cc',
+  'Aquarius - Pomelo. Control de stock físico.',
   3800,
+  'Bebidas sin Alcohol',
+  'Aguas Saborizadas',
+  'bebida',
   0,
   6,
   true,
   'Botella 500cc',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&q=80',
+  'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_sin__s_manzana_saborizada_500cc',
-  'S. Manzana Saborizada 500cc',
-  'Bebidas sin Alcohol',
-  'Saborizada 500cc',
-  'bebida',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_sin__saborizada_manzana_500cc',
+  'Saborizada Manzana 500cc',
+  'Aquarius - Manzana. Control de stock físico.',
   3800,
+  'Bebidas sin Alcohol',
+  'Aguas Saborizadas',
+  'bebida',
   0,
   6,
   true,
   'Botella 500cc',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&q=80',
+  'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_sin__s_limonada_saborizada_500cc',
-  'S. Limonada Saborizada 500cc',
-  'Bebidas sin Alcohol',
-  'Saborizada 500cc',
-  'bebida',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_sin__saborizada_limonada_500cc',
+  'Saborizada Limonada 500cc',
+  'Aquarius - Limonada. Control de stock físico.',
   3800,
+  'Bebidas sin Alcohol',
+  'Aguas Saborizadas',
+  'bebida',
   0,
   6,
   true,
   'Botella 500cc',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&q=80',
+  'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_sin__s_pera_saborizada_500cc',
-  'S. Pera Saborizada 500cc',
-  'Bebidas sin Alcohol',
-  'Saborizada 500cc',
-  'bebida',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_sin__saborizada_pera_500cc',
+  'Saborizada Pera 500cc',
+  'Aquarius - Pera. Control de stock físico.',
   3800,
+  'Bebidas sin Alcohol',
+  'Aguas Saborizadas',
+  'bebida',
   0,
   6,
   true,
   'Botella 500cc',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&q=80',
+  'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_sin__agua_mineral_600cc',
   'Agua Mineral 600cc',
-  'Bebidas sin Alcohol',
-  'Mineral 600cc',
-  'bebida',
+  'Glaciar - Sin Gas. Control de stock físico.',
   3500,
+  'Bebidas sin Alcohol',
+  'Aguas',
+  'bebida',
   48,
   12,
   true,
   'Botella 600cc',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1616118132534-381148898bb4?w=400&q=80',
+  'https://images.unsplash.com/photo-1616118132534-381148898bb4?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_sin__soda_sifon_botella_600cc',
-  'Soda Sifón / Botella 600cc',
-  'Bebidas sin Alcohol',
-  'Sifón / Botella 600cc',
-  'bebida',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_sin__soda_agua_con_gas_600cc',
+  'Soda / Agua con Gas 600cc',
+  'Glaciar - Con Gas. Control de stock físico.',
   3500,
+  'Bebidas sin Alcohol',
+  'Aguas',
+  'bebida',
   48,
   12,
   true,
   'Botella 600cc',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1616118132534-381148898bb4?w=400&q=80',
+  'https://images.unsplash.com/photo-1616118132534-381148898bb4?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_cerv_stella_artois_rubia_475cc',
-  'Stella Artois Rubia 475cc',
-  'Bebidas con Alcohol',
-  'Rubia 475cc',
-  'bebida',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_cerv_cerveza_stella_artois_rubia_475cc',
+  'Cerveza Stella Artois Rubia 475cc',
+  'Stella Artois - Rubia. Control de stock físico.',
   4800,
+  'Bebidas con Alcohol',
+  'Cervezas',
+  'bebida',
   0,
   6,
   true,
   'Lata 475cc',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1608270190977-83d8a7c29367?w=400&q=80',
+  'https://images.unsplash.com/photo-1608270190977-83d8a7c29367?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_cerv_stella_artois_negra_noire_475cc',
-  'Stella Artois Negra (Noire) 475cc',
-  'Bebidas con Alcohol',
-  'Negra (Noire) 475cc',
-  'bebida',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_cerv_cerveza_stella_artois_noire_475cc',
+  'Cerveza Stella Artois Noire 475cc',
+  'Stella Artois - Negra (Noire). Control de stock físico.',
   4800,
+  'Bebidas con Alcohol',
+  'Cervezas',
+  'bebida',
   0,
   6,
   true,
   'Lata 475cc',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1608270190977-83d8a7c29367?w=400&q=80',
+  'https://images.unsplash.com/photo-1608270190977-83d8a7c29367?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_cerv_stella_artois_sin_alcohol_475cc',
-  'Stella Artois Sin Alcohol 475cc',
-  'Bebidas con Alcohol',
-  'Sin Alcohol 475cc',
-  'bebida',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_cerv_cerveza_stella_artois_sin_alcohol_4',
+  'Cerveza Stella Artois Sin Alcohol 475cc',
+  'Stella Artois - Sin Alcohol. Control de stock físico.',
   4800,
+  'Bebidas con Alcohol',
+  'Cervezas',
+  'bebida',
   0,
   6,
   true,
   'Lata 475cc',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1608270190977-83d8a7c29367?w=400&q=80',
+  'https://images.unsplash.com/photo-1608270190977-83d8a7c29367?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_sin__gancia_sin_alcohol',
   'Gancia Sin Alcohol',
-  'Bebidas sin Alcohol',
-  'Sin Alcohol',
-  'bebida',
+  'Gancia - Sin Alcohol. Control de stock físico.',
   4200,
+  'Bebidas sin Alcohol',
+  'Aperitivos',
+  'bebida',
   6,
   2,
   true,
-  'Botella',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  'Botella 750ml',
+  true,
+  'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&q=80',
+  'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_trumpeter_malbec',
   'Trumpeter Malbec',
-  'Bodega',
-  'Malbec',
-  'vino',
+  'La Rural - Malbec. Control de stock físico.',
   12500,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   8,
   4,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_trumpeter_chardonnay',
   'Trumpeter Chardonnay',
-  'Bodega',
-  'Chardonnay',
-  'vino',
+  'La Rural - Chardonnay. Control de stock físico.',
   12500,
+  'Bodega',
+  'Vinos blancos',
+  'vino',
   4,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_trumpeter_doux',
   'Trumpeter Doux',
-  'Bodega',
-  'Doux',
-  'vino',
+  'La Rural - Doux. Control de stock físico.',
   12500,
+  'Bodega',
+  'Vinos blancos',
+  'vino',
   4,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_trumpeter_reserva_blend',
   'Trumpeter Reserva Blend',
-  'Bodega',
-  'Reserva Blend',
-  'vino',
+  'La Rural - Reserva Blend. Control de stock físico.',
   14500,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   6,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_rutini_malbec',
   'Rutini Malbec',
-  'Bodega',
-  'Malbec',
-  'vino',
+  'La Rural - Malbec. Control de stock físico.',
   26500,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   3,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_rutini_merlot',
   'Rutini Merlot',
-  'Bodega',
-  'Merlot',
-  'vino',
+  'La Rural - Merlot. Control de stock físico.',
   26500,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   3,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_escorihuela_gascon_malbec',
   'Escorihuela Gascón Malbec',
-  'Bodega',
-  'Malbec',
-  'vino',
+  'Escorihuela Gascón - Malbec. Control de stock físico.',
   15500,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   12,
   4,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_vino_escorihuela_gascon_cabernet_sauvignon',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_vino_escorihuela_gascon_cabernet_sauvign',
   'Escorihuela Gascón Cabernet Sauvignon',
-  'Bodega',
-  'Cabernet Sauvignon',
-  'vino',
+  'Escorihuela Gascón - Cabernet Sauvignon. Control de stock físico.',
   15500,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   5,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_escorihuela_gascon_sauvignon_blanc',
   'Escorihuela Gascón Sauvignon Blanc',
-  'Bodega',
-  'Sauvignon Blanc',
-  'vino',
+  'Escorihuela Gascón - Sauvignon Blanc. Control de stock físico.',
   15500,
+  'Bodega',
+  'Vinos blancos',
+  'vino',
   2,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_e_g_gran_reserva_malbec',
   'E.G Gran Reserva Malbec',
-  'Bodega',
-  'Malbec',
-  'vino',
+  'Escorihuela Gascón - Malbec. Control de stock físico.',
   24000,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   3,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_e_g_gran_reserva_chardonnay',
   'E.G Gran Reserva Chardonnay',
-  'Bodega',
-  'Chardonnay',
-  'vino',
+  'Escorihuela Gascón - Chardonnay. Control de stock físico.',
   24000,
+  'Bodega',
+  'Vinos blancos',
+  'vino',
   5,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_pequenas_producciones_malbec',
   'Pequeñas Producciones Malbec',
-  'Bodega',
-  'Malbec',
-  'vino',
+  'Escorihuela Gascón - Malbec. Control de stock físico.',
   34000,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   4,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_vino_pequenas_producciones_cabernet_franc',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_vino_pequenas_producciones_cabernet_fran',
   'Pequeñas Producciones Cabernet Franc',
-  'Bodega',
-  'Cabernet Franc',
-  'vino',
+  'Escorihuela Gascón - Cabernet Franc. Control de stock físico.',
   34000,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   4,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_alamos_red_blend',
   'Alamos Red Blend',
-  'Bodega',
-  'Red Blend',
-  'vino',
+  'Catena Zapata - Red Blend. Control de stock físico.',
   11000,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   0,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_alamos_reserva_malbec',
   'Alamos Reserva Malbec',
-  'Bodega',
-  'Reserva Malbec',
-  'vino',
+  'Catena Zapata - Reserva Malbec. Control de stock físico.',
   12500,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   6,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_saint_felicien_malbec',
   'Saint Felicien Malbec',
-  'Bodega',
-  'Malbec',
-  'vino',
+  'Catena Zapata - Malbec. Control de stock físico.',
   16500,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   9,
   4,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_saint_felicien_cabernet_franc',
   'Saint Felicien Cabernet Franc',
-  'Bodega',
-  'Cabernet Franc',
-  'vino',
+  'Catena Zapata - Cabernet Franc. Control de stock físico.',
   16500,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   5,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_saint_felicien_pinot_noir',
   'Saint Felicien Pinot Noir',
-  'Bodega',
-  'Pinot Noir',
-  'vino',
+  'Catena Zapata - Pinot Noir. Control de stock físico.',
   17500,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   3,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_saint_felicien_sauvignon_blanc',
   'Saint Felicien Sauvignon Blanc',
-  'Bodega',
-  'Sauvignon Blanc',
-  'vino',
+  'Catena Zapata - Sauvignon Blanc. Control de stock físico.',
   16500,
+  'Bodega',
+  'Vinos blancos',
+  'vino',
   9,
   4,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_vino_nicasia_rb_malbec',
-  'Nicasia RB Malbec',
-  'Bodega',
-  'RB Malbec',
-  'vino',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_vino_nicasia_red_blend_malbec',
+  'Nicasia Red Blend Malbec',
+  'Catena Zapata - RB Malbec. Control de stock físico.',
   16000,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   7,
   4,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_nicasia_cabernet_franc',
   'Nicasia Cabernet Franc',
-  'Bodega',
-  'Cabernet Franc',
-  'vino',
+  'Catena Zapata - Cabernet Franc. Control de stock físico.',
   16000,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   4,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_nicasia_blend_historico',
   'Nicasia Blend Histórico',
-  'Bodega',
-  'Blend Histórico',
-  'vino',
+  'Catena Zapata - Blend Histórico. Control de stock físico.',
   16000,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   5,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_nicasia_blanc_de_blancs_viognier',
   'Nicasia Blanc de Blancs Viognier',
-  'Bodega',
-  'Blanc de Blancs Viognier',
-  'vino',
+  'Catena Zapata - Blanc de Blancs Viognier. Control de stock físico.',
   16000,
+  'Bodega',
+  'Vinos blancos',
+  'vino',
   5,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_vino_dv_catena_malbec_malbec',
-  'DV Catena Malbec - Malbec',
-  'Bodega',
-  'Malbec - Malbec',
-  'vino',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_vino_d_v_catena_malbec_malbec',
+  'D.V. Catena Malbec - Malbec',
+  'Catena Zapata - Malbec - Malbec. Control de stock físico.',
   29500,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   3,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_vino_dv_catena_malbec_cabernet',
-  'DV Catena Malbec - Cabernet',
-  'Bodega',
-  'Malbec - Cabernet',
-  'vino',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_vino_d_v_catena_malbec_cabernet',
+  'D.V. Catena Malbec - Cabernet',
+  'Catena Zapata - Malbec - Cabernet. Control de stock físico.',
   29500,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   6,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_vino_dv_catena_pinot_noir_pinot_noir',
-  'DV Catena Pinot Noir - Pinot Noir',
-  'Bodega',
-  'Pinot Noir - Pinot Noir',
-  'vino',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_vino_d_v_catena_pinot_noir_pinot_noir',
+  'D.V. Catena Pinot Noir - Pinot Noir',
+  'Catena Zapata - Pinot Noir - Pinot Noir. Control de stock físico.',
   31000,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   3,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_la_posta_malbec',
   'La Posta Malbec',
-  'Bodega',
-  'Malbec',
-  'vino',
+  'Catena Zapata - Malbec. Control de stock físico.',
   16500,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   4,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_la_posta_bonarda',
   'La Posta Bonarda',
-  'Bodega',
-  'Bonarda',
-  'vino',
+  'Catena Zapata - Bonarda. Control de stock físico.',
   16500,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   9,
   4,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_la_posta_rosado',
   'La Posta Rosado',
-  'Bodega',
-  'Rosado',
-  'vino',
+  'Catena Zapata - Rosado. Control de stock físico.',
   16500,
+  'Bodega',
+  'Vinos rosados',
+  'vino',
   3,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_la_posta_pinot_noir',
   'La Posta Pinot Noir',
-  'Bodega',
-  'Pinot Noir',
-  'vino',
+  'Catena Zapata - Pinot Noir. Control de stock físico.',
   17500,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   6,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_vino_tical_malbec',
-  'Tical Malbec',
-  'Bodega',
-  'Malbec',
-  'vino',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_vino_tikal_natural_malbec',
+  'Tikal Natural Malbec',
+  'Catena Zapata - Malbec. Control de stock físico.',
   24000,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   5,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_angelica_zapata_malbec_alta',
-  'Angelica Zapata Malbec Alta',
-  'Bodega',
-  'Malbec Alta',
-  'vino',
+  'Angélica Zapata Malbec Alta',
+  'Catena Zapata - Malbec Alta. Control de stock físico.',
   45000,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   3,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_catena_zapata_argentino_malbec',
   'Catena Zapata Argentino Malbec',
-  'Bodega',
-  'Malbec',
-  'vino',
+  'Catena Zapata - Malbec. Control de stock físico.',
   78000,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   2,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_luca_malbec',
   'Luca Malbec',
-  'Bodega',
-  'Malbec',
-  'vino',
+  'Catena Zapata - Malbec. Control de stock físico.',
   29000,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   2,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_luca_chardonnay',
   'Luca Chardonnay',
-  'Bodega',
-  'Chardonnay',
-  'vino',
+  'Catena Zapata - Chardonnay. Control de stock físico.',
   29000,
+  'Bodega',
+  'Vinos blancos',
+  'vino',
   6,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_las_perdices_malbec_750ml',
   'Las Perdices Malbec 750ml',
-  'Bodega',
-  'Malbec 750ml',
-  'vino',
+  'Las Perdices - Malbec. Control de stock físico.',
   13500,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   9,
   4,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_vino_las_perdices_cabernet_sauvignon_750ml',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_vino_las_perdices_cabernet_sauvignon_750',
   'Las Perdices Cabernet Sauvignon 750ml',
-  'Bodega',
-  'Cabernet Sauvignon 750ml',
-  'vino',
+  'Las Perdices - Cabernet Sauvignon. Control de stock físico.',
   13500,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   5,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_las_perdices_malbec_375ml',
   'Las Perdices Malbec 375ml',
-  'Bodega',
-  'Malbec 375ml',
-  'vino',
+  'Las Perdices - Malbec 375ml. Control de stock físico.',
   8900,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   16,
   6,
   true,
   'Botella 375ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_las_perdices_sauvignon_blanc_750ml',
   'Las Perdices Sauvignon Blanc 750ml',
-  'Bodega',
-  'Sauvignon Blanc 750ml',
-  'vino',
+  'Las Perdices - Sauvignon Blanc. Control de stock físico.',
   13500,
+  'Bodega',
+  'Vinos blancos',
+  'vino',
   6,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_las_perdices_sauvignon_blanc_375ml',
   'Las Perdices Sauvignon Blanc 375ml',
-  'Bodega',
-  'Sauvignon Blanc 375ml',
-  'vino',
+  'Las Perdices - Sauvignon Blanc 375ml. Control de stock físico.',
   8900,
+  'Bodega',
+  'Vinos blancos',
+  'vino',
   17,
   6,
   true,
   'Botella 375ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_las_perdices_torrontes',
   'Las Perdices Torrontés',
-  'Bodega',
-  'Torrontés',
-  'vino',
+  'Las Perdices - Torrontés. Control de stock físico.',
   13500,
+  'Bodega',
+  'Vinos blancos',
+  'vino',
   5,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_las_perdices_torrontes_dulce',
   'Las Perdices Torrontés Dulce',
-  'Bodega',
-  'Torrontés Dulce',
-  'vino',
+  'Las Perdices - Torrontés Dulce. Control de stock físico.',
   13500,
+  'Bodega',
+  'Vinos blancos',
+  'vino',
   5,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_las_perdices_reserva_malbec',
   'Las Perdices Reserva Malbec',
-  'Bodega',
-  'Malbec',
-  'vino',
+  'Las Perdices - Malbec. Control de stock físico.',
   17500,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   7,
   4,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_las_perdices_reserva_pinot_noir',
   'Las Perdices Reserva Pinot Noir',
-  'Bodega',
-  'Pinot Noir',
-  'vino',
+  'Las Perdices - Pinot Noir. Control de stock físico.',
   18500,
-  6,
-  2,
-  true,
-  'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
-
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_vino_las_perdices_reserva_cabernet_sauvignon',
-  'Las Perdices Reserva Cabernet Sauvignon',
   'Bodega',
-  'Cabernet Sauvignon',
+  'Vinos tintos',
   'vino',
-  17500,
   6,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_vino_las_perdices_reserva_cabernet_sauvi',
+  'Las Perdices Reserva Cabernet Sauvignon',
+  'Las Perdices - Cabernet Sauvignon. Control de stock físico.',
+  17500,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
+  6,
+  2,
+  true,
+  'Botella 750ml',
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_las_perdices_reserva_chardonnay',
   'Las Perdices Reserva Chardonnay',
-  'Bodega',
-  'Chardonnay',
-  'vino',
+  'Las Perdices - Chardonnay. Control de stock físico.',
   17500,
+  'Bodega',
+  'Vinos blancos',
+  'vino',
   3,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_vino_don_juan_malbec',
-  'Don Juan Malbec',
-  'Bodega',
-  'Malbec',
-  'vino',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_vino_don_juan_nahuel_malbec',
+  'Don Juan Nahuel Malbec',
+  'Las Perdices - Malbec. Control de stock físico.',
   45000,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   3,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_vino_las_perdices_exploracion_mb_chacayes',
-  'Las Perdices Exploración MB Chacayes',
-  'Bodega',
-  'MB Chacayes',
-  'vino',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_vino_las_perdices_exploracion_chacayes_m',
+  'Las Perdices Exploración Chacayes Malbec',
+  'Las Perdices - MB Chacayes. Control de stock físico.',
   22000,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   5,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_vino_las_perdices_exploracion_mb_la_consulta',
-  'Las Perdices Exploración MB La Consulta',
-  'Bodega',
-  'MB La Consulta',
-  'vino',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_vino_las_perdices_exploracion_la_consult',
+  'Las Perdices Exploración La Consulta Malbec',
+  'Las Perdices - MB La Consulta. Control de stock físico.',
   22000,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   8,
   4,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_las_perdices_exploracion_albarino',
   'Las Perdices Exploración Albariño',
-  'Bodega',
-  'Albariño',
-  'vino',
+  'Las Perdices - Albariño. Control de stock físico.',
   21000,
+  'Bodega',
+  'Vinos blancos',
+  'vino',
   3,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_vino_las_perdices_exploracion_viognier_tardio',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_vino_las_perdices_exploracion_viognier_t',
   'Las Perdices Exploración Viognier Tardío',
-  'Bodega',
-  'Viognier Tardío',
-  'vino',
+  'Las Perdices - Viognier Tardío. Control de stock físico.',
   21000,
+  'Bodega',
+  'Vinos blancos',
+  'vino',
   6,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_vino_las_perdices_exploracion_gewurztraminer',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_vino_las_perdices_exploracion_gewurztram',
   'Las Perdices Exploración Gewürztraminer',
-  'Bodega',
-  'Gewürztraminer',
-  'vino',
+  'Las Perdices - Gewürztraminer. Control de stock físico.',
   21000,
+  'Bodega',
+  'Vinos blancos',
+  'vino',
   3,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_las_perdices_exploracion_riesling',
   'Las Perdices Exploración Riesling',
-  'Bodega',
-  'Riesling',
-  'vino',
+  'Las Perdices - Riesling. Control de stock físico.',
   21000,
+  'Bodega',
+  'Vinos blancos',
+  'vino',
   2,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_vino_ala_colorada_ancellotta',
-  'Ala Colorada Ancellotta',
-  'Bodega',
-  'Ancellotta',
-  'vino',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_vino_las_perdices_ala_colorada_ancellott',
+  'Las Perdices Ala Colorada Ancellotta',
+  'Las Perdices - Ancellotta. Control de stock físico.',
   23500,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   4,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_vino_ala_colorada_cabernet_franc',
-  'Ala Colorada Cabernet Franc',
-  'Bodega',
-  'Cabernet Franc',
-  'vino',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_vino_las_perdices_ala_colorada_cabernet_',
+  'Las Perdices Ala Colorada Cabernet Franc',
+  'Las Perdices - Cabernet Franc. Control de stock físico.',
   23500,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   1,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_vino_ala_colorada_tannat',
-  'Ala Colorada Tannat',
-  'Bodega',
-  'Tannat',
-  'vino',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_vino_las_perdices_ala_colorada_tannat',
+  'Las Perdices Ala Colorada Tannat',
+  'Las Perdices - Tannat. Control de stock físico.',
   23500,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   2,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_vino_ala_colorada_petit_verdot',
-  'Ala Colorada Petit Verdot',
-  'Bodega',
-  'Petit Verdot',
-  'vino',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_vino_las_perdices_ala_colorada_petit_ver',
+  'Las Perdices Ala Colorada Petit Verdot',
+  'Las Perdices - Petit Verdot. Control de stock físico.',
   23500,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   5,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_vino_alae_gran_blend_icono',
-  'Alae Gran Blend Icono',
-  'Bodega',
-  'Gran Blend Icono',
-  'vino',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_vino_las_perdices_alae_gran_icono',
+  'Las Perdices Alae Gran Icono',
+  'Las Perdices - Gran Blend. Control de stock físico.',
   62000,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   3,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_portillo_malbec',
   'Portillo Malbec',
-  'Bodega',
-  'Malbec',
-  'vino',
+  'Salentein - Malbec. Control de stock físico.',
   9500,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   16,
   4,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_portillo_sauvignon_blanc',
   'Portillo Sauvignon Blanc',
-  'Bodega',
-  'Sauvignon Blanc',
-  'vino',
+  'Salentein - Sauvignon Blanc. Control de stock físico.',
   9500,
+  'Bodega',
+  'Vinos blancos',
+  'vino',
   2,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_salentein_reserva_malbec_750ml',
   'Salentein Reserva Malbec 750ml',
-  'Bodega',
-  'Malbec 750ml',
-  'vino',
+  'Salentein - Malbec. Control de stock físico.',
   16500,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   13,
   4,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_salentein_reserva_malbec_375ml',
   'Salentein Reserva Malbec 375ml',
-  'Bodega',
-  'Malbec 375ml',
-  'vino',
+  'Salentein - Malbec 375ml. Control de stock físico.',
   9900,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   7,
   4,
   true,
   'Botella 375ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_salentein_reserva_pinot_noir',
   'Salentein Reserva Pinot Noir',
-  'Bodega',
-  'Pinot Noir',
-  'vino',
+  'Salentein - Pinot Noir. Control de stock físico.',
   17500,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   3,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_salentein_reserva_sauvignon_blanc',
   'Salentein Reserva Sauvignon Blanc',
-  'Bodega',
-  'Sauvignon Blanc',
-  'vino',
+  'Salentein - Sauvignon Blanc. Control de stock físico.',
   16500,
+  'Bodega',
+  'Vinos blancos',
+  'vino',
   5,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_salentein_reserva_chardonnay',
   'Salentein Reserva Chardonnay',
-  'Bodega',
-  'Chardonnay',
-  'vino',
+  'Salentein - Chardonnay. Control de stock físico.',
   16500,
+  'Bodega',
+  'Vinos blancos',
+  'vino',
   6,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_pyros_syrah',
   'Pyros Syrah',
-  'Bodega',
-  'Syrah',
-  'vino',
+  'Salentein - Syrah. Control de stock físico.',
   22000,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   6,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_vino_numina_malbec',
-  'Numina Malbec',
-  'Bodega',
-  'Malbec',
-  'vino',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_vino_salentein_numina_malbec',
+  'Salentein Numina Malbec',
+  'Salentein - Malbec. Control de stock físico.',
   26000,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   2,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_vino_numina_cabernet_franc',
-  'Numina Cabernet Franc',
-  'Bodega',
-  'Cabernet Franc',
-  'vino',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_vino_salentein_numina_cabernet_franc',
+  'Salentein Numina Cabernet Franc',
+  'Salentein - Cabernet Franc. Control de stock físico.',
   26000,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   3,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_vino_primus_malbec',
-  'Primus Malbec',
-  'Bodega',
-  'Malbec',
-  'vino',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_vino_salentein_primus_malbec',
+  'Salentein Primus Malbec',
+  'Salentein - Malbec. Control de stock físico.',
   68000,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   3,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_hermandad_malbec',
   'Hermandad Malbec',
-  'Bodega',
-  'Malbec',
-  'vino',
+  'Familia Falasco - Malbec. Control de stock físico.',
   24000,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   3,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_hermandad_blend',
   'Hermandad Blend',
-  'Bodega',
-  'Blend',
-  'vino',
+  'Familia Falasco - Blend. Control de stock físico.',
   24000,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   2,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_vino_felino_malbec',
-  'Felino Malbec',
-  'Bodega',
-  'Malbec',
-  'vino',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_vino_vina_cobos_felino_malbec',
+  'Viña Cobos Felino Malbec',
+  'Viña Cobos - Malbec. Control de stock físico.',
   28000,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   5,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_vino_bramare_malbec',
-  'Bramare Malbec',
-  'Bodega',
-  'Malbec',
-  'vino',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_vino_vina_cobos_bramare_malbec',
+  'Viña Cobos Bramare Malbec',
+  'Viña Cobos - Malbec. Control de stock físico.',
   58000,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   3,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_vino_profundo_malbec_blend',
-  'Profundo Malbec Blend',
-  'Bodega',
-  'Malbec Blend',
-  'vino',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_vino_bressia_profundo_malbec',
+  'Bressia Profundo Malbec',
+  'Bressia - Malbec Blend. Control de stock físico.',
   38000,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   3,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_vino_lagrima_canela_blanco_blend',
-  'Lágrima Canela Blanco Blend',
-  'Bodega',
-  'Blanco Blend',
-  'vino',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_vino_bressia_lagrima_canela',
+  'Bressia Lágrima Canela',
+  'Bressia - Blanco Blend. Control de stock físico.',
   38000,
+  'Bodega',
+  'Vinos blancos',
+  'vino',
   5,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
   'prod_vino_septima_gran_reserva_blend',
   'Séptima Gran Reserva Blend',
-  'Bodega',
-  'Blend',
-  'vino',
+  'Séptima - Blend. Control de stock físico.',
   26000,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   3,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_vino_petite_fleur_cabernet_franc',
-  'Petite Fleur Cabernet Franc',
-  'Bodega',
-  'Cabernet Franc',
-  'vino',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_vino_monteviejo_petite_fleur_cabernet_fr',
+  'Monteviejo Petite Fleur Cabernet Franc',
+  'Monteviejo - Cabernet Franc. Control de stock físico.',
   23000,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   3,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
 
-
-INSERT INTO public.productos_menu (id_producto, nombre, categoria, subcategoria, tipo, precio_venta, stock_actual, stock_minimo, controla_stock, unidad_medida, activo)
-VALUES (
-  'prod_vino_petite_fleur_blend',
-  'Petite Fleur Blend',
-  'Bodega',
-  'Blend',
-  'vino',
+INSERT INTO public.productos_menu (
+  id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
+) VALUES (
+  'prod_vino_monteviejo_petite_fleur_blend',
+  'Monteviejo Petite Fleur Blend',
+  'Monteviejo - Blend. Control de stock físico.',
   23000,
+  'Bodega',
+  'Vinos tintos',
+  'vino',
   4,
   2,
   true,
   'Botella 750ml',
-  true
-)
-ON CONFLICT (id_producto) DO UPDATE SET
-  stock_actual = EXCLUDED.stock_actual,
-  stock_minimo = EXCLUDED.stock_minimo,
-  controla_stock = true,
-  precio_venta = CASE WHEN public.productos_menu.precio_venta > 0 THEN public.productos_menu.precio_venta ELSE EXCLUDED.precio_venta END;
+  true,
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+  false
+);
