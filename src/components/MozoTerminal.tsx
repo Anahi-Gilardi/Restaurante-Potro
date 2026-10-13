@@ -2101,8 +2101,10 @@ export default function MozoTerminal({
                 lunes: 'LUNES', martes: 'MARTES', miercoles: 'MIÉRCOLES', jueves: 'JUEVES', viernes: 'VIERNES', sabado: 'SÁBADO', domingo: 'DOMINGO'
               };
               const todayKey = daysOrder[new Date().getDay()];
-              const todayData = menuDiario[todayKey] || INITIAL_MENU_DIARIO[todayKey];
-              const todayCartQty = cart[`menu_diario_${todayKey}`] || 0;
+              const isTodayMenu = todayKey === 'miercoles' || todayKey === 'jueves' || todayKey === 'viernes';
+              const activeDayForHero = isTodayMenu ? todayKey : 'miercoles';
+              const todayData = menuDiario[activeDayForHero] || INITIAL_MENU_DIARIO[activeDayForHero];
+              const todayCartQty = cart[`menu_diario_${activeDayForHero}`] || 0;
 
               return (
                 <div className="space-y-4">
@@ -2111,7 +2113,7 @@ export default function MozoTerminal({
                     <div className="flex justify-between items-start">
                       <div>
                         <span className="inline-block px-2.5 py-0.5 bg-white/20 backdrop-blur-xs text-[10px] font-black uppercase tracking-wider rounded-md mb-1.5">
-                          🌟 PROPUESTA DE HOY — {dayNames[todayKey]}
+                          {isTodayMenu ? `🌟 PROPUESTA DE HOY — ${dayNames[todayKey]}` : `🌟 MENÚ EJECUTIVO — MIÉRCOLES A VIERNES`}
                         </span>
                         <h3 className="text-xl font-black font-serif-rustic capitalize">{todayData?.nombre}</h3>
                         <p className="text-xs text-white/90 mt-1 max-w-lg leading-relaxed font-sans">{todayData?.descripcion}</p>
@@ -2132,25 +2134,25 @@ export default function MozoTerminal({
                           </span>
                         )}
                         <button
-                          onClick={() => handleAddToCart(`menu_diario_${todayKey}`)}
+                          onClick={() => handleAddToCart(`menu_diario_${activeDayForHero}`)}
                           className="px-4 py-2 bg-white text-[#5C1D24] hover:bg-stone-100 font-extrabold text-xs rounded-xl shadow-md cursor-pointer transition-all active:scale-95 flex items-center gap-1.5"
                         >
-                          <Plus className="w-4 h-4" /> Añadir al Pedido
+                          <Plus className="w-4 h-4" /> {isTodayMenu ? 'Añadir al Pedido' : `Añadir (${dayNames[activeDayForHero]})`}
                         </button>
                       </div>
                     </div>
                   </div>
 
-                  {/* Menú Semanal Completo Grid */}
+                  {/* Menú Semanal Completo Grid (Miércoles a Viernes) */}
                   <div className="bg-[#FAF7F0] dark:bg-[#1E140E] p-3 rounded-2xl border border-[#8C6239]/20 flex items-center justify-between">
                     <h4 className="text-xs font-bold text-[#8C6239] dark:text-[#C8956A] uppercase tracking-wider">
-                      📅 Rotación Semanal Completa (Lunes a Domingo)
+                      📅 Menús Ejecutivos (Miércoles a Viernes)
                     </h4>
                     <span className="text-[10px] text-stone-500 font-semibold">Seleccionable para mesa</span>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'].map(day => {
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {['miercoles', 'jueves', 'viernes'].map(day => {
                       const diaData = menuDiario[day] || INITIAL_MENU_DIARIO[day];
                       const isToday = day === todayKey;
                       const cartQty = cart[`menu_diario_${day}`] || 0;

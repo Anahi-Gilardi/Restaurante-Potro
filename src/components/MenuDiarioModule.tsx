@@ -8,7 +8,7 @@ interface MenuDiarioModuleProps {
   addLog: (tipo: EventoLog['tipo'], mensaje: string) => void;
 }
 
-const DIAS_KEYS: MenuDiarioDia['dia'][] = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'];
+const DIAS_KEYS: MenuDiarioDia['dia'][] = ['miercoles', 'jueves', 'viernes'];
 
 const CATEGORIAS_OPCIONES = [
   'Minutas & Especiales',
@@ -26,7 +26,7 @@ const CATEGORIAS_OPCIONES = [
 export default function MenuDiarioModule({ addLog }: MenuDiarioModuleProps) {
   const { toast, toasts, removeToast } = useToast();
   const [semana, setSemana] = useState<Record<string, MenuDiarioDia>>(INITIAL_MENU_DIARIO);
-  const [selectedDia, setSelectedDia] = useState<MenuDiarioDia['dia']>('lunes');
+  const [selectedDia, setSelectedDia] = useState<MenuDiarioDia['dia']>('miercoles');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -165,8 +165,8 @@ export default function MenuDiarioModule({ addLog }: MenuDiarioModuleProps) {
 
     try {
       await menuDiarioService.saveAll(newSemana);
-      toast.success('¡Semana completa guardada y sincronizada correctamente!');
-      addLog('sistema', 'MENÚ DIARIO: Guardada y sincronizada la rotación completa de Lunes a Domingo.');
+      toast.success('¡Propuestas guardadas y sincronizadas correctamente!');
+      addLog('sistema', 'MENÚ DIARIO: Guardada y sincronizada la rotación de Miércoles a Viernes.');
     } catch (err) {
       console.error('Error al guardar semana:', err);
       toast.error('No se pudo guardar la semana completa.');
@@ -186,10 +186,10 @@ export default function MenuDiarioModule({ addLog }: MenuDiarioModuleProps) {
             Configuración de Rotación Diaria & Portada
           </span>
           <h2 className="text-xl md:text-2xl font-black text-stone-900 dark:text-stone-100 font-serif-rustic">
-            Pizarra & Menú del Día Semanal (Lunes a Domingo)
+            Pizarra & Menú del Día (Miércoles a Viernes)
           </h2>
           <p className="text-xs text-stone-600 dark:text-stone-400 italic font-serif-rustic max-w-2xl">
-            Configure las propuestas del día para cada día de la semana. Se sincronizan automáticamente con el POS del Mozo y la Portada Publicitaria.
+            Configure las propuestas del día para Miércoles, Jueves y Viernes. Se sincronizan automáticamente con el POS del Mozo y la Portada Publicitaria.
           </p>
         </div>
 
@@ -211,13 +211,13 @@ export default function MenuDiarioModule({ addLog }: MenuDiarioModuleProps) {
             className="px-4 py-2.5 bg-black text-white hover:bg-stone-900 active:scale-95 transition-all text-xs font-black rounded-xl shadow-md flex items-center gap-2 cursor-pointer border border-white/20"
           >
             <Sparkles className="w-4 h-4 text-emerald-400 animate-pulse" />
-            <span>GUARDAR SEMANA COMPLETA</span>
+            <span>GUARDAR DÍAS ACTIVOS</span>
           </button>
         </div>
       </div>
 
-      {/* STRIP BARRAS DE DÍAS (LUNES A DOMINGO) */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5">
+      {/* STRIP BARRAS DE DÍAS (MIÉRCOLES A VIERNES) */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {DIAS_KEYS.map(diaKey => {
           const item = semana[diaKey] || INITIAL_MENU_DIARIO[diaKey];
           const isSelected = selectedDia === diaKey;
