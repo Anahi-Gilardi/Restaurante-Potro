@@ -167,6 +167,8 @@ export const isBeverageProduct = (p: Partial<ProductoMenu>): boolean => {
 const BEVERAGE_STOCK_STORAGE_KEY = 'el_patron_beverage_stock_map';
 
 interface BeverageStockOverride {
+  nombre?: string;
+  categoria?: string;
   stock_actual: number;
   stock_minimo?: number;
   precio_venta?: number;
@@ -192,11 +194,13 @@ const saveBeverageStockOverride = (prod: Partial<ProductoMenu> & { id_producto: 
     const key = prod.id_producto.toLowerCase();
     const prev = map[key];
     map[key] = {
+      nombre: prod.nombre !== undefined ? prod.nombre : prev?.nombre,
+      categoria: prod.categoria !== undefined ? prod.categoria : prev?.categoria,
       stock_actual: prod.stock_actual !== undefined ? Number(prod.stock_actual) : (prev?.stock_actual ?? 0),
       stock_minimo: prod.stock_minimo !== undefined ? Number(prod.stock_minimo) : prev?.stock_minimo,
       precio_venta: prod.precio_venta !== undefined ? Number(prod.precio_venta) : prev?.precio_venta,
-      subcategoria: prod.subcategoria ?? prev?.subcategoria,
-      unidad_medida: prod.unidad_medida ?? prev?.unidad_medida,
+      subcategoria: prod.subcategoria !== undefined ? prod.subcategoria : prev?.subcategoria,
+      unidad_medida: prod.unidad_medida !== undefined ? prod.unidad_medida : prev?.unidad_medida,
       updated_at: Date.now()
     };
     localStorage.setItem(BEVERAGE_STOCK_STORAGE_KEY, JSON.stringify(map));
@@ -248,6 +252,12 @@ const normalizeProductoMenu = (prod: DbProductoMenu): ProductoMenu => {
   const stockMap = getBeverageStockMap();
   const stockOverride = stockMap[id_producto.toLowerCase()];
 
+  const resolvedNombre = stockOverride?.nombre || nombre;
+  const resolvedCategoria = stockOverride?.categoria ? normalizeCategoryName(stockOverride.categoria) : categoria;
+  const resolvedSubcategoria = stockOverride && stockOverride.subcategoria !== undefined
+    ? (stockOverride.subcategoria || undefined)
+    : (subcategoria || undefined);
+
   const resolvedStockActual = stockOverride && stockOverride.stock_actual !== undefined
     ? stockOverride.stock_actual
     : (hasNumericValue(prod.stock_actual) ? readNumber(prod.stock_actual, 0) : (match?.stock_actual ?? 0));
@@ -256,17 +266,23 @@ const normalizeProductoMenu = (prod: DbProductoMenu): ProductoMenu => {
     ? stockOverride.stock_minimo
     : (hasNumericValue(prod.stock_minimo) ? readNumber(prod.stock_minimo, 5) : (match?.stock_minimo ?? 5));
 
-  const resolvedPrecio = hasNumericValue(prod.precio_venta) && readNumber(prod.precio_venta, 0) > 0
-    ? readNumber(prod.precio_venta, 0)
-    : (stockOverride?.precio_venta ?? match?.precio_venta ?? 0);
+  const resolvedPrecio = stockOverride && stockOverride.precio_venta !== undefined && stockOverride.precio_venta > 0
+    ? stockOverride.precio_venta
+    : (hasNumericValue(prod.precio_venta) && readNumber(prod.precio_venta, 0) > 0
+        ? readNumber(prod.precio_venta, 0)
+        : (match?.precio_venta ?? 0));
+
+  const resolvedUnidadMedida = stockOverride && stockOverride.unidad_medida !== undefined
+    ? (stockOverride.unidad_medida || undefined)
+    : (readString(prod.unidad_medida) || match?.unidad_medida || undefined);
 
   return {
     id_producto,
-    nombre,
+    nombre: resolvedNombre,
     descripcion,
     precio_venta: resolvedPrecio,
-    categoria,
-    subcategoria: subcategoria || stockOverride?.subcategoria || undefined,
+    categoria: resolvedCategoria,
+    subcategoria: resolvedSubcategoria,
     activo,
     imagen,
     tipo,
@@ -282,7 +298,7 @@ const normalizeProductoMenu = (prod: DbProductoMenu): ProductoMenu => {
       : (RECIPES_DETAILS[id_producto]?.alergenos || match?.alergenos || undefined),
     consejo_emplatado: readString(prod.consejo_emplatado)
       || (RECIPES_DETAILS[id_producto]?.consejo_emplatado || match?.consejo_emplatado || undefined),
-    unidad_medida: readString(prod.unidad_medida) || stockOverride?.unidad_medida || match?.unidad_medida || undefined,
+    unidad_medida: resolvedUnidadMedida,
     stock_actual: resolvedStockActual,
     stock_minimo: resolvedStockMinimo,
     controla_stock: isBev

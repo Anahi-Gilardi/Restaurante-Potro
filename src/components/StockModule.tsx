@@ -41,7 +41,17 @@ export default function StockModule({
 
   // Modals state
   const [editingProduct, setEditingProduct] = useState<ProductoMenu | null>(null);
+  const [editNumericInputs, setEditNumericInputs] = useState({
+    stock_actual: '',
+    stock_minimo: '',
+    precio_venta: ''
+  });
   const [isCreatingNew, setIsCreatingNew] = useState(false);
+  const [newNumericInputs, setNewNumericInputs] = useState({
+    stock_actual: '6',
+    stock_minimo: '2',
+    precio_venta: ''
+  });
   const [productToDelete, setProductToDelete] = useState<ProductoMenu | null>(null);
 
   // New product form initial state
@@ -49,14 +59,54 @@ export default function StockModule({
     nombre: '',
     categoria: 'Bodega',
     subcategoria: 'Vinos tintos',
-    precio_venta: 12500,
+    precio_venta: 0,
     stock_actual: 6,
     stock_minimo: 2,
-    unidad_medida: 'Botella 750ml',
+    unidad_medida: '',
     tipo: 'vino',
     controla_stock: true,
     activo: true
   });
+
+  const sanitizeNumericInput = (raw: string, allowDecimals = false): string => {
+    const filtered = allowDecimals
+      ? raw.replace(/[^0-9.]/g, '')
+      : raw.replace(/[^0-9]/g, '');
+    return filtered.replace(/^0+(?=\d)/, '');
+  };
+
+  const handleOpenEdit = (item: ProductoMenu) => {
+    setEditingProduct({
+      ...item,
+      unidad_medida: item.unidad_medida ?? ''
+    });
+    setEditNumericInputs({
+      stock_actual: String(item.stock_actual ?? 0),
+      stock_minimo: String(item.stock_minimo ?? 2),
+      precio_venta: item.precio_venta ? String(item.precio_venta) : ''
+    });
+  };
+
+  const handleOpenCreateNew = () => {
+    setNewForm({
+      nombre: '',
+      categoria: 'Bodega',
+      subcategoria: 'Vinos tintos',
+      precio_venta: 0,
+      stock_actual: 6,
+      stock_minimo: 2,
+      unidad_medida: '',
+      tipo: 'vino',
+      controla_stock: true,
+      activo: true
+    });
+    setNewNumericInputs({
+      stock_actual: '6',
+      stock_minimo: '2',
+      precio_venta: ''
+    });
+    setIsCreatingNew(true);
+  };
 
   // Extract all beverages using shared classifier
   const allBeverages = useMemo(() => {
@@ -135,20 +185,28 @@ export default function StockModule({
     const targetId = editingProduct.id_producto;
     const originalProduct = productosMenu.find(p => p.id_producto === targetId) || editingProduct;
 
-    try {
-      const updated: ProductoMenu = {
-        ...editingProduct,
-        stock_actual: Number(editingProduct.stock_actual ?? 0),
-        stock_minimo: Number(editingProduct.stock_minimo ?? 2),
-        precio_venta: Number(editingProduct.precio_venta ?? 0),
-        controla_stock: true
-      };
+    const parsedStockActual = editNumericInputs.stock_actual === '' ? 0 : Number(editNumericInputs.stock_actual);
+    const parsedStockMinimo = editNumericInputs.stock_minimo === '' ? 0 : Number(editNumericInputs.stock_minimo);
+    const parsedPrecioVenta = editNumericInputs.precio_venta === '' ? 0 : Number(editNumericInputs.precio_venta);
 
-      onProductosChange(prev => prev.map(p => p.id_producto === targetId ? updated : p));
+    const updated: ProductoMenu = {
+      ...editingProduct,
+      nombre: (editingProduct.nombre || '').trim() || originalProduct.nombre,
+      unidad_medida: (editingProduct.unidad_medida ?? '').trim(),
+      stock_actual: Number.isFinite(parsedStockActual) ? parsedStockActual : 0,
+      stock_minimo: Number.isFinite(parsedStockMinimo) ? parsedStockMinimo : 0,
+      precio_venta: Number.isFinite(parsedPrecioVenta) ? parsedPrecioVenta : 0,
+      controla_stock: true
+    };
+
+    // Actualizar estado local y cerrar el modal inmediatamente
+    onProductosChange(prev => prev.map(p => p.id_producto === targetId ? updated : p));
+    setEditingProduct(null);
+    addLog('sistema', `Bebida editada: ${updated.nombre} (Stock: ${updated.stock_actual}, Precio: $${updated.precio_venta})`);
+    toast.success(`Producto "${updated.nombre}" actualizado.`);
+
+    try {
       await menuService.save(updated);
-      addLog('sistema', `Bebida editada: ${updated.nombre} (Stock: ${updated.stock_actual}, Precio: $${updated.precio_venta})`);
-      toast.success(`Producto "${updated.nombre}" actualizado.`);
-      setEditingProduct(null);
     } catch (err) {
       console.error('Error al editar producto:', err);
       onProductosChange(prev => prev.map(p => p.id_producto === targetId ? originalProduct : p));
@@ -163,12 +221,13 @@ export default function StockModule({
     const id = productToDelete.id_producto;
     const toDelete = productToDelete;
 
+    onProductosChange(prev => prev.filter(p => p.id_producto !== id));
+    setProductToDelete(null);
+    addLog('sistema', `Bebida eliminada del menú/stock: ${name}`);
+    toast.success(`"${name}" ha sido eliminado.`);
+
     try {
-      onProductosChange(prev => prev.filter(p => p.id_producto !== id));
       await menuService.delete(id);
-      addLog('sistema', `Bebida eliminada del menú/stock: ${name}`);
-      toast.success(`"${name}" ha sido eliminado.`);
-      setProductToDelete(null);
     } catch (err) {
       console.error('Error al eliminar producto:', err);
       onProductosChange(prev => [...prev, toDelete]);
@@ -192,16 +251,20 @@ export default function StockModule({
       .replace(/(^_|_$)+/g, '')
       .slice(0, 40);
 
+    const parsedStockActual = newNumericInputs.stock_actual === '' ? 0 : Number(newNumericInputs.stock_actual);
+    const parsedStockMinimo = newNumericInputs.stock_minimo === '' ? 2 : Number(newNumericInputs.stock_minimo);
+    const parsedPrecioVenta = newNumericInputs.precio_venta === '' ? 0 : Number(newNumericInputs.precio_venta);
+
     const newProd: ProductoMenu = {
       id_producto: `prod_beb_${cleanSlug}_${Date.now().toString().slice(-4)}`,
       nombre: newForm.nombre.trim(),
       descripcion: newForm.descripcion || `${newForm.subcategoria || ''}. Control de stock en góndola.`,
-      precio_venta: Number(newForm.precio_venta || 0),
+      precio_venta: Number.isFinite(parsedPrecioVenta) ? parsedPrecioVenta : 0,
       categoria: newForm.categoria || 'Bodega',
       subcategoria: newForm.subcategoria || 'Vinos tintos',
-      stock_actual: Number(newForm.stock_actual || 0),
-      stock_minimo: Number(newForm.stock_minimo || 2),
-      unidad_medida: newForm.unidad_medida || 'Botella 750ml',
+      stock_actual: Number.isFinite(parsedStockActual) ? parsedStockActual : 0,
+      stock_minimo: Number.isFinite(parsedStockMinimo) ? parsedStockMinimo : 2,
+      unidad_medida: (newForm.unidad_medida ?? '').trim(),
       tipo: newForm.tipo || 'vino',
       controla_stock: true,
       activo: true,
@@ -209,24 +272,13 @@ export default function StockModule({
       imagen: newForm.imagen || 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80'
     };
 
+    onProductosChange(prev => [newProd, ...prev]);
+    setIsCreatingNew(false);
+    addLog('sistema', `Nueva bebida agregada al stock: ${newProd.nombre} (${newProd.stock_actual} uds.)`);
+    toast.success(`"${newProd.nombre}" agregada con éxito.`);
+
     try {
-      onProductosChange(prev => [newProd, ...prev]);
       await menuService.save(newProd);
-      addLog('sistema', `Nueva bebida agregada al stock: ${newProd.nombre} (${newProd.stock_actual} uds.)`);
-      toast.success(`"${newProd.nombre}" agregada con éxito.`);
-      setIsCreatingNew(false);
-      setNewForm({
-        nombre: '',
-        categoria: 'Bodega',
-        subcategoria: 'Vinos tintos',
-        precio_venta: 12500,
-        stock_actual: 6,
-        stock_minimo: 2,
-        unidad_medida: 'Botella 750ml',
-        tipo: 'vino',
-        controla_stock: true,
-        activo: true
-      });
     } catch (err) {
       console.error('Error creando bebida:', err);
       toast.error('No se pudo guardar la nueva bebida.');
@@ -255,7 +307,7 @@ export default function StockModule({
         </div>
 
         <button
-          onClick={() => setIsCreatingNew(true)}
+          onClick={handleOpenCreateNew}
           className="px-5 py-3 rounded-2xl bg-[#FFFDF8] text-[#624A3E] hover:bg-amber-100 font-extrabold text-sm flex items-center gap-2 shadow-lg transition-all hover:scale-105 active:scale-95 cursor-pointer shrink-0"
         >
           <Plus className="w-5 h-5 stroke-[2.5]" />
@@ -451,7 +503,7 @@ export default function StockModule({
                       <td className="py-3.5 px-4 text-center">
                         <div className="flex items-center justify-center gap-1.5">
                           <button
-                            onClick={() => setEditingProduct(item)}
+                            onClick={() => handleOpenEdit(item)}
                             title="Editar detalles y stock"
                             className="p-1.5 rounded-lg text-stone-600 dark:text-stone-300 hover:text-stone-900 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors cursor-pointer"
                           >
@@ -477,8 +529,14 @@ export default function StockModule({
 
       {/* 6. MODAL: EDITAR BEBIDA */}
       {editingProduct && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-white dark:bg-[#1E130C] w-full max-w-lg rounded-3xl border border-stone-200 dark:border-stone-800 shadow-2xl p-6 space-y-5">
+        <div
+          onClick={() => setEditingProduct(null)}
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn"
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="bg-white dark:bg-[#1E130C] w-full max-w-lg rounded-3xl border border-stone-200 dark:border-stone-800 shadow-2xl p-6 space-y-5"
+          >
             <div className="flex items-center justify-between border-b border-stone-150 dark:border-stone-800 pb-3">
               <div className="flex items-center gap-2">
                 <span className="p-2 bg-[#8C6239]/10 text-[#8C6239] rounded-xl">
@@ -489,6 +547,7 @@ export default function StockModule({
                 </h3>
               </div>
               <button
+                type="button"
                 onClick={() => setEditingProduct(null)}
                 className="p-1.5 rounded-xl text-stone-400 hover:text-stone-600 hover:bg-stone-100 dark:hover:bg-stone-800 cursor-pointer"
               >
@@ -536,34 +595,45 @@ export default function StockModule({
                 <div>
                   <label className="text-[11px] font-black uppercase text-stone-500 block mb-1">Stock Actual</label>
                   <input
-                    type="number"
-                    min="0"
-                    required
-                    value={editingProduct.stock_actual ?? 0}
-                    onChange={e => setEditingProduct({ ...editingProduct, stock_actual: parseInt(e.target.value) || 0 })}
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="0"
+                    value={editNumericInputs.stock_actual}
+                    onChange={e => {
+                      const val = sanitizeNumericInput(e.target.value, false);
+                      setEditNumericInputs(prev => ({ ...prev, stock_actual: val }));
+                      setEditingProduct({ ...editingProduct, stock_actual: val === '' ? 0 : Number(val) });
+                    }}
                     className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-900 border border-stone-200 dark:border-stone-750 rounded-xl text-xs font-mono font-black text-stone-900 dark:text-stone-100"
                   />
                 </div>
                 <div>
                   <label className="text-[11px] font-black uppercase text-stone-500 block mb-1">Stock Mínimo</label>
                   <input
-                    type="number"
-                    min="0"
-                    required
-                    value={editingProduct.stock_minimo ?? 2}
-                    onChange={e => setEditingProduct({ ...editingProduct, stock_minimo: parseInt(e.target.value) || 0 })}
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="0"
+                    value={editNumericInputs.stock_minimo}
+                    onChange={e => {
+                      const val = sanitizeNumericInput(e.target.value, false);
+                      setEditNumericInputs(prev => ({ ...prev, stock_minimo: val }));
+                      setEditingProduct({ ...editingProduct, stock_minimo: val === '' ? 0 : Number(val) });
+                    }}
                     className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-900 border border-stone-200 dark:border-stone-750 rounded-xl text-xs font-mono font-black text-stone-900 dark:text-stone-100"
                   />
                 </div>
                 <div>
                   <label className="text-[11px] font-black uppercase text-stone-500 block mb-1">Precio Venta ($)</label>
                   <input
-                    type="number"
-                    min="0"
-                    step="50"
-                    required
-                    value={editingProduct.precio_venta}
-                    onChange={e => setEditingProduct({ ...editingProduct, precio_venta: parseFloat(e.target.value) || 0 })}
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="Ej: 12500"
+                    value={editNumericInputs.precio_venta}
+                    onChange={e => {
+                      const val = sanitizeNumericInput(e.target.value, true);
+                      setEditNumericInputs(prev => ({ ...prev, precio_venta: val }));
+                      setEditingProduct({ ...editingProduct, precio_venta: val === '' ? 0 : Number(val) });
+                    }}
                     className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-900 border border-stone-200 dark:border-stone-750 rounded-xl text-xs font-mono font-black text-stone-900 dark:text-stone-100"
                   />
                 </div>
@@ -573,7 +643,7 @@ export default function StockModule({
                 <label className="text-[11px] font-black uppercase text-stone-500 block mb-1">Unidad de Medida Comercial</label>
                 <input
                   type="text"
-                  value={editingProduct.unidad_medida || 'Botella 750ml'}
+                  value={editingProduct.unidad_medida ?? ''}
                   onChange={e => setEditingProduct({ ...editingProduct, unidad_medida: e.target.value })}
                   placeholder="Ej: Botella 750ml, Lata 350cc, Medida..."
                   className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-900 border border-stone-200 dark:border-stone-750 rounded-xl text-xs font-bold text-stone-900 dark:text-stone-100"
@@ -603,8 +673,14 @@ export default function StockModule({
 
       {/* 7. MODAL: NUEVA BEBIDA */}
       {isCreatingNew && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-white dark:bg-[#1E130C] w-full max-w-lg rounded-3xl border border-stone-200 dark:border-stone-800 shadow-2xl p-6 space-y-5">
+        <div
+          onClick={() => setIsCreatingNew(false)}
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn"
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="bg-white dark:bg-[#1E130C] w-full max-w-lg rounded-3xl border border-stone-200 dark:border-stone-800 shadow-2xl p-6 space-y-5"
+          >
             <div className="flex items-center justify-between border-b border-stone-150 dark:border-stone-800 pb-3">
               <div className="flex items-center gap-2">
                 <span className="p-2 bg-emerald-500/10 text-emerald-600 rounded-xl">
@@ -615,6 +691,7 @@ export default function StockModule({
                 </h3>
               </div>
               <button
+                type="button"
                 onClick={() => setIsCreatingNew(false)}
                 className="p-1.5 rounded-xl text-stone-400 hover:text-stone-600 hover:bg-stone-100 dark:hover:bg-stone-800 cursor-pointer"
               >
@@ -664,34 +741,45 @@ export default function StockModule({
                 <div>
                   <label className="text-[11px] font-black uppercase text-stone-500 block mb-1">Stock Inicial</label>
                   <input
-                    type="number"
-                    min="0"
-                    required
-                    value={newForm.stock_actual ?? 0}
-                    onChange={e => setNewForm({ ...newForm, stock_actual: parseInt(e.target.value) || 0 })}
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="0"
+                    value={newNumericInputs.stock_actual}
+                    onChange={e => {
+                      const val = sanitizeNumericInput(e.target.value, false);
+                      setNewNumericInputs(prev => ({ ...prev, stock_actual: val }));
+                      setNewForm({ ...newForm, stock_actual: val === '' ? 0 : Number(val) });
+                    }}
                     className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-900 border border-stone-200 dark:border-stone-750 rounded-xl text-xs font-mono font-black text-stone-900 dark:text-stone-100"
                   />
                 </div>
                 <div>
                   <label className="text-[11px] font-black uppercase text-stone-500 block mb-1">Stock Mínimo</label>
                   <input
-                    type="number"
-                    min="0"
-                    required
-                    value={newForm.stock_minimo ?? 2}
-                    onChange={e => setNewForm({ ...newForm, stock_minimo: parseInt(e.target.value) || 0 })}
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="0"
+                    value={newNumericInputs.stock_minimo}
+                    onChange={e => {
+                      const val = sanitizeNumericInput(e.target.value, false);
+                      setNewNumericInputs(prev => ({ ...prev, stock_minimo: val }));
+                      setNewForm({ ...newForm, stock_minimo: val === '' ? 0 : Number(val) });
+                    }}
                     className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-900 border border-stone-200 dark:border-stone-750 rounded-xl text-xs font-mono font-black text-stone-900 dark:text-stone-100"
                   />
                 </div>
                 <div>
                   <label className="text-[11px] font-black uppercase text-stone-500 block mb-1">Precio Venta ($)</label>
                   <input
-                    type="number"
-                    min="0"
-                    step="50"
-                    required
-                    value={newForm.precio_venta ?? 0}
-                    onChange={e => setNewForm({ ...newForm, precio_venta: parseFloat(e.target.value) || 0 })}
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="Ej: 12500"
+                    value={newNumericInputs.precio_venta}
+                    onChange={e => {
+                      const val = sanitizeNumericInput(e.target.value, true);
+                      setNewNumericInputs(prev => ({ ...prev, precio_venta: val }));
+                      setNewForm({ ...newForm, precio_venta: val === '' ? 0 : Number(val) });
+                    }}
                     className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-900 border border-stone-200 dark:border-stone-750 rounded-xl text-xs font-mono font-black text-stone-900 dark:text-stone-100"
                   />
                 </div>
@@ -701,9 +789,9 @@ export default function StockModule({
                 <label className="text-[11px] font-black uppercase text-stone-500 block mb-1">Presentación / Unidad Comercial</label>
                 <input
                   type="text"
-                  value={newForm.unidad_medida || 'Botella 750ml'}
+                  value={newForm.unidad_medida ?? ''}
                   onChange={e => setNewForm({ ...newForm, unidad_medida: e.target.value })}
-                  placeholder="Botella 750ml, Lata 350cc, Medida..."
+                  placeholder="Ej: Botella 750ml, Lata 350cc, Medida..."
                   className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-900 border border-stone-200 dark:border-stone-750 rounded-xl text-xs font-bold text-stone-900 dark:text-stone-100"
                 />
               </div>
