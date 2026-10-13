@@ -1300,34 +1300,23 @@ export default function MesasModule({
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#8C6D58]">Salon operativo</p>
             <h2 className="text-2xl font-black text-stone-900 tracking-tight">Gestion de mesas</h2>
-            <p className="text-sm text-stone-500 font-medium mt-1">Plano vivo, reservas, union de mesas, limpieza y movimientos del turno.</p>
+            <p className="text-sm text-stone-500 font-medium mt-1">Control operativo de mesas, reservas, unión, limpieza y movimientos del turno.</p>
           </div>
-          <div className="grid grid-cols-2 sm:flex gap-2 w-full lg:w-auto">
+          <div className="flex gap-2 w-full sm:w-auto">
             <button
               onClick={() => {
                 setUnionMode(prev => !prev);
                 setEditorMode(false);
                 setSelectedForUnion([]);
               }}
-              className={`px-3 py-2 rounded-lg text-xs font-black border cursor-pointer flex items-center justify-center gap-2 ${unionMode ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-stone-200 text-stone-700 hover:bg-stone-50'}`}
+              className={`px-3.5 py-2 rounded-xl text-xs font-black border cursor-pointer flex items-center justify-center gap-2 transition-all ${unionMode ? 'bg-blue-600 border-blue-600 text-white shadow-md' : 'bg-white border-stone-200 text-stone-700 hover:bg-stone-50'}`}
             >
               <Link2 className="w-4 h-4" />
-              Unir
-            </button>
-            <button
-              onClick={() => {
-                setEditorMode(prev => !prev);
-                setUnionMode(false);
-                setSelectedForUnion([]);
-              }}
-              className={`px-3 py-2 rounded-lg text-xs font-black border cursor-pointer flex items-center justify-center gap-2 ${editorMode ? 'bg-[#624A3E] border-[#624A3E] text-white' : 'bg-white border-stone-200 text-stone-700 hover:bg-stone-50'}`}
-            >
-              <Move className="w-4 h-4" />
-              Mover
+              {unionMode ? 'Cancelar unión' : 'Unir'}
             </button>
             <button
               onClick={() => { resetMesaForm(); setShowMesaForm(true); }}
-              className="col-span-2 sm:col-span-1 px-3 py-2 rounded-lg text-xs font-black bg-[#624A3E] text-white cursor-pointer hover:bg-[#503C32] flex items-center justify-center gap-2"
+              className="px-3.5 py-2 rounded-xl text-xs font-black bg-[#624A3E] hover:bg-[#503C32] text-white cursor-pointer shadow-md flex items-center justify-center gap-2 transition-all active:scale-95"
             >
               <Plus className="w-4 h-4" />
               Agregar mesa
@@ -1370,36 +1359,147 @@ export default function MesasModule({
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.35fr)_minmax(330px,0.85fr)] gap-4">
-        <div className="bg-white rounded-xl p-4 sm:p-5 border border-stone-200 shadow-sm">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-3">
+        {/* COLUMNA PRINCIPAL: GESTIÓN Y LISTADO OPERATIVO DE MESAS */}
+        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-stone-200 shadow-sm space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h3 className="font-black text-stone-900 flex items-center gap-2">
-                <Activity className="w-4 h-4 text-[#624A3E]" />
-                Plano del salon
+              <h3 className="font-extrabold text-sm text-stone-800">
+                Listado operativo ({mesasFiltradas.length}/{visualMesas.length})
               </h3>
               <p className="text-xs text-stone-500">
-                {editorMode ? 'Arrastre una mesa para reubicarla.' : unionMode ? 'Seleccione dos o más mesas en el plano para unirlas.' : 'Toque una mesa para gestionarla.'}
+                {unionMode ? 'Seleccione dos o más mesas para unirlas.' : 'Estados, reservas, capacidad y acciones principales por mesa.'}
               </p>
             </div>
-            {unionMode && (
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-100 px-2 py-1 rounded-lg">
-                  {selectedForUnion.length} seleccionadas {selectedForUnion.length < 2 ? '(mínimo 2)' : ''}
-                </span>
-                <button
-                  disabled={selectedForUnion.length < 2}
-                  onClick={() => handleUnirMesas()}
-                  className="px-3 py-2 rounded-lg bg-blue-600 text-white text-xs font-black disabled:opacity-40 cursor-pointer"
+            <button
+              onClick={() => { resetMesaForm(); setShowMesaForm(true); }}
+              className="px-3 py-2 rounded-xl text-xs font-bold bg-[#624A3E] text-white cursor-pointer hover:bg-[#503C32] shrink-0"
+            >
+              + Agregar mesa
+            </button>
+          </div>
+
+          {unionMode && (
+            <div className="flex items-center justify-between p-3 rounded-xl bg-blue-50 border border-blue-200">
+              <span className="text-xs font-bold text-blue-700">
+                {selectedForUnion.length} seleccionadas {selectedForUnion.length < 2 ? '(mínimo 2 para unir)' : ''}
+              </span>
+              <button
+                disabled={selectedForUnion.length < 2}
+                onClick={() => handleUnirMesas()}
+                className="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-black disabled:opacity-40 cursor-pointer shadow-xs transition-colors"
+              >
+                Confirmar unión ({selectedForUnion.length} mesas)
+              </button>
+            </div>
+          )}
+
+          {showMesaForm && (
+            <form onSubmit={handleSaveMesa} className="bg-stone-50 rounded-xl p-4 space-y-3 border border-stone-100">
+              <div className="grid grid-cols-3 gap-3">
+                <div className="col-span-1">
+                  <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Número</label>
+                  <input type="text" value={nuevoNumero} onChange={e => setNuevoNumero(e.target.value)} placeholder="Ej. 10" required className="w-full px-3 py-2.5 text-xs border border-stone-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#624A3E]" />
+                </div>
+                <div className="col-span-1">
+                  <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Capacidad</label>
+                  <select value={nuevaCapacidad} onChange={e => setNuevaCapacidad(e.target.value)} className="w-full px-3 py-2.5 text-xs border border-stone-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#624A3E]">
+                    {[1,2,3,4,5,6,7,8,10,12].map(n => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                </div>
+                <div className="col-span-1">
+                  <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Sector / Zona</label>
+                  <select value={nuevaZona} onChange={e => setNuevaZona(e.target.value as Zona)} className="w-full px-3 py-2.5 text-xs border border-stone-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#624A3E]">
+                    <option value="comedor">Zona Alta (Mesas 1-6 · 2 personas)</option>
+                    <option value="salon">Zona Central/Baja (Mesas 7-11 · 4-5 personas) + VIP</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button type="button" onClick={resetMesaForm} className="flex-1 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl text-xs font-bold cursor-pointer">Cancelar</button>
+                <button type="submit" className="flex-1 py-2.5 bg-[#624A3E] hover:bg-[#503C32] text-white rounded-xl text-xs font-bold cursor-pointer">{editingMesa ? 'Guardar cambios' : 'Agregar mesa'}</button>
+              </div>
+            </form>
+          )}
+
+          <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
+            {mesasFiltradas.map(m => {
+              const isSelectedForUnion = unionMode && selectedForUnion.some(s => s.id_mesa === m.id_mesa);
+              return (
+                <div
+                  key={m.id}
+                  onClick={() => {
+                    if (unionMode) toggleUnionSelection(m);
+                  }}
+                  className={`flex items-center justify-between p-3.5 rounded-2xl border transition-all ${
+                    unionMode ? 'cursor-pointer hover:ring-2 hover:ring-blue-400' : ''
+                  } ${
+                    isSelectedForUnion
+                      ? 'border-blue-500 bg-blue-50/80 ring-2 ring-blue-500 shadow-sm'
+                      : ESTADO_CARD_CLASS[m.estado]
+                  }`}
                 >
-                  Confirmar union ({selectedForUnion.length} mesas)
-                </button>
+                  <div className="flex items-center gap-3">
+                    {unionMode ? (
+                      <span className={`w-5 h-5 rounded-md flex items-center justify-center border font-bold text-xs ${
+                        isSelectedForUnion ? 'bg-blue-600 text-white border-blue-600' : 'border-stone-300 bg-white text-transparent'
+                      }`}>
+                        ✓
+                      </span>
+                    ) : (
+                      <span className={`w-2.5 h-2.5 rounded-full ${ESTADO_DOT_CLASS[m.estado]}`} />
+                    )}
+                    <div>
+                      <p className="text-xs font-bold text-stone-800">{getMesaDisplayName(m.numero_mesa)}</p>
+                      <span className={`inline-flex mt-1 text-[9px] px-2 py-0.5 rounded-full border font-black uppercase ${ESTADO_BADGE_CLASS[m.estado]}`}>
+                        {ESTADO_LABEL[m.estado]}
+                      </span>
+                      <p className="text-[10px] text-stone-500">{capitalize(m.zona)} · {m.capacidad} personas · {m.estado}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openModal(m);
+                      }}
+                      className="px-2.5 py-1.5 bg-[#F5F1E9] hover:bg-[#E9DFD0] text-[#624A3E] text-[10px] font-black rounded-lg cursor-pointer transition-colors"
+                    >
+                      Gestionar
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openEditMesa(m, e);
+                      }}
+                      aria-label={`Editar ${getMesaDisplayName(m.numero_mesa)}`}
+                      className="p-1.5 hover:bg-blue-50 text-stone-400 hover:text-blue-500 rounded-lg cursor-pointer transition-colors"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteMesa(m, e);
+                      }}
+                      aria-label={`Eliminar ${getMesaDisplayName(m.numero_mesa)}`}
+                      className="p-1.5 hover:bg-rose-50 text-stone-400 hover:text-rose-500 rounded-lg cursor-pointer transition-colors"
+                    >
+                      <Trash className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+            {mesasFiltradas.length === 0 && (
+              <div className="border border-dashed border-stone-200 rounded-xl p-8 text-center">
+                <p className="font-black text-stone-800">No hay mesas con esos filtros</p>
+                <p className="text-sm text-stone-500 mt-1">Ajuste la búsqueda, estado o zona para ver resultados.</p>
               </div>
             )}
-
           </div>
-          {renderSvg()}
         </div>
 
+        {/* COLUMNA LATERAL: CONTROL RÁPIDO, MOVIMIENTOS Y ASISTENTE */}
         <div className="space-y-4">
           <div className="bg-white rounded-xl p-4 border border-stone-200 shadow-sm">
             <h3 className="font-black text-stone-900 flex items-center gap-2 mb-3">
@@ -1456,94 +1556,6 @@ export default function MesasModule({
           </div>
 
           <MesaAsistente mesas={mesasParaAsistente} onAccion={handleAccionAsistente} />
-        </div>
-      </div>
-      {/* Header */}
-      <div className="hidden">
-        <div>
-          <h2 className="text-xl font-black text-stone-800 tracking-tight">Gestión de Mesas</h2>
-          <p className="text-xs text-stone-500 font-medium">Administre el estado y la configuración de las mesas del salón</p>
-        </div>
-      </div>
-
-      {/* Gestión de mesas */}
-      <div className="bg-white rounded-2xl p-4 sm:p-5 border border-stone-200 shadow-sm space-y-4">
-        <div className="flex justify-between items-center">
-          <div>
-            <h3 className="font-extrabold text-sm text-stone-800">Listado operativo ({mesasFiltradas.length}/{visualMesas.length})</h3>
-            <p className="text-xs text-stone-500">Estados, reservas, capacidad y acciones principales por mesa.</p>
-          </div>
-          <button
-            onClick={() => { resetMesaForm(); setShowMesaForm(true); }}
-            className="px-3 py-2 rounded-xl text-xs font-bold bg-[#624A3E] text-white cursor-pointer hover:bg-[#503C32]"
-          >
-            + Agregar mesa
-          </button>
-        </div>
-
-        {showMesaForm && (
-          <form onSubmit={handleSaveMesa} className="bg-stone-50 rounded-xl p-4 space-y-3 border border-stone-100">
-            <div className="grid grid-cols-3 gap-3">
-              <div className="col-span-1">
-                <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Número</label>
-                <input type="text" value={nuevoNumero} onChange={e => setNuevoNumero(e.target.value)} placeholder="Ej. 10" required className="w-full px-3 py-2.5 text-xs border border-stone-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#624A3E]" />
-              </div>
-              <div className="col-span-1">
-                <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Capacidad</label>
-                <select value={nuevaCapacidad} onChange={e => setNuevaCapacidad(e.target.value)} className="w-full px-3 py-2.5 text-xs border border-stone-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#624A3E]">
-                  {[1,2,3,4,5,6,7,8,10,12].map(n => <option key={n} value={n}>{n}</option>)}
-                </select>
-              </div>
-              <div className="col-span-1">
-                <label className="text-[10px] font-black text-stone-500 uppercase block mb-1">Sector / Zona</label>
-                <select value={nuevaZona} onChange={e => setNuevaZona(e.target.value as Zona)} className="w-full px-3 py-2.5 text-xs border border-stone-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#624A3E]">
-                  <option value="comedor">Zona Alta (Mesas 1-6 · 2 personas)</option>
-                  <option value="salon">Zona Central/Baja (Mesas 7-11 · 4-5 personas) + VIP</option>
-                </select>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <button type="button" onClick={resetMesaForm} className="flex-1 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl text-xs font-bold cursor-pointer">Cancelar</button>
-              <button type="submit" className="flex-1 py-2.5 bg-[#624A3E] hover:bg-[#503C32] text-white rounded-xl text-xs font-bold cursor-pointer">{editingMesa ? 'Guardar cambios' : 'Agregar mesa'}</button>
-            </div>
-          </form>
-        )}
-
-        <div className="space-y-2 max-h-[60vh] overflow-y-auto">
-          {mesasFiltradas.map(m => (
-            <div key={m.id} className={`flex items-center justify-between p-3 rounded-xl border ${ESTADO_CARD_CLASS[m.estado]}`}>
-              <div className="flex items-center gap-3">
-                <span className={`w-2.5 h-2.5 rounded-full ${ESTADO_DOT_CLASS[m.estado]}`} />
-                <div>
-                  <p className="text-xs font-bold text-stone-800">{getMesaDisplayName(m.numero_mesa)}</p>
-                  <span className={`inline-flex mt-1 text-[9px] px-2 py-0.5 rounded-full border font-black uppercase ${ESTADO_BADGE_CLASS[m.estado]}`}>
-                    {ESTADO_LABEL[m.estado]}
-                  </span>
-                  <p className="text-[10px] text-stone-500">{capitalize(m.zona)} · {m.capacidad} personas · {m.estado}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => openModal(m)}
-                  className="px-2.5 py-1.5 bg-[#F5F1E9] hover:bg-[#E9DFD0] text-[#624A3E] text-[10px] font-black rounded-lg cursor-pointer transition-colors"
-                >
-                  Gestionar
-                </button>
-                <button onClick={e => openEditMesa(m, e)} aria-label={`Editar ${getMesaDisplayName(m.numero_mesa)}`} className="p-1.5 hover:bg-blue-50 text-stone-400 hover:text-blue-500 rounded-lg cursor-pointer transition-colors">
-                  <Pencil className="w-3.5 h-3.5" />
-                </button>
-                <button onClick={e => handleDeleteMesa(m, e)} aria-label={`Eliminar ${getMesaDisplayName(m.numero_mesa)}`} className="p-1.5 hover:bg-rose-50 text-stone-400 hover:text-rose-500 rounded-lg cursor-pointer transition-colors">
-                  <Trash className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-          ))}
-          {mesasFiltradas.length === 0 && (
-            <div className="border border-dashed border-stone-200 rounded-xl p-8 text-center">
-              <p className="font-black text-stone-800">No hay mesas con esos filtros</p>
-              <p className="text-sm text-stone-500 mt-1">Ajuste la busqueda, estado o zona para ver resultados.</p>
-            </div>
-          )}
         </div>
       </div>
 
