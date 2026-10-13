@@ -270,6 +270,7 @@ export default function StockModule({
       toast.success(`${product.nombre}: ${newStock} en stock (${delta > 0 ? `+${delta}` : delta})`);
     } catch (err) {
       console.error('Error guardando stock:', err);
+      onProductosChange(prev => prev.map(p => p.id_producto === product.id_producto ? product : p));
       toast.error('No se pudo guardar el cambio de stock en Supabase.');
     }
   };
@@ -278,6 +279,9 @@ export default function StockModule({
   const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingProduct) return;
+
+    const targetId = editingProduct.id_producto;
+    const originalProduct = productosMenu.find(p => p.id_producto === targetId) || editingProduct;
 
     try {
       const updated: ProductoMenu = {
@@ -288,13 +292,14 @@ export default function StockModule({
         controla_stock: true
       };
 
-      onProductosChange(prev => prev.map(p => p.id_producto === updated.id_producto ? updated : p));
+      onProductosChange(prev => prev.map(p => p.id_producto === targetId ? updated : p));
       await menuService.save(updated);
       addLog('sistema', `Bebida editada: ${updated.nombre} (Stock: ${updated.stock_actual}, Precio: $${updated.precio_venta})`);
       toast.success(`Producto "${updated.nombre}" actualizado.`);
       setEditingProduct(null);
     } catch (err) {
       console.error('Error al editar producto:', err);
+      onProductosChange(prev => prev.map(p => p.id_producto === targetId ? originalProduct : p));
       toast.error('Error al guardar los cambios.');
     }
   };
@@ -304,6 +309,7 @@ export default function StockModule({
     if (!productToDelete) return;
     const name = productToDelete.nombre;
     const id = productToDelete.id_producto;
+    const toDelete = productToDelete;
 
     try {
       onProductosChange(prev => prev.filter(p => p.id_producto !== id));
@@ -313,6 +319,7 @@ export default function StockModule({
       setProductToDelete(null);
     } catch (err) {
       console.error('Error al eliminar producto:', err);
+      onProductosChange(prev => [...prev, toDelete]);
       toast.error('No se pudo eliminar el producto.');
     }
   };

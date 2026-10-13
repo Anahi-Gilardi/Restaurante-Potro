@@ -81,3 +81,63 @@ test('menuService list asigna activo: true a filas sin estado explicito', async 
 
   localStorage.removeItem('el_patron_cache_menu');
 });
+
+test('menuService update preserva stock_actual, stock_minimo y controla_stock', async () => {
+  const dummyItem: ProductoMenu = {
+    id_producto: 'prod_vino_test',
+    nombre: 'Malbec Reserva Test',
+    precio_venta: 15000,
+    categoria: 'Bodega y Vinos',
+    subcategoria: 'Vinos tintos',
+    stock_actual: 12,
+    stock_minimo: 3,
+    controla_stock: true,
+    unidad_medida: 'Botella 750ml'
+  };
+
+  localStorage.setItem('el_patron_cache_menu', JSON.stringify([dummyItem]));
+
+  const updated = await menuService.update('prod_vino_test', {
+    stock_actual: 18,
+    precio_venta: 16000
+  });
+
+  assert.equal(updated.stock_actual, 18);
+  assert.equal(updated.precio_venta, 16000);
+  assert.equal(updated.stock_minimo, 3);
+  assert.equal(updated.controla_stock, true);
+
+  localStorage.removeItem('el_patron_cache_menu');
+});
+
+test('menuService delete y remove eliminan el producto y no reaparece en list()', async () => {
+  const items: ProductoMenu[] = [
+    {
+      id_producto: 'prod_a_eliminar',
+      nombre: 'Bebida a borrar',
+      precio_venta: 2000,
+      categoria: 'Bebidas sin alcohol',
+      activo: true
+    },
+    {
+      id_producto: 'prod_que_queda',
+      nombre: 'Bebida que permanece',
+      precio_venta: 2500,
+      categoria: 'Bebidas sin alcohol',
+      activo: true
+    }
+  ];
+
+  localStorage.setItem('el_patron_cache_menu', JSON.stringify(items));
+
+  await menuService.delete('prod_a_eliminar');
+
+  const afterList = await menuService.list();
+  assert.equal(afterList.length, 1);
+  assert.equal(afterList[0].id_producto, 'prod_que_queda');
+  assert.equal(afterList.find(p => p.id_producto === 'prod_a_eliminar'), undefined);
+
+  localStorage.removeItem('el_patron_cache_menu');
+  localStorage.removeItem('el_patron_deleted_menu_products');
+});
+

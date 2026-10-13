@@ -213,14 +213,13 @@ export const menuService = {
       try {
         const { data, error } = await client.from('productos_menu').select('*').order('id_producto', { ascending: true });
         if (!error && data && data.length > 0) {
-          const supabasePks = new Set(data.map((s: any) => String(s.id_producto || s.nombre || '').toLowerCase()));
-          const mergedList = [
-            ...data,
-            ...INITIAL_PRODUCTOS_MENU.filter(init => 
-              !supabasePks.has(init.id_producto.toLowerCase()) && !supabasePks.has(init.nombre.toLowerCase())
-            )
-          ];
-          const normalized = mergedList.map(normalizeProductoMenu);
+          const deletedRaw = typeof localStorage !== 'undefined' ? localStorage.getItem('el_patron_deleted_menu_products') : null;
+          const deletedSet = new Set<string>(deletedRaw ? JSON.parse(deletedRaw) : []);
+          const filteredData = data.filter((s: any) => {
+            const pid = String(s.id_producto || '');
+            return !deletedSet.has(pid) && !deletedSet.has(pid.toLowerCase());
+          });
+          const normalized = filteredData.map(normalizeProductoMenu);
           const deduped = deduplicateMenuProducts(normalized);
           try {
             localStorage.setItem('el_patron_cache_menu', JSON.stringify(deduped));
@@ -238,14 +237,13 @@ export const menuService = {
     try {
       const sheetData = await sheetFetchTable('productos_menu');
       if (sheetData && sheetData.length > 0) {
-        const sheetPks = new Set(sheetData.map(s => String(s.id_producto || s.nombre || '').toLowerCase()));
-        const mergedList = [
-          ...sheetData,
-          ...INITIAL_PRODUCTOS_MENU.filter(init => 
-            !sheetPks.has(init.id_producto.toLowerCase()) && !sheetPks.has(init.nombre.toLowerCase())
-          )
-        ];
-        const normalized = mergedList.map(normalizeProductoMenu);
+        const deletedRaw = typeof localStorage !== 'undefined' ? localStorage.getItem('el_patron_deleted_menu_products') : null;
+        const deletedSet = new Set<string>(deletedRaw ? JSON.parse(deletedRaw) : []);
+        const filteredSheet = sheetData.filter((s: any) => {
+          const pid = String(s.id_producto || '');
+          return !deletedSet.has(pid) && !deletedSet.has(pid.toLowerCase());
+        });
+        const normalized = filteredSheet.map(normalizeProductoMenu);
         const deduped = deduplicateMenuProducts(normalized);
         try {
           localStorage.setItem('el_patron_cache_menu', JSON.stringify(deduped));
@@ -260,7 +258,13 @@ export const menuService = {
       try {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return deduplicateMenuProducts(parsed.map(normalizeProductoMenu));
+          const deletedRaw = typeof localStorage !== 'undefined' ? localStorage.getItem('el_patron_deleted_menu_products') : null;
+          const deletedSet = new Set<string>(deletedRaw ? JSON.parse(deletedRaw) : []);
+          const filteredCache = parsed.filter((s: any) => {
+            const pid = String(s.id_producto || '');
+            return !deletedSet.has(pid) && !deletedSet.has(pid.toLowerCase());
+          });
+          return deduplicateMenuProducts(filteredCache.map(normalizeProductoMenu));
         }
       } catch (e) {
         console.warn('Failed parsing menu cache:', e);
@@ -296,7 +300,7 @@ export const menuService = {
     try {
       const supabase = tryGetActiveSupabaseClient();
       if (supabase) {
-        await supabase.from('productos_menu').insert([payload]);
+        await supabase.from('productos_menu').upsert([payload], { onConflict: 'id_producto' });
       }
     } catch (e) {
       console.warn('[menuService.create] Supabase omitido:', e);
@@ -308,6 +312,19 @@ export const menuService = {
       console.error('[menuService.create] Error en Google Sheets:', sheetErr);
     }
 
+    // Si estaba en la lista de eliminados, removerlo al crearlo nuevamente
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const deletedRaw = localStorage.getItem('el_patron_deleted_menu_products');
+        if (deletedRaw) {
+          const deletedSet = new Set<string>(JSON.parse(deletedRaw));
+          deletedSet.delete(prod.id_producto);
+          deletedSet.delete(prod.id_producto.toLowerCase());
+          localStorage.setItem('el_patron_deleted_menu_products', JSON.stringify(Array.from(deletedSet)));
+        }
+      }
+    } catch {}
+
     const normalized = normalizeProductoMenu(payload);
 
     // Update local cache defensively
@@ -316,7 +333,12 @@ export const menuService = {
       try {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed)) {
-          parsed.push(payload);
+          const idx = parsed.findIndex((item: any) => item.id_producto === prod.id_producto || item.id_producto?.toLowerCase() === prod.id_producto.toLowerCase());
+          if (idx >= 0) {
+            parsed[idx] = { ...parsed[idx], ...payload };
+          } else {
+            parsed.push(payload);
+          }
           try {
             localStorage.setItem('el_patron_cache_menu', JSON.stringify(parsed));
           } catch (e) {
@@ -336,6 +358,7 @@ export const menuService = {
     const currentList = await this.list();
     const existing = currentList.find(p => p.id_producto === id || p.id_producto?.toLowerCase() === lowerId);
     const merged: ProductoMenu = {
+      ...(existing || {}),
       id_producto: id,
       nombre: prod.nombre ?? existing?.nombre ?? '',
       descripcion: prod.descripcion ?? existing?.descripcion,
@@ -350,6 +373,10 @@ export const menuService = {
       pasos_preparacion: prod.pasos_preparacion ?? existing?.pasos_preparacion,
       alergenos: prod.alergenos ?? existing?.alergenos,
       consejo_emplatado: prod.consejo_emplatado ?? existing?.consejo_emplatado,
+      unidad_medida: prod.unidad_medida ?? existing?.unidad_medida,
+      stock_actual: prod.stock_actual !== undefined ? prod.stock_actual : (existing?.stock_actual ?? 0),
+      stock_minimo: prod.stock_minimo !== undefined ? prod.stock_minimo : (existing?.stock_minimo ?? 2),
+      controla_stock: prod.controla_stock !== undefined ? prod.controla_stock : (existing?.controla_stock ?? false),
     };
 
     if (merged.imagen && isValidImageData(merged.imagen)) {
@@ -361,7 +388,11 @@ export const menuService = {
     try {
       const supabase = tryGetActiveSupabaseClient();
       if (supabase) {
-        await supabase.from('productos_menu').update(payload).eq('id_producto', id);
+        const { error: updErr } = await supabase.from('productos_menu').update(payload).eq('id_producto', id);
+        if (updErr) {
+          console.warn('[menuService.update] Update falló, ejecutando upsert:', updErr);
+          await supabase.from('productos_menu').upsert([payload], { onConflict: 'id_producto' });
+        }
       }
     } catch (e) {
       console.warn('[menuService.update] Supabase error:', e);
@@ -372,6 +403,19 @@ export const menuService = {
     } catch (sheetErr) {
       console.error('[menuService.update] Error en Google Sheets:', sheetErr);
     }
+
+    // Si estaba en la lista de eliminados, removerlo
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const deletedRaw = localStorage.getItem('el_patron_deleted_menu_products');
+        if (deletedRaw) {
+          const deletedSet = new Set<string>(JSON.parse(deletedRaw));
+          deletedSet.delete(id);
+          deletedSet.delete(lowerId);
+          localStorage.setItem('el_patron_deleted_menu_products', JSON.stringify(Array.from(deletedSet)));
+        }
+      }
+    } catch {}
 
     const normalized = normalizeProductoMenu(payload);
 
@@ -398,6 +442,18 @@ export const menuService = {
     return normalized;
   },
 
+  async save(prod: ProductoMenu): Promise<ProductoMenu> {
+    const existing = await this.getById(prod.id_producto);
+    if (existing) {
+      return this.update(prod.id_producto, prod);
+    }
+    return this.create(prod);
+  },
+
+  async delete(id: string): Promise<boolean> {
+    return this.remove(id);
+  },
+
   async upsert(prods: ProductoMenu[]): Promise<ProductoMenu[]> {
     try {
       const supabase = tryGetActiveSupabaseClient();
@@ -414,6 +470,7 @@ export const menuService = {
   },
 
   async remove(id: string): Promise<boolean> {
+    const lowerId = id.toLowerCase();
     await deleteMenuImage(id).catch(() => {});
 
     try {
@@ -431,13 +488,24 @@ export const menuService = {
       console.error('[menuService.remove] Error en Google Sheets:', sheetErr);
     }
 
+    // Registrar en lista negra de eliminados para que ninguna fuente offline lo resucite
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const deletedRaw = localStorage.getItem('el_patron_deleted_menu_products');
+        const deletedSet = new Set<string>(deletedRaw ? JSON.parse(deletedRaw) : []);
+        deletedSet.add(id);
+        deletedSet.add(lowerId);
+        localStorage.setItem('el_patron_deleted_menu_products', JSON.stringify(Array.from(deletedSet)));
+      }
+    } catch {}
+
     // Update local cache defensively
-    const cached = localStorage.getItem('el_patron_cache_menu');
+    const cached = typeof localStorage !== 'undefined' ? localStorage.getItem('el_patron_cache_menu') : null;
     if (cached) {
       try {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed)) {
-          const updatedCache = parsed.filter((item: any) => item.id_producto !== id);
+          const updatedCache = parsed.filter((item: any) => item.id_producto !== id && item.id_producto?.toLowerCase() !== lowerId);
           try {
             localStorage.setItem('el_patron_cache_menu', JSON.stringify(updatedCache));
           } catch (e) {
