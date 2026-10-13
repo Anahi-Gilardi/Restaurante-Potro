@@ -34,15 +34,15 @@ export async function dbFetchUsuarios() {
 }
 
 export async function dbUpsertUsuarios(usuarios: any[]) {
-  try {
-    for (const u of usuarios) {
-      await sheetUpsertRow('usuarios', u);
-    }
-  } catch (sheetErr) {
-    console.warn('[GoogleSheets] dbUpsertUsuarios error:', sheetErr);
-  }
-  try { await (await import('./services/usuariosService')).usuariosService.upsert(usuarios); }
-  catch (e) { console.warn('dbUpsertUsuarios:', e); }
+  await Promise.allSettled([
+    Promise.allSettled(usuarios.map(u => sheetUpsertRow('usuarios', u))).catch(sheetErr => {
+      console.warn('[GoogleSheets] dbUpsertUsuarios error:', sheetErr);
+    }),
+    (async () => {
+      try { await (await import('./services/usuariosService')).usuariosService.upsert(usuarios); }
+      catch (e) { console.warn('dbUpsertUsuarios:', e); }
+    })()
+  ]);
 }
 
 // =============================================================================
@@ -106,31 +106,33 @@ export async function dbFetchInsumos() {
 }
 
 export async function dbUpsertInsumos(insumos: any[]) {
-  try {
-    for (const i of insumos) {
-      await sheetUpsertRow('insumos', i);
-    }
-  } catch (sheetErr) {
-    console.warn('[GoogleSheets] dbUpsertInsumos error:', sheetErr);
-  }
-  try { await (await import('./services/insumosService')).insumosService.upsert(insumos); }
-  catch (e) { console.warn('dbUpsertInsumos:', e); }
+  await Promise.allSettled([
+    Promise.allSettled(insumos.map(i => sheetUpsertRow('insumos', i))).catch(sheetErr => {
+      console.warn('[GoogleSheets] dbUpsertInsumos error:', sheetErr);
+    }),
+    (async () => {
+      try { await (await import('./services/insumosService')).insumosService.upsert(insumos); }
+      catch (e) { console.warn('dbUpsertInsumos:', e); }
+    })()
+  ]);
 }
 
 export async function dbRecordMovement(movement: any) {
-  try {
-    await sheetUpsertRow('caja_ledger', {
+  await Promise.allSettled([
+    sheetUpsertRow('caja_ledger', {
       id_ledger: `mov_${Date.now()}`,
       concepto: movement.motivo || movement.concepto || 'Ajuste Insumo',
       monto: Number(movement.cantidad || 0),
       tipo: movement.tipo_movimiento || 'ajuste',
       fecha: new Date().toISOString()
-    });
-  } catch (sheetErr) {
-    console.warn('[GoogleSheets] dbRecordMovement error:', sheetErr);
-  }
-  try { await (await import('./services/insumosService')).insumosService.recordMovement(movement); }
-  catch (e) { console.warn('dbRecordMovement:', e); }
+    }).catch(sheetErr => {
+      console.warn('[GoogleSheets] dbRecordMovement error:', sheetErr);
+    }),
+    (async () => {
+      try { await (await import('./services/insumosService')).insumosService.recordMovement(movement); }
+      catch (e) { console.warn('dbRecordMovement:', e); }
+    })()
+  ]);
 }
 
 // =============================================================================
@@ -150,14 +152,7 @@ export async function dbUpsertProductosMenu(productos: any[]) {
   try {
     await (await import('./services/menuService')).menuService.upsert(productos);
   } catch (e) {
-    console.warn('dbUpsertProductosMenu (Supabase) error:', e);
-  }
-  try {
-    for (const p of productos) {
-      await sheetUpsertRow('productos_menu', p);
-    }
-  } catch (sheetErr) {
-    console.warn('[GoogleSheets] dbUpsertProductosMenu error:', sheetErr);
+    console.warn('dbUpsertProductosMenu error:', e);
   }
 }
 
@@ -202,15 +197,15 @@ export async function dbFetchPromociones() {
 }
 
 export async function dbUpsertPromociones(promos: any[]) {
-  try {
-    for (const p of promos) {
-      await sheetUpsertRow('promociones', p);
-    }
-  } catch (sheetErr) {
-    console.warn('[GoogleSheets] dbUpsertPromociones error:', sheetErr);
-  }
-  try { await (await import('./services/promocionesService')).promocionesService.upsert(promos); }
-  catch (e) { console.warn('dbUpsertPromociones:', e); }
+  await Promise.allSettled([
+    Promise.allSettled(promos.map(p => sheetUpsertRow('promociones', p))).catch(sheetErr => {
+      console.warn('[GoogleSheets] dbUpsertPromociones error:', sheetErr);
+    }),
+    (async () => {
+      try { await (await import('./services/promocionesService')).promocionesService.upsert(promos); }
+      catch (e) { console.warn('dbUpsertPromociones:', e); }
+    })()
+  ]);
 }
 
 // =============================================================================
@@ -228,15 +223,15 @@ export async function dbFetchProveedores() {
 }
 
 export async function dbUpsertProveedores(provs: any[]) {
-  try {
-    for (const p of provs) {
-      await sheetUpsertRow('proveedores', p);
-    }
-  } catch (sheetErr) {
-    console.warn('[GoogleSheets] dbUpsertProveedores error:', sheetErr);
-  }
-  try { await (await import('./services/proveedoresService')).proveedoresService.upsert(provs); }
-  catch (e) { console.warn('dbUpsertProveedores:', e); }
+  await Promise.allSettled([
+    Promise.allSettled(provs.map(p => sheetUpsertRow('proveedores', p))).catch(sheetErr => {
+      console.warn('[GoogleSheets] dbUpsertProveedores error:', sheetErr);
+    }),
+    (async () => {
+      try { await (await import('./services/proveedoresService')).proveedoresService.upsert(provs); }
+      catch (e) { console.warn('dbUpsertProveedores:', e); }
+    })()
+  ]);
 }
 
 // =============================================================================
@@ -254,15 +249,15 @@ export async function dbFetchReservas() {
 }
 
 export async function dbUpsertReservas(reservas: any[]) {
-  try {
-    for (const r of reservas) {
-      await sheetUpsertRow('reservas', r);
-    }
-  } catch (sheetErr) {
-    console.warn('[GoogleSheets] dbUpsertReservas error:', sheetErr);
-  }
-  try { await (await import('./services/reservasService')).reservasService.upsert(reservas); }
-  catch (e) { console.warn('dbUpsertReservas:', e); }
+  await Promise.allSettled([
+    Promise.allSettled(reservas.map(r => sheetUpsertRow('reservas', r))).catch(sheetErr => {
+      console.warn('[GoogleSheets] dbUpsertReservas error:', sheetErr);
+    }),
+    (async () => {
+      try { await (await import('./services/reservasService')).reservasService.upsert(reservas); }
+      catch (e) { console.warn('dbUpsertReservas:', e); }
+    })()
+  ]);
 }
 
 // =============================================================================
@@ -310,22 +305,8 @@ export async function dbFetchPedidos(forceFresh = false) {
 }
 
 export async function dbSavePedidoComplex(pedido: any) {
-  try {
-    // 1. Guardar cabecera en Google Sheets
-    await sheetUpsertRow('pedidos_cabecera', {
-      id_pedido: pedido.id_pedido,
-      id_mesa: pedido.id_mesa,
-      numero_mesa: pedido.numero_mesa,
-      mozo: pedido.mozo,
-      estado_comanda: pedido.estado_comanda || 'pendiente',
-      observaciones: pedido.observaciones || '',
-      fecha_hora: pedido.fecha_hora || new Date().toISOString(),
-      items: JSON.stringify(pedido.items || [])
-    });
-
-    // 2. Guardar detalles de platos si existen
-    if (Array.isArray(pedido.items) && pedido.items.length > 0) {
-      const detalles = pedido.items.map((it: any, idx: number) => ({
+  const detalles = Array.isArray(pedido.items) && pedido.items.length > 0
+    ? pedido.items.map((it: any, idx: number) => ({
         id_detalle: `${pedido.id_pedido}_${idx}`,
         id_pedido: pedido.id_pedido,
         id_producto: it.id_producto || '',
@@ -335,15 +316,32 @@ export async function dbSavePedidoComplex(pedido: any) {
         precio_unitario: Number(it.precio_unitario || 0),
         estado: it.estado || 'pendiente',
         fecha_hora: new Date().toISOString()
-      }));
-      await sheetBatchInsert('pedido_detalle', detalles);
-    }
-  } catch (sheetErr) {
-    console.warn('[GoogleSheets] dbSavePedidoComplex error:', sheetErr);
-  }
+      }))
+    : [];
 
-  try { await (await import('./services/pedidosService')).pedidosService.upsert([pedido]); }
-  catch (e) { console.warn('dbSavePedidoComplex fallback:', e); }
+  await Promise.allSettled([
+    sheetUpsertRow('pedidos_cabecera', {
+      id_pedido: pedido.id_pedido,
+      id_mesa: pedido.id_mesa,
+      numero_mesa: pedido.numero_mesa,
+      mozo: pedido.mozo,
+      estado_comanda: pedido.estado_comanda || 'pendiente',
+      observaciones: pedido.observaciones || '',
+      fecha_hora: pedido.fecha_hora || new Date().toISOString(),
+      items: JSON.stringify(pedido.items || [])
+    }).catch(sheetErr => {
+      console.warn('[GoogleSheets] dbSavePedidoComplex cabecera error:', sheetErr);
+    }),
+    detalles.length > 0
+      ? sheetBatchInsert('pedido_detalle', detalles).catch(sheetErr => {
+          console.warn('[GoogleSheets] dbSavePedidoComplex detalle error:', sheetErr);
+        })
+      : Promise.resolve(),
+    (async () => {
+      try { await (await import('./services/pedidosService')).pedidosService.upsert([pedido]); }
+      catch (e) { console.warn('dbSavePedidoComplex fallback:', e); }
+    })()
+  ]);
 }
 
 // =============================================================================
@@ -379,15 +377,15 @@ export async function dbFetchFacturas() {
 }
 
 export async function dbUpsertFacturas(facturas: any[]) {
-  try {
-    for (const f of facturas) {
-      await sheetUpsertRow('facturas', f);
-    }
-  } catch (sheetErr) {
-    console.warn('[GoogleSheets] dbUpsertFacturas error:', sheetErr);
-  }
-  try { await (await import('./services/facturacionService')).facturacionService.upsert(facturas); }
-  catch (e) { console.warn('dbUpsertFacturas:', e); }
+  await Promise.allSettled([
+    Promise.allSettled(facturas.map(f => sheetUpsertRow('facturas', f))).catch(sheetErr => {
+      console.warn('[GoogleSheets] dbUpsertFacturas error:', sheetErr);
+    }),
+    (async () => {
+      try { await (await import('./services/facturacionService')).facturacionService.upsert(facturas); }
+      catch (e) { console.warn('dbUpsertFacturas:', e); }
+    })()
+  ]);
 }
 
 // =============================================================================
@@ -414,15 +412,15 @@ export async function dbFetchPagos(idFactura?: string) {
 }
 
 export async function dbUpsertPagos(pagos: any[]) {
-  try {
-    for (const p of pagos) {
-      await sheetUpsertRow('pagos', p);
-    }
-  } catch (sheetErr) {
-    console.warn('[GoogleSheets] dbUpsertPagos error:', sheetErr);
-  }
-  try { await (await import('./services/pagosService')).pagosService.bulkCreate(pagos); }
-  catch (e) { console.warn('dbUpsertPagos:', e); }
+  await Promise.allSettled([
+    Promise.allSettled(pagos.map(p => sheetUpsertRow('pagos', p))).catch(sheetErr => {
+      console.warn('[GoogleSheets] dbUpsertPagos error:', sheetErr);
+    }),
+    (async () => {
+      try { await (await import('./services/pagosService')).pagosService.bulkCreate(pagos); }
+      catch (e) { console.warn('dbUpsertPagos:', e); }
+    })()
+  ]);
 }
 
 // =============================================================================
@@ -447,22 +445,24 @@ export async function dbFetchArcaConfig() {
 }
 
 export async function dbUpsertArcaConfig(config: any) {
-  try {
-    const client = tryGetActiveSupabaseClient();
-    if (client) {
-      const { error } = await client
-        .from('arca_config')
-        .upsert({ ...config, id: 'primary' });
-      if (error) throw error;
-    }
-  } catch (e) {
-    console.warn('dbUpsertArcaConfig Supabase error:', e);
-  }
-  try {
-    await sheetUpsertRow('arca_config', { ...config, id: 'primary' });
-  } catch (sheetErr) {
-    console.warn('[GoogleSheets] dbUpsertArcaConfig error:', sheetErr);
-  }
+  await Promise.allSettled([
+    (async () => {
+      try {
+        const client = tryGetActiveSupabaseClient();
+        if (client) {
+          const { error } = await client
+            .from('arca_config')
+            .upsert({ ...config, id: 'primary' });
+          if (error) throw error;
+        }
+      } catch (e) {
+        console.warn('dbUpsertArcaConfig Supabase error:', e);
+      }
+    })(),
+    sheetUpsertRow('arca_config', { ...config, id: 'primary' }).catch(sheetErr => {
+      console.warn('[GoogleSheets] dbUpsertArcaConfig error:', sheetErr);
+    })
+  ]);
 }
 
 

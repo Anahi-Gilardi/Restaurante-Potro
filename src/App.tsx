@@ -5,8 +5,6 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef, Suspense, lazy } from 'react';
 import { 
-  User,
-  Clock,
   RefreshCw,
   LogOut,
   ChevronLeft,
@@ -24,38 +22,35 @@ import {
   INITIAL_PEDIDOS 
 } from './data/initialData';
 
-// Static imports (small, used on every render or at login)
+// Static imports (small, used on every render)
 import ErrorBoundary from './components/ErrorBoundary';
 import { useToast, ToastContainer } from './components/ToastContainer';
 import PaymentOverdueBanner from './components/PaymentOverdueBanner';
-import PythonStreamlitLogin from './components/PythonStreamlitLogin';
 import ElPatronLogo from './components/ElPatronLogo';
 import BottomNavigation from './components/BottomNavigation';
 import MobileNav from './components/MobileNav';
 import RetryErrorWrapper from './components/RetryErrorWrapper';
-import RecetasErrorBoundary from './components/RecetasErrorBoundary';
 import Skeleton from './components/Skeleton';
 import { hasSameSupabaseConfig, tryGetActiveSupabaseClient } from './lib/supabaseClient';
-import DiagnosticsTester from './components/DiagnosticsTester';
-import RestaurantCover from './components/RestaurantCover';
-
 
 import type { BackupSnapshotData } from './services/backupsService';
 import { getAllMenuImages } from './lib/imageStorage';
+import { menuService } from './services/menuService';
+
 // Lazy-loaded modules (code-split, loaded on demand)
+const RestaurantCover = lazy(() => import('./components/RestaurantCover'));
+const PythonStreamlitLogin = lazy(() => import('./components/PythonStreamlitLogin'));
+const DiagnosticsTester = lazy(() => import('./components/DiagnosticsTester'));
 const HomeMenuModule = lazy(() => import('./components/HomeMenuModule'));
 const MozoTerminal = lazy(() => import('./components/MozoTerminal'));
 const KitchenMonitor = lazy(() => import('./components/KitchenMonitor'));
-const InventoryModule = lazy(() => import('./components/InventoryModule'));
 const CajaModule = lazy(() => import('./components/CajaModule'));
 const SistemaModule = lazy(() => import('./components/SistemaModule'));
 const MenuModule = lazy(() => import('./components/MenuModule'));
 const StockModule = lazy(() => import('./components/StockModule'));
-const RecetasModule = lazy(() => import('./components/RecetasModule'));
 const MesasModule = lazy(() => import('./components/MesasModule'));
 const FacturacionModule = lazy(() => import('./components/FacturacionModule'));
 const BackupsModule = lazy(() => import('./components/BackupsModule'));
-const ClientesModule = lazy(() => import('./components/ClientesModule'));
 import { 
   getSupabaseClient,
   resetSupabaseInstance,
@@ -86,6 +81,59 @@ import { resolveSessionOperator } from './lib/sessionOperator';
 import { isSameTable, doesOrderBelongToTable } from './lib/tableOrders';
 import { uniteTablesInList, separateTablesInList, formatUnitedTableName } from './lib/tableUnions';
 import { preloadGoogleSheetsCache, sheetFetchAllTables, sheetUpsertRow } from './lib/googleSheetsClient';
+
+const areMesasEquivalent = (prev: Mesa[], next: Mesa[]): boolean => {
+  if (prev === next) return true;
+  if (prev.length !== next.length) return false;
+  for (let i = 0; i < prev.length; i++) {
+    const p = prev[i];
+    const n = next[i];
+    if (
+      p.id_mesa !== n.id_mesa ||
+      p.numero_mesa !== n.numero_mesa ||
+      p.estado !== n.estado ||
+      p.comensales !== n.comensales ||
+      p.capacidad !== n.capacidad ||
+      p.sector !== n.sector ||
+      p.parent_id !== n.parent_id ||
+      (p.mesas_unidas?.join(',') || '') !== (n.mesas_unidas?.join(',') || '')
+    ) {
+      return false;
+    }
+  }
+  return true;
+};
+
+const arePedidosEquivalent = (prev: Pedido[], next: Pedido[]): boolean => {
+  if (prev === next) return true;
+  if (prev.length !== next.length) return false;
+  for (let i = 0; i < prev.length; i++) {
+    const p = prev[i];
+    const n = next[i];
+    if (
+      p.id_pedido !== n.id_pedido ||
+      p.id_mesa !== n.id_mesa ||
+      p.estado_comanda !== n.estado_comanda ||
+      p.observaciones !== n.observaciones ||
+      (p.items?.length ?? 0) !== (n.items?.length ?? 0)
+    ) {
+      return false;
+    }
+    const pItems = p.items || [];
+    const nItems = n.items || [];
+    for (let j = 0; j < pItems.length; j++) {
+      if (
+        pItems[j].id_producto !== nItems[j].id_producto ||
+        pItems[j].cantidad !== nItems[j].cantidad ||
+        pItems[j].estado !== nItems[j].estado ||
+        pItems[j].precio_unitario !== nItems[j].precio_unitario
+      ) {
+        return false;
+      }
+    }
+  }
+  return true;
+};
 
 export default function App() {
   const { toast, toasts, removeToast } = useToast();
@@ -434,13 +482,17 @@ export default function App() {
           if (!active) return;
           try {
             const [refreshMesas, refreshPedidos, refreshMenu, refreshUsuarios] = await Promise.all([
-              dbFetchMesas(true),
-              dbFetchPedidos(),
+              dbFetchMesas(false),
+              dbFetchPedidos(false),
               dbFetchProductosMenu(),
               dbFetchUsuarios(),
             ]);
-            if (active && refreshMesas) setMesas(refreshMesas);
-            if (active && refreshPedidos) setPedidos(refreshPedidos);
+            if (active && refreshMesas) {
+              setMesas(prev => areMesasEquivalent(prev, refreshMesas) ? prev : refreshMesas);
+            }
+            if (active && refreshPedidos) {
+              setPedidos(prev => arePedidosEquivalent(prev, refreshPedidos) ? prev : refreshPedidos);
+            }
             if (active && refreshMenu) setProductosMenu(refreshMenu);
             if (active && refreshUsuarios && refreshUsuarios.length > 0) setUsuarios(refreshUsuarios);
           } catch {
@@ -535,7 +587,10 @@ export default function App() {
         try {
           const refreshed = await dbFetchPedidos(true);
           if (refreshed !== null && active) {
-            setPedidos(prev => mergeFreshPedidosWithInFlight(refreshed, prev));
+            setPedidos(prev => {
+              const next = mergeFreshPedidosWithInFlight(refreshed, prev);
+              return arePedidosEquivalent(prev, next) ? prev : next;
+            });
           }
         } catch (err) {
           console.warn('Realtime fetch for pedidos failed:', err);
@@ -546,7 +601,7 @@ export default function App() {
         try {
           const refreshed = await dbFetchMesas(true);
           if (refreshed !== null && active) {
-            setMesas(refreshed);
+            setMesas(prev => areMesasEquivalent(prev, refreshed) ? prev : refreshed);
           }
         } catch (err) {
           console.warn('Realtime fetch for mesas failed:', err);
@@ -642,22 +697,25 @@ export default function App() {
     const handleSheetDataUpdated = (e: Event) => {
       const customEvent = e as CustomEvent<{ table?: string }>;
       if (!customEvent.detail || customEvent.detail.table === 'mesas') {
-        dbFetchMesas(true).then(refreshedMesas => {
+        dbFetchMesas(false).then(refreshedMesas => {
           if (refreshedMesas !== null && active) {
-            setMesas(refreshedMesas);
+            setMesas(prev => areMesasEquivalent(prev, refreshedMesas) ? prev : refreshedMesas);
           }
         }).catch(() => undefined);
       }
     };
     const handleSheetsSyncCompleted = () => {
-      dbFetchMesas(true).then(refreshedMesas => {
+      dbFetchMesas(false).then(refreshedMesas => {
         if (refreshedMesas !== null && active) {
-          setMesas(refreshedMesas);
+          setMesas(prev => areMesasEquivalent(prev, refreshedMesas) ? prev : refreshedMesas);
         }
       }).catch(() => undefined);
-      dbFetchPedidos(true).then(refreshedPedidos => {
+      dbFetchPedidos(false).then(refreshedPedidos => {
         if (refreshedPedidos !== null && active) {
-          setPedidos(prev => mergeFreshPedidosWithInFlight(refreshedPedidos, prev));
+          setPedidos(prev => {
+            const next = mergeFreshPedidosWithInFlight(refreshedPedidos, prev);
+            return arePedidosEquivalent(prev, next) ? prev : next;
+          });
         }
       }).catch(() => undefined);
     };
@@ -668,10 +726,17 @@ export default function App() {
     // Sincronización al volver a enfocar la pantalla o cambiar de pestaña
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && active) {
-        dbFetchMesas(true).then(m => m && setMesas(m)).catch(() => {});
+        dbFetchMesas(true).then(m => {
+          if (m && active) {
+            setMesas(prev => areMesasEquivalent(prev, m) ? prev : m);
+          }
+        }).catch(() => {});
         dbFetchPedidos(true).then(p => {
           if (p && active) {
-            setPedidos(prev => mergeFreshPedidosWithInFlight(p, prev));
+            setPedidos(prev => {
+              const next = mergeFreshPedidosWithInFlight(p, prev);
+              return arePedidosEquivalent(prev, next) ? prev : next;
+            });
           }
         }).catch(() => {});
       }
@@ -681,10 +746,17 @@ export default function App() {
     // Heartbeat cada 6 segundos para reconciliar mesas y comandas silenciosamente
     const heartbeatTimer = setInterval(() => {
       if (!active || (typeof document !== 'undefined' && document.visibilityState === 'hidden')) return;
-      dbFetchMesas(true).then(m => m && setMesas(m)).catch(() => {});
+      dbFetchMesas(true).then(m => {
+        if (m && active) {
+          setMesas(prev => areMesasEquivalent(prev, m) ? prev : m);
+        }
+      }).catch(() => {});
       dbFetchPedidos(true).then(p => {
         if (p && active) {
-          setPedidos(prev => mergeFreshPedidosWithInFlight(p, prev));
+          setPedidos(prev => {
+            const next = mergeFreshPedidosWithInFlight(p, prev);
+            return arePedidosEquivalent(prev, next) ? prev : next;
+          });
         }
       }).catch(() => {});
     }, 6000);
@@ -976,15 +1048,22 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     // Descuento directo de stock en productos_menu para bebidas con controla_stock
     setProductosMenu(prevProds => {
       let changed = false;
+      const updatesToPersist: Array<{ id: string; stock_actual: number }> = [];
       const nextProds = prevProds.map(prod => {
         const itemOrdered = newPedidoData.items.find(i => i.id_producto === prod.id_producto);
         if (itemOrdered && prod.controla_stock && prod.stock_actual !== undefined) {
           changed = true;
           const nextStock = Math.max(0, (prod.stock_actual || 0) - itemOrdered.cantidad);
+          updatesToPersist.push({ id: prod.id_producto, stock_actual: nextStock });
           return { ...prod, stock_actual: nextStock };
         }
         return prod;
       });
+      if (changed && !isDemoSession && updatesToPersist.length > 0) {
+        Promise.allSettled(
+          updatesToPersist.map(u => menuService.update(u.id, { stock_actual: u.stock_actual }))
+        ).catch(() => undefined);
+      }
       return changed ? nextProds : prevProds;
     });
 
@@ -1868,43 +1947,41 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
 
     setMermas(prev => [newMerma, ...prev]);
 
-    const updatedInsumos = insumos.map(i => i.id_insumo === idInsumo ? {
-      ...i,
-      stock_actual: Math.max(0, parseFloat((i.stock_actual - cantidad).toFixed(2)))
-    } : i);
+    const nextStock = Math.max(0, parseFloat((insObj.stock_actual - cantidad).toFixed(2)));
+    const updatedItem = { ...insObj, stock_actual: nextStock };
+    const updatedInsumos = insumos.map(i => i.id_insumo === idInsumo ? updatedItem : i);
     setInsumos(updatedInsumos);
 
     addLog('merma_registrada', `REGISTRO MERMA: ${cantidad} ${insObj.unidad_medida} de '${insObj.nombre}' registrado por motivo: ${motivo.toUpperCase()}`);
 
-    dbUpsertInsumos(updatedInsumos);
-    dbUpsertMermas([newMerma, ...mermas]);
+    dbUpsertInsumos([updatedItem]);
+    dbUpsertMermas([newMerma]);
     dbRecordMovement({
       id_insumo: idInsumo,
       tipo_movimiento: 'salida_merma',
       cantidad,
       stock_anterior: insObj.stock_actual,
-      stock_nuevo: Math.max(0, parseFloat((insObj.stock_actual - cantidad).toFixed(2)))
+      stock_nuevo: nextStock
     }).catch(console.error);
   };
 
   const handleRestockInsumo = useCallback((idInsumo: string, cantidad: number) => {
     const item = insumos.find(i => i.id_insumo === idInsumo);
-    const updatedInsumos = insumos.map(i => i.id_insumo === idInsumo ? {
-      ...i,
-      stock_actual: parseFloat((i.stock_actual + cantidad).toFixed(2))
-    } : i);
+    const nextStock = item ? parseFloat((item.stock_actual + cantidad).toFixed(2)) : cantidad;
+    const updatedItem = item ? { ...item, stock_actual: nextStock } : null;
+    const updatedInsumos = insumos.map(i => i.id_insumo === idInsumo && updatedItem ? updatedItem : i);
     setInsumos(updatedInsumos);
 
     addLog('sistema', `REPOSICIÓN: Incremetado stock de '${item ? item.nombre : idInsumo}' en +${cantidad}`);
 
-    dbUpsertInsumos(updatedInsumos);
-    if (item) {
+    if (updatedItem) {
+      dbUpsertInsumos([updatedItem]);
       dbRecordMovement({
         id_insumo: idInsumo,
         tipo_movimiento: 'entrada',
         cantidad,
-        stock_anterior: item.stock_actual,
-        stock_nuevo: parseFloat((item.stock_actual + cantidad).toFixed(2))
+        stock_anterior: item!.stock_actual,
+        stock_nuevo: nextStock
       }).catch(console.error);
     }
   }, [insumos, addLog]);
@@ -2051,18 +2128,20 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
   if (showCover) {
     return (
       <ErrorBoundary>
-        <RestaurantCover 
-          onEnterSystem={() => {
-            const hasSession = typeof window !== 'undefined' && window.localStorage.getItem('el_patron_session') === 'active';
-            if (!hasSession) {
-              window.localStorage.removeItem('el_patron_session');
-              window.localStorage.removeItem('el_patron_session_mode');
-              setIsDemoSession(false);
-              setIsStreamlitLoggedIn(false);
-            }
-            setShowCover(false);
-          }} 
-        />
+        <Suspense fallback={<div className="min-h-screen bg-[#1A110B]" />}>
+          <RestaurantCover 
+            onEnterSystem={() => {
+              const hasSession = typeof window !== 'undefined' && window.localStorage.getItem('el_patron_session') === 'active';
+              if (!hasSession) {
+                window.localStorage.removeItem('el_patron_session');
+                window.localStorage.removeItem('el_patron_session_mode');
+                setIsDemoSession(false);
+                setIsStreamlitLoggedIn(false);
+              }
+              setShowCover(false);
+            }} 
+          />
+        </Suspense>
       </ErrorBoundary>
     );
   }
@@ -2070,7 +2149,9 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
   if (!isStreamlitLoggedIn) {
     return (
       <ErrorBoundary>
-        <PythonStreamlitLogin onLoginSuccess={handleLoginSuccess} onBackToCover={() => setShowCover(true)} />
+        <Suspense fallback={<div className="min-h-screen bg-[#1A110B]" />}>
+          <PythonStreamlitLogin onLoginSuccess={handleLoginSuccess} onBackToCover={() => setShowCover(true)} />
+        </Suspense>
       </ErrorBoundary>
     );
   }
@@ -2362,7 +2443,9 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
       </main>
 
       {showDiagnostics && (
-        <DiagnosticsTester onClose={() => setShowDiagnostics(false)} />
+        <Suspense fallback={null}>
+          <DiagnosticsTester onClose={() => setShowDiagnostics(false)} />
+        </Suspense>
       )}
 
       <BottomNavigation activeView={activeView} onNavigate={handleNavigate} allowedViews={allowedViews} />

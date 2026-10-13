@@ -50,14 +50,49 @@ const readNumber = (value: unknown, fallback = 0) => {
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
+const normalizeAlphanumeric = (value: string): string =>
+  value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/g, '');
+
+const INITIAL_MATCH_INDEX: Array<{ cleanName: string; cleanPrefix10: string; item: ProductoMenu }> = [];
+const INITIAL_EXACT_MATCH_MAP = new Map<string, ProductoMenu>();
+
+for (const init of INITIAL_PRODUCTOS_MENU) {
+  if (!init || typeof init.nombre !== 'string') continue;
+  const cleanName = normalizeAlphanumeric(init.nombre);
+  if (!cleanName) continue;
+  if (!INITIAL_EXACT_MATCH_MAP.has(cleanName)) {
+    INITIAL_EXACT_MATCH_MAP.set(cleanName, init);
+  }
+  INITIAL_MATCH_INDEX.push({
+    cleanName,
+    cleanPrefix10: cleanName.slice(0, 10),
+    item: init
+  });
+}
+
 const findInitialMatch = (nombre: string): ProductoMenu | undefined => {
   if (!nombre) return undefined;
-  const clean = nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
-  return INITIAL_PRODUCTOS_MENU.find(init => {
-    if (!init || typeof init.nombre !== 'string') return false;
-    const initClean = init.nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
-    return clean.includes(initClean) || initClean.includes(clean) || (clean.slice(0, 10) === initClean.slice(0, 10) && clean.length > 5);
-  });
+  const clean = normalizeAlphanumeric(nombre);
+  if (!clean) return undefined;
+  const exact = INITIAL_EXACT_MATCH_MAP.get(clean);
+  if (exact) return exact;
+  const prefix10 = clean.slice(0, 10);
+  const canMatchPrefix = clean.length > 5;
+  for (let i = 0; i < INITIAL_MATCH_INDEX.length; i++) {
+    const entry = INITIAL_MATCH_INDEX[i];
+    if (
+      clean.includes(entry.cleanName) ||
+      entry.cleanName.includes(clean) ||
+      (canMatchPrefix && prefix10 === entry.cleanPrefix10)
+    ) {
+      return entry.item;
+    }
+  }
+  return undefined;
 };
 
 const normalizeProductoMenu = (prod: DbProductoMenu): ProductoMenu => {
@@ -190,6 +225,29 @@ const toDbProductoMenu = (prod: ProductoMenu | Partial<ProductoMenu>) => {
   };
 };
 
+const getCachedProductById = (id: string): ProductoMenu | undefined => {
+  if (!id) return undefined;
+  const lowerId = id.toLowerCase();
+  if (typeof localStorage !== 'undefined') {
+    const cached = localStorage.getItem('el_patron_cache_menu');
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed)) {
+          const found = parsed.find(
+            (p: any) => p && (p.id_producto === id || String(p.id_producto || '').toLowerCase() === lowerId)
+          );
+          if (found) return normalizeProductoMenu(found);
+        }
+      } catch {}
+    }
+  }
+  const initialFound = INITIAL_PRODUCTOS_MENU.find(
+    (p) => p && (p.id_producto === id || String(p.id_producto || '').toLowerCase() === lowerId)
+  );
+  return initialFound ? normalizeProductoMenu(initialFound as unknown as DbProductoMenu) : undefined;
+};
+
 export const menuService = {
   async list(): Promise<ProductoMenu[]> {
     try {
@@ -286,6 +344,8 @@ export const menuService = {
   },
 
   async getById(id: string): Promise<ProductoMenu | null> {
+    const cachedItem = getCachedProductById(id);
+    if (cachedItem) return cachedItem;
     const all = await this.list();
     return all.find(p => p.id_producto === id) || null;
   },
@@ -297,20 +357,25 @@ export const menuService = {
 
     const payload = toDbProductoMenu(prod);
 
-    try {
-      const supabase = tryGetActiveSupabaseClient();
-      if (supabase) {
-        await supabase.from('productos_menu').upsert([payload], { onConflict: 'id_producto' });
-      }
-    } catch (e) {
-      console.warn('[menuService.create] Supabase omitido:', e);
-    }
-
-    try {
-      await sheetUpsertRow('productos_menu', payload);
-    } catch (sheetErr) {
-      console.error('[menuService.create] Error en Google Sheets:', sheetErr);
-    }
+    await Promise.allSettled([
+      (async () => {
+        try {
+          const supabase = tryGetActiveSupabaseClient();
+          if (supabase) {
+            await supabase.from('productos_menu').upsert([payload], { onConflict: 'id_producto' });
+          }
+        } catch (e) {
+          console.warn('[menuService.create] Supabase omitido:', e);
+        }
+      })(),
+      (async () => {
+        try {
+          await sheetUpsertRow('productos_menu', payload);
+        } catch (sheetErr) {
+          console.error('[menuService.create] Error en Google Sheets:', sheetErr);
+        }
+      })()
+    ]);
 
     // Si estaba en la lista de eliminados, removerlo al crearlo nuevamente
     try {
@@ -355,8 +420,7 @@ export const menuService = {
 
   async update(id: string, prod: Partial<ProductoMenu>): Promise<ProductoMenu> {
     const lowerId = id.toLowerCase();
-    const currentList = await this.list();
-    const existing = currentList.find(p => p.id_producto === id || p.id_producto?.toLowerCase() === lowerId);
+    const existing = getCachedProductById(id);
     const merged: ProductoMenu = {
       ...(existing || {}),
       id_producto: id,
@@ -385,24 +449,29 @@ export const menuService = {
 
     const payload = { ...toDbProductoMenu(merged), id_producto: id };
 
-    try {
-      const supabase = tryGetActiveSupabaseClient();
-      if (supabase) {
-        const { error: updErr } = await supabase.from('productos_menu').update(payload).eq('id_producto', id);
-        if (updErr) {
-          console.warn('[menuService.update] Update falló, ejecutando upsert:', updErr);
-          await supabase.from('productos_menu').upsert([payload], { onConflict: 'id_producto' });
+    await Promise.allSettled([
+      (async () => {
+        try {
+          const supabase = tryGetActiveSupabaseClient();
+          if (supabase) {
+            const { error: updErr } = await supabase.from('productos_menu').update(payload).eq('id_producto', id);
+            if (updErr) {
+              console.warn('[menuService.update] Update falló, ejecutando upsert:', updErr);
+              await supabase.from('productos_menu').upsert([payload], { onConflict: 'id_producto' });
+            }
+          }
+        } catch (e) {
+          console.warn('[menuService.update] Supabase error:', e);
         }
-      }
-    } catch (e) {
-      console.warn('[menuService.update] Supabase error:', e);
-    }
-
-    try {
-      await sheetUpsertRow('productos_menu', payload);
-    } catch (sheetErr) {
-      console.error('[menuService.update] Error en Google Sheets:', sheetErr);
-    }
+      })(),
+      (async () => {
+        try {
+          await sheetUpsertRow('productos_menu', payload);
+        } catch (sheetErr) {
+          console.error('[menuService.update] Error en Google Sheets:', sheetErr);
+        }
+      })()
+    ]);
 
     // Si estaba en la lista de eliminados, removerlo
     try {
@@ -443,7 +512,7 @@ export const menuService = {
   },
 
   async save(prod: ProductoMenu): Promise<ProductoMenu> {
-    const existing = await this.getById(prod.id_producto);
+    const existing = getCachedProductById(prod.id_producto);
     if (existing) {
       return this.update(prod.id_producto, prod);
     }
@@ -463,9 +532,7 @@ export const menuService = {
     } catch (e) {
       console.warn('[menuService.upsert] Supabase error:', e);
     }
-    for (const p of prods) {
-      await this.update(p.id_producto, p);
-    }
+    await Promise.allSettled(prods.map(p => this.update(p.id_producto, p)));
     return prods;
   },
 
@@ -473,20 +540,25 @@ export const menuService = {
     const lowerId = id.toLowerCase();
     await deleteMenuImage(id).catch(() => {});
 
-    try {
-      const supabase = tryGetActiveSupabaseClient();
-      if (supabase) {
-        await supabase.from('productos_menu').delete().eq('id_producto', id);
-      }
-    } catch (e) {
-      console.warn('[menuService.remove] Supabase error:', e);
-    }
-
-    try {
-      await sheetDeleteRow('productos_menu', id);
-    } catch (sheetErr) {
-      console.error('[menuService.remove] Error en Google Sheets:', sheetErr);
-    }
+    await Promise.allSettled([
+      (async () => {
+        try {
+          const supabase = tryGetActiveSupabaseClient();
+          if (supabase) {
+            await supabase.from('productos_menu').delete().eq('id_producto', id);
+          }
+        } catch (e) {
+          console.warn('[menuService.remove] Supabase error:', e);
+        }
+      })(),
+      (async () => {
+        try {
+          await sheetDeleteRow('productos_menu', id);
+        } catch (sheetErr) {
+          console.error('[menuService.remove] Error en Google Sheets:', sheetErr);
+        }
+      })()
+    ]);
 
     // Registrar en lista negra de eliminados para que ninguna fuente offline lo resucite
     try {
@@ -521,10 +593,9 @@ export const menuService = {
   },
 
   async bulkUpdatePrices(updates: { id: string; precio_venta: number }[]): Promise<boolean> {
-    localStorage.removeItem('el_patron_cache_menu');
-    for (const u of updates) {
-      await this.update(u.id, { precio_venta: u.precio_venta });
-    }
+    await Promise.allSettled(
+      updates.map(u => this.update(u.id, { precio_venta: u.precio_venta }))
+    );
     return true;
   }
 };

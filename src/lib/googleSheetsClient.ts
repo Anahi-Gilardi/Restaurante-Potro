@@ -422,43 +422,41 @@ export function preloadGoogleSheetsCache(): void {
   });
 }
 
+const PK_FIELD_MAP: Record<string, string> = {
+  productos_menu: 'id_producto',
+  mesas: 'id_mesa',
+  categorias: 'id_categoria',
+  promociones: 'id_promo',
+  pedidos_cabecera: 'id_pedido',
+  pedido_detalle: 'id_detalle',
+  pedido_operaciones: 'id_operacion',
+  insumos: 'id_insumo',
+  proveedores: 'id_proveedor',
+  reservas: 'id_reserva',
+  facturas: 'id_factura',
+  pagos: 'id_pago',
+  tipos_pago: 'id_pago',
+  ventas_platos: 'id_registro',
+  cierres_caja: 'id_cierre',
+  caja_ledger: 'id_ledger',
+  usuarios: 'id_usuario',
+  configuracion: 'clave',
+  arca_config: 'id',
+  arca_emisiones: 'id',
+  v_conciliacion_facturas: 'id_factura'
+};
+
+const isTestEnv = (): boolean =>
+  typeof process !== 'undefined' && process.env?.NODE_ENV === 'test';
+
 export async function sheetUpsertRow<T extends Record<string, any>>(tableName: string, rowData: T): Promise<any> {
   if (!cachedTables[tableName]) {
     const disk = getTableStorageCache(tableName);
     cachedTables[tableName] = disk && Array.isArray(disk) ? disk : [];
   }
 
-  const pkFieldMap: Record<string, string> = {
-    productos_menu: 'id_producto',
-    mesas: 'id_mesa',
-    categorias: 'id_categoria',
-    promociones: 'id_promo',
-    pedidos_cabecera: 'id_pedido',
-    pedido_detalle: 'id_detalle',
-    pedido_operaciones: 'id_operacion',
-    insumos: 'id_insumo',
-    proveedores: 'id_proveedor',
-    reservas: 'id_reserva',
-    facturas: 'id_factura',
-    pagos: 'id_pago',
-    tipos_pago: 'id_pago',
-    ventas_platos: 'id_registro',
-    cierres_caja: 'id_cierre',
-    caja_ledger: 'id_ledger',
-    usuarios: 'id_usuario',
-    configuracion: 'clave',
-    arca_config: 'id',
-    arca_emisiones: 'id',
-    v_conciliacion_facturas: 'id_factura'
-  };
-
-  const pk = pkFieldMap[tableName] || 'id';
+  const pk = PK_FIELD_MAP[tableName] || 'id';
   const pkVal = rowData[pk];
-
-  if (!cachedTables[tableName]) {
-    const disk = getTableStorageCache(tableName);
-    cachedTables[tableName] = disk && Array.isArray(disk) ? disk : [];
-  }
 
   let fullRow: any = { ...rowData };
   if (pkVal !== undefined) {
@@ -471,6 +469,10 @@ export async function sheetUpsertRow<T extends Record<string, any>>(tableName: s
     }
     setTableStorageCache(tableName, cachedTables[tableName]);
     lastFetchTimestamps[tableName] = Date.now();
+  }
+
+  if (isTestEnv()) {
+    return { operation: 'saved_locally' };
   }
 
   const payload = {
@@ -510,6 +512,10 @@ export async function sheetBatchInsert<T extends Record<string, any>>(tableName:
   setTableStorageCache(tableName, cachedTables[tableName]);
   lastFetchTimestamps[tableName] = Date.now();
 
+  if (isTestEnv()) {
+    return { operation: 'saved_locally', count: items.length };
+  }
+
   const payload = {
     action: 'batchInsert',
     table: tableName,
@@ -537,26 +543,7 @@ export async function sheetBatchInsert<T extends Record<string, any>>(tableName:
 }
 
 export async function sheetDeleteRow(tableName: string, id: string | number): Promise<boolean> {
-  const pkFieldMap: Record<string, string> = {
-    productos_menu: 'id_producto',
-    mesas: 'id_mesa',
-    categorias: 'id_categoria',
-    promociones: 'id_promo',
-    pedidos_cabecera: 'id_pedido',
-    pedido_detalle: 'id_detalle',
-    pedido_operaciones: 'id_operacion',
-    insumos: 'id_insumo',
-    proveedores: 'id_proveedor',
-    reservas: 'id_reserva',
-    facturas: 'id_factura',
-    pagos: 'id_pago',
-    cierres_caja: 'id_cierre',
-    caja_ledger: 'id_ledger',
-    usuarios: 'id_usuario',
-    configuracion: 'clave'
-  };
-
-  const pk = pkFieldMap[tableName] || 'id';
+  const pk = PK_FIELD_MAP[tableName] || 'id';
   if (!cachedTables[tableName]) {
     const disk = getTableStorageCache(tableName);
     cachedTables[tableName] = disk && Array.isArray(disk) ? disk : [];
@@ -564,6 +551,10 @@ export async function sheetDeleteRow(tableName: string, id: string | number): Pr
   cachedTables[tableName] = cachedTables[tableName].filter(r => String(r[pk]) !== String(id));
   setTableStorageCache(tableName, cachedTables[tableName]);
   lastFetchTimestamps[tableName] = Date.now();
+
+  if (isTestEnv()) {
+    return true;
+  }
 
   const payload = {
     action: 'delete',

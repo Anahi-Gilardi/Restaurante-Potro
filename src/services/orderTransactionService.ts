@@ -47,9 +47,22 @@ export const orderTransactionService = {
     comensales: number,
     allowNegativeStock: boolean
   ): Promise<number> {
-    try {
-      const total = (pedido.items || []).reduce((sum, item) => sum + ((item.precio_unitario || 0) * (item.cantidad || 0)), 0);
-      await sheetUpsertRow('pedidos_cabecera', {
+    const total = (pedido.items || []).reduce((sum, item) => sum + ((item.precio_unitario || 0) * (item.cantidad || 0)), 0);
+    const detalles = Array.isArray(pedido.items) && pedido.items.length > 0
+      ? pedido.items.map((item, i) => ({
+          id_detalle: `${pedido.id_pedido}_${String(i).padStart(4, '0')}`,
+          id_pedido: pedido.id_pedido,
+          id_producto: item.id_producto,
+          nombre: item.nombre,
+          cantidad: item.cantidad,
+          categoria: item.categoria,
+          precio_unitario: item.precio_unitario ?? null,
+          estado: item.estado ?? 'pendiente'
+        }))
+      : [];
+
+    await Promise.allSettled([
+      sheetUpsertRow('pedidos_cabecera', {
         id_pedido: pedido.id_pedido,
         id_mesa: pedido.id_mesa,
         numero_mesa: pedido.numero_mesa,
@@ -59,40 +72,32 @@ export const orderTransactionService = {
         fecha_hora: getArgentinaDateTimeString(pedido.fecha_hora),
         total,
         items: JSON.stringify(pedido.items || [])
-      });
-
-      if (Array.isArray(pedido.items) && pedido.items.length > 0) {
-        const detalles = pedido.items.map((item, i) => ({
-          id_detalle: `${pedido.id_pedido}_${String(i).padStart(4, '0')}`,
-          id_pedido: pedido.id_pedido,
-          id_producto: item.id_producto,
-          nombre: item.nombre,
-          cantidad: item.cantidad,
-          categoria: item.categoria,
-          precio_unitario: item.precio_unitario ?? null,
-          estado: item.estado ?? 'pendiente'
-        }));
-        await sheetBatchInsert('pedido_detalle', detalles);
-      }
-    } catch (sheetErr) {
-      console.warn('[orderTransactionService.saveOrder] Google Sheets sync warning:', sheetErr);
-    }
-
-    if (pedido.id_mesa) {
-      try {
-        const supabase = getActiveSupabaseClient();
-        await supabase
-          .from('mesas')
-          .update({
-            estado: 'ocupada',
-            comensales_actuales: comensales || 2,
-            updated_at: new Date().toISOString()
+      }).catch((sheetErr) => {
+        console.warn('[orderTransactionService.saveOrder] Google Sheets cabecera warning:', sheetErr);
+      }),
+      detalles.length > 0
+        ? sheetBatchInsert('pedido_detalle', detalles).catch((sheetErr) => {
+            console.warn('[orderTransactionService.saveOrder] Google Sheets detalle warning:', sheetErr);
           })
-          .eq('id_mesa', pedido.id_mesa);
-      } catch (mesaErr) {
-        console.warn('[orderTransactionService.saveOrder] Supabase mesas update warning:', mesaErr);
-      }
-    }
+        : Promise.resolve(),
+      pedido.id_mesa
+        ? (async () => {
+            try {
+              const supabase = getActiveSupabaseClient();
+              await supabase
+                .from('mesas')
+                .update({
+                  estado: 'ocupada',
+                  comensales_actuales: comensales || 2,
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id_mesa', pedido.id_mesa);
+            } catch (mesaErr) {
+              console.warn('[orderTransactionService.saveOrder] Supabase mesas update warning:', mesaErr);
+            }
+          })()
+        : Promise.resolve()
+    ]);
 
     if (rpcAvailable !== false) {
       try {
