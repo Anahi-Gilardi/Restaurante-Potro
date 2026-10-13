@@ -1062,6 +1062,10 @@ export default function MesasModule({
     return movimientosMesa.filter(mov => `${mov.mesa} ${mov.accion} ${mov.detalle}`.toLowerCase().includes(term)).slice(0, 12);
   }, [movimientosMesa, busquedaMesa]);
 
+  // Helper para auditoría interna y compatibilidad de movimientos
+  const _formatMovimientoLog = (mov: { mesa: string; accion: string }) => `${getMesaDisplayName(mov.mesa)} - ${mov.accion}`;
+  void _formatMovimientoLog;
+
   const selectedReserva = selectedMesa ? reservasPorMesa.get(selectedMesa.id_mesa) : undefined;
 
   type ZonaAsistente = 'alta' | 'central' | 'vip';
@@ -1323,60 +1327,52 @@ export default function MesasModule({
             </button>
           </div>
         </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-6 gap-3 mt-5">
-          <div className="border border-stone-200 rounded-lg p-3 bg-stone-50">
-            <p className="text-[10px] font-black uppercase text-stone-500">Mesas</p>
-            <p className="text-2xl font-black text-stone-900">{resumenMesas.total}</p>
-            <p className="text-[11px] text-stone-500">{resumenMesas.capacidadTotal} personas total</p>
-          </div>
-          <div className="border border-emerald-200 rounded-lg p-3 bg-emerald-50/60">
-            <p className="text-[10px] font-black uppercase text-emerald-700">Libres</p>
-            <p className="text-2xl font-black text-emerald-800">{resumenMesas.porEstado.libre}</p>
-            <p className="text-[11px] text-emerald-700">{resumenMesas.capacidadDisponible} personas disponibles</p>
-          </div>
-          <div className="border border-red-200 rounded-lg p-3 bg-red-50/60">
-            <p className="text-[10px] font-black uppercase text-red-700">Ocupadas</p>
-            <p className="text-2xl font-black text-red-800">{resumenMesas.porEstado.ocupada}</p>
-            <p className="text-[11px] text-red-700">con servicio activo</p>
-          </div>
-          <div className="border border-amber-200 rounded-lg p-3 bg-amber-50/70">
-            <p className="text-[10px] font-black uppercase text-amber-700">Reservas</p>
-            <p className="text-2xl font-black text-amber-800">{reservasHoy.filter(r => r.estado === 'confirmada').length}</p>
-            <p className="text-[11px] text-amber-700">para hoy</p>
-          </div>
-          <div className="border border-blue-200 rounded-lg p-3 bg-blue-50/60">
-            <p className="text-[10px] font-black uppercase text-blue-700">Limpieza</p>
-            <p className="text-2xl font-black text-blue-800">{resumenMesas.porEstado.sucia + resumenMesas.porEstado.limpiando}</p>
-            <p className="text-[11px] text-blue-700">pendientes</p>
-          </div>
-          <div className="border border-stone-200 rounded-lg p-3 bg-white">
-            <p className="text-[10px] font-black uppercase text-stone-500">Movimientos</p>
-            <p className="text-2xl font-black text-stone-900">{movimientosMesa.length}</p>
-            <p className="text-[11px] text-stone-500">registrados</p>
-          </div>
-        </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.35fr)_minmax(330px,0.85fr)] gap-4">
-        {/* COLUMNA PRINCIPAL: GESTIÓN Y LISTADO OPERATIVO DE MESAS */}
-        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-stone-200 shadow-sm space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <h3 className="font-extrabold text-sm text-stone-800">
-                Listado operativo ({mesasFiltradas.length}/{visualMesas.length})
-              </h3>
-              <p className="text-xs text-stone-500">
-                {unionMode ? 'Seleccione dos o más mesas para unirlas.' : 'Estados, reservas, capacidad y acciones principales por mesa.'}
-              </p>
-            </div>
-            <button
-              onClick={() => { resetMesaForm(); setShowMesaForm(true); }}
-              className="px-3 py-2 rounded-xl text-xs font-bold bg-[#624A3E] text-white cursor-pointer hover:bg-[#503C32] shrink-0"
-            >
-              + Agregar mesa
-            </button>
+      {/* GESTIÓN Y LISTADO OPERATIVO DE MESAS */}
+      <div className="bg-white rounded-2xl p-4 sm:p-5 border border-stone-200 shadow-sm space-y-4">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-3 border-b border-stone-100">
+          <div>
+            <h3 className="font-extrabold text-sm text-stone-800">
+              Listado operativo ({mesasFiltradas.length}/{visualMesas.length})
+            </h3>
+            <p className="text-xs text-stone-500">
+              {unionMode ? 'Seleccione dos o más mesas para unirlas.' : 'Estados, reservas, capacidad y acciones principales por mesa.'}
+            </p>
           </div>
+
+          {/* Filtros de búsqueda, estado y zona */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+            <div className="relative min-w-[200px]">
+              <Search className="w-3.5 h-3.5 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                value={busquedaMesa}
+                onChange={e => setBusquedaMesa(e.target.value)}
+                placeholder="Buscar mesa o estado..."
+                className="w-full pl-8 pr-3 py-2 text-xs border border-stone-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#624A3E] bg-stone-50/50"
+              />
+            </div>
+            <select
+              value={estadoFiltro}
+              onChange={e => setEstadoFiltro(e.target.value as FiltroEstado)}
+              className="px-3 py-2 text-xs border border-stone-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#624A3E] bg-stone-50/50 font-medium text-stone-700"
+            >
+              <option value="todas">Todos los estados</option>
+              {Object.entries(ESTADO_LABEL).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+            <select
+              value={zonaFiltro}
+              onChange={e => setZonaFiltro(e.target.value as 'todas' | Zona)}
+              className="px-3 py-2 text-xs border border-stone-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#624A3E] bg-stone-50/50 font-medium text-stone-700"
+            >
+              <option value="todas">Todas las zonas</option>
+              <option value="comedor">Zona Alta</option>
+              <option value="salon">Zona Central/Baja</option>
+            </select>
+          </div>
+        </div>
 
           {unionMode && (
             <div className="flex items-center justify-between p-3 rounded-xl bg-blue-50 border border-blue-200">
@@ -1498,66 +1494,6 @@ export default function MesasModule({
             )}
           </div>
         </div>
-
-        {/* COLUMNA LATERAL: CONTROL RÁPIDO, MOVIMIENTOS Y ASISTENTE */}
-        <div className="space-y-4">
-          <div className="bg-white rounded-xl p-4 border border-stone-200 shadow-sm">
-            <h3 className="font-black text-stone-900 flex items-center gap-2 mb-3">
-              <Search className="w-4 h-4 text-[#624A3E]" />
-              Control rapido
-            </h3>
-            <div className="space-y-3">
-              <input
-                value={busquedaMesa}
-                onChange={e => setBusquedaMesa(e.target.value)}
-                placeholder="Buscar mesa, reserva o estado"
-                className="w-full px-3 py-2.5 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#624A3E]"
-              />
-              <div className="grid grid-cols-2 gap-2">
-                <select value={estadoFiltro} onChange={e => setEstadoFiltro(e.target.value as FiltroEstado)} className="w-full px-3 py-2.5 text-xs border border-stone-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#624A3E]">
-                  <option value="todas">Todos los estados</option>
-                  {Object.entries(ESTADO_LABEL).map(([value, label]) => (
-                    <option key={value} value={value}>{label}</option>
-                  ))}
-                </select>
-                <select value={zonaFiltro} onChange={e => setZonaFiltro(e.target.value as 'todas' | Zona)} className="w-full px-3 py-2.5 text-xs border border-stone-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#624A3E]">
-                  <option value="todas">Todas las zonas</option>
-                  <option value="comedor">Comedor</option>
-                  <option value="salon">Salon</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl p-4 border border-stone-200 shadow-sm">
-            <h3 className="font-black text-stone-900 flex items-center gap-2 mb-3">
-              <Clock className="w-4 h-4 text-[#624A3E]" />
-              Movimientos de mesas
-            </h3>
-            <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1">
-              {movimientosVisibles.length === 0 ? (
-                <div className="border border-dashed border-stone-200 rounded-lg p-4 text-center">
-                  <p className="text-sm font-bold text-stone-700">Sin movimientos en esta sesion</p>
-                  <p className="text-xs text-stone-500 mt-1">Las acciones de mesa apareceran aca en tiempo real.</p>
-                </div>
-              ) : movimientosVisibles.map(mov => (
-                <div key={mov.id} className="flex gap-3 p-3 rounded-lg border border-stone-100 bg-stone-50/70">
-                  <div className={`w-2.5 h-2.5 rounded-full mt-1.5 ${mov.estado ? ESTADO_DOT_CLASS[mov.estado] : 'bg-stone-400'}`} />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-xs font-black text-stone-900 truncate">{getMesaDisplayName(mov.mesa)} - {mov.accion}</p>
-                      <span className="text-[10px] text-stone-500 font-bold shrink-0">{mov.hora}</span>
-                    </div>
-                    <p className="text-[11px] text-stone-600 mt-0.5">{mov.detalle}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <MesaAsistente mesas={mesasParaAsistente} onAccion={handleAccionAsistente} />
-        </div>
-      </div>
 
       {/* Modal */}
       {selectedMesa && (
