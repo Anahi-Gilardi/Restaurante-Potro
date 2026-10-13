@@ -722,7 +722,7 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
     tipo: 'postre',
     tiempo_preparacion_estimado: 5,
     requiere_cocina: true
-  },,
+  },
 
   // ================= 7. STOCK DEFINITIVO DE TODAS LAS BEBIDAS (115 PRODUCTOS) =================
   {
@@ -1047,7 +1047,7 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
   },
   {
     id_producto: 'prod_sin__coca_cola_350cc',
-    nombre: 'Coca Cola 350cc',
+    nombre: 'coca cola 350cc',
     descripcion: 'Coca Cola - Original. Control de existencias directas en góndola/cava.',
     precio_venta: 4000.00,
     categoria: 'Bebidas sin Alcohol',
@@ -1063,7 +1063,7 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
   },
   {
     id_producto: 'prod_sin__coca_cero_350cc',
-    nombre: 'Coca Cero 350cc',
+    nombre: 'coca cero 350cc',
     descripcion: 'Coca Cola - Sin Azúcar. Control de existencias directas en góndola/cava.',
     precio_venta: 4000.00,
     categoria: 'Bebidas sin Alcohol',
@@ -1079,7 +1079,7 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
   },
   {
     id_producto: 'prod_sin__fanta_naranja_350cc',
-    nombre: 'Fanta Naranja 350cc',
+    nombre: 'fanta 350cc',
     descripcion: 'Coca Cola - Naranja. Control de existencias directas en góndola/cava.',
     precio_venta: 4000.00,
     categoria: 'Bebidas sin Alcohol',
@@ -1095,7 +1095,7 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
   },
   {
     id_producto: 'prod_sin__sprite_limon_350cc',
-    nombre: 'Sprite Limón 350cc',
+    nombre: 'sprite 350cc',
     descripcion: 'Coca Cola - Limón. Control de existencias directas en góndola/cava.',
     precio_venta: 4000.00,
     categoria: 'Bebidas sin Alcohol',
@@ -1111,7 +1111,7 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
   },
   {
     id_producto: 'prod_sin__agua_tonica_310cc',
-    nombre: 'Agua Tónica 310cc',
+    nombre: 'Tonica lata 310cc',
     descripcion: 'Schweppes - Tónica. Control de existencias directas en góndola/cava.',
     precio_venta: 4000.00,
     categoria: 'Bebidas sin Alcohol',
@@ -1127,7 +1127,7 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
   },
   {
     id_producto: 'prod_sin__gaseosa_pomelo_350cc',
-    nombre: 'Gaseosa Pomelo 350cc',
+    nombre: 'Pomelo lata 350cc',
     descripcion: 'Schweppes - Pomelo. Control de existencias directas en góndola/cava.',
     precio_venta: 4000.00,
     categoria: 'Bebidas sin Alcohol',
@@ -1143,7 +1143,7 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
   },
   {
     id_producto: 'prod_sin__saborizada_naranja_500cc',
-    nombre: 'Saborizada Naranja 500cc',
+    nombre: 'S. naranja 500cc',
     descripcion: 'Aquarius - Naranja. Control de existencias directas en góndola/cava.',
     precio_venta: 3800.00,
     categoria: 'Bebidas sin Alcohol',
@@ -1159,7 +1159,7 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
   },
   {
     id_producto: 'prod_sin__saborizada_pomelo_500cc',
-    nombre: 'Saborizada Pomelo 500cc',
+    nombre: 'S. pomelo 500cc',
     descripcion: 'Aquarius - Pomelo. Control de existencias directas en góndola/cava.',
     precio_venta: 3800.00,
     categoria: 'Bebidas sin Alcohol',
@@ -1175,7 +1175,7 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
   },
   {
     id_producto: 'prod_sin__saborizada_manzana_500cc',
-    nombre: 'Saborizada Manzana 500cc',
+    nombre: 'S. manzana 500cc',
     descripcion: 'Aquarius - Manzana. Control de existencias directas en góndola/cava.',
     precio_venta: 3800.00,
     categoria: 'Bebidas sin Alcohol',
@@ -1191,7 +1191,7 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
   },
   {
     id_producto: 'prod_sin__saborizada_limonada_500cc',
-    nombre: 'Saborizada Limonada 500cc',
+    nombre: 'S. Limonada 500c',
     descripcion: 'Aquarius - Limonada. Control de existencias directas en góndola/cava.',
     precio_venta: 3800.00,
     categoria: 'Bebidas sin Alcohol',
@@ -1207,7 +1207,7 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
   },
   {
     id_producto: 'prod_sin__saborizada_pera_500cc',
-    nombre: 'Saborizada Pera 500cc',
+    nombre: 'S. Pera 500c',
     descripcion: 'Aquarius - Pera. Control de existencias directas en góndola/cava.',
     precio_venta: 3800.00,
     categoria: 'Bebidas sin Alcohol',
@@ -1223,7 +1223,7 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
   },
   {
     id_producto: 'prod_sin__agua_mineral_600cc',
-    nombre: 'Agua Mineral 600cc',
+    nombre: 'Agua 600cc',
     descripcion: 'Glaciar - Sin Gas. Control de existencias directas en góndola/cava.',
     precio_venta: 3500.00,
     categoria: 'Bebidas sin Alcohol',
@@ -1239,7 +1239,7 @@ export const INITIAL_PRODUCTOS_MENU: ProductoMenu[] = [
   },
   {
     id_producto: 'prod_sin__soda_agua_con_gas_600cc',
-    nombre: 'Soda / Agua con Gas 600cc',
+    nombre: 'Soda 600cc',
     descripcion: 'Glaciar - Con Gas. Control de existencias directas en góndola/cava.',
     precio_venta: 3500.00,
     categoria: 'Bebidas sin Alcohol',

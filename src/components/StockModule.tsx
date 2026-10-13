@@ -88,6 +88,8 @@ export default function StockModule({
       cat.includes('bodega') ||
       cat.includes('bebida') ||
       cat.includes('vino') ||
+      cat.includes('gaseosa') ||
+      cat.includes('agua') ||
       sub.includes('vino') ||
       sub.includes('champagne') ||
       sub.includes('espumante') ||
@@ -96,13 +98,29 @@ export default function StockModule({
       sub.includes('cerveza') ||
       sub.includes('destilado') ||
       sub.includes('aperitivo') ||
+      sub.includes('agua') ||
+      sub.includes('saborizada') ||
       id.startsWith('prod_vin_') ||
       id.startsWith('prod_beb_') ||
       id.startsWith('prod_champ_') ||
+      id.startsWith('prod_trag_') ||
+      id.startsWith('prod_sin_') ||
+      id.startsWith('prod_cerv_') ||
       nom.includes('malbec') ||
       nom.includes('cabernet') ||
-      nom.includes('coca cola') ||
+      nom.includes('coca') ||
+      nom.includes('fanta') ||
+      nom.includes('sprite') ||
+      nom.includes('tonica') ||
+      nom.includes('pomelo') ||
+      nom.includes('soda') ||
+      nom.includes('agua') ||
+      nom.startsWith('s. ') ||
+      nom.includes('s. ') ||
+      nom.startsWith('s.') ||
+      nom.includes('saborizada') ||
       nom.includes('cerveza') ||
+      nom.includes('stella') ||
       nom.includes('fernet')
     );
   };
@@ -111,22 +129,43 @@ export default function StockModule({
   const getBeverageGroup = (p: ProductoMenu): BeverageCategoryFilter => {
     const sub = (p.subcategoria || '').toLowerCase();
     const nom = (p.nombre || '').toLowerCase();
-    const cat = (p.categoria || '').toLowerCase();
+    const id = (p.id_producto || '').toLowerCase();
 
-    if (sub.includes('champagne') || sub.includes('espumante') || nom.includes('champagne') || nom.includes('brut') || nom.includes('nature')) {
+    if (sub.includes('champagne') || sub.includes('espumante') || nom.includes('champagne') || nom.includes('brut') || nom.includes('nature') || id.startsWith('prod_champ_')) {
       return 'champagne';
+    }
+    if (sub.includes('cerveza') || nom.includes('stella') || nom.includes('cerveza') || id.startsWith('prod_cerv_') || nom.includes('gancia sin alcohol')) {
+      return 'cervezas';
+    }
+    if (
+      sub.includes('gaseosa') || 
+      sub.includes('agua') || 
+      sub.includes('saborizada') ||
+      nom.includes('coca') || 
+      nom.includes('sprite') || 
+      nom.includes('fanta') || 
+      nom.includes('tonica') || 
+      nom.includes('pomelo') || 
+      nom.includes('saborizada') || 
+      nom.includes('soda') ||
+      nom.includes('agua') ||
+      nom.startsWith('s. ') ||
+      nom.includes('s. ') ||
+      nom.startsWith('s.') ||
+      nom.includes('s. limonada') ||
+      nom.includes('s. pera') ||
+      nom.includes('s. naranja') ||
+      nom.includes('s. pomelo') ||
+      nom.includes('s. manzana') ||
+      id.startsWith('prod_sin_')
+    ) {
+      return 'gaseosas';
     }
     if (sub.includes('tinto') || nom.includes('malbec') || nom.includes('cabernet') || nom.includes('merlot') || nom.includes('pinot noir') || nom.includes('syrah') || nom.includes('bonarda') || nom.includes('tannat') || nom.includes('ancellotta') || nom.includes('blend')) {
       return 'vinos_tintos';
     }
     if (sub.includes('blanco') || sub.includes('rosado') || nom.includes('chardonnay') || nom.includes('sauvignon') || nom.includes('torrontes') || nom.includes('viognier') || nom.includes('albarino') || nom.includes('riesling') || nom.includes('rose') || nom.includes('rosado')) {
       return 'vinos_blancos';
-    }
-    if (sub.includes('cerveza') || nom.includes('stella') || nom.includes('cerveza')) {
-      return 'cervezas';
-    }
-    if (sub.includes('gaseosa') || sub.includes('agua') || nom.includes('coca') || nom.includes('sprite') || nom.includes('fanta') || nom.includes('tonica') || nom.includes('pomelo') || nom.includes('saborizada') || nom.includes('soda')) {
-      return 'gaseosas';
     }
     return 'tragos';
   };
@@ -136,22 +175,51 @@ export default function StockModule({
     return productosMenu.filter(isBeverage);
   }, [productosMenu]);
 
+  // Counts per category tab
+  const categoryTabCounts = useMemo(() => {
+    const counts: Record<string, number> = {
+      todos: allBeverages.length,
+      vinos_tintos: 0,
+      vinos_blancos: 0,
+      champagne: 0,
+      tragos: 0,
+      gaseosas: 0,
+      cervezas: 0
+    };
+    for (const b of allBeverages) {
+      const g = getBeverageGroup(b);
+      if (counts[g] !== undefined) {
+        counts[g]++;
+      }
+    }
+    return counts;
+  }, [allBeverages]);
+
+  // Products belonging to the selected category tab (before status & search filter)
+  const categoryBeverages = useMemo(() => {
+    if (categoryFilter === 'todos') return allBeverages;
+    return allBeverages.filter(item => getBeverageGroup(item) === categoryFilter);
+  }, [allBeverages, categoryFilter]);
+
+  // Status counts inside the current category tab
+  const categoryCounts = useMemo(() => {
+    const total = categoryBeverages.length;
+    const ok = categoryBeverages.filter(p => (p.stock_actual ?? 0) > 0).length;
+    const bajo = categoryBeverages.filter(p => (p.stock_actual ?? 0) > 0 && (p.stock_actual ?? 0) <= (p.stock_minimo ?? 2)).length;
+    const agotado = categoryBeverages.filter(p => (p.stock_actual ?? 0) <= 0).length;
+    return { total, ok, bajo, agotado };
+  }, [categoryBeverages]);
+
   // Apply filters
   const filteredBeverages = useMemo(() => {
-    return allBeverages.filter(item => {
-      // Category tab filter
-      if (categoryFilter !== 'todos') {
-        const group = getBeverageGroup(item);
-        if (group !== categoryFilter) return false;
-      }
-
+    return categoryBeverages.filter(item => {
       // Stock status filter
       const currentStock = item.stock_actual ?? 0;
       const minStock = item.stock_minimo ?? 2;
 
       if (statusFilter === 'agotado' && currentStock > 0) return false;
       if (statusFilter === 'bajo' && (currentStock <= 0 || currentStock > minStock)) return false;
-      if (statusFilter === 'ok' && currentStock <= minStock) return false;
+      if (statusFilter === 'ok' && currentStock <= 0) return false;
 
       // Text search
       if (searchTerm.trim()) {
@@ -165,7 +233,7 @@ export default function StockModule({
 
       return true;
     });
-  }, [allBeverages, categoryFilter, statusFilter, searchTerm]);
+  }, [categoryBeverages, statusFilter, searchTerm]);
 
   // KPI Metrics
   const stats = useMemo(() => {
@@ -338,7 +406,10 @@ export default function StockModule({
 
       {/* 2. KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-        <div className="bg-white dark:bg-[#1E130C] p-4 md:p-5 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm flex items-center justify-between">
+        <button
+          onClick={() => { setCategoryFilter('todos'); setStatusFilter('todos'); }}
+          className="text-left bg-white dark:bg-[#1E130C] p-4 md:p-5 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm flex items-center justify-between hover:border-[#8C6239] transition-all hover:scale-[1.02] cursor-pointer"
+        >
           <div>
             <span className="text-[10px] font-black uppercase tracking-wider text-stone-400 block">Total Bebidas</span>
             <span className="text-2xl md:text-3xl font-black text-stone-900 dark:text-stone-100 font-mono mt-1 block">
@@ -349,9 +420,12 @@ export default function StockModule({
           <div className="w-11 h-11 rounded-2xl bg-amber-500/10 text-amber-700 dark:text-amber-400 flex items-center justify-center shrink-0">
             <Package className="w-5 h-5" />
           </div>
-        </div>
+        </button>
 
-        <div className="bg-white dark:bg-[#1E130C] p-4 md:p-5 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm flex items-center justify-between">
+        <button
+          onClick={() => setStatusFilter('ok')}
+          className="text-left bg-white dark:bg-[#1E130C] p-4 md:p-5 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm flex items-center justify-between hover:border-emerald-500 transition-all hover:scale-[1.02] cursor-pointer"
+        >
           <div>
             <span className="text-[10px] font-black uppercase tracking-wider text-stone-400 block">Botellas en Stock</span>
             <span className="text-2xl md:text-3xl font-black text-emerald-600 dark:text-emerald-400 font-mono mt-1 block">
@@ -362,9 +436,12 @@ export default function StockModule({
           <div className="w-11 h-11 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
             <CheckCircle2 className="w-5 h-5" />
           </div>
-        </div>
+        </button>
 
-        <div className="bg-white dark:bg-[#1E130C] p-4 md:p-5 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm flex items-center justify-between">
+        <button
+          onClick={() => setStatusFilter('bajo')}
+          className="text-left bg-white dark:bg-[#1E130C] p-4 md:p-5 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm flex items-center justify-between hover:border-amber-500 transition-all hover:scale-[1.02] cursor-pointer"
+        >
           <div>
             <span className="text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400 block">Stock Bajo</span>
             <span className="text-2xl md:text-3xl font-black text-amber-600 dark:text-amber-400 font-mono mt-1 block">
@@ -375,9 +452,12 @@ export default function StockModule({
           <div className="w-11 h-11 rounded-2xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
             <AlertTriangle className="w-5 h-5" />
           </div>
-        </div>
+        </button>
 
-        <div className="bg-white dark:bg-[#1E130C] p-4 md:p-5 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm flex items-center justify-between">
+        <button
+          onClick={() => setStatusFilter('agotado')}
+          className="text-left bg-white dark:bg-[#1E130C] p-4 md:p-5 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm flex items-center justify-between hover:border-rose-500 transition-all hover:scale-[1.02] cursor-pointer"
+        >
           <div>
             <span className="text-[10px] font-black uppercase tracking-wider text-rose-600 dark:text-rose-400 block">Agotados (0)</span>
             <span className="text-2xl md:text-3xl font-black text-rose-600 dark:text-rose-400 font-mono mt-1 block">
@@ -388,26 +468,29 @@ export default function StockModule({
           <div className="w-11 h-11 rounded-2xl bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
             <TrendingDown className="w-5 h-5" />
           </div>
-        </div>
+        </button>
       </div>
 
-      {/* 3. Category Filter Tabs */}
+      {/* 3. Category Filter Tabs with dynamic counters */}
       <div className="bg-white dark:bg-[#1E130C] p-2 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm flex gap-1.5 overflow-x-auto scrollbar-none">
         {[
-          { id: 'todos', label: 'Todas las Bebidas', icon: Wine },
-          { id: 'vinos_tintos', label: 'Vinos Tintos', icon: Wine },
-          { id: 'vinos_blancos', label: 'Vinos Blancos & Rosados', icon: Sparkles },
-          { id: 'champagne', label: 'Champagne & Espumantes', icon: Sparkles },
-          { id: 'tragos', label: 'Tragos & Aperitivos', icon: Flame },
-          { id: 'gaseosas', label: 'Gaseosas & Aguas', icon: GlassWater },
-          { id: 'cervezas', label: 'Cervezas', icon: Beer },
+          { id: 'todos', label: 'Todas las Bebidas', icon: Wine, count: categoryTabCounts.todos },
+          { id: 'vinos_tintos', label: 'Vinos Tintos', icon: Wine, count: categoryTabCounts.vinos_tintos },
+          { id: 'vinos_blancos', label: 'Vinos Blancos & Rosados', icon: Sparkles, count: categoryTabCounts.vinos_blancos },
+          { id: 'champagne', label: 'Champagne & Espumantes', icon: Sparkles, count: categoryTabCounts.champagne },
+          { id: 'tragos', label: 'Tragos & Aperitivos', icon: Flame, count: categoryTabCounts.tragos },
+          { id: 'gaseosas', label: 'Gaseosas & Aguas', icon: GlassWater, count: categoryTabCounts.gaseosas },
+          { id: 'cervezas', label: 'Cervezas', icon: Beer, count: categoryTabCounts.cervezas },
         ].map(tab => {
           const Icon = tab.icon;
           const isActive = categoryFilter === tab.id;
           return (
             <button
               key={tab.id}
-              onClick={() => setCategoryFilter(tab.id as BeverageCategoryFilter)}
+              onClick={() => {
+                setCategoryFilter(tab.id as BeverageCategoryFilter);
+                setStatusFilter('todos');
+              }}
               className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
                 isActive
                   ? 'bg-[#8C6239] text-white shadow-md shadow-[#8C6239]/20'
@@ -416,6 +499,11 @@ export default function StockModule({
             >
               <Icon className="w-4 h-4 shrink-0" />
               <span>{tab.label}</span>
+              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${
+                isActive ? 'bg-white/20 text-white' : 'bg-stone-200 dark:bg-stone-800 text-stone-600 dark:text-stone-400'
+              }`}>
+                {tab.count}
+              </span>
             </button>
           );
         })}
@@ -430,7 +518,7 @@ export default function StockModule({
             type="text"
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
-            placeholder="Buscar por marca, bodega, variedad..."
+            placeholder="Buscar por marca, variedad, tamaño..."
             className="w-full pl-9.5 pr-4 py-2.5 bg-white dark:bg-[#1E130C] border border-stone-200 dark:border-stone-800 rounded-xl text-xs font-semibold text-stone-900 dark:text-stone-100 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-[#8C6239]"
           />
           {searchTerm && (
@@ -443,13 +531,13 @@ export default function StockModule({
           )}
         </div>
 
-        {/* Status Filter Chips */}
+        {/* Status Filter Chips with category counts */}
         <div className="flex items-center gap-1.5 overflow-x-auto">
           {[
-            { id: 'todos', label: 'Todos' },
-            { id: 'ok', label: '🟢 En Stock' },
-            { id: 'bajo', label: '🟡 Stock Bajo' },
-            { id: 'agotado', label: '🔴 Agotados' }
+            { id: 'todos', label: `Todos (${categoryCounts.total})` },
+            { id: 'ok', label: `🟢 En Stock (${categoryCounts.ok})` },
+            { id: 'bajo', label: `🟡 Stock Bajo (${categoryCounts.bajo})` },
+            { id: 'agotado', label: `🔴 Agotados (${categoryCounts.agotado})` }
           ].map(chip => (
             <button
               key={chip.id}
@@ -465,6 +553,24 @@ export default function StockModule({
           ))}
         </div>
       </div>
+
+      {/* Helpful banner if a status filter is hiding products */}
+      {statusFilter !== 'todos' && categoryCounts.total > filteredBeverages.length && (
+        <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-2xl px-4 py-2.5 flex items-center justify-between text-xs text-amber-900 dark:text-amber-200 animate-fadeIn">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+            <span>
+              Mostrando {filteredBeverages.length} de {categoryCounts.total} productos de esta categoría. Hay {categoryCounts.total - filteredBeverages.length} producto(s) no mostrados por el filtro activo ({statusFilter === 'ok' ? 'En Stock' : statusFilter === 'bajo' ? 'Stock Bajo' : 'Agotados'}).
+            </span>
+          </div>
+          <button 
+            onClick={() => setStatusFilter('todos')} 
+            className="ml-3 px-3 py-1 bg-[#8C6239] text-white hover:bg-[#624A3E] rounded-lg font-bold cursor-pointer shrink-0 transition-colors shadow-sm"
+          >
+            Ver todos ({categoryCounts.total})
+          </button>
+        </div>
+      )}
 
       {/* 5. Beverage Table / Cards Grid */}
       <div className="bg-white dark:bg-[#1E130C] rounded-3xl border border-stone-200 dark:border-stone-800 shadow-sm overflow-hidden">

@@ -420,7 +420,7 @@ INSERT INTO public.productos_menu (
   id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
 ) VALUES (
   'prod_sin__coca_cola_350cc',
-  'Coca Cola 350cc',
+  'coca cola 350cc',
   'Coca Cola - Original. Control de stock físico.',
   4000,
   'Bebidas sin Alcohol',
@@ -440,7 +440,7 @@ INSERT INTO public.productos_menu (
   id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
 ) VALUES (
   'prod_sin__coca_cero_350cc',
-  'Coca Cero 350cc',
+  'coca cero 350cc',
   'Coca Cola - Sin Azúcar. Control de stock físico.',
   4000,
   'Bebidas sin Alcohol',
@@ -460,7 +460,7 @@ INSERT INTO public.productos_menu (
   id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
 ) VALUES (
   'prod_sin__fanta_naranja_350cc',
-  'Fanta Naranja 350cc',
+  'fanta 350cc',
   'Coca Cola - Naranja. Control de stock físico.',
   4000,
   'Bebidas sin Alcohol',
@@ -480,7 +480,7 @@ INSERT INTO public.productos_menu (
   id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
 ) VALUES (
   'prod_sin__sprite_limon_350cc',
-  'Sprite Limón 350cc',
+  'sprite 350cc',
   'Coca Cola - Limón. Control de stock físico.',
   4000,
   'Bebidas sin Alcohol',
@@ -500,7 +500,7 @@ INSERT INTO public.productos_menu (
   id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
 ) VALUES (
   'prod_sin__agua_tonica_310cc',
-  'Agua Tónica 310cc',
+  'Tonica lata 310cc',
   'Schweppes - Tónica. Control de stock físico.',
   4000,
   'Bebidas sin Alcohol',
@@ -520,7 +520,7 @@ INSERT INTO public.productos_menu (
   id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
 ) VALUES (
   'prod_sin__gaseosa_pomelo_350cc',
-  'Gaseosa Pomelo 350cc',
+  'Pomelo lata 350cc',
   'Schweppes - Pomelo. Control de stock físico.',
   4000,
   'Bebidas sin Alcohol',
@@ -540,7 +540,7 @@ INSERT INTO public.productos_menu (
   id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
 ) VALUES (
   'prod_sin__saborizada_naranja_500cc',
-  'Saborizada Naranja 500cc',
+  'S. naranja 500cc',
   'Aquarius - Naranja. Control de stock físico.',
   3800,
   'Bebidas sin Alcohol',
@@ -560,7 +560,7 @@ INSERT INTO public.productos_menu (
   id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
 ) VALUES (
   'prod_sin__saborizada_pomelo_500cc',
-  'Saborizada Pomelo 500cc',
+  'S. pomelo 500cc',
   'Aquarius - Pomelo. Control de stock físico.',
   3800,
   'Bebidas sin Alcohol',
@@ -580,7 +580,7 @@ INSERT INTO public.productos_menu (
   id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
 ) VALUES (
   'prod_sin__saborizada_manzana_500cc',
-  'Saborizada Manzana 500cc',
+  'S. manzana 500cc',
   'Aquarius - Manzana. Control de stock físico.',
   3800,
   'Bebidas sin Alcohol',
@@ -600,7 +600,7 @@ INSERT INTO public.productos_menu (
   id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
 ) VALUES (
   'prod_sin__saborizada_limonada_500cc',
-  'Saborizada Limonada 500cc',
+  'S. Limonada 500c',
   'Aquarius - Limonada. Control de stock físico.',
   3800,
   'Bebidas sin Alcohol',
@@ -620,7 +620,7 @@ INSERT INTO public.productos_menu (
   id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
 ) VALUES (
   'prod_sin__saborizada_pera_500cc',
-  'Saborizada Pera 500cc',
+  'S. Pera 500c',
   'Aquarius - Pera. Control de stock físico.',
   3800,
   'Bebidas sin Alcohol',
@@ -640,7 +640,7 @@ INSERT INTO public.productos_menu (
   id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
 ) VALUES (
   'prod_sin__agua_mineral_600cc',
-  'Agua Mineral 600cc',
+  'Agua 600cc',
   'Glaciar - Sin Gas. Control de stock físico.',
   3500,
   'Bebidas sin Alcohol',
@@ -660,7 +660,7 @@ INSERT INTO public.productos_menu (
   id_producto, nombre, descripcion, precio_venta, categoria, subcategoria, tipo, stock_actual, stock_minimo, controla_stock, unidad_medida, activo, imagen, url_imagen, requiere_cocina
 ) VALUES (
   'prod_sin__soda_agua_con_gas_600cc',
-  'Soda / Agua con Gas 600cc',
+  'Soda 600cc',
   'Glaciar - Con Gas. Control de stock físico.',
   3500,
   'Bebidas sin Alcohol',
