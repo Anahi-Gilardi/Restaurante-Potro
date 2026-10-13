@@ -27,7 +27,6 @@ import { buildReservationWhatsAppUrl, validatePublicReservation } from '../lib/p
 import { promocionesService, type Promocion } from '../services/promocionesService';
 import { menuDiarioService, MenuDiarioDia, INITIAL_MENU_DIARIO } from '../services/menuDiarioService';
 
-const DIAS_KEYS: MenuDiarioDia['dia'][] = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'];
 const DIAS_LABELS: Record<MenuDiarioDia['dia'], string> = {
   lunes: 'Lunes',
   martes: 'Martes',
@@ -113,7 +112,9 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
     const daysOrder: MenuDiarioDia['dia'][] = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
     return daysOrder[new Date().getDay()] || 'lunes';
   }, []);
-  const [selectedDiaKey, setSelectedDiaKey] = useState<MenuDiarioDia['dia']>(todayKey);
+
+  // Solo se visualiza el plato del menú diario los días miércoles, jueves y viernes
+  const isMenuDiarioDay = todayKey === 'miercoles' || todayKey === 'jueves' || todayKey === 'viernes';
 
   React.useEffect(() => {
     let isMounted = true;
@@ -127,7 +128,7 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
     return () => { isMounted = false; };
   }, []);
 
-  const currentMenuDiario = menuDiario[selectedDiaKey] || INITIAL_MENU_DIARIO[selectedDiaKey] || INITIAL_MENU_DIARIO['lunes'];
+  const todayMenu = menuDiario[todayKey] || INITIAL_MENU_DIARIO[todayKey];
 
   // Mobile Nav Drawer Toggle
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -452,7 +453,7 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
           ))}
         </div>
 
-        {/* TEASER BANNER: MENÚS EJECUTIVOS (ALMUERZO Y CENA) - DINÁMICO */}
+        {/* TEASER BANNER: MENÚS EJECUTIVOS (ALMUERZO Y CENA) - MIÉRCOLES, JUEVES Y VIERNES */}
         <motion.div
           initial={{ opacity: 0, y: 24 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -468,8 +469,8 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
             {/* Foto gastronómica destacada */}
             <div className="w-full lg:w-5/12 h-64 sm:h-80 relative rounded-2xl overflow-hidden shadow-lg group">
               <img 
-                src={currentMenuDiario.imagen_url || '/images/inauguracion/pastas_y_salmon_grillado.jpg'} 
-                alt={`Menú Ejecutivo: ${currentMenuDiario.nombre}`}
+                src={isMenuDiarioDay && todayMenu.imagen_url ? todayMenu.imagen_url : '/images/inauguracion/pastas_y_salmon_grillado.jpg'} 
+                alt={isMenuDiarioDay ? `Menú Ejecutivo: ${todayMenu.nombre}` : 'Menús Ejecutivos de El Patrón'}
                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                 onError={(e) => {
                   (e.target as HTMLImageElement).src = '/images/inauguracion/pastas_y_salmon_grillado.jpg';
@@ -478,121 +479,143 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-black/30" />
               
               <div className="absolute top-4 left-4 right-4 flex flex-wrap items-center justify-between gap-2">
-                {selectedDiaKey === todayKey ? (
-                  <span className="px-3.5 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest bg-emerald-600 text-white shadow-md flex items-center gap-1.5 font-display-serif">
-                    <Sparkles className="w-3.5 h-3.5 animate-pulse" />
-                    Plato de Hoy · {DIAS_LABELS[selectedDiaKey]}
-                  </span>
+                {isMenuDiarioDay ? (
+                  <>
+                    <span className="px-3.5 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest bg-emerald-600 text-white shadow-md flex items-center gap-1.5 font-display-serif">
+                      <Sparkles className="w-3.5 h-3.5 animate-pulse" />
+                      Plato de Hoy · {DIAS_LABELS[todayKey]}
+                    </span>
+                    {todayMenu.precio > 0 && (
+                      <span className="px-3 py-1.5 rounded-full text-[11px] font-black bg-black/75 backdrop-blur-xs text-amber-300 border border-amber-400/30 font-mono shadow-md">
+                        ${todayMenu.precio.toLocaleString('es-AR')}
+                      </span>
+                    )}
+                  </>
                 ) : (
                   <span className="px-3.5 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest bg-[#8C6239] text-[#FAF7F0] shadow-md flex items-center gap-1.5 font-display-serif">
-                    <Calendar className="w-3.5 h-3.5" />
-                    {DIAS_LABELS[selectedDiaKey]}
-                  </span>
-                )}
-
-                {currentMenuDiario.precio > 0 && (
-                  <span className="px-3 py-1.5 rounded-full text-[11px] font-black bg-black/75 backdrop-blur-xs text-amber-300 border border-amber-400/30 font-mono shadow-md">
-                    ${currentMenuDiario.precio.toLocaleString('es-AR')}
+                    <Sparkles className="w-3.5 h-3.5 animate-pulse" />
+                    De Miércoles a Viernes
                   </span>
                 )}
               </div>
 
               <div className="absolute bottom-4 left-4 right-4 text-white">
                 <p className="text-[11px] font-medium tracking-wide uppercase text-amber-200 font-display-serif">
-                  {currentMenuDiario.categoria || 'Cocina Diaria de Autor'}
+                  {isMenuDiarioDay ? (todayMenu.categoria || 'Cocina Diaria de Autor') : 'Cocina Diaria de Autor'}
                 </p>
                 <p className="text-base sm:text-lg font-bold font-serif-rustic capitalize leading-snug drop-shadow-sm">
-                  {currentMenuDiario.nombre}
+                  {isMenuDiarioDay ? todayMenu.nombre : 'Platos caseros, postres de estación y carnes seleccionadas'}
                 </p>
               </div>
             </div>
 
             {/* Texto y detalles del anuncio */}
             <div className="w-full lg:w-7/12 space-y-5 text-left">
-              <div className="space-y-2">
-                <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-[#8C6239] dark:text-[#C8956A] font-display-serif">
-                  <UtensilsCrossed className="w-4 h-4" />
-                  Menú Ejecutivo Diario · {DIAS_LABELS[selectedDiaKey]}
-                </span>
-                <h3 className="text-2xl sm:text-3xl lg:text-4xl font-bold font-serif-rustic text-[#8C6239] dark:text-[#FAF7F0] tracking-wide capitalize">
-                  {currentMenuDiario.nombre}
-                </h3>
-              </div>
-
-              {/* Selector de días */}
-              <div className="space-y-1.5">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400 block font-display-serif">
-                  Ver propuesta por día:
-                </span>
-                <div className="flex flex-wrap gap-1.5">
-                  {DIAS_KEYS.map((diaKey) => {
-                    const isSelected = selectedDiaKey === diaKey;
-                    const isToday = todayKey === diaKey;
-                    return (
-                      <button
-                        key={diaKey}
-                        type="button"
-                        onClick={() => setSelectedDiaKey(diaKey)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                          isSelected
-                            ? 'bg-[#8C6239] text-white shadow-md ring-2 ring-[#8C6239]/40 scale-105'
-                            : 'bg-stone-100 hover:bg-stone-200 dark:bg-stone-900/80 dark:hover:bg-stone-800 text-stone-700 dark:text-stone-300 border border-stone-200/80 dark:border-stone-800'
-                        }`}
-                      >
-                        <span>{DIAS_LABELS[diaKey]}</span>
-                        {isToday && (
-                          <span className={`text-[9px] px-1 py-0.2 rounded font-black uppercase ${
-                            isSelected ? 'bg-amber-300 text-stone-900' : 'bg-emerald-600 text-white'
-                          }`}>
-                            Hoy
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <p className="text-sm sm:text-base text-stone-700 dark:text-stone-300 font-serif-rustic italic leading-relaxed">
-                {currentMenuDiario.descripcion || 'Platos caseros, postres de estación y bebidas seleccionadas pensadas para ofrecerte la máxima calidad gastronómica y un servicio ágil.'}
-              </p>
-
-              {/* Píldora informativa */}
-              <div className="pt-1">
-                <div className="flex items-center gap-3.5 p-3.5 rounded-xl bg-white/70 dark:bg-stone-900/60 border border-stone-200/80 dark:border-stone-800 max-w-md">
-                  <div className="p-2.5 rounded-lg bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-400">
-                    <Sun className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <span className="text-xs font-black uppercase text-stone-800 dark:text-stone-100 block">
-                      Almuerzos & Cenas Ejecutivas
+              {isMenuDiarioDay ? (
+                <>
+                  <div className="space-y-2">
+                    <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-[#8C6239] dark:text-[#C8956A] font-display-serif">
+                      <UtensilsCrossed className="w-4 h-4" />
+                      Menú Ejecutivo de Hoy · {DIAS_LABELS[todayKey]}
                     </span>
-                    <span className="text-[11px] text-stone-500 dark:text-stone-400 font-serif-rustic italic">
-                      Cocina fresca elaborada en el día con ingredientes de primera calidad
-                    </span>
+                    <h3 className="text-2xl sm:text-3xl lg:text-4xl font-bold font-serif-rustic text-[#8C6239] dark:text-[#FAF7F0] tracking-wide capitalize">
+                      {todayMenu.nombre}
+                    </h3>
                   </div>
-                </div>
-              </div>
 
-              {/* Pie con botón de consulta WhatsApp */}
-              <div className="pt-3 flex flex-wrap items-center justify-between gap-4 border-t border-stone-200/70 dark:border-stone-800">
-                <span className="text-xs text-stone-500 dark:text-stone-400 font-serif-rustic italic flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5 text-[#8C6239]" />
-                  Disponible de mediodía y noche en nuestro salón
-                </span>
+                  <p className="text-sm sm:text-base text-stone-700 dark:text-stone-300 font-serif-rustic italic leading-relaxed">
+                    {todayMenu.descripcion || 'Plato casero del día elaborado con ingredientes frescos, acompañado de panera artesanal y bebida o postre según propuesta del día.'}
+                  </p>
 
-                <a
-                  href={`https://wa.me/5493584303541?text=${encodeURIComponent(
-                    `Hola El Patrón! Quisiera consultar o reservar el Menú Ejecutivo del ${DIAS_LABELS[selectedDiaKey]}: ${currentMenuDiario.nombre}.`
-                  )}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-5 py-2.5 rounded-xl bg-[#8C6239] hover:bg-[#A0754B] text-white text-xs font-bold uppercase tracking-wider transition-all duration-200 flex items-center gap-2 shadow-md hover:scale-[1.02] cursor-pointer"
-                >
-                  <Send className="w-3.5 h-3.5" />
-                  Consultar por WhatsApp
-                </a>
-              </div>
+                  {/* Píldora informativa */}
+                  <div className="pt-1">
+                    <div className="flex items-center gap-3.5 p-3.5 rounded-xl bg-white/70 dark:bg-stone-900/60 border border-stone-200/80 dark:border-stone-800 max-w-md">
+                      <div className="p-2.5 rounded-lg bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-400">
+                        <Sun className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <span className="text-xs font-black uppercase text-stone-800 dark:text-stone-100 block">
+                          Almuerzo Ejecutivo del Día
+                        </span>
+                        <span className="text-[11px] text-stone-500 dark:text-stone-400 font-serif-rustic italic">
+                          Disponible hoy de 12:00 a 15:30 hs · Cocina fresca y servicio ágil
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Pie con botón de consulta WhatsApp */}
+                  <div className="pt-3 flex flex-wrap items-center justify-between gap-4 border-t border-stone-200/70 dark:border-stone-800">
+                    <span className="text-xs text-stone-500 dark:text-stone-400 font-serif-rustic italic flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-[#8C6239]" />
+                      Disponible hoy al mediodía en nuestro salón
+                    </span>
+
+                    <a
+                      href={`https://wa.me/5493584303541?text=${encodeURIComponent(
+                        `Hola El Patrón! Quisiera consultar o reservar el Menú Ejecutivo de hoy (${DIAS_LABELS[todayKey]}): ${todayMenu.nombre}.`
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-5 py-2.5 rounded-xl bg-[#8C6239] hover:bg-[#A0754B] text-white text-xs font-bold uppercase tracking-wider transition-all duration-200 flex items-center gap-2 shadow-md hover:scale-[1.02] cursor-pointer"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      Pedir / Reservar por WhatsApp
+                    </a>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-[#8C6239] dark:text-[#C8956A] font-display-serif">
+                      <UtensilsCrossed className="w-4 h-4" />
+                      Propuesta en Preparación
+                    </span>
+                    <h3 className="text-2xl sm:text-3xl lg:text-4xl font-bold font-serif-rustic text-[#8C6239] dark:text-[#FAF7F0] tracking-wide">
+                      Menús Ejecutivos · Almuerzo
+                    </h3>
+                  </div>
+
+                  <p className="text-sm sm:text-base text-stone-700 dark:text-stone-300 font-serif-rustic italic leading-relaxed">
+                    De miércoles a viernes ofrecemos una carta ejecutiva especial para acompañar tus jornadas: opciones gourmet y caseras elaboradas en el día, con entrada, plato principal y postre, pensadas para ofrecerte la máxima calidad gastronómica y un servicio ágil.
+                  </p>
+
+                  {/* Píldora informativa */}
+                  <div className="pt-1">
+                    <div className="flex items-center gap-3.5 p-3.5 rounded-xl bg-white/70 dark:bg-stone-900/60 border border-stone-200/80 dark:border-stone-800 max-w-md">
+                      <div className="p-2.5 rounded-lg bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-400">
+                        <Sun className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <span className="text-xs font-black uppercase text-stone-800 dark:text-stone-100 block">
+                          Almuerzos Ejecutivos
+                        </span>
+                        <span className="text-[11px] text-stone-500 dark:text-stone-400 font-serif-rustic italic">
+                          Disponible de Miércoles a Viernes de 12:00 a 15:30 hs
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Pie con botón de consulta WhatsApp */}
+                  <div className="pt-3 flex flex-wrap items-center justify-between gap-4 border-t border-stone-200/70 dark:border-stone-800">
+                    <span className="text-xs text-stone-500 dark:text-stone-400 font-serif-rustic italic flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-[#8C6239]" />
+                      Disponible de Miércoles a Viernes al mediodía
+                    </span>
+
+                    <a
+                      href="https://wa.me/5493584303541?text=Hola%20El%20Patr%C3%B3n!%20Quisiera%20consultar%20sobre%20los%20men%C3%BAs%20ejecutivos."
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-5 py-2.5 rounded-xl bg-[#8C6239] hover:bg-[#A0754B] text-white text-xs font-bold uppercase tracking-wider transition-all duration-200 flex items-center gap-2 shadow-md hover:scale-[1.02] cursor-pointer"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      Consultar por WhatsApp
+                    </a>
+                  </div>
+                </>
+              )}
 
             </div>
 
