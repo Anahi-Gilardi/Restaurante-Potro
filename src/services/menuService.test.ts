@@ -92,7 +92,9 @@ test('menuService update preserva stock_actual, stock_minimo y controla_stock', 
     stock_actual: 12,
     stock_minimo: 3,
     controla_stock: true,
-    unidad_medida: 'Botella 750ml'
+    unidad_medida: 'Botella 750ml',
+    activo: true,
+    imagen: ''
   };
 
   localStorage.setItem('el_patron_cache_menu', JSON.stringify([dummyItem]));
@@ -117,14 +119,16 @@ test('menuService delete y remove eliminan el producto y no reaparece en list()'
       nombre: 'Bebida a borrar',
       precio_venta: 2000,
       categoria: 'Bebidas sin alcohol',
-      activo: true
+      activo: true,
+      imagen: ''
     },
     {
       id_producto: 'prod_que_queda',
       nombre: 'Bebida que permanece',
       precio_venta: 2500,
       categoria: 'Bebidas sin alcohol',
-      activo: true
+      activo: true,
+      imagen: ''
     }
   ];
 
