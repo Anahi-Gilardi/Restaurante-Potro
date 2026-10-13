@@ -267,19 +267,19 @@ export const pdfService = {
     doc.rect(margin, headerBoxY, contentWidth, headerHeight);
 
     // Center Letter Box
-    const letterBoxWidth = 16;
+    const letterBoxWidth = 14;
     const letterBoxHeight = 14;
     const letterBoxX = 105 - (letterBoxWidth / 2);
     doc.setFillColor(255, 255, 255);
     doc.rect(letterBoxX, headerBoxY, letterBoxWidth, letterBoxHeight, 'FD');
 
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(22);
+    doc.setFontSize(20);
     doc.setTextColor(...black);
-    doc.text(letter, 105, headerBoxY + 9, { align: 'center' });
+    doc.text(letter, 105, headerBoxY + 8.5, { align: 'center' });
 
-    doc.setFontSize(7);
-    doc.text(`COD. ${codComp}`, 105, headerBoxY + 12.5, { align: 'center' });
+    doc.setFontSize(6.5);
+    doc.text(`COD. ${codComp}`, 105, headerBoxY + 12, { align: 'center' });
 
     // Vertical line dividing left and right below the letter box
     doc.line(105, headerBoxY + letterBoxHeight, 105, headerBoxY + headerHeight);
@@ -303,29 +303,29 @@ export const pdfService = {
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(13);
-    doc.text(data.razonSocial || data.nombreComercial, leftX, leftY, { maxWidth: 84 });
+    doc.text(data.razonSocial || data.nombreComercial, leftX, leftY, { maxWidth: 78 });
     leftY += 5;
 
     if (data.nombreComercial && data.nombreComercial !== data.razonSocial) {
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8.5);
       doc.setTextColor(...darkGray);
-      doc.text(data.nombreComercial, leftX, leftY, { maxWidth: 84 });
+      doc.text(data.nombreComercial, leftX, leftY, { maxWidth: 78 });
       leftY += 4.5;
     }
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
     doc.setTextColor(...black);
-    doc.text(`Razón Social: ${data.razonSocial}`, leftX, leftY, { maxWidth: 84 });
+    doc.text(`Razón Social: ${data.razonSocial}`, leftX, leftY, { maxWidth: 78 });
     leftY += 4.5;
-    doc.text(`Domicilio Comercial: ${data.direccion}`, leftX, leftY, { maxWidth: 84 });
+    doc.text(`Domicilio Comercial: ${data.direccion}`, leftX, leftY, { maxWidth: 78 });
     leftY += 7.5;
     doc.setFont('helvetica', 'bold');
     doc.text(`Condición frente al IVA: ${data.condicionIvaEmisor || (letter === 'C' ? 'Monotributo' : 'Responsable Inscripto')}`, leftX, leftY);
 
     // --- RIGHT SIDE: COMPROBANTE ---
-    const rightX = 112;
+    const rightX = 118;
     let rightY = headerBoxY + 7;
 
     doc.setFont('helvetica', 'bold');
@@ -334,7 +334,7 @@ export const pdfService = {
     doc.text(isCreditNote ? 'NOTA DE CRÉDITO' : 'FACTURA', rightX, rightY);
     rightY += 6;
 
-    doc.setFontSize(9.5);
+    doc.setFontSize(9);
     doc.text(`Punto de Venta: ${ptoVta}   Comp. Nro: ${compNro}`, rightX, rightY);
     rightY += 5;
 
@@ -1632,7 +1632,6 @@ export const pdfService = {
 
     facturas.forEach(f => {
       const monto = Number(f.total) || 0;
-      totalGeneral += monto;
       const isArca = Boolean(f.afip_cae || (f.tipo && f.tipo !== 'ticket' && f.tipo !== 'X'));
       if (isArca) {
         totalArca += monto;
@@ -1640,21 +1639,24 @@ export const pdfService = {
       } else {
         totalSinArca += monto;
         countSinArca++;
-      }
 
-      const m = String(f.medio_pago || '').toLowerCase();
-      if (m.includes('efectivo') || m === 'cash') paymentTotals.efectivo += monto;
-      else if (m.includes('tarjeta') || m.includes('credito') || m.includes('debito')) paymentTotals.tarjeta += monto;
-      else if (m.includes('transf')) paymentTotals.transferencia += monto;
-      else if (m.includes('qr') || m.includes('mercadopago') || m.includes('mp')) paymentTotals.mp_qr += monto;
-      else paymentTotals.otros += monto;
+        const m = String(f.medio_pago || '').toLowerCase();
+        if (m.includes('efectivo') || m === 'cash') paymentTotals.efectivo += monto;
+        else if (m.includes('tarjeta') || m.includes('credito') || m.includes('debito')) paymentTotals.tarjeta += monto;
+        else if (m.includes('transf')) paymentTotals.transferencia += monto;
+        else if (m.includes('qr') || m.includes('mercadopago') || m.includes('mp')) paymentTotals.mp_qr += monto;
+        else paymentTotals.otros += monto;
+      }
     });
+
+    // En caja, el total cobrado corresponde a los tickets de consumo reales del salón (las facturas fiscales no se suman a la caja para no duplicar montos)
+    totalGeneral = (countSinArca > 0 || totalArca === 0) ? totalSinArca : totalArca;
 
     // Draw KPI Boxes (4 boxes)
     const boxW = (contentWidth - 9) / 4;
     const boxH = 18;
 
-    // Box 1: Total General
+    // Box 1: Total General Cobrado en Caja
     doc.setFillColor(248, 246, 240);
     doc.roundedRect(margin, y, boxW, boxH, 2, 2, 'F');
     doc.setDrawColor(219, 213, 204);
@@ -1662,14 +1664,14 @@ export const pdfService = {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7.5);
     doc.setTextColor(120, 113, 108);
-    doc.text('TOTAL COBRADO', margin + 3, y + 4.5);
+    doc.text('TOTAL COBRADO (CAJA)', margin + 3, y + 4.5);
     doc.setFontSize(10.5);
     doc.setTextColor(98, 74, 62);
     doc.text(`$ ${totalGeneral.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`, margin + 3, y + 10.5);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7);
     doc.setTextColor(80, 80, 80);
-    doc.text(`${facturas.length} comprobantes`, margin + 3, y + 15);
+    doc.text(`${countSinArca} tickets salón`, margin + 3, y + 15);
 
     // Box 2: Total Fiscal ARCA
     const b2X = margin + boxW + 3;
@@ -1895,6 +1897,13 @@ export const pdfService = {
     doc.text(`TOTAL AUDITADO (${facturas.length} COMPROBANTES):`, margin + 4, y + 5.5);
     doc.setFontSize(10.5);
     doc.text(`$ ${totalGeneral.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`, margin + contentWidth - 4, y + 5.5, { align: 'right' });
+
+    if (countArca > 0 && countSinArca > 0) {
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(6.5);
+      doc.setTextColor(120, 113, 108);
+      doc.text('* Las facturas con CAE son comprobantes fiscales de respaldo y no se agregan a la recaudación de caja para evitar duplicaciones.', margin + 4, y + 11.5);
+    }
 
     y += 16;
 

@@ -331,6 +331,8 @@ export default function FacturacionModule({ pedidos, productosMenu, addLog }: Fa
     }
   };
 
+  // Nota contable: Las facturas fiscales (ARCA) se registran en 'facturas' y figuran en el historial de tickets de Caja,
+  // pero NUNCA se agregan al monto de la caja física/turno para no duplicar recaudación ni desbalancear el arqueo.
   const persistFactura = async (factura: FacturaExtendida) => {
     setFacturas(prev => [factura, ...prev]);
     try {

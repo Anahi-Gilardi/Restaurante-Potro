@@ -2314,7 +2314,7 @@ export default function CajaModule({
                       <span>${efCajonEsperado.toLocaleString('es-AR')}</span>
                     </div>
                     <div className="flex justify-between text-stone-500 dark:text-stone-400 text-[9px] pt-0.5 border-t border-stone-200/50 dark:border-stone-800/50">
-                      <span>Total Facturado Turno (Todas las formas):</span>
+                      <span>Total Recaudado en Turno (Tickets de Salón):</span>
                       <span>${cajaEsperadaTotal.toLocaleString('es-AR')}</span>
                     </div>
                   </div>
@@ -2962,9 +2962,17 @@ export default function CajaModule({
                 fList = fList.filter(f => !f.afip_cae && (!f.tipo || f.tipo === 'ticket' || f.tipo === 'X'));
               }
 
-              const sumMonto = fList.reduce((acc, f) => acc + (Number(f.total) || 0), 0);
-              const countArca = fList.filter(f => Boolean(f.afip_cae)).length;
+              const countArca = fList.filter(f => Boolean(f.afip_cae || (f.tipo && f.tipo !== 'ticket' && f.tipo !== 'X'))).length;
               const countNoArca = fList.length - countArca;
+              const totalTicketsCaja = fList
+                .filter(f => !f.afip_cae && (!f.tipo || f.tipo === 'ticket' || f.tipo === 'X'))
+                .reduce((acc, f) => acc + (Number(f.total) || 0), 0);
+              const totalFacturasArca = fList
+                .filter(f => Boolean(f.afip_cae || (f.tipo && f.tipo !== 'ticket' && f.tipo !== 'X')))
+                .reduce((acc, f) => acc + (Number(f.total) || 0), 0);
+
+              // Las facturas con CAE son comprobantes fiscales y no se suman a la caja para evitar duplicaciones
+              const sumMonto = auditArcaFilter === 'arca' ? totalFacturasArca : totalTicketsCaja;
 
               return (
                 <div className="p-3.5 bg-[#F5F1E9] dark:bg-stone-950/80 rounded-xl border border-stone-200 dark:border-stone-800 space-y-2 text-xs">
@@ -2975,19 +2983,26 @@ export default function CajaModule({
                   <div className="grid grid-cols-2 gap-2 text-[11px] font-medium text-stone-600 dark:text-stone-400 pt-1 border-t border-stone-200 dark:border-stone-800">
                     <div>
                       <span>Con ARCA (CAE): </span>
-                      <strong className="text-emerald-700 dark:text-emerald-400 font-mono">{countArca}</strong>
+                      <strong className="text-emerald-700 dark:text-emerald-400 font-mono">{countArca} (${totalFacturasArca.toLocaleString('es-AR')})</strong>
                     </div>
                     <div>
-                      <span>Sin ARCA (Consumo): </span>
-                      <strong className="text-amber-700 dark:text-amber-400 font-mono">{countNoArca}</strong>
+                      <span>Sin ARCA (Caja): </span>
+                      <strong className="text-amber-700 dark:text-amber-400 font-mono">{countNoArca} (${totalTicketsCaja.toLocaleString('es-AR')})</strong>
                     </div>
                   </div>
                   <div className="flex justify-between items-center pt-1 border-t border-stone-200 dark:border-stone-800 font-bold text-sm">
-                    <span className="text-stone-800 dark:text-stone-200">Monto Total Auditado:</span>
+                    <span className="text-stone-800 dark:text-stone-200">
+                      {auditArcaFilter === 'arca' ? 'Monto Total Facturado (ARCA):' : 'Monto Total Recaudado en Caja:'}
+                    </span>
                     <span className="font-mono text-base font-black text-[#624A3E] dark:text-amber-400">
                       ${sumMonto.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                     </span>
                   </div>
+                  {countArca > 0 && auditArcaFilter !== 'arca' && (
+                    <p className="text-[10px] text-stone-500 dark:text-stone-400 italic">
+                      * Las facturas con CAE figuran en el historial pero no se agregan al monto de la caja para evitar duplicaciones.
+                    </p>
+                  )}
                 </div>
               );
             })()}
