@@ -1,28 +1,17 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { 
-  TrendingUp, 
-  DollarSign, 
   UtensilsCrossed, 
-  Users, 
-  Calendar, 
-  Clock, 
-  RefreshCw, 
-  User, 
   ChevronRight, 
   Bell, 
   AlertTriangle, 
   Flame, 
-  Activity, 
-  Award, 
-  Lightbulb, 
   Trophy,
   Search,
   X
 } from 'lucide-react';
 import { Mesa, Pedido, Insumo, ProductoMenu, Usuario } from '../types';
 import { AppView } from '../lib/permissions';
-import { tryGetActiveSupabaseClient } from '../lib/supabaseClient';
-import { getTableActiveInfo, isTableOccupied } from '../lib/tableOrders';
+import { getTableActiveInfo } from '../lib/tableOrders';
 import { ventasPlatosService, RankingItem } from '../services/ventasPlatosService';
 import ElPatronLogo from './ElPatronLogo';
 
@@ -62,36 +51,6 @@ export default function HomeMenuModule({
   onAdvanceTime
 }: HomeMenuModuleProps) {
   
-  // Mapa O(1) de precio_venta por id_producto
-  const precioMap = useMemo(() => {
-    const map = new Map<string, number>();
-    productosMenu.forEach(p => map.set(p.id_producto, p.precio_venta));
-    return map;
-  }, [productosMenu]);
-
-  // Facturación real desde pedidos cobrados
-  const totalSales = useMemo(() => {
-    return pedidos
-      .filter(p => p.estado_comanda === 'entregado_cobrado')
-      .reduce((acc, p) => {
-        const subtotal = p.items.reduce((s, item) => {
-          const precio = item.precio_unitario ?? precioMap.get(item.id_producto) ?? 0;
-          return s + precio * item.cantidad;
-        }, 0);
-        return acc + subtotal;
-      }, 0);
-  }, [pedidos, precioMap]);
-
-  const occupiedTables = mesas.filter(m => isTableOccupied(m, pedidos)).length;
-  const lowStockCount = insumos.filter(i => i.stock_actual <= i.stock_minimo).length;
-
-  // Supabase connection client state check
-  const hasSupabase = !!tryGetActiveSupabaseClient();
-
-  // Ticket Promedio
-  const ticketCount = pedidos.filter(p => p.estado_comanda === 'entregado_cobrado').length;
-  const averageTicket = ticketCount > 0 ? Math.round(totalSales / ticketCount) : 0;
-
   // Ranking de Platos Más Vendidos (con integración de ventas_platos y fallback en vivo)
   const [rankingPeriodo, setRankingPeriodo] = useState<'semana' | 'mes' | 'hoy'>('mes');
   const [ventasPlatosRows, setVentasPlatosRows] = useState(() => ventasPlatosService.getLocalCache());
@@ -200,76 +159,6 @@ export default function HomeMenuModule({
     return map;
   }, [pedidos]);
 
-  // Progresión del Turno Circular SVG
-  const shiftProgress = useMemo(() => {
-    const timeStr = getSimulatedTimeStr();
-    const match = timeStr.match(/(\d{2}):(\d{2})/);
-    const hours = match ? parseInt(match[1]) : 12;
-    const minutes = match ? parseInt(match[2]) : 0;
-    const totalMinutes = hours * 60 + minutes;
-
-    // Turno Almuerzo: 12:00 (720m) a 16:00 (960m)
-    // Turno Cena: 19:00 (1140m) a 24:00 (1440m)
-    let label = 'Preparación ☕';
-    let color = 'bg-stone-50 text-stone-755 dark:bg-stone-950 dark:text-stone-300 border-stone-200 dark:border-stone-850';
-    let pct = 0;
-
-    if (hours >= 12 && hours < 16) {
-      label = 'Turno Almuerzo ☀️';
-      color = 'bg-amber-50 text-amber-850 border-amber-200 dark:bg-amber-950/20 dark:text-amber-300 dark:border-amber-900/50';
-      pct = ((totalMinutes - 720) / (960 - 720)) * 100;
-    } else if (hours >= 19 && hours <= 23) {
-      label = 'Turno Cena 🌙';
-      color = 'bg-[#624A3E]/10 text-[#624A3E] border-[#624A3E]/30 dark:bg-stone-850 dark:text-[#C8956A] dark:border-stone-750';
-      pct = ((totalMinutes - 1140) / (1440 - 1140)) * 100;
-    } else {
-      pct = ((totalMinutes - 480) / (720 - 480)) * 100; // prep mañana 8:00 a 12:00
-    }
-
-    pct = Math.max(0, Math.min(100, pct));
-    const radius = 22;
-    const circumference = 2 * Math.PI * radius;
-    const strokeDashoffset = circumference - (pct / 100) * circumference;
-
-    return { label, color, pct, circumference, strokeDashoffset };
-  }, [getSimulatedTimeStr]);
-
-  // Leaderboard de Mozos Activos
-  const mozoStats = useMemo(() => {
-    const stats: Record<string, { activeTables: number; ordersServed: number }> = {};
-    
-    // Iniciar con mozos del sistema
-    usuarios.forEach(u => {
-      if (u.rol === 'mozo' || u.rol === 'administrador' || u.rol === 'superadmin') {
-        stats[u.nombre] = { activeTables: 0, ordersServed: 0 };
-      }
-    });
-
-    // Contar mesas activas por mozo asignado en pedidos activos
-    pedidos.forEach(p => {
-      if (p.estado_comanda !== 'entregado_cobrado' && p.estado_comanda !== 'cancelado') {
-        if (!stats[p.mozo]) {
-          stats[p.mozo] = { activeTables: 0, ordersServed: 0 };
-        }
-        stats[p.mozo].activeTables++;
-      }
-      
-      // Contar comanda servida
-      if (p.mozo && stats[p.mozo]) {
-        stats[p.mozo].ordersServed++;
-      }
-    });
-
-    return Object.keys(stats)
-      .map(name => ({
-        name,
-        activeTables: stats[name].activeTables,
-        ordersServed: stats[name].ordersServed
-      }))
-      .filter(item => item.activeTables > 0 || item.ordersServed > 0)
-      .sort((a, b) => b.activeTables - a.activeTables || b.ordersServed - a.ordersServed);
-  }, [usuarios, pedidos]);
-
   // Live Alerts scanning
   const activeAlerts = useMemo(() => {
     const alerts: { text: string; action: any; type: 'warning' | 'info' | 'danger' }[] = [];
@@ -359,126 +248,6 @@ export default function HomeMenuModule({
         </div>
       )}
 
-      {/* 2. Top-Level Operational Context Row (Live stats + progress dial) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 max-w-7xl mx-auto">
-        
-        {/* Salon Capacity & Shift Widget (Span 3) */}
-        <div className="lg:col-span-3 bg-white dark:bg-stone-900 p-5 rounded-3xl border border-stone-200 dark:border-stone-850 shadow-xs flex flex-col justify-between min-h-[140px]">
-          <div>
-            <span className="text-[10px] font-black text-stone-400 dark:text-stone-550 uppercase tracking-widest block">Ocupación Salón</span>
-            <div className="flex items-baseline gap-2 mt-2">
-              <span className="text-3xl font-black text-stone-900 dark:text-white font-mono">{occupiedTables}</span>
-              <span className="text-xs font-bold text-stone-400">de {mesas.length} mesas</span>
-            </div>
-          </div>
-          
-          <div className="mt-4 pt-3 border-t border-stone-105 dark:border-stone-800 flex items-center justify-between">
-            <span className="text-[11px] font-extrabold text-stone-500 dark:text-stone-400">Porcentaje ocupación:</span>
-            <span className="text-sm font-black text-emerald-600 font-mono">{Math.round((occupiedTables / (mesas.length || 1)) * 100)}%</span>
-          </div>
-        </div>
-
-        {/* Active operator / logged user (Span 3) */}
-        <div className="lg:col-span-3 bg-white dark:bg-stone-900 p-5 rounded-3xl border border-stone-200 dark:border-stone-850 shadow-xs flex flex-col justify-between min-h-[140px]">
-          <div>
-            <span className="text-[10px] font-black text-stone-400 dark:text-stone-555 uppercase tracking-widest block">Operador en Turno</span>
-            <div className="flex items-center gap-2 mt-3.5">
-              <div className="w-8 h-8 rounded-xl bg-[#8C6239]/10 dark:bg-white/10 border border-stone-200 dark:border-white/15 flex items-center justify-center">
-                <User className="w-4 h-4 text-stone-600 dark:text-stone-300" />
-              </div>
-              {canChangeUser ? (
-                <select
-                  value={activeMozo}
-                  onChange={(e) => onMozoChange(e.target.value)}
-                  className="text-sm bg-transparent border-0 font-extrabold text-stone-850 dark:text-stone-105 focus:outline-none focus:ring-0 p-0 cursor-pointer hover:text-[#624A3E] dark:hover:text-[#C8956A]"
-                >
-                  {usuarios.filter(u => u.activo !== false).map(u => (
-                    <option key={u.id_usuario} value={u.nombre} className="dark:bg-[#1e130c] dark:text-stone-100">
-                      {u.nombre}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <span className="text-sm font-extrabold text-stone-850 dark:text-stone-100">{activeMozo}</span>
-              )}
-            </div>
-          </div>
-          
-          <div className="mt-4 pt-3 border-t border-stone-105 dark:border-stone-800">
-            <span className="text-[10.5px] font-bold text-stone-450 flex items-center gap-1.5">
-              <Activity className="w-3.5 h-3.5 text-emerald-500" /> Sesión activa asegurada
-            </span>
-          </div>
-        </div>
-
-        {/* Reloj Operativo Circular SVG (Span 3) */}
-        <div className="lg:col-span-3 bg-white dark:bg-stone-900 p-5 rounded-3xl border border-stone-200 dark:border-stone-850 shadow-xs flex items-center gap-4 min-h-[140px]">
-          <div className="relative w-14 h-14 shrink-0 flex items-center justify-center">
-            {/* SVG Background Circle */}
-            <svg className="w-full h-full transform -rotate-90">
-              <circle
-                cx="28"
-                cy="28"
-                r="22"
-                className="stroke-stone-100 dark:stroke-stone-800"
-                strokeWidth="4.5"
-                fill="transparent"
-              />
-              <circle
-                cx="28"
-                cy="28"
-                r="22"
-                className="stroke-[#624A3E] dark:stroke-[#C8956A]"
-                strokeWidth="4.5"
-                fill="transparent"
-                strokeDasharray={shiftProgress.circumference}
-                strokeDashoffset={shiftProgress.strokeDashoffset}
-                strokeLinecap="round"
-              />
-            </svg>
-            <Clock className="w-4 h-4 text-stone-400 absolute" />
-          </div>
-          
-          <div className="flex-1 space-y-1">
-            <span className="text-[10px] font-black text-stone-400 dark:text-stone-555 uppercase tracking-widest block">Reloj Operacional</span>
-            <div className="flex items-center gap-2">
-              <span className="text-lg font-black text-stone-900 dark:text-white font-mono">{getSimulatedTimeStr()}</span>
-              <button
-                onClick={onToggleAutoTimer}
-                className="p-1 rounded-lg bg-stone-55 hover:bg-stone-100 dark:bg-stone-950 dark:hover:bg-stone-850 text-stone-605 cursor-pointer"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${autoTimerRunning ? 'animate-spin' : ''}`} />
-              </button>
-            </div>
-            <span className={`text-[9.5px] font-black px-2 py-0.5 rounded-lg border ${shiftProgress.color} inline-block`}>
-              {shiftProgress.label}
-            </span>
-          </div>
-        </div>
-
-        {/* Turno en Cifras (Span 3) */}
-        <div className="lg:col-span-3 bg-white dark:bg-stone-900 p-5 rounded-3xl border border-stone-200 dark:border-stone-855 shadow-xs flex flex-col justify-between min-h-[140px]">
-          <div>
-            <span className="text-[10px] font-black text-stone-400 dark:text-stone-555 uppercase tracking-widest block">Turno en Cifras</span>
-            
-            <div className="flex justify-between items-center mt-3 text-xs font-semibold">
-              <span className="text-stone-500">Caja Estimada:</span>
-              <strong className="text-emerald-700 dark:text-emerald-400 font-mono text-sm">${totalSales.toLocaleString('es-AR')}</strong>
-            </div>
-            <div className="flex justify-between items-center text-xs font-semibold">
-              <span className="text-stone-500">Ticket Promedio:</span>
-              <strong className="text-stone-900 dark:text-stone-105 font-mono">${averageTicket.toLocaleString('es-AR')}</strong>
-            </div>
-          </div>
-          
-          <div className="border-t border-stone-105 dark:border-stone-800 pt-2 flex items-center justify-between text-[9px] font-black text-stone-450 uppercase">
-            <span>Ticket Emitidos: {ticketCount}</span>
-            <button onClick={() => onAdvanceTime(15)} className="text-[#624A3E] dark:text-[#C8956A] hover:underline cursor-pointer">+15 Min</button>
-          </div>
-        </div>
-
-      </div>
-
       {/* MAPA VISUAL DEL SALÓN (IN LIVE MAP) */}
       <div className="max-w-7xl mx-auto bg-white dark:bg-stone-900 p-6 rounded-3xl border border-stone-200 dark:border-stone-850 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-stone-105 dark:border-stone-800 pb-3">
@@ -533,11 +302,11 @@ export default function HomeMenuModule({
         </div>
       </div>
 
-      {/* SECCIÓN DE RANKING DE PLATOS MÁS VENDIDOS & LEADERBOARD DE SALÓN */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 max-w-7xl mx-auto">
+      {/* SECCIÓN DE RANKING DE PLATOS MÁS VENDIDOS */}
+      <div className="max-w-7xl mx-auto">
         
-        {/* WIDGET TOP 5 PLATOS MÁS VENDIDOS (Span 7) */}
-        <div className="lg:col-span-7 bg-white dark:bg-stone-900 p-5 md:p-6 rounded-3xl border border-stone-200 dark:border-stone-850 shadow-xs space-y-4 flex flex-col justify-between">
+        {/* WIDGET TOP 5 PLATOS MÁS VENDIDOS */}
+        <div className="w-full bg-white dark:bg-stone-900 p-5 md:p-6 rounded-3xl border border-stone-200 dark:border-stone-850 shadow-xs space-y-4 flex flex-col justify-between">
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-stone-105 dark:border-stone-800 pb-3">
               <div>
@@ -637,68 +406,6 @@ export default function HomeMenuModule({
               <span>Ver Ranking Completo y Estadísticas {rankingTodos.length > 0 ? `(${rankingTodos.length})` : ''}</span>
               <ChevronRight className="w-3.5 h-3.5" />
             </button>
-          </div>
-        </div>
-
-        {/* COLUMNA DERECHA: LEADERBOARD DE MOZOS + RECOMENDACIONES (Span 5) */}
-        <div className="lg:col-span-5 space-y-6">
-          {/* LEADERBOARD */}
-          <div className="bg-white dark:bg-stone-900 p-5 rounded-3xl border border-stone-200 dark:border-stone-850 shadow-xs space-y-3.5">
-            <h4 className="text-xs font-black text-[#624A3E] dark:text-[#C8956A] uppercase tracking-wider flex items-center gap-1.5">
-              <Award className="w-4 h-4" />
-              Desempeño de Mozos (Servicio Activo)
-            </h4>
-            
-            <div className="space-y-2.5 pt-1">
-              {mozoStats.length === 0 ? (
-                <p className="text-xs text-stone-400 italic">No hay comandas activas asignadas actualmente.</p>
-              ) : (
-                mozoStats.map(mozo => (
-                  <div key={mozo.name} className="flex items-center justify-between text-xs border-b border-stone-105 dark:border-stone-800 pb-2 last:border-0 last:pb-0">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="w-6 h-6 rounded-full bg-stone-100 dark:bg-stone-850 text-[#624A3E] dark:text-[#C8956A] font-black flex items-center justify-center text-[10px] shrink-0">
-                        {mozo.name[0]}
-                      </span>
-                      <span className="font-extrabold text-stone-805 dark:text-stone-100 truncate">{mozo.name}</span>
-                    </div>
-
-                    <div className="flex items-center gap-2 font-semibold text-stone-600 dark:text-stone-300 shrink-0">
-                      <span className="text-[9.5px] bg-stone-50 dark:bg-stone-950 px-2 py-0.5 rounded border border-stone-150 dark:border-stone-805">
-                        {mozo.activeTables} mesas
-                      </span>
-                      <span className="text-[9.5px] bg-[#624A3E]/5 text-[#624A3E] dark:text-[#C8956A] px-2 py-0.5 rounded font-bold">
-                        {mozo.ordersServed} com.
-                      </span>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* RECOMENDACIONES OPERATIVAS */}
-          <div className="bg-white dark:bg-stone-900 p-5 rounded-3xl border border-stone-200 dark:border-stone-850 shadow-xs space-y-3">
-            <h4 className="text-xs font-black text-stone-800 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
-              <Lightbulb className="w-4 h-4 text-amber-500" />
-              Recomendaciones Operativas
-            </h4>
-            
-            <div className="space-y-2.5 text-xs font-semibold leading-relaxed">
-              <div className="p-2.5 bg-stone-50 dark:bg-stone-955 rounded-2xl border border-stone-150 dark:border-stone-805">
-                <span className="text-[9px] font-black text-[#624A3E] dark:text-[#C8956A] uppercase block mb-0.5">💡 Control de Inventario Semanal</span>
-                <p className="text-[11px] text-stone-600 dark:text-stone-400 font-medium">Revisa las alertas de stock mínimo antes del cierre de turno para coordinar materias primas.</p>
-              </div>
-              <div 
-                onClick={() => onNavigate('stock')}
-                className="p-3 bg-amber-500/10 dark:bg-amber-500/5 hover:bg-amber-500/15 rounded-2xl border border-amber-500/30 cursor-pointer transition-all flex items-center justify-between group"
-              >
-                <div>
-                  <span className="text-[9px] font-black text-amber-900 dark:text-amber-200 uppercase block mb-0.5">🍾 Stock de Bebidas & Cava</span>
-                  <p className="text-[11px] text-amber-800 dark:text-amber-300 font-semibold">Ir al nuevo módulo de control físico de bebidas y vinos →</p>
-                </div>
-                <ChevronRight className="w-4 h-4 text-amber-700 dark:text-amber-400 group-hover:translate-x-1 transition-transform shrink-0" />
-              </div>
-            </div>
           </div>
         </div>
 
