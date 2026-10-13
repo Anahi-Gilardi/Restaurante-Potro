@@ -50,6 +50,7 @@ import { useToast, ToastContainer } from './ToastContainer';
 import { useCategories } from '../hooks/useCategories';
 import { mergeWithDefaultCategories } from '../services/categoriasService';
 import { matchesProductSearch } from './MenuModule';
+import { sheetFetchTable, sheetUpsertRow } from '../lib/googleSheetsClient';
 
 export const normalizeCategoryString = (str?: string | null): string => {
   return (str || '')
@@ -294,7 +295,7 @@ export default function MozoTerminal({
   const { categories } = useCategories();
   const checkoutInFlightRef = useRef(false);
 
-  // Mozos de Salón configurables con persistencia en localStorage
+  // Mozos de Salón configurables con persistencia en localStorage y Google Sheets
   const [customMozos, setCustomMozos] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem('el_patron_mozos_salon');
@@ -311,6 +312,34 @@ export default function MozoTerminal({
 
   const [isEditingMozosModalOpen, setIsEditingMozosModalOpen] = useState(false);
   const [editingMozosList, setEditingMozosList] = useState<string[]>([]);
+
+  // Sincronizar mozos con la hoja 'configuracion' de Google Sheets al iniciar
+  React.useEffect(() => {
+    let isMounted = true;
+    sheetFetchTable('configuracion')
+      .then(configs => {
+        if (!isMounted || !Array.isArray(configs)) return;
+        const mozosCfg = configs.find((c: any) => c.clave === 'mozos_salon');
+        if (mozosCfg && mozosCfg.valor) {
+          try {
+            const parsed = JSON.parse(mozosCfg.valor);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              const valid = parsed.map(n => String(n).trim()).filter(Boolean);
+              if (valid.length > 0) {
+                setCustomMozos(valid);
+                try {
+                  localStorage.setItem('el_patron_mozos_salon', JSON.stringify(valid));
+                } catch {}
+              }
+            }
+          } catch {}
+        }
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleOpenEditMozos = () => {
     setEditingMozosList([...customMozos]);
@@ -330,6 +359,17 @@ export default function MozoTerminal({
       }
     });
 
+    // Detectar si el mozo activo actual fue renombrado directamente
+    const activeIdx = customMozos.findIndex(m => m.toLowerCase() === (activeMozo || '').toLowerCase());
+    let nextActiveMozo = activeMozo;
+
+    if (activeIdx !== -1 && activeIdx < uniqueMozos.length) {
+      // Si el mozo en esa misma posición cambió de nombre, actualizamos activeMozo al nuevo nombre
+      nextActiveMozo = uniqueMozos[activeIdx];
+    } else if (!uniqueMozos.some(m => m.toLowerCase() === (activeMozo || '').toLowerCase())) {
+      nextActiveMozo = uniqueMozos[0];
+    }
+
     setCustomMozos(uniqueMozos);
     try {
       localStorage.setItem('el_patron_mozos_salon', JSON.stringify(uniqueMozos));
@@ -337,27 +377,38 @@ export default function MozoTerminal({
       console.error('Error guardando mozos en localStorage', err);
     }
 
-    if (!uniqueMozos.some(m => m.toLowerCase() === (activeMozo || '').toLowerCase())) {
-      onMozoChange(uniqueMozos[0]);
+    // Persistir de forma segura en Google Sheets (hoja configuracion, clave: mozos_salon)
+    try {
+      sheetUpsertRow('configuracion', {
+        clave: 'mozos_salon',
+        valor: JSON.stringify(uniqueMozos),
+        fecha_actualizacion: new Date().toISOString()
+      }).catch(err => {
+        console.warn('[GoogleSheets] Sincronización secundaria de mozos_salon:', err);
+      });
+    } catch {}
+
+    if (nextActiveMozo && nextActiveMozo !== activeMozo) {
+      onMozoChange(nextActiveMozo);
     }
 
     toast.success('Lista de mozos de salón actualizada correctamente.');
     setIsEditingMozosModalOpen(false);
   };
 
-  // Lista de mozos de salón (prioridad customMozos + usuarios mozo/administrador)
+  // Lista de mozos de salón: lo configurado por el usuario es la lista definitiva (evita duplicados o reinyectar nombres viejos)
   const mozosList = useMemo(() => {
+    if (customMozos && customMozos.length > 0) {
+      return customMozos;
+    }
     const fromUsers = (usuarios || [])
       .filter(u => u.activo !== false && (u.rol === 'mozo' || u.rol === 'administrador'))
       .map(u => u.nombre);
 
-    const list: string[] = [...customMozos];
-    fromUsers.forEach(nom => {
-      if (!list.some(m => m.toLowerCase() === nom.toLowerCase())) {
-        list.push(nom);
-      }
-    });
-    return list;
+    if (fromUsers.length > 0) {
+      return fromUsers;
+    }
+    return ['Facundo', 'Adriana', 'Rocío', 'Sofía'];
   }, [customMozos, usuarios]);
   // Waiter selections
   const [selectedMesaId, setSelectedMesaId] = useState<number | null>(null);
