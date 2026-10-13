@@ -7,6 +7,7 @@ export type AppView =
   | 'caja'
   | 'usuarios'
   | 'menu'
+  | 'stock'
   | 'mesas'
   | 'inventario'
   | 'proveedores'
@@ -23,6 +24,7 @@ export const ALL_APP_VIEWS: AppView[] = [
   'caja',
   'usuarios',
   'menu',
+  'stock',
   'mesas',
   'inventario',
   'proveedores',

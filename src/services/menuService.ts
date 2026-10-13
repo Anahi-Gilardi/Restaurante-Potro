@@ -112,7 +112,12 @@ const normalizeProductoMenu = (prod: DbProductoMenu): ProductoMenu => {
       : (RECIPES_DETAILS[id_producto]?.alergenos || match?.alergenos || undefined),
     consejo_emplatado: readString(prod.consejo_emplatado)
       || (RECIPES_DETAILS[id_producto]?.consejo_emplatado || match?.consejo_emplatado || undefined),
-    unidad_medida: readString(prod.unidad_medida) || match?.unidad_medida || undefined
+    unidad_medida: readString(prod.unidad_medida) || match?.unidad_medida || undefined,
+    stock_actual: prod.stock_actual !== undefined && prod.stock_actual !== null ? readNumber(prod.stock_actual, 0) : (match?.stock_actual ?? 0),
+    stock_minimo: prod.stock_minimo !== undefined && prod.stock_minimo !== null ? readNumber(prod.stock_minimo, 5) : (match?.stock_minimo ?? 5),
+    controla_stock: typeof prod.controla_stock === 'boolean'
+      ? prod.controla_stock
+      : (prod.controla_stock === 'true' || prod.controla_stock === true || (match?.controla_stock ?? false))
   };
 };
 

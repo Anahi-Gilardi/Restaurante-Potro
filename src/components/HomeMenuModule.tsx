@@ -688,9 +688,15 @@ export default function HomeMenuModule({
                 <span className="text-[9px] font-black text-[#624A3E] dark:text-[#C8956A] uppercase block mb-0.5">💡 Control de Inventario Semanal</span>
                 <p className="text-[11px] text-stone-600 dark:text-stone-400 font-medium">Revisa las alertas de stock mínimo antes del cierre de turno para coordinar materias primas.</p>
               </div>
-              <div className="p-2.5 bg-stone-50 dark:bg-stone-955 rounded-2xl border border-stone-150 dark:border-stone-855">
-                <span className="text-[9px] font-black text-emerald-600 uppercase block mb-0.5">💡 Facturación Simplificada</span>
-                <p className="text-[11px] text-stone-600 dark:text-stone-400 font-medium">Las mesas que soliciten su cuenta aparecerán automáticamente palpitando en el mapa superior.</p>
+              <div 
+                onClick={() => onNavigate('stock')}
+                className="p-3 bg-amber-500/10 dark:bg-amber-500/5 hover:bg-amber-500/15 rounded-2xl border border-amber-500/30 cursor-pointer transition-all flex items-center justify-between group"
+              >
+                <div>
+                  <span className="text-[9px] font-black text-amber-900 dark:text-amber-200 uppercase block mb-0.5">🍾 Stock de Bebidas & Cava</span>
+                  <p className="text-[11px] text-amber-800 dark:text-amber-300 font-semibold">Ir al nuevo módulo de control físico de bebidas y vinos →</p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-amber-700 dark:text-amber-400 group-hover:translate-x-1 transition-transform shrink-0" />
               </div>
             </div>
           </div>

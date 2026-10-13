@@ -95,6 +95,12 @@ export interface ProductoMenu {
   consejo_emplatado?: string;
   /** Unidad de medida comercial (Botella 750ml, Lata 475ml, Medida, etc.) */
   unidad_medida?: string;
+  /** Stock actual disponible en góndola/bodega para bebidas y productos de venta directa */
+  stock_actual?: number;
+  /** Umbral de stock mínimo para generar alerta de reposición */
+  stock_minimo?: number;
+  /** Indica si este producto descuenta y controla existencias de stock directamente */
+  controla_stock?: boolean;
 }
 
 export interface RecetaEscandallo {

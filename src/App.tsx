@@ -50,6 +50,7 @@ const InventoryModule = lazy(() => import('./components/InventoryModule'));
 const CajaModule = lazy(() => import('./components/CajaModule'));
 const SistemaModule = lazy(() => import('./components/SistemaModule'));
 const MenuModule = lazy(() => import('./components/MenuModule'));
+const StockModule = lazy(() => import('./components/StockModule'));
 const RecetasModule = lazy(() => import('./components/RecetasModule'));
 const MesasModule = lazy(() => import('./components/MesasModule'));
 const FacturacionModule = lazy(() => import('./components/FacturacionModule'));
@@ -971,6 +972,21 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
 
     const updatedMesas = mesas.map(m => String(m.id_mesa) === String(newPedidoData.id_mesa) ? { ...m, estado: 'ocupada' as const, comensales: newPedidoData.comensales || 2 } : m);
     setMesas(updatedMesas);
+
+    // Descuento directo de stock en productos_menu para bebidas con controla_stock
+    setProductosMenu(prevProds => {
+      let changed = false;
+      const nextProds = prevProds.map(prod => {
+        const itemOrdered = newPedidoData.items.find(i => i.id_producto === prod.id_producto);
+        if (itemOrdered && prod.controla_stock && prod.stock_actual !== undefined) {
+          changed = true;
+          const nextStock = Math.max(0, (prod.stock_actual || 0) - itemOrdered.cantidad);
+          return { ...prod, stock_actual: nextStock };
+        }
+        return prod;
+      });
+      return changed ? nextProds : prevProds;
+    });
 
     // Difusión simultánea a caja y otros dispositivos
     const broadcastPayload = {
@@ -2180,6 +2196,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
             { id: 'cocina', label: 'Cocina', icon: '🍳' },
             { id: 'caja', label: 'Caja', icon: '💵' },
             { id: 'menu', label: 'Menú', icon: '📖' },
+            { id: 'stock', label: 'Stock Bebidas', icon: '🍾' },
             { id: 'mesas', label: 'Mesas', icon: '🪑' },
             { id: 'facturacion', label: 'Facturación', icon: '🧾' },
             { id: 'sistema', label: 'Sistema', icon: '💻' },
@@ -2303,6 +2320,13 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
             )}
             {activeView === 'menu' && (
               <MenuModule productosMenu={productosMenu} onProductosChange={setProductosMenu} recetas={recetas} insumos={insumos} addLog={addLog} />
+            )}
+            {activeView === 'stock' && (
+              <StockModule
+                productosMenu={productosMenu}
+                onProductosChange={setProductosMenu}
+                addLog={addLog}
+              />
             )}
             {activeView === 'mesas' && (
               <MesasModule
