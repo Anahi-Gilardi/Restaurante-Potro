@@ -33,7 +33,6 @@ const NAV_ITEMS: { id: AppView; label: string; icon: string }[] = [
   { id: 'mesas', label: 'Mesas', icon: '🪑' },
   { id: 'facturacion', label: 'Facturación', icon: '🧾' },
   { id: 'sistema', label: 'Sistema', icon: '💻' },
-  { id: 'backups', label: 'Backups', icon: '🗄️' },
 ];
 
 export default function MobileNav({

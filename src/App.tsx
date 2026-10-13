@@ -33,7 +33,6 @@ import RetryErrorWrapper from './components/RetryErrorWrapper';
 import Skeleton from './components/Skeleton';
 import { hasSameSupabaseConfig, tryGetActiveSupabaseClient } from './lib/supabaseClient';
 
-import type { BackupSnapshotData } from './services/backupsService';
 import { getAllMenuImages } from './lib/imageStorage';
 import { menuService } from './services/menuService';
 
@@ -50,7 +49,6 @@ const MenuModule = lazy(() => import('./components/MenuModule'));
 const StockModule = lazy(() => import('./components/StockModule'));
 const MesasModule = lazy(() => import('./components/MesasModule'));
 const FacturacionModule = lazy(() => import('./components/FacturacionModule'));
-const BackupsModule = lazy(() => import('./components/BackupsModule'));
 import { 
   getSupabaseClient,
   resetSupabaseInstance,
@@ -829,7 +827,7 @@ export default function App() {
   const [activeView, setActiveView] = useState<AppView>(() => {
     if (typeof window !== 'undefined') {
       const saved = window.localStorage.getItem('el_patron_active_view') as AppView;
-      if (saved && !['proveedores', 'promociones', 'reservas', 'usuarios'].includes(saved)) {
+      if (saved && !['proveedores', 'promociones', 'reservas', 'usuarios', 'backups'].includes(saved)) {
         return saved;
       }
     }
@@ -1212,7 +1210,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
 
   // NUEVO: Validación estricta en el método de navegación
   const handleNavigate = (view: AppView) => {
-    if (['proveedores', 'promociones', 'reservas', 'usuarios'].includes(view)) {
+    if (['proveedores', 'promociones', 'reservas', 'usuarios', 'backups'].includes(view)) {
       setActiveView('home');
       if (typeof window !== 'undefined') window.localStorage.setItem('el_patron_active_view', 'home');
       return;
@@ -2072,20 +2070,6 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     ]);
   };
 
-  const handleRestoreBackupData = (snapshot: BackupSnapshotData) => {
-    // Los usuarios continúan vinculados a Supabase Auth y no se reemplazan
-    // con perfiles históricos provenientes de un archivo JSON.
-    setMesas(snapshot.mesas);
-    setInsumos(snapshot.insumos);
-    setProductosMenu(snapshot.productosMenu);
-    setRecetas(snapshot.recetas);
-    setPedidos(snapshot.pedidos);
-    setMermas(snapshot.mermas);
-    setLogs(snapshot.logs);
-    setMinutosGlobal(0);
-    setAutoTimerRunning(false);
-  };
-
   useEffect(() => {
     if (!usuarios.some(usuario => usuario.nombre === activeMozo && usuario.activo !== false)) {
       setActiveMozo(activeUser.nombre);
@@ -2281,7 +2265,6 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
             { id: 'mesas', label: 'Mesas', icon: '🪑' },
             { id: 'facturacion', label: 'Facturación', icon: '🧾' },
             { id: 'sistema', label: 'Sistema', icon: '💻' },
-            { id: 'backups', label: 'Backups', icon: '🗄️' },
           ].filter(item => (allowedViews || []).includes(item.id as AppView)).map((item) => {
             const isActive = activeView === item.id;
             return (
@@ -2429,13 +2412,6 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
                 mesas={mesas}
                 addLog={addLog}
                 onSyncComplete={handleSupabaseSync}
-              />
-            )}
-            {activeView === 'backups' && (
-              <BackupsModule 
-                operationalData={{ usuarios, mesas, insumos, productosMenu, recetas, pedidos, mermas, logs }}
-                onRestoreData={handleRestoreBackupData}
-                addLog={addLog}
               />
             )}
           </Suspense>
