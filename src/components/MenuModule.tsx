@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { useDebounce } from '../hooks/useDebounce';
-import { UtensilsCrossed, Plus, Search, Edit2, Check, Copy, X, DollarSign, Image, AlertTriangle, Calendar, Camera, CheckCircle2, Trophy } from 'lucide-react';
-import BulkPriceEditor from './BulkPriceEditor';
+import { UtensilsCrossed, Plus, Search, Edit2, Check, Copy, X, Image, AlertTriangle, Calendar, Camera, CheckCircle2, Trophy } from 'lucide-react';
 import MenuDiarioModule from './MenuDiarioModule';
 import RankingVentasModule from './RankingVentasModule';
 import { CardSkeleton } from './Skeleton';
@@ -155,12 +154,12 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 300);
   const [selectedCategoria, setSelectedCategoria] = useState<string>('todos');
-  const [activeTab, setActiveTab] = useState<'catalogo' | 'masivos' | 'diario' | 'ranking'>(() => {
+  const [activeTab, setActiveTab] = useState<'catalogo' | 'diario' | 'ranking'>(() => {
     try {
       const saved = typeof window !== 'undefined' ? sessionStorage.getItem('menu_active_tab') : null;
-      if (saved && ['catalogo', 'masivos', 'diario', 'ranking'].includes(saved)) {
+      if (saved && ['catalogo', 'diario', 'ranking'].includes(saved)) {
         sessionStorage.removeItem('menu_active_tab');
-        return saved as 'catalogo' | 'masivos' | 'diario' | 'ranking';
+        return saved as 'catalogo' | 'diario' | 'ranking';
       }
     } catch {}
     return 'catalogo';
@@ -746,10 +745,6 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
     }
   };
 
-  const handleBulkItemsChange = (next: ProductoMenu[]) => {
-    syncItems(next);
-  };
-
   const filtered = useMemo(() => {
     const query = debouncedSearch.trim();
 
@@ -806,14 +801,6 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
           }`}>
           <UtensilsCrossed className="w-3.5 h-3.5 inline mr-1" /> Catálogo
         </button>
-        <button onClick={() => setActiveTab('masivos')}
-          className={`px-4 py-2 text-xs font-extrabold rounded-xl transition-all cursor-pointer border shrink-0 ${
-            activeTab === 'masivos'
-              ? 'bg-[#8C6239] dark:bg-[#C8956A] text-white dark:text-[#8C6239] border-[#8C6239] dark:border-[#C8956A] shadow-md'
-              : 'bg-white/70 dark:bg-white/5 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-white/10 hover:bg-stone-50 dark:hover:bg-white/10'
-          }`}>
-          <DollarSign className="w-3.5 h-3.5 inline mr-1" /> Precios masivos
-        </button>
         <button onClick={() => setActiveTab('diario')}
           className={`px-4 py-2 text-xs font-extrabold rounded-xl transition-all cursor-pointer border shrink-0 ${
             activeTab === 'diario'
@@ -836,8 +823,6 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
         <RankingVentasModule />
       ) : activeTab === 'diario' ? (
         <MenuDiarioModule addLog={addLog} />
-      ) : activeTab === 'masivos' ? (
-        <BulkPriceEditor items={items} onItemsChange={handleBulkItemsChange} addLog={addLog} />
       ) : (
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 md:gap-6">
         <div className="glass-panel p-4 sm:p-6 rounded-2xl shadow-sm space-y-4">
