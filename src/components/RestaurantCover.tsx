@@ -900,7 +900,6 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
                   <option value="13:30">13:30 hs (Almuerzo)</option>
                   <option value="14:00">14:00 hs (Almuerzo)</option>
                   <option value="14:30">14:30 hs (Almuerzo)</option>
-                  <option value="20:00">20:00 hs (Cena)</option>
                   <option value="20:30">20:30 hs (Cena)</option>
                   <option value="21:00">21:00 hs (Cena)</option>
                   <option value="21:30">21:30 hs (Cena)</option>
