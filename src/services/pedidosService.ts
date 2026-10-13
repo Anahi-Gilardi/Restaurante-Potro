@@ -39,7 +39,8 @@ export const hydratePedido = (
         cantidad: detail.cantidad,
         categoria: detail.categoria,
         precio_unitario: detail.precio_unitario ?? matchingHeaderItem?.precio_unitario ?? undefined,
-        estado: detail.estado ?? 'pendiente'
+        estado: detail.estado ?? 'pendiente',
+        observaciones: detail.observaciones || matchingHeaderItem?.observaciones || undefined
       };
     });
 
@@ -108,7 +109,8 @@ export const serializePedidoDetails = (pedido: Pedido) => pedido.items.map((item
   cantidad: item.cantidad,
   categoria: item.categoria,
   precio_unitario: item.precio_unitario ?? null,
-  estado: item.estado ?? 'pendiente'
+  estado: item.estado ?? 'pendiente',
+  observaciones: item.observaciones ?? null
 }));
 
 export const pedidosService = {

@@ -121,6 +121,8 @@ export interface PedidoItem {
     /** Precio unitario al momento del pedido (snapshot) */
   precio_unitario?: number;
   estado?: 'pendiente' | 'en_cocina' | 'listo' | 'entregado' | 'cancelado';
+  /** Observación específica de este plato/ítem para la cocina (ej: "sin sal", "a punto") */
+  observaciones?: string;
 }
 
 export interface Pedido {

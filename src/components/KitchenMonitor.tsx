@@ -229,9 +229,16 @@ export default function KitchenMonitor({
                 <span className="text-lg font-black text-[#a0522d] dark:text-[#E8B800] font-mono shrink-0">
                   {it.cantidad}x
                 </span>
-                <span className="flex-1 font-bold text-[#4b3621] dark:text-stone-100 text-sm leading-snug break-words whitespace-normal">
-                  {it.nombre}
-                </span>
+                <div className="flex-1 min-w-0 pr-1">
+                  <span className="font-bold text-[#4b3621] dark:text-stone-100 text-sm leading-snug break-words whitespace-normal block">
+                    {it.nombre}
+                  </span>
+                  {it.observaciones && (
+                    <span className="text-[11px] font-black text-amber-800 dark:text-amber-200 bg-amber-100/80 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-700/60 px-2 py-0.5 rounded-md mt-1 inline-flex items-center gap-1">
+                      📝 {it.observaciones}
+                    </span>
+                  )}
+                </div>
                 <button
                   type="button"
                   onClick={() => {

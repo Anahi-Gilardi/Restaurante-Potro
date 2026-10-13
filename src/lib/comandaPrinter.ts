@@ -40,7 +40,7 @@ export function printComandaThermalTicket(params: ComandaPrintParams): void {
       <td style="font-weight: 900; font-size: 16px; width: 44px; vertical-align: top; padding: 5px 0;">${it.cantidad}x</td>
       <td style="font-size: 15px; font-weight: 900; padding: 5px 0;">
         <div style="font-weight: 900;">${it.nombre}</div>
-        ${it.observaciones ? `<div style="font-size: 13px; font-weight: 900; color: #000; margin-top: 2px;">OBS: ${it.observaciones.toUpperCase()}</div>` : ''}
+        ${it.observaciones ? `<div style="font-size: 13px; font-weight: 900; color: #000; margin-top: 3px; padding: 2px 4px; border-left: 3px solid #000; background: #eee;">* OBS: ${it.observaciones.toUpperCase()}</div>` : ''}
       </td>
     </tr>
   `

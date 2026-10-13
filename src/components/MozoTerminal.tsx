@@ -7,7 +7,6 @@ import {
   ShoppingBag, 
   AlertTriangle, 
   CheckCircle, 
-  Bookmark, 
   Search, 
   Sparkles, 
   Coffee, 
@@ -422,7 +421,6 @@ export default function MozoTerminal({
   // Estados para Edición de Pedidos en Mesa
   const [editingPedido, setEditingPedido] = useState<Pedido | null>(null);
   const [editingItems, setEditingItems] = useState<PedidoItem[]>([]);
-  const [editingObservaciones, setEditingObservaciones] = useState<string>('');
   const [editProductSearch, setEditProductSearch] = useState<string>('');
   const [editCategoryFilter, setEditCategoryFilter] = useState<string>('todos');
   const [isSavingEdit, setIsSavingEdit] = useState<boolean>(false);
@@ -430,7 +428,6 @@ export default function MozoTerminal({
   const handleStartEditPedido = (pedidoToEdit: Pedido) => {
     setEditingPedido(pedidoToEdit);
     setEditingItems(pedidoToEdit.items.map(it => ({ ...it })));
-    setEditingObservaciones(pedidoToEdit.observaciones || '');
     setEditProductSearch('');
     setEditCategoryFilter('todos');
   };
@@ -445,6 +442,15 @@ export default function MozoTerminal({
         return next.filter((_, i) => i !== index);
       }
       next[index] = { ...target, cantidad: nextQty };
+      return next;
+    });
+  };
+
+  const handleEditItemObservacion = (index: number, obs: string) => {
+    setEditingItems(prev => {
+      const next = [...prev];
+      if (!next[index]) return prev;
+      next[index] = { ...next[index], observaciones: obs };
       return next;
     });
   };
@@ -578,10 +584,9 @@ export default function MozoTerminal({
 
     setIsSavingEdit(true);
     try {
-      const cleanObs = editingObservaciones.trim() || undefined;
       const updatedFields: Partial<Pedido> = {
         items: editingItems,
-        observaciones: cleanObs
+        observaciones: undefined
       };
 
       if (onActualizarPedido) {
@@ -598,9 +603,9 @@ export default function MozoTerminal({
           items: editingItems.map(i => ({
             nombre: i.nombre,
             cantidad: i.cantidad,
-            observaciones: cleanObs,
+            observaciones: i.observaciones,
           })),
-          observaciones: cleanObs,
+          observaciones: undefined,
         });
         toast.success(`Pedido #${editingPedido.id_pedido} guardado y comanda emitida 🖨️`);
       } else {
@@ -699,9 +704,9 @@ export default function MozoTerminal({
   const [selectedWineMacro, setSelectedWineMacro] = useState<'tintas' | 'blancas' | 'champagne' | 'copas' | 'destilados' | 'todo'>('todo');
   const [selectedWineVarietal, setSelectedWineVarietal] = useState<string>('todo');
   
-  // Current order cart
+  // Current order cart and per-item observations
   const [cart, setCart] = useState<{ [id_producto: string]: number }>({});
-  const [observaciones, setObservaciones] = useState('');
+  const [cartItemObservaciones, setCartItemObservaciones] = useState<{ [id_producto: string]: string }>({});
 
   // Voice Command States
   const [isListening, setIsListening] = useState(false);
@@ -885,8 +890,9 @@ export default function MozoTerminal({
       items: allItems.map(i => ({
         nombre: i.nombre,
         cantidad: i.cantidad,
+        observaciones: i.observaciones,
       })),
-      observaciones: allObs ? allObs : undefined,
+      observaciones: undefined,
     });
 
     toast.success(`Comanda de ${tableOrderName} enviada a tiquetera 🖨️`);
@@ -1134,6 +1140,11 @@ export default function MozoTerminal({
         updated[productoId] -= 1;
       } else {
         delete updated[productoId];
+        setCartItemObservaciones(obsPrev => {
+          const nextObs = { ...obsPrev };
+          delete nextObs[productoId];
+          return nextObs;
+        });
       }
       return updated;
     });
@@ -1153,6 +1164,7 @@ export default function MozoTerminal({
       }
 
       const items: PedidoItem[] = Object.entries(cart).map(([prodId, qty]) => {
+        const itemObs = (cartItemObservaciones[prodId] || '').trim() || undefined;
         const product = productosMenu.find(item => item.id_producto === prodId);
         if (product) {
           return {
@@ -1161,6 +1173,7 @@ export default function MozoTerminal({
             cantidad: Number(qty),
             categoria: product.categoria,
             precio_unitario: product.precio_venta,
+            observaciones: itemObs,
           };
         }
         const promo = promociones.find(item => item.id_promo === prodId);
@@ -1171,6 +1184,7 @@ export default function MozoTerminal({
             cantidad: Number(qty),
             categoria: 'Promociones',
             precio_unitario: promo.precio && promo.precio > 0 ? promo.precio : 0,
+            observaciones: itemObs,
           };
         }
         if (prodId.startsWith('menu_diario_')) {
@@ -1182,6 +1196,7 @@ export default function MozoTerminal({
             cantidad: Number(qty),
             categoria: 'Menú del Día',
             precio_unitario: diaItem ? diaItem.precio : 8500,
+            observaciones: itemObs,
           };
         }
         return {
@@ -1190,11 +1205,11 @@ export default function MozoTerminal({
           cantidad: Number(qty),
           categoria: 'Promociones',
           precio_unitario: 0,
+          observaciones: itemObs,
         };
       });
 
       const tableOrderName = selectedMesa ? formatTableDisplayTitle(selectedMesa.numero_mesa) : `Mesa ${selectedMesaId}`;
-      const cleanObs = observaciones.trim() || undefined;
 
       // Determinamos el mozo responsable: si la mesa ya fue abierta por un mozo, se mantiene ese mozo hasta cerrarla/liberarla.
       const assignedMozo = assignedTableMozo || activePedidoDeMesa?.mozo || activeMozo || 'Mozo';
@@ -1206,14 +1221,14 @@ export default function MozoTerminal({
         items: items.map(i => ({
           nombre: i.nombre,
           cantidad: i.cantidad,
-          observaciones: cleanObs,
+          observaciones: i.observaciones,
         })),
-        observaciones: cleanObs,
+        observaciones: undefined,
       });
 
       // Limpiar de inmediato el carrito y observaciones para respuesta instantánea de la UI
       setCart({});
-      setObservaciones('');
+      setCartItemObservaciones({});
 
       const accepted = await onCrearPedido({
         id_mesa: selectedMesaId,
@@ -1221,7 +1236,7 @@ export default function MozoTerminal({
         mozo: assignedMozo,
         estado_comanda: 'pendiente',
         items,
-        observaciones: cleanObs,
+        observaciones: undefined,
         comensales,
         idempotency_key: createMozoCartIdempotencyKey(selectedMesaId),
       });
@@ -1788,6 +1803,11 @@ export default function MozoTerminal({
                               <span className="text-[10px] text-stone-400 dark:text-stone-500 font-mono ml-1.5">
                                 (${unitPrice.toLocaleString('es-AR')} c/u)
                               </span>
+                            )}
+                            {it.observaciones && (
+                              <div className="text-[10px] text-amber-700 dark:text-amber-400 font-normal italic mt-0.5">
+                                ↳ Obs: {it.observaciones}
+                              </div>
                             )}
                           </div>
                           <span className="font-mono text-stone-700 dark:text-stone-200 font-semibold shrink-0">
@@ -2483,44 +2503,49 @@ export default function MozoTerminal({
                     : 'Oferta Especial';
 
                   return (
-                    <div key={prodId} className="flex justify-between items-center text-xs bg-stone-50 dark:bg-[#1E140E] p-2.5 rounded-xl border border-stone-200 dark:border-[#C8956A]/15 hover:border-[#C8956A]/45 transition-all">
-                      <div className="flex-1 pr-1 font-sans">
-                        <span className="font-bold text-[#8C6239] dark:text-[#FAF7F0] block">{itemNombre}</span>
-                        <span className="text-[10px] text-stone-500 dark:text-stone-350 font-mono">{itemSubtitle}</span>
+                    <div key={prodId} className="flex flex-col text-xs bg-stone-50 dark:bg-[#1E140E] p-2.5 rounded-xl border border-stone-200 dark:border-[#C8956A]/15 hover:border-[#C8956A]/45 transition-all gap-1.5">
+                      <div className="flex justify-between items-center">
+                        <div className="flex-1 pr-1 font-sans">
+                          <span className="font-bold text-[#8C6239] dark:text-[#FAF7F0] block">{itemNombre}</span>
+                          <span className="text-[10px] text-stone-500 dark:text-stone-350 font-mono">{itemSubtitle}</span>
+                        </div>
+                        
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            onClick={() => handleRemoveFromCart(prodId)}
+                            className="w-5 h-5 bg-[#FAF7F0] dark:bg-[#251B12] text-stone-750 dark:text-stone-200 hover:bg-[#F5F1E9] dark:hover:bg-[#8C6239] rounded border border-stone-300 dark:border-white/10 flex items-center justify-center transition-colors cursor-pointer"
+                          >
+                            <Minus className="w-3 h-3" />
+                          </button>
+                          <span className="font-mono text-xs font-bold w-4 text-center dark:text-stone-100">{qty}</span>
+                          <button
+                            onClick={() => handleAddToCart(prodId)}
+                            className="w-5 h-5 bg-[#FAF7F0] dark:bg-[#251B12] text-stone-750 dark:text-stone-200 hover:bg-[#F5F1E9] dark:hover:bg-[#8C6239] rounded border border-stone-300 dark:border-white/10 flex items-center justify-center transition-colors cursor-pointer"
+                          >
+                            <Plus className="w-3 h-3" />
+                          </button>
+                        </div>
                       </div>
-                      
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={() => handleRemoveFromCart(prodId)}
-                          className="w-5 h-5 bg-[#FAF7F0] dark:bg-[#251B12] text-stone-750 dark:text-stone-200 hover:bg-[#F5F1E9] dark:hover:bg-[#8C6239] rounded border border-stone-300 dark:border-white/10 flex items-center justify-center transition-colors cursor-pointer"
-                        >
-                          <Minus className="w-3 h-3" />
-                        </button>
-                        <span className="font-mono text-xs font-bold w-4 text-center dark:text-stone-100">{qty}</span>
-                        <button
-                          onClick={() => handleAddToCart(prodId)}
-                          className="w-5 h-5 bg-[#FAF7F0] dark:bg-[#251B12] text-stone-750 dark:text-stone-200 hover:bg-[#F5F1E9] dark:hover:bg-[#8C6239] rounded border border-stone-300 dark:border-white/10 flex items-center justify-center transition-colors cursor-pointer"
-                        >
-                          <Plus className="w-3 h-3" />
-                        </button>
+
+                      {/* Observación propia para este plato */}
+                      <div className="pt-1 border-t border-stone-200/60 dark:border-white/5">
+                        <input
+                          type="text"
+                          value={cartItemObservaciones[prodId] || ''}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setCartItemObservaciones(prev => ({
+                              ...prev,
+                              [prodId]: val
+                            }));
+                          }}
+                          placeholder="Obs. plato (ej: sin sal, a punto, bien cocido...)"
+                          className="w-full text-[11px] bg-white dark:bg-black/30 text-stone-850 dark:text-stone-200 px-2 py-1 rounded-md border border-stone-200 dark:border-[#C8956A]/20 focus:outline-none focus:ring-1 focus:ring-[#C8956A] placeholder-stone-400 font-sans"
+                        />
                       </div>
                     </div>
                   );
                 })}
-              </div>
-
-              {/* OBSERVATIONS INPUT */}
-              <div className="mt-2 space-y-1.5 pb-3">
-                <label className="text-[10px] font-bold text-stone-600 dark:text-stone-350 uppercase tracking-wider flex items-center gap-1">
-                  <Bookmark className="w-3 h-3 text-[#C8956A]" />
-                  Observaciones de Comanda
-                </label>
-                <textarea
-                  placeholder="Ej: Bife bien cocido, papas sin sal, agua a temperatura ambiente..."
-                  value={observaciones}
-                  onChange={(e) => setObservaciones(e.target.value)}
-                  className="w-full text-xs bg-[#8C6239]/5 dark:bg-white/5 text-stone-850 dark:text-stone-200 p-2 border border-stone-200 dark:border-[#C8956A]/20 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#C8956A] focus:border-[#C8956A] resize-none h-14"
-                />
               </div>
 
               {/* FOOTER TOTAL & INJECT BTN */}
@@ -2809,72 +2834,71 @@ export default function MozoTerminal({
                           return (
                             <div
                               key={`${item.id_producto}_${idx}`}
-                              className="flex items-center justify-between p-3 rounded-2xl border-2 border-stone-200/90 dark:border-[#C8956A]/25 bg-white dark:bg-[#22160E] hover:border-amber-400/80 dark:hover:border-[#E8B800]/50 transition-all shadow-xs"
+                              className="p-3 rounded-2xl border-2 border-stone-200/90 dark:border-[#C8956A]/25 bg-white dark:bg-[#22160E] hover:border-amber-400/80 dark:hover:border-[#E8B800]/50 transition-all shadow-xs space-y-2"
                             >
-                              <div className="min-w-0 flex-1 pr-2">
-                                <p className="font-extrabold text-sm sm:text-base text-stone-900 dark:text-white break-words">
-                                  {item.nombre}
-                                </p>
-                                <p className="text-xs font-semibold text-stone-600 dark:text-stone-300 font-mono mt-0.5">
-                                  ${unitPrice.toLocaleString('es-AR')} c/u • <span className="text-stone-500 dark:text-stone-400">{item.categoria || 'Carta'}</span>
-                                </p>
-                              </div>
-
-                              <div className="flex items-center gap-2.5 shrink-0">
-                                <div className="flex items-center bg-stone-100 dark:bg-[#18110B] border border-stone-300 dark:border-[#C8956A]/30 rounded-xl p-0.5 shadow-inner">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleEditItemQuantity(idx, -1)}
-                                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-stone-800 dark:text-stone-100 hover:bg-stone-200 dark:hover:bg-[#322317] font-black cursor-pointer transition-colors"
-                                    title={item.cantidad === 1 ? 'Quitar ítem' : 'Reducir cantidad'}
-                                  >
-                                    <Minus className="w-3.5 h-3.5" />
-                                  </button>
-                                  <span className="w-7 sm:w-8 text-center font-mono font-black text-stone-900 dark:text-white text-sm sm:text-base">
-                                    {item.cantidad}
-                                  </span>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleEditItemQuantity(idx, 1)}
-                                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-stone-800 dark:text-stone-100 hover:bg-stone-200 dark:hover:bg-[#322317] font-black cursor-pointer transition-colors"
-                                    title="Aumentar cantidad"
-                                  >
-                                    <Plus className="w-3.5 h-3.5" />
-                                  </button>
+                              <div className="flex items-center justify-between">
+                                <div className="min-w-0 flex-1 pr-2">
+                                  <p className="font-extrabold text-sm sm:text-base text-stone-900 dark:text-white break-words">
+                                    {item.nombre}
+                                  </p>
+                                  <p className="text-xs font-semibold text-stone-600 dark:text-stone-300 font-mono mt-0.5">
+                                    ${unitPrice.toLocaleString('es-AR')} c/u • <span className="text-stone-500 dark:text-stone-400">{item.categoria || 'Carta'}</span>
+                                  </p>
                                 </div>
 
-                                <span className="w-20 sm:w-24 text-right font-mono font-black text-stone-900 dark:text-[#E8B800] text-sm sm:text-base">
-                                  ${lineTotal.toLocaleString('es-AR')}
-                                </span>
+                                <div className="flex items-center gap-2.5 shrink-0">
+                                  <div className="flex items-center bg-stone-100 dark:bg-[#18110B] border border-stone-300 dark:border-[#C8956A]/30 rounded-xl p-0.5 shadow-inner">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleEditItemQuantity(idx, -1)}
+                                      className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-stone-800 dark:text-stone-100 hover:bg-stone-200 dark:hover:bg-[#322317] font-black cursor-pointer transition-colors"
+                                      title={item.cantidad === 1 ? 'Quitar ítem' : 'Reducir cantidad'}
+                                    >
+                                      <Minus className="w-3.5 h-3.5" />
+                                    </button>
+                                    <span className="w-7 sm:w-8 text-center font-mono font-black text-stone-900 dark:text-white text-sm sm:text-base">
+                                      {item.cantidad}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleEditItemQuantity(idx, 1)}
+                                      className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-stone-800 dark:text-stone-100 hover:bg-stone-200 dark:hover:bg-[#322317] font-black cursor-pointer transition-colors"
+                                      title="Aumentar cantidad"
+                                    >
+                                      <Plus className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
 
-                                <button
-                                  type="button"
-                                  onClick={() => handleEditRemoveItem(idx)}
-                                  className="p-2 text-stone-400 hover:text-red-600 dark:text-stone-400 dark:hover:text-red-400 rounded-xl hover:bg-red-50 dark:hover:bg-red-950/40 cursor-pointer transition-colors"
-                                  title="Eliminar de la comanda"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
+                                  <span className="w-20 sm:w-24 text-right font-mono font-black text-stone-900 dark:text-[#E8B800] text-sm sm:text-base">
+                                    ${lineTotal.toLocaleString('es-AR')}
+                                  </span>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleEditRemoveItem(idx)}
+                                    className="p-2 text-stone-400 hover:text-red-600 dark:text-stone-400 dark:hover:text-red-400 rounded-xl hover:bg-red-50 dark:hover:bg-red-950/40 cursor-pointer transition-colors"
+                                    title="Eliminar de la comanda"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Input observación por plato */}
+                              <div className="pt-1 border-t border-stone-100 dark:border-stone-800/60">
+                                <input
+                                  type="text"
+                                  placeholder="Obs. plato (ej: término medio, sin cebolla, salsa aparte...)"
+                                  value={item.observaciones || ''}
+                                  onChange={(e) => handleEditItemObservacion(idx, e.target.value)}
+                                  className="w-full text-xs px-2.5 py-1.5 rounded-lg border border-stone-200 dark:border-stone-700 bg-stone-50/80 dark:bg-stone-900/60 text-stone-800 dark:text-stone-200 placeholder-stone-400 dark:placeholder-stone-500 focus:outline-none focus:border-amber-400 focus:bg-white dark:focus:bg-stone-900 transition-colors"
+                                />
                               </div>
                             </div>
                           );
                         })}
                       </div>
                     )}
-                  </div>
-
-                  {/* Observaciones e Indicaciones de Cocina */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-black text-stone-700 dark:text-stone-200 uppercase tracking-wider flex items-center gap-1.5">
-                      <Bookmark className="w-3.5 h-3.5 text-[#8C6239] dark:text-[#C8956A]" />
-                      Observaciones e Indicaciones de Cocina
-                    </label>
-                    <textarea
-                      placeholder="Ej: Bife bien cocido, papas sin sal, salsa mixta en cazuela aparte..."
-                      value={editingObservaciones}
-                      onChange={e => setEditingObservaciones(e.target.value)}
-                      className="w-full text-xs sm:text-sm p-3 rounded-2xl border-2 border-stone-300 dark:border-[#C8956A]/30 bg-white dark:bg-[#22160E] text-stone-900 dark:text-white placeholder-stone-400 dark:placeholder-stone-400 focus:outline-none focus:border-[#C8956A] focus:ring-2 focus:ring-[#C8956A]/20 resize-none h-20 leading-relaxed font-medium"
-                    />
                   </div>
                 </div>
 
