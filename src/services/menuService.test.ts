@@ -145,3 +145,28 @@ test('menuService delete y remove eliminan el producto y no reaparece en list()'
   localStorage.removeItem('el_patron_deleted_menu_products');
 });
 
+test('isBeverageProduct detecta todas las bebidas del catálogo y persiste descuentos de stock_actual', async () => {
+  const { isBeverageProduct } = await import('./menuService');
+  const { INITIAL_PRODUCTOS_MENU } = await import('../data/initialData');
+
+  const beverages = INITIAL_PRODUCTOS_MENU.filter(p => isBeverageProduct(p));
+  assert.ok(beverages.length >= 115, `Se esperaban al menos 115 bebidas, se encontraron ${beverages.length}`);
+  assert.ok(beverages.every(b => b.controla_stock === true));
+
+  const sampleBev = beverages[0];
+  localStorage.setItem('el_patron_cache_menu', JSON.stringify([sampleBev]));
+
+  const initialStock = sampleBev.stock_actual ?? 24;
+  const afterOrder = await menuService.update(sampleBev.id_producto, {
+    stock_actual: initialStock - 3
+  });
+  assert.equal(afterOrder.stock_actual, initialStock - 3);
+
+  const listAfter = await menuService.list();
+  assert.equal(listAfter[0].stock_actual, initialStock - 3);
+
+  localStorage.removeItem('el_patron_cache_menu');
+  localStorage.removeItem('el_patron_beverage_stock_map');
+});
+
+

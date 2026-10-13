@@ -14,7 +14,7 @@ import {
   Coffee 
 } from 'lucide-react';
 import { ProductoMenu } from '../types';
-import { menuService } from '../services/menuService';
+import { menuService, isBeverageProduct } from '../services/menuService';
 import { useToast } from './ToastContainer';
 
 interface StockModuleProps {
@@ -58,60 +58,9 @@ export default function StockModule({
     activo: true
   });
 
-  // Filter ONLY beverages (wines, champagnes, spirits, cocktails, soft drinks, beers, waters)
-  const isBeverage = (p: ProductoMenu): boolean => {
-    const cat = (p.categoria || '').toLowerCase();
-    const sub = (p.subcategoria || '').toLowerCase();
-    const nom = (p.nombre || '').toLowerCase();
-    const tip = (p.tipo || '').toLowerCase();
-    const id = (p.id_producto || '').toLowerCase();
-
-    return (
-      tip === 'vino' ||
-      tip === 'bebida' ||
-      cat.includes('bodega') ||
-      cat.includes('bebida') ||
-      cat.includes('vino') ||
-      cat.includes('gaseosa') ||
-      cat.includes('agua') ||
-      sub.includes('vino') ||
-      sub.includes('champagne') ||
-      sub.includes('espumante') ||
-      sub.includes('trago') ||
-      sub.includes('gaseosa') ||
-      sub.includes('cerveza') ||
-      sub.includes('destilado') ||
-      sub.includes('aperitivo') ||
-      sub.includes('agua') ||
-      sub.includes('saborizada') ||
-      id.startsWith('prod_vin_') ||
-      id.startsWith('prod_beb_') ||
-      id.startsWith('prod_champ_') ||
-      id.startsWith('prod_trag_') ||
-      id.startsWith('prod_sin_') ||
-      id.startsWith('prod_cerv_') ||
-      nom.includes('malbec') ||
-      nom.includes('cabernet') ||
-      nom.includes('coca') ||
-      nom.includes('fanta') ||
-      nom.includes('sprite') ||
-      nom.includes('tonica') ||
-      nom.includes('pomelo') ||
-      nom.includes('soda') ||
-      nom.includes('agua') ||
-      nom.startsWith('s. ') ||
-      nom.includes('s. ') ||
-      nom.startsWith('s.') ||
-      nom.includes('saborizada') ||
-      nom.includes('cerveza') ||
-      nom.includes('stella') ||
-      nom.includes('fernet')
-    );
-  };
-
-  // Extract all beverages
+  // Extract all beverages using shared classifier
   const allBeverages = useMemo(() => {
-    return productosMenu.filter(isBeverage);
+    return productosMenu.filter(isBeverageProduct);
   }, [productosMenu]);
 
   // Status counts across all beverages

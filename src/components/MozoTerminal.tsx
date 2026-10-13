@@ -48,6 +48,7 @@ import { formatArgentinaDateTime, formatArgentinaTime } from '../lib/argentinaDa
 import { useToast, ToastContainer } from './ToastContainer';
 import { useCategories } from '../hooks/useCategories';
 import { mergeWithDefaultCategories } from '../services/categoriasService';
+import { isBeverageProduct } from '../services/menuService';
 import { matchesProductSearch } from './MenuModule';
 import { sheetFetchTable, sheetUpsertRow } from '../lib/googleSheetsClient';
 
@@ -95,7 +96,7 @@ interface WineMapping {
 }
 
 function getWineMapping(p: ProductoMenu): WineMapping {
-  const name = p.nombre.toLowerCase();
+  const name = (p.nombre || '').toLowerCase();
   const desc = (p.descripcion || '').toLowerCase();
   const sub = (p.subcategoria || '').toLowerCase();
   const cat = (p.categoria || '').toLowerCase();
@@ -103,122 +104,204 @@ function getWineMapping(p: ProductoMenu): WineMapping {
   let macro: WineMapping['macro'] = null;
   const varietales: string[] = [];
 
-  // Categorize based on category, subcategory or name
-  if (p.categoria === 'Bodega' || isBodegaCategory(p.categoria)) {
-    if (cat.includes('destilado') || cat.includes('trago') || cat.includes('coctel') || sub.includes('whisky') || sub.includes('gin') || sub.includes('fernet') || sub.includes('aperitivo') || sub.includes('vermut') || name.includes('whisky') || name.includes('gin') || name.includes('fernet') || name.includes('aperol') || name.includes('vermut')) {
-      macro = 'destilados';
-    } else if (sub.includes('espumantes') || sub.includes('champagne') || cat.includes('espumante') || name.includes('champagne') || name.includes('chandon') || name.includes('baron b') || name.includes('aluda') || name.includes('alyda') || name.includes('rosé') || name.includes('brut')) {
-      macro = 'champagne';
-    } else if (name.includes('copa') || name.includes('copas')) {
-      macro = 'copas';
-    } else if (
-      cat.includes('blanco') || cat.includes('rosado') || sub.includes('blancos') || 
-      name.includes('sauvignon blanc') || name.includes('sauvignon-blanc') || name.includes('sb') ||
-      name.includes('chardonnay') || 
-      name.includes('viognier') || 
-      name.includes('torrontés') || name.includes('torrontes') || 
-      name.includes('riesling') || 
-      name.includes('gewurztraminer') || 
-      name.includes('albariño')
+  const isSinAlcohol =
+    cat.includes('sin alcohol') ||
+    sub.includes('sin alcohol') ||
+    name.includes('sin alcohol') ||
+    sub.includes('gaseosa') ||
+    sub.includes('agua') ||
+    sub.includes('jugo');
+
+  if (!isSinAlcohol) {
+    if (
+      cat.includes('destilado') ||
+      cat.includes('trago') ||
+      cat.includes('coctel') ||
+      sub.includes('destilado') ||
+      sub.includes('trago') ||
+      sub.includes('coctel') ||
+      sub.includes('whisky') ||
+      sub.includes('gin') ||
+      sub.includes('fernet') ||
+      sub.includes('aperitivo') ||
+      sub.includes('vermut') ||
+      name.includes('whisky') ||
+      name.includes('macallan') ||
+      name.includes('johnnie') ||
+      name.includes('jack daniel') ||
+      name.includes('jameson') ||
+      name.includes('chivas') ||
+      name.includes('gin ') ||
+      name.startsWith('gin') ||
+      name.includes('spirito') ||
+      name.includes('fernet') ||
+      name.includes('aperol') ||
+      name.includes('spritz') ||
+      name.includes('campari') ||
+      name.includes('gancia') ||
+      name.includes('carpano') ||
+      name.includes('vermut') ||
+      name.includes('vodka') ||
+      name.includes('sernova')
     ) {
-      macro = 'blancas';
-    } else {
-      macro = 'tintas';
-    }
-  } else if (p.categoria === 'Bebidas' || p.categoria === 'Bebidas con Alcohol' || p.categoria === 'Bebidas sin Alcohol') {
-    if (sub.includes('whisky') || sub.includes('gin') || sub.includes('fernet') || sub.includes('aperitivos') || name.includes('macallan') || name.includes('gin') || name.includes('fernet') || name.includes('aperol') || name.includes('spritz')) {
       macro = 'destilados';
+    } else if (
+      p.categoria === 'Bodega' ||
+      isBodegaCategory(p.categoria) ||
+      p.tipo === 'vino' ||
+      sub.includes('vino') ||
+      sub.includes('espumante') ||
+      sub.includes('champagne')
+    ) {
+      if (
+        sub.includes('espumante') ||
+        sub.includes('champagne') ||
+        cat.includes('espumante') ||
+        name.includes('champagne') ||
+        name.includes('espumante') ||
+        name.includes('chandon') ||
+        name.includes('baron b') ||
+        name.includes('aluda') ||
+        name.includes('alyda') ||
+        name.includes('extra brut') ||
+        name.includes('brut nature') ||
+        name.includes('brut')
+      ) {
+        macro = 'champagne';
+      } else if (name.includes('copa') || name.includes('copas')) {
+        macro = 'copas';
+      } else if (
+        cat.includes('blanco') ||
+        cat.includes('rosado') ||
+        sub.includes('blanco') ||
+        sub.includes('rosado') ||
+        name.includes('rosado') ||
+        name.includes('rosé') ||
+        name.includes('rose') ||
+        name.includes('sauvignon blanc') ||
+        name.includes('sauvignon-blanc') ||
+        name.includes(' sb') ||
+        name.includes('chardonnay') ||
+        name.includes('viognier') ||
+        name.includes('torrontés') ||
+        name.includes('torrontes') ||
+        name.includes('riesling') ||
+        name.includes('gewurztraminer') ||
+        name.includes('albariño') ||
+        name.includes('albarino') ||
+        name.includes('semillón') ||
+        name.includes('semillon')
+      ) {
+        macro = 'blancas';
+      } else {
+        macro = 'tintas';
+      }
     }
   }
 
   if (macro === 'tintas') {
-    // Malbec
-    if (name.includes('malbec')) {
+    if (name.includes('malbec') || desc.includes('malbec')) {
       varietales.push('Malbec');
     }
-
-    // Cabernet Sauvignon
-    if (name.includes('cabernet sauvignon') || name.includes('cab-sauv') || name.includes('cs')) {
+    if (name.includes('cabernet sauvignon') || name.includes('cab-sauv') || name.includes(' cs') || desc.includes('cabernet sauvignon')) {
       varietales.push('Cabernet Sauvignon');
     }
-
-    // Cabernet Franc
-    if (name.includes('cabernet franc') || name.includes('cf')) {
+    if (name.includes('cabernet franc') || name.includes(' cf') || desc.includes('cabernet franc')) {
       varietales.push('Cabernet Franc');
     }
-
-    // Merlot
-    if (name.includes('merlot')) {
+    if (name.includes('merlot') || desc.includes('merlot')) {
       varietales.push('Merlot');
     }
-
-    // Pinot Noir
-    if (name.includes('pinot noir') || name.includes('pinot')) {
+    if (name.includes('pinot noir') || name.includes('pinot') || desc.includes('pinot noir')) {
       varietales.push('Pinot Noir');
     }
-
-    // Red Blend
-    if (name.includes('red blend') || name.includes('blend') || name.includes('gran reserva')) {
+    if (name.includes('red blend') || name.includes('blend') || desc.includes('blend') || name.includes('gran reserva') || name.includes('icono')) {
       varietales.push('Red Blend');
     }
-
-    // Otros Varietales Tintos (Ancellotta, Tannat, Petit Verdot)
     if (
-      name.includes('ancelotta') || 
-      name.includes('tannat') || 
-      name.includes('petit verdot') || 
-      name.includes('ala colorada')
+      name.includes('ancelotta') ||
+      name.includes('ancellotta') ||
+      name.includes('tannat') ||
+      name.includes('petit verdot') ||
+      name.includes('syrah') ||
+      name.includes('bonarda') ||
+      name.includes('criolla') ||
+      name.includes('ala colorada') ||
+      desc.includes('syrah') ||
+      desc.includes('bonarda') ||
+      varietales.length === 0
     ) {
       varietales.push('Otros Varietales Tintos');
     }
   }
 
   if (macro === 'blancas') {
-    // Chardonnay
     if (
-      name.includes('trumpeter doux') || name.includes('doux') ||
+      name.includes('chardonnay') ||
+      desc.includes('chardonnay') ||
+      name.includes('trumpeter doux') ||
+      name.includes('doux') ||
       name.includes('escorihuela') ||
-      name.includes('st felicien') || name.includes('saint felicien') ||
-      name.includes('angélica zapata') || name.includes('angelica zapata') ||
+      name.includes('st felicien') ||
+      name.includes('saint felicien') ||
+      name.includes('angélica zapata') ||
+      name.includes('angelica zapata') ||
       name.includes('luca') ||
-      name.includes('perdices reserva chardonnay') || name.includes('perdices chardonnay') || name.includes('perdices reserva') ||
-      name.includes('exploración') || name.includes('exploracion') ||
-      name.includes('salentein reserva chardonnay') || name.includes('reserva chardonnay')
+      name.includes('perdices reserva chardonnay') ||
+      name.includes('perdices chardonnay') ||
+      name.includes('perdices reserva') ||
+      name.includes('exploración') ||
+      name.includes('exploracion') ||
+      name.includes('salentein reserva chardonnay') ||
+      name.includes('reserva chardonnay')
     ) {
       varietales.push('Chardonnay');
     }
 
-    // Sauvignon Blanc
     if (
+      name.includes('sauvignon blanc') ||
+      desc.includes('sauvignon blanc') ||
+      name.includes('sauvignon') ||
       name.includes('escorihuela') ||
-      name.includes('st felicien sauvignon') || name.includes('saint felicien sauvignon') ||
-      name.includes('perdices sauvignon') || name.includes('perdices sb') ||
-      name.includes('portillo sauvignon') || name.includes('portillo sb') ||
+      name.includes('st felicien sauvignon') ||
+      name.includes('saint felicien sauvignon') ||
+      name.includes('perdices sauvignon') ||
+      name.includes('perdices sb') ||
+      name.includes('portillo sauvignon') ||
+      name.includes('portillo sb') ||
       name.includes('reserva sauvignon') ||
-      name.includes('pyros sauvignon') || name.includes('pyros sb') ||
+      name.includes('pyros sauvignon') ||
+      name.includes('pyros sb') ||
       name.includes('ala viognier')
     ) {
       varietales.push('Sauvignon Blanc');
     }
 
-    // Torrontés
-    if (name.includes('torrontés') || name.includes('torrontes')) {
+    if (name.includes('torrontés') || name.includes('torrontes') || desc.includes('torrontés') || desc.includes('torrontes')) {
       varietales.push('Torrontés');
     }
 
-    // Riesling
-    if (name.includes('riesling')) {
+    if (name.includes('riesling') || desc.includes('riesling')) {
       varietales.push('Riesling');
     }
 
-    // Gewurztraminer
-    if (name.includes('gewurztraminer') || name.includes('gewürz')) {
+    if (name.includes('gewurztraminer') || name.includes('gewürz') || desc.includes('gewurztraminer')) {
       varietales.push('Gewurztraminer');
     }
 
-    // Albariño
-    if (name.includes('albariño') || name.includes('albarino')) {
+    if (name.includes('albariño') || name.includes('albarino') || desc.includes('albariño')) {
       varietales.push('Albariño');
+    }
+
+    if (
+      name.includes('viognier') ||
+      desc.includes('viognier') ||
+      sub.includes('rosado') ||
+      name.includes('rosado') ||
+      name.includes('rosé') ||
+      varietales.length === 0
+    ) {
+      varietales.push('Viognier / Rosados');
     }
   }
 
@@ -237,7 +320,7 @@ function getWineMapping(p: ProductoMenu): WineMapping {
   }
 
   if (macro === 'destilados') {
-    if (name.includes('whisky') || name.includes('macallan') || name.includes('johnnie') || name.includes('daniel') || name.includes('jameson')) {
+    if (name.includes('whisky') || name.includes('macallan') || name.includes('johnnie') || name.includes('daniel') || name.includes('jameson') || name.includes('chivas')) {
       varietales.push('Whisky');
     } else if (name.includes('gin') || name.includes('heráclito') || name.includes('heraclito') || name.includes('beefeater') || name.includes('bombay') || name.includes('spirito')) {
       varietales.push('Gin');
@@ -494,7 +577,7 @@ export default function MozoTerminal({
   const editCategoriesList = useMemo(() => {
     const set = new Set<string>();
     productosMenu.forEach(p => {
-      if (p.categoria?.trim() && p.activo !== false) {
+      if (p.categoria?.trim() && (p.activo !== false || isBeverageProduct(p))) {
         set.add(p.categoria.trim());
       }
     });
@@ -540,17 +623,28 @@ export default function MozoTerminal({
       if (!cat || cat.toLowerCase() === 'todos' || cat.toLowerCase() === 'todo') return true;
       const normCat = normalizeCategoryString(cat);
       const pCatNorm = normalizeCategoryString(p.categoria);
-      if (p.categoria === cat) return true;
-      if (pCatNorm === normCat) return true;
+      const pSubNorm = normalizeCategoryString(p.subcategoria);
+      const pNameNorm = normalizeCategoryString(p.nombre);
+      const mapping = getWineMapping(p);
+
+      if (p.categoria === cat || pCatNorm === normCat) return true;
+      if (normCat === 'cervezas' && (pCatNorm.includes('cerveza') || pSubNorm.includes('cerveza') || pNameNorm.includes('cerveza'))) return true;
+      if (normCat === 'vinostintos' && (pSubNorm.includes('tinto') || mapping.macro === 'tintas')) return true;
+      if ((normCat === 'vinosblancosyrosados' || normCat === 'vinosblancos') && (pSubNorm.includes('blanco') || pSubNorm.includes('rosado') || mapping.macro === 'blancas')) return true;
+      if (normCat === 'espumantes' && (pSubNorm.includes('espumante') || mapping.macro === 'champagne')) return true;
+      if (normCat === 'destilados' && (pSubNorm.includes('destilado') || pSubNorm.includes('aperitivo') || mapping.macro === 'destilados')) return true;
+      if ((normCat === 'tragosycocteleria' || normCat === 'tragos') && (pSubNorm.includes('trago') || pSubNorm.includes('destilado') || pSubNorm.includes('aperitivo') || mapping.macro === 'destilados')) return true;
+      if ((normCat === 'bodega' || normCat === 'bodegayvinos') && (p.tipo === 'vino' || isBodegaCategory(p.categoria) || pSubNorm.includes('vino') || pSubNorm.includes('espumante') || mapping.macro !== null)) return true;
+      if (normCat === 'bebidasconalcohol' && !pCatNorm.includes('sinalcohol') && (pCatNorm === 'bebidasconalcohol' || p.tipo === 'vino' || pSubNorm.includes('cerveza') || pSubNorm.includes('destilado') || pSubNorm.includes('trago') || pSubNorm.includes('aperitivo') || mapping.macro !== null)) return true;
+      if (normCat === 'bebidassinalcohol' && (pCatNorm === 'bebidassinalcohol' || pSubNorm.includes('sinalcohol') || pSubNorm.includes('gaseosa') || pSubNorm.includes('agua') || pSubNorm.includes('jugo'))) return true;
       if (pCatNorm.includes(normCat) || normCat.includes(pCatNorm)) return true;
       if (normCat === 'parrilla' && (pCatNorm.includes('carne') || pCatNorm.includes('asado') || pCatNorm.includes('corte'))) return true;
       if (normCat === 'carnes' && (pCatNorm.includes('parrilla') || pCatNorm.includes('corte') || pCatNorm.includes('asado'))) return true;
-      if (normCat === 'bodega' && (p.tipo === 'vino' || isBodegaCategory(p.categoria))) return true;
-      if (normCat === 'bebidas' && (pCatNorm.includes('bebida') || p.tipo === 'bebida')) return true;
+      if (normCat === 'bebidas' && (pCatNorm.includes('bebida') || p.tipo === 'bebida' || isBeverageProduct(p))) return true;
       return false;
     };
 
-    const activeProducts = productosMenu.filter(p => p.activo !== false);
+    const activeProducts = productosMenu.filter(p => p.activo !== false || isBeverageProduct(p));
 
     if (!query) {
       const list = isAll ? activeProducts : activeProducts.filter(p => matchesCat(p, editCategoryFilter));
@@ -907,11 +1001,13 @@ export default function MozoTerminal({
 
       const normCat = normalizeCategoryString(cat);
       const pCatNorm = normalizeCategoryString(p.categoria);
+      const pSubNorm = normalizeCategoryString(p.subcategoria);
+      const pNameNorm = normalizeCategoryString(p.nombre);
       const mapping = getWineMapping(p);
 
       // Macro: Bodega / Bodega y Vinos
       if (normCat === 'bodega' || normCat === 'bodegayvinos') {
-        const isWineOrSpirit = isBodegaCategory(p.categoria) || p.tipo === 'vino' || mapping.macro !== null;
+        const isWineOrSpirit = isBodegaCategory(p.categoria) || p.tipo === 'vino' || pSubNorm.includes('vino') || pSubNorm.includes('espumante') || mapping.macro !== null;
         if (!isWineOrSpirit) return false;
 
         // Apply macro and varietal filters inside Bodega
@@ -926,7 +1022,7 @@ export default function MozoTerminal({
 
       // Specific wine categories
       if (normCat === 'vinostintos') {
-        const isTinto = pCatNorm === 'vinostintos' || mapping.macro === 'tintas';
+        const isTinto = pCatNorm === 'vinostintos' || pSubNorm.includes('tinto') || mapping.macro === 'tintas';
         if (!isTinto) return false;
         if (selectedWineVarietal !== 'todo' && !mapping.varietales.includes(selectedWineVarietal)) {
           return false;
@@ -935,7 +1031,7 @@ export default function MozoTerminal({
       }
 
       if (normCat === 'vinosblancosyrosados' || normCat === 'vinosblancos') {
-        const isBlanco = pCatNorm === 'vinosblancosyrosados' || pCatNorm === 'vinosblancos' || mapping.macro === 'blancas';
+        const isBlanco = pCatNorm === 'vinosblancosyrosados' || pCatNorm === 'vinosblancos' || pSubNorm.includes('blanco') || pSubNorm.includes('rosado') || mapping.macro === 'blancas';
         if (!isBlanco) return false;
         if (selectedWineVarietal !== 'todo' && !mapping.varietales.includes(selectedWineVarietal)) {
           return false;
@@ -944,45 +1040,68 @@ export default function MozoTerminal({
       }
 
       if (normCat === 'espumantes') {
-        return pCatNorm === 'espumantes' || mapping.macro === 'champagne';
+        return pCatNorm === 'espumantes' || pSubNorm.includes('espumante') || mapping.macro === 'champagne';
       }
 
       if (normCat === 'destilados') {
-        return pCatNorm === 'destilados' || mapping.macro === 'destilados';
+        return pCatNorm === 'destilados' || pSubNorm.includes('destilado') || pSubNorm.includes('aperitivo') || mapping.macro === 'destilados';
       }
 
       if (normCat === 'cervezas') {
-        return pCatNorm === 'cervezas' || pCatNorm.includes('cerveza');
+        return pCatNorm === 'cervezas' || pCatNorm.includes('cerveza') || pSubNorm.includes('cerveza') || pNameNorm.includes('cerveza');
       }
 
       if (normCat === 'tragosycocteleria' || normCat === 'tragos' || normCat === 'cocteleria') {
-        return pCatNorm === 'tragosycocteleria' || pCatNorm.includes('trago') || pCatNorm.includes('coctel');
+        return pCatNorm === 'tragosycocteleria' || pCatNorm.includes('trago') || pCatNorm.includes('coctel') || pSubNorm.includes('trago') || pSubNorm.includes('destilado') || pSubNorm.includes('aperitivo') || mapping.macro === 'destilados';
       }
 
       // Macro: Bebidas con Alcohol
       if (normCat === 'bebidasconalcohol') {
+        if (pCatNorm.includes('sinalcohol') || pSubNorm.includes('sinalcohol') || pNameNorm.includes('sinalcohol')) {
+          return false;
+        }
         return (
+          pCatNorm === 'bebidasconalcohol' ||
           p.tipo === 'vino' ||
           pCatNorm.includes('vino') ||
+          pCatNorm.includes('bodega') ||
           pCatNorm.includes('espumante') ||
           pCatNorm.includes('cerveza') ||
           pCatNorm.includes('destilado') ||
           pCatNorm.includes('trago') ||
           pCatNorm.includes('coctel') ||
+          pSubNorm.includes('cerveza') ||
+          pSubNorm.includes('destilado') ||
+          pSubNorm.includes('trago') ||
+          pSubNorm.includes('aperitivo') ||
+          pSubNorm.includes('vino') ||
+          pSubNorm.includes('espumante') ||
           mapping.macro !== null
         );
       }
 
       // Macro: Bebidas sin Alcohol
       if (normCat === 'bebidassinalcohol') {
+        if (
+          pCatNorm === 'bebidassinalcohol' ||
+          pSubNorm.includes('sinalcohol') ||
+          pSubNorm.includes('gaseosa') ||
+          pSubNorm.includes('agua') ||
+          pSubNorm.includes('jugo') ||
+          pNameNorm.includes('sinalcohol')
+        ) {
+          return true;
+        }
         const isAlcoholic = (
           p.tipo === 'vino' ||
           pCatNorm.includes('vino') ||
+          pCatNorm.includes('bodega') ||
           pCatNorm.includes('espumante') ||
           pCatNorm.includes('cerveza') ||
           pCatNorm.includes('destilado') ||
           pCatNorm.includes('trago') ||
           pCatNorm.includes('coctel') ||
+          pCatNorm.includes('conalcohol') ||
           mapping.macro !== null
         );
         if (isAlcoholic) return false;
@@ -1010,19 +1129,21 @@ export default function MozoTerminal({
       return false;
     };
 
+    const isProductVisible = (p: ProductoMenu) => p.activo !== false || isBeverageProduct(p);
+
     if (!query) {
-      const activeProducts = productosMenu.filter(p => p.activo && matchesCategory(p, selectedCategoria));
+      const activeProducts = productosMenu.filter(p => isProductVisible(p) && matchesCategory(p, selectedCategoria));
       return { filteredProducts: activeProducts, isCrossCategorySearch: false };
     }
 
     // When searching:
     if (selectedCategoria === 'todo') {
-      const allMatches = productosMenu.filter(p => p.activo && matchesProductSearch(p, query));
+      const allMatches = productosMenu.filter(p => isProductVisible(p) && matchesProductSearch(p, query));
       return { filteredProducts: allMatches, isCrossCategorySearch: false };
     }
 
     const catMatches = productosMenu.filter(
-      p => p.activo && matchesCategory(p, selectedCategoria) && matchesProductSearch(p, query)
+      p => isProductVisible(p) && matchesCategory(p, selectedCategoria) && matchesProductSearch(p, query)
     );
 
     if (catMatches.length > 0) {
@@ -1030,7 +1151,7 @@ export default function MozoTerminal({
     }
 
     // Fallback: search globally if 0 results in current category
-    const globalMatches = productosMenu.filter(p => p.activo && matchesProductSearch(p, query));
+    const globalMatches = productosMenu.filter(p => isProductVisible(p) && matchesProductSearch(p, query));
     return {
       filteredProducts: globalMatches,
       isCrossCategorySearch: globalMatches.length > 0
@@ -1063,7 +1184,20 @@ export default function MozoTerminal({
     if (permitirVentaSinStock) {
       return { allowed: true, isCritical: false };
     }
-    const nextCart = { ...cart, [productoId]: (cart[productoId] || 0) + 1 };
+    const prodObj = productosMenu.find(p => p.id_producto === productoId);
+    const nextQtyForProd = (cart[productoId] || 0) + 1;
+
+    if (prodObj && (prodObj.controla_stock || isBeverageProduct(prodObj)) && prodObj.stock_actual !== undefined) {
+      if (prodObj.stock_actual < nextQtyForProd) {
+        return {
+          allowed: false,
+          isCritical: true,
+          warning: `¡BLOQUEADO! Sin stock disponible de "${prodObj.nombre}" (Stock actual: ${prodObj.stock_actual}).`
+        };
+      }
+    }
+
+    const nextCart = { ...cart, [productoId]: nextQtyForProd };
     const requirements = calculateCartInsumoRequirements(nextCart);
 
     for (const [insumoId, reqAmount] of Object.entries(requirements)) {
@@ -1092,6 +1226,10 @@ export default function MozoTerminal({
 
   // Quick check of remaining simulated capacity for UI tags
   const getSimulatedStockRemaining = (prod: ProductoMenu) => {
+    if ((prod.controla_stock || isBeverageProduct(prod)) && prod.stock_actual !== undefined) {
+      if (permitirVentaSinStock) return 999;
+      return Math.max(0, prod.stock_actual - (cart[prod.id_producto] || 0));
+    }
     if (permitirVentaSinStock) {
       return 999;
     }
@@ -2071,7 +2209,7 @@ export default function MozoTerminal({
                     </button>
                     {(selectedWineMacro === 'tintas'
                       ? ['Malbec', 'Cabernet Sauvignon', 'Red Blend', 'Cabernet Franc', 'Merlot', 'Pinot Noir', 'Otros Varietales Tintos']
-                      : ['Chardonnay', 'Sauvignon Blanc', 'Torrontés', 'Riesling', 'Gewurztraminer', 'Albariño']
+                      : ['Chardonnay', 'Sauvignon Blanc', 'Torrontés', 'Riesling', 'Gewurztraminer', 'Albariño', 'Viognier / Rosados']
                     ).map(varName => (
                       <button
                         key={varName}
@@ -2340,6 +2478,10 @@ export default function MozoTerminal({
                 const isOutOfStock = !permitirVentaSinStock && stockRemaining <= 0;
                 const isLowStock = !permitirVentaSinStock && stockRemaining > 0 && stockRemaining <= 3;
                 const currentInCart = cart[p.id_producto] || 0;
+                const isBev = isBeverageProduct(p);
+                const beverageAvailableStock = isBev
+                  ? Math.max(0, Number(p.stock_actual ?? 0) - currentInCart)
+                  : null;
 
                 return (
                   <motion.div
@@ -2374,7 +2516,7 @@ export default function MozoTerminal({
                       
                       {/* Category icon badge */}
                       <div className="absolute top-2 left-2 p-1.5 rounded-lg backdrop-blur-md bg-white/90 shadow-sm border border-stone-100">
-                        {p.categoria.toLowerCase().includes('bebida') ? (
+                        {isBev ? (
                           <Wine className="w-3.5 h-3.5 text-[#8C6239]" />
                         ) : (
                           <UtensilsCrossed className="w-3.5 h-3.5 text-[#8C6239]" />
@@ -2387,6 +2529,18 @@ export default function MozoTerminal({
                           <span className="bg-[#EF4444] text-white text-[10px] uppercase font-extrabold tracking-wider px-2 py-1 rounded-md shadow flex items-center gap-1">
                             <AlertTriangle className="w-3 h-3 text-white" />
                             Sin Stock
+                          </span>
+                        </div>
+                      ) : isBev && beverageAvailableStock !== null ? (
+                        <div className="absolute top-2 right-2">
+                          <span className={`backdrop-blur-md text-white text-[9px] uppercase font-extrabold tracking-wider px-2 py-0.5 rounded-md shadow flex items-center gap-1 ${
+                            beverageAvailableStock <= 0
+                              ? 'bg-rose-600/90'
+                              : beverageAvailableStock <= (p.stock_minimo ?? 3)
+                                ? 'bg-amber-600/90'
+                                : 'bg-stone-900/75'
+                          }`}>
+                            Stock: {beverageAvailableStock}
                           </span>
                         </div>
                       ) : isLowStock ? (
@@ -3012,7 +3166,7 @@ export default function MozoTerminal({
                               {prod.nombre}
                             </p>
                             <span className="text-[11px] text-stone-500 dark:text-stone-400 font-medium">
-                              {prod.categoria}
+                              {prod.categoria}{isBeverageProduct(prod) ? ` • Stock: ${prod.stock_actual ?? 0}` : ''}
                             </span>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">

@@ -34,7 +34,7 @@ import Skeleton from './components/Skeleton';
 import { hasSameSupabaseConfig, tryGetActiveSupabaseClient } from './lib/supabaseClient';
 
 import { getAllMenuImages } from './lib/imageStorage';
-import { menuService } from './services/menuService';
+import { menuService, isBeverageProduct } from './services/menuService';
 
 // Lazy-loaded modules (code-split, loaded on demand)
 const RestaurantCover = lazy(() => import('./components/RestaurantCover'));
@@ -912,6 +912,89 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     return `${h}:${m} hs`;
   }, [minutosGlobal]);
 
+  // Registro persistente de cantidades de bebidas descontadas por pedido para ajuste exacto en creación, edición, cobro y cancelación
+  const bebidasStockLedgerRef = useRef<Record<string, Record<string, number>>>((() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = window.localStorage.getItem('el_patron_bebidas_stock_ledger');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === 'object') return parsed;
+        }
+      } catch {}
+    }
+    return {};
+  })());
+
+  const syncBeverageStockForOrder = useCallback((
+    orderId: number | string,
+    targetItems: Pedido['items'] | undefined,
+    contextLabel?: string
+  ) => {
+    const orderKey = String(orderId);
+    setProductosMenu(prevProds => {
+      const targetQuantities: Record<string, number> = {};
+      for (const item of targetItems || []) {
+        if (!item || item.estado === 'cancelado' || (item.cantidad ?? 0) <= 0) continue;
+        const rawItemId = String(item.id_producto || '').trim().toLowerCase();
+        const rawItemName = String(item.nombre || '').trim().toLowerCase();
+        const matchedProd = prevProds.find(p =>
+          (rawItemId && p.id_producto.toLowerCase() === rawItemId) ||
+          (rawItemName && p.nombre.trim().toLowerCase() === rawItemName)
+        );
+        if (matchedProd && (matchedProd.controla_stock || isBeverageProduct(matchedProd))) {
+          targetQuantities[matchedProd.id_producto] = (targetQuantities[matchedProd.id_producto] || 0) + Number(item.cantidad || 0);
+        }
+      }
+
+      const prevDiscounted = bebidasStockLedgerRef.current[orderKey] || {};
+      const allProdIds = new Set([...Object.keys(prevDiscounted), ...Object.keys(targetQuantities)]);
+      let changed = false;
+      const updatesToPersist: Array<{ id: string; nombre: string; delta: number; stock_actual: number }> = [];
+
+      const nextProds = prevProds.map(prod => {
+        if (!allProdIds.has(prod.id_producto)) return prod;
+        const oldQty = prevDiscounted[prod.id_producto] || 0;
+        const newQty = targetQuantities[prod.id_producto] || 0;
+        const delta = newQty - oldQty;
+        if (delta === 0) return prod;
+        changed = true;
+        const nextStock = Math.max(0, (prod.stock_actual ?? 0) - delta);
+        updatesToPersist.push({
+          id: prod.id_producto,
+          nombre: prod.nombre,
+          delta,
+          stock_actual: nextStock
+        });
+        return { ...prod, stock_actual: nextStock, controla_stock: true };
+      });
+
+      if (Object.keys(targetQuantities).length > 0) {
+        bebidasStockLedgerRef.current[orderKey] = targetQuantities;
+      } else {
+        delete bebidasStockLedgerRef.current[orderKey];
+      }
+      if (typeof window !== 'undefined') {
+        try {
+          window.localStorage.setItem('el_patron_bebidas_stock_ledger', JSON.stringify(bebidasStockLedgerRef.current));
+        } catch {}
+      }
+
+      if (changed && updatesToPersist.length > 0) {
+        Promise.allSettled(
+          updatesToPersist.map(u => menuService.update(u.id, { stock_actual: u.stock_actual, controla_stock: true }))
+        ).catch(() => undefined);
+
+        const summary = updatesToPersist
+          .map(u => `${u.nombre} (${u.delta > 0 ? `-${u.delta}` : `+${Math.abs(u.delta)}`} → Stock: ${u.stock_actual})`)
+          .join(', ');
+        addLog('descuento_stock', `STOCK BEBIDAS${contextLabel ? ` (${contextLabel})` : ''}: Pedido #${orderId} — ${summary}`);
+      }
+
+      return changed ? nextProds : prevProds;
+    });
+  }, [addLog]);
+
 
   // --- Handlers for Waiter View (Terminal Mozo) ---
   const handleCrearPedido = useCallback(async (newPedidoData: Omit<Pedido, 'id_pedido' | 'fecha_hora' | 'minutos_transcurridos' | 'origen'> & { origen?: 'Mozo'; comensales?: number; idempotency_key?: string }) => {
@@ -1043,27 +1126,8 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     const updatedMesas = mesas.map(m => String(m.id_mesa) === String(newPedidoData.id_mesa) ? { ...m, estado: 'ocupada' as const, comensales: newPedidoData.comensales || 2 } : m);
     setMesas(updatedMesas);
 
-    // Descuento directo de stock en productos_menu para bebidas con controla_stock
-    setProductosMenu(prevProds => {
-      let changed = false;
-      const updatesToPersist: Array<{ id: string; stock_actual: number }> = [];
-      const nextProds = prevProds.map(prod => {
-        const itemOrdered = newPedidoData.items.find(i => i.id_producto === prod.id_producto);
-        if (itemOrdered && prod.controla_stock && prod.stock_actual !== undefined) {
-          changed = true;
-          const nextStock = Math.max(0, (prod.stock_actual || 0) - itemOrdered.cantidad);
-          updatesToPersist.push({ id: prod.id_producto, stock_actual: nextStock });
-          return { ...prod, stock_actual: nextStock };
-        }
-        return prod;
-      });
-      if (changed && !isDemoSession && updatesToPersist.length > 0) {
-        Promise.allSettled(
-          updatesToPersist.map(u => menuService.update(u.id, { stock_actual: u.stock_actual }))
-        ).catch(() => undefined);
-      }
-      return changed ? nextProds : prevProds;
-    });
+    // Descuento y sincronización exacta de stock en productos_menu para bebidas de la comanda
+    syncBeverageStockForOrder(finalPedido.id_pedido, finalPedido.items, 'COMANDA MOZO');
 
     // Difusión simultánea a caja y otros dispositivos
     const broadcastPayload = {
@@ -1110,7 +1174,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
       }
     }
     return true;
-  }, [pedidos, insumos, recetas, productosMenu, addLog, mesas, permitirVentaSinStock, setMesas, setInsumos, setPedidos, activeMozo, isDemoSession, toast]);
+  }, [pedidos, insumos, recetas, productosMenu, addLog, mesas, permitirVentaSinStock, setMesas, setInsumos, setPedidos, activeMozo, isDemoSession, toast, syncBeverageStockForOrder]);
 
   const handleActualizarPedido = useCallback(async (
     idPedido: number,
@@ -1156,6 +1220,13 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
       id_pedido: idPedido
     };
 
+    // Ajustar stock de bebidas en productos_menu si cambiaron los ítems o si se canceló el pedido
+    if (updatedFields.estado_comanda === 'cancelado') {
+      syncBeverageStockForOrder(idPedido, [], 'CANCELACIÓN COMANDA');
+    } else if (updatedFields.items) {
+      syncBeverageStockForOrder(idPedido, finalPedido.items, 'EDICIÓN COMANDA');
+    }
+
     // 1. Actualizar estado local en memoria
     setPedidos(prev => prev.map(p => p.id_pedido === idPedido ? finalPedido : p));
 
@@ -1195,7 +1266,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     }
 
     return true;
-  }, [pedidos, insumos, recetas, permitirVentaSinStock, activeMozo, isDemoSession, addLog, toast]);
+  }, [pedidos, insumos, recetas, permitirVentaSinStock, activeMozo, isDemoSession, addLog, toast, syncBeverageStockForOrder]);
 
   const handleMozoChange = (mozo: string) => {
     const nextUser = usuarios.find(usuario => usuario.nombre.toLowerCase() === mozo.toLowerCase() && usuario.activo !== false)
@@ -1288,6 +1359,12 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
   const handleCambiarEstadoPedido = async (idPedido: number, nuevoEstado: Pedido['estado_comanda']) => {
     const pObj = pedidos.find(p => p.id_pedido === idPedido);
     if (!pObj) return;
+
+    if (nuevoEstado === 'cancelado') {
+      syncBeverageStockForOrder(idPedido, [], 'CANCELACIÓN COMANDA');
+    } else if (nuevoEstado === 'entregado_cobrado') {
+      syncBeverageStockForOrder(idPedido, pObj.items, 'COBRO COMANDA');
+    }
 
     if (!isDemoSession) {
       if (nuevoEstado === 'en_cocina' && (!pObj.items || pObj.items.length === 0)) {
@@ -1483,6 +1560,15 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     if (!orderIds.includes(target.id_pedido)) {
       orderIds.push(target.id_pedido);
     }
+
+    // Asegurar que todas las bebidas de las comandas cobradas tengan su stock descontado y persistido en Stock Bebidas
+    const ordersToSyncBeverages = [...ordersToBill];
+    if (!ordersToSyncBeverages.some(o => o.id_pedido === target.id_pedido)) {
+      ordersToSyncBeverages.push(target);
+    }
+    ordersToSyncBeverages.forEach(order => {
+      syncBeverageStockForOrder(order.id_pedido, order.items, 'COBRO CAJA');
+    });
 
     const payload = {
       id_mesa: target.id_mesa,
@@ -1683,7 +1769,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
         fecha: getArgentinaDateTimeString()
       }).catch(err => console.warn('Error registrando ledger en Google Sheets:', err));
     }
-  }, [pedidos, mesas, productosMenu, addLog, isDemoSession, permitirVentaSinStock, applyMesaLiberada]);
+  }, [pedidos, mesas, productosMenu, addLog, isDemoSession, permitirVentaSinStock, applyMesaLiberada, syncBeverageStockForOrder]);
 
   // --- Handlers para Unión y Desunión de Mesas ---
   const handleUnirMesas = useCallback(async (idMesa1: number | number[], idMesa2?: number | number[]) => {
@@ -1794,7 +1880,10 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     if (idPedido && !orderIds.includes(idPedido)) {
       orderIds.push(idPedido);
     }
-    orderIds.forEach(id => persistFinalizedId(id, 'cancelado'));
+    orderIds.forEach(id => {
+      persistFinalizedId(id, 'cancelado');
+      syncBeverageStockForOrder(id, [], 'MESA LIBERADA');
+    });
 
     if (orderIds.length > 0) {
       setPedidos(prev => prev.map(p => orderIds.includes(p.id_pedido) ? { ...p, estado_comanda: 'cancelado' as const } : p));
@@ -1926,7 +2015,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     })();
 
     addLog('sistema', `MESAS: ${target?.numero_mesa || 'Mesa'} liberada manualmente. Comanda(s) ${orderIds.length > 0 ? `#${orderIds.join(', #')} cancelada(s)` : 'sin comanda activa'}.`);
-  }, [mesas, pedidos, addLog, isDemoSession, permitirVentaSinStock]);
+  }, [mesas, pedidos, addLog, isDemoSession, permitirVentaSinStock, syncBeverageStockForOrder]);
 
   // --- Handlers for Inventory View ---
   const handleRegistrarMerma = (idInsumo: string, cantidad: number, motivo: Merma['motivo']) => {
