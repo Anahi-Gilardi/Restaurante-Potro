@@ -92,18 +92,46 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
 
   React.useEffect(() => {
     let isMounted = true;
-    promocionesService.list()
-      .then(list => {
-        if (isMounted) {
-          setPromociones((list || []).filter(p => p.activo !== false));
-          setLoadingPromos(false);
-        }
-      })
-      .catch(err => {
-        console.warn('No se pudieron cargar promociones para la portada:', err);
-        if (isMounted) setLoadingPromos(false);
-      });
-    return () => { isMounted = false; };
+    const refreshCoverData = () => {
+      promocionesService.list()
+        .then(list => {
+          if (isMounted) {
+            setPromociones((list || []).filter(p => p.activo !== false));
+            setLoadingPromos(false);
+          }
+        })
+        .catch(err => {
+          console.warn('No se pudieron cargar promociones para la portada:', err);
+          if (isMounted) setLoadingPromos(false);
+        });
+
+      menuDiarioService.list()
+        .then(data => {
+          if (isMounted && data) {
+            setMenuDiario(data);
+          }
+        })
+        .catch(err => console.warn('No se pudo cargar el menú diario en portada:', err));
+    };
+
+    refreshCoverData();
+
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible') {
+        refreshCoverData();
+      }
+    };
+
+    window.addEventListener('focus', handleVisibilityOrFocus);
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    const intervalId = window.setInterval(refreshCoverData, 20000);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      window.clearInterval(intervalId);
+    };
   }, []);
 
   // Dynamic Menu Diario State
@@ -114,18 +142,6 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
   }, []);
 
   const [selectedExecDay, setSelectedExecDay] = useState<MenuDiarioDia['dia'] | null>(null);
-
-  React.useEffect(() => {
-    let isMounted = true;
-    menuDiarioService.list()
-      .then(data => {
-        if (isMounted && data) {
-          setMenuDiario(data);
-        }
-      })
-      .catch(err => console.warn('No se pudo cargar el menú diario en portada:', err));
-    return () => { isMounted = false; };
-  }, []);
 
   const execDaysOrder: MenuDiarioDia['dia'][] = ['miercoles', 'jueves', 'viernes'];
   const activeExecDays = execDaysOrder.filter(d => {

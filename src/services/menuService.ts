@@ -243,8 +243,9 @@ const normalizeProductoMenu = (prod: DbProductoMenu): ProductoMenu => {
   const rawImg = readString(prod.imagen) || readString(prod.url_imagen);
   const validImg = isValidImageData(rawImg) ? rawImg : null;
   const localImg = getMenuImageSync(id_producto);
-  const imagen = localImg || validImg || match?.imagen || '/logo-el-patron.jpeg?v=5';
-  if (validImg && !localImg) {
+  const hasRealRemoteImg = Boolean(validImg && !validImg.includes('logo-el-patron'));
+  const imagen = (hasRealRemoteImg ? validImg : null) || localImg || validImg || match?.imagen || '/logo-el-patron.jpeg?v=5';
+  if (hasRealRemoteImg && validImg && validImg !== localImg) {
     saveMenuImage(id_producto, validImg).catch(() => {});
   }
   const descripcion = readString(prod.descripcion) || match?.descripcion || '';
@@ -323,6 +324,15 @@ export const deduplicateMenuProducts = (items: ProductoMenu[]): ProductoMenu[] =
 
   for (const item of items) {
     const lowerId = (item.id_producto || '').toLowerCase();
+    const rawCat = (item.categoria || '').toUpperCase();
+    if (
+      lowerId.startsWith('__menu_diario_') ||
+      lowerId.startsWith('__promo_') ||
+      rawCat.startsWith('__SYS_')
+    ) {
+      continue;
+    }
+
     const normName = (item.nombre || '')
       .toLowerCase()
       .normalize('NFD')

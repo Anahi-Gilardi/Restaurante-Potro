@@ -63,35 +63,49 @@ export default function MenuDiarioModule({ addLog }: MenuDiarioModuleProps) {
     setActivo(cur.activo);
   }, [selectedDia, semana]);
 
-  // Image compressor for HD vertical flyer uploads (preserves full aspect ratio and crisp text)
+  // Image compressor for HD vertical flyer uploads (preserves full aspect ratio, crisp text, and <=44k chars for Supabase + Google Sheets)
   const processImageFile = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (e) => {
         const img = new Image();
         img.onload = () => {
-          const canvas = document.createElement('canvas');
-          let width = img.width;
-          let height = img.height;
-          const maxDim = 1280;
-          if (width > maxDim || height > maxDim) {
-            if (width > height) {
-              height = Math.round((height * maxDim) / width);
-              width = maxDim;
-            } else {
-              width = Math.round((width * maxDim) / height);
-              height = maxDim;
+          const maxChars = 44000;
+          const dims = [1080, 960, 840];
+          const qualities = [0.82, 0.74, 0.66, 0.58];
+
+          let finalDataUrl = '';
+          for (const maxDim of dims) {
+            let width = img.width;
+            let height = img.height;
+            if (width > maxDim || height > maxDim) {
+              if (width > height) {
+                height = Math.round((height * maxDim) / width);
+                width = maxDim;
+              } else {
+                width = Math.round((width * maxDim) / height);
+                height = maxDim;
+              }
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+              resolve(e.target?.result as string);
+              return;
+            }
+            ctx.drawImage(img, 0, 0, width, height);
+
+            for (const q of qualities) {
+              finalDataUrl = canvas.toDataURL('image/jpeg', q);
+              if (finalDataUrl.length <= maxChars) {
+                resolve(finalDataUrl);
+                return;
+              }
             }
           }
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          if (!ctx) {
-            resolve(e.target?.result as string);
-            return;
-          }
-          ctx.drawImage(img, 0, 0, width, height);
-          resolve(canvas.toDataURL('image/jpeg', 0.88));
+          resolve(finalDataUrl || (e.target?.result as string));
         };
         img.onerror = reject;
         img.src = e.target?.result as string;
