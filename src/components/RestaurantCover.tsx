@@ -141,8 +141,6 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
     return daysOrder[new Date().getDay()] || 'lunes';
   }, []);
 
-  const [selectedExecDay, setSelectedExecDay] = useState<MenuDiarioDia['dia'] | null>(null);
-
   const execDaysOrder: MenuDiarioDia['dia'][] = ['miercoles', 'jueves', 'viernes'];
   const activeExecDays = execDaysOrder.filter(d => {
     const item = menuDiario[d];
@@ -150,9 +148,6 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
   });
 
   const displayDayKey: MenuDiarioDia['dia'] = React.useMemo(() => {
-    if (selectedExecDay && menuDiario[selectedExecDay]?.activo) {
-      return selectedExecDay;
-    }
     if ((todayKey === 'miercoles' || todayKey === 'jueves' || todayKey === 'viernes') && menuDiario[todayKey]?.activo) {
       return todayKey;
     }
@@ -160,7 +155,7 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
     if (dayWithFlyer) return dayWithFlyer;
     if (todayKey === 'miercoles' || todayKey === 'jueves' || todayKey === 'viernes') return todayKey;
     return activeExecDays[0] || 'miercoles';
-  }, [selectedExecDay, todayKey, menuDiario, activeExecDays]);
+  }, [todayKey, menuDiario, activeExecDays]);
 
   const todayMenu = menuDiario[displayDayKey] || INITIAL_MENU_DIARIO[displayDayKey];
   const isMenuDiarioDay = Boolean(
@@ -549,28 +544,6 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
 
             {/* Texto y detalles del anuncio */}
             <div className="w-full lg:w-7/12 space-y-5 text-left">
-              {activeExecDays.length > 1 && (
-                <div className="flex flex-wrap items-center gap-2">
-                  {activeExecDays.map(d => {
-                    const isActiveTab = d === displayDayKey;
-                    return (
-                      <button
-                        key={d}
-                        type="button"
-                        onClick={() => setSelectedExecDay(d)}
-                        className={`px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
-                          isActiveTab
-                            ? 'bg-[#8C6239] text-white shadow-md'
-                            : 'bg-stone-200/70 dark:bg-stone-800/80 text-stone-600 dark:text-stone-300 hover:bg-[#8C6239]/20'
-                        }`}
-                      >
-                        {DIAS_LABELS[d]}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-
               {isMenuDiarioDay ? (
                 <>
                   <div className="space-y-3">
