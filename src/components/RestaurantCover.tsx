@@ -113,8 +113,7 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
     return daysOrder[new Date().getDay()] || 'lunes';
   }, []);
 
-  // Solo se visualiza el plato del menú diario los días miércoles, jueves y viernes
-  const isMenuDiarioDay = todayKey === 'miercoles' || todayKey === 'jueves' || todayKey === 'viernes';
+  const [selectedExecDay, setSelectedExecDay] = useState<MenuDiarioDia['dia'] | null>(null);
 
   React.useEffect(() => {
     let isMounted = true;
@@ -128,7 +127,34 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
     return () => { isMounted = false; };
   }, []);
 
-  const todayMenu = menuDiario[todayKey] || INITIAL_MENU_DIARIO[todayKey];
+  const execDaysOrder: MenuDiarioDia['dia'][] = ['miercoles', 'jueves', 'viernes'];
+  const activeExecDays = execDaysOrder.filter(d => {
+    const item = menuDiario[d];
+    return item && item.activo;
+  });
+
+  const displayDayKey: MenuDiarioDia['dia'] = React.useMemo(() => {
+    if (selectedExecDay && menuDiario[selectedExecDay]?.activo) {
+      return selectedExecDay;
+    }
+    if ((todayKey === 'miercoles' || todayKey === 'jueves' || todayKey === 'viernes') && menuDiario[todayKey]?.activo) {
+      return todayKey;
+    }
+    const dayWithFlyer = activeExecDays.find(d => Boolean(menuDiario[d]?.imagen_url));
+    if (dayWithFlyer) return dayWithFlyer;
+    if (todayKey === 'miercoles' || todayKey === 'jueves' || todayKey === 'viernes') return todayKey;
+    return activeExecDays[0] || 'miercoles';
+  }, [selectedExecDay, todayKey, menuDiario, activeExecDays]);
+
+  const todayMenu = menuDiario[displayDayKey] || INITIAL_MENU_DIARIO[displayDayKey];
+  const isMenuDiarioDay = Boolean(
+    todayMenu?.activo && (
+      todayKey === 'miercoles' ||
+      todayKey === 'jueves' ||
+      todayKey === 'viernes' ||
+      Boolean(todayMenu?.imagen_url)
+    )
+  );
 
   // Mobile Nav Drawer Toggle
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -466,65 +492,93 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
 
           <div className="relative flex flex-col lg:flex-row items-center gap-8 lg:gap-12">
             
-            {/* Foto gastronómica destacada */}
-            <div className="w-full lg:w-5/12 h-64 sm:h-80 relative rounded-2xl overflow-hidden shadow-lg group">
-              <img 
-                src={isMenuDiarioDay && todayMenu.imagen_url ? todayMenu.imagen_url : '/images/inauguracion/pastas_y_salmon_grillado.jpg'} 
-                alt={isMenuDiarioDay ? `Menú Ejecutivo: ${todayMenu.nombre}` : 'Menús Ejecutivos de El Patrón'}
-                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = '/images/inauguracion/pastas_y_salmon_grillado.jpg';
-                }}
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-black/30" />
-              
-              <div className="absolute top-4 left-4 right-4 flex flex-wrap items-center justify-between gap-2">
-                {isMenuDiarioDay ? (
-                  <>
-                    <span className="px-3.5 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest bg-emerald-600 text-white shadow-md flex items-center gap-1.5 font-display-serif">
-                      <Sparkles className="w-3.5 h-3.5 animate-pulse" />
-                      Plato de Hoy · {DIAS_LABELS[todayKey]}
-                    </span>
-                    {todayMenu.precio > 0 && (
-                      <span className="px-3 py-1.5 rounded-full text-[11px] font-black bg-black/75 backdrop-blur-xs text-amber-300 border border-amber-400/30 font-mono shadow-md">
-                        ${todayMenu.precio.toLocaleString('es-AR')}
-                      </span>
-                    )}
-                  </>
-                ) : (
+            {/* Flyer vertical completo o Foto gastronómica destacada */}
+            {isMenuDiarioDay && todayMenu.imagen_url ? (
+              <div className="w-full max-w-[380px] mx-auto lg:mx-0 lg:w-5/12 relative rounded-2xl overflow-hidden shadow-2xl border border-[#8C6239]/35 bg-[#1A110B] flex items-center justify-center">
+                <img
+                  src={todayMenu.imagen_url}
+                  alt={`Menú Ejecutivo ${DIAS_LABELS[displayDayKey]}`}
+                  className="w-full h-auto max-h-[680px] object-contain block mx-auto"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = '/images/inauguracion/pastas_y_salmon_grillado.jpg';
+                  }}
+                />
+              </div>
+            ) : (
+              <div className="w-full lg:w-5/12 h-64 sm:h-80 relative rounded-2xl overflow-hidden shadow-lg group">
+                <img 
+                  src="/images/inauguracion/pastas_y_salmon_grillado.jpg" 
+                  alt="Menús Ejecutivos de El Patrón"
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-black/30" />
+                
+                <div className="absolute top-4 left-4 right-4 flex flex-wrap items-center justify-between gap-2">
                   <span className="px-3.5 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest bg-[#8C6239] text-[#FAF7F0] shadow-md flex items-center gap-1.5 font-display-serif">
                     <Sparkles className="w-3.5 h-3.5 animate-pulse" />
                     De Miércoles a Viernes
                   </span>
-                )}
-              </div>
+                </div>
 
-              <div className="absolute bottom-4 left-4 right-4 text-white">
-                <p className="text-[11px] font-medium tracking-wide uppercase text-amber-200 font-display-serif">
-                  {isMenuDiarioDay ? (todayMenu.categoria || 'Cocina Diaria de Autor') : 'Cocina Diaria de Autor'}
-                </p>
-                <p className="text-base sm:text-lg font-bold font-serif-rustic capitalize leading-snug drop-shadow-sm">
-                  {isMenuDiarioDay ? todayMenu.nombre : 'Platos caseros, postres de estación y carnes seleccionadas'}
-                </p>
+                <div className="absolute bottom-4 left-4 right-4 text-white">
+                  <p className="text-[11px] font-medium tracking-wide uppercase text-amber-200 font-display-serif">
+                    Cocina Diaria de Autor
+                  </p>
+                  <p className="text-base sm:text-lg font-bold font-serif-rustic capitalize leading-snug drop-shadow-sm">
+                    Platos caseros, postres de estación y carnes seleccionadas
+                  </p>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Texto y detalles del anuncio */}
             <div className="w-full lg:w-7/12 space-y-5 text-left">
+              {activeExecDays.length > 1 && (
+                <div className="flex flex-wrap items-center gap-2">
+                  {activeExecDays.map(d => {
+                    const isActiveTab = d === displayDayKey;
+                    return (
+                      <button
+                        key={d}
+                        type="button"
+                        onClick={() => setSelectedExecDay(d)}
+                        className={`px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
+                          isActiveTab
+                            ? 'bg-[#8C6239] text-white shadow-md'
+                            : 'bg-stone-200/70 dark:bg-stone-800/80 text-stone-600 dark:text-stone-300 hover:bg-[#8C6239]/20'
+                        }`}
+                      >
+                        {DIAS_LABELS[d]}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
               {isMenuDiarioDay ? (
                 <>
-                  <div className="space-y-2">
-                    <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-[#8C6239] dark:text-[#C8956A] font-display-serif">
-                      <UtensilsCrossed className="w-4 h-4" />
-                      Menú Ejecutivo de Hoy · {DIAS_LABELS[todayKey]}
-                    </span>
-                    <h3 className="text-2xl sm:text-3xl lg:text-4xl font-bold font-serif-rustic text-[#8C6239] dark:text-[#FAF7F0] tracking-wide capitalize">
-                      {todayMenu.nombre}
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-black uppercase tracking-widest bg-emerald-600 text-white shadow-sm font-display-serif">
+                        <Sparkles className="w-3.5 h-3.5 animate-pulse" />
+                        Menú Ejecutivo · {DIAS_LABELS[displayDayKey]}
+                      </span>
+                      {todayMenu.precio > 0 && (
+                        <span className="px-4 py-1.5 rounded-full text-sm font-black bg-[#4A2B1D] text-amber-300 border border-[#8C6239]/50 font-mono shadow-sm">
+                          ${todayMenu.precio.toLocaleString('es-AR')}
+                        </span>
+                      )}
+                    </div>
+
+                    <h3 className="text-2xl sm:text-3xl lg:text-4xl font-bold font-serif-rustic text-[#8C6239] dark:text-[#FAF7F0] tracking-wide">
+                      {todayMenu.nombre && !todayMenu.nombre.toLowerCase().includes('sin título')
+                        ? todayMenu.nombre
+                        : `Menú Ejecutivo · ${DIAS_LABELS[displayDayKey]}`}
                     </h3>
                   </div>
 
                   <p className="text-sm sm:text-base text-stone-700 dark:text-stone-300 font-serif-rustic italic leading-relaxed">
-                    {todayMenu.descripcion || 'Plato casero del día elaborado con ingredientes frescos, acompañado de panera artesanal y bebida o postre según propuesta del día.'}
+                    {todayMenu.descripcion || 'Disfrutá de nuestra propuesta ejecutiva del día con entrada, plato principal a elección y postre casero, elaborados en el día con ingredientes frescos.'}
                   </p>
 
                   {/* Píldora informativa */}
@@ -535,10 +589,10 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
                       </div>
                       <div>
                         <span className="text-xs font-black uppercase text-stone-800 dark:text-stone-100 block">
-                          Almuerzo Ejecutivo del Día
+                          Almuerzo Ejecutivo · {DIAS_LABELS[displayDayKey]}
                         </span>
                         <span className="text-[11px] text-stone-500 dark:text-stone-400 font-serif-rustic italic">
-                          Disponible hoy de 12:00 a 15:30 hs · Cocina fresca y servicio ágil
+                          Disponible de 12:00 a 15:30 hs · Entrada + Principal + Postre
                         </span>
                       </div>
                     </div>
@@ -548,12 +602,12 @@ export default function RestaurantCover({ onEnterSystem, promociones: initialPro
                   <div className="pt-3 flex flex-wrap items-center justify-between gap-4 border-t border-stone-200/70 dark:border-stone-800">
                     <span className="text-xs text-stone-500 dark:text-stone-400 font-serif-rustic italic flex items-center gap-1.5">
                       <Clock className="w-3.5 h-3.5 text-[#8C6239]" />
-                      Disponible hoy al mediodía en nuestro salón
+                      Disponible al mediodía en nuestro salón
                     </span>
 
                     <a
                       href={`https://wa.me/5493584303541?text=${encodeURIComponent(
-                        `Hola El Patrón! Quisiera consultar o reservar el Menú Ejecutivo de hoy (${DIAS_LABELS[todayKey]}): ${todayMenu.nombre}.`
+                        `Hola El Patrón! Quisiera consultar o reservar el Menú Ejecutivo del día ${DIAS_LABELS[displayDayKey]} ($${(todayMenu.precio || 0).toLocaleString('es-AR')}).`
                       )}`}
                       target="_blank"
                       rel="noopener noreferrer"

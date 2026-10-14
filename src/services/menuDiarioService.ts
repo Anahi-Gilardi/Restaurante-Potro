@@ -11,75 +11,85 @@ export interface MenuDiarioDia {
   imagen_url?: string;
 }
 
+const normalizeMenuDiarioPrecio = (raw: unknown, fallback = 24300): number => {
+  const num = Number(raw);
+  if (!Number.isFinite(num) || num <= 0) return fallback;
+  // Reparar valores guardados como decimal por separador de miles (ej: 24.3 -> 24300)
+  if (num > 0 && num < 500 && !Number.isInteger(num)) {
+    return Math.round(num * 1000);
+  }
+  return Math.round(num);
+};
+
 export const INITIAL_MENU_DIARIO: Record<string, MenuDiarioDia> = {
   lunes: {
     dia: 'lunes',
     nombre_dia: 'LUNES',
     activo: true,
-    nombre: 'canelones con salsa mixta',
-    categoria: 'Pastas',
-    precio: 8500,
-    descripcion: 'Los rellenos más tradicionales incluyen espinaca o acelga con ricota y nuez moscada, pollo desmenuzado',
+    nombre: 'Menú Ejecutivo Lunes',
+    categoria: 'Menú Ejecutivo',
+    precio: 24300,
+    descripcion: 'Entrada, plato principal y postre del día.',
     imagen_url: ''
   },
   martes: {
     dia: 'martes',
     nombre_dia: 'MARTES',
     activo: true,
-    nombre: 'Costeleta de Cerdo a la Riojana',
-    categoria: 'Carnes',
-    precio: 8500,
-    descripcion: 'Jugosa costeleta a la plancha acompañada de huevos fritos, arvejas, pimientos y papas españolas',
+    nombre: 'Menú Ejecutivo Martes',
+    categoria: 'Menú Ejecutivo',
+    precio: 24300,
+    descripcion: 'Entrada, plato principal y postre del día.',
     imagen_url: ''
   },
   miercoles: {
     dia: 'miercoles',
     nombre_dia: 'MIÉRCOLES',
     activo: true,
-    nombre: 'Hamburguesa Napolitana al Plato',
-    categoria: 'Comidas Criollas',
-    precio: 8500,
-    descripcion: 'Hamburguesa casera cubierta con salsa fileto, jamón cocido, queso muzzarella y orégano',
+    nombre: 'Menú Ejecutivo Miércoles',
+    categoria: 'Menú Ejecutivo',
+    precio: 24300,
+    descripcion: 'Entrada, plato principal y postre del día.',
     imagen_url: ''
   },
   jueves: {
     dia: 'jueves',
     nombre_dia: 'JUEVES',
     activo: true,
-    nombre: 'Tartas Individuales de Estación',
-    categoria: 'Comidas Criollas',
-    precio: 8500,
-    descripcion: 'Tarta artesanal de verduras seleccionadas, queso cremoso y ensalada fresca mixta de estación',
+    nombre: 'Menú Ejecutivo Jueves',
+    categoria: 'Menú Ejecutivo',
+    precio: 24300,
+    descripcion: 'Entrada, plato principal y postre del día.',
     imagen_url: ''
   },
   viernes: {
     dia: 'viernes',
     nombre_dia: 'VIERNES',
     activo: true,
-    nombre: 'Milanesa de Ternera Napolitana',
-    categoria: 'Carnes',
-    precio: 12000,
-    descripcion: 'Clásica milanesa de ternera gratinada con muzzarella premium, fileto artesanal y papas fritas',
+    nombre: 'Menú Ejecutivo Viernes',
+    categoria: 'Menú Ejecutivo',
+    precio: 24300,
+    descripcion: 'Entrada, plato principal y postre del día.',
     imagen_url: ''
   },
   sabado: {
     dia: 'sabado',
     nombre_dia: 'SÁBADO',
     activo: true,
-    nombre: 'Pollo al Horno con Papas Rústicas',
-    categoria: 'Carnes',
-    precio: 8500,
-    descripcion: 'Cuarto de pollo adobado a las hierbas con papas doradas al horno de barro y limón',
+    nombre: 'Menú Ejecutivo Sábado',
+    categoria: 'Menú Ejecutivo',
+    precio: 24300,
+    descripcion: 'Entrada, plato principal y postre del día.',
     imagen_url: ''
   },
   domingo: {
     dia: 'domingo',
     nombre_dia: 'DOMINGO',
     activo: true,
-    nombre: 'Canelones de Verdura y Ricota',
-    categoria: 'Pastas',
-    precio: 8500,
-    descripcion: 'Masa casera rellena de verdura de huerta y ricota magra con salsa rosa y parmesano',
+    nombre: 'Menú Ejecutivo Domingo',
+    categoria: 'Menú Ejecutivo',
+    precio: 24300,
+    descripcion: 'Entrada, plato principal y postre del día.',
     imagen_url: ''
   }
 };
@@ -92,7 +102,22 @@ const getLocalCache = (): Record<string, MenuDiarioDia> => {
     const raw = window.localStorage.getItem(LOCAL_STORAGE_KEY);
     if (!raw) return INITIAL_MENU_DIARIO;
     const parsed = JSON.parse(raw);
-    return { ...INITIAL_MENU_DIARIO, ...parsed };
+    const merged: Record<string, MenuDiarioDia> = { ...INITIAL_MENU_DIARIO };
+    for (const key of Object.keys(merged)) {
+      if (parsed && parsed[key]) {
+        const item = parsed[key];
+        const fallback = INITIAL_MENU_DIARIO[key];
+        merged[key] = {
+          ...fallback,
+          ...item,
+          nombre: item.nombre?.trim() || fallback.nombre,
+          categoria: item.categoria?.trim() || fallback.categoria,
+          descripcion: item.descripcion?.trim() || fallback.descripcion,
+          precio: normalizeMenuDiarioPrecio(item.precio, fallback.precio)
+        };
+      }
+    }
+    return merged;
   } catch {
     return INITIAL_MENU_DIARIO;
   }
@@ -138,10 +163,10 @@ export const menuDiarioService = {
             dia: diaKey as MenuDiarioDia['dia'],
             nombre_dia: row.nombre_dia || semana[diaKey].nombre_dia,
             activo: row.activo !== undefined ? row.activo : true,
-            nombre: row.nombre || '',
-            categoria: row.categoria || 'Comidas Criollas',
-            precio: Number(row.precio) || 0,
-            descripcion: row.descripcion || '',
+            nombre: row.nombre || semana[diaKey].nombre,
+            categoria: row.categoria || 'Menú Ejecutivo',
+            precio: normalizeMenuDiarioPrecio(row.precio, semana[diaKey].precio),
+            descripcion: row.descripcion || semana[diaKey].descripcion,
             imagen_url: row.imagen_url || ''
           };
         }

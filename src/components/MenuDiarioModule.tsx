@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Upload, Check, AlertCircle, Sparkles, Image as ImageIcon } from 'lucide-react';
+import { Save, Upload, Sparkles, Image as ImageIcon, Trash2 } from 'lucide-react';
 import { menuDiarioService, MenuDiarioDia, INITIAL_MENU_DIARIO } from '../services/menuDiarioService';
 import { useToast, ToastContainer } from './ToastContainer';
 import { EventoLog } from '../types';
@@ -10,32 +10,36 @@ interface MenuDiarioModuleProps {
 
 const DIAS_KEYS: MenuDiarioDia['dia'][] = ['miercoles', 'jueves', 'viernes'];
 
-const CATEGORIAS_OPCIONES = [
-  'Minutas & Especiales',
-  'Entradas',
-  'Pastas',
-  'Carnes',
-  'Pescados',
-  'Comidas Criollas',
-  'Postres',
-  'Bebidas con Alcohol',
-  'Bebidas sin Alcohol',
-  'Bodega'
-];
+const DEFAULT_TITLES: Record<MenuDiarioDia['dia'], string> = {
+  lunes: 'Menú Ejecutivo Lunes',
+  martes: 'Menú Ejecutivo Martes',
+  miercoles: 'Menú Ejecutivo Miércoles',
+  jueves: 'Menú Ejecutivo Jueves',
+  viernes: 'Menú Ejecutivo Viernes',
+  sabado: 'Menú Ejecutivo Sábado',
+  domingo: 'Menú Ejecutivo Domingo'
+};
+
+function parseCleanPrice(raw: string | number): number {
+  if (typeof raw === 'number') return Number.isFinite(raw) && raw >= 0 ? Math.round(raw) : 0;
+  const trimmed = String(raw || '').trim();
+  if (!trimmed) return 0;
+  // Si escribieron 24.300 con punto de miles, quitamos todos los caracteres no numéricos
+  const digitsOnly = trimmed.replace(/[^0-9]/g, '');
+  if (!digitsOnly) return 0;
+  return parseInt(digitsOnly, 10) || 0;
+}
 
 export default function MenuDiarioModule({ addLog }: MenuDiarioModuleProps) {
   const { toast, toasts, removeToast } = useToast();
   const [semana, setSemana] = useState<Record<string, MenuDiarioDia>>(INITIAL_MENU_DIARIO);
   const [selectedDia, setSelectedDia] = useState<MenuDiarioDia['dia']>('miercoles');
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  // Form states for active day
+  // Form states for active day (solo Imagen + Precio + Estado Activo)
   const activeItem = semana[selectedDia] || INITIAL_MENU_DIARIO[selectedDia];
-  const [nombre, setNombre] = useState(activeItem.nombre);
-  const [categoria, setCategoria] = useState(activeItem.categoria);
-  const [precio, setPrecio] = useState(String(activeItem.precio));
-  const [descripcion, setDescripcion] = useState(activeItem.descripcion);
+  const [precio, setPrecio] = useState(activeItem.precio > 0 ? String(activeItem.precio) : '');
   const [imagenUrl, setImagenUrl] = useState(activeItem.imagen_url || '');
   const [activo, setActivo] = useState(activeItem.activo);
 
@@ -54,15 +58,12 @@ export default function MenuDiarioModule({ addLog }: MenuDiarioModuleProps) {
   // Update local form state when selected day changes
   useEffect(() => {
     const cur = semana[selectedDia] || INITIAL_MENU_DIARIO[selectedDia];
-    setNombre(cur.nombre);
-    setCategoria(cur.categoria);
-    setPrecio(String(cur.precio));
-    setDescripcion(cur.descripcion);
+    setPrecio(cur.precio > 0 ? String(cur.precio) : '');
     setImagenUrl(cur.imagen_url || '');
     setActivo(cur.activo);
   }, [selectedDia, semana]);
 
-  // Image compressor for HD photo uploads
+  // Image compressor for HD vertical flyer uploads (preserves full aspect ratio and crisp text)
   const processImageFile = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -72,7 +73,7 @@ export default function MenuDiarioModule({ addLog }: MenuDiarioModuleProps) {
           const canvas = document.createElement('canvas');
           let width = img.width;
           let height = img.height;
-          const maxDim = 800;
+          const maxDim = 1280;
           if (width > maxDim || height > maxDim) {
             if (width > height) {
               height = Math.round((height * maxDim) / width);
@@ -90,7 +91,7 @@ export default function MenuDiarioModule({ addLog }: MenuDiarioModuleProps) {
             return;
           }
           ctx.drawImage(img, 0, 0, width, height);
-          resolve(canvas.toDataURL('image/jpeg', 0.8));
+          resolve(canvas.toDataURL('image/jpeg', 0.88));
         };
         img.onerror = reject;
         img.src = e.target?.result as string;
@@ -108,28 +109,34 @@ export default function MenuDiarioModule({ addLog }: MenuDiarioModuleProps) {
       return;
     }
     try {
-      toast.info('Procesando foto...');
+      toast.info('Procesando imagen del menú...');
       const base64 = await processImageFile(file);
       setImagenUrl(base64);
-      toast.success('Foto cargada correctamente.');
+      toast.success('Imagen cargada correctamente.');
     } catch {
       toast.error('No se pudo procesar la imagen.');
     }
   };
 
-  const handleSaveActiveDay = async () => {
-    setSaving(true);
-    const parsedPrecio = parseFloat(precio) || 0;
-    const updatedDia: MenuDiarioDia = {
+  const buildUpdatedDay = (): MenuDiarioDia => {
+    const parsedPrecio = parseCleanPrice(precio);
+    const defaultTitle = DEFAULT_TITLES[selectedDia] || `Menú Ejecutivo ${activeItem.nombre_dia}`;
+    return {
       dia: selectedDia,
       nombre_dia: activeItem.nombre_dia,
       activo,
-      nombre: nombre.trim(),
-      categoria,
+      nombre: defaultTitle,
+      categoria: 'Menú Ejecutivo',
       precio: parsedPrecio,
-      descripcion: descripcion.trim(),
+      descripcion: 'Entrada, plato principal y postre del día.',
       imagen_url: imagenUrl.trim() || undefined
     };
+  };
+
+  const handleSaveActiveDay = async () => {
+    setSaving(true);
+    const updatedDia = buildUpdatedDay();
+    setPrecio(updatedDia.precio > 0 ? String(updatedDia.precio) : '');
 
     const newSemana = { ...semana, [selectedDia]: updatedDia };
     setSemana(newSemana);
@@ -137,7 +144,7 @@ export default function MenuDiarioModule({ addLog }: MenuDiarioModuleProps) {
     try {
       await menuDiarioService.saveDay(updatedDia);
       toast.success(`Menú del ${updatedDia.nombre_dia} guardado correctamente.`);
-      addLog('sistema', `MENÚ DIARIO: Actualizada propuesta para el día ${updatedDia.nombre_dia} ("${updatedDia.nombre}" - $${updatedDia.precio}).`);
+      addLog('sistema', `MENÚ DIARIO: Actualizado flyer y precio para ${updatedDia.nombre_dia} ($${updatedDia.precio.toLocaleString('es-AR')}).`);
     } catch (err) {
       console.error('Error al guardar día:', err);
       toast.error('No se pudo guardar el menú en la base de datos.');
@@ -148,24 +155,15 @@ export default function MenuDiarioModule({ addLog }: MenuDiarioModuleProps) {
 
   const handleSaveSemanaCompleta = async () => {
     setSaving(true);
-    const parsedPrecio = parseFloat(precio) || 0;
-    const updatedActiveDia: MenuDiarioDia = {
-      dia: selectedDia,
-      nombre_dia: activeItem.nombre_dia,
-      activo,
-      nombre: nombre.trim(),
-      categoria,
-      precio: parsedPrecio,
-      descripcion: descripcion.trim(),
-      imagen_url: imagenUrl.trim() || undefined
-    };
+    const updatedActiveDia = buildUpdatedDay();
+    setPrecio(updatedActiveDia.precio > 0 ? String(updatedActiveDia.precio) : '');
 
     const newSemana = { ...semana, [selectedDia]: updatedActiveDia };
     setSemana(newSemana);
 
     try {
       await menuDiarioService.saveAll(newSemana);
-      toast.success('¡Propuestas guardadas y sincronizadas correctamente!');
+      toast.success('¡Menús ejecutivos guardados y sincronizados correctamente!');
       addLog('sistema', 'MENÚ DIARIO: Guardada y sincronizada la rotación de Miércoles a Viernes.');
     } catch (err) {
       console.error('Error al guardar semana:', err);
@@ -189,7 +187,7 @@ export default function MenuDiarioModule({ addLog }: MenuDiarioModuleProps) {
             Pizarra & Menú del Día (Miércoles a Viernes)
           </h2>
           <p className="text-xs text-stone-600 dark:text-stone-400 italic font-serif-rustic max-w-2xl">
-            Configure las propuestas del día para Miércoles, Jueves y Viernes. Se sincronizan automáticamente con el POS del Mozo y la Portada Publicitaria.
+            Cargue el flyer vertical del día y su precio promocional. Se visualizará completo en la Portada Publicitaria y en la terminal del Mozo.
           </p>
         </div>
 
@@ -227,7 +225,7 @@ export default function MenuDiarioModule({ addLog }: MenuDiarioModuleProps) {
               key={diaKey}
               type="button"
               onClick={() => setSelectedDia(diaKey)}
-              className={`p-3 rounded-2xl border text-left transition-all duration-200 cursor-pointer relative overflow-hidden flex flex-col justify-between h-24 ${
+              className={`p-3.5 rounded-2xl border text-left transition-all duration-200 cursor-pointer relative overflow-hidden flex flex-col justify-between h-24 ${
                 isSelected
                   ? 'bg-[#4A2B1D] text-white border-[#8C6239] shadow-lg ring-2 ring-[#C8956A]/40 scale-[1.02]'
                   : 'bg-white dark:bg-[#251B12] text-stone-800 dark:text-stone-200 border-stone-200 dark:border-stone-850 hover:border-[#8C6239]/50 hover:bg-[#FAF7F0]'
@@ -248,10 +246,10 @@ export default function MenuDiarioModule({ addLog }: MenuDiarioModuleProps) {
 
               <div className="space-y-0.5 min-w-0">
                 <p className={`text-[11px] font-bold truncate leading-tight ${isSelected ? 'text-stone-100' : 'text-stone-700 dark:text-stone-300'}`}>
-                  {item.nombre || 'Sin plato assignado'}
+                  {item.imagen_url ? '📷 Flyer cargado' : 'Menú Ejecutivo'}
                 </p>
-                <p className={`text-[10px] font-mono font-black ${isSelected ? 'text-amber-400' : 'text-[#8C6239] dark:text-[#C8956A]'}`}>
-                  ${item.precio.toLocaleString('es-AR')}
+                <p className={`text-xs font-mono font-black ${isSelected ? 'text-amber-400' : 'text-[#8C6239] dark:text-[#C8956A]'}`}>
+                  ${(item.precio || 0).toLocaleString('es-AR')}
                 </p>
               </div>
             </button>
@@ -259,15 +257,15 @@ export default function MenuDiarioModule({ addLog }: MenuDiarioModuleProps) {
         })}
       </div>
 
-      {/* TARJETA DE EDICIÓN DEL DÍA SELECCIONADO */}
+      {/* TARJETA DE EDICIÓN DEL DÍA SELECCIONADO (SOLO IMAGEN + PRECIO) */}
       <div className="bg-[#FAF7F0] dark:bg-[#1E140E] p-6 rounded-3xl border border-[#8C6239]/20 shadow-md space-y-6">
-        <div className="flex items-center justify-between pb-4 border-b border-stone-200/80 dark:border-stone-800">
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-stone-200/80 dark:border-stone-800">
           <div>
             <span className="text-[10px] font-black text-[#8C6239] dark:text-[#C8956A] uppercase tracking-widest block">
               EDICIÓN DE MENÚ — {activeItem.nombre_dia}
             </span>
-            <h3 className="text-lg font-bold text-stone-900 dark:text-stone-100 font-serif-rustic capitalize">
-              {nombre || 'Plato sin título'}
+            <h3 className="text-lg font-bold text-stone-900 dark:text-stone-100 font-serif-rustic">
+              Menú Ejecutivo · {activeItem.nombre_dia}
             </h3>
           </div>
 
@@ -289,120 +287,111 @@ export default function MenuDiarioModule({ addLog }: MenuDiarioModuleProps) {
           </div>
         </div>
 
-        {/* CAMPOS DE FORMULARIO DE 3 COLUMNAS */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="text-[10px] font-black text-stone-600 dark:text-stone-300 uppercase block mb-1.5">
-              NOMBRE / TÍTULO DEL PLATO *
-            </label>
-            <input
-              type="text"
-              value={nombre}
-              onChange={e => setNombre(e.target.value)}
-              placeholder="Ej. Canelones con salsa mixta"
-              className="w-full border border-stone-300 dark:border-stone-700 bg-white dark:bg-[#251B12] text-stone-900 dark:text-stone-100 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#8C6239] font-bold"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="text-[10px] font-black text-stone-600 dark:text-stone-300 uppercase block mb-1.5">
-              TIPO DE MENÚ / CATEGORÍA *
-            </label>
-            <select
-              value={categoria}
-              onChange={e => setCategoria(e.target.value)}
-              className="w-full border border-stone-300 dark:border-stone-700 bg-white dark:bg-[#251B12] text-stone-900 dark:text-stone-100 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#8C6239] font-bold cursor-pointer"
-            >
-              {CATEGORIAS_OPCIONES.map(cat => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="text-[10px] font-black text-stone-600 dark:text-stone-300 uppercase block mb-1.5">
-              PRECIO PROMOCIONAL ($ ARS) *
-            </label>
-            <input
-              type="number"
-              min={0}
-              step={100}
-              value={precio}
-              onChange={e => setPrecio(e.target.value)}
-              placeholder="Ej. 8500"
-              className="w-full border border-stone-300 dark:border-stone-700 bg-white dark:bg-[#251B12] text-stone-900 dark:text-stone-100 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#8C6239] font-bold font-mono text-center"
-              required
-            />
-          </div>
-        </div>
-
-        {/* DESCRIPCIÓN */}
-        <div>
-          <label className="text-[10px] font-black text-stone-600 dark:text-stone-300 uppercase block mb-1.5">
-            DESCRIPCIÓN DE LA PROPUESTA *
-          </label>
-          <textarea
-            value={descripcion}
-            onChange={e => setDescripcion(e.target.value)}
-            rows={3}
-            placeholder="Los rellenos más tradicionales incluyen espinaca o acelga con ricota y nuez moscada, pollo desmenuzado..."
-            className="w-full border border-stone-300 dark:border-stone-700 bg-white dark:bg-[#251B12] text-stone-900 dark:text-stone-100 rounded-2xl p-3.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#8C6239] font-medium resize-none leading-relaxed"
-            required
-          />
-        </div>
-
-        {/* SECCIÓN DE FOTO Y VISTA PREVIA (2 COLUMNAS) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
-          {/* UPLOAD FOTO */}
-          <div className="space-y-3">
-            <label className="text-[10px] font-black text-stone-600 dark:text-stone-300 uppercase block">
-              IMAGEN REPRESENTATIVA (URL O CARGAR FOTO HD)
-            </label>
-
-            <input
-              type="text"
-              value={imagenUrl}
-              onChange={e => setImagenUrl(e.target.value)}
-              placeholder="https://servidor/imagen.jpg"
-              className="w-full border border-stone-300 dark:border-stone-700 bg-white dark:bg-[#251B12] text-stone-900 dark:text-stone-100 rounded-xl px-3.5 py-2 text-xs focus:outline-none font-mono"
-            />
-
-            <div className="p-4 bg-white dark:bg-[#251B12] rounded-2xl border border-dashed border-[#8C6239]/40 text-center space-y-2">
-              <span className="text-[10px] font-black uppercase text-[#8C6239] dark:text-[#C8956A] block flex items-center justify-center gap-1">
-                <ImageIcon className="w-3.5 h-3.5" />
-                CARGAR FOTO HD DESDE CELULAR / PC
-              </span>
-              <label className="inline-flex items-center gap-2 px-4 py-2 bg-[#8C6239] hover:bg-[#624A3E] text-white text-xs font-bold rounded-xl cursor-pointer transition-all shadow-xs">
-                <Upload className="w-3.5 h-3.5" />
-                <span>Seleccionar archivo</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
+        {/* SECCIÓN DE CARGA (IZQUIERDA) Y VISTA PREVIA COMPLETA DEL FLYER (DERECHA) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* COLUMNA IZQUIERDA: PRECIO + CARGA DE IMAGEN */}
+          <div className="lg:col-span-5 space-y-5">
+            {/* PRECIO PROMOCIONAL */}
+            <div className="bg-white dark:bg-[#251B12] p-5 rounded-2xl border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-2">
+              <label className="text-[11px] font-black text-stone-700 dark:text-stone-200 uppercase block">
+                PRECIO PROMOCIONAL ($ ARS) *
               </label>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-base font-black text-[#8C6239] font-mono">
+                  $
+                </span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={precio}
+                  onChange={e => {
+                    // Permite escribir números limpios sin cero adelante
+                    const clean = e.target.value.replace(/[^0-9]/g, '').replace(/^0+/, '');
+                    setPrecio(clean);
+                  }}
+                  placeholder="Ej: 24300"
+                  className="w-full border border-stone-300 dark:border-stone-700 bg-[#FAF7F0] dark:bg-[#1E140E] text-stone-900 dark:text-stone-100 rounded-xl pl-9 pr-4 py-3 text-lg focus:outline-none focus:ring-2 focus:ring-[#8C6239] font-black font-mono"
+                  required
+                />
+              </div>
+              <p className="text-[11px] text-stone-500 dark:text-stone-400 font-medium">
+                Valor a cobrar en Salón / Mozo: <strong className="text-[#8C6239] dark:text-[#C8956A] font-mono">${parseCleanPrice(precio).toLocaleString('es-AR')}</strong>
+              </p>
+            </div>
+
+            {/* CARGAR IMAGEN DEL FLYER */}
+            <div className="bg-white dark:bg-[#251B12] p-5 rounded-2xl border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-4">
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] font-black text-stone-700 dark:text-stone-200 uppercase block">
+                  IMAGEN DEL MENÚ (FLYER VERTICAL)
+                </label>
+                {imagenUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setImagenUrl('')}
+                    className="text-[11px] font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1 cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Quitar imagen
+                  </button>
+                )}
+              </div>
+
+              <div className="p-6 bg-[#FAF7F0] dark:bg-[#1E140E] rounded-2xl border-2 border-dashed border-[#8C6239]/40 text-center space-y-3">
+                <ImageIcon className="w-8 h-8 text-[#8C6239] mx-auto" />
+                <span className="text-[11px] font-black uppercase text-[#8C6239] dark:text-[#C8956A] block">
+                  CARGAR FLYER DESDE CELULAR / PC
+                </span>
+                <p className="text-[11px] text-stone-500 dark:text-stone-400">
+                  La imagen se mostrará completa sin recortes en la sección publicitaria.
+                </p>
+                <label className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#8C6239] hover:bg-[#624A3E] text-white text-xs font-black rounded-xl cursor-pointer transition-all shadow-md">
+                  <Upload className="w-4 h-4" />
+                  <span>Seleccionar imagen</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-stone-500 dark:text-stone-400 uppercase block mb-1">
+                  O pegar URL de imagen (opcional)
+                </label>
+                <input
+                  type="text"
+                  value={imagenUrl.startsWith('data:') ? '' : imagenUrl}
+                  onChange={e => setImagenUrl(e.target.value)}
+                  placeholder="https://servidor/imagen.jpg"
+                  className="w-full border border-stone-200 dark:border-stone-700 bg-[#FAF7F0] dark:bg-[#1E140E] text-stone-900 dark:text-stone-100 rounded-xl px-3.5 py-2 text-xs focus:outline-none font-mono"
+                />
+              </div>
             </div>
           </div>
 
-          {/* VISTA PREVIA */}
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-stone-600 dark:text-stone-300 uppercase block">
-              VISTA PREVIA (PUBLICIDAD Y MENÚ)
+          {/* COLUMNA DERECHA: VISTA PREVIA COMPLETA (SIN RECORTAR) */}
+          <div className="lg:col-span-7 space-y-2">
+            <label className="text-[11px] font-black text-stone-700 dark:text-stone-200 uppercase block">
+              VISTA PREVIA COMPLETA (ASÍ SE VERÁ EN LA PARTE PUBLICITARIA)
             </label>
-            <div className="h-36 w-full rounded-2xl overflow-hidden border border-stone-300 dark:border-stone-800 bg-stone-100 dark:bg-stone-900 relative shadow-inner flex items-center justify-center">
+            <div className="w-full rounded-3xl overflow-hidden border border-[#8C6239]/30 bg-[#1A110B] p-4 sm:p-6 shadow-xl flex items-center justify-center min-h-[380px]">
               {imagenUrl ? (
                 <img
                   src={imagenUrl}
-                  alt={nombre}
-                  className="w-full h-full object-cover"
+                  alt={`Menú Ejecutivo ${activeItem.nombre_dia}`}
+                  className="w-full max-w-[360px] h-auto max-h-[580px] object-contain rounded-2xl shadow-2xl border border-white/10 mx-auto block"
                   onError={() => setImagenUrl('')}
                 />
               ) : (
-                <div className="text-center p-4 space-y-1">
-                  <ImageIcon className="w-8 h-8 text-stone-400 mx-auto" />
-                  <p className="text-[10px] font-bold text-stone-400">Sin vista previa disponible</p>
+                <div className="text-center p-8 space-y-2">
+                  <ImageIcon className="w-12 h-12 text-stone-500 mx-auto opacity-60" />
+                  <p className="text-xs font-bold text-stone-300">Sin imagen cargada para {activeItem.nombre_dia}</p>
+                  <p className="text-[11px] text-stone-500 max-w-xs mx-auto">
+                    Suba el flyer vertical del día para visualizarlo completo aquí y en la portada publicitaria.
+                  </p>
                 </div>
               )}
             </div>
@@ -411,8 +400,8 @@ export default function MenuDiarioModule({ addLog }: MenuDiarioModuleProps) {
 
         {/* PIE Y BOTÓN FINAL */}
         <div className="pt-4 border-t border-stone-200/80 dark:border-stone-800 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-[10px] text-stone-500 italic">
-            * Cambios guardados para {activeItem.nombre_dia} impactan inmediatamente en el menú del día.
+          <p className="text-[11px] text-stone-500 italic">
+            * Al guardar, la imagen completa y el precio de {activeItem.nombre_dia} se actualizan inmediatamente en la Portada Publicitaria y en el módulo Mozo.
           </p>
 
           <button

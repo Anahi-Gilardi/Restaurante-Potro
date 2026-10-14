@@ -1328,12 +1328,13 @@ export default function MozoTerminal({
         if (prodId.startsWith('menu_diario_')) {
           const dayKey = prodId.replace('menu_diario_', '');
           const diaItem = menuDiario[dayKey] || INITIAL_MENU_DIARIO[dayKey];
+          const cleanTitle = diaItem?.nombre?.trim() || `Menú Ejecutivo ${diaItem?.nombre_dia || dayKey}`;
           return {
             id_producto: prodId,
-            nombre: diaItem ? `[MENÚ DEL DÍA] ${diaItem.nombre}` : 'Menú del Día',
+            nombre: `[MENÚ DEL DÍA] ${cleanTitle}`,
             cantidad: Number(qty),
             categoria: 'Menú del Día',
-            precio_unitario: diaItem ? diaItem.precio : 8500,
+            precio_unitario: diaItem && diaItem.precio > 0 ? diaItem.precio : 24300,
             observaciones: itemObs,
           };
         }
@@ -2248,22 +2249,37 @@ export default function MozoTerminal({
                 <div className="space-y-4">
                   {/* Hero Card Propuesta del Día Actual */}
                   <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#5C1D24] to-[#8C6239] p-5 text-white shadow-md border border-[#C8956A]/30">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <span className="inline-block px-2.5 py-0.5 bg-white/20 backdrop-blur-xs text-[10px] font-black uppercase tracking-wider rounded-md mb-1.5">
-                          {isTodayMenu ? `🌟 PROPUESTA DE HOY — ${dayNames[todayKey]}` : `🌟 MENÚ EJECUTIVO — MIÉRCOLES A VIERNES`}
-                        </span>
-                        <h3 className="text-xl font-black font-serif-rustic capitalize">{todayData?.nombre}</h3>
-                        <p className="text-xs text-white/90 mt-1 max-w-lg leading-relaxed font-sans">{todayData?.descripcion}</p>
+                    <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+                      <div className="flex items-start gap-4">
+                        {todayData?.imagen_url && (
+                          <div className="w-24 sm:w-28 shrink-0 rounded-xl overflow-hidden bg-[#1A110B] border border-white/20 shadow-lg">
+                            <img
+                              src={todayData.imagen_url}
+                              alt={`Menú Ejecutivo ${dayNames[activeDayForHero]}`}
+                              className="w-full h-auto max-h-44 object-contain block"
+                            />
+                          </div>
+                        )}
+                        <div>
+                          <span className="inline-block px-2.5 py-0.5 bg-white/20 backdrop-blur-xs text-[10px] font-black uppercase tracking-wider rounded-md mb-1.5">
+                            {isTodayMenu ? `🌟 PROPUESTA DE HOY — ${dayNames[todayKey]}` : `🌟 MENÚ EJECUTIVO — MIÉRCOLES A VIERNES`}
+                          </span>
+                          <h3 className="text-xl font-black font-serif-rustic capitalize">
+                            {todayData?.nombre?.trim() || `Menú Ejecutivo ${dayNames[activeDayForHero]}`}
+                          </h3>
+                          <p className="text-xs text-white/90 mt-1 max-w-lg leading-relaxed font-sans">
+                            {todayData?.descripcion || 'Entrada, plato principal y postre del día.'}
+                          </p>
+                        </div>
                       </div>
-                      <span className="text-2xl font-black font-mono bg-black/20 px-3 py-1 rounded-xl border border-white/20">
-                        ${todayData?.precio ? todayData.precio.toLocaleString('es-AR') : '8.500'}
+                      <span className="text-2xl font-black font-mono bg-black/20 px-3 py-1 rounded-xl border border-white/20 shrink-0">
+                        ${todayData?.precio ? todayData.precio.toLocaleString('es-AR') : '24.300'}
                       </span>
                     </div>
 
                     <div className="mt-4 pt-3 border-t border-white/20 flex items-center justify-between">
                       <span className="text-xs font-bold text-white/80">
-                        Categoría: <strong className="text-white">{todayData?.categoria}</strong>
+                        Categoría: <strong className="text-white">{todayData?.categoria || 'Menú Ejecutivo'}</strong>
                       </span>
                       <div className="flex items-center gap-2">
                         {todayCartQty > 0 && (
@@ -2304,23 +2320,40 @@ export default function MozoTerminal({
                               : 'bg-white dark:bg-[#251B12] border-stone-200 dark:border-stone-850'
                           }`}
                         >
-                          <div>
-                            <div className="flex justify-between items-center mb-1">
+                          <div className="space-y-2">
+                            <div className="flex justify-between items-center">
                               <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${
                                 isToday ? 'bg-[#5C1D24] text-white' : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300'
                               }`}>
                                 {dayNames[day]} {isToday && '· (HOY)'}
                               </span>
                               <span className="font-mono font-bold text-xs text-[#8C6239] dark:text-stone-200">
-                                ${diaData?.precio ? diaData.precio.toLocaleString('es-AR') : '8.500'}
+                                ${diaData?.precio ? diaData.precio.toLocaleString('es-AR') : '24.300'}
                               </span>
                             </div>
-                            <h5 className="font-bold text-xs text-stone-850 dark:text-stone-100 break-words leading-snug">{diaData?.nombre}</h5>
-                            <p className="text-[10px] text-stone-500 dark:text-stone-400 mt-0.5 break-words whitespace-normal">{diaData?.descripcion}</p>
+
+                            {diaData?.imagen_url && (
+                              <div className="w-full rounded-xl overflow-hidden bg-[#1A110B] border border-[#8C6239]/25 flex items-center justify-center p-1.5">
+                                <img
+                                  src={diaData.imagen_url}
+                                  alt={`Flyer ${dayNames[day]}`}
+                                  className="w-full h-auto max-h-64 object-contain rounded-lg block mx-auto"
+                                />
+                              </div>
+                            )}
+
+                            <div>
+                              <h5 className="font-bold text-xs text-stone-850 dark:text-stone-100 break-words leading-snug">
+                                {diaData?.nombre?.trim() || `Menú Ejecutivo ${dayNames[day]}`}
+                              </h5>
+                              <p className="text-[10px] text-stone-500 dark:text-stone-400 mt-0.5 break-words whitespace-normal">
+                                {diaData?.descripcion || 'Entrada, plato principal y postre del día.'}
+                              </p>
+                            </div>
                           </div>
 
                           <div className="mt-3 pt-2 border-t border-stone-100 dark:border-white/5 flex justify-between items-center">
-                            <span className="text-[10px] text-stone-400 font-semibold">{diaData?.categoria}</span>
+                            <span className="text-[10px] text-stone-400 font-semibold">{diaData?.categoria || 'Menú Ejecutivo'}</span>
                             <button
                               onClick={() => handleAddToCart(`menu_diario_${day}`)}
                               className={`px-3 py-1 text-xs font-extrabold rounded-lg transition-all cursor-pointer flex items-center gap-1 active:scale-95 ${
@@ -2651,11 +2684,21 @@ export default function MozoTerminal({
                 {Object.entries(cart).map(([prodId, qty]) => {
                   const p = productosMenu.find(item => item.id_producto === prodId);
                   const promo = !p ? promociones.find(item => item.id_promo === prodId) : null;
-                  const itemNombre = p ? p.nombre : promo ? `[PROMO] ${promo.nombre}` : 'Promoción Especial';
+                  const diaKey = prodId.startsWith('menu_diario_') ? prodId.replace('menu_diario_', '') : null;
+                  const diaItem = diaKey ? (menuDiario[diaKey] || INITIAL_MENU_DIARIO[diaKey]) : null;
+                  const itemNombre = p
+                    ? p.nombre
+                    : promo
+                    ? `[PROMO] ${promo.nombre}`
+                    : diaItem
+                    ? `[MENÚ DEL DÍA] ${diaItem.nombre?.trim() || `Menú Ejecutivo ${diaItem.nombre_dia}`}`
+                    : 'Promoción Especial';
                   const itemSubtitle = p 
                     ? `$${p.precio_venta.toLocaleString('es-AR')} u.` 
                     : promo 
                     ? (promo.descuento_porcentaje > 0 ? `${promo.descuento_porcentaje}% OFF Aplicado` : 'Promoción Especial')
+                    : diaItem
+                    ? `$${(diaItem.precio || 24300).toLocaleString('es-AR')} u.`
                     : 'Oferta Especial';
 
                   return (
