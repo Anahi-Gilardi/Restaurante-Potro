@@ -12,6 +12,7 @@ import { formatUnitedTableName } from '../lib/tableUnions';
 interface MesasModuleProps {
   mesas: Mesa[];
   onMesasChange: (mesas: Mesa[]) => void;
+  onLiberarMesa?: (idMesa: number | string) => void;
   addLog?: (tipo: EventoLog['tipo'], mensaje: string) => void;
   persistenceEnabled?: boolean;
 }
@@ -253,6 +254,7 @@ function renderSillas(mesa: MesaVisual): React.ReactNode[] {
 export default function MesasModule({
   mesas,
   onMesasChange,
+  onLiberarMesa,
   addLog = () => {},
   persistenceEnabled = true,
 }: MesasModuleProps) {
@@ -721,51 +723,57 @@ export default function MesasModule({
     }
   };
 
-  const handleSepararMesas = async () => {
+  const handleSepararMesas = () => {
     if (!selectedMesa) return;
-    const original = POSICIONES_INICIALES.find(p => p.id_mesa === selectedMesa.id_mesa);
-    try {
-      await persistMesaUpdate(selectedMesa.id_mesa, {
-        capacidad: original?.capacidad || selectedMesa.capacidad,
-        mesas_unidas: [],
-        numero_mesa: original?.numero_mesa || selectedMesa.numero_mesa,
-        estado: 'libre',
-      });
-      if (selectedMesa.mesas_unidas) {
-        for (const idHija of selectedMesa.mesas_unidas) {
-          if (idHija === selectedMesa.id_mesa) continue;
-          await persistMesaUpdate(idHija, { parent_id: null, estado: 'libre' });
-        }
+    const targetMesa = selectedMesa;
+    const original = POSICIONES_INICIALES.find(p => p.id_mesa === targetMesa.id_mesa);
+    const updatedGlobal = mesas.map(m => {
+      if (m.id_mesa === targetMesa.id_mesa) {
+        return { ...m, capacidad: original?.capacidad || m.capacidad, mesas_unidas: [], numero_mesa: original?.numero_mesa || m.numero_mesa, estado: 'libre' as const, comensales: undefined };
       }
-      const updatedGlobal = mesas.map(m => {
-        if (m.id_mesa === selectedMesa.id_mesa) {
-          return { ...m, capacidad: original?.capacidad || m.capacidad, mesas_unidas: [], numero_mesa: original?.numero_mesa || m.numero_mesa, estado: 'libre' as const };
-        }
-        if (selectedMesa.mesas_unidas?.includes(m.id_mesa)) {
-          return { ...m, parent_id: null, estado: 'libre' as const };
-        }
-        return m;
-      });
-      onMesasChange(updatedGlobal);
-      if (typeof window !== 'undefined') {
-        try { window.localStorage.setItem('el_patron_sheet_cache_mesas', JSON.stringify(updatedGlobal)); } catch {}
+      if (targetMesa.mesas_unidas?.includes(m.id_mesa) || m.parent_id === targetMesa.id_mesa) {
+        return { ...m, parent_id: null, estado: 'libre' as const, comensales: undefined };
       }
-      setVisualMesas(prev => prev.map(m => {
-        if (m.id_mesa === selectedMesa.id_mesa) {
-          return { ...m, capacidad: original?.capacidad || m.capacidad, mesas_unidas: [], numero_mesa: original?.numero_mesa || m.numero_mesa, estado: 'libre' };
-        }
-        if (selectedMesa.mesas_unidas?.includes(m.id_mesa)) {
-          return { ...m, parent_id: null, estado: 'libre' };
-        }
-        return m;
-      }));
-      registrarSistema(`MESAS: Mesas separadas: ${selectedMesa.numero_mesa}`);
-      registrarMovimiento(selectedMesa.numero_mesa, 'Separacion', 'Mesas restauradas como libres', 'libre');
-      toast.success('Mesas separadas');
-      closeModal();
-    } catch (err: any) {
-      toast.error(err.message || 'Error al separar mesas');
+      return m;
+    });
+    onMesasChange(updatedGlobal);
+    onLiberarMesa?.(targetMesa.id_mesa);
+    if (typeof window !== 'undefined') {
+      try { window.localStorage.setItem('el_patron_sheet_cache_mesas', JSON.stringify(updatedGlobal)); } catch {}
     }
+    setVisualMesas(prev => prev.map(m => {
+      if (m.id_mesa === targetMesa.id_mesa) {
+        return { ...m, capacidad: original?.capacidad || m.capacidad, mesas_unidas: [], numero_mesa: original?.numero_mesa || m.numero_mesa, estado: 'libre', comensales: 0 };
+      }
+      if (targetMesa.mesas_unidas?.includes(m.id_mesa) || m.parent_id === targetMesa.id_mesa) {
+        return { ...m, parent_id: null, estado: 'libre', comensales: 0 };
+      }
+      return m;
+    }));
+    registrarSistema(`MESAS: Mesas separadas: ${targetMesa.numero_mesa}`);
+    registrarMovimiento(targetMesa.numero_mesa, 'Separacion', 'Mesas restauradas como libres', 'libre');
+    toast.success('Mesas separadas y liberadas');
+    closeModal();
+
+    (async () => {
+      try {
+        await persistMesaUpdate(targetMesa.id_mesa, {
+          capacidad: original?.capacidad || targetMesa.capacidad,
+          mesas_unidas: [],
+          numero_mesa: original?.numero_mesa || targetMesa.numero_mesa,
+          estado: 'libre',
+          comensales: 0,
+        });
+        if (targetMesa.mesas_unidas) {
+          for (const idHija of targetMesa.mesas_unidas) {
+            if (idHija === targetMesa.id_mesa) continue;
+            await persistMesaUpdate(idHija, { parent_id: null, estado: 'libre', comensales: 0 });
+          }
+        }
+      } catch (err) {
+        console.warn('Error en segundo plano al separar mesas:', err);
+      }
+    })();
   };
 
   const openEditMesa = (mesa: MesaVisual, e?: React.MouseEvent) => {
@@ -969,44 +977,76 @@ export default function MesasModule({
     }
   };
 
-  const handleLiberarMesa = async () => {
+  const handleLiberarMesa = () => {
     if (!selectedMesa) return;
-    try {
-      await persistMesaUpdate(selectedMesa.id_mesa, { estado: 'sucia', comensales: 0, reserva_cliente: undefined, reserva_hora: undefined });
-      const reservaExistente = reservasHoy.find(r => r.id_mesa === selectedMesa.id_mesa && r.estado === 'confirmada');
-      if (reservaExistente) {
-        await persistReservaUpdate(reservaExistente.id_reserva, { estado: 'completada' });
+    const targetMesa = selectedMesa;
+    const original = POSICIONES_INICIALES.find(p => p.id_mesa === targetMesa.id_mesa);
+    const reservaExistente = reservasHoy.find(r => r.id_mesa === targetMesa.id_mesa && (r.estado === 'confirmada' || r.estado === 'sentada'));
+
+    setVisualMesas(prev => prev.map(m => {
+      if (m.id_mesa === targetMesa.id_mesa) {
+        return {
+          ...m,
+          capacidad: original?.capacidad || m.capacidad,
+          numero_mesa: original?.numero_mesa || m.numero_mesa,
+          mesas_unidas: [],
+          parent_id: null,
+          estado: 'libre',
+          comensales: 0
+        };
       }
-      setVisualMesas(prev => prev.map(m => m.id_mesa === selectedMesa.id_mesa ? { ...m, estado: 'sucia', comensales: 0 } : m));
-      if (hasRemoteDb()) {
-        const updated = reservasService.listByFecha ? await reservasService.listByFecha(today) : await reservasService.list();
-        setReservasHoy((updated || []).filter((r: Reserva) =>
-          (r.fecha === today || !r.fecha) && r.estado !== 'cancelada' && !r.lista_espera
-        ));
-      } else if (reservaExistente) {
-        setReservasHoy(prev => prev.map(r => r.id_reserva === reservaExistente.id_reserva ? { ...r, estado: 'completada' } : r));
+      if (targetMesa.mesas_unidas?.includes(m.id_mesa) || m.parent_id === targetMesa.id_mesa) {
+        return { ...m, parent_id: null, estado: 'libre', comensales: 0 };
       }
-      registrarSistema(`MESAS: ${selectedMesa.numero_mesa} liberada y marcada como sucia`);
-      registrarMovimiento(selectedMesa.numero_mesa, 'Liberacion', 'Pasa a limpieza antes de volver al salon', 'sucia');
-      toast.success('Mesa liberada - pendiente de limpieza');
-      closeModal();
-    } catch (err: any) {
-      toast.error(err.message || 'Error al liberar');
+      return m;
+    }));
+
+    if (reservaExistente) {
+      setReservasHoy(prev => prev.map(r => r.id_reserva === reservaExistente.id_reserva ? { ...r, estado: 'completada' } : r));
     }
+
+    onLiberarMesa?.(targetMesa.id_mesa);
+    registrarSistema(`MESAS: ${targetMesa.numero_mesa} cerrada y liberada`);
+    registrarMovimiento(targetMesa.numero_mesa, 'Liberacion', 'Mesa liberada y disponible en el salon', 'libre');
+    toast.success('Mesa cerrada y liberada');
+    closeModal();
+
+    (async () => {
+      try {
+        await persistMesaUpdate(targetMesa.id_mesa, {
+          estado: 'libre',
+          comensales: 0,
+          reserva_cliente: undefined,
+          reserva_hora: undefined,
+          mesas_unidas: [],
+          parent_id: null
+        });
+        if (targetMesa.mesas_unidas) {
+          for (const idHija of targetMesa.mesas_unidas) {
+            if (idHija === targetMesa.id_mesa) continue;
+            await persistMesaUpdate(idHija, { parent_id: null, estado: 'libre', comensales: 0 });
+          }
+        }
+        if (reservaExistente) {
+          await persistReservaUpdate(reservaExistente.id_reserva, { estado: 'completada' });
+        }
+      } catch (err) {
+        console.warn('Error en segundo plano al liberar mesa:', err);
+      }
+    })();
   };
 
-  const handleLimpiarMesa = async () => {
+  const handleLimpiarMesa = () => {
     if (!selectedMesa) return;
-    try {
-      await persistMesaUpdate(selectedMesa.id_mesa, { estado: 'libre', comensales: 0 });
-      setVisualMesas(prev => prev.map(m => m.id_mesa === selectedMesa.id_mesa ? { ...m, estado: 'libre', comensales: 0 } : m));
-      registrarSistema(`MESAS: ${selectedMesa.numero_mesa} limpiada y lista`);
-      registrarMovimiento(selectedMesa.numero_mesa, 'Limpieza finalizada', 'Mesa vuelve a estar disponible', 'libre');
-      toast.success('Mesa limpiada');
-      closeModal();
-    } catch (err: any) {
-      toast.error(err.message || 'Error al limpiar');
-    }
+    const targetMesa = selectedMesa;
+    setVisualMesas(prev => prev.map(m => m.id_mesa === targetMesa.id_mesa ? { ...m, estado: 'libre', comensales: 0 } : m));
+    onLiberarMesa?.(targetMesa.id_mesa);
+    registrarSistema(`MESAS: ${targetMesa.numero_mesa} limpiada y lista`);
+    registrarMovimiento(targetMesa.numero_mesa, 'Limpieza finalizada', 'Mesa vuelve a estar disponible', 'libre');
+    toast.success('Mesa limpiada y disponible');
+    closeModal();
+
+    void persistMesaUpdate(targetMesa.id_mesa, { estado: 'libre', comensales: 0 });
   };
 
   const reservasPorMesa = useMemo(() => {
@@ -1507,24 +1547,28 @@ export default function MesasModule({
               <button onClick={closeModal} aria-label="Cerrar gestión de mesa" className="p-2 hover:bg-stone-100 rounded-full cursor-pointer"><X className="w-5 h-5 text-stone-500" /></button>
             </div>
 
-            {selectedMesa.estado === 'ocupada' ? (
-              <div className="space-y-4">
-                <p className="text-sm text-stone-600">La mesa está ocupada. Al liberar quedará marcada como Sucia/En Limpieza hasta que se limpie.</p>
-                <button onClick={handleLiberarMesa} className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold cursor-pointer">Liberar mesa</button>
+            {(selectedMesa.estado === 'ocupada' || selectedMesa.estado === 'esperando_cuenta') ? (
+              <div className="space-y-3">
+                <p className="text-sm text-stone-600">La mesa está ocupada. Al cerrarla o liberarla quedará inmediatamente disponible en el salón.</p>
+                <button type="button" onClick={handleLiberarMesa} className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold cursor-pointer">Cerrar / Liberar mesa</button>
+                {selectedMesa.mesas_unidas && selectedMesa.mesas_unidas.length >= 2 && (
+                  <button type="button" onClick={handleSepararMesas} className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold cursor-pointer">Separar y liberar mesas</button>
+                )}
               </div>
-            ) : selectedMesa.estado === 'sucia' ? (
+            ) : (selectedMesa.estado === 'sucia' || selectedMesa.estado === 'limpiando') ? (
               <div className="space-y-4">
                 <p className="text-sm text-stone-600">La mesa está sucia o en limpieza. Marcala como libre cuando esté lista.</p>
-                <button onClick={handleLimpiarMesa} className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold cursor-pointer">Mesa limpia</button>
+                <button type="button" onClick={handleLimpiarMesa} className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold cursor-pointer">Mesa limpia / Disponible</button>
               </div>
             ) : selectedMesa.estado === 'unida' ? (
               <div className="space-y-4">
-                <p className="text-sm text-stone-600">Esta mesa está unida a otra. No se puede reservar individualmente.</p>
+                <p className="text-sm text-stone-600">Esta mesa está unida a otra. Podés separarla y liberarla desde aquí.</p>
+                <button type="button" onClick={handleLiberarMesa} className="w-full py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold cursor-pointer">Separar y liberar mesa</button>
               </div>
             ) : selectedMesa.mesas_unidas && selectedMesa.mesas_unidas.length >= 2 ? (
               <div className="space-y-4">
                 <p className="text-sm text-stone-600">Mesa unida: {getMesaDisplayName(selectedMesa.numero_mesa)} · Capacidad {selectedMesa.capacidad} personas</p>
-                <button onClick={handleSepararMesas} className="w-full py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold cursor-pointer">Separar mesas</button>
+                <button type="button" onClick={handleSepararMesas} className="w-full py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold cursor-pointer">Separar mesas</button>
               </div>
             ) : (
               <form onSubmit={handleSaveReserva} className="space-y-3">

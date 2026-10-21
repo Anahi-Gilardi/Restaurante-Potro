@@ -245,6 +245,8 @@ export function useCaja({
   const [movimientoTipo, setMovimientoTipo] = useState<'ingreso' | 'egreso'>('egreso');
   const [movimientoConcepto, setMovimientoConcepto] = useState('');
 
+  const lastLocalShiftChangeRef = useRef<number>(0);
+
   // Sync historical shifts and current state
   const loadCajaState = useCallback(async () => {
     let active = cajaService.getOpenSession();
@@ -268,19 +270,32 @@ export function useCaja({
       setLastFacturas(facturas);
       setMovimientosCajaChica(movs);
 
+      // Re-evaluar sesión local por si el usuario la abrió o cerró mientras las promesas estaban en vuelo
+      active = cajaService.getOpenSession();
+      const recentLocalChange =
+        (Date.now() - lastLocalShiftChangeRef.current < 20_000) ||
+        (Date.now() - cajaService.getLastCajaActionTimestamp() < 20_000);
+
       // Sincronización entre múltiples computadoras
-      if (!active && remoteSession) {
-        const lastClosedId = cajaService.safeStorage.getItem('el_patron_ultimo_cierre_cerrado_id');
-        if (remoteSession.id_cierre !== lastClosedId) {
+      if (!active && remoteSession && !recentLocalChange) {
+        if (!cajaService.isCierreClosed(remoteSession.id_cierre)) {
           // La caja fue abierta desde otra computadora
           cajaService.safeStorage.setItem('el_patron_caja_activa', JSON.stringify(remoteSession));
           setCajaSession(remoteSession);
           active = remoteSession;
         }
-      } else if (active && !remoteSession && (typeof navigator === 'undefined' || navigator.onLine)) {
-        // Si teníamos sesión local pero en Google Sheets/Supabase ya no hay sesión activa
-        const inHistory = history.find(h => h.id_cierre === active?.id_cierre);
-        if (!inHistory || (inHistory && inHistory.fecha_cierre)) {
+      } else if (active && !remoteSession && !recentLocalChange && (typeof navigator === 'undefined' || navigator.onLine)) {
+        // Solo cerrar la sesión local si el MISMO id_cierre figura explícitamente cerrado en el historial remoto
+        // NUNCA cerrar porque !inHistory (eso ocurre cuando la apertura local aún está escribiéndose en Google Sheets)
+        const inHistory = history.find(h => String(h.id_cierre) === String(active?.id_cierre));
+        const explicitlyClosedRemotely = Boolean(
+          inHistory &&
+          inHistory.fecha_cierre &&
+          String(inHistory.fecha_cierre).trim() !== '' &&
+          String(inHistory.fecha_cierre) !== 'null'
+        );
+        if (explicitlyClosedRemotely || cajaService.isCierreClosed(active.id_cierre)) {
+          cajaService.markCierreClosed(active.id_cierre);
           cajaService.safeStorage.removeItem('el_patron_caja_activa');
           setCajaSession(null);
           toast.info('La sesión de caja fue cerrada desde otra computadora.');
@@ -339,7 +354,11 @@ export function useCaja({
       }
     };
 
-    const handleCajaCerrada = () => {
+    const handleCajaCerrada = (event: Event) => {
+      const detail = (event as CustomEvent<{ id_cierre?: string }>).detail;
+      if (detail?.id_cierre) {
+        cajaService.markCierreClosed(detail.id_cierre);
+      }
       cajaService.safeStorage.removeItem('el_patron_caja_activa');
       setCajaSession(null);
       loadCajaState();
@@ -660,21 +679,24 @@ export function useCaja({
   const handleOpenShift = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const amt = parseFloat(openingCashInput);
+      const rawInput = String(openingCashInput ?? '').trim();
+      const amt = rawInput === '' ? 0 : parseFloat(rawInput);
       if (isNaN(amt) || amt < 0) {
         toast.error('Monto de inicio no válido.');
         return;
       }
 
-      if (!operatorName.trim() || operatorName.trim().length < 2) {
+      const cajeroName = (operatorName || 'Cajero').trim();
+      if (cajeroName.length < 2) {
         toast.error('El nombre del cajero debe tener al menos 2 caracteres.');
         return;
       }
 
-      const session = await cajaService.open(amt, operatorName);
+      lastLocalShiftChangeRef.current = Date.now();
+      const session = await cajaService.open(amt, cajeroName);
       setCajaSession(session);
       setShowOpenModal(false);
-      addLog('sistema', `CAJA: Turno de caja iniciado por ${operatorName}. Monto inicial: ARS $${amt.toLocaleString('es-AR')}`);
+      addLog('sistema', `CAJA: Turno de caja iniciado por ${cajeroName}. Monto inicial: ARS $${amt.toLocaleString('es-AR')}`);
       loadCajaState();
       if (session.sync_status === 'pending') {
         toast.warning('Caja abierta localmente. La sincronización con Supabase quedó pendiente.');
@@ -690,21 +712,40 @@ export function useCaja({
   const handleCloseShift = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const money = parseFloat(closingPhysicalCashInput);
+      const currentSession = cajaSession || cajaService.getOpenSession();
+      if (!currentSession) {
+        setShowCloseModal(false);
+        toast.info('La caja ya se encuentra cerrada.');
+        return;
+      }
+
+      const efVentas = Number(currentSession.efectivo ?? currentSession.registros_totales?.efectivo ?? 0);
+      const expectedCashInDrawer = Math.max(
+        0,
+        (Number(currentSession.monto_apertura) || 0) + efVentas + sumIngresosManuales - sumEgresosManuales
+      );
+
+      const rawCash = String(closingPhysicalCashInput ?? '').trim();
+      const money = rawCash === '' ? expectedCashInDrawer : parseFloat(rawCash);
       if (isNaN(money) || money < 0) {
         toast.error('Monto de arqueo físico ingresado no es válido.');
         return;
       }
 
-      if (!cajaSession) return;
-
-      const finalShift = await cajaService.close(money, closingObservationsInput, movimientosCajaChica);
+      lastLocalShiftChangeRef.current = Date.now();
+      const finalShift = await cajaService.close(
+        money,
+        closingObservationsInput,
+        movimientosCajaChica,
+        currentSession
+      );
       
       // Cerrar modal y limpiar estados inmediatamente para respuesta visual instantánea (0ms)
       setCajaSession(null);
       setShowCloseModal(false);
       setClosingPhysicalCashInput('');
       setClosingObservationsInput('Cierre de turno');
+      setSessionInsumos(prev => [finalShift, ...prev.filter(h => h.id_cierre !== finalShift.id_cierre)]);
       loadCajaState();
 
       addLog('sistema', `CAJA: Turno fiscal cerrado por ${finalShift?.usuario_cajero || 'Cajero'}. Arqueo Real: $${finalShift?.monto_real?.toLocaleString('es-AR')}. Diferencia: ARS $${finalShift?.diferencia?.toLocaleString('es-AR')}`);
@@ -715,38 +756,42 @@ export function useCaja({
         toast.success('Jornada finalizada. Arqueo sincronizado y balance exportado en CSV y PDF.');
       }
 
-      const csvRows = [
-        ['EL PATRON GRILL - REPORTE DE BALANCE DIARIO'],
-        ['Cajero Responsable', finalShift?.usuario_cajero || 'Cajero'],
-        ['Apertura', finalShift.fecha_apertura],
-        ['Cierre de Turno', finalShift.fecha_cierre || 'N/A'],
-        ['Monto Inicial de Caja ($)', finalShift.monto_apertura.toFixed(2)],
-        ['Total de Ventas Turno ($)', finalShift.monto_ventas.toFixed(2)],
-        ['Efectivo ($)', Number(finalShift.efectivo ?? finalShift.registros_totales?.efectivo ?? 0).toFixed(2)],
-        ['Propina ($)', Number(finalShift.propina ?? finalShift.registros_totales?.propina ?? 0).toFixed(2)],
-        ['Transferencia ($)', Number(finalShift.transferencia ?? finalShift.registros_totales?.transferencia ?? 0).toFixed(2)],
-        ['Arqueo Físico Caja ($)', finalShift.monto_real ? finalShift.monto_real.toFixed(2) : '0.00'],
-        ['Diferencia Conciliación ($)', finalShift.diferencia ? finalShift.diferencia.toFixed(2) : '0.00'],
-        ['Observaciones Turno', finalShift.observaciones],
-        ['']
-      ];
+      try {
+        const csvRows = [
+          ['EL PATRON GRILL - REPORTE DE BALANCE DIARIO'],
+          ['Cajero Responsable', finalShift?.usuario_cajero || 'Cajero'],
+          ['Apertura', finalShift.fecha_apertura],
+          ['Cierre de Turno', finalShift.fecha_cierre || 'N/A'],
+          ['Monto Inicial de Caja ($)', Number(finalShift.monto_apertura || 0).toFixed(2)],
+          ['Total de Ventas Turno ($)', Number(finalShift.monto_ventas || 0).toFixed(2)],
+          ['Efectivo ($)', Number(finalShift.efectivo ?? finalShift.registros_totales?.efectivo ?? 0).toFixed(2)],
+          ['Propina ($)', Number(finalShift.propina ?? finalShift.registros_totales?.propina ?? 0).toFixed(2)],
+          ['Transferencia ($)', Number(finalShift.transferencia ?? finalShift.registros_totales?.transferencia ?? 0).toFixed(2)],
+          ['Arqueo Físico Caja ($)', finalShift.monto_real !== null && finalShift.monto_real !== undefined ? Number(finalShift.monto_real).toFixed(2) : '0.00'],
+          ['Diferencia Conciliación ($)', finalShift.diferencia !== null && finalShift.diferencia !== undefined ? Number(finalShift.diferencia).toFixed(2) : '0.00'],
+          ['Observaciones Turno', finalShift.observaciones || ''],
+          ['']
+        ];
 
-      const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + csvRows.map(e => e.join(";")).join("\n");
-      const encodedUri = encodeURI(csvContent);
-      const link = document.createElement("a");
-      link.setAttribute("href", encodedUri);
-      link.setAttribute("download", `Arqueo_Turno_Caja_${finalShift.id_cierre}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      if (document.body.contains(link)) {
-        document.body.removeChild(link);
+        const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + csvRows.map(r => r.join(";")).join("\n");
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `Arqueo_Turno_Caja_${finalShift.id_cierre}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        if (document.body.contains(link)) {
+          document.body.removeChild(link);
+        }
+      } catch (csvErr) {
+        console.warn('Error exporting shift close CSV:', csvErr);
       }
 
       try {
         await pdfService.exportShiftClosePDF(finalShift);
       } catch (err: any) {
         console.error('Error generating shift close PDF:', err);
-        toast.warning('No se pudo descargar el comprobante en formato PDF: ' + err.message);
+        toast.warning('No se pudo descargar el comprobante en formato PDF: ' + (err?.message || err));
       }
     } catch (err: any) {
       console.error('Error closing shift:', err);
@@ -756,33 +801,39 @@ export function useCaja({
 
   const executeCheckout = async () => {
     if (!selectedPedido) return;
-    if (!cajaSession) {
+    const activeSession = cajaSession || cajaService.getOpenSession();
+    if (!activeSession) {
       toast.error('Por favor abra la caja diaria primero para registrar cobros e imprimir tickets.');
       return;
     }
+    if (!cajaSession) {
+      setCajaSession(activeSession);
+    }
 
-    if (orderBreakdowns.finalTotal <= 0) {
-      toast.error('No se permite cobrar una cuenta por un valor negativo o cero.');
+    if (orderBreakdowns.finalTotal < 0) {
+      toast.error('No se permite cobrar una cuenta por un valor negativo.');
       return;
     }
 
     let pays: { metodo: string; monto: number }[] = [];
     if (metodoPago === 'mixto') {
-      if (Math.abs(mixedSum - orderBreakdowns.finalTotal) > 0.5) {
-        toast.error(`Monto incompleto en forma mixta. Saldo faltante: $${rawRemainingMixedBalance.toLocaleString('es-AR')}`);
-        return;
+      let currentMixed = [...mixedPayments];
+      const currentSum = currentMixed.reduce((s, p) => s + p.monto, 0);
+      const pendingAmt = Math.max(0, orderBreakdowns.finalTotal - currentSum);
+      if (pendingAmt > 0.5) {
+        const typedAmt = parseFloat(mixedMontoInput);
+        if (currentMixed.length === 0) {
+          currentMixed = [{ metodo: mixedMetodoInput || 'efectivo', monto: orderBreakdowns.finalTotal }];
+        } else if (!isNaN(typedAmt) && Math.abs(typedAmt - pendingAmt) <= 0.5) {
+          currentMixed.push({ metodo: mixedMetodoInput || 'efectivo', monto: pendingAmt });
+        } else {
+          toast.error(`Monto incompleto en forma mixta. Saldo faltante: $${rawRemainingMixedBalance.toLocaleString('es-AR')}`);
+          return;
+        }
       }
-      pays = [...mixedPayments];
+      pays = currentMixed;
     } else {
       pays = [{ metodo: metodoPago, monto: orderBreakdowns.finalTotal }];
-    }
-
-    if (metodoPago === 'efectivo' && montoEntregadoEfectivo) {
-      const delivered = parseFloat(montoEntregadoEfectivo);
-      if (!isNaN(delivered) && delivered < orderBreakdowns.finalTotal) {
-        toast.error('El efectivo entregado es menor que el total de la cuenta.');
-        return;
-      }
     }
 
     const saleTimestamp = Date.now();
@@ -801,7 +852,7 @@ export function useCaja({
       idPedido: selectedPedido.id_pedido,
       mesa: formatTicketTableName(selectedPedido.numero_mesa),
       mozo: selectedPedido.mozo,
-      cajero: cajaSession?.usuario_cajero || cashierNameInput || 'Caja',
+      cajero: activeSession?.usuario_cajero || cashierNameInput || 'Caja',
       fechaHora: formatArgentinaDateTime(saleDate),
       items: (splitByProducts && selectedProductsForSplit.length > 0
         ? selectedPedido.items.filter(it => selectedProductsForSplit.includes(it.id_producto))
@@ -924,106 +975,30 @@ export function useCaja({
     if (!pendingCloseMesaData || isFinalizingClose) return;
     setIsFinalizingClose(true);
 
-    try {
-      const {
-        pedidoId,
-        numeroMesa,
-        finalTotal,
-        compiledTicketNo,
-        mappedMedio,
-        calculatedChange,
-        factura,
-        pagos,
-        paymentDesglosesCount,
-        propinaValue: checkoutPropina,
-        selectedCliente: checkoutCliente,
-        puntosRedimidos: checkoutPuntos
-      } = pendingCloseMesaData;
+    const snapshot = pendingCloseMesaData;
+    const {
+      pedidoId,
+      numeroMesa,
+      finalTotal,
+      compiledTicketNo,
+      mappedMedio,
+      calculatedChange,
+      factura,
+      pagos,
+      paymentDesglosesCount,
+      propinaValue: checkoutPropina,
+      selectedCliente: checkoutCliente,
+      puntosRedimidos: checkoutPuntos
+    } = snapshot;
 
-      // 1. Liberar mesa y comanda en salón y Google Sheets de forma inmediata (0ms)
+    try {
+      // 1. Liberar mesa y comanda en salón e interfaz de forma INMEDIATA (0ms, sin bloqueos de red)
       onFacturarMesa(pedidoId, true);
 
-      const persistence = await salesPersistenceService.persist({ factura, pagos });
-      if (persistence.pendingSync) {
-        toast.warning('Cobro respaldado localmente. Se sincronizará con Supabase al recuperar conexión.');
-      }
-
-      try {
-        await cajaService.updateSales(finalTotal, paymentDesglosesCount, checkoutPropina || paymentDesglosesCount.propina || 0);
-      } catch (e: any) {
-        toast.error(`Error al actualizar ventas: ${e.message}`);
-      }
-
-      // 2. Persistir desglose individual en Google Sheets hoja 'tipos_pago'
-      try {
-        const activeCierre = cajaService.getOpenSession();
-        const tipoPagoPayload = {
-          id_pago: pagos && pagos.length > 0 ? pagos[0].id_pago : `pag_${Date.now()}`,
-          id_cierre: activeCierre?.id_cierre || 'cie_general',
-          fecha_hora: getArgentinaDateTimeString(),
-          fecha: getArgentinaDateTimeString(),
-          numero_mesa: numeroMesa,
-          mesa: numeroMesa,
-          mozo_cajero: operatorName || 'Cajero',
-          cajero: operatorName || 'Cajero',
-          monto_total: finalTotal,
-          total: finalTotal,
-          efectivo: paymentDesglosesCount.efectivo || 0,
-          transferencia: paymentDesglosesCount.transferencia || 0,
-          transfer: paymentDesglosesCount.transferencia || 0,
-          mercadopago: paymentDesglosesCount.mercadopago || 0,
-          mp_qr: paymentDesglosesCount.mercadopago || 0,
-          qr: paymentDesglosesCount.mercadopago || 0,
-          debito: paymentDesglosesCount.debito || 0,
-          tarjeta_debito: paymentDesglosesCount.debito || 0,
-          credito: paymentDesglosesCount.credito || 0,
-          tarjeta: paymentDesglosesCount.credito || 0,
-          tarjeta_credito: paymentDesglosesCount.credito || 0,
-          propina: checkoutPropina || paymentDesglosesCount.propina || 0,
-          metodo: mappedMedio || 'Efectivo',
-          medio_pago: mappedMedio || 'Efectivo',
-          forma_pago: mappedMedio || 'Efectivo'
-        };
-        sheetUpsertRow('tipos_pago', tipoPagoPayload).catch(err => {
-          console.warn('[useCaja] Error al persistir en tipos_pago:', err);
-        });
-      } catch (err) {
-        console.warn('[useCaja] Error preparando payload tipos_pago:', err);
-      }
-
-      // 3. Persistir cada plato vendido en Google Sheets hoja 'ventas_platos' para estadísticas y rankings
-      if (pendingCloseMesaData.items && pendingCloseMesaData.items.length > 0) {
-        ventasPlatosService.recordSaleItems(pendingCloseMesaData.items, {
-          numeroMesa,
-          cajero: operatorName || 'Cajero'
-        }).catch(err => {
-          console.warn('[useCaja] Error al registrar platos en ventas_platos:', err);
-        });
-      }
-
-      if (checkoutCliente) {
-        try {
-          const puntosGanados = Math.round(finalTotal * 0.05);
-          const nextPuntos = Math.max(0, checkoutCliente.puntos - checkoutPuntos) + puntosGanados;
-          await clientesService.updatePuntos(checkoutCliente.id_cliente, nextPuntos);
-          addLog('sistema', `FIDELIDAD: Cliente ${checkoutCliente.nombre} redimió ${checkoutPuntos} puntos y ganó ${puntosGanados} puntos. Balance actual: ${nextPuntos}.`);
-        } catch (err) {
-          console.error('Error updating customer points:', err);
-        }
-      }
-
-      try {
-        await auditoriaService.create({
-          id: `aud_${Date.now()}`,
-          tipo: 'sistema',
-          mensaje: `Cobro exitoso Mesa ${numeroMesa}. Ticket interno: ${compiledTicketNo}. Total: $${finalTotal.toLocaleString('es-AR')}. Pago: ${mappedMedio}`,
-          timestamp: new Date()
-        });
-      } catch (e: any) {
-        console.error('Audit log error:', e);
-      }
-
-      addLog('sistema', `CAJA: Cobro finalizado para Mesa ${numeroMesa}. Ticket interno ${compiledTicketNo} registrado sin solicitar CAE.`);
+      // 2. Cerrar modal y limpiar selección de inmediato para que la pantalla nunca se tilde
+      setShowConfirmCerrarMesaModal(false);
+      setPendingCloseMesaData(null);
+      setIsFinalizingClose(false);
 
       setSelectedPedidoId(null);
       setMixedPayments([]);
@@ -1038,10 +1013,6 @@ export function useCaja({
       setNombreNuevoCliente('');
       setEmailNuevoCliente('');
       setTelNuevoCliente('');
-      loadCajaState();
-
-      setShowConfirmCerrarMesaModal(false);
-      setPendingCloseMesaData(null);
 
       setSuccessDetails({
         nro: compiledTicketNo,
@@ -1050,10 +1021,99 @@ export function useCaja({
       });
       setShowSuccessModal(true);
       toast.success(`Mesa ${numeroMesa} cobrada y cerrada.`);
+
+      addLog('sistema', `CAJA: Cobro finalizado para Mesa ${numeroMesa}. Ticket interno ${compiledTicketNo} registrado sin solicitar CAE.`);
+
+      // 3. Actualizar ventas locales del turno inmediatamente y sincronizar en segundo plano
+      try {
+        await cajaService.updateSales(finalTotal, paymentDesglosesCount, checkoutPropina || paymentDesglosesCount.propina || 0);
+        const updatedLocal = cajaService.getOpenSession();
+        if (updatedLocal) setCajaSession(updatedLocal);
+      } catch (e: any) {
+        console.warn('Error al actualizar ventas:', e);
+      }
+
+      // 4. Persistir factura, pagos, tipos_pago, ventas_platos y auditoría en segundo plano sin bloquear la UI
+      void (async () => {
+        try {
+          const persistence = await salesPersistenceService.persist({ factura, pagos });
+          if (persistence.pendingSync) {
+            toast.warning('Cobro respaldado localmente. Se sincronizará con Supabase al recuperar conexión.');
+          }
+        } catch (err) {
+          console.warn('[useCaja] Persistencia diferida de factura:', err);
+        }
+
+        try {
+          const activeCierre = cajaService.getOpenSession();
+          const tipoPagoPayload = {
+            id_pago: pagos && pagos.length > 0 ? pagos[0].id_pago : `pag_${Date.now()}`,
+            id_cierre: activeCierre?.id_cierre || 'cie_general',
+            fecha_hora: getArgentinaDateTimeString(),
+            fecha: getArgentinaDateTimeString(),
+            numero_mesa: numeroMesa,
+            mesa: numeroMesa,
+            mozo_cajero: operatorName || 'Cajero',
+            cajero: operatorName || 'Cajero',
+            monto_total: finalTotal,
+            total: finalTotal,
+            efectivo: paymentDesglosesCount.efectivo || 0,
+            transferencia: paymentDesglosesCount.transferencia || 0,
+            transfer: paymentDesglosesCount.transferencia || 0,
+            mercadopago: paymentDesglosesCount.mercadopago || 0,
+            mp_qr: paymentDesglosesCount.mercadopago || 0,
+            qr: paymentDesglosesCount.mercadopago || 0,
+            debito: paymentDesglosesCount.debito || 0,
+            tarjeta_debito: paymentDesglosesCount.debito || 0,
+            credito: paymentDesglosesCount.credito || 0,
+            tarjeta: paymentDesglosesCount.credito || 0,
+            tarjeta_credito: paymentDesglosesCount.credito || 0,
+            propina: checkoutPropina || paymentDesglosesCount.propina || 0,
+            metodo: mappedMedio || 'Efectivo',
+            medio_pago: mappedMedio || 'Efectivo',
+            forma_pago: mappedMedio || 'Efectivo'
+          };
+          await sheetUpsertRow('tipos_pago', tipoPagoPayload);
+        } catch (err) {
+          console.warn('[useCaja] Error al persistir en tipos_pago:', err);
+        }
+
+        if (snapshot.items && snapshot.items.length > 0) {
+          ventasPlatosService.recordSaleItems(snapshot.items, {
+            numeroMesa,
+            cajero: operatorName || 'Cajero'
+          }).catch(err => {
+            console.warn('[useCaja] Error al registrar platos en ventas_platos:', err);
+          });
+        }
+
+        if (checkoutCliente) {
+          try {
+            const puntosGanados = Math.round(finalTotal * 0.05);
+            const nextPuntos = Math.max(0, checkoutCliente.puntos - checkoutPuntos) + puntosGanados;
+            await clientesService.updatePuntos(checkoutCliente.id_cliente, nextPuntos);
+            addLog('sistema', `FIDELIDAD: Cliente ${checkoutCliente.nombre} redimió ${checkoutPuntos} puntos y ganó ${puntosGanados} puntos. Balance actual: ${nextPuntos}.`);
+          } catch (err) {
+            console.error('Error updating customer points:', err);
+          }
+        }
+
+        try {
+          await auditoriaService.create({
+            id: `aud_${Date.now()}`,
+            tipo: 'sistema',
+            mensaje: `Cobro exitoso Mesa ${numeroMesa}. Ticket interno: ${compiledTicketNo}. Total: $${finalTotal.toLocaleString('es-AR')}. Pago: ${mappedMedio}`,
+            timestamp: new Date()
+          });
+        } catch (e: any) {
+          console.error('Audit log error:', e);
+        }
+
+        loadCajaState();
+      })();
     } catch (err: any) {
       console.error('Error al finalizar cobro y cerrar mesa:', err);
       toast.error(`Error al cerrar mesa: ${err?.message || err}`);
-    } finally {
       setIsFinalizingClose(false);
     }
   };

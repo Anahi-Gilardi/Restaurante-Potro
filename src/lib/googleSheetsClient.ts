@@ -126,11 +126,31 @@ if (typeof window !== 'undefined') {
 }
 
 const SHEETS_TIMEOUT_MS = 30_000;
+const RECENT_MUTATION_GRACE_MS = 18_000; // 18s de protección tras escritura local para evitar que lecturas en paralelo pisen cambios recientes
 const tableWriteQueues: Record<string, Promise<any>> = {};
+const pendingWriteCounts: Record<string, number> = {};
+const recentRowMutations: Record<string, Map<string, { row: any; deleted?: boolean; timestamp: number }>> = {};
 
-function enqueueSheetWrite<T>(tableName: string, task: () => Promise<T>): Promise<T> {
+function getMutationMap(tableName: string) {
+  if (!recentRowMutations[tableName]) {
+    recentRowMutations[tableName] = new Map();
+  }
+  return recentRowMutations[tableName];
+}
+
+function enqueueSheetWrite<T>(tableName: string, task: () => Promise<T>, mutatedPk?: string): Promise<T> {
+  pendingWriteCounts[tableName] = (pendingWriteCounts[tableName] || 0) + 1;
   const currentQueue = tableWriteQueues[tableName] || Promise.resolve();
-  const run = currentQueue.then(task, task);
+  const run = currentQueue.then(task, task).finally(() => {
+    pendingWriteCounts[tableName] = Math.max(0, (pendingWriteCounts[tableName] || 1) - 1);
+    if (mutatedPk !== undefined) {
+      const map = recentRowMutations[tableName];
+      const existing = map?.get(mutatedPk);
+      if (existing) {
+        existing.timestamp = Date.now();
+      }
+    }
+  });
   tableWriteQueues[tableName] = run.catch(() => {});
   return run;
 }
@@ -212,6 +232,78 @@ async function safeParseResponse<T = any>(resp: Response): Promise<SheetApiRespo
  * Consulta y sincroniza todas las tablas de Google Sheets en una única llamada HTTP.
  * Utiliza deduplicación para no saturar con múltiples peticiones paralelas.
  */
+const PK_FIELD_MAP: Record<string, string> = {
+  productos_menu: 'id_producto',
+  mesas: 'id_mesa',
+  categorias: 'id_categoria',
+  promociones: 'id_promo',
+  pedidos_cabecera: 'id_pedido',
+  pedido_detalle: 'id_detalle',
+  pedido_operaciones: 'id_operacion',
+  insumos: 'id_insumo',
+  proveedores: 'id_proveedor',
+  reservas: 'id_reserva',
+  facturas: 'id_factura',
+  pagos: 'id_pago',
+  tipos_pago: 'id_pago',
+  ventas_platos: 'id_registro',
+  cierres_caja: 'id_cierre',
+  caja_ledger: 'id_ledger',
+  usuarios: 'id_usuario',
+  configuracion: 'clave',
+  arca_config: 'id',
+  arca_emisiones: 'id',
+  v_conciliacion_facturas: 'id_factura'
+};
+
+function mergeProtectedLocalMutations(tableName: string, remoteRows: any[]): any[] {
+  const mutMap = recentRowMutations[tableName];
+  if (!mutMap || mutMap.size === 0) return remoteRows;
+
+  const now = Date.now();
+  const hasInFlightWrites = (pendingWriteCounts[tableName] || 0) > 0;
+  const pk = PK_FIELD_MAP[tableName] || 'id';
+
+  // Limpiar mutaciones expiradas si no hay escrituras en vuelo
+  if (!hasInFlightWrites) {
+    for (const [key, entry] of mutMap.entries()) {
+      if (now - entry.timestamp > RECENT_MUTATION_GRACE_MS) {
+        mutMap.delete(key);
+      }
+    }
+  }
+
+  if (mutMap.size === 0) return remoteRows;
+
+  const seenPks = new Set<string>();
+  const merged: any[] = [];
+
+  for (const remoteRow of remoteRows) {
+    const rowPk = remoteRow?.[pk] !== undefined ? String(remoteRow[pk]) : undefined;
+    if (rowPk !== undefined) {
+      seenPks.add(rowPk);
+      const localMut = mutMap.get(rowPk);
+      if (localMut) {
+        if (localMut.deleted) {
+          continue; // Fue eliminada localmente hace instantes
+        }
+        merged.push({ ...remoteRow, ...localMut.row });
+        continue;
+      }
+    }
+    merged.push(remoteRow);
+  }
+
+  // Agregar filas insertadas localmente que aún no figuran en la respuesta de Google Sheets
+  for (const [rowPk, localMut] of mutMap.entries()) {
+    if (!localMut.deleted && localMut.row && !seenPks.has(rowPk)) {
+      merged.push(localMut.row);
+    }
+  }
+
+  return merged;
+}
+
 export async function sheetFetchAllTables(forceFresh = false): Promise<Record<string, any[]>> {
   const now = Date.now();
   const lastAllFetch = Math.max(...Object.values(lastFetchTimestamps), 0);
@@ -237,10 +329,11 @@ export async function sheetFetchAllTables(forceFresh = false): Promise<Record<st
       const json = await safeParseResponse<Record<string, any[]>>(resp);
       if (json.success && json.data) {
         const fetchTime = Date.now();
-        cachedTables = { ...cachedTables, ...json.data };
         for (const [tbl, rows] of Object.entries(json.data)) {
+          const safeRows = Array.isArray(rows) ? mergeProtectedLocalMutations(tbl, rows) : rows;
+          cachedTables[tbl] = safeRows;
           lastFetchTimestamps[tbl] = fetchTime;
-          setTableStorageCache(tbl, rows);
+          setTableStorageCache(tbl, safeRows);
         }
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('el_patron_sheets_sync_completed', { detail: { timestamp: fetchTime } }));
@@ -302,14 +395,14 @@ async function executeFetchTable<T = any>(tableName: string): Promise<T[]> {
       if (resp.ok) {
         const json = await safeParseResponse<T[]>(resp);
         if (json.success && Array.isArray(json.data)) {
-          let mergedData = json.data;
+          let mergedData: any[] = mergeProtectedLocalMutations(tableName, json.data);
           // Preservar pedidos activos locales en vuelo hacia Google Sheets (evitar sobrescritura con datos viejos)
           if (tableName === 'pedidos_cabecera' && Array.isArray(cachedTables[tableName]) && cachedTables[tableName].length > 0) {
             const mergedList: any[] = [];
             const processedIds = new Set<string>();
 
             // 1. Procesar filas remotas
-            json.data.forEach((remoteRow: any) => {
+            mergedData.forEach((remoteRow: any) => {
               const idStr = String(remoteRow.id_pedido);
               processedIds.add(idStr);
               const localRow = cachedTables[tableName].find((l: any) => String(l.id_pedido) === idStr);
@@ -355,7 +448,7 @@ async function executeFetchTable<T = any>(tableName: string): Promise<T[]> {
               detail: { table: tableName, count: mergedData.length }
             }));
           }
-          return mergedData;
+          return mergedData as T[];
         }
       }
     } catch (error: any) {
@@ -422,30 +515,6 @@ export function preloadGoogleSheetsCache(): void {
   });
 }
 
-const PK_FIELD_MAP: Record<string, string> = {
-  productos_menu: 'id_producto',
-  mesas: 'id_mesa',
-  categorias: 'id_categoria',
-  promociones: 'id_promo',
-  pedidos_cabecera: 'id_pedido',
-  pedido_detalle: 'id_detalle',
-  pedido_operaciones: 'id_operacion',
-  insumos: 'id_insumo',
-  proveedores: 'id_proveedor',
-  reservas: 'id_reserva',
-  facturas: 'id_factura',
-  pagos: 'id_pago',
-  tipos_pago: 'id_pago',
-  ventas_platos: 'id_registro',
-  cierres_caja: 'id_cierre',
-  caja_ledger: 'id_ledger',
-  usuarios: 'id_usuario',
-  configuracion: 'clave',
-  arca_config: 'id',
-  arca_emisiones: 'id',
-  v_conciliacion_facturas: 'id_factura'
-};
-
 const isTestEnv = (): boolean =>
   typeof process !== 'undefined' && process.env?.NODE_ENV === 'test';
 
@@ -457,16 +526,22 @@ export async function sheetUpsertRow<T extends Record<string, any>>(tableName: s
 
   const pk = PK_FIELD_MAP[tableName] || 'id';
   const pkVal = rowData[pk];
+  const pkStr = pkVal !== undefined ? String(pkVal) : undefined;
 
   let fullRow: any = { ...rowData };
-  if (pkVal !== undefined) {
-    const idx = cachedTables[tableName].findIndex(r => String(r[pk]) === String(pkVal));
+  if (pkStr !== undefined) {
+    const idx = cachedTables[tableName].findIndex(r => String(r[pk]) === pkStr);
     if (idx >= 0) {
       fullRow = { ...cachedTables[tableName][idx], ...rowData };
       cachedTables[tableName][idx] = fullRow;
     } else {
       cachedTables[tableName].push({ ...rowData });
     }
+    getMutationMap(tableName).set(pkStr, {
+      row: { ...fullRow },
+      deleted: false,
+      timestamp: Date.now()
+    });
     setTableStorageCache(tableName, cachedTables[tableName]);
     lastFetchTimestamps[tableName] = Date.now();
   }
@@ -498,7 +573,7 @@ export async function sheetUpsertRow<T extends Record<string, any>>(tableName: s
       console.info(`[GoogleSheetsClient] Persistido localmente '${tableName}' (sincronización diferida):`, (err as any)?.message || err);
       return { operation: 'saved_locally' };
     }
-  });
+  }, pkStr);
 }
 
 export async function sheetBatchInsert<T extends Record<string, any>>(tableName: string, items: T[]): Promise<any> {
@@ -508,9 +583,17 @@ export async function sheetBatchInsert<T extends Record<string, any>>(tableName:
     const disk = getTableStorageCache(tableName);
     cachedTables[tableName] = disk && Array.isArray(disk) ? disk : [];
   }
+  const pk = PK_FIELD_MAP[tableName] || 'id';
+  const mutMap = getMutationMap(tableName);
+  const now = Date.now();
+  for (const item of items) {
+    if (item && item[pk] !== undefined) {
+      mutMap.set(String(item[pk]), { row: { ...item }, deleted: false, timestamp: now });
+    }
+  }
   cachedTables[tableName].push(...items);
   setTableStorageCache(tableName, cachedTables[tableName]);
-  lastFetchTimestamps[tableName] = Date.now();
+  lastFetchTimestamps[tableName] = now;
 
   if (isTestEnv()) {
     return { operation: 'saved_locally', count: items.length };
@@ -544,11 +627,13 @@ export async function sheetBatchInsert<T extends Record<string, any>>(tableName:
 
 export async function sheetDeleteRow(tableName: string, id: string | number): Promise<boolean> {
   const pk = PK_FIELD_MAP[tableName] || 'id';
+  const pkStr = String(id);
   if (!cachedTables[tableName]) {
     const disk = getTableStorageCache(tableName);
     cachedTables[tableName] = disk && Array.isArray(disk) ? disk : [];
   }
-  cachedTables[tableName] = cachedTables[tableName].filter(r => String(r[pk]) !== String(id));
+  cachedTables[tableName] = cachedTables[tableName].filter(r => String(r[pk]) !== pkStr);
+  getMutationMap(tableName).set(pkStr, { row: null, deleted: true, timestamp: Date.now() });
   setTableStorageCache(tableName, cachedTables[tableName]);
   lastFetchTimestamps[tableName] = Date.now();
 
@@ -576,5 +661,5 @@ export async function sheetDeleteRow(tableName: string, id: string | number): Pr
       console.info(`[GoogleSheetsClient] Eliminación diferida en '${tableName}':`, err);
       return true;
     }
-  });
+  }, pkStr);
 }

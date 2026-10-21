@@ -261,6 +261,55 @@ export default function App() {
   const broadcastChannelRef = useRef<BroadcastChannel | null>(null);
   const cobradoOrderIdsSetRef = useRef<Set<number>>(getInitialIdsSet('el_patron_cobrado_order_ids'));
   const cancelledOrderIdsSetRef = useRef<Set<number>>(getInitialIdsSet('el_patron_cancelled_order_ids'));
+  const recentlyFreedMesasRef = useRef<Map<string, number>>(new Map());
+
+  const markMesaRecentlyFreed = useCallback((idMesa?: any, numeroMesa?: string) => {
+    const now = Date.now();
+    if (idMesa !== undefined && idMesa !== null) {
+      recentlyFreedMesasRef.current.set(`id:${String(idMesa)}`, now);
+    }
+    if (numeroMesa) {
+      const norm = String(numeroMesa).toLowerCase().replace(/mesa\s+/gi, '').trim();
+      if (norm) recentlyFreedMesasRef.current.set(`num:${norm}`, now);
+    }
+  }, []);
+
+  const clearMesaRecentlyFreed = useCallback((idMesa?: any, numeroMesa?: string) => {
+    if (idMesa !== undefined && idMesa !== null) {
+      recentlyFreedMesasRef.current.delete(`id:${String(idMesa)}`);
+    }
+    if (numeroMesa) {
+      const norm = String(numeroMesa).toLowerCase().replace(/mesa\s+/gi, '').trim();
+      if (norm) recentlyFreedMesasRef.current.delete(`num:${norm}`);
+    }
+  }, []);
+
+  const reconcileFreshMesasWithRecentlyFreed = useCallback((remoteMesas: Mesa[]): Mesa[] => {
+    const now = Date.now();
+    for (const [k, ts] of recentlyFreedMesasRef.current.entries()) {
+      if (now - ts > 20_000) {
+        recentlyFreedMesasRef.current.delete(k);
+      }
+    }
+    if (recentlyFreedMesasRef.current.size === 0) return remoteMesas;
+
+    return remoteMesas.map(m => {
+      const idKey = m.id_mesa !== undefined && m.id_mesa !== null ? `id:${String(m.id_mesa)}` : '';
+      const normNum = String(m.numero_mesa || '').toLowerCase().replace(/mesa\s+/gi, '').trim();
+      const numKey = normNum ? `num:${normNum}` : '';
+      const freedTs = (idKey && recentlyFreedMesasRef.current.get(idKey)) || (numKey && recentlyFreedMesasRef.current.get(numKey));
+      if (freedTs && now - freedTs <= 20_000) {
+        return {
+          ...m,
+          estado: 'libre' as const,
+          comensales: undefined,
+          parent_id: undefined,
+          mesas_unidas: undefined
+        };
+      }
+      return m;
+    });
+  }, []);
 
   const persistFinalizedId = (id: number, type: 'cancelado' | 'cobrado') => {
     if (type === 'cancelado') {
@@ -285,9 +334,41 @@ export default function App() {
     if (!payload) return;
     const { id_mesa, numero_mesa, orderIds = [], motivo = 'cobrado' } = payload;
     
+    markMesaRecentlyFreed(id_mesa, numero_mesa);
     orderIds.forEach(id => persistFinalizedId(id, motivo));
 
-    // 1. Inmediatamente marcar comandas de esta mesa según motivo
+    // 1. Inmediatamente liberar la mesa y mesas unidas/hijas
+    setMesas(prev => {
+      const targetMesa = prev.find(m =>
+        (id_mesa !== undefined && id_mesa !== null && m.id_mesa !== undefined && m.id_mesa !== null && String(m.id_mesa) === String(id_mesa)) ||
+        (numero_mesa && String(m.numero_mesa || '').toLowerCase().replace(/mesa\s+/gi, '').trim() === String(numero_mesa).toLowerCase().replace(/mesa\s+/gi, '').trim())
+      );
+
+      const baseMesas = targetMesa ? separateTablesInList(targetMesa, prev) : prev;
+
+      const updated = baseMesas.map(m => {
+        const matchId = (id_mesa !== undefined && id_mesa !== null && m.id_mesa !== undefined && m.id_mesa !== null && String(m.id_mesa) === String(id_mesa));
+        const norm1 = String(m.numero_mesa || '').toLowerCase().replace(/mesa\s+/gi, '').trim();
+        const norm2 = numero_mesa ? String(numero_mesa).toLowerCase().replace(/mesa\s+/gi, '').trim() : '';
+        const matchNum = norm1 !== '' && norm2 !== '' && norm1 === norm2;
+        const isPartChild = id_mesa !== undefined && id_mesa !== null && m.parent_id !== undefined && m.parent_id !== null && String(m.parent_id) === String(id_mesa);
+        const isPartUnited = Boolean(targetMesa?.mesas_unidas && targetMesa.mesas_unidas.includes(m.id_mesa));
+        if (matchId || matchNum || isPartChild || isPartUnited) {
+          markMesaRecentlyFreed(m.id_mesa, m.numero_mesa);
+          return { ...m, estado: 'libre' as const, comensales: undefined, parent_id: undefined, mesas_unidas: undefined };
+        }
+        return m;
+      });
+
+      if (typeof window !== 'undefined') {
+        try {
+          window.localStorage.setItem('el_patron_sheet_cache_mesas', JSON.stringify(updated));
+        } catch {}
+      }
+      return updated;
+    });
+
+    // 2. Inmediatamente marcar comandas de esta mesa según motivo
     setPedidos(prev => prev.map(p => {
       const matchOrder = orderIds.includes(p.id_pedido);
       const matchTable = isSameTable(p, { id_mesa, numero_mesa });
@@ -301,30 +382,6 @@ export default function App() {
       }
       return p;
     }));
-
-    // 2. Inmediatamente liberar la mesa y mesas unidas/hijas
-    setMesas(prev => {
-      const targetMesa = prev.find(m =>
-        (id_mesa !== undefined && id_mesa !== null && m.id_mesa !== undefined && m.id_mesa !== null && String(m.id_mesa) === String(id_mesa)) ||
-        (numero_mesa && String(m.numero_mesa || '').toLowerCase().replace(/mesa\s+/gi, '').trim() === String(numero_mesa).toLowerCase().replace(/mesa\s+/gi, '').trim())
-      );
-      const updated = prev.map(m => {
-        const matchId = (id_mesa !== undefined && id_mesa !== null && m.id_mesa !== undefined && m.id_mesa !== null && String(m.id_mesa) === String(id_mesa));
-        const norm1 = String(m.numero_mesa || '').toLowerCase().replace(/mesa\s+/gi, '').trim();
-        const norm2 = numero_mesa ? String(numero_mesa).toLowerCase().replace(/mesa\s+/gi, '').trim() : '';
-        const matchNum = norm1 !== '' && norm2 !== '' && norm1 === norm2;
-        const isPartChild = id_mesa !== undefined && id_mesa !== null && m.parent_id !== undefined && m.parent_id !== null && String(m.parent_id) === String(id_mesa);
-        const isPartUnited = Boolean(targetMesa?.mesas_unidas && targetMesa.mesas_unidas.includes(m.id_mesa));
-        return (matchId || matchNum || isPartChild || isPartUnited) ? { ...m, estado: 'libre' as const, comensales: undefined } : m;
-      });
-
-      if (typeof window !== 'undefined') {
-        try {
-          window.localStorage.setItem('el_patron_sheet_cache_mesas', JSON.stringify(updated));
-        } catch {}
-      }
-      return updated;
-    });
 
     // 3. Sincronizar cache de pedidos_cabecera en localStorage de forma inmediata
     if (typeof window !== 'undefined') {
@@ -346,7 +403,7 @@ export default function App() {
         }
       } catch {}
     }
-  }, []);
+  }, [markMesaRecentlyFreed]);
 
   // Sincronización entre pestañas locales mediante BroadcastChannel y eventos
   useEffect(() => {
@@ -457,14 +514,17 @@ export default function App() {
         // Sincronización del estado de caja en tiempo real al ingresar al sistema
         cajaService.findActiveSessionRemote(true).then(remoteCaja => {
           if (!active) return;
-          if (remoteCaja) {
+          const recentAction = Date.now() - cajaService.getLastCajaActionTimestamp() < 20_000;
+          if (recentAction) return;
+
+          if (remoteCaja && !cajaService.isCierreClosed(remoteCaja.id_cierre)) {
             cajaService.safeStorage.setItem('el_patron_caja_activa', JSON.stringify(remoteCaja));
             if (typeof window !== 'undefined') {
               window.dispatchEvent(new CustomEvent('el_patron_caja_abierta', { detail: remoteCaja }));
             }
-          } else {
+          } else if (!remoteCaja) {
             const localSession = cajaService.getOpenSession();
-            if (localSession) {
+            if (localSession && cajaService.isCierreClosed(localSession.id_cierre)) {
               cajaService.safeStorage.removeItem('el_patron_caja_activa');
               if (typeof window !== 'undefined') {
                 window.dispatchEvent(new CustomEvent('el_patron_caja_cerrada', { detail: { id_cierre: localSession.id_cierre } }));
@@ -486,7 +546,8 @@ export default function App() {
               dbFetchUsuarios(),
             ]);
             if (active && refreshMesas) {
-              setMesas(prev => areMesasEquivalent(prev, refreshMesas) ? prev : refreshMesas);
+              const safeMesas = reconcileFreshMesasWithRecentlyFreed(refreshMesas);
+              setMesas(prev => areMesasEquivalent(prev, safeMesas) ? prev : safeMesas);
             }
             if (active && refreshPedidos) {
               setPedidos(prev => arePedidosEquivalent(prev, refreshPedidos) ? prev : refreshPedidos);
@@ -599,7 +660,8 @@ export default function App() {
         try {
           const refreshed = await dbFetchMesas(true);
           if (refreshed !== null && active) {
-            setMesas(prev => areMesasEquivalent(prev, refreshed) ? prev : refreshed);
+            const safeMesas = reconcileFreshMesasWithRecentlyFreed(refreshed);
+            setMesas(prev => areMesasEquivalent(prev, safeMesas) ? prev : safeMesas);
           }
         } catch (err) {
           console.warn('Realtime fetch for mesas failed:', err);
@@ -617,6 +679,7 @@ export default function App() {
         })
         .on('broadcast', { event: 'pedido_creado' }, ({ payload }: any) => {
           if (active && payload?.pedido) {
+            clearMesaRecentlyFreed(payload.id_mesa ?? payload.pedido.id_mesa, payload.pedido.numero_mesa);
             setPedidos(prev => {
               if (prev.some(p => p.id_pedido === payload.pedido.id_pedido)) {
                 return prev.map(p => p.id_pedido === payload.pedido.id_pedido ? payload.pedido : p);
@@ -629,7 +692,7 @@ export default function App() {
           }
         })
         .on('broadcast', { event: 'caja_abierta' }, ({ payload }: any) => {
-          if (payload) {
+          if (payload && !cajaService.isCierreClosed(payload.id_cierre)) {
             cajaService.safeStorage.setItem('el_patron_caja_activa', JSON.stringify(payload));
             if (typeof window !== 'undefined') {
               window.dispatchEvent(new CustomEvent('el_patron_caja_abierta', { detail: payload }));
@@ -637,6 +700,9 @@ export default function App() {
           }
         })
         .on('broadcast', { event: 'caja_cerrada' }, ({ payload }: any) => {
+          if (payload?.id_cierre) {
+            cajaService.markCierreClosed(payload.id_cierre);
+          }
           cajaService.safeStorage.removeItem('el_patron_caja_activa');
           if (typeof window !== 'undefined') {
             window.dispatchEvent(new CustomEvent('el_patron_caja_cerrada', { detail: payload }));
@@ -652,36 +718,53 @@ export default function App() {
           debouncedFetchMesas();
         })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'cierres_caja' }, async ({ new: newRow }: any) => {
-          if (!active) return;
-          if (newRow) {
-            const hasCierre = Boolean(
-              newRow.fecha_cierre &&
-              String(newRow.fecha_cierre).trim() !== '' &&
-              String(newRow.fecha_cierre) !== 'null'
-            );
-            if (hasCierre) {
+          if (!active || !newRow) return;
+          const idStr = String(newRow.id_cierre || '');
+          if (!idStr) return;
+
+          const hasCierre = Boolean(
+            newRow.fecha_cierre &&
+            String(newRow.fecha_cierre).trim() !== '' &&
+            String(newRow.fecha_cierre) !== 'null'
+          );
+
+          const localOpen = cajaService.getOpenSession();
+          const recentLocalAction = Date.now() - cajaService.getLastCajaActionTimestamp() < 20_000;
+
+          if (hasCierre) {
+            cajaService.markCierreClosed(idStr);
+            if (!localOpen || String(localOpen.id_cierre) === idStr) {
               cajaService.safeStorage.removeItem('el_patron_caja_activa');
               if (typeof window !== 'undefined') {
                 window.dispatchEvent(new CustomEvent('el_patron_caja_cerrada', { detail: newRow }));
               }
-            } else {
-              const session = {
-                id_cierre: String(newRow.id_cierre),
-                fecha_apertura: newRow.fecha_apertura,
-                fecha_cierre: null,
-                monto_apertura: parseFloat(newRow.monto_apertura || 0),
-                monto_ventas: parseFloat(newRow.monto_ventas || 0),
-                monto_real: null,
-                diferencia: null,
-                observaciones: newRow.observaciones || 'Sesión Activa - En Turno',
-                usuario_cajero: newRow.usuario_cajero || 'Cajero',
-                sync_status: 'synced' as const,
-                registros_totales: { efectivo: 0, debito: 0, credito: 0, transferencia: 0, mercadopago: 0 }
-              };
-              cajaService.safeStorage.setItem('el_patron_caja_activa', JSON.stringify(session));
-              if (typeof window !== 'undefined') {
-                window.dispatchEvent(new CustomEvent('el_patron_caja_abierta', { detail: session }));
-              }
+            }
+          } else if (!recentLocalAction && !cajaService.isCierreClosed(idStr)) {
+            const sameAsLocal = localOpen && String(localOpen.id_cierre) === idStr;
+            const session = {
+              id_cierre: idStr,
+              fecha_apertura: newRow.fecha_apertura || localOpen?.fecha_apertura,
+              fecha_cierre: null,
+              monto_apertura: parseFloat(newRow.monto_apertura || localOpen?.monto_apertura || 0),
+              monto_ventas: Math.max(parseFloat(newRow.monto_ventas || 0), sameAsLocal ? (localOpen?.monto_ventas || 0) : 0),
+              efectivo: sameAsLocal ? (localOpen?.efectivo || 0) : 0,
+              propina: sameAsLocal ? (localOpen?.propina || 0) : 0,
+              transferencia: sameAsLocal ? (localOpen?.transferencia || 0) : 0,
+              debito: sameAsLocal ? (localOpen?.debito || 0) : 0,
+              credito: sameAsLocal ? (localOpen?.credito || 0) : 0,
+              mercadopago: sameAsLocal ? (localOpen?.mercadopago || 0) : 0,
+              monto_real: null,
+              diferencia: null,
+              observaciones: newRow.observaciones || localOpen?.observaciones || 'Sesión Activa - En Turno',
+              usuario_cajero: newRow.usuario_cajero || localOpen?.usuario_cajero || 'Cajero',
+              sync_status: 'synced' as const,
+              registros_totales: sameAsLocal && localOpen?.registros_totales
+                ? localOpen.registros_totales
+                : { efectivo: 0, debito: 0, credito: 0, transferencia: 0, mercadopago: 0, propina: 0 }
+            };
+            cajaService.safeStorage.setItem('el_patron_caja_activa', JSON.stringify(session));
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('el_patron_caja_abierta', { detail: session }));
             }
           }
         })
@@ -697,7 +780,8 @@ export default function App() {
       if (!customEvent.detail || customEvent.detail.table === 'mesas') {
         dbFetchMesas(false).then(refreshedMesas => {
           if (refreshedMesas !== null && active) {
-            setMesas(prev => areMesasEquivalent(prev, refreshedMesas) ? prev : refreshedMesas);
+            const safeMesas = reconcileFreshMesasWithRecentlyFreed(refreshedMesas);
+            setMesas(prev => areMesasEquivalent(prev, safeMesas) ? prev : safeMesas);
           }
         }).catch(() => undefined);
       }
@@ -705,7 +789,8 @@ export default function App() {
     const handleSheetsSyncCompleted = () => {
       dbFetchMesas(false).then(refreshedMesas => {
         if (refreshedMesas !== null && active) {
-          setMesas(prev => areMesasEquivalent(prev, refreshedMesas) ? prev : refreshedMesas);
+          const safeMesas = reconcileFreshMesasWithRecentlyFreed(refreshedMesas);
+          setMesas(prev => areMesasEquivalent(prev, safeMesas) ? prev : safeMesas);
         }
       }).catch(() => undefined);
       dbFetchPedidos(false).then(refreshedPedidos => {
@@ -726,7 +811,8 @@ export default function App() {
       if (document.visibilityState === 'visible' && active) {
         dbFetchMesas(true).then(m => {
           if (m && active) {
-            setMesas(prev => areMesasEquivalent(prev, m) ? prev : m);
+            const safeMesas = reconcileFreshMesasWithRecentlyFreed(m);
+            setMesas(prev => areMesasEquivalent(prev, safeMesas) ? prev : safeMesas);
           }
         }).catch(() => {});
         dbFetchPedidos(true).then(p => {
@@ -746,7 +832,8 @@ export default function App() {
       if (!active || (typeof document !== 'undefined' && document.visibilityState === 'hidden')) return;
       dbFetchMesas(true).then(m => {
         if (m && active) {
-          setMesas(prev => areMesasEquivalent(prev, m) ? prev : m);
+          const safeMesas = reconcileFreshMesasWithRecentlyFreed(m);
+          setMesas(prev => areMesasEquivalent(prev, safeMesas) ? prev : safeMesas);
         }
       }).catch(() => {});
       dbFetchPedidos(true).then(p => {
@@ -1123,6 +1210,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
       addLog('pedido_creado', `Mesa ${newPedidoData.numero_mesa} generó pedido #${finalPedido.id_pedido} por ${finalPedido.mozo}. Items: ${newPedidoData.items.map(i => `${i.nombre} (x${i.cantidad})`).join(', ')}`);
     }
 
+    clearMesaRecentlyFreed(newPedidoData.id_mesa, newPedidoData.numero_mesa);
     const updatedMesas = mesas.map(m => String(m.id_mesa) === String(newPedidoData.id_mesa) ? { ...m, estado: 'ocupada' as const, comensales: newPedidoData.comensales || 2 } : m);
     setMesas(updatedMesas);
 
@@ -1550,8 +1638,13 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     }
     if (!target) return;
 
+    const targetMesa = mesas.find(m => 
+      (m.id_mesa !== undefined && m.id_mesa !== null && target.id_mesa !== undefined && target.id_mesa !== null && String(m.id_mesa) === String(target.id_mesa)) ||
+      (String(m.numero_mesa || '').toLowerCase().replace(/mesa\s+/gi, '').trim() === String(target.numero_mesa || '').toLowerCase().replace(/mesa\s+/gi, '').trim())
+    );
+
     const ordersToBill = pedidos.filter(p => 
-      isSameTable(p, target) && 
+      (isSameTable(p, target) || (targetMesa ? doesOrderBelongToTable(p, targetMesa) : false)) && 
       p.estado_comanda !== 'entregado_cobrado' && 
       p.estado_comanda !== 'cancelado'
     );
@@ -1605,11 +1698,6 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('el_patron_mesa_liberada', { detail: payload }));
     }
-
-    const targetMesa = mesas.find(m => 
-      (m.id_mesa !== undefined && m.id_mesa !== null && target.id_mesa !== undefined && target.id_mesa !== null && String(m.id_mesa) === String(target.id_mesa)) ||
-      (String(m.numero_mesa || '').toLowerCase().replace(/mesa\s+/gi, '').trim() === String(target.numero_mesa || '').toLowerCase().replace(/mesa\s+/gi, '').trim())
-    );
 
     const mesaIdToFree = target.id_mesa ?? targetMesa?.id_mesa;
 
@@ -1902,6 +1990,17 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
       });
     }
 
+    if (target) {
+      markMesaRecentlyFreed(target.id_mesa, target.numero_mesa);
+    }
+    if (targetOrder) {
+      markMesaRecentlyFreed(targetOrder.id_mesa, targetOrder.numero_mesa);
+    }
+    affectedIds.forEach(id => {
+      const found = mesas.find(m => String(m.id_mesa) === String(id));
+      markMesaRecentlyFreed(id, found?.numero_mesa);
+    });
+
     const nextMesas = target ? separateTablesInList(target, mesas).map(m => {
       if (affectedIds.has(String(m.id_mesa))) {
         return {
@@ -1945,6 +2044,17 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
         broadcastChannelRef.current.postMessage({ type: 'mesa_liberada', payload: broadcastPayload });
       } catch (bcErr) {
         console.warn('BroadcastChannel sync error:', bcErr);
+      }
+    }
+    if (activeChannelRef.current) {
+      try {
+        activeChannelRef.current.send({
+          type: 'broadcast',
+          event: 'mesa_liberada',
+          payload: broadcastPayload
+        }).catch?.(() => undefined);
+      } catch (rtErr) {
+        console.warn('Supabase Realtime broadcast error:', rtErr);
       }
     }
     if (typeof window !== 'undefined') {
@@ -2015,7 +2125,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     })();
 
     addLog('sistema', `MESAS: ${target?.numero_mesa || 'Mesa'} liberada manualmente. Comanda(s) ${orderIds.length > 0 ? `#${orderIds.join(', #')} cancelada(s)` : 'sin comanda activa'}.`);
-  }, [mesas, pedidos, addLog, isDemoSession, permitirVentaSinStock, syncBeverageStockForOrder]);
+  }, [mesas, pedidos, productosMenu, addLog, isDemoSession, permitirVentaSinStock, syncBeverageStockForOrder, markMesaRecentlyFreed]);
 
   // --- Handlers for Inventory View ---
   const handleRegistrarMerma = (idInsumo: string, cantidad: number, motivo: Merma['motivo']) => {
@@ -2485,6 +2595,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
               <MesasModule
                 mesas={mesas}
                 onMesasChange={setMesas}
+                onLiberarMesa={handleLiberarMesa}
                 addLog={addLog}
                 persistenceEnabled={!isDemoSession}
               />

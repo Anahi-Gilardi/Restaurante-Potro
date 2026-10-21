@@ -721,7 +721,14 @@ export default function CajaModule({
                   </button>
 
                   <button
-                    onClick={() => setShowCloseModal(true)}
+                    onClick={() => {
+                      if (!closingPhysicalCashInput && cajaSession) {
+                        const efVentas = Number(cajaSession.efectivo ?? cajaSession.registros_totales?.efectivo ?? 0);
+                        const esperado = Math.max(0, (Number(cajaSession.monto_apertura) || 0) + efVentas + sumIngresosManuales - sumEgresosManuales);
+                        setClosingPhysicalCashInput(String(esperado));
+                      }
+                      setShowCloseModal(true);
+                    }}
                     className="w-full py-2.5 bg-stone-900 hover:bg-stone-800 text-white rounded-xl text-[10px] uppercase font-black transition-all cursor-pointer shadow-xs border border-[#ddd7ce] flex items-center justify-center gap-1.5"
                   >
                     <Download className="w-3.5 h-3.5 text-amber-300" />
@@ -866,8 +873,7 @@ export default function CajaModule({
                       key={b.id_pedido}
                       onClick={() => {
                         if (!cajaSession) {
-                          toast.warning('Tenga a bien abrir primero la caja para proceder con la cuenta.');
-                          return;
+                          toast.info('Recuerde abrir la caja para registrar cobros con ticket.');
                         }
                         setSelectedPedidoId(isSelected ? null : b.id_pedido);
                         setSplitPayerCount(1);
@@ -1930,6 +1936,23 @@ export default function CajaModule({
                   </div>
 
                   <button
+                    type="button"
+                    onClick={() => {
+                      const mesaLabel = formatTableDisplayTitle(selectedPedido.numero_mesa);
+                      const idToFree = selectedPedido.id_pedido;
+                      setSelectedPedidoId(null);
+                      setSplitPayerCount(1);
+                      setActivePayerIndex(0);
+                      onFacturarMesa(idToFree, true);
+                      toast.success(`${mesaLabel} cerrada y liberada correctamente.`);
+                    }}
+                    className="w-full py-2 px-3 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/30 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/70 rounded-xl text-[10px] uppercase font-black transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    Cerrar / Liberar Mesa Directamente
+                  </button>
+
+                  <button
                     onClick={() => {
                       setSelectedPedidoId(null);
                       setSplitPayerCount(1);
@@ -2324,26 +2347,42 @@ export default function CajaModule({
 
             <form onSubmit={handleCloseShift} className="space-y-3">
               <div>
-                <div className="flex justify-between items-center mb-1">
+                <div className="flex justify-between items-center mb-1 gap-2 flex-wrap">
                   <label className="text-[10px] font-black text-stone-700 dark:text-stone-300 uppercase block">Monto Real Físico de Arqueo ($ ARS)</label>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setBillCounts({ 20000: 0, 10000: 0, 2000: 0, 1000: 0, 500: 0, 200: 0, 100: 0, 50: 0 });
-                      setShowBillCounter(showBillCounter === 'close' ? null : 'close');
-                    }}
-                    className="text-[9px] font-black uppercase text-[#624A3E] dark:text-[#C8956A] hover:underline cursor-pointer flex items-center gap-1"
-                  >
-                    🪙 Calculadora de Billetes
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {cajaSession && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const efVentas = Number(cajaSession.efectivo ?? cajaSession.registros_totales?.efectivo ?? 0);
+                          const esperado = Math.max(0, (Number(cajaSession.monto_apertura) || 0) + efVentas + sumIngresosManuales - sumEgresosManuales);
+                          setClosingPhysicalCashInput(String(esperado));
+                        }}
+                        className="text-[9px] font-black uppercase text-emerald-700 dark:text-emerald-400 hover:underline cursor-pointer"
+                      >
+                        ✓ Usar Esperado
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBillCounts({ 20000: 0, 10000: 0, 2000: 0, 1000: 0, 500: 0, 200: 0, 100: 0, 50: 0 });
+                        setShowBillCounter(showBillCounter === 'close' ? null : 'close');
+                      }}
+                      className="text-[9px] font-black uppercase text-[#624A3E] dark:text-[#C8956A] hover:underline cursor-pointer flex items-center gap-1"
+                    >
+                      🪙 Calculadora de Billetes
+                    </button>
+                  </div>
                 </div>
                 <input 
                   type="number"
-                  required
+                  min="0"
+                  step="any"
                   value={closingPhysicalCashInput}
                   onChange={e => setClosingPhysicalCashInput(e.target.value)}
                   className="w-full text-xs p-2.5 rounded-xl border border-stone-200 dark:border-stone-800 font-mono font-extrabold focus:ring-1 focus:ring-[#624A3E] focus:outline-none bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100"
-                  placeholder="Ej. 120000"
+                  placeholder="Ej. 120000 (o deje en blanco para usar esperado)"
                 />
               </div>
 
