@@ -25,15 +25,31 @@ const getLocalClientes = (): Cliente[] => {
   }
 };
 
+let supabaseClientesTableMissing = false;
+
+const isMissingTableError = (error: any): boolean => {
+  if (!error) return false;
+  const code = String(error.code || '');
+  const msg = String(error.message || '').toLowerCase();
+  return (
+    code === 'PGRST205' ||
+    code === '42P01' ||
+    msg.includes('could not find the table') ||
+    msg.includes('relation "public.clientes" does not exist')
+  );
+};
+
 const saveLocalClientes = (clientes: Cliente[]): void => {
   if (typeof window === 'undefined') return;
-  localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(clientes));
+  try {
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(clientes));
+  } catch {}
 };
 
 export const clientesService = {
   async list(): Promise<Cliente[]> {
     const supabase = tryGetActiveSupabaseClient();
-    if (!supabase) {
+    if (!supabase || supabaseClientesTableMissing) {
       return getLocalClientes();
     }
 
@@ -44,7 +60,10 @@ export const clientesService = {
         .order('nombre', { ascending: true });
 
       if (error) {
-        console.warn('Error fetching clientes from Supabase, returning local cache:', error);
+        if (isMissingTableError(error)) {
+          supabaseClientesTableMissing = true;
+          return getLocalClientes();
+        }
         return getLocalClientes();
       }
 
@@ -57,8 +76,8 @@ export const clientesService = {
         saveLocalClientes(sanitized);
         return sanitized;
       }
-    } catch (err) {
-      console.warn('Network error fetching clientes, returning local cache:', err);
+    } catch {
+      return getLocalClientes();
     }
     return getLocalClientes();
   },
@@ -68,7 +87,7 @@ export const clientesService = {
     const foundLocal = local.find(c => c.dni_cuit === dniCuit) || null;
 
     const supabase = tryGetActiveSupabaseClient();
-    if (!supabase) return foundLocal;
+    if (!supabase || supabaseClientesTableMissing) return foundLocal;
 
     try {
       const { data, error } = await supabase
@@ -78,7 +97,9 @@ export const clientesService = {
         .maybeSingle();
 
       if (error) {
-        console.warn(`Error fetching customer ${dniCuit} from Supabase, returning local match:`, error);
+        if (isMissingTableError(error)) {
+          supabaseClientesTableMissing = true;
+        }
         return foundLocal;
       }
 
@@ -93,8 +114,8 @@ export const clientesService = {
         saveLocalClientes(updatedLocal);
         return mapped;
       }
-    } catch (err) {
-      console.warn(`Network error fetching customer ${dniCuit}, returning local match:`, err);
+    } catch {
+      return foundLocal;
     }
     return foundLocal;
   },
@@ -111,7 +132,7 @@ export const clientesService = {
     saveLocalClientes(updatedLocal);
 
     const supabase = tryGetActiveSupabaseClient();
-    if (!supabase) return newCliente;
+    if (!supabase || supabaseClientesTableMissing) return newCliente;
 
     try {
       const payload = {
@@ -127,7 +148,9 @@ export const clientesService = {
         .single();
 
       if (error) {
-        console.warn('Could not persist new customer to Supabase (saved locally):', error);
+        if (isMissingTableError(error)) {
+          supabaseClientesTableMissing = true;
+        }
         return newCliente;
       }
 
@@ -138,8 +161,8 @@ export const clientesService = {
         };
         return mapped;
       }
-    } catch (err) {
-      console.warn('Network error creating customer, saved locally in cache:', err);
+    } catch {
+      return newCliente;
     }
     return newCliente;
   },
@@ -156,7 +179,7 @@ export const clientesService = {
     saveLocalClientes(updatedLocal);
 
     const supabase = tryGetActiveSupabaseClient();
-    if (!supabase) return;
+    if (!supabase || supabaseClientesTableMissing) return;
 
     try {
       const { error } = await supabase
@@ -164,11 +187,9 @@ export const clientesService = {
         .update({ puntos: nuevosPuntos })
         .eq('id_cliente', idCliente);
 
-      if (error) {
-        console.warn(`Could not update customer points ${idCliente} on Supabase (saved locally):`, error);
+      if (error && isMissingTableError(error)) {
+        supabaseClientesTableMissing = true;
       }
-    } catch (err) {
-      console.warn(`Network error updating customer points for ${idCliente}, saved locally:`, err);
-    }
+    } catch {}
   }
 };

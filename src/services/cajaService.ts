@@ -4,6 +4,7 @@ import { CierreCaja, MovimientoCajaChica } from '../types';
 import { aperturaCajaSchema } from '../lib/validations';
 import { syncQueueService } from './syncQueueService';
 import { getArgentinaDateTimeString, getArgentinaIsoString } from '../lib/argentinaDate';
+import { freeLocalStorageImageQuota } from '../lib/imageStorage';
 
 const inferFechaApertura = (idCierre: string) => {
   const timestamp = Number(idCierre.replace('cie_', ''));
@@ -28,7 +29,7 @@ const safeToIsoString = (val: string | null | undefined, fallbackNow = false): s
   return fallbackNow ? getArgentinaIsoString() : getArgentinaIsoString();
 };
 
-const memoryStorage: Record<string, string> = {};
+const memoryStorage: Record<string, string | null> = {};
 const LEGACY_DEMO_CIERRE_IDS = new Set(['cie_901', 'cie_902']);
 
 const removeLegacyDemoCierres = (cierres: CierreCaja[]) => cierres.filter(cierre => (
@@ -38,25 +39,29 @@ const removeLegacyDemoCierres = (cierres: CierreCaja[]) => cierres.filter(cierre
 const safeStorage = {
   getItem(key: string): string | null {
     try {
-      return localStorage.getItem(key);
-    } catch {
-      return memoryStorage[key] || null;
-    }
+      const diskVal = localStorage.getItem(key);
+      if (diskVal !== null) return diskVal;
+    } catch {}
+    return memoryStorage[key] ?? null;
   },
   setItem(key: string, value: string): void {
+    memoryStorage[key] = value;
     try {
       localStorage.setItem(key, value);
     } catch (err: any) {
-      memoryStorage[key] = value;
-      console.warn(`LocalStorage set failed for key "${key}", using memory storage fallback:`, err);
+      freeLocalStorageImageQuota();
+      try {
+        localStorage.setItem(key, value);
+      } catch {
+        console.warn(`LocalStorage set failed for key "${key}", using memory storage fallback:`, err);
+      }
     }
   },
   removeItem(key: string): void {
+    delete memoryStorage[key];
     try {
       localStorage.removeItem(key);
-    } catch {
-      delete memoryStorage[key];
-    }
+    } catch {}
   }
 };
 

@@ -1,5 +1,6 @@
 import { tryGetActiveSupabaseClient } from '../lib/supabaseClient';
 import { sheetFetchTable, sheetUpsertRow } from '../lib/googleSheetsClient';
+import { freeLocalStorageImageQuota, getMenuImageSync, saveMenuImage } from '../lib/imageStorage';
 
 export interface MenuDiarioDia {
   dia: 'lunes' | 'martes' | 'miercoles' | 'jueves' | 'viernes' | 'sabado' | 'domingo';
@@ -118,17 +119,20 @@ const extractDayFromProductId = (idProducto: string): MenuDiarioDia['dia'] | nul
   return ALL_DAYS.includes(rawDay) ? rawDay : null;
 };
 
+let inMemoryMenuDiarioCache: Record<string, MenuDiarioDia> | null = null;
+
 const getLocalCache = (): Record<string, MenuDiarioDia> => {
-  if (typeof window === 'undefined') return { ...INITIAL_MENU_DIARIO };
+  if (typeof window === 'undefined') return inMemoryMenuDiarioCache ? { ...inMemoryMenuDiarioCache } : { ...INITIAL_MENU_DIARIO };
   try {
     const raw = window.localStorage.getItem(LOCAL_STORAGE_KEY);
-    if (!raw) return { ...INITIAL_MENU_DIARIO };
+    if (!raw) return inMemoryMenuDiarioCache ? { ...inMemoryMenuDiarioCache } : { ...INITIAL_MENU_DIARIO };
     const parsed = JSON.parse(raw);
     const merged: Record<string, MenuDiarioDia> = { ...INITIAL_MENU_DIARIO };
     for (const key of Object.keys(merged)) {
       if (parsed && parsed[key]) {
         const item = parsed[key];
         const fallback = INITIAL_MENU_DIARIO[key];
+        const memImg = getMenuImageSync(toProductIdForDay(key)) || inMemoryMenuDiarioCache?.[key]?.imagen_url;
         merged[key] = {
           ...fallback,
           ...item,
@@ -136,22 +140,43 @@ const getLocalCache = (): Record<string, MenuDiarioDia> => {
           categoria: item.categoria?.trim() || fallback.categoria,
           descripcion: item.descripcion?.trim() || fallback.descripcion,
           precio: normalizeMenuDiarioPrecio(item.precio, fallback.precio),
-          imagen_url: item.imagen_url?.trim() || fallback.imagen_url || ''
+          imagen_url: item.imagen_url?.trim() || memImg || fallback.imagen_url || ''
         };
       }
     }
+    inMemoryMenuDiarioCache = merged;
     return merged;
   } catch {
-    return { ...INITIAL_MENU_DIARIO };
+    return inMemoryMenuDiarioCache ? { ...inMemoryMenuDiarioCache } : { ...INITIAL_MENU_DIARIO };
   }
 };
 
 const setLocalCache = (semana: Record<string, MenuDiarioDia>) => {
+  inMemoryMenuDiarioCache = { ...semana };
   if (typeof window === 'undefined') return;
+
+  for (const key of Object.keys(semana)) {
+    const img = semana[key]?.imagen_url;
+    if (img && img.startsWith('data:image/')) {
+      saveMenuImage(toProductIdForDay(key), img).catch(() => {});
+    }
+  }
+
   try {
     window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(semana));
-  } catch (err) {
-    console.warn('Could not save menu_diario to localStorage:', err);
+  } catch {
+    // Si localStorage alcanzó el límite de 5MB, liberamos las imágenes base64 pesadas y guardamos versión liviana
+    freeLocalStorageImageQuota();
+    try {
+      const lightweight: Record<string, MenuDiarioDia> = {};
+      for (const [k, v] of Object.entries(semana)) {
+        lightweight[k] = {
+          ...v,
+          imagen_url: v.imagen_url && v.imagen_url.length > 2000 ? '' : v.imagen_url
+        };
+      }
+      window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(lightweight));
+    } catch {}
   }
 };
 

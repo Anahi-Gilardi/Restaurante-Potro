@@ -7,6 +7,11 @@ const DB_VERSION = 1;
 // In-memory cache for ultra-fast 0ms lookups
 export const memoryImageCache = new Map<string, string>();
 
+const DEAD_IMAGE_PATTERNS = [
+  '1558001373-a75d5069b24a',
+  '1514218247612-9c1122aa4f7a'
+];
+
 /**
  * Validates if an image string is non-empty, non-truncated, and valid URL / data URL.
  */
@@ -15,11 +20,38 @@ export function isValidImageData(val: unknown): boolean {
   const trimmed = val.trim();
   if (!trimmed) return false;
   if (trimmed.toLowerCase().includes('[recortado]')) return false;
+  if (DEAD_IMAGE_PATTERNS.some((dead) => trimmed.includes(dead))) return false;
   if (trimmed.startsWith('data:image/')) {
     // Must contain base64 content
     return trimmed.length > 25 && trimmed.includes(';base64,');
   }
   return trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('/');
+}
+
+/**
+ * Frees localStorage space occupied by heavy base64 images while preserving them in memory and IndexedDB.
+ */
+export function freeLocalStorageImageQuota(): void {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  try {
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const key = window.localStorage.key(i);
+      if (key && key.startsWith('el_patron_img_')) {
+        const id = key.slice('el_patron_img_'.length);
+        const val = window.localStorage.getItem(key);
+        if (id && val && isValidImageData(val)) {
+          memoryImageCache.set(id, val);
+        }
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach((k) => {
+      try {
+        window.localStorage.removeItem(k);
+      } catch {}
+    });
+  } catch {}
 }
 
 /**
@@ -145,7 +177,7 @@ export function compressImageForUpload(
 }
 
 /**
- * Saves an image to in-memory cache, localStorage, and IndexedDB.
+ * Saves an image to in-memory cache and IndexedDB (avoiding localStorage quota exhaustion on base64 data).
  */
 export async function saveMenuImage(id_producto: string, dataUrl: string): Promise<void> {
   if (!id_producto || !isValidImageData(dataUrl)) return;
@@ -153,12 +185,16 @@ export async function saveMenuImage(id_producto: string, dataUrl: string): Promi
   const clean = dataUrl.trim();
   memoryImageCache.set(id_producto, clean);
 
-  // Synchronous localStorage backup
+  // Only keep short URLs in localStorage; large base64 images go to IndexedDB + memory
   if (typeof window !== 'undefined' && window.localStorage) {
     try {
-      window.localStorage.setItem('el_patron_img_' + id_producto, clean);
-    } catch (e) {
-      // Ignore quota error gracefully
+      if (!clean.startsWith('data:image/') && clean.length < 500) {
+        window.localStorage.setItem('el_patron_img_' + id_producto, clean);
+      } else {
+        window.localStorage.removeItem('el_patron_img_' + id_producto);
+      }
+    } catch {
+      freeLocalStorageImageQuota();
     }
   }
 

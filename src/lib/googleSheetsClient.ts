@@ -47,7 +47,7 @@ export const KNOWN_SHEET_TABLES = [
 
 const CACHE_VERSION = '2026_09_18_v5';
 
-// Limpieza automática de caché obsoleto en el navegador
+// Limpieza automática de caché obsoleto y liberación de imágenes base64 pesadas en localStorage
 if (typeof window !== 'undefined') {
   try {
     const currentVersion = window.localStorage.getItem('el_patron_cache_version');
@@ -57,6 +57,22 @@ if (typeof window !== 'undefined') {
       window.localStorage.removeItem('el_patron_sheet_cache_mesas');
       window.localStorage.setItem('el_patron_cache_version', CACHE_VERSION);
     }
+    // Liberar claves de imágenes base64 pesadas que saturaban los 5MB de localStorage
+    const imgKeysToRemove: string[] = [];
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const k = window.localStorage.key(i);
+      if (k && k.startsWith('el_patron_img_')) {
+        const val = window.localStorage.getItem(k);
+        if (val && val.length > 500) {
+          imgKeysToRemove.push(k);
+        }
+      }
+    }
+    imgKeysToRemove.forEach((k) => {
+      try {
+        window.localStorage.removeItem(k);
+      } catch {}
+    });
   } catch {}
 }
 
@@ -104,10 +120,25 @@ function setTableStorageCache(tableName: string, data: any[]) {
         if (cobradoSet.has(idNum)) return { ...p, estado_comanda: 'entregado_cobrado' };
         return p;
       });
+    } else if (tableName === 'productos_menu' && Array.isArray(data)) {
+      // Evitar saturar localStorage con fotos en base64 (las imágenes viven en memoria / IndexedDB)
+      toSave = data.map((p: any) => {
+        const img = typeof p?.imagen === 'string' && p.imagen.startsWith('data:image/') ? '' : p?.imagen;
+        const urlImg = typeof p?.url_imagen === 'string' && p.url_imagen.startsWith('data:image/') ? '' : p?.url_imagen;
+        if (img !== p?.imagen || urlImg !== p?.url_imagen) {
+          return { ...p, imagen: img, url_imagen: urlImg };
+        }
+        return p;
+      });
     }
     window.localStorage.setItem(`el_patron_sheet_cache_${tableName}`, JSON.stringify(toSave));
   } catch (err) {
-    console.warn(`[GoogleSheetsClient] LocalStorage full for ${tableName}:`, err);
+    try {
+      window.localStorage.removeItem('el_patron_sheet_cache_productos_menu');
+      window.localStorage.setItem(`el_patron_sheet_cache_${tableName}`, JSON.stringify(data));
+    } catch {
+      console.warn(`[GoogleSheetsClient] LocalStorage full for ${tableName}:`, err);
+    }
   }
 }
 
