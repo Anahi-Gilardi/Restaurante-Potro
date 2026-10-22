@@ -104,6 +104,18 @@ function getTableStorageCache(tableName: string): any[] | null {
   }
 }
 
+const HISTORICAL_LOG_TABLES = new Set([
+  'pedido_detalle',
+  'pedido_operaciones',
+  'ventas_platos',
+  'facturas',
+  'pagos',
+  'tipos_pago',
+  'caja_ledger',
+  'arca_emisiones'
+]);
+const MAX_LOCAL_CACHE_ROWS = 400;
+
 function setTableStorageCache(tableName: string, data: any[]) {
   if (typeof window === 'undefined') return;
   try {
@@ -114,12 +126,23 @@ function setTableStorageCache(tableName: string, data: any[]) {
       const cancelledSet = new Set(rawCancelled ? JSON.parse(rawCancelled).map(Number) : []);
       const cobradoSet = new Set(rawCobrado ? JSON.parse(rawCobrado).map(Number) : []);
 
-      toSave = data.map((p: any) => {
+      const mapped = data.map((p: any) => {
         const idNum = Number(p.id_pedido);
         if (cancelledSet.has(idNum)) return { ...p, estado_comanda: 'cancelado' };
         if (cobradoSet.has(idNum)) return { ...p, estado_comanda: 'entregado_cobrado' };
         return p;
       });
+      if (mapped.length > MAX_LOCAL_CACHE_ROWS) {
+        const activeOrders = mapped.filter(
+          (p: any) => p.estado_comanda !== 'entregado_cobrado' && p.estado_comanda !== 'cancelado'
+        );
+        const recentClosed = mapped
+          .filter((p: any) => p.estado_comanda === 'entregado_cobrado' || p.estado_comanda === 'cancelado')
+          .slice(-MAX_LOCAL_CACHE_ROWS);
+        toSave = [...activeOrders, ...recentClosed];
+      } else {
+        toSave = mapped;
+      }
     } else if (tableName === 'productos_menu' && Array.isArray(data)) {
       // Evitar saturar localStorage con fotos en base64 (las imágenes viven en memoria / IndexedDB)
       toSave = data.map((p: any) => {
@@ -130,12 +153,17 @@ function setTableStorageCache(tableName: string, data: any[]) {
         }
         return p;
       });
+    } else if (HISTORICAL_LOG_TABLES.has(tableName) && Array.isArray(data) && data.length > MAX_LOCAL_CACHE_ROWS) {
+      toSave = data.slice(-MAX_LOCAL_CACHE_ROWS);
     }
     window.localStorage.setItem(`el_patron_sheet_cache_${tableName}`, JSON.stringify(toSave));
   } catch (err) {
     try {
       window.localStorage.removeItem('el_patron_sheet_cache_productos_menu');
-      window.localStorage.setItem(`el_patron_sheet_cache_${tableName}`, JSON.stringify(data));
+      window.localStorage.removeItem('el_patron_sheet_cache_ventas_platos');
+      window.localStorage.removeItem('el_patron_sheet_cache_pedido_detalle');
+      const fallbackData = Array.isArray(data) && data.length > 200 ? data.slice(-200) : data;
+      window.localStorage.setItem(`el_patron_sheet_cache_${tableName}`, JSON.stringify(fallbackData));
     } catch {
       console.warn(`[GoogleSheetsClient] LocalStorage full for ${tableName}:`, err);
     }
