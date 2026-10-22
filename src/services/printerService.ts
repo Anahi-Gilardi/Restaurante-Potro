@@ -76,7 +76,21 @@ let bridgeOnlineCache: boolean | null = null;
 let lastBridgeCheckTime = 0;
 const BRIDGE_CACHE_TTL = 30000;
 
+function canProbeLocalBridge(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    if (localStorage.getItem('el_patron_enable_local_bridge') === 'true') return true;
+  } catch {}
+  const host = window.location?.hostname || '';
+  const isLocalHost = host === 'localhost' || host === '127.0.0.1' || host.startsWith('192.168.') || host.startsWith('10.');
+  return isLocalHost || window.location?.protocol !== 'https:';
+}
+
 async function isBridgeOnlineFast(): Promise<boolean> {
+  if (!canProbeLocalBridge()) {
+    bridgeOnlineCache = false;
+    return false;
+  }
   const now = Date.now();
   if (bridgeOnlineCache !== null && now - lastBridgeCheckTime < BRIDGE_CACHE_TTL) {
     return bridgeOnlineCache;
@@ -397,6 +411,11 @@ export const printerService = {
    * Consulta el estado del servicio puente local en http://127.0.0.1:8012/status
    */
   async checkBridgeStatus(): Promise<BridgeStatus> {
+    if (!canProbeLocalBridge()) {
+      bridgeOnlineCache = false;
+      lastBridgeCheckTime = Date.now();
+      return { online: false };
+    }
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 300);

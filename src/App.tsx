@@ -717,57 +717,6 @@ export default function App() {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'mesas' }, async () => {
           debouncedFetchMesas();
         })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'cierres_caja' }, async ({ new: newRow }: any) => {
-          if (!active || !newRow) return;
-          const idStr = String(newRow.id_cierre || '');
-          if (!idStr) return;
-
-          const hasCierre = Boolean(
-            newRow.fecha_cierre &&
-            String(newRow.fecha_cierre).trim() !== '' &&
-            String(newRow.fecha_cierre) !== 'null'
-          );
-
-          const localOpen = cajaService.getOpenSession();
-          const recentLocalAction = Date.now() - cajaService.getLastCajaActionTimestamp() < 20_000;
-
-          if (hasCierre) {
-            cajaService.markCierreClosed(idStr);
-            if (!localOpen || String(localOpen.id_cierre) === idStr) {
-              cajaService.safeStorage.removeItem('el_patron_caja_activa');
-              if (typeof window !== 'undefined') {
-                window.dispatchEvent(new CustomEvent('el_patron_caja_cerrada', { detail: newRow }));
-              }
-            }
-          } else if (!recentLocalAction && !cajaService.isCierreClosed(idStr)) {
-            const sameAsLocal = localOpen && String(localOpen.id_cierre) === idStr;
-            const session = {
-              id_cierre: idStr,
-              fecha_apertura: newRow.fecha_apertura || localOpen?.fecha_apertura,
-              fecha_cierre: null,
-              monto_apertura: parseFloat(newRow.monto_apertura || localOpen?.monto_apertura || 0),
-              monto_ventas: Math.max(parseFloat(newRow.monto_ventas || 0), sameAsLocal ? (localOpen?.monto_ventas || 0) : 0),
-              efectivo: sameAsLocal ? (localOpen?.efectivo || 0) : 0,
-              propina: sameAsLocal ? (localOpen?.propina || 0) : 0,
-              transferencia: sameAsLocal ? (localOpen?.transferencia || 0) : 0,
-              debito: sameAsLocal ? (localOpen?.debito || 0) : 0,
-              credito: sameAsLocal ? (localOpen?.credito || 0) : 0,
-              mercadopago: sameAsLocal ? (localOpen?.mercadopago || 0) : 0,
-              monto_real: null,
-              diferencia: null,
-              observaciones: newRow.observaciones || localOpen?.observaciones || 'Sesión Activa - En Turno',
-              usuario_cajero: newRow.usuario_cajero || localOpen?.usuario_cajero || 'Cajero',
-              sync_status: 'synced' as const,
-              registros_totales: sameAsLocal && localOpen?.registros_totales
-                ? localOpen.registros_totales
-                : { efectivo: 0, debito: 0, credito: 0, transferencia: 0, mercadopago: 0, propina: 0 }
-            };
-            cajaService.safeStorage.setItem('el_patron_caja_activa', JSON.stringify(session));
-            if (typeof window !== 'undefined') {
-              window.dispatchEvent(new CustomEvent('el_patron_caja_abierta', { detail: session }));
-            }
-          }
-        })
         .subscribe((status) => {
           if (status === 'SUBSCRIBED') {
             console.log('Realtime subscription connected successfully.');

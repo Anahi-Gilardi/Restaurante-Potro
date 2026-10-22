@@ -65,6 +65,27 @@ const safeStorage = {
   }
 };
 
+const extractCierreTimestamp = (rowOrId: any): number => {
+  if (!rowOrId) return 0;
+  const idStr = typeof rowOrId === 'string' ? rowOrId : String(rowOrId?.id_cierre || rowOrId?.id || '');
+  const match = idStr.match(/(\d{10,14})/);
+  if (match) {
+    const ts = Number(match[1]);
+    if (Number.isFinite(ts) && ts > 1_000_000_000_000) return ts;
+  }
+  if (typeof rowOrId === 'object' && rowOrId?.fecha_apertura) {
+    const parsed = Date.parse(String(rowOrId.fecha_apertura));
+    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  }
+  return 0;
+};
+
+const hasValidFechaCierre = (val: any): boolean => {
+  if (val === null || val === undefined) return false;
+  const str = String(val).trim();
+  return str !== '' && str.toLowerCase() !== 'null' && str.toLowerCase() !== 'undefined';
+};
+
 const getClosedCierreIds = (): Set<string> => {
   const closedIds = new Set<string>();
   const lastClosedId = safeStorage.getItem('el_patron_ultimo_cierre_cerrado_id');
@@ -88,7 +109,7 @@ const getClosedCierreIds = (): Set<string> => {
       const parsedHistory = JSON.parse(rawHistory);
       if (Array.isArray(parsedHistory)) {
         parsedHistory.forEach((h: any) => {
-          if (h?.id_cierre && h?.fecha_cierre && String(h.fecha_cierre) !== 'null') {
+          if (h?.id_cierre && hasValidFechaCierre(h?.fecha_cierre)) {
             closedIds.add(String(h.id_cierre));
           }
         });
@@ -99,13 +120,18 @@ const getClosedCierreIds = (): Set<string> => {
   return closedIds;
 };
 
-const markCierreClosed = (idCierre: string): void => {
+const markCierreClosed = (idCierre: string, rowOptional?: any): void => {
   if (!idCierre) return;
   const idStr = String(idCierre);
   safeStorage.setItem('el_patron_ultimo_cierre_cerrado_id', idStr);
   const current = Array.from(getClosedCierreIds());
-  const next = [idStr, ...current.filter(id => id !== idStr)].slice(0, 100);
+  const next = [idStr, ...current.filter(id => id !== idStr)].slice(0, 150);
   safeStorage.setItem('el_patron_closed_cierre_ids', JSON.stringify(next));
+
+  const ts = extractCierreTimestamp(rowOptional || idStr);
+  const prevTs = Number(safeStorage.getItem('el_patron_last_closed_cierre_ts') || 0) || 0;
+  const nextTs = Math.max(prevTs, ts, Date.now());
+  safeStorage.setItem('el_patron_last_closed_cierre_ts', String(nextTs));
 };
 
 const recordCajaActionTimestamp = (): void => {
@@ -197,45 +223,14 @@ export const broadcastAppEvent = (event: string, payload: any) => {
   } catch {}
 };
 
-let sbCierresCajaAvailable = true;
-
 const persistCierre = async (cierre: CierreCaja): Promise<void> => {
   if (!cierre) return;
-  // 1. Sincronización en Supabase para notificación en tiempo real a todas las terminales
-  if (sbCierresCajaAvailable) {
-    try {
-      const supabase = tryGetActiveSupabaseClient();
-      if (supabase) {
-        const sbPayload: any = {
-          id_cierre: cierre.id_cierre,
-          fecha_apertura: safeToIsoString(cierre.fecha_apertura, true),
-          fecha_cierre: safeToIsoString(cierre.fecha_cierre, false),
-          monto_apertura: Number(cierre.monto_apertura) || 0,
-          monto_ventas: Number(cierre.monto_ventas) || 0,
-          monto_real: cierre.monto_real !== null && cierre.monto_real !== undefined ? Number(cierre.monto_real) : null,
-          diferencia: cierre.diferencia !== null && cierre.diferencia !== undefined ? Number(cierre.diferencia) : null,
-          observaciones: cierre.observaciones,
-          usuario_cajero: cierre.usuario_cajero || 'Cajero',
-        };
-        const { error } = await supabase.from('cierres_caja').upsert(sbPayload);
-        if (error) {
-          if (error.code === 'PGRST204' || error.code === 'PGRST116' || error.message?.includes('404') || error.message?.includes('relation') || error.message?.includes('does not exist')) {
-            sbCierresCajaAvailable = false;
-          }
-        }
-      }
-    } catch (err: any) {
-      if (err?.message?.includes('404') || err?.message?.includes('relation')) {
-        sbCierresCajaAvailable = false;
-      }
-    }
-  }
-
-  // 2. Persistencia en Google Sheets hoja 'cierres_caja'
+  // Persistencia en Google Sheets hoja 'cierres_caja' (la tabla vive en Google Sheets)
   try {
     await sheetUpsertRow('cierres_caja', toDbCierre(cierre));
   } catch (sheetErr) {
     console.warn('[cajaService.persistCierre] Error en Google Sheets:', sheetErr);
+    throw sheetErr;
   }
 };
 
@@ -463,130 +458,59 @@ export const cajaService = {
       }
 
       const closedIds = getClosedCierreIds();
+      let maxClosedTs = Number(safeStorage.getItem('el_patron_last_closed_cierre_ts') || 0);
+      closedIds.forEach((cid) => {
+        const ts = extractCierreTimestamp(cid);
+        if (ts > maxClosedTs) maxClosedTs = ts;
+      });
 
-      // Consultar Google Sheets para contrastar el estado más reciente
+      // Consultar Google Sheets (única fuente remota de cierres_caja)
       let latestSheet: any = null;
       let sheetHasFechaCierre = false;
       try {
         const sheetData = await sheetFetchTable('cierres_caja', forceFresh);
         if (sheetData && Array.isArray(sheetData) && sheetData.length > 0) {
+          for (const row of sheetData) {
+            if (hasValidFechaCierre(row)) {
+              const cid = String(row.id_cierre || '');
+              if (cid) closedIds.add(cid);
+              const ts = extractCierreTimestamp(row.id_cierre, row.fecha_apertura);
+              if (ts > maxClosedTs) maxClosedTs = ts;
+            }
+          }
+
           const sorted = [...sheetData].sort((a, b) => {
-            const tA = Number(String(a.id_cierre || '').replace(/\D/g, '')) || new Date(a.fecha_apertura || 0).getTime();
-            const tB = Number(String(b.id_cierre || '').replace(/\D/g, '')) || new Date(b.fecha_apertura || 0).getTime();
+            const tA = extractCierreTimestamp(a.id_cierre, a.fecha_apertura);
+            const tB = extractCierreTimestamp(b.id_cierre, b.fecha_apertura);
             return tB - tA;
           });
           latestSheet = sorted[0] || null;
           if (latestSheet) {
-            sheetHasFechaCierre = Boolean(
-              latestSheet.fecha_cierre &&
-              String(latestSheet.fecha_cierre).trim() !== '' &&
-              String(latestSheet.fecha_cierre) !== 'null'
-            );
-            if (sheetHasFechaCierre) {
-              closedIds.add(String(latestSheet.id_cierre));
-            }
+            sheetHasFechaCierre = hasValidFechaCierre(latestSheet);
           }
         }
       } catch (sheetErr) {
         console.warn('[cajaService.findActiveSessionRemote] Google Sheets:', sheetErr);
       }
 
-      // 1. Consulta en tiempo real a Supabase si está disponible
-      if (sbCierresCajaAvailable) {
-        const supabase = tryGetActiveSupabaseClient();
-        if (supabase) {
-          try {
-            const { data: sbCierres, error } = await supabase
-              .from('cierres_caja')
-              .select('*')
-              .order('fecha_apertura', { ascending: false })
-              .limit(5);
-
-            if (error) {
-              if (error.code === 'PGRST204' || error.code === 'PGRST116' || error.message?.includes('404') || error.message?.includes('relation') || error.message?.includes('does not exist')) {
-                sbCierresCajaAvailable = false;
-              }
-            } else if (sbCierres && sbCierres.length > 0) {
-              const latestSb = sbCierres[0];
-              const sbIdStr = String(latestSb.id_cierre);
-              const hasCierre = Boolean(
-                latestSb.fecha_cierre && 
-                String(latestSb.fecha_cierre).trim() !== '' && 
-                String(latestSb.fecha_cierre) !== 'null'
-              );
-
-              if (hasCierre) {
-                closedIds.add(sbIdStr);
-              }
-
-              // Si en Google Sheets hay un turno más nuevo que ya está cerrado, no revivir el viejo de Supabase
-              const sbTs = Number(sbIdStr.replace(/\D/g, '')) || 0;
-              const sheetTs = latestSheet ? (Number(String(latestSheet.id_cierre || '').replace(/\D/g, '')) || 0) : 0;
-              const isSupersededByClosedSheet = latestSheet && sheetTs >= sbTs && sheetHasFechaCierre;
-
-              if (!hasCierre && !closedIds.has(sbIdStr) && !isSupersededByClosedSheet) {
-                let isExpired = false;
-                if (latestSb.fecha_apertura) {
-                  const openedAt = new Date(latestSb.fecha_apertura).getTime();
-                  if (!isNaN(openedAt) && (Date.now() - openedAt > 24 * 3600 * 1000)) {
-                    isExpired = true;
-                  }
-                }
-
-                if (!isExpired) {
-                  // Si coincide con la fila de Google Sheets, enriquecer desglose de medios de pago
-                  if (latestSheet && String(latestSheet.id_cierre) === sbIdStr && !sheetHasFechaCierre) {
-                    // Dejar que el bloque de Google Sheets abajo construya el objeto enriquecido
-                  } else {
-                    const localActive = this.getOpenSession();
-                    const sameAsLocal = localActive && String(localActive.id_cierre) === sbIdStr;
-                    return {
-                      id_cierre: sbIdStr,
-                      fecha_apertura: latestSb.fecha_apertura || inferFechaApertura(sbIdStr),
-                      fecha_cierre: null,
-                      monto_apertura: parseFloat(latestSb.monto_apertura || 0),
-                      monto_ventas: Math.max(parseFloat(latestSb.monto_ventas || 0), sameAsLocal ? (localActive?.monto_ventas || 0) : 0),
-                      efectivo: sameAsLocal ? (localActive?.efectivo || 0) : 0,
-                      propina: sameAsLocal ? (localActive?.propina || 0) : 0,
-                      transferencia: sameAsLocal ? (localActive?.transferencia || 0) : 0,
-                      debito: sameAsLocal ? (localActive?.debito || 0) : 0,
-                      credito: sameAsLocal ? (localActive?.credito || 0) : 0,
-                      mercadopago: sameAsLocal ? (localActive?.mercadopago || 0) : 0,
-                      monto_real: null,
-                      diferencia: null,
-                      observaciones: latestSb.observaciones || 'Sesión Activa - En Turno',
-                      usuario_cajero: latestSb.usuario_cajero || 'Cajero Pro',
-                      sync_status: 'synced',
-                      registros_totales: sameAsLocal && localActive?.registros_totales
-                        ? localActive.registros_totales
-                        : { efectivo: 0, debito: 0, credito: 0, transferencia: 0, mercadopago: 0, propina: 0 }
-                    };
-                  }
-                }
-              } else if (!latestSheet || String(latestSheet.id_cierre) === sbIdStr) {
-                return null;
-              }
-            }
-          } catch (err: any) {
-            if (err?.message?.includes('404') || err?.message?.includes('relation')) {
-              sbCierresCajaAvailable = false;
-            }
-          }
-        }
-      }
-
-      // 2. Evaluación sobre la fila más reciente de Google Sheets
+      // Evaluación sobre la fila más reciente de Google Sheets
       if (latestSheet) {
-        if (sheetHasFechaCierre || closedIds.has(String(latestSheet.id_cierre))) {
+        const latestIdStr = String(latestSheet.id_cierre || '');
+        const latestTs = extractCierreTimestamp(latestSheet.id_cierre, latestSheet.fecha_apertura);
+
+        // Si ya tiene fecha de cierre, o está en la lista de cerrados, o es anterior/igual al último cierre registrado, NO está abierta
+        if (
+          sheetHasFechaCierre ||
+          closedIds.has(latestIdStr) ||
+          (maxClosedTs > 0 && latestTs > 0 && latestTs <= maxClosedTs)
+        ) {
           return null;
         }
 
         // Si la apertura tiene más de 24 horas y quedó huérfana, ignorar
-        if (latestSheet.fecha_apertura) {
-          const openedAt = new Date(latestSheet.fecha_apertura).getTime();
-          if (!isNaN(openedAt) && (Date.now() - openedAt > 24 * 3600 * 1000)) {
-            return null;
-          }
+        const openedAt = latestTs || new Date(latestSheet.fecha_apertura || 0).getTime();
+        if (openedAt > 0 && (Date.now() - openedAt > 24 * 3600 * 1000)) {
+          return null;
         }
 
         let regTotales = { efectivo: 0, debito: 0, credito: 0, transferencia: 0, mercadopago: 0, propina: 0 };
@@ -612,8 +536,8 @@ export const cajaService = {
         }
 
         const session: CierreCaja = {
-          id_cierre: String(latestSheet.id_cierre),
-          fecha_apertura: latestSheet.fecha_apertura || inferFechaApertura(String(latestSheet.id_cierre)),
+          id_cierre: latestIdStr,
+          fecha_apertura: latestSheet.fecha_apertura || inferFechaApertura(latestIdStr),
           fecha_cierre: null,
           monto_apertura: parseFloat(latestSheet.monto_apertura || 0),
           monto_ventas: montoVentas,
@@ -647,7 +571,11 @@ export const cajaService = {
   },
 
   isCierreClosed(idCierre: string): boolean {
-    return getClosedCierreIds().has(String(idCierre));
+    const idStr = String(idCierre || '');
+    if (getClosedCierreIds().has(idStr)) return true;
+    const maxClosedTs = Number(safeStorage.getItem('el_patron_last_closed_cierre_ts') || 0);
+    const ts = extractCierreTimestamp(idStr);
+    return maxClosedTs > 0 && ts > 0 && ts <= maxClosedTs;
   },
 
   markCierreClosed(idCierre: string): void {
@@ -898,7 +826,7 @@ export const cajaService = {
       fecha_cierre: getArgentinaDateTimeString(),
       monto_real: montoReal,
       diferencia: diferencia,
-      observaciones: observaciones || 'Cierre de Caja Normal',
+      observaciones: observaciones || 'Cierre de turno',
       movimientos_manuales: movsList,
       sync_status: 'synced'
     };
@@ -923,10 +851,31 @@ export const cajaService = {
     // Notificar a otras pestañas y computadoras en tiempo real
     broadcastAppEvent('caja_cerrada', { id_cierre: closed.id_cierre });
 
-    // Persistir en Google Sheets en segundo plano sin congelar la pantalla ni demorar el arqueo
-    persistCierre(closed).catch(sheetErr => {
-      console.warn('[cajaService.close] Persistencia remota diferida:', sheetErr);
-    });
+    // Persistir en Google Sheets en segundo plano y cerrar también cualquier fila huérfana sin fecha_cierre
+    (async () => {
+      try {
+        await persistCierre(closed);
+        const allSheetRows = await sheetFetchTable('cierres_caja', false);
+        if (Array.isArray(allSheetRows)) {
+          const orphanOpenRows = allSheetRows.filter(
+            (r: any) =>
+              r?.id_cierre &&
+              String(r.id_cierre) !== String(closed.id_cierre) &&
+              !hasValidFechaCierre(r)
+          );
+          for (const orphan of orphanOpenRows) {
+            markCierreClosed(String(orphan.id_cierre));
+            await sheetUpsertRow('cierres_caja', {
+              ...orphan,
+              fecha_cierre: closed.fecha_cierre,
+              observaciones: 'Cierre de turno'
+            });
+          }
+        }
+      } catch (sheetErr) {
+        console.warn('[cajaService.close] Persistencia remota diferida:', sheetErr);
+      }
+    })();
 
     return closed;
   }
