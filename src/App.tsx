@@ -405,9 +405,15 @@ export default function App() {
     }
   }, [markMesaRecentlyFreed]);
 
+  const [isCajaOpen, setIsCajaOpen] = useState<boolean>(() => Boolean(cajaService.getOpenSession()));
+
   // Sincronización entre pestañas locales mediante BroadcastChannel y eventos
   useEffect(() => {
     if (typeof window === 'undefined') return;
+
+    const syncCajaStateFromStorage = () => {
+      setIsCajaOpen(Boolean(cajaService.getOpenSession()));
+    };
 
     let bc: BroadcastChannel | null = null;
     try {
@@ -431,11 +437,13 @@ export default function App() {
             }
           } else if (event.data.type === 'caja_abierta' && event.data.payload) {
             cajaService.safeStorage.setItem('el_patron_caja_activa', JSON.stringify(event.data.payload));
+            setIsCajaOpen(true);
             if (typeof window !== 'undefined') {
               window.dispatchEvent(new CustomEvent('el_patron_caja_abierta', { detail: event.data.payload }));
             }
           } else if (event.data.type === 'caja_cerrada') {
             cajaService.safeStorage.removeItem('el_patron_caja_activa');
+            setIsCajaOpen(false);
             if (typeof window !== 'undefined') {
               window.dispatchEvent(new CustomEvent('el_patron_caja_cerrada', { detail: event.data.payload }));
             }
@@ -452,10 +460,26 @@ export default function App() {
         applyMesaLiberada(customEvent.detail);
       }
     };
+    const handleCajaOpenedEvent = () => setIsCajaOpen(true);
+    const handleCajaClosedEvent = () => setIsCajaOpen(false);
+    const handleStorageEvent = (e: StorageEvent) => {
+      if (!e.key || e.key === 'el_patron_caja_activa' || e.key === 'el_patron_ultimo_cierre_cerrado_id') {
+        syncCajaStateFromStorage();
+      }
+    };
+
     window.addEventListener('el_patron_mesa_liberada', handleLocalMesaLiberada);
+    window.addEventListener('el_patron_caja_abierta', handleCajaOpenedEvent);
+    window.addEventListener('el_patron_caja_actualizada', syncCajaStateFromStorage);
+    window.addEventListener('el_patron_caja_cerrada', handleCajaClosedEvent);
+    window.addEventListener('storage', handleStorageEvent);
 
     return () => {
       window.removeEventListener('el_patron_mesa_liberada', handleLocalMesaLiberada);
+      window.removeEventListener('el_patron_caja_abierta', handleCajaOpenedEvent);
+      window.removeEventListener('el_patron_caja_actualizada', syncCajaStateFromStorage);
+      window.removeEventListener('el_patron_caja_cerrada', handleCajaClosedEvent);
+      window.removeEventListener('storage', handleStorageEvent);
       if (bc) {
         try { bc.close(); } catch {}
         broadcastChannelRef.current = null;
@@ -511,29 +535,40 @@ export default function App() {
         setOperationalDataStatus('ready');
         addLog('sistema', 'SISTEMA: Datos operativos listos.');
 
-        // Sincronización del estado de caja en tiempo real al ingresar al sistema
-        cajaService.findActiveSessionRemote(true).then(remoteCaja => {
-          if (!active) return;
-          const recentAction = Date.now() - cajaService.getLastCajaActionTimestamp() < 20_000;
-          if (recentAction) return;
-
-          if (remoteCaja && !cajaService.isCierreClosed(remoteCaja.id_cierre)) {
-            cajaService.safeStorage.setItem('el_patron_caja_activa', JSON.stringify(remoteCaja));
-            if (typeof window !== 'undefined') {
-              window.dispatchEvent(new CustomEvent('el_patron_caja_abierta', { detail: remoteCaja }));
+        const syncRemoteCajaState = (force = false) => {
+          cajaService.findActiveSessionRemote(force).then(remoteCaja => {
+            if (!active) return;
+            const recentAction = Date.now() - cajaService.getLastCajaActionTimestamp() < 20_000;
+            if (recentAction) {
+              setIsCajaOpen(Boolean(cajaService.getOpenSession()));
+              return;
             }
-          } else if (!remoteCaja) {
-            const localSession = cajaService.getOpenSession();
-            if (localSession && cajaService.isCierreClosed(localSession.id_cierre)) {
-              cajaService.safeStorage.removeItem('el_patron_caja_activa');
+
+            if (remoteCaja && !cajaService.isCierreClosed(remoteCaja.id_cierre)) {
+              cajaService.safeStorage.setItem('el_patron_caja_activa', JSON.stringify(remoteCaja));
+              setIsCajaOpen(true);
               if (typeof window !== 'undefined') {
-                window.dispatchEvent(new CustomEvent('el_patron_caja_cerrada', { detail: { id_cierre: localSession.id_cierre } }));
+                window.dispatchEvent(new CustomEvent('el_patron_caja_abierta', { detail: remoteCaja }));
+              }
+            } else if (!remoteCaja) {
+              const localSession = cajaService.getOpenSession();
+              if (localSession) {
+                cajaService.safeStorage.removeItem('el_patron_caja_activa');
+                setIsCajaOpen(false);
+                if (typeof window !== 'undefined') {
+                  window.dispatchEvent(new CustomEvent('el_patron_caja_cerrada', { detail: { id_cierre: localSession.id_cierre } }));
+                }
+              } else {
+                setIsCajaOpen(false);
               }
             }
-          }
-        }).catch(err => {
-          console.warn('[App.loadData] Sincronización remota de caja:', err);
-        });
+          }).catch(err => {
+            console.warn('[App.loadData] Sincronización remota de caja:', err);
+          });
+        };
+
+        // Sincronización del estado de caja en tiempo real al ingresar al sistema
+        syncRemoteCajaState(true);
 
         // Sincronización silenciosa en segundo plano con Google Sheets (sin bloquear la interfaz)
         sheetFetchAllTables(true).then(async () => {
@@ -554,6 +589,7 @@ export default function App() {
             }
             if (active && refreshMenu) setProductosMenu(refreshMenu);
             if (active && refreshUsuarios && refreshUsuarios.length > 0) setUsuarios(refreshUsuarios);
+            syncRemoteCajaState(false);
           } catch {
             // Silencioso en background
           }
@@ -694,6 +730,7 @@ export default function App() {
         .on('broadcast', { event: 'caja_abierta' }, ({ payload }: any) => {
           if (payload && !cajaService.isCierreClosed(payload.id_cierre)) {
             cajaService.safeStorage.setItem('el_patron_caja_activa', JSON.stringify(payload));
+            setIsCajaOpen(true);
             if (typeof window !== 'undefined') {
               window.dispatchEvent(new CustomEvent('el_patron_caja_abierta', { detail: payload }));
             }
@@ -704,6 +741,7 @@ export default function App() {
             cajaService.markCierreClosed(payload.id_cierre);
           }
           cajaService.safeStorage.removeItem('el_patron_caja_activa');
+          setIsCajaOpen(false);
           if (typeof window !== 'undefined') {
             window.dispatchEvent(new CustomEvent('el_patron_caja_cerrada', { detail: payload }));
           }
@@ -734,6 +772,9 @@ export default function App() {
           }
         }).catch(() => undefined);
       }
+      if (!customEvent.detail || customEvent.detail.table === 'cierres_caja') {
+        setIsCajaOpen(Boolean(cajaService.getOpenSession()));
+      }
     };
     const handleSheetsSyncCompleted = () => {
       dbFetchMesas(false).then(refreshedMesas => {
@@ -750,6 +791,7 @@ export default function App() {
           });
         }
       }).catch(() => undefined);
+      setIsCajaOpen(Boolean(cajaService.getOpenSession()));
     };
 
     window.addEventListener('el_patron_sheet_data_updated', handleSheetDataUpdated);
@@ -1034,6 +1076,13 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
 
   // --- Handlers for Waiter View (Terminal Mozo) ---
   const handleCrearPedido = useCallback(async (newPedidoData: Omit<Pedido, 'id_pedido' | 'fecha_hora' | 'minutos_transcurridos' | 'origen'> & { origen?: 'Mozo'; comensales?: number; idempotency_key?: string }) => {
+    if (!cajaService.getOpenSession()) {
+      setIsCajaOpen(false);
+      toast.error('🔒 La Caja está cerrada. Debe realizar la Apertura de Caja antes de cargar pedidos en las mesas.');
+      addLog('sistema', `BLOQUEADO: Intento de cargar pedido en ${newPedidoData.numero_mesa || `Mesa ${newPedidoData.id_mesa}`} con la Caja cerrada.`);
+      return false;
+    }
+
     const existingByKey = newPedidoData.idempotency_key
       ? pedidos.find(p => p.idempotency_key === newPedidoData.idempotency_key)
       : undefined;
@@ -1217,6 +1266,12 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     idPedido: number,
     updatedFields: Partial<Pedido>
   ): Promise<boolean> => {
+    if (updatedFields.estado_comanda !== 'cancelado' && !cajaService.getOpenSession()) {
+      setIsCajaOpen(false);
+      toast.error('🔒 La Caja está cerrada. Debe abrir la Caja antes de modificar o agregar productos al pedido.');
+      return false;
+    }
+
     const existingPedido = pedidos.find(p => p.id_pedido === idPedido);
     if (!existingPedido) {
       toast.error('Pedido no encontrado');
@@ -2505,6 +2560,8 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
                 onLiberarMesa={handleLiberarMesa}
                 addLog={addLog}
                 permitirVentaSinStock={permitirVentaSinStock}
+                isCajaOpen={isCajaOpen}
+                onGoToCaja={(allowedViews || []).includes('caja') ? () => handleNavigate('caja') : undefined}
               />
             )}
             {activeView === 'cocina' && COCINA_MODULE_ENABLED && (
@@ -2547,6 +2604,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
                 onLiberarMesa={handleLiberarMesa}
                 addLog={addLog}
                 persistenceEnabled={!isDemoSession}
+                isCajaOpen={isCajaOpen}
               />
             )}
             {activeView === 'facturacion' && (

@@ -49,6 +49,7 @@ import { useToast, ToastContainer } from './ToastContainer';
 import { useCategories } from '../hooks/useCategories';
 import { mergeWithDefaultCategories } from '../services/categoriasService';
 import { isBeverageProduct } from '../services/menuService';
+import { cajaService } from '../services/cajaService';
 import { matchesProductSearch } from './MenuModule';
 import { sheetFetchTable, sheetUpsertRow } from '../lib/googleSheetsClient';
 
@@ -353,6 +354,8 @@ interface MozoTerminalProps {
   onDesunirMesas?: (idMesa: number) => Promise<void> | void;
   onLiberarMesa?: (idMesa: number | string, idPedido?: number) => Promise<void> | void;
   usuarios?: Usuario[];
+  isCajaOpen?: boolean;
+  onGoToCaja?: () => void;
 }
 
 export default function MozoTerminal({
@@ -371,11 +374,14 @@ export default function MozoTerminal({
   onUnirMesas,
   onDesunirMesas,
   onLiberarMesa,
-  usuarios
+  usuarios,
+  isCajaOpen,
+  onGoToCaja
 }: MozoTerminalProps) {
   const { toast, toasts, removeToast } = useToast();
   const { categories } = useCategories();
   const checkoutInFlightRef = useRef(false);
+  const cajaAbierta = isCajaOpen !== undefined ? isCajaOpen : Boolean(cajaService.getOpenSession());
 
   // Mozos de Salón configurables con persistencia en localStorage y Google Sheets
   const [customMozos, setCustomMozos] = useState<string[]>(() => {
@@ -509,6 +515,10 @@ export default function MozoTerminal({
   const [isSavingEdit, setIsSavingEdit] = useState<boolean>(false);
 
   const handleStartEditPedido = (pedidoToEdit: Pedido) => {
+    if (!cajaAbierta || !cajaService.getOpenSession()) {
+      toast.error('🔒 Caja Cerrada: Debe realizar la Apertura de Caja antes de modificar pedidos.');
+      return;
+    }
     setEditingPedido(pedidoToEdit);
     setEditingItems(pedidoToEdit.items.map(it => ({ ...it })));
     setEditProductSearch('');
@@ -516,6 +526,10 @@ export default function MozoTerminal({
   };
 
   const handleEditItemQuantity = (index: number, delta: number) => {
+    if (delta > 0 && (!cajaAbierta || !cajaService.getOpenSession())) {
+      toast.error('🔒 Caja Cerrada: Debe abrir la Caja antes de cargar productos al pedido.');
+      return;
+    }
     setEditingItems(prev => {
       const next = [...prev];
       const target = next[index];
@@ -543,6 +557,10 @@ export default function MozoTerminal({
   };
 
   const handleEditAddProduct = (prod: ProductoMenu) => {
+    if (!cajaAbierta || !cajaService.getOpenSession()) {
+      toast.error('🔒 Caja Cerrada: Debe abrir la Caja antes de agregar productos al pedido.');
+      return;
+    }
     setEditingItems(prev => {
       const existingIdx = prev.findIndex(it => it.id_producto === prod.id_producto);
       if (existingIdx > -1) {
@@ -671,6 +689,10 @@ export default function MozoTerminal({
 
   const handleSaveEditPedido = async (andPrint = false) => {
     if (!editingPedido) return;
+    if (!cajaAbierta || !cajaService.getOpenSession()) {
+      toast.error('🔒 Caja Cerrada: Debe realizar la Apertura de Caja antes de guardar cambios en el pedido.');
+      return;
+    }
     if (editingItems.length === 0) {
       toast.warning('El pedido debe tener al menos un producto. Si desea cancelar toda la comanda, utilice la opción "Cancelar comanda y liberar mesa".');
       return;
@@ -859,6 +881,11 @@ export default function MozoTerminal({
 
   const handleConfirmVoiceCommand = () => {
     if (!voiceResult) return;
+    if (!cajaAbierta || !cajaService.getOpenSession()) {
+      toast.error('🔒 Caja Cerrada: Debe realizar la Apertura de Caja antes de cargar pedidos en las mesas.');
+      setVoiceResult(null);
+      return;
+    }
 
     // 1. If mesa is detected, set it as selected
     if (voiceResult.mesa !== null) {
@@ -1255,6 +1282,10 @@ export default function MozoTerminal({
 
   // Cart operations
   const handleAddToCart = (productoId: string) => {
+    if (!cajaAbierta || !cajaService.getOpenSession()) {
+      toast.error("🔒 La Caja está cerrada. Debe realizar la Apertura de Caja antes de cargar pedidos en las mesas.");
+      return;
+    }
     if (!selectedMesaId) {
       toast.warning("Por favor seleccione primero una mesa.");
       return;
@@ -1289,6 +1320,10 @@ export default function MozoTerminal({
   };
 
   const checkoutCart = async () => {
+    if (!cajaAbierta || !cajaService.getOpenSession()) {
+      toast.error('🔒 La Caja está cerrada. Debe realizar la Apertura de Caja antes de enviar comandas.');
+      return;
+    }
     if (checkoutInFlightRef.current || !selectedMesaId || Object.keys(cart).length === 0) return;
     checkoutInFlightRef.current = true;
 
@@ -1410,6 +1445,35 @@ export default function MozoTerminal({
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6" id="mozo-terminal-container">
+      {/* BANNER DE BLOQUEO CUANDO LA CAJA ESTÁ CERRADA */}
+      {!cajaAbierta && (
+        <div className="lg:col-span-12 rounded-2xl border-2 border-red-500/60 bg-gradient-to-r from-red-950 via-[#4A1215] to-red-900 text-white p-4 shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-fadeIn">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-red-500/25 border border-red-400/40 flex items-center justify-center shrink-0">
+              <Lock className="w-5 h-5 text-red-200 stroke-[2.5]" />
+            </div>
+            <div>
+              <h3 className="font-black text-sm sm:text-base tracking-tight text-red-100 flex items-center gap-2">
+                <span>CAJA CERRADA — No se pueden cargar pedidos en las mesas</span>
+              </h3>
+              <p className="text-xs text-red-200/90 font-semibold mt-0.5">
+                Para comandar platos, bebidas o abrir mesas debe realizarse primero la <strong>Apertura de Caja</strong> en el módulo Caja.
+              </p>
+            </div>
+          </div>
+          {onGoToCaja && (
+            <button
+              type="button"
+              onClick={onGoToCaja}
+              className="px-4 py-2 rounded-xl bg-white text-red-900 hover:bg-red-50 font-black text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer shrink-0 flex items-center gap-1.5"
+            >
+              <DollarSign className="w-4 h-4 stroke-[2.5]" />
+              <span>Ir a Abrir Caja</span>
+            </button>
+          )}
+        </div>
+      )}
+
       {/* LEFT COLUMN: Mozos de Salón (Compacto & Editable) + Distribución de Mesas */}
       <div className="lg:col-span-4 space-y-4">
 
@@ -2657,7 +2721,26 @@ export default function MozoTerminal({
             </div>
           </div>
 
-          {!selectedMesaId ? (
+          {!cajaAbierta ? (
+            <div className="flex-1 flex flex-col justify-center items-center text-center p-4 bg-red-50/70 dark:bg-red-950/25 rounded-2xl border border-red-300 dark:border-red-800/50 mt-4">
+              <div className="w-12 h-12 bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 rounded-full flex items-center justify-center mb-3 shadow-inner border border-red-200 dark:border-red-800">
+                <Lock className="w-5 h-5" />
+              </div>
+              <h4 className="font-black text-red-800 dark:text-red-200 text-xs uppercase tracking-wider">Caja Cerrada</h4>
+              <p className="text-red-700/90 dark:text-red-300/90 text-[11px] mt-1.5 max-w-[200px] leading-relaxed font-semibold">
+                No se permite cargar pedidos en las mesas hasta realizar la Apertura de Caja.
+              </p>
+              {onGoToCaja && (
+                <button
+                  type="button"
+                  onClick={onGoToCaja}
+                  className="mt-3 px-3.5 py-2 rounded-xl bg-red-700 hover:bg-red-800 text-white text-[11px] font-black uppercase tracking-wider shadow cursor-pointer transition-colors"
+                >
+                  Abrir Caja Ahora
+                </button>
+              )}
+            </div>
+          ) : !selectedMesaId ? (
             <div className="flex-1 flex flex-col justify-center items-center text-center p-4">
               <div className="w-12 h-12 bg-stone-100 dark:bg-white/5 text-stone-400 dark:text-stone-500 rounded-full flex items-center justify-center mb-3">
                 <UtensilsCrossed className="w-5 h-5" />
@@ -2758,10 +2841,13 @@ export default function MozoTerminal({
 
                 <button
                   onClick={checkoutCart}
-                  className="w-full py-2.5 px-4 btn-premium-primary text-xs font-black flex items-center justify-center gap-2 shadow-md cursor-pointer"
+                  disabled={!cajaAbierta}
+                  className="w-full py-2.5 px-4 btn-premium-primary disabled:opacity-50 text-xs font-black flex items-center justify-center gap-2 shadow-md cursor-pointer"
                 >
                   <Sparkles className="w-3.5 h-3.5 text-amber-350" />
-                  Enviar comanda 🖨️ ({assignedTableMozo || activeMozo || 'Facundo'})
+                  {cajaAbierta
+                    ? `Enviar comanda 🖨️ (${assignedTableMozo || activeMozo || 'Facundo'})`
+                    : '🔒 Caja Cerrada — Abra Caja para comandar'}
                 </button>
               </div>
             </>

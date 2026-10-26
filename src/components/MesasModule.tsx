@@ -4,6 +4,7 @@ import { X, Plus, Calendar, Pencil, Trash, Users, Clock, Activity, Search, Link2
 import { Mesa, Reserva, EventoLog } from '../types';
 import { mesasService } from '../services/mesasService';
 import { reservasService } from '../services/reservasService';
+import { cajaService } from '../services/cajaService';
 import MesaAsistente from './MesaAsistente';
 import { tryGetActiveSupabaseClient } from '../lib/supabaseClient';
 import { calculateMesaDragPosition } from '../lib/mesaDrag';
@@ -15,6 +16,7 @@ interface MesasModuleProps {
   onLiberarMesa?: (idMesa: number | string) => void;
   addLog?: (tipo: EventoLog['tipo'], mensaje: string) => void;
   persistenceEnabled?: boolean;
+  isCajaOpen?: boolean;
 }
 
 function formatDate(d: Date): string {
@@ -257,8 +259,10 @@ export default function MesasModule({
   onLiberarMesa,
   addLog = () => {},
   persistenceEnabled = true,
+  isCajaOpen,
 }: MesasModuleProps) {
   const { toast, toasts, removeToast } = useToast();
+  const cajaAbierta = isCajaOpen !== undefined ? isCajaOpen : Boolean(cajaService.getOpenSession());
   const [visualMesas, setVisualMesas] = useState<MesaVisual[]>(POSICIONES_INICIALES);
   const [reservasHoy, setReservasHoy] = useState<Reserva[]>([]);
   const [loading, setLoading] = useState(true);
@@ -643,6 +647,10 @@ export default function MesasModule({
 
   const handleUnirMesas = async (mesasAUnir = selectedForUnion) => {
     if (mesasAUnir.length < 2) return;
+    if (!cajaAbierta || !cajaService.getOpenSession()) {
+      toast.error('🔒 La Caja está cerrada. Debe abrir la Caja antes de unir u ocupar mesas.');
+      return;
+    }
     const sorted = [...mesasAUnir].sort((a, b) => a.id_mesa - b.id_mesa);
     const m1 = sorted[0];
     const secondaryTables = sorted.slice(1);
@@ -692,6 +700,10 @@ export default function MesasModule({
       if (accion.accion === 'cambio_estado' && accion.mesa_id) {
         const ids = Array.isArray(accion.mesa_id) ? accion.mesa_id : [accion.mesa_id];
         const nuevoEstado = accion.nuevo_estado === 'Ocupada' ? 'ocupada' : accion.nuevo_estado === 'Reservada' ? 'reservada' : accion.nuevo_estado === 'Libre' ? 'libre' : 'sucia';
+        if (nuevoEstado === 'ocupada' && (!cajaAbierta || !cajaService.getOpenSession())) {
+          toast.error('🔒 La Caja está cerrada. Debe abrir la Caja antes de sentar comensales u ocupar mesas.');
+          return;
+        }
         for (const id of ids) {
           const mesa = visualMesas.find(m => m.id_mesa === id);
           if (!mesa) continue;
