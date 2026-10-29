@@ -599,28 +599,7 @@ export function useCaja({
       }, 0));
     }
 
-    let promoDeduction = 0;
-    
-    const hasOjoBife = selectedPedido.items.some(it => it.id_producto === 'prod_car_ojo_bife' || it.id_producto === 'prod_bife');
-    const hasVino = selectedPedido.items.some(it => (it.id_producto.startsWith('prod_vin_trumpeter_') && !it.id_producto.includes('copa')) || it.id_producto.startsWith('prod_vin_rutini_'));
-    const hasBurger = selectedPedido.items.some(it => it.id_producto === 'prod_cri_hamburguesa' || it.id_producto === 'prod_hamburguesa');
-    const hasGaseosa = selectedPedido.items.some(it => it.id_insumo === 'ins_beb_gaseosa' || it.nombre.toLowerCase().includes('gaseosa') || it.id_producto === 'prod_gaseosa');
-
-    const qualifiesForBifeVino = hasOjoBife && hasVino && (!splitByProducts || (selectedProductsForSplit.includes('prod_car_ojo_bife') && selectedProductsForSplit.some(id => (id.startsWith('prod_vin_trumpeter_') && !id.includes('copa')) || id.startsWith('prod_vin_rutini_'))));
-    const qualifiesForBurgerGaseosa = hasBurger && hasGaseosa && (!splitByProducts || (selectedProductsForSplit.includes('prod_cri_hamburguesa') && (selectedProductsForSplit.includes('ins_beb_gaseosa') || selectedProductsForSplit.includes('prod_gaseosa'))));
-
-    if (qualifiesForBifeVino) {
-      const vinoItem = selectedPedido.items.find(it => (it.id_producto.startsWith('prod_vin_trumpeter_') && !it.id_producto.includes('copa')) || it.id_producto.startsWith('prod_vin_rutini_'));
-      if (vinoItem) {
-        promoDeduction += (resolvePedidoItemUnitPrice(vinoItem, productosMenu) * 0.15) * vinoItem.cantidad;
-      }
-    }
-
-    if (qualifiesForBurgerGaseosa) {
-      promoDeduction += 1500;
-    }
-
-    promoDeduction = roundCurrency(promoDeduction);
+    const promoDeduction = 0;
     let manualDeduction = roundCurrency(subtotal * (descuentoPorcentaje / 100));
     let baseTotal = roundCurrency(Math.max(0, subtotal - promoDeduction - manualDeduction));
     let propinaValue = roundCurrency(baseTotal * (propinaPorcentaje / 100));
