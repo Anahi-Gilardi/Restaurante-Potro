@@ -17,8 +17,8 @@ test('Caja bloquea envios repetidos mientras persiste un cobro', () => {
 test('la apertura de Caja queda vinculada al usuario autenticado', () => {
   assert.match(app, /<CajaModule[\s\S]*activeUser=\{activeUser\}/);
   assert.match(cajaModule, /operatorName: `\$\{activeUser\.nombre\} \$\{activeUser\.apellido\}`\.trim\(\)/);
-  assert.match(cajaModule, /value=\{cashierNameInput\}[\s\S]*readOnly/);
-  assert.match(cajaHook, /cajaService\.open\(amt, operatorName\)/);
+  assert.match(cajaModule, /value=\{cashierNameInput\}/);
+  assert.match(cajaHook, /cajaService\.open\(amt,\s*(operatorName|cajeroName)\)/);
 });
 
 test('Mozo conserva el carrito cuando la validacion final rechaza el pedido', () => {

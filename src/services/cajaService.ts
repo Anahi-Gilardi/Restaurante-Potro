@@ -65,16 +65,17 @@ const safeStorage = {
   }
 };
 
-const extractCierreTimestamp = (rowOrId: any): number => {
-  if (!rowOrId) return 0;
+const extractCierreTimestamp = (rowOrId: any, fechaApertura?: any): number => {
+  if (!rowOrId && !fechaApertura) return 0;
   const idStr = typeof rowOrId === 'string' ? rowOrId : String(rowOrId?.id_cierre || rowOrId?.id || '');
   const match = idStr.match(/(\d{10,14})/);
   if (match) {
     const ts = Number(match[1]);
     if (Number.isFinite(ts) && ts > 1_000_000_000_000) return ts;
   }
-  if (typeof rowOrId === 'object' && rowOrId?.fecha_apertura) {
-    const parsed = Date.parse(String(rowOrId.fecha_apertura));
+  const rawFecha = fechaApertura ?? (typeof rowOrId === 'object' ? rowOrId?.fecha_apertura : undefined);
+  if (rawFecha) {
+    const parsed = Date.parse(String(rawFecha));
     if (Number.isFinite(parsed) && parsed > 0) return parsed;
   }
   return 0;

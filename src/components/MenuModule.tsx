@@ -176,7 +176,7 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
   const [nombre, setNombre] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [precio, setPrecio] = useState('');
-  const [categoria, setCategoria] = useState<string>('Entradas Criollas');
+  const [categoria, setCategoria] = useState<string>('Entradas');
   const [imagenUrl, setImagenUrl] = useState('');
   const [tiempoPreparacion, setTiempoPreparacion] = useState('12');
   const [requiereCocina, setRequiereCocina] = useState(true);
@@ -192,6 +192,11 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
   const [editTiempoPreparacion, setEditTiempoPreparacion] = useState('12');
   const [editRequiereCocina, setEditRequiereCocina] = useState(true);
   const [editSelectedAllergens, setEditSelectedAllergens] = useState<string[]>([]);
+
+  const sanitizePriceInput = (raw: string): string => {
+    const filtered = raw.replace(/[^0-9.,]/g, '');
+    return filtered.replace(/^0+(?=\d)/, '');
+  };
 
   const normalizeCategorySlug = (cat: string): string => {
     const norm = (cat || '').toLowerCase().trim()
@@ -387,6 +392,29 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
     return result.sort((a, b) => Number(a.orden || 99) - Number(b.orden || 99));
   }, [items, categories]);
 
+  const selectableCategories = useMemo(() => {
+    const merged = mergeWithDefaultCategories([...categories, ...displayCategories]);
+    const seen = new Set<string>();
+    return merged.filter(cat => {
+      const key = (cat.nombre || '').trim().toLowerCase();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [categories, displayCategories]);
+
+  const resolveSelectCategory = (rawCat: string): string => {
+    const trimmed = (rawCat || '').trim();
+    if (!trimmed) return selectableCategories[0]?.nombre || 'Entradas';
+    const exact = selectableCategories.find(c => c.nombre.toLowerCase() === trimmed.toLowerCase());
+    if (exact) return exact.nombre;
+    const slug = getCategorySlug(trimmed);
+    const bySlug = selectableCategories.find(
+      c => (c.slug || '').toLowerCase() === slug || getCategorySlug(c.nombre) === slug
+    );
+    return bySlug?.nombre || trimmed;
+  };
+
   const isBusy = pendingAction !== null;
 
   const syncItems = (next: ProductoMenu[]) => {
@@ -418,9 +446,15 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
     setEditSelectedAllergens([]);
   };
 
-  const hasDuplicateName = (name: string, excludedId?: string) => (
-    items.some(item => item.id_producto !== excludedId && normalizeText(item.nombre) === normalizeText(name))
-  );
+  const hasDuplicateName = (name: string, excludedId?: string) => {
+    const normTarget = normalizeText(name);
+    const lowerExcluded = (excludedId || '').toLowerCase();
+    return items.some(
+      item =>
+        (item.id_producto || '').toLowerCase() !== lowerExcluded &&
+        normalizeText(item.nombre) === normTarget
+    );
+  };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, isEditMode: boolean) => {
     const file = e.target.files?.[0];
@@ -657,61 +691,70 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
   };
 
   const handleStartEditing = (item: ProductoMenu) => {
-    if (isBusy) return;
     setEditingId(item.id_producto);
-    setEditPrecio(item.precio_venta.toString());
+    setEditPrecio(item.precio_venta > 0 ? String(item.precio_venta) : '');
     setEditNombre(item.nombre);
     setEditDescripcion(item.descripcion || '');
-    setEditCategoria(item.categoria);
+    setEditCategoria(resolveSelectCategory(item.categoria));
     setEditImagen(item.imagen || '');
-    setEditTiempoPreparacion(item.tiempo_preparacion_estimado?.toString() || '12');
+    setEditTiempoPreparacion(item.tiempo_preparacion_estimado ? String(item.tiempo_preparacion_estimado) : '12');
     setEditRequiereCocina(item.requiere_cocina ?? true);
     setEditSelectedAllergens(item.alergenos || []);
   };
 
-  const handleSaveEdit = async (id: string) => {
-    if (isBusy) return;
+  const handleSaveEdit = async (id: string, e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     const lowerId = id.toLowerCase();
     const target = items.find(item => item.id_producto === id || item.id_producto?.toLowerCase() === lowerId);
     if (!target) return;
 
-    const updated = buildMenuItem(id, {
+    const built = buildMenuItem(id, {
       nombre: editNombre,
       descripcion: editDescripcion,
       precio: editPrecio,
-      categoria: editCategoria,
+      categoria: editCategoria || target.categoria,
       imagen: editImagen,
       tiempoPreparacion: editTiempoPreparacion,
       requiereCocina: editRequiereCocina,
       alergenos: editSelectedAllergens,
       activo: target.activo
     });
-    if (!updated) return;
-    if (hasDuplicateName(updated.nombre, id)) {
+    if (!built) return;
+
+    const nameChanged = normalizeText(built.nombre) !== normalizeText(target.nombre);
+    if (nameChanged && hasDuplicateName(built.nombre, id)) {
       toast.warning('Ya existe otro producto con ese nombre.');
       return;
     }
 
-    const previous = items;
-    const optimistic = items.map(item => item.id_producto === id || item.id_producto?.toLowerCase() === lowerId ? { ...item, ...updated } : item);
+    const updated: ProductoMenu = {
+      ...target,
+      ...built,
+      id_producto: target.id_producto
+    };
 
-    setPendingAction(`edit_${id}`);
+    const previous = items;
+    const optimistic = items.map(item =>
+      item.id_producto === id || item.id_producto?.toLowerCase() === lowerId ? updated : item
+    );
+
+    // Actualizar estado local y cerrar el modal/editor de inmediato (igual que en StockModule)
     syncItems(optimistic);
+    resetEditForm();
+    addLog('sistema', `MENU: Actualizado '${target.nombre}' a '${updated.nombre}' ($${updated.precio_venta})`);
+    toast.success(`"${updated.nombre}" actualizado correctamente.`);
 
     try {
       if (updated.imagen && isValidImageData(updated.imagen)) {
-        await saveMenuImage(id, updated.imagen);
+        await saveMenuImage(target.id_producto, updated.imagen);
       }
-      const saved = await menuService.update(id, updated);
-      syncItems(optimistic.map(item => item.id_producto === id || item.id_producto?.toLowerCase() === lowerId ? { ...item, ...saved } : item));
-      addLog('sistema', `MENU: Actualizado '${target.nombre}' a '${saved.nombre}' ($${saved.precio_venta})`);
-      toast.success('Producto actualizado.');
-      resetEditForm();
+      const saved = await menuService.update(target.id_producto, updated);
+      syncItems(optimistic.map(item =>
+        item.id_producto === id || item.id_producto?.toLowerCase() === lowerId ? { ...updated, ...saved } : item
+      ));
     } catch {
       syncItems(previous);
       toast.error('No se pudo guardar el producto. Se revirtio el cambio.');
-    } finally {
-      setPendingAction(null);
     }
   };
 
@@ -846,10 +889,10 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
             <div>
               <label className="text-[10px] font-black text-stone-500 dark:text-stone-300 uppercase tracking-wider block mb-1">Precio de venta ($)</label>
               <input
-                type="number"
+                type="text"
                 inputMode="decimal"
                 value={precio}
-                onChange={e => setPrecio(e.target.value)}
+                onChange={e => setPrecio(sanitizePriceInput(e.target.value))}
                 placeholder="Ej. 18500"
                 className="w-full min-h-11 text-sm p-2.5 rounded-xl border border-stone-200 dark:border-white/10 bg-stone-50/50 dark:bg-white/5 text-stone-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#C8956A]/30 dark:focus:ring-[#C8956A]/50 dark:placeholder-stone-400/60"
                 disabled={isBusy}
@@ -875,7 +918,7 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
                 className="w-full min-h-11 text-sm p-2.5 rounded-xl border border-stone-200 dark:border-white/10 bg-stone-50/50 dark:bg-[#2e2015] text-stone-700 dark:text-[#FAF7F0] focus:outline-none focus:ring-2 focus:ring-[#C8956A]/30 dark:focus:ring-[#C8956A]/50 cursor-pointer font-bold"
                 disabled={isBusy}
               >
-                {categories.map(cat => <option key={cat.id} value={cat.nombre} className="dark:bg-[#2e2015] dark:text-[#FAF7F0]">{cat.nombre}</option>)}
+                {selectableCategories.map(cat => <option key={cat.id} value={cat.nombre} className="dark:bg-[#2e2015] dark:text-[#FAF7F0]">{cat.nombre}</option>)}
               </select>
             </div>
             
@@ -1175,151 +1218,67 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
                         </div>
                       )}
 
-                      {editingId === item.id_producto ? (
-                        <div className="space-y-2 mt-1.5 border-t border-stone-250/20 pt-1.5">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-bold text-stone-700 dark:text-stone-300">$</span>
-                            <input type="number" inputMode="decimal" value={editPrecio} onChange={e => setEditPrecio(e.target.value)}
-                              disabled={isBusy}
-                              className="w-20 text-sm p-1.5 border border-stone-350 dark:border-white/10 rounded bg-white dark:bg-white/5 text-stone-800 dark:text-[#FAF7F0] font-mono font-bold focus:outline-none focus:ring-1 focus:ring-[#C8956A] dark:placeholder-stone-400/60" />
-                          </div>
-                          <input type="text" value={editNombre} onChange={e => setEditNombre(e.target.value)}
-                            disabled={isBusy}
-                            className="w-full text-xs p-1.5 border border-stone-350 dark:border-white/10 rounded bg-white dark:bg-white/5 text-stone-800 dark:text-[#FAF7F0] focus:outline-none focus:ring-1 focus:ring-[#C8956A] dark:placeholder-stone-400/60" />
-                          <textarea value={editDescripcion} onChange={e => setEditDescripcion(e.target.value)} rows={2}
-                            disabled={isBusy}
-                            className="w-full text-xs p-1.5 border border-stone-350 dark:border-white/10 rounded bg-white dark:bg-white/5 text-stone-800 dark:text-[#FAF7F0] resize-none focus:outline-none focus:ring-1 focus:ring-[#C8956A] dark:placeholder-stone-400/60" />
-                          <div className="grid grid-cols-2 gap-1.5">
-                            <select value={editCategoria} onChange={e => setEditCategoria(e.target.value)}
-                              disabled={isBusy}
-                              className="w-full text-xs p-1.5 border border-stone-350 dark:border-white/10 rounded bg-white dark:bg-[#2e2015] text-stone-800 dark:text-[#FAF7F0] focus:outline-none focus:ring-1 focus:ring-[#C8956A]">
-                              {categories.map(cat => <option key={cat.id} value={cat.nombre} className="dark:bg-[#2e2015] dark:text-[#FAF7F0]">{cat.nombre}</option>)}
-                            </select>
-                            <input type="number" value={editTiempoPreparacion} onChange={e => setEditTiempoPreparacion(e.target.value)}
-                              disabled={isBusy || !editRequiereCocina} placeholder="Minutos"
-                              className="w-full text-xs p-1.5 border border-stone-350 dark:border-white/10 rounded bg-white dark:bg-white/5 text-stone-800 dark:text-[#FAF7F0] focus:outline-none focus:ring-1 focus:ring-[#C8956A] dark:placeholder-stone-400/60" />
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <label className="flex items-center gap-1 text-[10px] font-bold text-stone-650 dark:text-stone-300 cursor-pointer select-none">
-                              <input type="checkbox" checked={editRequiereCocina} onChange={e => setEditRequiereCocina(e.target.checked)}
-                                className="w-3.5 h-3.5 rounded text-[#8C6239] dark:text-[#C8956A] bg-white dark:bg-white/5 border-stone-350 dark:border-white/10" /> Cocina
-                            </label>
-                          </div>
-                          
-                          {/* Edit allergen tags */}
-                          <div className="space-y-1">
-                            <span className="text-[9px] font-bold text-stone-500 dark:text-stone-400 uppercase">Alérgenos:</span>
-                            <div className="flex flex-wrap gap-1">
-                              {ALLERGENS_LIST.map(alg => {
-                                const active = editSelectedAllergens.includes(alg.id);
-                                return (
-                                  <button
-                                    type="button"
-                                    key={alg.id}
-                                    onClick={() => toggleAllergen(alg.id, true)}
-                                    className={`px-1.5 py-0.5 text-[8px] font-bold rounded border uppercase tracking-wide transition-all cursor-pointer ${
-                                      active
-                                        ? 'bg-rose-500 border-rose-600 text-white dark:bg-rose-500/20 dark:text-rose-300 dark:border-rose-500/30 shadow-xs'
-                                        : 'bg-stone-50 dark:bg-white/5 text-stone-500 dark:text-stone-400 border-stone-200 dark:border-white/10 hover:bg-stone-100 dark:hover:bg-white/10'
-                                    }`}
-                                  >
-                                    {alg.label}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-
-                          {/* Edit image handler (Base64 canvas & automated generator) */}
-                          <div className="space-y-1.5">
-                            <input
-                              type="text"
-                              value={editImagen}
-                              onChange={e => setEditImagen(e.target.value)}
-                              placeholder="URL de imagen..."
-                              className="w-full text-xs p-1.5 border border-stone-350 dark:border-white/10 rounded bg-white dark:bg-white/5 text-stone-850 dark:text-[#FAF7F0] focus:outline-none focus:ring-1 focus:ring-[#C8956A] dark:placeholder-stone-400/60"
-                              disabled={isBusy}
-                            />
-                            <div className="flex gap-1.5">
-                              <label
-                                className={`flex-1 py-1.5 bg-stone-50 dark:bg-white/5 hover:bg-stone-100 dark:hover:bg-white/10 border border-stone-200 dark:border-white/10 rounded text-[10px] font-bold text-stone-650 dark:text-stone-300 flex items-center justify-center gap-1.5 cursor-pointer transition-colors ${isBusy ? 'opacity-50 pointer-events-none' : ''}`}
-                              >
-                                <Camera className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                                <span>Subir foto</span>
-                                <input
-                                  type="file"
-                                  accept="image/*"
-                                  disabled={isBusy}
-                                  onChange={e => void handleDirectImageUpload(item.id_producto, e)}
-                                  className="hidden"
-                                />
-                              </label>
-                              <button
-                                type="button"
-                                onClick={() => handleAutoGenerateImage(editNombre, editCategoria, true)}
-                                className="flex-1 py-1.5 bg-amber-50 dark:bg-amber-500/10 hover:bg-amber-100 dark:hover:bg-amber-500/20 border border-amber-200 dark:border-amber-500/20 text-amber-800 dark:text-amber-300 rounded text-[10px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors"
-                              >
-                                🪄 Auto
-                              </button>
-                            </div>
-                          </div>
-
-                          <div className="flex gap-1.5 pt-1">
-                            <button onClick={() => void handleSaveEdit(item.id_producto)} disabled={isBusy}
-                              aria-label={`Guardar cambios de ${item.nombre}`}
-                              className="p-1.5 rounded bg-[#22C55E]/15 hover:bg-[#22C55E]/20 text-[#22C55E] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"><Check className="w-3.5 h-3.5" /></button>
-                            <button onClick={resetEditForm} disabled={isBusy}
-                              aria-label={`Cancelar edición de ${item.nombre}`}
-                              className="p-1.5 rounded bg-stone-100 dark:bg-white/5 hover:bg-stone-200 dark:hover:bg-white/10 text-stone-500 dark:text-stone-300 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"><X className="w-3.5 h-3.5" /></button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-sm font-black text-stone-850 dark:text-[#FAF7F0] font-mono tracking-tight">${item.precio_venta.toLocaleString('es-AR')}</span>
-                          <button onClick={() => handleStartEditing(item)} disabled={isBusy}
-                            aria-label={`Editar ${item.nombre}`}
-                            className="p-1.5 px-2 rounded hover:bg-stone-200/50 dark:hover:bg-white/5 text-stone-400 hover:text-stone-750 dark:hover:text-stone-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer text-[10px]">
-                            <Edit2 className="w-3 h-3" />
-                          </button>
-                        </div>
-                      )}
+                      <div className="flex items-center gap-1.5 pt-0.5">
+                        <span className="text-sm font-black text-stone-850 dark:text-[#FAF7F0] font-mono tracking-tight">${item.precio_venta.toLocaleString('es-AR')}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleStartEditing(item)}
+                          aria-label={`Editar ${item.nombre}`}
+                          title={`Editar ${item.nombre}`}
+                          className="p-1.5 px-2 rounded hover:bg-stone-200/50 dark:hover:bg-white/5 text-stone-500 hover:text-stone-800 dark:text-stone-300 dark:hover:text-white transition-colors cursor-pointer text-[10px]"
+                        >
+                          <Edit2 className="w-3 h-3" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
 
                 {/* Recipe escandallo margin visual flags */}
-                {!editingId && (
-                  <div className="mt-2 p-2 bg-stone-50 dark:bg-white/5 rounded-xl border border-stone-200/60 dark:border-white/10 flex items-center justify-between text-[9px] sm:text-[10px] font-bold text-stone-700 dark:text-stone-300">
-                    {hasRecipe ? (
-                      <>
-                        <span className="text-stone-500 dark:text-stone-400">Costo: <strong className="font-mono text-stone-800 dark:text-stone-100">${recipeCost.toFixed(1)}</strong></span>
-                        {marginPct !== null && (
-                          <span className={`px-1.5 py-0.5 rounded-lg text-[9px] font-extrabold uppercase ${
-                            marginLevel === 'high' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300' :
-                            marginLevel === 'medium' ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300' : 'bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300'
-                          }`}>
-                            Margen {marginPct.toFixed(0)}%
-                          </span>
-                        )}
-                      </>
-                    ) : (
-                      <span className="text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                        <AlertTriangle className="w-3.5 h-3.5" /> Sin receta vinculada
-                      </span>
-                    )}
-                  </div>
-                )}
+                <div className="mt-2 p-2 bg-stone-50 dark:bg-white/5 rounded-xl border border-stone-200/60 dark:border-white/10 flex items-center justify-between text-[9px] sm:text-[10px] font-bold text-stone-700 dark:text-stone-300">
+                  {hasRecipe ? (
+                    <>
+                      <span className="text-stone-500 dark:text-stone-400">Costo: <strong className="font-mono text-stone-800 dark:text-stone-100">${recipeCost.toFixed(1)}</strong></span>
+                      {marginPct !== null && (
+                        <span className={`px-1.5 py-0.5 rounded-lg text-[9px] font-extrabold uppercase ${
+                          marginLevel === 'high' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300' :
+                          marginLevel === 'medium' ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300' : 'bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300'
+                        }`}>
+                          Margen {marginPct.toFixed(0)}%
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <span className="text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                      <AlertTriangle className="w-3.5 h-3.5" /> Sin receta vinculada
+                    </span>
+                  )}
+                </div>
 
-                <div className="flex items-center justify-between pt-2 border-t border-stone-200/40 dark:border-white/10 mt-2">
-                  <button onClick={() => void handleDuplicateItem(item)} disabled={isBusy}
-                    className="text-[9px] sm:text-[10px] font-bold px-2 py-1 rounded cursor-pointer transition-colors bg-stone-50 dark:bg-stone-850/80 text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-stone-750/80 hover:bg-[#F5F1E9] dark:hover:bg-stone-750/50 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1">
-                    <Copy className="w-3 h-3" /> {pendingAction === `duplicate_${item.id_producto}` ? 'Duplicando...' : 'Duplicar'}
-                  </button>
+                <div className="flex items-center justify-between pt-2 border-t border-stone-200/40 dark:border-white/10 mt-2 gap-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => handleStartEditing(item)}
+                      className="text-[9px] sm:text-[10px] font-extrabold px-2.5 py-1 rounded cursor-pointer transition-colors bg-[#8C6239]/10 hover:bg-[#8C6239]/20 dark:bg-[#C8956A]/15 dark:hover:bg-[#C8956A]/25 text-[#8C6239] dark:text-[#C8956A] border border-[#8C6239]/25 dark:border-[#C8956A]/30 flex items-center gap-1"
+                    >
+                      <Edit2 className="w-3 h-3" /> Editar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleDuplicateItem(item)}
+                      disabled={isBusy}
+                      className="text-[9px] sm:text-[10px] font-bold px-2 py-1 rounded cursor-pointer transition-colors bg-stone-50 dark:bg-stone-850/80 text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-stone-750/80 hover:bg-[#F5F1E9] dark:hover:bg-stone-750/50 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1"
+                    >
+                      <Copy className="w-3 h-3" /> {pendingAction === `duplicate_${item.id_producto}` ? 'Duplicando...' : 'Duplicar'}
+                    </button>
+                  </div>
                   <div className="flex items-center gap-1.5">
                     <span className={`text-[9px] sm:text-[10px] font-bold ${item.activo ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-450'}`}>
                       {item.activo ? 'En carta' : 'Pausado'}
                     </span>
                     <button
+                      type="button"
                       onClick={() => void handleToggleActivo(item.id_producto)}
                       disabled={isBusy}
                       className={`text-[9px] sm:text-[10px] font-black px-2 py-1 rounded cursor-pointer transition-all border disabled:opacity-40 disabled:cursor-not-allowed ${
@@ -1361,6 +1320,226 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
           )}
         </div>
       </div>
+      )}
+
+      {/* MODAL: EDITAR PLATO / PRODUCTO */}
+      {editingId && (
+        <div
+          onClick={resetEditForm}
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn overflow-y-auto"
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="bg-white dark:bg-[#1E130C] w-full max-w-lg rounded-3xl border border-stone-200 dark:border-stone-800 shadow-2xl p-6 space-y-4 my-auto"
+          >
+            <div className="flex items-center justify-between border-b border-stone-150 dark:border-stone-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <span className="p-2 bg-[#8C6239]/10 dark:bg-[#C8956A]/15 text-[#8C6239] dark:text-[#C8956A] rounded-xl">
+                  <Edit2 className="w-5 h-5" />
+                </span>
+                <div>
+                  <h3 className="text-base font-black text-stone-900 dark:text-stone-100 font-sans">
+                    Editar Plato / Producto
+                  </h3>
+                  <p className="text-[11px] text-stone-500 dark:text-stone-400">
+                    Modificá nombre, precio, categoría, descripción o foto y guardá al instante.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={resetEditForm}
+                aria-label={`Cancelar edición de ${editNombre}`}
+                className="p-1.5 rounded-xl text-stone-400 hover:text-stone-600 hover:bg-stone-100 dark:hover:bg-stone-800 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={e => void handleSaveEdit(editingId, e)} className="space-y-3.5">
+              <div>
+                <label className="text-[11px] font-black uppercase text-stone-500 dark:text-stone-300 block mb-1">
+                  Nombre comercial
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editNombre}
+                  onChange={e => setEditNombre(e.target.value)}
+                  placeholder="Ej. Ojo de Bife Criollo"
+                  className="w-full px-3.5 py-2.5 bg-stone-50 dark:bg-stone-900 border border-stone-200 dark:border-stone-750 rounded-xl text-sm font-bold text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-[#8C6239]"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-black uppercase text-stone-500 dark:text-stone-300 block mb-1">
+                    Precio de Venta ($)
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    required
+                    placeholder="Ej. 18500"
+                    value={editPrecio}
+                    onChange={e => setEditPrecio(sanitizePriceInput(e.target.value))}
+                    className="w-full px-3.5 py-2.5 bg-stone-50 dark:bg-stone-900 border border-stone-200 dark:border-stone-750 rounded-xl text-sm font-mono font-black text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-[#8C6239]"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-black uppercase text-stone-500 dark:text-stone-300 block mb-1">
+                    Categoría
+                  </label>
+                  <select
+                    value={editCategoria}
+                    onChange={e => setEditCategoria(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-stone-50 dark:bg-stone-900 border border-stone-200 dark:border-stone-750 rounded-xl text-sm font-bold text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-[#8C6239] cursor-pointer"
+                  >
+                    {editCategoria && !selectableCategories.some(c => c.nombre === editCategoria) && (
+                      <option value={editCategoria}>{editCategoria}</option>
+                    )}
+                    {selectableCategories.map(cat => (
+                      <option key={cat.id} value={cat.nombre}>
+                        {cat.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-black uppercase text-stone-500 dark:text-stone-300 block mb-1">
+                  Descripción / Ingredientes
+                </label>
+                <textarea
+                  rows={2}
+                  value={editDescripcion}
+                  onChange={e => setEditDescripcion(e.target.value)}
+                  placeholder="Ingredientes, guarnición u observaciones..."
+                  className="w-full px-3.5 py-2 bg-stone-50 dark:bg-stone-900 border border-stone-200 dark:border-stone-750 rounded-xl text-xs font-medium text-stone-900 dark:text-stone-100 resize-none focus:outline-none focus:ring-2 focus:ring-[#8C6239]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 items-end">
+                <div>
+                  <label className="text-[11px] font-black uppercase text-stone-500 dark:text-stone-300 block mb-1">
+                    Tiempo Prep. (min)
+                  </label>
+                  <input
+                    type="number"
+                    value={editTiempoPreparacion}
+                    onChange={e => setEditTiempoPreparacion(e.target.value)}
+                    disabled={!editRequiereCocina}
+                    placeholder="12"
+                    className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-900 border border-stone-200 dark:border-stone-750 rounded-xl text-xs font-bold text-stone-900 dark:text-stone-100 disabled:opacity-50"
+                  />
+                </div>
+                <div className="pb-1.5">
+                  <label className="flex items-center gap-2 text-xs font-bold text-stone-700 dark:text-stone-200 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={editRequiereCocina}
+                      onChange={e => setEditRequiereCocina(e.target.checked)}
+                      className="w-4 h-4 rounded text-[#8C6239] dark:text-[#C8956A] bg-white dark:bg-stone-900 border-stone-300 dark:border-stone-700"
+                    />
+                    Requiere Cocina (KDS)
+                  </label>
+                </div>
+              </div>
+
+              {/* Edit allergen tags */}
+              <div>
+                <label className="text-[11px] font-black uppercase text-stone-500 dark:text-stone-300 block mb-1.5">
+                  Alérgenos
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {ALLERGENS_LIST.map(alg => {
+                    const active = editSelectedAllergens.includes(alg.id);
+                    return (
+                      <button
+                        type="button"
+                        key={alg.id}
+                        onClick={() => toggleAllergen(alg.id, true)}
+                        className={`px-2 py-1 text-[10px] font-bold rounded-lg border uppercase tracking-wide transition-all cursor-pointer ${
+                          active
+                            ? 'bg-rose-500 border-rose-600 text-white dark:bg-rose-500/20 dark:text-rose-300 dark:border-rose-500/30 shadow-xs'
+                            : 'bg-stone-50 dark:bg-stone-900 text-stone-500 dark:text-stone-400 border-stone-200 dark:border-stone-750 hover:bg-stone-100 dark:hover:bg-stone-800'
+                        }`}
+                      >
+                        {alg.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Edit image handler */}
+              <div>
+                <label className="text-[11px] font-black uppercase text-stone-500 dark:text-stone-300 block mb-1">
+                  Foto del Plato
+                </label>
+                <div className="flex items-center gap-3">
+                  {editImagen && (
+                    <img
+                      src={editImagen}
+                      alt="Vista previa"
+                      className="w-14 h-14 rounded-xl object-cover border border-stone-200 dark:border-stone-700 shrink-0"
+                      onError={e => {
+                        (e.currentTarget as HTMLImageElement).src = getFallbackImage(editCategoria);
+                      }}
+                    />
+                  )}
+                  <div className="flex-1 space-y-1.5">
+                    <input
+                      type="text"
+                      value={editImagen}
+                      onChange={e => setEditImagen(e.target.value)}
+                      placeholder="URL de imagen..."
+                      className="w-full px-3 py-1.5 bg-stone-50 dark:bg-stone-900 border border-stone-200 dark:border-stone-750 rounded-xl text-xs text-stone-800 dark:text-stone-100"
+                    />
+                    <div className="flex gap-2">
+                      <label className="flex-1 py-1.5 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 border border-stone-200 dark:border-stone-700 rounded-xl text-[11px] font-bold text-stone-700 dark:text-stone-200 flex items-center justify-center gap-1.5 cursor-pointer transition-colors">
+                        <Camera className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                        <span>Subir foto</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={e => void handleDirectImageUpload(editingId, e)}
+                          className="hidden"
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => handleAutoGenerateImage(editNombre, editCategoria, true)}
+                        className="flex-1 py-1.5 bg-amber-50 dark:bg-amber-500/10 hover:bg-amber-100 dark:hover:bg-amber-500/20 border border-amber-200 dark:border-amber-500/20 text-amber-800 dark:text-amber-300 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                      >
+                        🪄 Auto Generar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-stone-150 dark:border-stone-800">
+                <button
+                  type="button"
+                  onClick={resetEditForm}
+                  className="px-4 py-2.5 rounded-xl border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 text-xs font-bold hover:bg-stone-100 dark:hover:bg-stone-800 cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  aria-label={`Guardar cambios de ${editNombre}`}
+                  className="px-5 py-2.5 rounded-xl bg-[#8C6239] hover:bg-[#624A3E] text-white text-xs font-extrabold flex items-center gap-1.5 shadow-md cursor-pointer"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>Guardar Cambios</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

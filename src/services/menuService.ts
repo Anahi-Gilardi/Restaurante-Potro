@@ -168,17 +168,25 @@ const BEVERAGE_STOCK_STORAGE_KEY = 'el_patron_beverage_stock_map';
 
 interface BeverageStockOverride {
   nombre?: string;
+  original_norm_name?: string;
+  descripcion?: string;
   categoria?: string;
   stock_actual: number;
   stock_minimo?: number;
   precio_venta?: number;
   subcategoria?: string;
   unidad_medida?: string;
+  activo?: boolean;
+  imagen?: string;
+  tiempo_preparacion_estimado?: number;
+  requiere_cocina?: boolean;
+  alergenos?: string[];
+  controla_stock?: boolean;
   updated_at: number;
 }
 
 const getBeverageStockMap = (): Record<string, BeverageStockOverride> => {
-  if (process.env.NODE_ENV === 'test' || typeof localStorage === 'undefined') return {};
+  if (typeof localStorage === 'undefined') return {};
   try {
     const raw = localStorage.getItem(BEVERAGE_STOCK_STORAGE_KEY);
     return raw ? JSON.parse(raw) : {};
@@ -187,23 +195,49 @@ const getBeverageStockMap = (): Record<string, BeverageStockOverride> => {
   }
 };
 
-const saveBeverageStockOverride = (prod: Partial<ProductoMenu> & { id_producto: string }) => {
-  if (process.env.NODE_ENV === 'test' || typeof localStorage === 'undefined' || !prod.id_producto) return;
+const saveBeverageStockOverride = (
+  prod: Partial<ProductoMenu> & { id_producto: string },
+  originalName?: string
+) => {
+  if (typeof localStorage === 'undefined' || !prod.id_producto) return;
   try {
     const map = getBeverageStockMap();
     const key = prod.id_producto.toLowerCase();
     const prev = map[key];
+    const origNorm = prev?.original_norm_name || (originalName ? normalizeAlphanumeric(originalName) : (prod.nombre ? normalizeAlphanumeric(prod.nombre) : undefined));
+    const canPersistInlineImg = prod.imagen !== undefined && !prod.imagen.startsWith('data:image/') && !prod.imagen.includes('logo-el-patron') && prod.imagen.length < 2048;
+
     map[key] = {
       nombre: prod.nombre !== undefined ? prod.nombre : prev?.nombre,
+      original_norm_name: origNorm,
+      descripcion: prod.descripcion !== undefined ? prod.descripcion : prev?.descripcion,
       categoria: prod.categoria !== undefined ? prod.categoria : prev?.categoria,
       stock_actual: prod.stock_actual !== undefined ? Number(prod.stock_actual) : (prev?.stock_actual ?? 0),
       stock_minimo: prod.stock_minimo !== undefined ? Number(prod.stock_minimo) : prev?.stock_minimo,
       precio_venta: prod.precio_venta !== undefined ? Number(prod.precio_venta) : prev?.precio_venta,
       subcategoria: prod.subcategoria !== undefined ? prod.subcategoria : prev?.subcategoria,
       unidad_medida: prod.unidad_medida !== undefined ? prod.unidad_medida : prev?.unidad_medida,
+      activo: prod.activo !== undefined ? Boolean(prod.activo) : prev?.activo,
+      imagen: canPersistInlineImg ? prod.imagen : prev?.imagen,
+      tiempo_preparacion_estimado: prod.tiempo_preparacion_estimado !== undefined ? Number(prod.tiempo_preparacion_estimado) : prev?.tiempo_preparacion_estimado,
+      requiere_cocina: prod.requiere_cocina !== undefined ? Boolean(prod.requiere_cocina) : prev?.requiere_cocina,
+      alergenos: Array.isArray(prod.alergenos) ? prod.alergenos : prev?.alergenos,
+      controla_stock: prod.controla_stock !== undefined ? Boolean(prod.controla_stock) : prev?.controla_stock,
       updated_at: Date.now()
     };
     localStorage.setItem(BEVERAGE_STOCK_STORAGE_KEY, JSON.stringify(map));
+  } catch {}
+};
+
+const removeBeverageStockOverride = (id: string) => {
+  if (typeof localStorage === 'undefined' || !id) return;
+  try {
+    const map = getBeverageStockMap();
+    const key = id.toLowerCase();
+    if (map[key]) {
+      delete map[key];
+      localStorage.setItem(BEVERAGE_STOCK_STORAGE_KEY, JSON.stringify(map));
+    }
   } catch {}
 };
 
@@ -225,39 +259,54 @@ const normalizeProductoMenu = (prod: DbProductoMenu): ProductoMenu => {
     .slice(0, 45);
   const id_producto = rawId || match?.id_producto || (cleanSlug ? `prod_${cleanSlug}` : `prod_${Date.now()}`);
 
-  const isBev = isBeverageProduct({
-    id_producto,
-    nombre,
-    categoria,
-    subcategoria,
-    tipo: tipo as ProductoMenu['tipo'],
-    controla_stock: prod.controla_stock === true || prod.controla_stock === 'true' || match?.controla_stock === true
-  });
-
-  const rawActivo = prod.activo;
-  const parsedActivo = rawActivo === undefined || rawActivo === null || rawActivo === '' || !rawId
-    ? true
-    : (rawActivo === true || rawActivo === 'true' || (rawActivo !== false && rawActivo !== 'false'));
-  const activo = isBev ? true : (parsedActivo ?? true);
-
-  const rawImg = readString(prod.imagen) || readString(prod.url_imagen);
-  const validImg = isValidImageData(rawImg) ? rawImg : null;
-  const localImg = getMenuImageSync(id_producto);
-  const hasRealRemoteImg = Boolean(validImg && !validImg.includes('logo-el-patron'));
-  const imagen = (hasRealRemoteImg ? validImg : null) || localImg || validImg || match?.imagen || '/logo-el-patron.jpeg?v=5';
-  if (hasRealRemoteImg && validImg && validImg !== localImg) {
-    saveMenuImage(id_producto, validImg).catch(() => {});
-  }
-  const descripcion = readString(prod.descripcion) || match?.descripcion || '';
-
   const stockMap = getBeverageStockMap();
-  const stockOverride = stockMap[id_producto.toLowerCase()];
+  let stockOverride = stockMap[id_producto.toLowerCase()];
+  if (!stockOverride && nombre) {
+    const cleanNom = normalizeAlphanumeric(nombre);
+    if (cleanNom) {
+      for (const ov of Object.values(stockMap)) {
+        if (ov && ov.original_norm_name && ov.original_norm_name === cleanNom) {
+          stockOverride = ov;
+          break;
+        }
+      }
+    }
+  }
 
   const resolvedNombre = stockOverride?.nombre || nombre;
   const resolvedCategoria = stockOverride?.categoria ? normalizeCategoryName(stockOverride.categoria) : categoria;
   const resolvedSubcategoria = stockOverride && stockOverride.subcategoria !== undefined
     ? (stockOverride.subcategoria || undefined)
     : (subcategoria || undefined);
+  const resolvedTipo = (stockOverride?.categoria ? inferTipo(resolvedCategoria) : undefined) || (tipo as ProductoMenu['tipo']);
+
+  const isBev = isBeverageProduct({
+    id_producto,
+    nombre: resolvedNombre,
+    categoria: resolvedCategoria,
+    subcategoria: resolvedSubcategoria,
+    tipo: resolvedTipo,
+    controla_stock: prod.controla_stock === true || prod.controla_stock === 'true' || stockOverride?.controla_stock === true || match?.controla_stock === true
+  });
+
+  const rawActivo = prod.activo;
+  const parsedActivo = rawActivo === undefined || rawActivo === null || rawActivo === '' || !rawId
+    ? true
+    : (rawActivo === true || rawActivo === 'true' || (rawActivo !== false && rawActivo !== 'false'));
+  const activo = isBev ? true : (stockOverride?.activo !== undefined ? stockOverride.activo : (parsedActivo ?? true));
+
+  const rawImg = readString(prod.imagen) || readString(prod.url_imagen);
+  const validImg = isValidImageData(rawImg) ? rawImg : null;
+  const localImg = getMenuImageSync(id_producto);
+  const overrideImg = stockOverride?.imagen && isValidImageData(stockOverride.imagen) ? stockOverride.imagen : null;
+  const hasLocalCustomImg = Boolean(localImg && !localImg.includes('logo-el-patron'));
+  const hasRealRemoteImg = Boolean(validImg && !validImg.includes('logo-el-patron'));
+  const imagen = (hasLocalCustomImg ? localImg : null) || overrideImg || (hasRealRemoteImg ? validImg : null) || localImg || validImg || match?.imagen || '/logo-el-patron.jpeg?v=5';
+  if (hasRealRemoteImg && validImg && !hasLocalCustomImg && validImg !== localImg) {
+    saveMenuImage(id_producto, validImg).catch(() => {});
+  }
+  const baseDescripcion = readString(prod.descripcion) || match?.descripcion || '';
+  const descripcion = stockOverride?.descripcion !== undefined ? stockOverride.descripcion : baseDescripcion;
 
   const resolvedStockActual = stockOverride && stockOverride.stock_actual !== undefined
     ? stockOverride.stock_actual
@@ -277,6 +326,22 @@ const normalizeProductoMenu = (prod: DbProductoMenu): ProductoMenu => {
     ? (stockOverride.unidad_medida || undefined)
     : (readString(prod.unidad_medida) || match?.unidad_medida || undefined);
 
+  const resolvedTiempoPrep = stockOverride?.tiempo_preparacion_estimado !== undefined
+    ? stockOverride.tiempo_preparacion_estimado
+    : readNumber(prod.tiempo_preparacion_estimado, match?.tiempo_preparacion_estimado || 12);
+
+  const resolvedRequiereCocina = stockOverride?.requiere_cocina !== undefined
+    ? stockOverride.requiere_cocina
+    : (typeof prod.requiere_cocina === 'boolean'
+        ? prod.requiere_cocina
+        : (match?.requiere_cocina ?? (resolvedTipo === 'plato' || resolvedTipo === 'postre')));
+
+  const resolvedAlergenos = stockOverride?.alergenos !== undefined
+    ? stockOverride.alergenos
+    : (Array.isArray(prod.alergenos)
+        ? prod.alergenos
+        : (RECIPES_DETAILS[id_producto]?.alergenos || match?.alergenos || undefined));
+
   return {
     id_producto,
     nombre: resolvedNombre,
@@ -286,17 +351,13 @@ const normalizeProductoMenu = (prod: DbProductoMenu): ProductoMenu => {
     subcategoria: resolvedSubcategoria,
     activo,
     imagen,
-    tipo,
-    tiempo_preparacion_estimado: readNumber(prod.tiempo_preparacion_estimado, match?.tiempo_preparacion_estimado || 12),
-    requiere_cocina: typeof prod.requiere_cocina === 'boolean'
-      ? prod.requiere_cocina
-      : (match?.requiere_cocina ?? (tipo === 'plato' || tipo === 'postre')),
+    tipo: resolvedTipo,
+    tiempo_preparacion_estimado: resolvedTiempoPrep,
+    requiere_cocina: resolvedRequiereCocina,
     pasos_preparacion: Array.isArray(prod.pasos_preparacion)
       ? prod.pasos_preparacion
       : (RECIPES_DETAILS[id_producto]?.pasos_preparacion || match?.pasos_preparacion || undefined),
-    alergenos: Array.isArray(prod.alergenos)
-      ? prod.alergenos
-      : (RECIPES_DETAILS[id_producto]?.alergenos || match?.alergenos || undefined),
+    alergenos: resolvedAlergenos,
     consejo_emplatado: readString(prod.consejo_emplatado)
       || (RECIPES_DETAILS[id_producto]?.consejo_emplatado || match?.consejo_emplatado || undefined),
     unidad_medida: resolvedUnidadMedida,
@@ -321,6 +382,7 @@ const OBSOLETE_BEVERAGES = new Set([
 export const deduplicateMenuProducts = (items: ProductoMenu[]): ProductoMenu[] => {
   const byKey = new Map<string, ProductoMenu>();
   const idToKey = new Map<string, string>();
+  const stockMap = getBeverageStockMap();
 
   for (const item of items) {
     const lowerId = (item.id_producto || '').toLowerCase();
@@ -353,10 +415,14 @@ export const deduplicateMenuProducts = (items: ProductoMenu[]): ProductoMenu[] =
       const existing = byKey.get(existingKey)!;
       const preferThisId = item.id_producto && !item.id_producto.startsWith('prod_1') && (existing.id_producto.startsWith('prod_1') || existing.id_producto.length > 35);
       const chosenId = preferThisId ? item.id_producto : existing.id_producto;
-      const chosenActivo = item.activo || existing.activo;
+      const override = stockMap[lowerId] || stockMap[(existing.id_producto || '').toLowerCase()] || (chosenId ? stockMap[chosenId.toLowerCase()] : undefined);
+      const chosenActivo = override?.activo !== undefined ? override.activo : (item.activo || existing.activo);
       const hasRealImgThis = isValidImageData(item.imagen) && !item.imagen.includes('logo-el-patron');
       const hasRealImgExisting = isValidImageData(existing.imagen) && !existing.imagen.includes('logo-el-patron');
       const chosenImg = hasRealImgThis ? item.imagen : (hasRealImgExisting ? existing.imagen : (item.imagen || existing.imagen));
+      const chosenDesc = override?.descripcion !== undefined
+        ? override.descripcion
+        : ((item.descripcion?.length || 0) >= (existing.descripcion?.length || 0) ? item.descripcion : existing.descripcion);
 
       const merged: ProductoMenu = {
         ...existing,
@@ -364,9 +430,9 @@ export const deduplicateMenuProducts = (items: ProductoMenu[]): ProductoMenu[] =
         id_producto: chosenId,
         activo: chosenActivo,
         imagen: chosenImg,
-        descripcion: (item.descripcion?.length || 0) >= (existing.descripcion?.length || 0) ? item.descripcion : existing.descripcion,
-        precio_venta: item.precio_venta > 0 ? item.precio_venta : existing.precio_venta,
-        categoria: item.categoria || existing.categoria,
+        descripcion: chosenDesc,
+        precio_venta: override?.precio_venta && override.precio_venta > 0 ? override.precio_venta : (item.precio_venta > 0 ? item.precio_venta : existing.precio_venta),
+        categoria: override?.categoria ? normalizeCategoryName(override.categoria) : (item.categoria || existing.categoria),
         subcategoria: item.subcategoria || existing.subcategoria,
         unidad_medida: item.unidad_medida || existing.unidad_medida,
         stock_actual: item.stock_actual !== undefined ? item.stock_actual : existing.stock_actual,
@@ -385,7 +451,7 @@ export const deduplicateMenuProducts = (items: ProductoMenu[]): ProductoMenu[] =
 
 /**
  * Garantiza que todas las bebidas oficiales y personalizadas del módulo Stock Bebidas
- * estén presentes y activas en el catálogo devuelto por menuService.list() (salvo eliminadas).
+ * y los platos creados o editados localmente estén presentes en el catálogo devuelto por menuService.list() (salvo eliminados).
  */
 const mergeStockBeveragesIntoCatalog = (
   baseNormalized: ProductoMenu[],
@@ -393,16 +459,20 @@ const mergeStockBeveragesIntoCatalog = (
   cachedRaw: string | null
 ): ProductoMenu[] => {
   const combined: ProductoMenu[] = [...baseNormalized];
+  const stockMap = getBeverageStockMap();
 
-  // 1. Incluir cualquier bebida creada o guardada en el caché local que aún no esté en la respuesta remota
+  // 1. Incluir cualquier bebida o plato editado/creado localmente que aún no esté en la respuesta remota
   if (cachedRaw) {
     try {
       const parsedCache = JSON.parse(cachedRaw);
       if (Array.isArray(parsedCache)) {
         for (const cachedItem of parsedCache) {
-          if (!cachedItem || !isBeverageProduct(cachedItem)) continue;
+          if (!cachedItem) continue;
           const pid = String(cachedItem.id_producto || '');
-          if (deletedSet.has(pid) || deletedSet.has(pid.toLowerCase())) continue;
+          const lowerPid = pid.toLowerCase();
+          if (deletedSet.has(pid) || deletedSet.has(lowerPid)) continue;
+          const isCustomOrEdited = Boolean(stockMap[lowerPid]) || lowerPid.startsWith('prod_custom_') || lowerPid.startsWith('prod_dup_');
+          if (!isBeverageProduct(cachedItem) && !isCustomOrEdited) continue;
           combined.push(normalizeProductoMenu(cachedItem));
         }
       }
@@ -583,9 +653,7 @@ export const menuService = {
       await saveMenuImage(prod.id_producto, prod.imagen).catch(() => {});
     }
 
-    if (isBeverageProduct(prod) || prod.stock_actual !== undefined) {
-      saveBeverageStockOverride(prod);
-    }
+    saveBeverageStockOverride(prod, prod.nombre);
 
     const payload = toDbProductoMenu(prod);
 
@@ -678,9 +746,7 @@ export const menuService = {
       controla_stock: prod.controla_stock !== undefined ? prod.controla_stock : (existing?.controla_stock ?? isBeverageProduct({ ...(existing || {}), ...prod })),
     };
 
-    if (isBeverageProduct(merged) || prod.stock_actual !== undefined) {
-      saveBeverageStockOverride(merged);
-    }
+    saveBeverageStockOverride(merged, existing?.nombre);
 
     if (merged.imagen && isValidImageData(merged.imagen)) {
       await saveMenuImage(id, merged.imagen).catch(() => {});
@@ -735,9 +801,17 @@ export const menuService = {
       try {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed)) {
-          const updatedCache = parsed.map((item: any) =>
-            item.id_producto === id || item.id_producto?.toLowerCase() === lowerId ? { ...item, ...payload } : item
-          );
+          let foundInCache = false;
+          const updatedCache = parsed.map((item: any) => {
+            if (item.id_producto === id || item.id_producto?.toLowerCase() === lowerId) {
+              foundInCache = true;
+              return { ...item, ...payload };
+            }
+            return item;
+          });
+          if (!foundInCache) {
+            updatedCache.push(payload);
+          }
           try {
             localStorage.setItem('el_patron_cache_menu', JSON.stringify(updatedCache));
           } catch (e) {
@@ -779,6 +853,7 @@ export const menuService = {
 
   async remove(id: string): Promise<boolean> {
     const lowerId = id.toLowerCase();
+    removeBeverageStockOverride(id);
     await deleteMenuImage(id).catch(() => {});
 
     await Promise.allSettled([

@@ -169,4 +169,55 @@ test('isBeverageProduct detecta todas las bebidas del catálogo y persiste descu
   localStorage.removeItem('el_patron_beverage_stock_map');
 });
 
+test('menuService update persiste la edición completa de platos (nombre, precio, descripción, categoría, estado) sin revertir a valores antiguos', async () => {
+  const dish: ProductoMenu = {
+    id_producto: 'prod_plato_edit_test',
+    nombre: 'Bife de Chorizo Tradicional',
+    descripcion: 'Corte clásico de 400g con papas fritas.',
+    precio_venta: 18500,
+    categoria: 'Cortes a la Parrilla',
+    activo: true,
+    imagen: '/logo-el-patron.jpeg',
+    tipo: 'plato',
+    requiere_cocina: true,
+    tiempo_preparacion_estimado: 15,
+    alergenos: []
+  };
+
+  localStorage.setItem('el_patron_cache_menu', JSON.stringify([dish]));
+
+  const updated = await menuService.update('prod_plato_edit_test', {
+    nombre: 'Bife de Chorizo Especial El Patrón',
+    descripcion: 'Corte corto madurado con papas rústicas.',
+    precio_venta: 24900,
+    categoria: 'Carnes',
+    tiempo_preparacion_estimado: 20,
+    alergenos: ['lactosa'],
+    activo: false
+  });
+
+  assert.equal(updated.nombre, 'Bife de Chorizo Especial El Patrón');
+  assert.equal(updated.descripcion, 'Corte corto madurado con papas rústicas.');
+  assert.equal(updated.precio_venta, 24900);
+  assert.equal(updated.tiempo_preparacion_estimado, 20);
+  assert.deepEqual(updated.alergenos, ['lactosa']);
+  assert.equal(updated.activo, false);
+
+  // Simular que una fuente remota devuelve la fila desactualizada para el mismo id_producto
+  localStorage.setItem('el_patron_cache_menu', JSON.stringify([dish]));
+
+  const listAfter = await menuService.list();
+  assert.equal(listAfter.length, 1);
+  assert.equal(listAfter[0].nombre, 'Bife de Chorizo Especial El Patrón');
+  assert.equal(listAfter[0].descripcion, 'Corte corto madurado con papas rústicas.');
+  assert.equal(listAfter[0].precio_venta, 24900);
+  assert.equal(listAfter[0].tiempo_preparacion_estimado, 20);
+  assert.deepEqual(listAfter[0].alergenos, ['lactosa']);
+  assert.equal(listAfter[0].activo, false);
+
+  localStorage.removeItem('el_patron_cache_menu');
+  localStorage.removeItem('el_patron_beverage_stock_map');
+});
+
+
 
