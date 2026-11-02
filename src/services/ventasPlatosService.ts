@@ -478,6 +478,9 @@ const canonicalizePlatoName = (rawName: string): { key: string; displayName: str
   if (norm.startsWith('milanesa de entrecot')) {
     return { key: 'milanesa de entrecot', displayName: 'Milanesa de entrecot.' };
   }
+  if (norm.startsWith('ojo de bife con aligot de papas')) {
+    return { key: 'ojo de bife con aligot de papas - patron', displayName: 'Ojo de bife con aligot de papas - Patrón' };
+  }
   if (norm === 'trucha' || norm === 'trucha salmonada') {
     return { key: 'trucha salmonada', displayName: 'Trucha salmonada' };
   }
@@ -502,12 +505,162 @@ const canonicalizePlatoName = (rawName: string): { key: string; displayName: str
 
 const LOCAL_STORAGE_KEY = 'el_patron_ventas_platos';
 const RECORDED_ORDERS_STORAGE_KEY = 'el_patron_ventas_platos_recorded_orders';
+const CATALOG_STORAGE_KEY = 'el_patron_ventas_platos_catalogo_v2';
+const NOV_RESET_VERSION_KEY = 'el_patron_noviembre_reset_2026_11_02_v1';
 
 let memoryVentasRows: VentaPlatoRow[] | null = null;
 const recordedOrderIds = new Set<string>();
+const knownCatalogItems = new Map<string, { nombre: string; categoria: MacroCategoria; precio: number }>();
+
+const seedInitialCatalog = () => {
+  PLATOS_BASE_CARTA.forEach(item => {
+    const { key, displayName } = canonicalizePlatoName(item.nombre);
+    if (!knownCatalogItems.has(key)) {
+      knownCatalogItems.set(key, {
+        nombre: displayName,
+        categoria: item.categoria,
+        precio: item.precio
+      });
+    }
+  });
+
+  // Sembrar bebidas base de la carta como respaldo inicial
+  INITIAL_PRODUCTOS_MENU.forEach(prod => {
+    if (!prod || !prod.nombre) return;
+    const { key, displayName } = canonicalizePlatoName(prod.nombre);
+    const cat = classifyMacroCategoria(displayName, prod.categoria);
+    if (cat === 'Bebidas' && !knownCatalogItems.has(key)) {
+      knownCatalogItems.set(key, {
+        nombre: displayName,
+        categoria: cat,
+        precio: Number(prod.precio_venta) || 0
+      });
+    }
+  });
+};
+
+seedInitialCatalog();
+
+const registerCatalogItemsFromRows = (rows: Array<{ nombre_plato?: string; categoria?: string; precio_unitario?: number }>) => {
+  if (!Array.isArray(rows) || rows.length === 0) return;
+  let added = false;
+  rows.forEach(r => {
+    const raw = (r?.nombre_plato || '').trim();
+    if (!raw) return;
+    const { key, displayName } = canonicalizePlatoName(raw);
+    if (!key || key === 'sin nombre') return;
+    const cat = classifyMacroCategoria(displayName, r?.categoria);
+    if (!knownCatalogItems.has(key)) {
+      knownCatalogItems.set(key, {
+        nombre: displayName,
+        categoria: cat,
+        precio: Number(r?.precio_unitario) || 0
+      });
+      added = true;
+    }
+  });
+  if (added && typeof window !== 'undefined') {
+    try {
+      window.localStorage.setItem(
+        CATALOG_STORAGE_KEY,
+        JSON.stringify(Array.from(knownCatalogItems.values()))
+      );
+    } catch {}
+  }
+};
+
+const parseRowDate = (dateStr: string): Date | null => {
+  if (!dateStr) return null;
+  const s = String(dateStr).trim();
+
+  // Formato ISO / SQL: YYYY-MM-DD [HH:mm[:ss]]
+  const isoMatch = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+  if (isoMatch) {
+    const year = parseInt(isoMatch[1], 10);
+    const month = parseInt(isoMatch[2], 10) - 1;
+    const day = parseInt(isoMatch[3], 10);
+    const hour = parseInt(isoMatch[4] || '0', 10);
+    const minute = parseInt(isoMatch[5] || '0', 10);
+    const second = parseInt(isoMatch[6] || '0', 10);
+    return new Date(year, month, day, hour, minute, second);
+  }
+
+  // Formato argentino: DD/MM/YYYY [HH:mm[:ss]]
+  const arMatch = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+  if (arMatch) {
+    const day = parseInt(arMatch[1], 10);
+    const month = parseInt(arMatch[2], 10) - 1;
+    const year = parseInt(arMatch[3], 10);
+    const hour = parseInt(arMatch[4] || '0', 10);
+    const minute = parseInt(arMatch[5] || '0', 10);
+    const second = parseInt(arMatch[6] || '0', 10);
+    return new Date(year, month, day, hour, minute, second);
+  }
+
+  const parsed = new Date(s);
+  return isNaN(parsed.getTime()) ? null : parsed;
+};
+
+/**
+ * En Noviembre 2026 se reinicia el recuento a 0 para empezar a contabilizar únicamente
+ * las ventas registradas a partir de hoy (identificadas con prefijo 'vp_live_').
+ * Octubre 2026 conserva todo su historial completo.
+ */
+const isValidSaleRowAfterNovReset = (row: VentaPlatoRow): boolean => {
+  if (!row) return false;
+  const idStr = String(row.id_registro || '');
+  if (idStr.startsWith('vp_live_')) {
+    return true;
+  }
+  const d = parseRowDate(row.fecha);
+  if (!d) {
+    return false;
+  }
+  // Excluir las ventas previas de Noviembre 2026 para que la hoja de Noviembre arranque en 0 desde hoy
+  if (d.getFullYear() === 2026 && d.getMonth() === 10) {
+    return false;
+  }
+  return true;
+};
 
 if (typeof window !== 'undefined') {
   try {
+    const savedCatalog = window.localStorage.getItem(CATALOG_STORAGE_KEY);
+    if (savedCatalog) {
+      const parsedCat = JSON.parse(savedCatalog);
+      if (Array.isArray(parsedCat)) {
+        parsedCat.forEach((it: any) => {
+          if (it && it.nombre) {
+            const { key, displayName } = canonicalizePlatoName(it.nombre);
+            if (!knownCatalogItems.has(key)) {
+              knownCatalogItems.set(key, {
+                nombre: displayName,
+                categoria: classifyMacroCategoria(displayName, it.categoria),
+                precio: Number(it.precio) || 0
+              });
+            }
+          }
+        });
+      }
+    }
+  } catch {}
+
+  try {
+    // Limpieza única para poner Noviembre en 0 y permitir contabilizar desde cero a partir de hoy
+    if (window.localStorage.getItem(NOV_RESET_VERSION_KEY) !== 'done') {
+      window.localStorage.removeItem(RECORDED_ORDERS_STORAGE_KEY);
+      const existingRaw = window.localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (existingRaw) {
+        const parsedExisting = JSON.parse(existingRaw);
+        if (Array.isArray(parsedExisting)) {
+          registerCatalogItemsFromRows(parsedExisting);
+          const cleaned = parsedExisting.filter(isValidSaleRowAfterNovReset);
+          window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(cleaned));
+        }
+      }
+      window.localStorage.setItem(NOV_RESET_VERSION_KEY, 'done');
+    }
+
     const savedOrders = window.localStorage.getItem(RECORDED_ORDERS_STORAGE_KEY);
     if (savedOrders) {
       const parsed = JSON.parse(savedOrders);
@@ -527,7 +680,7 @@ if (typeof window !== 'undefined') {
           const map = new Map<string, VentaPlatoRow>();
           current.forEach(r => map.set(r.id_registro, r));
           incoming.forEach(r => map.set(r.id_registro, r));
-          const merged = Array.from(map.values());
+          const merged = Array.from(map.values()).filter(isValidSaleRowAfterNovReset);
           ventasPlatosService.setLocalCache(merged, false);
           window.dispatchEvent(new CustomEvent('el-patron-ventas-platos-updated', { detail: merged }));
         }
@@ -555,37 +708,6 @@ const getStartOfMonth = (d: Date): Date => {
   return new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0);
 };
 
-const parseRowDate = (dateStr: string): Date | null => {
-  if (!dateStr) return null;
-  // Formato argentino: DD/MM/YYYY HH:mm o ISO
-  if (dateStr.includes('/')) {
-    const parts = dateStr.split(' ');
-    const dateParts = parts[0].split('/');
-    if (dateParts.length === 3) {
-      const day = parseInt(dateParts[0], 10);
-      const month = parseInt(dateParts[1], 10) - 1;
-      const year = parseInt(dateParts[2], 10);
-      let hour = 0;
-      let minute = 0;
-      if (parts[1]) {
-        const timeParts = parts[1].split(':');
-        hour = parseInt(timeParts[0], 10) || 0;
-        minute = parseInt(timeParts[1], 10) || 0;
-      }
-      return new Date(year, month, day, hour, minute);
-    }
-  }
-  const parsed = new Date(dateStr);
-  return isNaN(parsed.getTime()) ? null : parsed;
-};
-
-const escapeHtml = (str: string): string =>
-  String(str || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-
 export const ventasPlatosService = {
   getLocalCache(): VentaPlatoRow[] {
     if (memoryVentasRows && memoryVentasRows.length > 0) {
@@ -597,8 +719,10 @@ export const ventasPlatosService = {
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) {
-          memoryVentasRows = parsed;
-          return parsed;
+          registerCatalogItemsFromRows(parsed);
+          const valid = parsed.filter(isValidSaleRowAfterNovReset);
+          memoryVentasRows = valid;
+          return valid;
         }
       }
     } catch {}
@@ -606,17 +730,18 @@ export const ventasPlatosService = {
   },
 
   setLocalCache(items: VentaPlatoRow[], notify = false): void {
-    memoryVentasRows = items;
+    const valid = items.filter(isValidSaleRowAfterNovReset);
+    memoryVentasRows = valid;
     if (typeof window === 'undefined') return;
     try {
-      window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(items));
+      window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(valid));
     } catch {
       try {
-        window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(items.slice(0, 1000)));
+        window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(valid.slice(0, 1000)));
       } catch {}
     }
     if (notify) {
-      window.dispatchEvent(new CustomEvent('el-patron-ventas-platos-updated', { detail: items }));
+      window.dispatchEvent(new CustomEvent('el-patron-ventas-platos-updated', { detail: valid }));
     }
   },
 
@@ -642,11 +767,18 @@ export const ventasPlatosService = {
           };
         });
 
+        // Registrar todos los platos y bebidas históricos en el catálogo maestro para que figuren en 0 en meses nuevos
+        registerCatalogItemsFromRows(mapped);
+
         // Combinar datos locales y remotos por id_registro preservando ventas recién realizadas
         const map = new Map<string, VentaPlatoRow>();
-        mapped.forEach(item => map.set(item.id_registro, item));
+        mapped.forEach(item => {
+          if (isValidSaleRowAfterNovReset(item)) {
+            map.set(item.id_registro, item);
+          }
+        });
         local.forEach(item => {
-          if (!map.has(item.id_registro)) {
+          if (!map.has(item.id_registro) && isValidSaleRowAfterNovReset(item)) {
             map.set(item.id_registro, {
               ...item,
               categoria: classifyMacroCategoria(item.nombre_plato, item.categoria)
@@ -660,10 +792,12 @@ export const ventasPlatosService = {
     } catch (err) {
       console.warn('[ventasPlatosService.list] Fallback a caché local:', err);
     }
-    const fallback = local.map(item => ({
-      ...item,
-      categoria: classifyMacroCategoria(item.nombre_plato, item.categoria)
-    }));
+    const fallback = local
+      .filter(isValidSaleRowAfterNovReset)
+      .map(item => ({
+        ...item,
+        categoria: classifyMacroCategoria(item.nombre_plato, item.categoria)
+      }));
     memoryVentasRows = fallback;
     return fallback;
   },
@@ -707,12 +841,12 @@ export const ventasPlatosService = {
       }
     }
 
-    const saleDate = metadata.fecha ? new Date(metadata.fecha) : new Date();
+    const saleDate = new Date();
     const fechaStr = getArgentinaDateTimeString(saleDate);
     const diaSemanaStr = getDiaSemanaArgentina(saleDate);
     const timestamp = Date.now();
     const cajeroMozo = metadata.cajero || metadata.mozo || 'Cajero';
-    const baseIdPrefix = orderKey ? `vp_ped_${orderKey}` : `vp_${timestamp}`;
+    const baseIdPrefix = orderKey ? `vp_live_ped_${orderKey}` : `vp_live_${timestamp}`;
 
     const rows: VentaPlatoRow[] = items
       .filter(it => (Number(it.cantidad) || 0) > 0)
@@ -739,6 +873,8 @@ export const ventasPlatosService = {
       });
 
     if (rows.length === 0) return [];
+
+    registerCatalogItemsFromRows(rows);
 
     // Guardar inmediatamente en memoria + caché local y notificar a toda la interfaz (0ms)
     const current = this.getLocalCache();
@@ -783,6 +919,9 @@ export const ventasPlatosService = {
     ventas: VentaPlatoRow[],
     periodo: RankingPeriodo = 'historico'
   ): RankingResult {
+    registerCatalogItemsFromRows(ventas);
+    const validVentas = ventas.filter(isValidSaleRowAfterNovReset);
+
     const now = new Date();
     let startFilter: Date | null = null;
     let endFilter: Date | null = new Date();
@@ -798,10 +937,10 @@ export const ventasPlatosService = {
       endFilter = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
     }
 
-    const filtered = ventas.filter(row => {
+    const filtered = validVentas.filter(row => {
       if (!startFilter) return true;
       const rowDate = parseRowDate(row.fecha);
-      if (!rowDate) return true; // Si no parsea, conservamos
+      if (!rowDate) return false;
       return rowDate >= startFilter && rowDate <= (endFilter || now);
     });
 
@@ -893,24 +1032,23 @@ export const ventasPlatosService = {
       }
     });
 
-    // Asegurar que los platos fijos de la carta (como Humita, Guiso de lentejas y Locro criollo en Comidas Criollas)
-    // siempre figuren en su bloque correspondiente aunque tengan 0 ventas en el período filtrado
-    PLATOS_BASE_CARTA.forEach(platoBase => {
-      const catList = porCategoria[platoBase.categoria]?.items;
+    // Asegurar que TODOS los platos y bebidas del catálogo figuren en su bloque con cantidad 0
+    // si aún no tuvieron ventas en el mes/período actual (ej. hoja de Noviembre inicializada en 0)
+    knownCatalogItems.forEach((catItem, baseKey) => {
+      const catList = porCategoria[catItem.categoria]?.items;
       if (!catList) return;
-      const { key: baseKey } = canonicalizePlatoName(platoBase.nombre);
       const alreadyExists = catList.some(it => {
         const { key: itemKey } = canonicalizePlatoName(it.nombre);
-        return itemKey === baseKey || itemKey.includes(baseKey) || baseKey.includes(itemKey);
+        return itemKey === baseKey;
       });
       if (!alreadyExists) {
         catList.push({
-          nombre: platoBase.nombre,
-          categoria: platoBase.categoria,
+          nombre: catItem.nombre,
+          categoria: catItem.categoria,
           cantidad: 0,
           totalVendido: 0,
           porcentaje: 0,
-          precioPromedio: platoBase.precio
+          precioPromedio: catItem.precio
         });
       }
     });
@@ -964,18 +1102,24 @@ export const ventasPlatosService = {
     ];
 
     const fechaEmision = getArgentinaDateTimeString(new Date());
-    const sourceRows = (allVentasInput && allVentasInput.length > 0)
+    const rawSourceRows = (allVentasInput && allVentasInput.length > 0)
       ? allVentasInput
       : this.getLocalCache();
 
-    // Agrupar todas las ventas mes por mes (YYYY-MM) y garantizar siempre la hoja del mes en curso
+    registerCatalogItemsFromRows(rawSourceRows);
+    const sourceRows = rawSourceRows.filter(isValidSaleRowAfterNovReset);
+
+    // Agrupar todas las ventas mes por mes (YYYY-MM) y garantizar siempre las hojas de Octubre 2026 y del mes en curso
     const monthBuckets = new Map<string, { year: number; monthIdx: number; rows: VentaPlatoRow[] }>();
+
+    // Garantizar hoja de Octubre 2026
+    monthBuckets.set('2026-10', { year: 2026, monthIdx: 9, rows: [] });
 
     sourceRows.forEach(row => {
       const parsed = parseRowDate(row.fecha);
-      const d = parsed || new Date();
-      const year = d.getFullYear();
-      const monthIdx = d.getMonth();
+      if (!parsed) return;
+      const year = parsed.getFullYear();
+      const monthIdx = parsed.getMonth();
       const key = `${year}-${String(monthIdx + 1).padStart(2, '0')}`;
       if (!monthBuckets.has(key)) {
         monthBuckets.set(key, { year, monthIdx, rows: [] });
@@ -1132,7 +1276,9 @@ export const ventasPlatosService = {
       // Calcular el recuento exclusivamente para las ventas de este mes
       const monthRanking = this.calculateRanking(bucket.rows, 'historico');
 
-      const firstDayStr = `01/${String(bucket.monthIdx + 1).padStart(2, '0')}/${bucket.year}`;
+      const firstDayStr = monthKey === '2026-11'
+        ? 'Contabilizando desde hoy 02/11/2026'
+        : `01/${String(bucket.monthIdx + 1).padStart(2, '0')}/${bucket.year}`;
       const lastDayDate = new Date(bucket.year, bucket.monthIdx + 1, 0);
       const lastDayStr = `${String(lastDayDate.getDate()).padStart(2, '0')}/${String(bucket.monthIdx + 1).padStart(2, '0')}/${bucket.year}`;
 
