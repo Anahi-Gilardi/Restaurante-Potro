@@ -72,6 +72,7 @@ import { argentinaDateIso, getArgentinaDateTimeString } from './lib/argentinaDat
 import { canMergePedidoItems, resolvePedidoItemUnitPrice } from './lib/orderPricing';
 import { cajaService } from './services/cajaService';
 import { reservasService } from './services/reservasService';
+import { ventasPlatosService } from './services/ventasPlatosService';
 import { stockEngine } from './services/stock/stockEngine';
 import { pedidosService } from './services/pedidosService';
 import { orderTransactionService } from './services/orderTransactionService';
@@ -1808,6 +1809,32 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
     });
 
     if (!alreadyUpdatedInCaja) {
+      // Registrar inmediatamente cada plato y bebida en ventas_platos / Excel (deduplicado por idPedido)
+      ordersToSyncBeverages.forEach(order => {
+        if (order.items && order.items.length > 0) {
+          const mappedItems = order.items.map(item => {
+            const pm = productosMenu.find(pr => pr.id_producto === item.id_producto);
+            const unitPrice = item.precio_unitario ?? pm?.precio_venta ?? 0;
+            return {
+              id_producto: item.id_producto,
+              nombre: item.nombre || pm?.nombre || 'Plato',
+              cantidad: item.cantidad,
+              precio_unitario: unitPrice,
+              subtotal: unitPrice * item.cantidad,
+              categoria: pm?.categoria || 'General'
+            };
+          });
+          ventasPlatosService.recordSaleItems(mappedItems, {
+            numeroMesa: order.numero_mesa || target.numero_mesa,
+            mozo: order.mozo || activeMozo,
+            cajero: activeMozo,
+            idPedido: order.id_pedido
+          }).catch(err => {
+            console.warn('Error registrando platos vendidos en cierre directo:', err);
+          });
+        }
+      });
+
       // Protección contra duplicación: si ya existe una factura para este pedido, no recrearla
       try {
         const existingLocal = typeof localStorage !== 'undefined' ? JSON.parse(localStorage.getItem('el_patron_facturas_pendientes') || '[]') : [];
@@ -1861,7 +1888,7 @@ const [minutosGlobal, setMinutosGlobal] = useState<number>(0);
         fecha: getArgentinaDateTimeString()
       }).catch(err => console.warn('Error registrando ledger en Google Sheets:', err));
     }
-  }, [pedidos, mesas, productosMenu, addLog, isDemoSession, permitirVentaSinStock, applyMesaLiberada, syncBeverageStockForOrder]);
+  }, [pedidos, mesas, productosMenu, addLog, isDemoSession, permitirVentaSinStock, applyMesaLiberada, syncBeverageStockForOrder, activeMozo]);
 
   // --- Handlers para Unión y Desunión de Mesas ---
   const handleUnirMesas = useCallback(async (idMesa1: number | number[], idMesa2?: number | number[]) => {

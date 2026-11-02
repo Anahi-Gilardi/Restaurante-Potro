@@ -1003,7 +1003,18 @@ export function useCaja({
 
       addLog('sistema', `CAJA: Cobro finalizado para Mesa ${numeroMesa}. Ticket interno ${compiledTicketNo} registrado sin solicitar CAE.`);
 
-      // 3. Actualizar ventas locales del turno inmediatamente y sincronizar en segundo plano
+      // 3. Registrar inmediatamente cada plato y bebida vendida en el ranking/Excel (0ms)
+      if (snapshot.items && snapshot.items.length > 0) {
+        ventasPlatosService.recordSaleItems(snapshot.items, {
+          numeroMesa,
+          cajero: operatorName || 'Cajero',
+          idPedido: pedidoId
+        }).catch(err => {
+          console.warn('[useCaja] Error al registrar platos en ventas_platos:', err);
+        });
+      }
+
+      // 4. Actualizar ventas locales del turno inmediatamente y sincronizar en segundo plano
       try {
         await cajaService.updateSales(finalTotal, paymentDesglosesCount, checkoutPropina || paymentDesglosesCount.propina || 0);
         const updatedLocal = cajaService.getOpenSession();
@@ -1012,7 +1023,7 @@ export function useCaja({
         console.warn('Error al actualizar ventas:', e);
       }
 
-      // 4. Persistir factura, pagos, tipos_pago, ventas_platos y auditoría en segundo plano sin bloquear la UI
+      // 5. Persistir factura, pagos, tipos_pago y auditoría en segundo plano sin bloquear la UI
       void (async () => {
         try {
           const persistence = await salesPersistenceService.persist({ factura, pagos });
@@ -1055,15 +1066,6 @@ export function useCaja({
           await sheetUpsertRow('tipos_pago', tipoPagoPayload);
         } catch (err) {
           console.warn('[useCaja] Error al persistir en tipos_pago:', err);
-        }
-
-        if (snapshot.items && snapshot.items.length > 0) {
-          ventasPlatosService.recordSaleItems(snapshot.items, {
-            numeroMesa,
-            cajero: operatorName || 'Cajero'
-          }).catch(err => {
-            console.warn('[useCaja] Error al registrar platos en ventas_platos:', err);
-          });
         }
 
         if (checkoutCliente) {

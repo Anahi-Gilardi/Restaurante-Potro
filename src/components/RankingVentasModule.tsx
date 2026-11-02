@@ -33,32 +33,68 @@ export default function RankingVentasModule() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDia, setSelectedDia] = useState<string>('todos');
 
-  const loadData = async (forceFresh = false) => {
+  const loadData = async (forceFresh = false, silent = false) => {
     setIsLoading(true);
     try {
       const data = await ventasPlatosService.list(forceFresh);
       setVentas(data);
-      if (forceFresh) {
+      if (forceFresh && !silent) {
         toast.success(`Datos sincronizados: ${data.length} registros en Google Sheets`);
       }
     } catch {
-      toast.error('No se pudo conectar con Google Sheets.');
+      if (!silent) {
+        toast.error('No se pudo conectar con Google Sheets.');
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    loadData();
+    loadData(true, true);
+
+    const handleVentasUpdated = (e: Event) => {
+      const custom = e as CustomEvent<VentaPlatoRow[]>;
+      if (Array.isArray(custom.detail)) {
+        setVentas([...custom.detail]);
+      } else {
+        setVentas([...ventasPlatosService.getLocalCache()]);
+      }
+    };
+
+    const handleSheetUpdated = (e: Event) => {
+      const custom = e as CustomEvent<{ table?: string }>;
+      if (!custom.detail || custom.detail.table === 'ventas_platos') {
+        ventasPlatosService.list(false).then(rows => {
+          if (rows && rows.length > 0) setVentas([...rows]);
+        }).catch(() => {});
+      }
+    };
+
+    window.addEventListener('el-patron-ventas-platos-updated', handleVentasUpdated);
+    window.addEventListener('el_patron_sheet_data_updated', handleSheetUpdated);
+    return () => {
+      window.removeEventListener('el-patron-ventas-platos-updated', handleVentasUpdated);
+      window.removeEventListener('el_patron_sheet_data_updated', handleSheetUpdated);
+    };
   }, []);
 
   const ranking: RankingResult = useMemo(() => {
     return ventasPlatosService.calculateRanking(ventas, periodo);
   }, [ventas, periodo]);
 
-  const handleExportExcel = () => {
-    ventasPlatosService.exportRankingToExcel(ranking);
-    toast.success('Recuento en Excel (.xls) descargado con bloques separados por color.');
+  const handleExportExcel = async () => {
+    setIsLoading(true);
+    try {
+      await ventasPlatosService.syncAndExportRankingToExcel(periodo);
+      setVentas([...ventasPlatosService.getLocalCache()]);
+      toast.success('Recuento actualizado en Excel (.xls) descargado con las últimas ventas.');
+    } catch {
+      ventasPlatosService.exportRankingToExcel(ranking);
+      toast.success('Recuento en Excel (.xls) descargado con bloques separados por color.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const filteredItems = useMemo(() => {

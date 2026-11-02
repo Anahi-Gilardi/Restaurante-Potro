@@ -66,12 +66,42 @@ export default function HomeMenuModule({
 
   useEffect(() => {
     let mounted = true;
-    ventasPlatosService.list(false).then(rows => {
+    ventasPlatosService.list(true).then(rows => {
       if (mounted && rows && rows.length > 0) {
-        setVentasPlatosRows(rows);
+        setVentasPlatosRows([...rows]);
       }
     }).catch(() => {});
-    return () => { mounted = false; };
+
+    const handleVentasUpdated = (e: Event) => {
+      if (!mounted) return;
+      const custom = e as CustomEvent;
+      if (Array.isArray(custom.detail)) {
+        setVentasPlatosRows([...custom.detail]);
+      } else {
+        setVentasPlatosRows([...ventasPlatosService.getLocalCache()]);
+      }
+    };
+
+    const handleSheetUpdated = (e: Event) => {
+      if (!mounted) return;
+      const custom = e as CustomEvent<{ table?: string }>;
+      if (!custom.detail || custom.detail.table === 'ventas_platos') {
+        ventasPlatosService.list(false).then(rows => {
+          if (mounted && rows && rows.length > 0) {
+            setVentasPlatosRows([...rows]);
+          }
+        }).catch(() => {});
+      }
+    };
+
+    window.addEventListener('el-patron-ventas-platos-updated', handleVentasUpdated);
+    window.addEventListener('el_patron_sheet_data_updated', handleSheetUpdated);
+
+    return () => {
+      mounted = false;
+      window.removeEventListener('el-patron-ventas-platos-updated', handleVentasUpdated);
+      window.removeEventListener('el_patron_sheet_data_updated', handleSheetUpdated);
+    };
   }, []);
 
   const fullRankingResult = useMemo(() => {
@@ -369,7 +399,11 @@ export default function HomeMenuModule({
 
                 <button
                   type="button"
-                  onClick={() => ventasPlatosService.exportRankingToExcel(fullRankingResult)}
+                  onClick={() => {
+                    ventasPlatosService.syncAndExportRankingToExcel(rankingPeriodo).catch(() => {
+                      ventasPlatosService.exportRankingToExcel(fullRankingResult);
+                    });
+                  }}
                   className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wide flex items-center gap-1.5 cursor-pointer border-none shadow-xs transition-all active:scale-95"
                   title="Descargar recuento en Excel separado por bloques de categoría con color"
                 >
@@ -608,7 +642,11 @@ export default function HomeMenuModule({
               <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                 <button
                   type="button"
-                  onClick={() => ventasPlatosService.exportRankingToExcel(fullRankingResult)}
+                  onClick={() => {
+                    ventasPlatosService.syncAndExportRankingToExcel(rankingPeriodo).catch(() => {
+                      ventasPlatosService.exportRankingToExcel(fullRankingResult);
+                    });
+                  }}
                   className="flex-1 sm:flex-initial px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black uppercase rounded-xl transition-all cursor-pointer border-none shadow-xs flex items-center justify-center gap-1.5"
                 >
                   <Download className="w-3.5 h-3.5" />

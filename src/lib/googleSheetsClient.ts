@@ -107,7 +107,6 @@ function getTableStorageCache(tableName: string): any[] | null {
 const HISTORICAL_LOG_TABLES = new Set([
   'pedido_detalle',
   'pedido_operaciones',
-  'ventas_platos',
   'facturas',
   'pagos',
   'tipos_pago',
@@ -602,7 +601,14 @@ export async function sheetUpsertRow<T extends Record<string, any>>(tableName: s
       timestamp: Date.now()
     });
     setTableStorageCache(tableName, cachedTables[tableName]);
-    lastFetchTimestamps[tableName] = Date.now();
+    if (lastFetchTimestamps[tableName]) {
+      lastFetchTimestamps[tableName] = Date.now();
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('el_patron_sheet_data_updated', {
+        detail: { table: tableName, count: cachedTables[tableName].length }
+      }));
+    }
   }
 
   if (isTestEnv()) {
@@ -652,7 +658,14 @@ export async function sheetBatchInsert<T extends Record<string, any>>(tableName:
   }
   cachedTables[tableName].push(...items);
   setTableStorageCache(tableName, cachedTables[tableName]);
-  lastFetchTimestamps[tableName] = now;
+  if (lastFetchTimestamps[tableName]) {
+    lastFetchTimestamps[tableName] = now;
+  }
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('el_patron_sheet_data_updated', {
+      detail: { table: tableName, count: cachedTables[tableName].length }
+    }));
+  }
 
   if (isTestEnv()) {
     return { operation: 'saved_locally', count: items.length };

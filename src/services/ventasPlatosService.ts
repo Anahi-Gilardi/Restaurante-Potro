@@ -443,7 +443,98 @@ const PLATOS_BASE_CARTA: Array<{ nombre: string; categoria: MacroCategoria; prec
   { nombre: 'Flan casero tradicional con dulce de leche y crema', categoria: 'Postres', precio: 10500 }
 ];
 
+/**
+ * Unifica variantes de nombres del catálogo local vs histórico de Google Sheets
+ * para que cada nueva venta sume siempre sobre la misma fila del plato o bebida.
+ */
+const canonicalizePlatoName = (rawName: string): { key: string; displayName: string } => {
+  const trimmed = (rawName || 'Sin Nombre').trim().replace(/\s+/g, ' ');
+  const norm = normalizeText(trimmed).replace(/\.$/, '').replace(/\s+/g, ' ');
+
+  if (norm === 'charcuteria de elaboracion propia' || norm === 'tabla' || norm === 'tabla de fiambres') {
+    return { key: 'tabla', displayName: 'Tabla' };
+  }
+  if (norm.startsWith('pera asada') || norm.startsWith('peras asadas')) {
+    return { key: 'peras asadas', displayName: 'Peras asadas' };
+  }
+  if (norm.startsWith('provolone')) {
+    return { key: 'provolone', displayName: 'Provolone' };
+  }
+  if (norm.startsWith('duo de empanadas')) {
+    return { key: 'duo de empanadas', displayName: 'Dúo de empanadas' };
+  }
+  if (norm.startsWith('lasagna') || norm.startsWith('lasana')) {
+    return { key: 'lasana', displayName: 'Lasaña' };
+  }
+  if (norm.startsWith('rotolo di tata')) {
+    return { key: 'rotolo di tata', displayName: 'Rotolo di tata' };
+  }
+  if (norm.includes('cepia') || norm.includes('sepia')) {
+    return { key: 'cinta anchas de cepia', displayName: 'Cinta anchas de  cepia' };
+  }
+  if (norm === 'bondiola ahumada' || norm === 'bondiola de cerdo') {
+    return { key: 'bondiola de cerdo', displayName: 'Bondiola de cerdo' };
+  }
+  if (norm.startsWith('milanesa de entrecot')) {
+    return { key: 'milanesa de entrecot', displayName: 'Milanesa de entrecot.' };
+  }
+  if (norm === 'trucha' || norm === 'trucha salmonada') {
+    return { key: 'trucha salmonada', displayName: 'Trucha salmonada' };
+  }
+  if (norm === 'pacu' || norm === 'pacu con papas rusticas') {
+    return { key: 'pacu', displayName: 'Pacú' };
+  }
+  if (norm.startsWith('humita')) {
+    return { key: 'humita', displayName: 'Humita' };
+  }
+  if (norm.startsWith('guiso de lentejas')) {
+    return { key: 'guiso de lentejas', displayName: 'Guiso de lentejas' };
+  }
+  if (norm.startsWith('locro')) {
+    return { key: 'locro criollo', displayName: 'Locro criollo' };
+  }
+  if (norm.startsWith('tiramisu') || norm.startsWith('profiterol de tiramisu')) {
+    return { key: 'profiterol de tiramisu', displayName: 'Profiterol de tiramisú' };
+  }
+
+  return { key: norm || 'sin nombre', displayName: trimmed };
+};
+
 const LOCAL_STORAGE_KEY = 'el_patron_ventas_platos';
+const RECORDED_ORDERS_STORAGE_KEY = 'el_patron_ventas_platos_recorded_orders';
+
+let memoryVentasRows: VentaPlatoRow[] | null = null;
+const recordedOrderIds = new Set<string>();
+
+if (typeof window !== 'undefined') {
+  try {
+    const savedOrders = window.localStorage.getItem(RECORDED_ORDERS_STORAGE_KEY);
+    if (savedOrders) {
+      const parsed = JSON.parse(savedOrders);
+      if (Array.isArray(parsed)) {
+        parsed.forEach(id => recordedOrderIds.add(String(id)));
+      }
+    }
+  } catch {}
+
+  try {
+    if (typeof BroadcastChannel !== 'undefined') {
+      const bc = new BroadcastChannel('el_patron_table_sync');
+      bc.addEventListener('message', (event) => {
+        if (event.data?.type === 'ventas_platos_updated' && Array.isArray(event.data?.payload)) {
+          const incoming: VentaPlatoRow[] = event.data.payload;
+          const current = ventasPlatosService.getLocalCache();
+          const map = new Map<string, VentaPlatoRow>();
+          current.forEach(r => map.set(r.id_registro, r));
+          incoming.forEach(r => map.set(r.id_registro, r));
+          const merged = Array.from(map.values());
+          ventasPlatosService.setLocalCache(merged, false);
+          window.dispatchEvent(new CustomEvent('el-patron-ventas-platos-updated', { detail: merged }));
+        }
+      });
+    }
+  } catch {}
+}
 
 const DIAS_SEMANA = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
@@ -497,20 +588,36 @@ const escapeHtml = (str: string): string =>
 
 export const ventasPlatosService = {
   getLocalCache(): VentaPlatoRow[] {
+    if (memoryVentasRows && memoryVentasRows.length > 0) {
+      return memoryVentasRows;
+    }
     if (typeof window === 'undefined') return [];
     try {
       const raw = window.localStorage.getItem(LOCAL_STORAGE_KEY);
-      return raw ? JSON.parse(raw) : [];
-    } catch {
-      return [];
-    }
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          memoryVentasRows = parsed;
+          return parsed;
+        }
+      }
+    } catch {}
+    return memoryVentasRows || [];
   },
 
-  setLocalCache(items: VentaPlatoRow[]): void {
+  setLocalCache(items: VentaPlatoRow[], notify = false): void {
+    memoryVentasRows = items;
     if (typeof window === 'undefined') return;
     try {
       window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(items));
-    } catch {}
+    } catch {
+      try {
+        window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(items.slice(0, 1000)));
+      } catch {}
+    }
+    if (notify) {
+      window.dispatchEvent(new CustomEvent('el-patron-ventas-platos-updated', { detail: items }));
+    }
   },
 
   async list(forceFresh = false): Promise<VentaPlatoRow[]> {
@@ -518,11 +625,11 @@ export const ventasPlatosService = {
     try {
       const sheetData = await sheetFetchTable('ventas_platos', forceFresh);
       if (sheetData && Array.isArray(sheetData) && sheetData.length > 0) {
-        const mapped: VentaPlatoRow[] = sheetData.map(r => {
+        const mapped: VentaPlatoRow[] = sheetData.map((r, index) => {
           const nombrePlato = String(r.nombre_plato || r.plato || r.descripcion || '');
           const rawCat = String(r.categoria || '');
           return {
-            id_registro: String(r.id_registro || `vp_${Date.now()}_${Math.random()}`),
+            id_registro: String(r.id_registro || `vp_sheet_${index}_${nombrePlato}`),
             fecha: String(r.fecha || ''),
             dia_semana: String(r.dia_semana || ''),
             numero_mesa: r.numero_mesa || r.mesa || '',
@@ -535,24 +642,30 @@ export const ventasPlatosService = {
           };
         });
 
-        // Combinar datos locales y remotos por id_registro
+        // Combinar datos locales y remotos por id_registro preservando ventas recién realizadas
         const map = new Map<string, VentaPlatoRow>();
-        local.forEach(item => map.set(item.id_registro, {
-          ...item,
-          categoria: classifyMacroCategoria(item.nombre_plato, item.categoria)
-        }));
         mapped.forEach(item => map.set(item.id_registro, item));
+        local.forEach(item => {
+          if (!map.has(item.id_registro)) {
+            map.set(item.id_registro, {
+              ...item,
+              categoria: classifyMacroCategoria(item.nombre_plato, item.categoria)
+            });
+          }
+        });
         const merged = Array.from(map.values());
-        this.setLocalCache(merged);
+        this.setLocalCache(merged, true);
         return merged;
       }
     } catch (err) {
       console.warn('[ventasPlatosService.list] Fallback a caché local:', err);
     }
-    return local.map(item => ({
+    const fallback = local.map(item => ({
       ...item,
       categoria: classifyMacroCategoria(item.nombre_plato, item.categoria)
     }));
+    memoryVentasRows = fallback;
+    return fallback;
   },
 
   async recordSaleItems(
@@ -570,41 +683,83 @@ export const ventasPlatosService = {
       mozo?: string;
       cajero?: string;
       fecha?: Date | number | string;
+      idPedido?: string | number;
     }
   ): Promise<VentaPlatoRow[]> {
     if (!items || items.length === 0) return [];
+
+    // Deduplicación por idPedido para evitar doble conteo si se invoca desde múltiples flujos de cierre
+    const orderKey = metadata.idPedido !== undefined && metadata.idPedido !== null
+      ? String(metadata.idPedido).trim()
+      : '';
+    if (orderKey && recordedOrderIds.has(orderKey)) {
+      return [];
+    }
+    if (orderKey) {
+      recordedOrderIds.add(orderKey);
+      if (typeof window !== 'undefined') {
+        try {
+          window.localStorage.setItem(
+            RECORDED_ORDERS_STORAGE_KEY,
+            JSON.stringify(Array.from(recordedOrderIds).slice(-500))
+          );
+        } catch {}
+      }
+    }
 
     const saleDate = metadata.fecha ? new Date(metadata.fecha) : new Date();
     const fechaStr = getArgentinaDateTimeString(saleDate);
     const diaSemanaStr = getDiaSemanaArgentina(saleDate);
     const timestamp = Date.now();
     const cajeroMozo = metadata.cajero || metadata.mozo || 'Cajero';
+    const baseIdPrefix = orderKey ? `vp_ped_${orderKey}` : `vp_${timestamp}`;
 
-    const rows: VentaPlatoRow[] = items.map((it, idx) => {
-      const qty = Number(it.cantidad) || 1;
-      const unit = Number(it.precio_unitario) || 0;
-      const sub = Number(it.subtotal) || (qty * unit);
-      const name = it.nombre || it.descripcion || 'Plato';
-      const cat = classifyMacroCategoria(name, it.categoria);
+    const rows: VentaPlatoRow[] = items
+      .filter(it => (Number(it.cantidad) || 0) > 0)
+      .map((it, idx) => {
+        const qty = Number(it.cantidad) || 1;
+        const unit = Number(it.precio_unitario) || 0;
+        const sub = Number(it.subtotal) || (qty * unit);
+        const rawName = it.nombre || it.descripcion || 'Plato';
+        const { displayName } = canonicalizePlatoName(rawName);
+        const cat = classifyMacroCategoria(displayName, it.categoria);
 
-      return {
-        id_registro: `vp_${timestamp}_${idx}`,
-        fecha: fechaStr,
-        dia_semana: diaSemanaStr,
-        numero_mesa: metadata.numeroMesa,
-        nombre_plato: name,
-        categoria: cat,
-        cantidad: qty,
-        precio_unitario: unit,
-        subtotal: sub,
-        cajero_mozo: cajeroMozo
-      };
-    });
+        return {
+          id_registro: `${baseIdPrefix}_${idx}`,
+          fecha: fechaStr,
+          dia_semana: diaSemanaStr,
+          numero_mesa: metadata.numeroMesa,
+          nombre_plato: displayName,
+          categoria: cat,
+          cantidad: qty,
+          precio_unitario: unit,
+          subtotal: sub,
+          cajero_mozo: cajeroMozo
+        };
+      });
 
-    // Guardar inmediatamente en caché local
+    if (rows.length === 0) return [];
+
+    // Guardar inmediatamente en memoria + caché local y notificar a toda la interfaz (0ms)
     const current = this.getLocalCache();
-    const updated = [...rows, ...current];
-    this.setLocalCache(updated);
+    const map = new Map<string, VentaPlatoRow>();
+    rows.forEach(r => map.set(r.id_registro, r));
+    current.forEach(r => {
+      if (!map.has(r.id_registro)) {
+        map.set(r.id_registro, r);
+      }
+    });
+    const updated = Array.from(map.values());
+    this.setLocalCache(updated, true);
+
+    // Sincronizar con otras pestañas abiertas
+    if (typeof window !== 'undefined' && typeof BroadcastChannel !== 'undefined') {
+      try {
+        const bc = new BroadcastChannel('el_patron_table_sync');
+        bc.postMessage({ type: 'ventas_platos_updated', payload: rows });
+        bc.close();
+      } catch {}
+    }
 
     // Enviar a Google Sheets en segundo plano sin congelar la app
     (async () => {
@@ -650,8 +805,8 @@ export const ventasPlatosService = {
       return rowDate >= startFilter && rowDate <= (endFilter || now);
     });
 
-    // Agrupar por nombre de plato
-    const grouped = new Map<string, { categoria: MacroCategoria; cantidad: number; total: number }>();
+    // Agrupar por clave canónica de plato/bebida para sumar siempre en el mismo ítem
+    const grouped = new Map<string, { nombre: string; categoria: MacroCategoria; cantidad: number; total: number }>();
     const porDiaSemana: Record<string, Record<string, number>> = {
       Lunes: {},
       Martes: {},
@@ -676,26 +831,38 @@ export const ventasPlatosService = {
     let totalFacturado = 0;
 
     filtered.forEach(row => {
-      const name = (row.nombre_plato || 'Sin Nombre').trim();
+      const rawName = (row.nombre_plato || 'Sin Nombre').trim();
+      const { key, displayName } = canonicalizePlatoName(rawName);
       const qty = Number(row.cantidad) || 0;
       const sub = Number(row.subtotal) || 0;
-      const cat = classifyMacroCategoria(name, row.categoria);
+      const cat = classifyMacroCategoria(displayName, row.categoria);
       const dia = (row.dia_semana || 'Lunes').trim();
 
       totalPorciones += qty;
       totalFacturado += sub;
 
-      // Por plato
-      const prev = grouped.get(name) || { categoria: cat, cantidad: 0, total: 0 };
-      grouped.set(name, {
-        categoria: cat,
-        cantidad: prev.cantidad + qty,
-        total: prev.total + sub
-      });
+      // Sumar cantidad vendida y monto total en el plato o bebida correspondiente
+      const prev = grouped.get(key);
+      if (prev) {
+        grouped.set(key, {
+          nombre: prev.nombre,
+          categoria: prev.categoria,
+          cantidad: prev.cantidad + qty,
+          total: prev.total + sub
+        });
+      } else {
+        grouped.set(key, {
+          nombre: displayName,
+          categoria: cat,
+          cantidad: qty,
+          total: sub
+        });
+      }
 
       // Por dia semana
+      const finalName = prev ? prev.nombre : displayName;
       if (porDiaSemana[dia]) {
-        porDiaSemana[dia][name] = (porDiaSemana[dia][name] || 0) + qty;
+        porDiaSemana[dia][finalName] = (porDiaSemana[dia][finalName] || 0) + qty;
       }
 
       // Por categoria
@@ -703,11 +870,11 @@ export const ventasPlatosService = {
       porCategoria[cat].total += sub;
     });
 
-    const items: RankingItem[] = Array.from(grouped.entries()).map(([nombre, data]) => {
+    const items: RankingItem[] = Array.from(grouped.values()).map((data) => {
       const pct = totalPorciones > 0 ? (data.cantidad / totalPorciones) * 100 : 0;
       const avgPrice = data.cantidad > 0 ? data.total / data.cantidad : 0;
       return {
-        nombre,
+        nombre: data.nombre,
         categoria: data.categoria,
         cantidad: data.cantidad,
         totalVendido: data.total,
@@ -731,10 +898,10 @@ export const ventasPlatosService = {
     PLATOS_BASE_CARTA.forEach(platoBase => {
       const catList = porCategoria[platoBase.categoria]?.items;
       if (!catList) return;
-      const normTarget = normalizeText(platoBase.nombre);
+      const { key: baseKey } = canonicalizePlatoName(platoBase.nombre);
       const alreadyExists = catList.some(it => {
-        const n = normalizeText(it.nombre);
-        return n === normTarget || n.includes(normTarget) || normTarget.includes(n);
+        const { key: itemKey } = canonicalizePlatoName(it.nombre);
+        return itemKey === baseKey || itemKey.includes(baseKey) || baseKey.includes(itemKey);
       });
       if (!alreadyExists) {
         catList.push({
@@ -761,6 +928,13 @@ export const ventasPlatosService = {
       porDiaSemana,
       porCategoria
     };
+  },
+
+  async syncAndExportRankingToExcel(periodo: RankingPeriodo = 'historico'): Promise<RankingResult> {
+    const freshRows = await this.list(true);
+    const freshRanking = this.calculateRanking(freshRows, periodo);
+    this.exportRankingToExcel(freshRanking);
+    return freshRanking;
   },
 
   exportRankingToExcel(ranking: RankingResult): void {
