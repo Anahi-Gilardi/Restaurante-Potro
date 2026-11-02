@@ -791,19 +791,29 @@ export default function MenuModule({ productosMenu, onProductosChange, recetas, 
   const filtered = useMemo(() => {
     const query = debouncedSearch.trim();
 
+    let result: ProductoMenu[];
     if (!query) {
-      return items.filter(item => isCategoryMatch(item, selectedCategoria));
+      result = items.filter(item => isCategoryMatch(item, selectedCategoria));
+    } else if (selectedCategoria === 'todos') {
+      // If 'todos' is selected, search globally across all items
+      result = items.filter(item => matchesProductSearch(item, query));
+    } else {
+      // When a specific category is selected, strictly return items matching both category and search
+      result = items.filter(
+        item => isCategoryMatch(item, selectedCategoria) && matchesProductSearch(item, query)
+      );
     }
 
-    // If 'todos' is selected, search globally across all items
     if (selectedCategoria === 'todos') {
-      return items.filter(item => matchesProductSearch(item, query));
+      return result.slice().sort((a, b) =>
+        (a.nombre || '').trim().localeCompare((b.nombre || '').trim(), 'es', {
+          sensitivity: 'base',
+          numeric: true
+        })
+      );
     }
 
-    // When a specific category is selected, strictly return items matching both category and search
-    return items.filter(
-      item => isCategoryMatch(item, selectedCategoria) && matchesProductSearch(item, query)
-    );
+    return result;
   }, [items, debouncedSearch, selectedCategoria]);
   const pageCount = Math.max(1, Math.ceil(filtered.length / MENU_PAGE_SIZE));
   const paginatedItems = useMemo(
