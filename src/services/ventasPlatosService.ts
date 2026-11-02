@@ -933,240 +933,419 @@ export const ventasPlatosService = {
   async syncAndExportRankingToExcel(periodo: RankingPeriodo = 'historico'): Promise<RankingResult> {
     const freshRows = await this.list(true);
     const freshRanking = this.calculateRanking(freshRows, periodo);
-    this.exportRankingToExcel(freshRanking);
+    this.exportRankingToExcel(freshRanking, freshRows);
     return freshRanking;
   },
 
-  exportRankingToExcel(ranking: RankingResult): void {
+  exportRankingToExcel(ranking: RankingResult, allVentasInput?: VentaPlatoRow[]): void {
     if (typeof window === 'undefined' || typeof document === 'undefined') return;
 
-    const periodoLabel =
-      ranking.periodo === 'hoy'
-        ? 'HOY'
-        : ranking.periodo === 'semana'
-        ? 'ESTA SEMANA'
-        : ranking.periodo === 'mes'
-        ? 'MES ACTUAL (NOVIEMBRE)'
-        : ranking.periodo === 'mes_anterior'
-        ? 'MES ANTERIOR (OCTUBRE)'
-        : 'HISTÓRICO COMPLETO (OCTUBRE + NOVIEMBRE)';
+    const escapeXml = (val: string | number): string =>
+      String(val ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+
+    const MESES_NOMBRES = [
+      'Enero',
+      'Febrero',
+      'Marzo',
+      'Abril',
+      'Mayo',
+      'Junio',
+      'Julio',
+      'Agosto',
+      'Septiembre',
+      'Octubre',
+      'Noviembre',
+      'Diciembre'
+    ];
 
     const fechaEmision = getArgentinaDateTimeString(new Date());
+    const sourceRows = (allVentasInput && allVentasInput.length > 0)
+      ? allVentasInput
+      : this.getLocalCache();
 
-    // Construir bloques por categoría con color en una misma hoja
-    const categoryBlocksHtml = MACRO_CATEGORIAS_ORDEN.map(catKey => {
-      const theme = CATEGORIA_COLOR_THEMES[catKey];
-      const catData = ranking.porCategoria?.[catKey] || {
-        cantidad: 0,
-        total: 0,
-        items: ranking.todos.filter(i => classifyMacroCategoria(i.nombre, i.categoria) === catKey)
-      };
-      const itemsCat = catData.items || [];
-      const catTotalQty = itemsCat.reduce((sum, i) => sum + i.cantidad, 0);
-      const catTotalMonto = itemsCat.reduce((sum, i) => sum + i.totalVendido, 0);
+    // Agrupar todas las ventas mes por mes (YYYY-MM) y garantizar siempre la hoja del mes en curso
+    const monthBuckets = new Map<string, { year: number; monthIdx: number; rows: VentaPlatoRow[] }>();
 
-      const rowsHtml =
-        itemsCat.length > 0
-          ? itemsCat
-              .map((item, idx) => {
-                const rowBg = idx % 2 === 0 ? theme.rowEvenBg : theme.rowOddBg;
-                const pctRubro = catTotalQty > 0 ? Math.round((item.cantidad / catTotalQty) * 1000) / 10 : 0;
-                return `
-                  <tr>
-                    <td style="background-color:${rowBg}; border:1px solid ${theme.borderColor}; text-align:center; font-weight:bold; color:#333333; padding:6px;">${idx + 1}</td>
-                    <td style="background-color:${rowBg}; border:1px solid ${theme.borderColor}; text-align:left; font-weight:bold; color:#1C1917; padding:6px;">${escapeHtml(item.nombre)}</td>
-                    <td style="background-color:${rowBg}; border:1px solid ${theme.borderColor}; text-align:center; color:#44403C; padding:6px;">${escapeHtml(catKey)}</td>
-                    <td style="background-color:${rowBg}; border:1px solid ${theme.borderColor}; text-align:center; font-weight:bold; color:#1C1917; padding:6px;">${item.cantidad}</td>
-                    <td style="background-color:${rowBg}; border:1px solid ${theme.borderColor}; text-align:center; color:#57534E; padding:6px;">${pctRubro}%</td>
-                    <td style="background-color:${rowBg}; border:1px solid ${theme.borderColor}; text-align:right; color:#44403C; padding:6px;">$${Math.round(item.precioPromedio).toLocaleString('es-AR')}</td>
-                    <td style="background-color:${rowBg}; border:1px solid ${theme.borderColor}; text-align:right; font-weight:bold; color:#1C1917; padding:6px;">$${Math.round(item.totalVendido).toLocaleString('es-AR')}</td>
-                  </tr>
-                `;
-              })
-              .join('')
-          : `
-            <tr>
-              <td colspan="7" style="background-color:${theme.rowEvenBg}; border:1px solid ${theme.borderColor}; text-align:center; font-style:italic; color:#78716C; padding:8px;">
-                Sin ventas registradas en ${escapeHtml(catKey)} durante este período
-              </td>
-            </tr>
-          `;
+    sourceRows.forEach(row => {
+      const parsed = parseRowDate(row.fecha);
+      const d = parsed || new Date();
+      const year = d.getFullYear();
+      const monthIdx = d.getMonth();
+      const key = `${year}-${String(monthIdx + 1).padStart(2, '0')}`;
+      if (!monthBuckets.has(key)) {
+        monthBuckets.set(key, { year, monthIdx, rows: [] });
+      }
+      monthBuckets.get(key)!.rows.push(row);
+    });
+
+    const now = new Date();
+    const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    if (!monthBuckets.has(currentMonthKey)) {
+      monthBuckets.set(currentMonthKey, {
+        year: now.getFullYear(),
+        monthIdx: now.getMonth(),
+        rows: []
+      });
+    }
+
+    const sortedMonthKeys = Array.from(monthBuckets.keys()).sort();
+
+    // Estilos XML de SpreadsheetML para colores por categoría
+    const categoryStylesXml = MACRO_CATEGORIAS_ORDEN.map((catKey, catIdx) => {
+      const t = CATEGORIA_COLOR_THEMES[catKey];
+      return `
+    <Style ss:ID="sCat_${catIdx}_Header">
+      <Alignment ss:Horizontal="Left" ss:Vertical="Center"/>
+      <Borders>
+        <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="${t.headerBg}"/>
+        <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="${t.headerBg}"/>
+        <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="${t.headerBg}"/>
+        <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="${t.headerBg}"/>
+      </Borders>
+      <Font ss:FontName="Calibri" ss:Size="12" ss:Color="${t.headerText}" ss:Bold="1"/>
+      <Interior ss:Color="${t.headerBg}" ss:Pattern="Solid"/>
+    </Style>
+    <Style ss:ID="sCat_${catIdx}_SubLeft">
+      <Alignment ss:Horizontal="Left" ss:Vertical="Center"/>
+      <Borders>
+        <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="${t.borderColor}"/>
+        <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="${t.borderColor}"/>
+        <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="${t.borderColor}"/>
+        <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="${t.borderColor}"/>
+      </Borders>
+      <Font ss:FontName="Calibri" ss:Size="10" ss:Color="${t.subHeaderText}" ss:Bold="1"/>
+      <Interior ss:Color="${t.subHeaderBg}" ss:Pattern="Solid"/>
+    </Style>
+    <Style ss:ID="sCat_${catIdx}_SubCenter">
+      <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+      <Borders>
+        <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="${t.borderColor}"/>
+        <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="${t.borderColor}"/>
+        <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="${t.borderColor}"/>
+        <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="${t.borderColor}"/>
+      </Borders>
+      <Font ss:FontName="Calibri" ss:Size="10" ss:Color="${t.subHeaderText}" ss:Bold="1"/>
+      <Interior ss:Color="${t.subHeaderBg}" ss:Pattern="Solid"/>
+    </Style>
+    <Style ss:ID="sCat_${catIdx}_EvenLeftBold">
+      <Alignment ss:Horizontal="Left" ss:Vertical="Center"/>
+      <Borders>
+        <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="${t.borderColor}"/>
+        <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="${t.borderColor}"/>
+        <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="${t.borderColor}"/>
+        <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="${t.borderColor}"/>
+      </Borders>
+      <Font ss:FontName="Calibri" ss:Size="10" ss:Color="#1C1917" ss:Bold="1"/>
+      <Interior ss:Color="${t.rowEvenBg}" ss:Pattern="Solid"/>
+    </Style>
+    <Style ss:ID="sCat_${catIdx}_OddLeftBold">
+      <Alignment ss:Horizontal="Left" ss:Vertical="Center"/>
+      <Borders>
+        <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="${t.borderColor}"/>
+        <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="${t.borderColor}"/>
+        <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="${t.borderColor}"/>
+        <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="${t.borderColor}"/>
+      </Borders>
+      <Font ss:FontName="Calibri" ss:Size="10" ss:Color="#1C1917" ss:Bold="1"/>
+      <Interior ss:Color="${t.rowOddBg}" ss:Pattern="Solid"/>
+    </Style>
+    <Style ss:ID="sCat_${catIdx}_EvenCenterBold">
+      <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+      <Borders>
+        <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="${t.borderColor}"/>
+        <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="${t.borderColor}"/>
+        <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="${t.borderColor}"/>
+        <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="${t.borderColor}"/>
+      </Borders>
+      <Font ss:FontName="Calibri" ss:Size="10" ss:Color="#1C1917" ss:Bold="1"/>
+      <Interior ss:Color="${t.rowEvenBg}" ss:Pattern="Solid"/>
+    </Style>
+    <Style ss:ID="sCat_${catIdx}_OddCenterBold">
+      <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+      <Borders>
+        <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="${t.borderColor}"/>
+        <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="${t.borderColor}"/>
+        <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="${t.borderColor}"/>
+        <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="${t.borderColor}"/>
+      </Borders>
+      <Font ss:FontName="Calibri" ss:Size="10" ss:Color="#1C1917" ss:Bold="1"/>
+      <Interior ss:Color="${t.rowOddBg}" ss:Pattern="Solid"/>
+    </Style>
+    <Style ss:ID="sCat_${catIdx}_EvenCenter">
+      <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+      <Borders>
+        <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="${t.borderColor}"/>
+        <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="${t.borderColor}"/>
+        <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="${t.borderColor}"/>
+        <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="${t.borderColor}"/>
+      </Borders>
+      <Font ss:FontName="Calibri" ss:Size="10" ss:Color="#44403C"/>
+      <Interior ss:Color="${t.rowEvenBg}" ss:Pattern="Solid"/>
+    </Style>
+    <Style ss:ID="sCat_${catIdx}_OddCenter">
+      <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+      <Borders>
+        <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="${t.borderColor}"/>
+        <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="${t.borderColor}"/>
+        <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="${t.borderColor}"/>
+        <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="${t.borderColor}"/>
+      </Borders>
+      <Font ss:FontName="Calibri" ss:Size="10" ss:Color="#44403C"/>
+      <Interior ss:Color="${t.rowOddBg}" ss:Pattern="Solid"/>
+    </Style>
+    <Style ss:ID="sCat_${catIdx}_TotalLabel">
+      <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
+      <Borders>
+        <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="${t.borderColor}"/>
+        <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="${t.borderColor}"/>
+        <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="${t.borderColor}"/>
+        <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="${t.borderColor}"/>
+      </Borders>
+      <Font ss:FontName="Calibri" ss:Size="10" ss:Color="${t.subtotalText}" ss:Bold="1"/>
+      <Interior ss:Color="${t.subtotalBg}" ss:Pattern="Solid"/>
+    </Style>
+    <Style ss:ID="sCat_${catIdx}_TotalQty">
+      <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+      <Borders>
+        <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="${t.borderColor}"/>
+        <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="${t.borderColor}"/>
+        <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="${t.borderColor}"/>
+        <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="${t.borderColor}"/>
+      </Borders>
+      <Font ss:FontName="Calibri" ss:Size="11" ss:Color="${t.subtotalText}" ss:Bold="1"/>
+      <Interior ss:Color="${t.subtotalBg}" ss:Pattern="Solid"/>
+    </Style>`;
+    }).join('\n');
+
+    // Construir una hoja (<Worksheet>) por cada mes
+    const worksheetsXml = sortedMonthKeys.map(monthKey => {
+      const bucket = monthBuckets.get(monthKey)!;
+      const mesNombre = MESES_NOMBRES[bucket.monthIdx] || 'Mes';
+      const sheetName = `${mesNombre} ${bucket.year}`;
+      const mesTituloUpper = `${mesNombre.toUpperCase()} ${bucket.year}`;
+
+      // Calcular el recuento exclusivamente para las ventas de este mes
+      const monthRanking = this.calculateRanking(bucket.rows, 'historico');
+
+      const firstDayStr = `01/${String(bucket.monthIdx + 1).padStart(2, '0')}/${bucket.year}`;
+      const lastDayDate = new Date(bucket.year, bucket.monthIdx + 1, 0);
+      const lastDayStr = `${String(lastDayDate.getDate()).padStart(2, '0')}/${String(bucket.monthIdx + 1).padStart(2, '0')}/${bucket.year}`;
+
+      // Resumen superior por categoría (sin montos ni subtotales en $)
+      const summaryRowsXml = MACRO_CATEGORIAS_ORDEN.map((catKey, catIdx) => {
+        const theme = CATEGORIA_COLOR_THEMES[catKey];
+        const itemsCat = monthRanking.porCategoria?.[catKey]?.items || [];
+        const catQty = itemsCat.reduce((sum, i) => sum + i.cantidad, 0);
+        const pctGlobal = monthRanking.totalPorciones > 0
+          ? Math.round((catQty / monthRanking.totalPorciones) * 1000) / 10
+          : 0;
+
+        return `
+      <Row ss:Height="20">
+        <Cell ss:MergeAcross="1" ss:StyleID="sCat_${catIdx}_Header"><Data ss:Type="String">${escapeXml(theme.titulo)}</Data></Cell>
+        <Cell ss:StyleID="sCat_${catIdx}_EvenCenterBold"><Data ss:Type="String">${itemsCat.length} variedades</Data></Cell>
+        <Cell ss:StyleID="sCat_${catIdx}_OddCenterBold"><Data ss:Type="Number">${catQty}</Data></Cell>
+        <Cell ss:StyleID="sCat_${catIdx}_EvenCenter"><Data ss:Type="String">${pctGlobal}%</Data></Cell>
+      </Row>`;
+      }).join('');
+
+      // Bloques detallados por rubro con color (5 columnas: #, PLATO / BEBIDA, RUBRO, CANTIDAD VENDIDA, % DEL RUBRO)
+      const categoryBlocksXml = MACRO_CATEGORIAS_ORDEN.map((catKey, catIdx) => {
+        const theme = CATEGORIA_COLOR_THEMES[catKey];
+        const itemsCat = monthRanking.porCategoria?.[catKey]?.items || [];
+        const catTotalQty = itemsCat.reduce((sum, i) => sum + i.cantidad, 0);
+
+        const itemRowsXml = itemsCat.map((item, idx) => {
+          const isEven = idx % 2 === 0;
+          const styleCenterBold = isEven ? `sCat_${catIdx}_EvenCenterBold` : `sCat_${catIdx}_OddCenterBold`;
+          const styleLeftBold = isEven ? `sCat_${catIdx}_EvenLeftBold` : `sCat_${catIdx}_OddLeftBold`;
+          const styleCenter = isEven ? `sCat_${catIdx}_EvenCenter` : `sCat_${catIdx}_OddCenter`;
+          const pctRubro = catTotalQty > 0 ? Math.round((item.cantidad / catTotalQty) * 1000) / 10 : 0;
+
+          return `
+      <Row ss:Height="19">
+        <Cell ss:StyleID="${styleCenterBold}"><Data ss:Type="Number">${idx + 1}</Data></Cell>
+        <Cell ss:StyleID="${styleLeftBold}"><Data ss:Type="String">${escapeXml(item.nombre)}</Data></Cell>
+        <Cell ss:StyleID="${styleCenter}"><Data ss:Type="String">${escapeXml(catKey)}</Data></Cell>
+        <Cell ss:StyleID="${styleCenterBold}"><Data ss:Type="Number">${item.cantidad}</Data></Cell>
+        <Cell ss:StyleID="${styleCenter}"><Data ss:Type="String">${pctRubro}%</Data></Cell>
+      </Row>`;
+        }).join('');
+
+        return `
+      <Row ss:Height="12"/>
+      <Row ss:Height="24">
+        <Cell ss:MergeAcross="4" ss:StyleID="sCat_${catIdx}_Header"><Data ss:Type="String">${escapeXml(theme.titulo)}</Data></Cell>
+      </Row>
+      <Row ss:Height="20">
+        <Cell ss:StyleID="sCat_${catIdx}_SubCenter"><Data ss:Type="String">#</Data></Cell>
+        <Cell ss:StyleID="sCat_${catIdx}_SubLeft"><Data ss:Type="String">PLATO / BEBIDA</Data></Cell>
+        <Cell ss:StyleID="sCat_${catIdx}_SubCenter"><Data ss:Type="String">RUBRO</Data></Cell>
+        <Cell ss:StyleID="sCat_${catIdx}_SubCenter"><Data ss:Type="String">CANTIDAD VENDIDA</Data></Cell>
+        <Cell ss:StyleID="sCat_${catIdx}_SubCenter"><Data ss:Type="String">% DEL RUBRO</Data></Cell>
+      </Row>${itemRowsXml}
+      <Row ss:Height="21">
+        <Cell ss:MergeAcross="2" ss:StyleID="sCat_${catIdx}_TotalLabel"><Data ss:Type="String">TOTAL ${escapeXml(catKey.toUpperCase())}:</Data></Cell>
+        <Cell ss:StyleID="sCat_${catIdx}_TotalQty"><Data ss:Type="Number">${catTotalQty}</Data></Cell>
+        <Cell ss:StyleID="sCat_${catIdx}_TotalQty"><Data ss:Type="String">${catTotalQty > 0 ? '100%' : '0%'}</Data></Cell>
+      </Row>`;
+      }).join('');
 
       return `
-        <tr><td colspan="7" style="height:14px; border:none;"></td></tr>
-        <tr>
-          <td colspan="7" style="background-color:${theme.headerBg}; color:${theme.headerText}; font-size:13pt; font-weight:bold; text-align:left; padding:8px 10px; border:1px solid ${theme.headerBg};">
-            ${escapeHtml(theme.titulo)}
-          </td>
-        </tr>
-        <tr>
-          <td style="background-color:${theme.subHeaderBg}; color:${theme.subHeaderText}; font-weight:bold; text-align:center; border:1px solid ${theme.borderColor}; padding:6px;">#</td>
-          <td style="background-color:${theme.subHeaderBg}; color:${theme.subHeaderText}; font-weight:bold; text-align:left; border:1px solid ${theme.borderColor}; padding:6px;">PLATO / BEBIDA</td>
-          <td style="background-color:${theme.subHeaderBg}; color:${theme.subHeaderText}; font-weight:bold; text-align:center; border:1px solid ${theme.borderColor}; padding:6px;">RUBRO</td>
-          <td style="background-color:${theme.subHeaderBg}; color:${theme.subHeaderText}; font-weight:bold; text-align:center; border:1px solid ${theme.borderColor}; padding:6px;">CANTIDAD VENDIDA</td>
-          <td style="background-color:${theme.subHeaderBg}; color:${theme.subHeaderText}; font-weight:bold; text-align:center; border:1px solid ${theme.borderColor}; padding:6px;">% DEL RUBRO</td>
-          <td style="background-color:${theme.subHeaderBg}; color:${theme.subHeaderText}; font-weight:bold; text-align:right; border:1px solid ${theme.borderColor}; padding:6px;">PRECIO PROMEDIO</td>
-          <td style="background-color:${theme.subHeaderBg}; color:${theme.subHeaderText}; font-weight:bold; text-align:right; border:1px solid ${theme.borderColor}; padding:6px;">TOTAL VENDIDO ($)</td>
-        </tr>
-        ${rowsHtml}
-        <tr>
-          <td colspan="3" style="background-color:${theme.subtotalBg}; color:${theme.subtotalText}; font-weight:bold; text-align:right; border:1px solid ${theme.borderColor}; padding:7px;">
-            SUBTOTAL ${escapeHtml(catKey.toUpperCase())}:
-          </td>
-          <td style="background-color:${theme.subtotalBg}; color:${theme.subtotalText}; font-weight:bold; text-align:center; border:1px solid ${theme.borderColor}; padding:7px; font-size:11pt;">
-            ${catTotalQty}
-          </td>
-          <td style="background-color:${theme.subtotalBg}; color:${theme.subtotalText}; font-weight:bold; text-align:center; border:1px solid ${theme.borderColor}; padding:7px;">
-            100%
-          </td>
-          <td style="background-color:${theme.subtotalBg}; color:${theme.subtotalText}; border:1px solid ${theme.borderColor}; padding:7px;"></td>
-          <td style="background-color:${theme.subtotalBg}; color:${theme.subtotalText}; font-weight:bold; text-align:right; border:1px solid ${theme.borderColor}; padding:7px; font-size:11pt;">
-            $${Math.round(catTotalMonto).toLocaleString('es-AR')}
-          </td>
-        </tr>
-      `;
-    }).join('');
+  <Worksheet ss:Name="${escapeXml(sheetName)}">
+    <Table>
+      <Column ss:Width="45"/>
+      <Column ss:Width="330"/>
+      <Column ss:Width="145"/>
+      <Column ss:Width="145"/>
+      <Column ss:Width="115"/>
 
-    // Resumen superior por rubro con colores
-    const summaryRowsHtml = MACRO_CATEGORIAS_ORDEN.map(catKey => {
-      const theme = CATEGORIA_COLOR_THEMES[catKey];
-      const itemsCat = ranking.porCategoria?.[catKey]?.items || ranking.todos.filter(i => classifyMacroCategoria(i.nombre, i.categoria) === catKey);
-      const catQty = itemsCat.reduce((sum, i) => sum + i.cantidad, 0);
-      const catTotal = itemsCat.reduce((sum, i) => sum + i.totalVendido, 0);
-      const pctGlobal = ranking.totalPorciones > 0 ? Math.round((catQty / ranking.totalPorciones) * 1000) / 10 : 0;
+      <Row ss:Height="30">
+        <Cell ss:MergeAcross="4" ss:StyleID="sTitleBanner"><Data ss:Type="String">EL PATRÓN — RECUENTO DE PLATOS Y BEBIDAS VENDIDAS (${escapeXml(mesTituloUpper)})</Data></Cell>
+      </Row>
+      <Row ss:Height="22">
+        <Cell ss:MergeAcross="2" ss:StyleID="sPeriodLeft"><Data ss:Type="String">MES: ${escapeXml(mesTituloUpper)} (${firstDayStr} al ${lastDayStr})</Data></Cell>
+        <Cell ss:MergeAcross="1" ss:StyleID="sPeriodRight"><Data ss:Type="String">TOTAL UNIDADES VENDIDAS: ${monthRanking.totalPorciones}</Data></Cell>
+      </Row>
+      <Row ss:Height="18">
+        <Cell ss:MergeAcross="4" ss:StyleID="sSubBanner"><Data ss:Type="String">Reporte emitido el ${escapeXml(fechaEmision)} hs • Hoja mensual: ${escapeXml(sheetName)} • Separado por bloques con color.</Data></Cell>
+      </Row>
 
-      return `
-        <tr>
-          <td colspan="2" style="background-color:${theme.headerBg}; color:${theme.headerText}; font-weight:bold; padding:6px 10px; border:1px solid ${theme.borderColor};">
-            ${escapeHtml(theme.titulo)}
-          </td>
-          <td style="background-color:${theme.rowEvenBg}; color:#1C1917; font-weight:bold; text-align:center; padding:6px; border:1px solid ${theme.borderColor};">
-            ${itemsCat.length} variedades
-          </td>
-          <td style="background-color:${theme.rowOddBg}; color:#1C1917; font-weight:bold; text-align:center; padding:6px; border:1px solid ${theme.borderColor};">
-            ${catQty}
-          </td>
-          <td style="background-color:${theme.rowEvenBg}; color:#44403C; text-align:center; padding:6px; border:1px solid ${theme.borderColor};">
-            ${pctGlobal}%
-          </td>
-          <td colspan="2" style="background-color:${theme.subtotalBg}; color:${theme.subtotalText}; font-weight:bold; text-align:right; padding:6px 10px; border:1px solid ${theme.borderColor};">
-            $${Math.round(catTotal).toLocaleString('es-AR')}
-          </td>
-        </tr>
-      `;
-    }).join('');
+      <Row ss:Height="10"/>
 
-    const excelHtml = `
-      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
-      <head>
-        <meta charset="UTF-8" />
-        <!--[if gte mso 9]>
-        <xml>
-          <x:ExcelWorkbook>
-            <x:ExcelWorksheets>
-              <x:ExcelWorksheet>
-                <x:Name>Recuento Platos y Bebidas</x:Name>
-                <x:WorksheetOptions>
-                  <x:DisplayGridlines/>
-                </x:WorksheetOptions>
-              </x:ExcelWorksheet>
-            </x:ExcelWorksheets>
-          </x:ExcelWorkbook>
-        </xml>
-        <![endif]-->
-        <style>
-          body, table, td, th {
-            font-family: Calibri, Arial, sans-serif;
-            font-size: 10pt;
-          }
-        </style>
-      </head>
-      <body>
-        <table cellspacing="0" cellpadding="4" style="border-collapse:collapse; width:100%;">
-          <colgroup>
-            <col width="55" />
-            <col width="360" />
-            <col width="150" />
-            <col width="140" />
-            <col width="110" />
-            <col width="145" />
-            <col width="160" />
-          </colgroup>
+      <Row ss:Height="22">
+        <Cell ss:MergeAcross="4" ss:StyleID="sSummaryTitle"><Data ss:Type="String">RESUMEN GENERAL POR CATEGORÍA — ${escapeXml(mesTituloUpper)}</Data></Cell>
+      </Row>
+      <Row ss:Height="20">
+        <Cell ss:MergeAcross="1" ss:StyleID="sSummaryHeadLeft"><Data ss:Type="String">CATEGORÍA / BLOQUE</Data></Cell>
+        <Cell ss:StyleID="sSummaryHeadCenter"><Data ss:Type="String">VARIEDADES</Data></Cell>
+        <Cell ss:StyleID="sSummaryHeadCenter"><Data ss:Type="String">CANT. VENDIDA</Data></Cell>
+        <Cell ss:StyleID="sSummaryHeadCenter"><Data ss:Type="String">% DEL TOTAL</Data></Cell>
+      </Row>${summaryRowsXml}
+${categoryBlocksXml}
 
-          <!-- ENCABEZADO PRINCIPAL -->
-          <tr>
-            <td colspan="7" style="background-color:#2E190E; color:#FFFDF8; font-size:15pt; font-weight:bold; text-align:center; padding:12px;">
-              EL PATRÓN — RECUENTO DE PLATOS Y BEBIDAS VENDIDAS POR RUBRO
-            </td>
-          </tr>
-          <tr>
-            <td colspan="3" style="background-color:#F5F1E9; color:#2E190E; font-weight:bold; padding:7px; border:1px solid #D6CFC2;">
-              PERÍODO: ${escapeHtml(periodoLabel)} (${escapeHtml(ranking.fechaInicio)} al ${escapeHtml(ranking.fechaFin)})
-            </td>
-            <td colspan="2" style="background-color:#F5F1E9; color:#2E190E; font-weight:bold; text-align:center; padding:7px; border:1px solid #D6CFC2;">
-              TOTAL UNIDADES: ${ranking.totalPorciones}
-            </td>
-            <td colspan="2" style="background-color:#ECFDF5; color:#065F46; font-weight:bold; text-align:right; padding:7px; border:1px solid #6EE7B7;">
-              TOTAL FACTURADO: $${Math.round(ranking.totalFacturado).toLocaleString('es-AR')}
-            </td>
-          </tr>
-          <tr>
-            <td colspan="7" style="background-color:#FAF8F5; color:#78716C; font-size:9pt; padding:5px 8px; border:1px solid #E7E5E4;">
-              Reporte emitido el ${escapeHtml(fechaEmision)} hs • Separado en bloques con color: Entrantes, Pastas, Carnes, Pescados, Comidas Criollas, Postres y Bebidas.
-            </td>
-          </tr>
+      <Row ss:Height="14"/>
+      <Row ss:Height="26">
+        <Cell ss:MergeAcross="2" ss:StyleID="sGrandTotalLabel"><Data ss:Type="String">TOTAL GENERAL DE UNIDADES (${escapeXml(mesTituloUpper)}):</Data></Cell>
+        <Cell ss:StyleID="sGrandTotalQty"><Data ss:Type="Number">${monthRanking.totalPorciones}</Data></Cell>
+        <Cell ss:StyleID="sGrandTotalPct"><Data ss:Type="String">${monthRanking.totalPorciones > 0 ? '100%' : '0%'}</Data></Cell>
+      </Row>
+    </Table>
+    <WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel">
+      <DisplayGridlines/>
+    </WorksheetOptions>
+  </Worksheet>`;
+    }).join('\n');
 
-          <tr><td colspan="7" style="height:12px; border:none;"></td></tr>
+    const workbookXml = `<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:html="http://www.w3.org/TR/REC-html40">
+  <Styles>
+    <Style ss:ID="Default" ss:Name="Normal">
+      <Alignment ss:Vertical="Center"/>
+      <Font ss:FontName="Calibri" ss:Size="10" ss:Color="#1C1917"/>
+    </Style>
+    <Style ss:ID="sTitleBanner">
+      <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+      <Font ss:FontName="Calibri" ss:Size="14" ss:Color="#FFFDF8" ss:Bold="1"/>
+      <Interior ss:Color="#2E190E" ss:Pattern="Solid"/>
+    </Style>
+    <Style ss:ID="sPeriodLeft">
+      <Alignment ss:Horizontal="Left" ss:Vertical="Center"/>
+      <Borders>
+        <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D6CFC2"/>
+        <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D6CFC2"/>
+        <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D6CFC2"/>
+        <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D6CFC2"/>
+      </Borders>
+      <Font ss:FontName="Calibri" ss:Size="10" ss:Color="#2E190E" ss:Bold="1"/>
+      <Interior ss:Color="#F5F1E9" ss:Pattern="Solid"/>
+    </Style>
+    <Style ss:ID="sPeriodRight">
+      <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+      <Borders>
+        <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#6EE7B7"/>
+        <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#6EE7B7"/>
+        <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#6EE7B7"/>
+        <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#6EE7B7"/>
+      </Borders>
+      <Font ss:FontName="Calibri" ss:Size="11" ss:Color="#065F46" ss:Bold="1"/>
+      <Interior ss:Color="#ECFDF5" ss:Pattern="Solid"/>
+    </Style>
+    <Style ss:ID="sSubBanner">
+      <Alignment ss:Horizontal="Left" ss:Vertical="Center"/>
+      <Borders>
+        <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E7E5E4"/>
+        <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E7E5E4"/>
+        <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E7E5E4"/>
+        <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E7E5E4"/>
+      </Borders>
+      <Font ss:FontName="Calibri" ss:Size="9" ss:Color="#78716C"/>
+      <Interior ss:Color="#FAF8F5" ss:Pattern="Solid"/>
+    </Style>
+    <Style ss:ID="sSummaryTitle">
+      <Alignment ss:Horizontal="Left" ss:Vertical="Center"/>
+      <Font ss:FontName="Calibri" ss:Size="11" ss:Color="#FFFFFF" ss:Bold="1"/>
+      <Interior ss:Color="#44403C" ss:Pattern="Solid"/>
+    </Style>
+    <Style ss:ID="sSummaryHeadLeft">
+      <Alignment ss:Horizontal="Left" ss:Vertical="Center"/>
+      <Borders>
+        <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#A8A29E"/>
+        <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#A8A29E"/>
+        <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#A8A29E"/>
+        <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#A8A29E"/>
+      </Borders>
+      <Font ss:FontName="Calibri" ss:Size="10" ss:Color="#1C1917" ss:Bold="1"/>
+      <Interior ss:Color="#E7E5E4" ss:Pattern="Solid"/>
+    </Style>
+    <Style ss:ID="sSummaryHeadCenter">
+      <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+      <Borders>
+        <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#A8A29E"/>
+        <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#A8A29E"/>
+        <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#A8A29E"/>
+        <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#A8A29E"/>
+      </Borders>
+      <Font ss:FontName="Calibri" ss:Size="10" ss:Color="#1C1917" ss:Bold="1"/>
+      <Interior ss:Color="#E7E5E4" ss:Pattern="Solid"/>
+    </Style>
+    <Style ss:ID="sGrandTotalLabel">
+      <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
+      <Font ss:FontName="Calibri" ss:Size="11" ss:Color="#FFFFFF" ss:Bold="1"/>
+      <Interior ss:Color="#1C1917" ss:Pattern="Solid"/>
+    </Style>
+    <Style ss:ID="sGrandTotalQty">
+      <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+      <Font ss:FontName="Calibri" ss:Size="12" ss:Color="#FBBF24" ss:Bold="1"/>
+      <Interior ss:Color="#1C1917" ss:Pattern="Solid"/>
+    </Style>
+    <Style ss:ID="sGrandTotalPct">
+      <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+      <Font ss:FontName="Calibri" ss:Size="11" ss:Color="#FFFFFF" ss:Bold="1"/>
+      <Interior ss:Color="#1C1917" ss:Pattern="Solid"/>
+    </Style>${categoryStylesXml}
+  </Styles>
+${worksheetsXml}
+</Workbook>`;
 
-          <!-- CUADRO RESUMEN EJECUTIVO POR RUBRO -->
-          <tr>
-            <td colspan="7" style="background-color:#44403C; color:#FFFFFF; font-size:11pt; font-weight:bold; padding:7px 10px; border:1px solid #44403C;">
-              RESUMEN GENERAL POR CATEGORÍA
-            </td>
-          </tr>
-          <tr>
-            <td colspan="2" style="background-color:#E7E5E4; color:#1C1917; font-weight:bold; padding:6px; border:1px solid #A8A29E;">CATEGORÍA / BLOQUE</td>
-            <td style="background-color:#E7E5E4; color:#1C1917; font-weight:bold; text-align:center; padding:6px; border:1px solid #A8A29E;">VARIEDADES</td>
-            <td style="background-color:#E7E5E4; color:#1C1917; font-weight:bold; text-align:center; padding:6px; border:1px solid #A8A29E;">CANT. VENDIDA</td>
-            <td style="background-color:#E7E5E4; color:#1C1917; font-weight:bold; text-align:center; padding:6px; border:1px solid #A8A29E;">% DEL TOTAL</td>
-            <td colspan="2" style="background-color:#E7E5E4; color:#1C1917; font-weight:bold; text-align:right; padding:6px; border:1px solid #A8A29E;">SUBTOTAL ($)</td>
-          </tr>
-          ${summaryRowsHtml}
-
-          <!-- BLOQUES DETALLADOS CON COLOR EN LA MISMA HOJA -->
-          ${categoryBlocksHtml}
-
-          <tr><td colspan="7" style="height:16px; border:none;"></td></tr>
-
-          <!-- TOTAL GENERAL FINAL -->
-          <tr>
-            <td colspan="3" style="background-color:#1C1917; color:#FFFFFF; font-size:12pt; font-weight:bold; text-align:right; padding:10px; border:2px solid #1C1917;">
-              TOTAL GENERAL (PLATOS + BEBIDAS):
-            </td>
-            <td style="background-color:#1C1917; color:#FBBF24; font-size:12pt; font-weight:bold; text-align:center; padding:10px; border:2px solid #1C1917;">
-              ${ranking.totalPorciones}
-            </td>
-            <td style="background-color:#1C1917; color:#FFFFFF; font-weight:bold; text-align:center; padding:10px; border:2px solid #1C1917;">
-              100%
-            </td>
-            <td style="background-color:#1C1917; color:#FFFFFF; padding:10px; border:2px solid #1C1917;"></td>
-            <td style="background-color:#1C1917; color:#34D399; font-size:12pt; font-weight:bold; text-align:right; padding:10px; border:2px solid #1C1917;">
-              $${Math.round(ranking.totalFacturado).toLocaleString('es-AR')}
-            </td>
-          </tr>
-        </table>
-      </body>
-      </html>
-    `;
-
-    const blob = new Blob(['\uFEFF', excelHtml], {
+    const blob = new Blob(['\uFEFF', workbookXml], {
       type: 'application/vnd.ms-excel;charset=utf-8;'
     });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     const safeDate = new Date().toISOString().slice(0, 10);
     link.href = url;
-    link.download = `Recuento_Platos_y_Bebidas_${ranking.periodo}_${safeDate}.xls`;
+    link.download = `Recuento_Platos_y_Bebidas_Por_Mes_${safeDate}.xls`;
     document.body.appendChild(link);
     link.click();
     if (document.body.contains(link)) {

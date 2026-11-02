@@ -439,9 +439,6 @@ export default function HomeMenuModule({
                           <span className="font-mono text-xs font-black text-stone-900 dark:text-stone-100">
                             {dish.cantidad} {dish.cantidad === 1 ? 'porción' : 'porciones'}
                           </span>
-                          <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 block font-bold">
-                            ${dish.totalVendido.toLocaleString('es-AR')}
-                          </span>
                         </div>
                       </div>
 
@@ -558,9 +555,6 @@ export default function HomeMenuModule({
                   <span className="font-extrabold text-stone-900 dark:text-stone-100 bg-stone-100 dark:bg-stone-800/60 px-2.5 py-1 rounded-lg">
                     🍽️ {fullRankingResult.totalPorciones} porciones
                   </span>
-                  <span className="font-black text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-lg">
-                    💰 ${fullRankingResult.totalFacturado.toLocaleString('es-AR')}
-                  </span>
                 </div>
               </div>
 
@@ -607,9 +601,6 @@ export default function HomeMenuModule({
                         <div className="text-right shrink-0">
                           <span className="font-mono text-xs font-black text-stone-900 dark:text-stone-100">
                             {dish.cantidad} {dish.cantidad === 1 ? 'porción' : 'porciones'}
-                          </span>
-                          <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 block font-bold">
-                            ${dish.totalVendido.toLocaleString('es-AR')}
                           </span>
                         </div>
                       </div>

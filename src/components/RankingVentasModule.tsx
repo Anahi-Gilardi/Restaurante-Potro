@@ -176,25 +176,15 @@ export default function RankingVentasModule() {
       </div>
 
       {/* SUMMARY STAT CARDS */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white dark:bg-stone-900/40 p-4 rounded-2xl border border-stone-200/80 dark:border-stone-800 shadow-2xs space-y-1">
           <span className="text-[10px] font-black uppercase tracking-wider text-stone-400 flex items-center gap-1">
-            <UtensilsCrossed className="w-3.5 h-3.5 text-amber-500" /> Total Porciones
+            <UtensilsCrossed className="w-3.5 h-3.5 text-amber-500" /> Total Unidades Vendidas
           </span>
           <p className="font-mono text-2xl font-black text-stone-900 dark:text-stone-100">
             {ranking.totalPorciones.toLocaleString('es-AR')}
           </p>
           <p className="text-[10px] text-stone-400">Platos y bebidas despachados</p>
-        </div>
-
-        <div className="bg-white dark:bg-stone-900/40 p-4 rounded-2xl border border-stone-200/80 dark:border-stone-800 shadow-2xs space-y-1">
-          <span className="text-[10px] font-black uppercase tracking-wider text-stone-400 flex items-center gap-1">
-            <DollarSign className="w-3.5 h-3.5 text-emerald-500" /> Facturación
-          </span>
-          <p className="font-mono text-2xl font-black text-emerald-600 dark:text-emerald-400">
-            ${ranking.totalFacturado.toLocaleString('es-AR')}
-          </p>
-          <p className="text-[10px] text-stone-400">Generado en el período</p>
         </div>
 
         <div className="bg-white dark:bg-stone-900/40 p-4 rounded-2xl border border-stone-200/80 dark:border-stone-800 shadow-2xs space-y-1">
@@ -211,12 +201,12 @@ export default function RankingVentasModule() {
 
         <div className="bg-white dark:bg-stone-900/40 p-4 rounded-2xl border border-stone-200/80 dark:border-stone-800 shadow-2xs space-y-1">
           <span className="text-[10px] font-black uppercase tracking-wider text-stone-400 flex items-center gap-1">
-            <Layers className="w-3.5 h-3.5 text-purple-500" /> Variedad de Platos
+            <Layers className="w-3.5 h-3.5 text-purple-500" /> Variedad de Platos y Bebidas
           </span>
           <p className="font-mono text-2xl font-black text-purple-700 dark:text-purple-400">
             {ranking.todos.length}
           </p>
-          <p className="text-[10px] text-stone-400">Platos con ventas registradas</p>
+          <p className="text-[10px] text-stone-400">Ítems con ventas registradas</p>
         </div>
       </div>
 
@@ -226,10 +216,10 @@ export default function RankingVentasModule() {
         <div className="lg:col-span-5 bg-white dark:bg-stone-900/40 p-5 rounded-2xl border border-stone-200/80 dark:border-stone-800 shadow-2xs space-y-4">
           <div className="flex justify-between items-center border-b border-stone-100 dark:border-stone-800 pb-2.5">
             <h3 className="text-xs font-black uppercase tracking-wider text-[#624A3E] dark:text-[#C8956A] flex items-center gap-1.5">
-              <Award className="w-4 h-4 text-amber-500" /> Top 5 Platos Más Vendidos
+              <Award className="w-4 h-4 text-amber-500" /> Top 5 Más Vendidos
             </h3>
             <span className="text-[10px] font-bold text-stone-400 uppercase">
-              {periodo === 'hoy' ? 'Hoy' : periodo === 'semana' ? 'Esta Semana' : periodo === 'mes' ? 'Este Mes' : 'Todo'}
+              {periodo === 'hoy' ? 'Hoy' : periodo === 'semana' ? 'Esta Semana' : periodo === 'mes' ? 'Mes Actual' : periodo === 'mes_anterior' ? 'Mes Anterior' : 'Todo'}
             </span>
           </div>
 
@@ -255,10 +245,7 @@ export default function RankingVentasModule() {
                       </div>
                       <div className="text-right shrink-0">
                         <span className="font-mono text-xs font-black text-stone-900 dark:text-stone-100">
-                          {item.cantidad} {item.cantidad === 1 ? 'porción' : 'porciones'}
-                        </span>
-                        <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 block font-bold">
-                          ${item.totalVendido.toLocaleString('es-AR')}
+                          {item.cantidad} {item.cantidad === 1 ? 'unidad' : 'unidades'}
                         </span>
                       </div>
                     </div>
@@ -422,7 +409,7 @@ export default function RankingVentasModule() {
               Recuento por Categoría (Entrantes, Pastas, Carnes, Pescados, Comidas Criollas, Postres y Bebidas)
             </h3>
             <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5">
-              Vista previa de los bloques con color que se incluyen en una misma hoja al descargar el archivo Excel.
+              Vista previa de los bloques con color que se exportan en Excel separados automáticamente en una pestaña (hoja) por cada mes.
             </p>
           </div>
           <button
@@ -431,7 +418,7 @@ export default function RankingVentasModule() {
             className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-wide flex items-center gap-1.5 cursor-pointer border-none shadow-xs transition-all active:scale-95 shrink-0"
           >
             <Download className="w-3.5 h-3.5" />
-            <span>Exportar Bloques a Excel (.xls)</span>
+            <span>Exportar Hojas por Mes (.xls)</span>
           </button>
         </div>
 
@@ -450,7 +437,7 @@ export default function RankingVentasModule() {
                 >
                   <span>{theme.titulo}</span>
                   <span className="font-mono text-[11px] bg-black/20 px-2 py-0.5 rounded-md">
-                    {catBlock.cantidad} u. • ${catBlock.total.toLocaleString('es-AR')}
+                    {catBlock.cantidad} u.
                   </span>
                 </div>
                 {catBlock.items.length > 0 ? (
@@ -462,10 +449,7 @@ export default function RankingVentasModule() {
                         </span>
                         <div className="flex items-center gap-2.5 shrink-0 font-mono">
                           <span className="font-black text-stone-900 dark:text-stone-100">
-                            {item.cantidad}x
-                          </span>
-                          <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400">
-                            ${item.totalVendido.toLocaleString('es-AR')}
+                            {item.cantidad} u.
                           </span>
                         </div>
                       </div>
