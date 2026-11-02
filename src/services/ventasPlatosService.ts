@@ -393,8 +393,10 @@ export interface RankingItem {
   precioPromedio: number;
 }
 
+export type RankingPeriodo = 'hoy' | 'semana' | 'mes' | 'mes_anterior' | 'historico';
+
 export interface RankingResult {
-  periodo: 'hoy' | 'semana' | 'mes' | 'historico';
+  periodo: RankingPeriodo;
   fechaInicio: string;
   fechaFin: string;
   totalPorciones: number;
@@ -404,6 +406,42 @@ export interface RankingResult {
   porDiaSemana: Record<string, Record<string, number>>; // { 'Lunes': { 'Locro': 2, ... } }
   porCategoria: Record<MacroCategoria, { cantidad: number; total: number; items: RankingItem[] }>;
 }
+
+const PLATOS_BASE_CARTA: Array<{ nombre: string; categoria: MacroCategoria; precio: number }> = [
+  // 1. Entrantes
+  { nombre: 'Tabla', categoria: 'Entrantes', precio: 24600 },
+  { nombre: 'Peras asadas', categoria: 'Entrantes', precio: 13300 },
+  { nombre: 'Provolone', categoria: 'Entrantes', precio: 16700 },
+  { nombre: 'Dúo de empanadas', categoria: 'Entrantes', precio: 9000 },
+  // 2. Pastas
+  { nombre: 'Lasaña', categoria: 'Pastas', precio: 26300 },
+  { nombre: 'Crepes de espinaca y parmesano', categoria: 'Pastas', precio: 23800 },
+  { nombre: 'Cintas finas al huevo con filetto y estofado', categoria: 'Pastas', precio: 25600 },
+  { nombre: 'Cintas finas al huevo con crema de hongos de pino', categoria: 'Pastas', precio: 25600 },
+  { nombre: 'Cintas finas al huevo a la carbonara', categoria: 'Pastas', precio: 25600 },
+  { nombre: 'Rotolo di tata', categoria: 'Pastas', precio: 27000 },
+  { nombre: 'Cinta anchas de  cepia', categoria: 'Pastas', precio: 31200 },
+  { nombre: 'Risotto', categoria: 'Pastas', precio: 26000 },
+  // 3. Carnes
+  { nombre: 'Lomo en demiglace de pimienta', categoria: 'Carnes', precio: 36700 },
+  { nombre: 'Bondiola de cerdo', categoria: 'Carnes', precio: 29900 },
+  { nombre: 'Milanesa de entrecot.', categoria: 'Carnes', precio: 33900 },
+  { nombre: 'Ojo de bife con aligot de papas - Patrón', categoria: 'Carnes', precio: 39800 },
+  // 4. Pescados
+  { nombre: 'Salmón rosado', categoria: 'Pescados', precio: 37800 },
+  { nombre: 'Trucha salmonada', categoria: 'Pescados', precio: 34500 },
+  { nombre: 'Pacú', categoria: 'Pescados', precio: 32000 },
+  // 5. Comidas Criollas
+  { nombre: 'Humita', categoria: 'Comidas Criollas', precio: 26700 },
+  { nombre: 'Guiso de lentejas', categoria: 'Comidas Criollas', precio: 26300 },
+  { nombre: 'Locro criollo', categoria: 'Comidas Criollas', precio: 27500 },
+  // 6. Postres
+  { nombre: 'Lingote de chocolate', categoria: 'Postres', precio: 12800 },
+  { nombre: 'Panna cotta con frutos rojos', categoria: 'Postres', precio: 14200 },
+  { nombre: 'Tarta de queso vasca', categoria: 'Postres', precio: 13900 },
+  { nombre: 'Profiterol de tiramisú', categoria: 'Postres', precio: 12800 },
+  { nombre: 'Flan casero tradicional con dulce de leche y crema', categoria: 'Postres', precio: 10500 }
+];
 
 const LOCAL_STORAGE_KEY = 'el_patron_ventas_platos';
 
@@ -588,11 +626,11 @@ export const ventasPlatosService = {
 
   calculateRanking(
     ventas: VentaPlatoRow[],
-    periodo: 'hoy' | 'semana' | 'mes' | 'historico' = 'mes'
+    periodo: RankingPeriodo = 'historico'
   ): RankingResult {
     const now = new Date();
     let startFilter: Date | null = null;
-    const endFilter: Date | null = new Date();
+    let endFilter: Date | null = new Date();
 
     if (periodo === 'hoy') {
       startFilter = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
@@ -600,6 +638,9 @@ export const ventasPlatosService = {
       startFilter = getStartOfWeek(now);
     } else if (periodo === 'mes') {
       startFilter = getStartOfMonth(now);
+    } else if (periodo === 'mes_anterior') {
+      startFilter = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0, 0);
+      endFilter = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
     }
 
     const filtered = ventas.filter(row => {
@@ -685,12 +726,34 @@ export const ventasPlatosService = {
       }
     });
 
+    // Asegurar que los platos fijos de la carta (como Humita, Guiso de lentejas y Locro criollo en Comidas Criollas)
+    // siempre figuren en su bloque correspondiente aunque tengan 0 ventas en el período filtrado
+    PLATOS_BASE_CARTA.forEach(platoBase => {
+      const catList = porCategoria[platoBase.categoria]?.items;
+      if (!catList) return;
+      const normTarget = normalizeText(platoBase.nombre);
+      const alreadyExists = catList.some(it => {
+        const n = normalizeText(it.nombre);
+        return n === normTarget || n.includes(normTarget) || normTarget.includes(n);
+      });
+      if (!alreadyExists) {
+        catList.push({
+          nombre: platoBase.nombre,
+          categoria: platoBase.categoria,
+          cantidad: 0,
+          totalVendido: 0,
+          porcentaje: 0,
+          precioPromedio: platoBase.precio
+        });
+      }
+    });
+
     const top5 = items.slice(0, 5);
 
     return {
       periodo,
-      fechaInicio: startFilter ? startFilter.toLocaleDateString('es-AR') : 'Histórico completo',
-      fechaFin: now.toLocaleDateString('es-AR'),
+      fechaInicio: startFilter ? startFilter.toLocaleDateString('es-AR') : 'Octubre - Noviembre (Todo)',
+      fechaFin: (endFilter || now).toLocaleDateString('es-AR'),
       totalPorciones,
       totalFacturado,
       top5,
@@ -709,8 +772,10 @@ export const ventasPlatosService = {
         : ranking.periodo === 'semana'
         ? 'ESTA SEMANA'
         : ranking.periodo === 'mes'
-        ? 'ESTE MES'
-        : 'HISTÓRICO COMPLETO';
+        ? 'MES ACTUAL (NOVIEMBRE)'
+        : ranking.periodo === 'mes_anterior'
+        ? 'MES ANTERIOR (OCTUBRE)'
+        : 'HISTÓRICO COMPLETO (OCTUBRE + NOVIEMBRE)';
 
     const fechaEmision = getArgentinaDateTimeString(new Date());
 

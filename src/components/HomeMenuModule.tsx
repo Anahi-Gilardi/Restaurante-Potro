@@ -16,6 +16,7 @@ import { getTableActiveInfo } from '../lib/tableOrders';
 import {
   ventasPlatosService,
   RankingItem,
+  RankingPeriodo,
   classifyMacroCategoria,
   MacroCategoria
 } from '../services/ventasPlatosService';
@@ -58,7 +59,7 @@ export default function HomeMenuModule({
 }: HomeMenuModuleProps) {
   
   // Ranking de Platos Más Vendidos (con integración de ventas_platos y fallback en vivo)
-  const [rankingPeriodo, setRankingPeriodo] = useState<'semana' | 'mes' | 'hoy'>('mes');
+  const [rankingPeriodo, setRankingPeriodo] = useState<RankingPeriodo>('historico');
   const [ventasPlatosRows, setVentasPlatosRows] = useState(() => ventasPlatosService.getLocalCache());
   const [showModalRanking, setShowModalRanking] = useState(false);
   const [searchPlatoRanking, setSearchPlatoRanking] = useState('');
@@ -343,16 +344,18 @@ export default function HomeMenuModule({
 
               {/* Selector de período rápido + Botón Excel */}
               <div className="flex flex-wrap items-center gap-2">
-                <div className="flex items-center gap-1.5 bg-stone-100 dark:bg-stone-800 p-1 rounded-xl text-[10px] font-extrabold">
+                <div className="flex flex-wrap items-center gap-1 bg-stone-100 dark:bg-stone-800 p-1 rounded-xl text-[10px] font-extrabold">
                   {[
                     { key: 'hoy', label: 'Hoy' },
                     { key: 'semana', label: 'Semana' },
-                    { key: 'mes', label: 'Mes' }
+                    { key: 'mes', label: 'Mes Actual' },
+                    { key: 'mes_anterior', label: 'Mes Anterior' },
+                    { key: 'historico', label: 'Todo (Histórico)' }
                   ].map(tab => (
                     <button
                       key={tab.key}
                       type="button"
-                      onClick={() => setRankingPeriodo(tab.key as any)}
+                      onClick={() => setRankingPeriodo(tab.key as RankingPeriodo)}
                       className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer border-none ${
                         rankingPeriodo === tab.key
                           ? 'bg-[#624A3E] text-white font-black shadow-xs'
@@ -493,16 +496,18 @@ export default function HomeMenuModule({
             <div className="p-4 sm:p-5 border-b border-stone-150 dark:border-stone-800/80 space-y-3 bg-white dark:bg-stone-900">
               <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2.5">
                 {/* Selector Período */}
-                <div className="flex bg-stone-100 dark:bg-stone-800 p-1 rounded-xl text-xs font-extrabold">
+                <div className="flex flex-wrap bg-stone-100 dark:bg-stone-800 p-1 rounded-xl text-xs font-extrabold">
                   {[
                     { key: 'hoy', label: 'Hoy' },
-                    { key: 'semana', label: 'Esta Semana' },
-                    { key: 'mes', label: 'Este Mes' }
+                    { key: 'semana', label: 'Semana' },
+                    { key: 'mes', label: 'Mes Actual' },
+                    { key: 'mes_anterior', label: 'Mes Anterior' },
+                    { key: 'historico', label: 'Todo (Histórico)' }
                   ].map(tab => (
                     <button
                       key={tab.key}
                       type="button"
-                      onClick={() => setRankingPeriodo(tab.key as any)}
+                      onClick={() => setRankingPeriodo(tab.key as RankingPeriodo)}
                       className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-lg transition-all cursor-pointer border-none ${
                         rankingPeriodo === tab.key
                           ? 'bg-[#624A3E] text-white shadow-xs font-black'

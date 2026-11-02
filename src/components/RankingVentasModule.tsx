@@ -19,6 +19,7 @@ import {
   ventasPlatosService,
   VentaPlatoRow,
   RankingResult,
+  RankingPeriodo,
   MACRO_CATEGORIAS_ORDEN,
   CATEGORIA_COLOR_THEMES
 } from '../services/ventasPlatosService';
@@ -27,7 +28,7 @@ import { ToastContainer, useToast } from './ToastContainer';
 export default function RankingVentasModule() {
   const { toast, toasts, removeToast } = useToast();
   const [ventas, setVentas] = useState<VentaPlatoRow[]>(() => ventasPlatosService.getLocalCache());
-  const [periodo, setPeriodo] = useState<'hoy' | 'semana' | 'mes' | 'historico'>('mes');
+  const [periodo, setPeriodo] = useState<RankingPeriodo>('historico');
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDia, setSelectedDia] = useState<string>('todos');
@@ -93,17 +94,18 @@ export default function RankingVentasModule() {
 
         <div className="flex flex-wrap items-center gap-2 self-stretch sm:self-auto">
           {/* Period Selector Tabs */}
-          <div className="flex bg-stone-100 dark:bg-stone-800 p-1 rounded-xl text-xs font-extrabold flex-1 sm:flex-initial">
+          <div className="flex flex-wrap bg-stone-100 dark:bg-stone-800 p-1 rounded-xl text-xs font-extrabold flex-1 sm:flex-initial">
             {[
               { key: 'hoy', label: 'Hoy' },
               { key: 'semana', label: 'Esta Semana' },
-              { key: 'mes', label: 'Este Mes' },
-              { key: 'historico', label: 'Histórico' }
+              { key: 'mes', label: 'Mes Actual' },
+              { key: 'mes_anterior', label: 'Mes Anterior' },
+              { key: 'historico', label: 'Histórico (Todo)' }
             ].map(tab => (
               <button
                 key={tab.key}
                 type="button"
-                onClick={() => setPeriodo(tab.key as any)}
+                onClick={() => setPeriodo(tab.key as RankingPeriodo)}
                 className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-lg transition-all cursor-pointer border-none ${
                   periodo === tab.key
                     ? 'bg-[#624A3E] text-white shadow-xs font-black'
