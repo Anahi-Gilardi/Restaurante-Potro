@@ -7,12 +7,18 @@ import {
   Flame, 
   Trophy,
   Search,
-  X
+  X,
+  Download
 } from 'lucide-react';
 import { Mesa, Pedido, Insumo, ProductoMenu, Usuario } from '../types';
 import { AppView } from '../lib/permissions';
 import { getTableActiveInfo } from '../lib/tableOrders';
-import { ventasPlatosService, RankingItem } from '../services/ventasPlatosService';
+import {
+  ventasPlatosService,
+  RankingItem,
+  classifyMacroCategoria,
+  MacroCategoria
+} from '../services/ventasPlatosService';
 import ElPatronLogo from './ElPatronLogo';
 
 interface HomeMenuModuleProps {
@@ -74,13 +80,13 @@ export default function HomeMenuModule({
     }
 
     // Fallback con comandas activas/entregadas en memoria si aún no hay cierres registrados
-    const counts: Record<string, { id_producto: string; nombre: string; categoria: string; cantidad: number; totalVendido: number }> = {};
+    const counts: Record<string, { id_producto: string; nombre: string; categoria: MacroCategoria; cantidad: number; totalVendido: number }> = {};
     pedidos.forEach(p => {
       if (p.estado_comanda !== 'cancelado') {
         p.items.forEach(item => {
           const prod = productosMenu.find(pr => pr.id_producto === item.id_producto);
           const name = item.nombre || prod?.nombre || item.id_producto;
-          const cat = prod?.categoria || 'General';
+          const cat = classifyMacroCategoria(name, prod?.categoria);
           const price = item.precio_unitario ?? prod?.precio_venta ?? 0;
           if (!counts[name]) {
             counts[name] = { id_producto: item.id_producto, nombre: name, categoria: cat, cantidad: 0, totalVendido: 0 };
@@ -101,16 +107,32 @@ export default function HomeMenuModule({
         precioPromedio: c.cantidad > 0 ? Math.round(c.totalVendido / c.cantidad) : 0
       }));
 
+    const porCategoria: Record<MacroCategoria, { cantidad: number; total: number; items: RankingItem[] }> = {
+      'Entrantes': { cantidad: 0, total: 0, items: [] },
+      'Pastas': { cantidad: 0, total: 0, items: [] },
+      'Carnes': { cantidad: 0, total: 0, items: [] },
+      'Pescados': { cantidad: 0, total: 0, items: [] },
+      'Comidas Criollas': { cantidad: 0, total: 0, items: [] },
+      'Postres': { cantidad: 0, total: 0, items: [] },
+      'Bebidas': { cantidad: 0, total: 0, items: [] }
+    };
+
+    sorted.forEach(item => {
+      porCategoria[item.categoria].cantidad += item.cantidad;
+      porCategoria[item.categoria].total += item.totalVendido;
+      porCategoria[item.categoria].items.push(item);
+    });
+
     return {
       periodo: rankingPeriodo,
-      fechaInicio: '',
-      fechaFin: '',
+      fechaInicio: 'En curso',
+      fechaFin: new Date().toLocaleDateString('es-AR'),
       totalPorciones: totalCant,
       totalFacturado: totalFact,
       top5: sorted.slice(0, 5),
       todos: sorted,
       porDiaSemana: {} as Record<string, Record<string, number>>,
-      porCategoria: {} as Record<string, { cantidad: number; total: number }>
+      porCategoria
     };
   }, [ventasPlatosRows, rankingPeriodo, pedidos, productosMenu]);
 
@@ -319,26 +341,38 @@ export default function HomeMenuModule({
                 </p>
               </div>
 
-              {/* Selector de período rápido */}
-              <div className="flex items-center gap-1.5 bg-stone-100 dark:bg-stone-800 p-1 rounded-xl text-[10px] font-extrabold">
-                {[
-                  { key: 'hoy', label: 'Hoy' },
-                  { key: 'semana', label: 'Semana' },
-                  { key: 'mes', label: 'Mes' }
-                ].map(tab => (
-                  <button
-                    key={tab.key}
-                    type="button"
-                    onClick={() => setRankingPeriodo(tab.key as any)}
-                    className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer border-none ${
-                      rankingPeriodo === tab.key
-                        ? 'bg-[#624A3E] text-white font-black shadow-xs'
-                        : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 bg-transparent'
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
+              {/* Selector de período rápido + Botón Excel */}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-1.5 bg-stone-100 dark:bg-stone-800 p-1 rounded-xl text-[10px] font-extrabold">
+                  {[
+                    { key: 'hoy', label: 'Hoy' },
+                    { key: 'semana', label: 'Semana' },
+                    { key: 'mes', label: 'Mes' }
+                  ].map(tab => (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      onClick={() => setRankingPeriodo(tab.key as any)}
+                      className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer border-none ${
+                        rankingPeriodo === tab.key
+                          ? 'bg-[#624A3E] text-white font-black shadow-xs'
+                          : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 bg-transparent'
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => ventasPlatosService.exportRankingToExcel(fullRankingResult)}
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wide flex items-center gap-1.5 cursor-pointer border-none shadow-xs transition-all active:scale-95"
+                  title="Descargar recuento en Excel separado por bloques de categoría con color"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Descargar Excel</span>
+                </button>
               </div>
             </div>
 
@@ -566,7 +600,15 @@ export default function HomeMenuModule({
               <span className="text-xs text-stone-500 dark:text-stone-400 font-medium">
                 Mostrando {filteredModalRanking.length} de {rankingTodos.length} platos vendidos
               </span>
-              <div className="flex items-center gap-2 w-full sm:w-auto">
+              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => ventasPlatosService.exportRankingToExcel(fullRankingResult)}
+                  className="flex-1 sm:flex-initial px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black uppercase rounded-xl transition-all cursor-pointer border-none shadow-xs flex items-center justify-center gap-1.5"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Descargar Excel (.xls)</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => {

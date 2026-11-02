@@ -11,9 +11,17 @@ import {
   Layers, 
   BarChart3, 
   Clock,
-  ChevronRight
+  ChevronRight,
+  Download,
+  FileSpreadsheet
 } from 'lucide-react';
-import { ventasPlatosService, VentaPlatoRow, RankingResult } from '../services/ventasPlatosService';
+import {
+  ventasPlatosService,
+  VentaPlatoRow,
+  RankingResult,
+  MACRO_CATEGORIAS_ORDEN,
+  CATEGORIA_COLOR_THEMES
+} from '../services/ventasPlatosService';
 import { ToastContainer, useToast } from './ToastContainer';
 
 export default function RankingVentasModule() {
@@ -47,6 +55,11 @@ export default function RankingVentasModule() {
     return ventasPlatosService.calculateRanking(ventas, periodo);
   }, [ventas, periodo]);
 
+  const handleExportExcel = () => {
+    ventasPlatosService.exportRankingToExcel(ranking);
+    toast.success('Recuento en Excel (.xls) descargado con bloques separados por color.');
+  };
+
   const filteredItems = useMemo(() => {
     let list = ranking.todos;
     if (searchTerm.trim()) {
@@ -78,7 +91,7 @@ export default function RankingVentasModule() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 self-stretch sm:self-auto">
+        <div className="flex flex-wrap items-center gap-2 self-stretch sm:self-auto">
           {/* Period Selector Tabs */}
           <div className="flex bg-stone-100 dark:bg-stone-800 p-1 rounded-xl text-xs font-extrabold flex-1 sm:flex-initial">
             {[
@@ -101,6 +114,16 @@ export default function RankingVentasModule() {
               </button>
             ))}
           </div>
+
+          <button
+            type="button"
+            onClick={handleExportExcel}
+            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-wide flex items-center gap-1.5 cursor-pointer border-none shadow-xs transition-all active:scale-95 shrink-0"
+            title="Descargar recuento en Excel separado por bloques de categoría con color"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            <span>Descargar Excel</span>
+          </button>
 
           <button
             type="button"
@@ -349,6 +372,75 @@ export default function RankingVentasModule() {
               </table>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* RECUENTO SEPARADO POR BLOQUES DE CATEGORÍA CON COLOR */}
+      <div className="bg-white dark:bg-stone-900/40 p-5 rounded-2xl border border-stone-200/80 dark:border-stone-800 shadow-2xs space-y-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-stone-100 dark:border-stone-800 pb-3">
+          <div>
+            <h3 className="text-xs font-black uppercase tracking-wider text-stone-800 dark:text-stone-200 flex items-center gap-1.5">
+              <Layers className="w-4 h-4 text-amber-600" />
+              Recuento por Categoría (Entrantes, Pastas, Carnes, Pescados, Comidas Criollas, Postres y Bebidas)
+            </h3>
+            <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5">
+              Vista previa de los bloques con color que se incluyen en una misma hoja al descargar el archivo Excel.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleExportExcel}
+            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-wide flex items-center gap-1.5 cursor-pointer border-none shadow-xs transition-all active:scale-95 shrink-0"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Exportar Bloques a Excel (.xls)</span>
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {MACRO_CATEGORIAS_ORDEN.map(catKey => {
+            const theme = CATEGORIA_COLOR_THEMES[catKey];
+            const catBlock = ranking.porCategoria?.[catKey] || { cantidad: 0, total: 0, items: [] };
+            return (
+              <div
+                key={catKey}
+                className={`rounded-xl border overflow-hidden ${theme.cardBorderClass} ${theme.cardBgClass}`}
+              >
+                <div
+                  className="px-3.5 py-2.5 flex items-center justify-between text-xs font-black uppercase tracking-wider"
+                  style={{ backgroundColor: theme.headerBg, color: theme.headerText }}
+                >
+                  <span>{theme.titulo}</span>
+                  <span className="font-mono text-[11px] bg-black/20 px-2 py-0.5 rounded-md">
+                    {catBlock.cantidad} u. • ${catBlock.total.toLocaleString('es-AR')}
+                  </span>
+                </div>
+                {catBlock.items.length > 0 ? (
+                  <div className="divide-y divide-stone-200/60 dark:divide-stone-800/60 max-h-52 overflow-y-auto">
+                    {catBlock.items.map((item, i) => (
+                      <div key={i} className="px-3.5 py-2 flex items-center justify-between text-xs">
+                        <span className="font-bold text-stone-800 dark:text-stone-200 truncate pr-2">
+                          {i + 1}. {item.nombre}
+                        </span>
+                        <div className="flex items-center gap-2.5 shrink-0 font-mono">
+                          <span className="font-black text-stone-900 dark:text-stone-100">
+                            {item.cantidad}x
+                          </span>
+                          <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400">
+                            ${item.totalVendido.toLocaleString('es-AR')}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="px-3.5 py-4 text-center text-[11px] italic text-stone-400">
+                    Sin ventas registradas en este rubro durante el período.
+                  </p>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
