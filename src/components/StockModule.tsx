@@ -108,9 +108,17 @@ export default function StockModule({
     setIsCreatingNew(true);
   };
 
-  // Extract all beverages using shared classifier
+  // Extract all beverages using shared classifier and sort alphabetically (A-Z)
   const allBeverages = useMemo(() => {
-    return productosMenu.filter(isBeverageProduct);
+    return productosMenu
+      .filter(isBeverageProduct)
+      .slice()
+      .sort((a, b) =>
+        (a.nombre || '').trim().localeCompare((b.nombre || '').trim(), 'es', {
+          sensitivity: 'base',
+          numeric: true
+        })
+      );
   }, [productosMenu]);
 
   // Status counts across all beverages
